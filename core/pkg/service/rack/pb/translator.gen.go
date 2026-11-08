@@ -12,57 +12,17 @@
 package pb
 
 import (
+	"uuid"
+
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 )
-
-// StatusDetailsToPB converts StatusDetails to StatusDetails.
-func StatusDetailsToPB(r rack.StatusDetails) (*StatusDetails, error) {
-	pb := &StatusDetails{
-		Rack: uint32(r.Rack),
-	}
-	return pb, nil
-}
-
-// StatusDetailsFromPB converts StatusDetails to StatusDetails.
-func StatusDetailsFromPB(pb *StatusDetails) (rack.StatusDetails, error) {
-	var r rack.StatusDetails
-	if pb == nil {
-		return r, nil
-	}
-	r.Rack = rack.Key(pb.Rack)
-	return r, nil
-}
-
-// StatusDetailsListToPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailsListToPB(rs []rack.StatusDetails) ([]*StatusDetails, error) {
-	result := make([]*StatusDetails, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = StatusDetailsToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StatusDetailsListFromPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailsListFromPB(pbs []*StatusDetails) ([]rack.StatusDetails, error) {
-	result := make([]rack.StatusDetails, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = StatusDetailsFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
 
 // RackToPB converts Rack to Rack.
 func RackToPB(r rack.Rack) (*Rack, error) {
@@ -71,16 +31,21 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 		Name:         r.Name,
 		Embedded:     r.Embedded,
 		Integrations: r.Integrations,
+		Roles:        lo.Map(r.Roles, func(u role.Key, _ int) string { return uuid.UUID(u).String() }),
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB(*r.Status, xpb.ToAny[rack.StatusDetails])
+		pb.Status, err = statuspb.StatusToPB(*r.Status, xpb.NilToPBAny)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if r.Version != nil {
 		pb.Version = r.Version
+	}
+	if r.Group != nil {
+		v := r.Group.String()
+		pb.Group = &v
 	}
 	return pb, nil
 }
@@ -91,12 +56,27 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 	if pb == nil {
 		return r, nil
 	}
+	var err error
+	r.Roles, err = func() ([]role.Key, error) {
+		result := make([]role.Key, len(pb.Roles))
+		for i, s := range pb.Roles {
+			parsed, err := uuid.Parse(s)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = role.Key(parsed)
+		}
+		return result, nil
+	}()
+	if err != nil {
+		return rack.Rack{}, err
+	}
 	r.Key = rack.Key(pb.Key)
 	r.Name = pb.Name
 	r.Embedded = pb.Embedded
 	r.Integrations = pb.Integrations
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB(pb.Status, xpb.FromAny[rack.StatusDetails])
+		val, err := statuspb.StatusFromPB(pb.Status, xpb.NilFromPBAny)
 		if err != nil {
 			return rack.Rack{}, err
 		}
@@ -104,6 +84,13 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 	}
 	if pb.Version != nil {
 		r.Version = pb.Version
+	}
+	if pb.Group != nil {
+		v, err := uuid.Parse(*pb.Group)
+		if err != nil {
+			return rack.Rack{}, err
+		}
+		r.Group = &v
 	}
 	return r, nil
 }
@@ -291,6 +278,12 @@ func WhereToPB(r rack.Where) (*Where, error) {
 	if r.HostIsNode != nil {
 		pb.HostIsNode = r.HostIsNode
 	}
+	if r.Groups != nil {
+		pb.Groups = &GroupKeyList{Values: lo.Map(r.Groups, func(u group.Key, _ int) string { return uuid.UUID(u).String() })}
+	}
+	if r.Grouped != nil {
+		pb.Grouped = r.Grouped
+	}
 	return pb, nil
 }
 
@@ -351,6 +344,26 @@ func WhereFromPB(pb *Where) (rack.Where, error) {
 	}
 	if pb.HostIsNode != nil {
 		r.HostIsNode = pb.HostIsNode
+	}
+	if pb.Groups != nil {
+		vals, err := func() ([]group.Key, error) {
+			result := make([]group.Key, len(pb.Groups.Values))
+			for i, s := range pb.Groups.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = group.Key(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Groups = xpb.ListValues(vals)
+	}
+	if pb.Grouped != nil {
+		r.Grouped = pb.Grouped
 	}
 	return r, nil
 }

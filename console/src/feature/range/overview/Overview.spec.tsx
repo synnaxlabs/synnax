@@ -9,7 +9,6 @@
 
 import {
   label,
-  type ontology,
   panel,
   project,
   query,
@@ -69,6 +68,11 @@ const renderOverview = async (
       onClick: onSnapshotClick,
       onDelete: onSnapshotDelete,
     },
+    task: {
+      icon: <Icon.Task />,
+      onClick: onSnapshotClick,
+      onDelete: onSnapshotDelete,
+    },
   };
   const { wrapper } = await createConsoleWrapper({ client: as });
   const { panelKey, tabKey } = await createResourceTab(
@@ -111,7 +115,7 @@ const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => 
   return await client.ranges.create({
     name: uniqueRangeName("child"),
     timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
-    parent: { key: parent.key },
+    parent: parent.key,
   });
 };
 
@@ -119,17 +123,17 @@ const createSnapshot = async (rng: ranger.Range): Promise<resource.ID> => {
   const project = await client.projects.create({
     name: uniqueName("proj"),
   });
-  const sch = await client.schematics.create(project.key, {
+  const sch = await client.schematics.create({
+    project: project.key,
     name: uniqueName("sch"),
   });
   const snap = await client.schematics.copy({
     key: sch.key,
     name: uniqueName("snap"),
     snapshot: true,
+    range: rng.key,
   });
-  const id = schematic.resourceID(snap.key);
-  await client.ontology.addChildren(rangerClient.resourceID(rng.key), id);
-  return id;
+  return schematic.resourceID(snap.key);
 };
 
 describe("range/overview/Overview", () => {
@@ -170,21 +174,39 @@ describe("range/overview/Overview", () => {
     const rng = await createTestRange(client);
     const snapID = await createSnapshot(rng);
     const { onSnapshotClick, statuses } = await renderOverview(rng.key);
-    const item = await screen.findByText((await client.ontology.retrieve(snapID)).name);
+    const item = await screen.findByText(
+      (await client.resources.retrieve(snapID)).name,
+    );
     fireEvent.click(item);
     await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
-    const [resource] = onSnapshotClick.mock.calls[0] as [ontology.Resource];
-    expect(resource.id.key).toBe(snapID.key);
+    const [clicked] = onSnapshotClick.mock.calls[0] as [resource.Resource];
+    expect(clicked.id.key).toBe(snapID.key);
     await act(async () => {});
     expect(statuses).not.toContainEqual(
       expect.objectContaining({ message: "Failed to open snapshot" }),
     );
   });
 
+  it("lists the task snapshots in the range", async () => {
+    const rng = await createTestRange(client);
+    const rack = await client.racks.create({ name: uniqueName("rack") });
+    const source = await rack.createTask({
+      name: uniqueName("tsk"),
+      type: "pagerduty_alert",
+      config: {},
+    });
+    const snap = await client.tasks.copy(source.key, uniqueName("snap"), true, rng.key);
+    const { onSnapshotClick } = await renderOverview(rng.key);
+    fireEvent.click(await screen.findByText(snap.name));
+    await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
+    const [clicked] = onSnapshotClick.mock.calls[0] as [resource.Resource];
+    expect(clicked.id).toEqual({ type: "task", key: snap.key });
+  });
+
   it("deletes a snapshot through its service after confirmation", async () => {
     const rng = await createTestRange(client);
     const snapID = await createSnapshot(rng);
-    const name = (await client.ontology.retrieve(snapID)).name;
+    const name = (await client.resources.retrieve(snapID)).name;
     const { onSnapshotDelete } = await renderOverview(rng.key);
     await screen.findByText(name);
     fireEvent.click(await waitFor(() => getIconButton(document.body, "delete")));
@@ -267,10 +289,9 @@ describe("range/overview tab", () => {
     const [restored] = await remote.ranges.retrieve([rng.key]);
     expect(restored.name).toEqual(rng.name);
     expect(restored.timeRange).toEqual(rng.timeRange);
-    // The tab chip and every tree view read the range through the ontology, not
-    // the range store.
-    const resource = await remote.ontology.retrieve(rng.resourceID);
-    expect(resource.name).toEqual(rng.name);
+    // Name lookups read the range through the resource service, not the range store.
+    const named = await remote.resources.retrieve(rng.resourceID);
+    expect(named.name).toEqual(rng.name);
   });
 });
 

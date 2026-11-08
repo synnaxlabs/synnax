@@ -84,6 +84,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
 			DB:              cfg.DB,
+			References:      readConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ethercat_read",
 			LegacyVersion:   legacy.LastVersion,
@@ -104,17 +105,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ethercat_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.WriteConfigLadder,
-			Legacy:             &legacy.Write,
-			Migrations:         []gorp.Migration{v2.NewWriteMigration(slaves)},
+			DB:              cfg.DB,
+			References:      writeConfigReferences(),
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ethercat_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.WriteConfigLadder,
+			Legacy:          &legacy.Write,
+			Migrations: []gorp.Migration{
+				v2.NewWriteMigration(slaves),
+				v3.WriteMigration,
+			},
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *WriteConfig) error {
-				return v2.ResolveWriteConfig(ctx, tx, slaves, c)
+				return v3.ResolveWriteConfig(ctx, tx, slaves, c)
 			},
 		},
 	); !ok(err, s.Write) {

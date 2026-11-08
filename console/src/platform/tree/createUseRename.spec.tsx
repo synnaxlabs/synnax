@@ -54,13 +54,13 @@ interface Harness {
 }
 
 const setup = async (ch: channel.Channel): Promise<Harness> => {
-  const otgID = channel.resourceID(ch.key);
-  const itemID = List.itemNameID(resource.idToString(otgID));
+  const id = channel.resourceID(ch.key);
+  const itemID = List.itemNameID(resource.idToString(id));
   const store = await createTestStore();
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
-    selection: createSelection({ ids: [otgID] }),
-    state: createState([createResource(otgID, ch.name)]),
+    selection: createSelection({ ids: [id] }),
+    state: createState([createResource(id, ch.name)]),
   };
   const { wrapper: Console } = await createConsoleWrapper({ client, store });
   // The editable item is the surface the rename drives, so it mounts alongside the

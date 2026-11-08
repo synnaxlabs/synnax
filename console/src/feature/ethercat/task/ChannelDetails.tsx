@@ -43,6 +43,8 @@ export interface ChannelDetailsProps {
   path: deep.Path<Channel>;
   pdoType: PDOType;
   schema: z.ZodType<EntryChannel>;
+  /** Fields shown after the data type while the channel has an entry. */
+  entryFields?: ReactNode;
   /** Sections shown after the entry while the channel has one. */
   children?: ReactNode;
 }
@@ -51,6 +53,7 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({
   path,
   pdoType,
   schema,
+  entryFields,
   children,
 }) => {
   const ch = PForm.useFieldValue(path);
@@ -69,6 +72,7 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({
             {renderSelectDataType}
           </PForm.Field>
         )}
+        {hasEntry(ch) && entryFields}
       </PForm.Section>
       {hasEntry(ch) && children}
     </PForm.Sections>
@@ -85,10 +89,20 @@ export const ReadChannelDetails: FC<Task.Views.DetailsProps<ReadChannel>> = ({
   </ChannelDetails>
 );
 
-export const WriteChannelDetails: FC<Task.Views.DetailsProps<WriteChannel>> = (
-  props,
-) => (
-  <ChannelDetails {...props} pdoType="outputs" schema={WRITE_CHANNEL_SCHEMAS.entry} />
+export const WriteChannelDetails: FC<Task.Views.DetailsProps<WriteChannel>> = ({
+  path,
+}) => (
+  <ChannelDetails
+    path={path}
+    pdoType="outputs"
+    schema={WRITE_CHANNEL_SCHEMAS.entry}
+    entryFields={
+      <PForm.NumericField
+        path={deep.variant(path, "type", "entry").stopValue}
+        label="Stop value"
+      />
+    }
+  />
 );
 
 interface DetailsTitleProps {

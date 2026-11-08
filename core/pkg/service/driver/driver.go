@@ -151,12 +151,11 @@ func (d *Driver) startHeartbeat() {
 					return err
 				}
 				return d.cfg.Status.NewWriter(tx).Set(ctx, &rack.Status{
-					Key:     rack.StatusKey(d.rack.Key),
+					Owner:   new(d.rack.Key.ResourceID()),
 					Name:    r.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
 					Message: "Driver is running",
-					Details: rack.StatusDetails{Rack: d.rack.Key},
 				})
 			}); err != nil {
 				d.cfg.L.Error("failed to update rack status", zap.Error(err))
@@ -376,7 +375,7 @@ func (d *Driver) refuseCommand(
 	} else {
 		var stat task.Status
 		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](tsk.ResourceID().String())).
+			Where(status.MatchOwners[task.StatusDetails](tsk.ResourceID())).
 			Entry(&stat).
 			Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 			d.cfg.L.Error(
@@ -410,15 +409,14 @@ func (d *Driver) answer(
 	edit func(*task.Status),
 ) error {
 	return d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		stat := task.Status{Key: t.ResourceID().String(), Name: t.Name}
+		stat := task.Status{Owner: new(t.ResourceID()), Name: t.Name}
 		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](stat.Key)).
+			Where(status.MatchOwners[task.StatusDetails](*stat.Owner)).
 			Entry(&stat).
 			Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
 		edit(&stat)
-		stat.Details.Task = t.Key
 		stat.Details.Rack = t.Rack
 		stat.Details.Cmd = cmdKey
 		stat.Details.Data = nil

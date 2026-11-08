@@ -142,7 +142,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       if (k == null) throw new Error(`the stand has no channel "${name}"`);
       return k;
     };
-    await client.schematics.create(tpc.key, feed(key));
+    await client.schematics.create({ ...feed(key), project: tpc.key });
 
     await capture.login(session, world.project);
     await session.click(page.getByText("Operations", { exact: true }).first());

@@ -14,7 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	. "github.com/synnaxlabs/x/testutil"
+)
+
+var (
+	testCluster *testutil.Cluster
+	testSvc     *node.Service
 )
 
 func TestNode(t *testing.T) {
@@ -23,3 +30,11 @@ func TestNode(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	testCluster = testutil.NewCluster(ctx, 2)
+	testSvc = MustSucceed(node.NewService(node.ServiceConfig{
+		Cluster: testCluster.Nodes[1].Cluster,
+	}))
+})

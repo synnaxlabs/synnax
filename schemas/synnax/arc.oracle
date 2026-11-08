@@ -60,18 +60,21 @@ Source union on mode Mode {
 }
 
 Base struct {
-    key    Key = create {
+    key       Key = create {
         @doc value "is the unique identifier for this module."
         @key
     }
-    name   string {
+    name      string {
         @doc value         "is a human-readable name for the module."
         @filter
         @search
         @validate required
     }
-    source Source = text {
+    source    Source = text {
         @doc value "is the Arc's source code, written as text or drawn as a graph."
+    }
+    directory uuid?  {
+        @doc value "is the key of the directory that holds the Arc."
     }
 
     @doc value  "carries the fields that every Arc shares."
@@ -253,6 +256,9 @@ Type enum {
 Where filter Arc {
     key
     name
+    directories uuid[] {
+        @doc value "matches the Arcs in any of the given directories."
+    }
 
     @doc value         "is a filter that selects Arcs."
     @go request_output "core/pkg/api/arc"

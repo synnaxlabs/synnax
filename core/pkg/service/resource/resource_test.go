@@ -10,6 +10,8 @@
 package resource_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -17,6 +19,26 @@ import (
 )
 
 var _ = Describe("ID", func() {
+	Describe("ParseUUIDKey", func() {
+		It("Should parse the key of an ID as a UUID", func() {
+			key := uuid.New()
+			Expect(resource.ParseUUIDKey(resource.ID{
+				Type: resource.TypeLog,
+				Key:  key.String(),
+			})).To(Equal(key))
+		})
+
+		It("Should return a validation error for a malformed key", func() {
+			Expect(resource.ParseUUIDKey(resource.ID{
+				Type: resource.TypeLog,
+				Key:  "pump",
+			})).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`invalid log key "pump"`)),
+			))
+		})
+	})
+
 	Describe("ParseID", func() {
 		It("Should parse an ID from a string", func() {
 			Expect(resource.ParseID("channel:bar")).To(Equal(resource.ID{
@@ -93,45 +115,6 @@ var _ = Describe("ID", func() {
 		It("Should ignore subsequent colons in the key", func() {
 			Expect(resource.ParseID("channel:bar:baz")).
 				To(Equal(resource.ID{Type: "channel", Key: "bar:baz"}))
-		})
-	})
-	Describe("ParseIDs", func() {
-		It("Should parse a list of IDs from a list of strings", func() {
-			Expect(resource.ParseIDs([]string{"channel:bar", "channel:baz"})).
-				To(ConsistOf(
-					resource.ID{Type: "channel", Key: "bar"},
-					resource.ID{Type: "channel", Key: "baz"},
-				))
-		})
-		It(
-			"Should return an error if any of the IDs have an invalid structure",
-			func() {
-				Expect(resource.ParseIDs([]string{"channel:bar", "foo"})).Error().
-					To(And(
-						MatchError(validate.ErrValidation),
-						MatchError(
-							ContainSubstring(
-								"[resource] - failed to parse id: foo",
-							),
-						),
-					))
-			},
-		)
-		It("Should return an empty slice when given an empty slice", func() {
-			Expect(resource.ParseIDs([]string{})).To(BeEmpty())
-		})
-	})
-	Describe("IDsToKeys", func() {
-		It("Should convert IDs to their keys", func() {
-			ids := []resource.ID{
-				{Type: "cat", Key: "dog1"},
-				{Type: "cat", Key: "dog2"},
-			}
-			strings := resource.IDsToKeys(ids)
-			Expect(strings).To(ConsistOf("cat:dog1", "cat:dog2"))
-		})
-		It("Should return an empty slice for empty input", func() {
-			Expect(resource.IDsToKeys([]resource.ID{})).To(BeEmpty())
 		})
 	})
 })

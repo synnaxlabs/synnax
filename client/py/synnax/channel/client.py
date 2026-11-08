@@ -12,10 +12,11 @@ from __future__ import annotations
 from typing import Any, Literal, overload, override
 from uuid import UUID
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import PrivateAttr
 
-from freighter import Empty, UnaryClient
-from synnax import framer, group, node
+from freighter import UnaryClient
+from synnax import framer, node
+from synnax import group as group_
 from synnax.channel.payload import (
     Key,
     Params,
@@ -72,6 +73,7 @@ class Channel(Payload):
         alias: str | None = None,
         concurrency: control.Concurrency = control.Concurrency.exclusive,
         status: Status | None = None,
+        group: group_.Key | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
@@ -97,6 +99,7 @@ class Channel(Payload):
         :param operations: A list of operations to apply to the channel. Operations
         include aggregations like min, max, avg over a time duration or triggered by
         a reset channel.
+        :param group: The group the channel sits in, if any.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
@@ -120,6 +123,7 @@ class Channel(Payload):
             concurrency=concurrency,
             alias=alias,
             status=status,
+            group=group,
         )
         self._cached_frame_client = _frame_client
         self._client = _client
@@ -208,11 +212,8 @@ class Channel(Payload):
             internal=self.internal,
             expression=self.expression,
             operations=self.operations,
+            group=self.group,
         )
-
-
-class _RetrieveGroupResponse(BaseModel):
-    group: group.Group
 
 
 class Client:
@@ -252,6 +253,7 @@ class Client:
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
+        group: group_.Key | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel: ...
 
@@ -277,6 +279,7 @@ class Client:
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
+        group: group_.Key | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
         """Creates new channel(s) in the Synnax cluster.
@@ -297,6 +300,7 @@ class Client:
         automatically configured as virtual.
         set if expression is not an empty string. If expression is not an empty string,
         this should have at least one channel.
+        :param group: The group to create the channel in, if any.
         :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
         with the same name if they already exist in the cluster.
         :returns: The created channel.
@@ -332,6 +336,7 @@ class Client:
                     virtual=virtual if virtual is not None else len(expression) > 0,
                     expression=expression,
                     operations=operations,
+                    group=group,
                 )
             ]
         elif isinstance(channels, Channel):
@@ -361,6 +366,8 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -385,6 +392,8 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -406,6 +415,8 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -428,6 +439,8 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -453,6 +466,8 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -501,6 +516,9 @@ class Client:
         :param internal: Keeps only internal or only non-internal channels.
         :param virtual: Keeps only virtual channels that are not calculated, or only
             the other channels.
+        :param groups: Keeps channels in any of these groups.
+        :param grouped: Keeps only channels in a group when True, and only channels in
+            no group when False.
         :param and_: Keeps channels that match every filter in the list.
         :param or_: Keeps channels that match any filter in the list.
         :param not_: Keeps channels that do not match the filter.
@@ -597,14 +615,13 @@ class Client:
         """
         self._creator.rename(normalize(keys), normalize(names))
 
-    def retrieve_group(self) -> group.Group:
-        """Retrieves the group that holds every channel by default.
+    def set_group(self, keys: Key | list[Key], group: group_.Key | None = None) -> None:
+        """Moves channels into a group, or out of their group when group is None.
 
-        :returns: The channel group.
+        :param keys: The key of the channel to move, or a list of keys.
+        :param group: The key of the group to move the channels into.
         """
-        return self._client.send(
-            "/channel/retrieve-group", Empty(), _RetrieveGroupResponse
-        ).group
+        self._creator.set_group(normalize(keys), group)
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [

@@ -10,20 +10,32 @@
 package lineplot_test
 
 import (
+	"encoding/json/v2"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// envelope unmarshals the wire-format envelope in raw.
+func envelope(raw string) imex.Envelope {
+	GinkgoHelper()
+	var env imex.Envelope
+	Expect(json.Unmarshal([]byte(raw), &env)).To(Succeed())
+	return env
+}
 
 var _ = Describe("ImEx", func() {
 	DescribeTable("Match",
@@ -39,8 +51,8 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export a line plot as a versioned envelope", func(ctx SpecContext) {
-			lp := lineplot.LinePlot{Name: "exported"}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &lp)).To(Succeed())
+			lp := lineplot.LinePlot{Project: &proj.Key, Name: "exported"}
+			Expect(svc.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(lp.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("lineplot"))
@@ -68,10 +80,10 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Import", func() {
 		importAndRetrieve := func(
-			ctx SpecContext, path string, opts imex.ImportOptions,
+			ctx SpecContext, env imex.Envelope, opts imex.ImportOptions,
 		) lineplot.LinePlot {
 			GinkgoHelper()
-			id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
+			id := MustSucceed(imexSvc.Import(ctx, db, env, opts))
 			Expect(id.Type).To(Equal(resource.TypeLineplot))
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res lineplot.LinePlot
@@ -83,13 +95,28 @@ var _ = Describe("ImEx", func() {
 		}
 
 		It("Should import a current snake_case envelope", func(ctx SpecContext) {
-			res := importAndRetrieve(
-				ctx,
-				"versions/testdata/import_v5.json",
-				imex.ImportOptions{Parent: proj.ResourceID()},
-			)
+			res := importAndRetrieve(ctx, envelope(fmt.Sprintf(`{
+				"version": 5,
+				"type": "lineplot",
+				"key": "11111111-2222-3333-4444-555555555555",
+				"name": "Server Typed",
+				"title": {"level": "h4", "visible": true},
+				"legend": {"hidden": false, "position": {"x": 50, "y": 50}},
+				"channels": {
+					"x1": 0, "x2": 0, "y1": [%[1]d, %[2]d], "y2": [], "y3": [], "y4": []
+				},
+				"ranges": {"x1": ["recent"], "x2": []},
+				"lines": [{
+					"key": "y1---x1---recent---0---%[1]d",
+					"color": "#ff0000",
+					"stroke_width": 2.5,
+					"downsample": 1,
+					"downsample_mode": "decimate"
+				}],
+				"rules": []
+			}`, ch1, ch2)), imex.ImportOptions{Parent: proj.ResourceID()})
 			Expect(res.Name).To(Equal("Server Typed"))
-			Expect(res.Channels.Y1).To(Equal([]channel.Key{1, 2}))
+			Expect(res.Channels.Y1).To(Equal([]channel.Key{ch1, ch2}))
 			Expect(res.Ranges).To(Equal([]ranger.Ref{recentRef}))
 			// Lines are derived from the channels and ranges bindings on create.
 			Expect(res.Lines).To(HaveLen(2))
@@ -98,16 +125,55 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should import a v0 Console state through the legacy chain",
 			func(ctx SpecContext) {
-				res := importAndRetrieve(
-					ctx,
-					"versions/testdata/import_v0_state.json",
-					imex.ImportOptions{
-						FileName: "Legacy Plot.json",
-						Parent:   proj.ResourceID(),
+				res := importAndRetrieve(ctx, envelope(fmt.Sprintf(`{
+					"key": "abc123",
+					"version": "0.0.0",
+					"remoteCreated": false,
+					"title": {"level": "p", "visible": true},
+					"legend": {"visible": true},
+					"channels": {
+						"x1": 0, "x2": 0, "y1": [%d], "y2": [], "y3": [], "y4": []
 					},
-				)
+					"ranges": {"x1": ["recent"], "x2": []},
+					"axes": {
+						"renderTrigger": 0,
+						"hasHadChannelSet": true,
+						"axes": {
+							"y1": {
+								"key": "y1",
+								"label": "pressure",
+								"labelDirection": "x",
+								"labelLevel": "small",
+								"bounds": {"lower": 0, "upper": 100},
+								"autoBounds": {"lower": false, "upper": true},
+								"tickSpacing": 75
+							}
+						}
+					},
+					"lines": [{
+						"key": "l1",
+						"color": "#ff0000",
+						"strokeWidth": 2,
+						"downsample": 1,
+						"downsampleMode": "decimate"
+					}],
+					"rules": [{
+						"key": "r1",
+						"label": "max",
+						"color": "#00ff00",
+						"axis": "y1",
+						"lineWidth": 1,
+						"lineDash": 5,
+						"units": "psi",
+						"position": 42,
+						"selected": true
+					}]
+				}`, ch9)), imex.ImportOptions{
+					FileName: "Legacy Plot.json",
+					Parent:   proj.ResourceID(),
+				})
 				Expect(res.Name).To(Equal("Legacy Plot"))
-				Expect(res.Channels.Y1).To(Equal([]channel.Key{9}))
+				Expect(res.Channels.Y1).To(Equal([]channel.Key{ch9}))
 				Expect(res.Axes.Y1.Label).To(Equal("pressure"))
 				Expect(res.Axes.Y1.ManualBounds).To(
 					Equal(lineplot.ManualBounds{Lower: true, Upper: false}),
@@ -123,8 +189,8 @@ var _ = Describe("ImEx", func() {
 				LoadEnvelope("versions/testdata/import_v5.json"),
 				imex.ImportOptions{},
 			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("parent")),
-				MatchError(ContainSubstring("required")),
+				MatchError(ContainSubstring(`parent: must be a project, got ""`)),
+				MatchError(ContainSubstring("validation error")),
 			))
 		})
 
@@ -138,6 +204,31 @@ var _ = Describe("ImEx", func() {
 					MatchError(ContainSubstring("lineplot version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
 				))
+			},
+		)
+
+		It(
+			"Should refuse a group that is not in the parent project",
+			func(ctx SpecContext) {
+				other := project.Project{Name: "other"}
+				Expect(projectSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+				g := group.Group{
+					Name:   "in other",
+					Parent: new(project.ResourceID(other.Key)),
+				}
+				Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+				Expect(imexSvc.Import(ctx, db,
+					LoadEnvelope("versions/testdata/import_v5.json"),
+					imex.ImportOptions{Parent: proj.ResourceID(), Group: &g.Key},
+				)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"group: group %s is not in project %s", g.Key, proj.Key,
+					))),
+					MatchError(ContainSubstring("validation error")),
+				))
+				Expect(svc.NewRetrieve().
+					Where(lineplot.MatchGroups(g.Key)).
+					Count(ctx, db)).To(BeZero())
 			},
 		)
 
@@ -162,12 +253,13 @@ var _ = Describe("ImEx", func() {
 			"Should preserve plot content through export then import",
 			func(ctx SpecContext) {
 				original := lineplot.LinePlot{
+					Project:  &proj.Key,
 					Name:     "round-trip",
-					Channels: lineplot.Channels{Y1: []channel.Key{4, 5}},
+					Channels: lineplot.Channels{Y1: []channel.Key{ch4, ch5}},
 					Ranges:   []ranger.Ref{recentRef},
 				}
 				Expect(
-					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
+					svc.NewWriter(nil).Create(ctx, &original),
 				).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(original.Key)))
 				id := MustSucceed(imexSvc.Import(
@@ -187,7 +279,7 @@ var _ = Describe("ImEx", func() {
 				// A required collection always serializes, so an axis left nil comes
 				// back allocated and empty rather than nil.
 				Expect(res.Channels).To(Equal(lineplot.Channels{
-					Y1: []channel.Key{4, 5},
+					Y1: []channel.Key{ch4, ch5},
 					Y2: []channel.Key{},
 					Y3: []channel.Key{},
 					Y4: []channel.Key{},

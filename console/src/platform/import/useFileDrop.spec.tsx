@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project, type resource } from "@synnaxlabs/client";
+import { panel, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
@@ -236,10 +236,8 @@ describe("Import.useFileDrop", () => {
     );
     releaseFile();
     const children = await waitFor(async () => {
-      const resources = await client.ontology.children.retrieve({
-        ids: project.resourceID(open),
-      });
-      const pinned = resources.filter((r) => r.name === "Pinned");
+      const logs = await client.logs.retrieve({ projects: [open] });
+      const pinned = logs.filter((l) => l.name === "Pinned");
       if (pinned.length === 0) throw new Error("the held file did not import");
       return pinned;
     });

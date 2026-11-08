@@ -190,7 +190,6 @@ jobs:
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
-      # Greptile reacts with eyes, so Sedosaur reacts with a rocket.
       - name: React with a rocket
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
@@ -317,6 +316,32 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           BOT: ${{ steps.app.outputs.app-slug }}
         run: python3 -m review post "$RUNNER_TEMP/review.json"
+
+  # A pushed head can reach the queue after a newer one and replace its review, and the
+  # API can lag a push. So a run that ends with another head on a ready pull request
+  # asks for a review of that head. The gate ignores a review that it exempts.
+  follow:
+    needs: [start, review]
+    if: always() && !inputs.replay && needs.start.result == 'success'
+    name: Follow the head
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      pull-requests: read
+    steps:
+      - name: Start Review - Sedosaur
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          REVIEWED: ${{ needs.start.outputs.head }}
+          REF: ${{ github.event.repository.default_branch }}
+        run: |
+          pull=$(gh api "repos/$GH_REPO/pulls/$PR" --jq '"\(.head.sha) \(.draft)"')
+          read -r head draft <<< "$pull"
+          if [ "$head" != "$REVIEWED" ] && [ "$draft" = false ]; then
+            gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR"
+          fi
 
   # A review that never gets a runner cannot close its own check run, so a hosted job
   # closes it whenever the review did not succeed.

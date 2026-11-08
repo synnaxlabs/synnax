@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group } from "@synnaxlabs/client";
+import { type group } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
 import {
-  childNames,
   client,
   createLegacySymbolFile,
+  symbolNames,
 } from "@/feature/schematic/testutil";
 import {
   fakePickedFile,
@@ -29,13 +29,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const createSymbolGroup = async (): Promise<group.Group> => {
-  const root = await client.schematics.symbols.retrieveGroup();
-  return await client.groups.create({
-    parent: group.resourceID(root.key),
+const createSymbolGroup = async (): Promise<group.Group> =>
+  await client.groups.create({
+    scope: "schematic_symbol",
     name: uniqueName("symbol_grp"),
   });
-};
 
 describe("Schematic.Symbol.useImport", () => {
   it("imports a picked symbol file into the given group", async () => {
@@ -62,7 +60,7 @@ describe("Schematic.Symbol.useImport", () => {
         ),
       ).toBe(true),
     );
-    expect(await childNames(group.resourceID(grp.key))).toContain(name);
+    expect(await symbolNames(grp.key)).toContain(name);
   });
 
   it("surfaces a per-file error when a picked file is not a valid symbol", async () => {
@@ -88,7 +86,7 @@ describe("Schematic.Symbol.useImport", () => {
         ),
       ).toBe(true),
     );
-    expect(await childNames(group.resourceID(grp.key))).toHaveLength(0);
+    expect(await symbolNames(grp.key)).toHaveLength(0);
   });
 
   it("imports nothing when the picker is cancelled", async () => {
@@ -106,6 +104,6 @@ describe("Schematic.Symbol.useImport", () => {
     picker.cancel();
     await act(async () => {});
     expect(result.current.notifications.statuses).toHaveLength(0);
-    expect(await childNames(group.resourceID(grp.key))).toHaveLength(0);
+    expect(await symbolNames(grp.key)).toHaveLength(0);
   });
 });

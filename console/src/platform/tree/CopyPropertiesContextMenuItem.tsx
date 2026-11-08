@@ -10,6 +10,7 @@
 import { type resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { binary } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type ContextMenuProps, type TreeState } from "@/platform/tree/types";
@@ -27,7 +28,7 @@ const Item = ({ id, state }: ItemProps): ReactElement | null => {
   return (
     <Menu.CopyItem
       itemKey="copyData"
-      text={() => JSON.stringify(data)}
+      text={() => binary.JSON_CODEC.encodeString(data)}
       successMessage={{ message: "Copied properties to clipboard", name }}
     >
       <Icon.JSON />

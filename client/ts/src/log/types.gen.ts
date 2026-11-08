@@ -13,6 +13,9 @@ import { color, filter, notation, telem, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { group } from "@/group";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 
 /** TimestampConfig is per-channel timestamp display configuration. */
@@ -53,6 +56,10 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
+  projects?: project.Key[];
+  ranges?: ranger.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -69,6 +76,14 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** groups matches the logs in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the logs in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
+  /** projects matches the logs owned by any of the given projects. */
+  projects: zod.nullToUndefined(project.keyZ.array()),
+  /** ranges matches the logs owned by any of the given ranges. */
+  ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
 
 /**
@@ -90,6 +105,18 @@ export const logZ = z.object({
   timestampsHidden: z.boolean().default(false),
   /** timeZone is the time zone of the line times and day rows of the log. */
   timeZone: telem.timeZoneZ.default("local"),
+  /** group is the group the log sits in, if any. */
+  group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the log, if any. Exactly one of project and range
+   * is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the log, if any. Exactly one of project and range is
+   * set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface Log extends z.infer<typeof logZ> {}
 

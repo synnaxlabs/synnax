@@ -44,17 +44,15 @@ type Relationship struct {
 
 var _ gorp.Entry[string] = Relationship{}
 
-// RelationshipKeySep separates the From, Type, and To fields in an encoded relationship
-// gorp key. The four Writer delete helpers depend on this layout to short-circuit scans
-// without decoding the entry.
-const RelationshipKeySep = "->"
+// relationshipKeySep separates the From, Type, and To fields of a gorp key.
+const relationshipKeySep = "->"
 
 // GorpKey implements the gorp.Entry interface.
 func (r Relationship) GorpKey() string {
 	return r.From.String() +
-		RelationshipKeySep +
+		relationshipKeySep +
 		string(r.Type) +
-		RelationshipKeySep +
+		relationshipKeySep +
 		r.To.String()
 }
 

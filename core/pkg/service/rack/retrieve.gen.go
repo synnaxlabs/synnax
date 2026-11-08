@@ -16,13 +16,21 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 )
+
+// tableName names the Rack table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "rack"
 
 // indexes bundles the per-Service secondary indexes registered on the
 // Rack table. Each index is constructed via newIndexes and threaded
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	group  *gorp.KeyReference[Key, Rack, group.Key]
+	roles  *gorp.KeyReference[Key, Rack, role.Key]
 	search *gorp.SearchIndex[Key, Rack]
 }
 
@@ -31,6 +39,31 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Rack, group.Key]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: gorp.Detach,
+			Targets: func(e *Rack) []group.Key {
+				if e.Group == nil {
+					return nil
+				}
+				return []group.Key{*e.Group}
+			},
+			Detach: func(e *Rack, _ group.Key) { e.Group = nil },
+		}),
+		roles: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Rack, role.Key]{
+			Name:     "roles",
+			Table:    "role",
+			OnDelete: gorp.Detach,
+			Targets: func(e *Rack) []role.Key {
+				return e.Roles
+			},
+			Detach: func(e *Rack, t role.Key) {
+				e.Roles = slices.DeleteFunc(e.Roles, func(v role.Key) bool {
+					return v == t
+				})
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Rack](
 			"search",
 			func(e *Rack) []string {
@@ -45,6 +78,15 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Rack] {
 	return []gorp.Index[Key, Rack]{
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Rack] {
+	return []gorp.Reference[Key, Rack]{
+		i.group,
+		i.roles,
 	}
 }
 
@@ -136,6 +178,55 @@ func MatchIntegration(v string) Filter {
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
 			return slices.Contains(e.Integrations, v), nil
 		})
+	}
+}
+
+// MatchGroups returns a filter for racks
+// whose Group matches any of the provided
+// values.
+func MatchGroups(vals ...group.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Rack] {
+		return r.indexes.group.Filter(vals...)
+	}
+}
+
+// MatchHasGroup returns a filter for racks whose
+// Group holds a target when has is true, and holds none when has is false.
+func MatchHasGroup(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Rack] {
+		return r.indexes.group.FilterHolding(has)
+	}
+}
+
+// setGroup returns an update that sets the Group of the
+// racks with keys to v.
+func setGroup(
+	table *gorp.Table[Key, Rack],
+	v *group.Key,
+	keys ...Key,
+) gorp.Update[Key, Rack] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Rack](keys...)).
+		Change(func(_ gorp.Context, e Rack) Rack {
+			e.Group = v
+			return e
+		})
+}
+
+// MatchRoles returns a filter for racks
+// whose Roles contains any of the provided
+// values.
+func MatchRoles(vals ...role.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Rack] {
+		return r.indexes.roles.Filter(vals...)
+	}
+}
+
+// MatchHasRoles returns a filter for racks whose
+// Roles holds a target when has is true, and holds none when has is false.
+func MatchHasRoles(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Rack] {
+		return r.indexes.roles.FilterHolding(has)
 	}
 }
 

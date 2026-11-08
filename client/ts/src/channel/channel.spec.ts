@@ -372,6 +372,62 @@ describe("Channel", () => {
         async () => await client.channels.retrieve(channel.key),
       ).rejects.toThrow(NotFoundError);
     });
+    test("refuse a channel that a task config names", async () => {
+      const channel = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        virtual: true,
+        dataType: DataType.FLOAT32,
+      });
+      const rack = await client.racks.create({ name: "test" });
+      const device = await client.devices.create({
+        key: id.create(),
+        rack: rack.key,
+        location: "127.0.0.1:502",
+        name: "plc",
+        make: "modbus",
+        model: "modbus",
+        properties: {},
+      });
+      const task = await rack.createTask({
+        name: "read",
+        type: "modbus_read",
+        config: {
+          device: device.key,
+          channels: [{ type: "coil", key: "coil", channel: channel.key }],
+        },
+      });
+      await expect(client.channels.delete(channel.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete channel ${channel.name} because task ${task.name} uses it: ` +
+            "validation error",
+        ),
+      );
+      await client.tasks.delete(task.key);
+      await client.channels.delete(channel.key);
+    });
+    test("refuse an index that a data channel uses", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        index: index.key,
+        dataType: DataType.FLOAT32,
+      });
+      await expect(client.channels.delete(index.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete channel ${index.name} because channel ${data.name} uses ` +
+            "it as its index: validation error",
+        ),
+      );
+      await client.channels.delete(data.key);
+      await client.channels.delete(index.key);
+    });
   });
   describe("rename", async () => {
     test("single rename", async () => {
@@ -407,6 +463,27 @@ describe("Channel", () => {
     });
   });
 
+  describe("setGroupRequest", () => {
+    it("should move channels into a group and back out", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        virtual: true,
+      });
+      const g = await client.groups.create({ name: id.create(), scope: "channel" });
+      await client.batch.send([client.channels.setGroupRequest(ch.key, g.key)]);
+      expect((await client.channels.retrieve(ch.key)).group).toEqual(g.key);
+      expect(
+        (await client.channels.retrieve({ where: { groups: [g.key] } })).map(
+          (c) => c.key,
+        ),
+      ).toEqual([ch.key]);
+      await client.batch.send([client.channels.setGroupRequest(ch.key, null)]);
+      expect(await client.channels.retrieve({ where: { groups: [g.key] } })).toEqual(
+        [],
+      );
+    });
+  });
   describe("update calculations", () => {
     test("update virtual channel expression", async () => {
       const channel = await client.channels.create({
@@ -582,12 +659,12 @@ describe("cached reads", () => {
         }),
       ]);
       // One status request needs both statuses to exist: the calculation
-      // engine only writes them once data flows, so seed them directly.
+      // engine only writes them once data flows, so create them directly.
       await Promise.all(
         created.map(
           async ({ key }) =>
             await client.statuses.set({
-              key: channel.statusKey(key),
+              owner: channel.resourceID(key),
               name: "Calculation Status",
               variant: "info",
               message: "calculating",
@@ -839,12 +916,11 @@ describe("cached reads", () => {
 
     const setStatus = async (calc: channel.Channel, message: string) =>
       await client.statuses.set({
-        key: channel.statusKey(calc.key),
+        owner: channel.resourceID(calc.key),
         name: calc.name,
         variant: "error",
         message,
         time: TimeStamp.now(),
-        details: { channel: calc.key },
       });
 
     const createCalculatedWithStatus = async () => {
@@ -855,7 +931,10 @@ describe("cached reads", () => {
 
     const createCalculatedWithoutStatus = async () => {
       const calc = await createCalculated();
-      await client.statuses.delete(channel.statusKey(calc.key));
+      const held = await client.statuses.retrieve({
+        where: { owners: [channel.resourceID(calc.key)] },
+      });
+      await client.statuses.delete(held.map((s) => s.key));
       return calc;
     };
 
@@ -1025,7 +1104,7 @@ describe("cached reads", () => {
 
     const setStatus = async (key: number, message: string): Promise<void> => {
       await remote.statuses.set({
-        key: channel.statusKey(key),
+        owner: channel.resourceID(key),
         name: "Calculation Status",
         variant: "info",
         message,
@@ -1104,7 +1183,7 @@ describe("cached reads", () => {
         const child = await client.ranges.create({
           name: `qry-${id.create()}`,
           timeRange: new TimeRange(start, start.add(TimeStamp.seconds(1))),
-          parent,
+          parent: parent.key,
         });
         const inherited = `qry_alias_${id.create()}`;
         await client.ranges.setAlias(parent.key, ch.key, inherited);

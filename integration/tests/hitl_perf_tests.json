@@ -1,0 +1,10 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "cRIO",
+      "isolated": true,
+      "tests": [{ "case": "hitl/crio_perf" }]
+    }
+  ]
+}

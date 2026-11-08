@@ -72,7 +72,8 @@ export const renderLog = async (
     additionalRegistry,
   }: RenderLogOptions = {},
 ) => {
-  const created = await client.logs.create(await project(), {
+  const created = await client.logs.create({
+    project: await project(),
     name: "Test Log",
     ...logOverrides,
   });

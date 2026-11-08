@@ -44,7 +44,13 @@ const TAB: Panel.Tab = {
   ),
   restore: async ({ client, project, resource }) => {
     const corpse = query.requireCorpse(client.schematics.getCached(resource.key));
-    await client.schematics.create(project, corpse);
+    // A restored record comes back in the project, as its range or group may be gone.
+    await client.schematics.create({
+      ...corpse,
+      project,
+      range: undefined,
+      group: undefined,
+    });
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),
