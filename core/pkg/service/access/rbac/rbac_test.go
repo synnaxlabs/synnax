@@ -409,6 +409,59 @@ var _ = Describe("Service", func() {
 			})
 		})
 
+		Describe("Policies", func() {
+			It("Should return the policies of the subject's roles", func(
+				ctx SpecContext,
+			) {
+				r := &role.Role{Name: "held"}
+				Expect(roleWriter.Create(ctx, r)).To(Succeed())
+				p := &policy.Policy{
+					Role:    r.Key,
+					Name:    "held",
+					Objects: []resource.ID{obj1},
+					Actions: []access.Action{access.ActionRetrieve},
+				}
+				Expect(policyWriter.Create(ctx, p)).To(Succeed())
+				setRole(ctx, tx, subject, r.Key)
+				policies := MustSucceed(rbacSvc.NewEnforcer(tx).Policies(ctx, subject))
+				Expect(policies).To(HaveLen(1))
+				Expect(policies[0].Key).To(Equal(p.Key))
+			})
+			It("Should return no policies for a subject that does not exist", func(
+				ctx SpecContext,
+			) {
+				Expect(rbacSvc.NewEnforcer(tx).Policies(ctx, user.ResourceID(uuid.New()))).
+					To(BeEmpty())
+			})
+		})
+
+		Describe("Allows", func() {
+			p := policy.Policy{
+				Key:     uuid.New(),
+				Objects: []resource.ID{{Type: "channel"}},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			allows := func(action access.Action, obj resource.ID) bool {
+				return rbac.Allows(subject, []policy.Policy{p}, action)(obj)
+			}
+			It("Should allow every object of a type that a policy names", func() {
+				Expect(allows(access.ActionRetrieve, obj1)).To(BeTrue())
+			})
+			It("Should let the subject retrieve its own record", func() {
+				Expect(allows(access.ActionRetrieve, subject)).To(BeTrue())
+				Expect(allows(access.ActionUpdate, subject)).To(BeFalse())
+			})
+			It("Should let the subject retrieve a policy it holds", func() {
+				Expect(allows(access.ActionRetrieve, p.ResourceID())).To(BeTrue())
+				Expect(allows(access.ActionDelete, p.ResourceID())).To(BeFalse())
+			})
+			It("Should deny an object that no policy covers", func() {
+				Expect(allows(access.ActionRetrieve, resource.ID{Type: "task", Key: "1"})).
+					To(BeFalse())
+				Expect(allows(access.ActionUpdate, obj1)).To(BeFalse())
+			})
+		})
+
 		Describe("Policies of the subject's roles", func() {
 			var held, other *policy.Policy
 			BeforeEach(func(ctx SpecContext) {
