@@ -18,17 +18,21 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPIImEx(t *testing.T) {
@@ -46,6 +50,10 @@ var (
 	groupSvc *group.Service
 	importer *recordingImporter
 	root     user.User
+	// ch is a channel that imported logs use.
+	ch channel.Key
+	// proj is the project that imported logs sit in.
+	proj project.Project
 	// importEnvelope and export run their routes as the API layer binds them.
 	importEnvelope freighter.UnaryHandler[
 		apiimex.ImportRequest,
@@ -56,7 +64,8 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(gorp.Wrap(memkv.New()))
+	node := testutil.NewNode(ctx)
+	db = node.DB
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
@@ -89,6 +98,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group: groupSvc,
 		ImEx:  imexSvc,
 	}))
+	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
+	}))
+	ch = MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 1))[0]
+	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{DB: db}))
+	proj.Name = "Imports"
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
+	MustOpen(log.OpenService(ctx, log.ServiceConfig{DB: db, ImEx: imexSvc}))
 	apiSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{ImEx: imexSvc}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
 	importEnvelope = bind.Write(binder, apiSvc.Import)
