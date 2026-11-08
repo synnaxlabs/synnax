@@ -358,7 +358,7 @@ var _ = Describe("Dispatched Arc names", func() {
 				writer.Delete(ctx, taken.Base().Key, renamed.Base().Key),
 			).To(Succeed())
 		})
-		Expect(svc.Dispatch(ctx, renamed.Base().Key, "", []arc.Action{
+		Expect(dispatch(ctx, renamed.Base().Key, "", []arc.Action{
 			arc.NewRenameAction(arc.RenamePayload{Name: "dispatch_taken"}),
 		})).To(MatchError(ContainSubstring("already used")))
 	})

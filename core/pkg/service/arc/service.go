@@ -39,7 +39,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/set"
-	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -158,7 +157,6 @@ type Service struct {
 	// reserved holds the standard module names, which no entry of root may take.
 	reserved set.Set[string]
 	state    *actions.State[Key, Action]
-	locks    xsync.KeyedMutex[Key]
 	sweeper  textSweeper
 	taskSync *debounce.Keyed[Key]
 }

@@ -19,10 +19,10 @@ import (
 	"go.uber.org/zap"
 )
 
-// Dispatch applies a sequence of actions atomically to the Arc with the given key, in
-// a transaction of its own that carries the actions to the change channels.
-// dispatchKey is a client-generated identifier carried verbatim onto the actions so
-// the originating client can recognize its own echo.
+// Dispatch applies a sequence of actions to the Arc with the given key in tx and
+// attaches them to tx, so the commit of tx carries them to the change channels.
+// dispatchKey is a client-generated identifier carried verbatim onto the actions so the
+// originating client can recognize its own echo.
 //
 // When the Arc's text has gone quiet, Dispatch also reclaims the space held by
 // tombstoned characters: it forgets the characters that were already dead before this
@@ -30,63 +30,58 @@ import (
 // every editor (including the originator, which skips its own echo) applies it.
 //
 // Dispatch also schedules a debounced rewrite of the Arc's task config, so a burst of
-// edits produces one rewrite instead of one per edit.
+// edits produces one rewrite instead of one per edit. The rewrite opens its own
+// transaction, so it reads the Arc after tx commits or rolls back.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	key Key,
 	dispatchKey string,
 	acts []Action,
 ) error {
+	var sweep []Action
+	if err := s.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
+		ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
+			sweep = nil
+			var dead []crdt.ID
+			src, isText := a.Base().Source.Variant.(TextSource)
+			if isText && s.sweeper.quiet(key) {
+				dead = s.sweeper.forgettable(src.Text.Doc)
+			}
+			name := a.Base().Name
+			a, err := Reduce(a, acts...)
+			if err != nil {
+				return a, err
+			}
+			if renamed := a.Base().Name; renamed != name {
+				if err = s.NewWriter(tx).validateName(
+					ctx, ResourceID(key), renamed, a.Type() == TypeModule,
+				); err != nil {
+					return Arc{}, err
+				}
+			}
+			if len(dead) > 0 {
+				sweep = []Action{
+					NewForgetCharsAction(ForgetCharsPayload{IDs: dead}),
+				}
+				if a, err = Reduce(a, sweep...); err != nil {
+					return a, err
+				}
+			}
+			if containsTextEdit(acts) {
+				s.sweeper.recordEdit(key)
+			}
+			return a, nil
+		}).Exec(ctx, tx); err != nil {
+		return err
+	}
 	dispatcher := s.state.Dispatcher()
-	return s.locks.Do(key, func() error {
-		if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			var sweep []Action
-			if err := s.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
-				ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
-					sweep = nil
-					var dead []crdt.ID
-					src, isText := a.Base().Source.Variant.(TextSource)
-					if isText && s.sweeper.quiet(key) {
-						dead = s.sweeper.forgettable(src.Text.Doc)
-					}
-					name := a.Base().Name
-					a, err := Reduce(a, acts...)
-					if err != nil {
-						return a, err
-					}
-					if renamed := a.Base().Name; renamed != name {
-						if err = s.NewWriter(tx).validateName(
-							ctx, ResourceID(key), renamed, a.Type() == TypeModule,
-						); err != nil {
-							return Arc{}, err
-						}
-					}
-					if len(dead) > 0 {
-						sweep = []Action{
-							NewForgetCharsAction(ForgetCharsPayload{IDs: dead}),
-						}
-						if a, err = Reduce(a, sweep...); err != nil {
-							return a, err
-						}
-					}
-					if containsTextEdit(acts) {
-						s.sweeper.recordEdit(key)
-					}
-					return a, nil
-				}).Exec(ctx, tx); err != nil {
-				return err
-			}
-			dispatcher.WithDispatchKey(dispatchKey).Attach(tx, key, acts...)
-			if len(sweep) > 0 {
-				dispatcher.Attach(tx, key, sweep...)
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-		s.taskSync.Trigger(key)
-		return nil
-	})
+	dispatcher.WithDispatchKey(dispatchKey).Attach(tx, key, acts...)
+	if len(sweep) > 0 {
+		dispatcher.Attach(tx, key, sweep...)
+	}
+	s.taskSync.Trigger(key)
+	return nil
 }
 
 // resyncTask rewrites the Arc's task config from its current content. It runs on the

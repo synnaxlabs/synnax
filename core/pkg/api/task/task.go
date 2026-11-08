@@ -219,6 +219,7 @@ type DispatchResponse = actions.DispatchResponse[task.Action]
 // carry its stored config.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DispatchRequest,
 ) (DispatchResponse, error) {
 	enforcer := s.access.NewEnforcer(nil)
@@ -230,7 +231,7 @@ func (s *Service) Dispatch(
 	if err := enforcer.Enforce(ctx, request); err != nil {
 		return DispatchResponse{}, err
 	}
-	computed, err := s.task.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	computed, err := s.task.Dispatch(ctx, tx, req.Key, req.DispatchKey, req.Actions)
 	if err != nil {
 		return DispatchResponse{}, err
 	}
@@ -287,6 +288,7 @@ type RenameRequest struct {
 // Rename renames the task. It requires update access on it.
 func (s *Service) Rename(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
@@ -296,7 +298,7 @@ func (s *Service) Rename(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	_, err := s.task.Dispatch(ctx, req.Key, "", []task.Action{
+	_, err := s.task.Dispatch(ctx, tx, req.Key, "", []task.Action{
 		task.NewSetAction(task.SetPayload{Path: []string{"name"}, Value: req.Name}),
 	})
 	return struct{}{}, err

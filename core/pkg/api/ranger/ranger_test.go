@@ -150,7 +150,7 @@ var _ = Describe("Dispatch", func() {
 		u := createUser(ctx)
 		r := createRange(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
-		MustSucceed(apiSvc.Dispatch(
+		MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
 			apiranger.DispatchRequest{Key: r.Key, DispatchKey: "dk", Actions: rename},
 		))
@@ -159,7 +159,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		r := createRange(ctx)
-		Expect(apiSvc.Dispatch(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
 			apiranger.DispatchRequest{Key: r.Key, DispatchKey: "dk", Actions: rename},
 		)).Error().To(MatchError(access.ErrDenied))
@@ -178,7 +178,7 @@ var _ = Describe("Dispatch", func() {
 			child := createRange(ctx)
 			parent := createRange(ctx)
 			grant(ctx, access.ActionUpdate, u.ResourceID(), child.ResourceID())
-			Expect(apiSvc.Dispatch(
+			Expect(dispatch(
 				AuthedCtx(ctx, u),
 				apiranger.DispatchRequest{
 					Key:     child.Key,
@@ -207,7 +207,7 @@ var _ = Describe("Dispatch", func() {
 				child.ResourceID(),
 				newParent.ResourceID(),
 			)
-			Expect(apiSvc.Dispatch(
+			Expect(dispatch(
 				AuthedCtx(ctx, u),
 				apiranger.DispatchRequest{
 					Key:     child.Key,
@@ -238,7 +238,7 @@ var _ = Describe("Dispatch", func() {
 			oldParent.ResourceID(),
 			newParent.ResourceID(),
 		)
-		MustSucceed(apiSvc.Dispatch(
+		MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
 			apiranger.DispatchRequest{
 				Key:     child.Key,
@@ -251,7 +251,7 @@ var _ = Describe("Dispatch", func() {
 		u := createUser(ctx)
 		key := uuid.New()
 		grant(ctx, access.ActionUpdate, u.ResourceID(), ranger.ResourceID(key))
-		Expect(apiSvc.Dispatch(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
 			apiranger.DispatchRequest{Key: key, DispatchKey: "dk", Actions: rename},
 		)).Error().To(MatchError(query.ErrNotFound))

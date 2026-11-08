@@ -15,6 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -38,12 +40,14 @@ func TestAPIPanel(t *testing.T) {
 }
 
 var (
-	db         *gorp.DB
-	groupSvc   *group.Service
-	rbacSvc    *rbac.Service
-	panelSvc   *panel.Service
-	userSvc    *user.Service
-	apiSvc     *apipanel.Service
+	db       *gorp.DB
+	groupSvc *group.Service
+	rbacSvc  *rbac.Service
+	panelSvc *panel.Service
+	userSvc  *user.Service
+	apiSvc   *apipanel.Service
+	// dispatch runs the Dispatch route in one transaction, as the API layer binds it.
+	dispatch   freighter.UnaryHandler[apipanel.DispatchRequest, struct{}]
 	author     user.User
 	proj       project.Project
 	projectSvc *project.Service
@@ -84,6 +88,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:  rbacSvc,
 		Panel: panelSvc,
 	}))
+	dispatch = fgorp.CreateWriteUnaryHandler(db, apiSvc.Dispatch)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)

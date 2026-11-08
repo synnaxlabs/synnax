@@ -105,21 +105,15 @@ func (s *Service) Create(
 // deduplicated against the local optimistic update.
 type DispatchRequest = actions.DispatchRequest[lineplot.Key, lineplot.Action]
 
-// Dispatch applies the action sequence to the target line plot atomically. Subscribers
-// to the line plot action signals receive the sequence after the transaction commits.
+// Dispatch applies the action sequence to the target line plot in tx. Subscribers to
+// the line plot action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{lineplot.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.
-		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+		Dispatch(ctx, tx, req.Key, req.DispatchKey, req.Actions)
 }
 
 func (s *Service) Retrieve(

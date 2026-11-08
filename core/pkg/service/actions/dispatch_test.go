@@ -78,9 +78,20 @@ var _ = Describe("Dispatch", func() {
 		return res
 	}
 
+	// dispatch runs st.Dispatch in a transaction of its own.
+	dispatch := func(
+		ctx SpecContext,
+		acts []testAction,
+		stage func(gorp.Tx) ([]testAction, error),
+	) error {
+		return db.WithTx(ctx, func(tx gorp.Tx) error {
+			return st.Dispatch(tx, "c", "dk", acts, stage)
+		})
+	}
+
 	It("Should apply the staged change and attach its actions", func(ctx SpecContext) {
 		acts := []testAction{{Type: "inc"}}
-		Expect(st.Dispatch(ctx, "c", "dk", acts, increment(ctx, nil))).To(Succeed())
+		Expect(dispatch(ctx, acts, increment(ctx, nil))).To(Succeed())
 		Expect(fetch(ctx).Value).To(Equal(1))
 		seen := rec.Snapshot()
 		Expect(seen).To(HaveLen(1))
@@ -92,10 +103,8 @@ var _ = Describe("Dispatch", func() {
 	It(
 		"Should attach the actions that the stage returns after the dispatched ones",
 		func(ctx SpecContext) {
-			Expect(st.Dispatch(
+			Expect(dispatch(
 				ctx,
-				"c",
-				"dk",
 				[]testAction{{Type: "inc"}},
 				increment(ctx, []testAction{{Type: "derived"}}),
 			)).To(Succeed())
@@ -116,10 +125,8 @@ var _ = Describe("Dispatch", func() {
 			for range n {
 				wg.Go(func() {
 					defer GinkgoRecover()
-					Expect(st.Dispatch(
+					Expect(dispatch(
 						ctx,
-						"c",
-						"dk",
 						[]testAction{{Type: "inc"}},
 						increment(ctx, nil),
 					)).To(Succeed())
@@ -138,8 +145,8 @@ var _ = Describe("Dispatch", func() {
 				observed = fetch(ctx).Value
 			},
 		))
-		Expect(st.Dispatch(
-			ctx, "c", "dk", []testAction{{Type: "inc"}}, increment(ctx, nil),
+		Expect(dispatch(
+			ctx, []testAction{{Type: "inc"}}, increment(ctx, nil),
 		)).To(Succeed())
 		Expect(observed).To(Equal(1))
 	})
@@ -148,12 +155,63 @@ var _ = Describe("Dispatch", func() {
 		"Should return the stage error and deliver no actions",
 		func(ctx SpecContext) {
 			stageErr := errors.New("stage failed")
-			Expect(st.Dispatch(
-				ctx, "c", "dk", []testAction{{Type: "inc"}},
+			Expect(dispatch(
+				ctx,
+				[]testAction{{Type: "inc"}},
 				func(gorp.Tx) ([]testAction, error) { return nil, stageErr },
 			)).To(MatchError(stageErr))
 			Expect(fetch(ctx).Value).To(Equal(0))
 			Expect(rec.Snapshot()).To(BeEmpty())
+		},
+	)
+
+	It(
+		"Should roll back the dispatch when a later write in the transaction fails",
+		func(ctx SpecContext) {
+			later := errors.New("later write failed")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := st.Dispatch(
+					tx,
+					"c",
+					"dk",
+					[]testAction{{Type: "inc"}},
+					increment(ctx, nil),
+				); err != nil {
+					return err
+				}
+				return later
+			})).To(MatchError(later))
+			Expect(fetch(ctx).Value).To(Equal(0))
+			Expect(rec.Snapshot()).To(BeEmpty())
+		},
+	)
+
+	It(
+		"Should deliver the batches of one transaction in the order it attached them",
+		func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := st.Dispatch(
+					tx,
+					"c",
+					"first",
+					[]testAction{{Type: "a"}},
+					increment(ctx, nil),
+				); err != nil {
+					return err
+				}
+				return st.Dispatch(
+					tx,
+					"c",
+					"second",
+					[]testAction{{Type: "b"}},
+					increment(ctx, nil),
+				)
+			})).To(Succeed())
+			Expect(fetch(ctx).Value).To(Equal(2))
+			Expect(rec.Snapshot()).To(HaveExactElements(
+				HaveField("DispatchKey", "first"),
+				HaveField("DispatchKey", "second"),
+			))
 		},
 	)
 })

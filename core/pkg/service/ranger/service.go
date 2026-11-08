@@ -143,20 +143,20 @@ func (s *Service) OnAction(
 	return s.state.OnChange(handler)
 }
 
-// Dispatch applies the actions atomically to the range with the given key. Dispatches
-// for the same range run one at a time, each in its own transaction, and the actions
-// are broadcast after the commit. dispatchKey is carried onto the broadcast so the
-// sender recognizes its echo. Dispatch returns an error wrapping validate.ErrValidation
-// when an action is a create or the result fails to decode or validate, and an error
-// wrapping query.ErrNotFound when no range has the key.
+// Dispatch applies the actions to the range with the given key in tx and attaches them
+// to tx, so the commit of tx broadcasts them. dispatchKey is carried onto the broadcast
+// so the sender recognizes its echo. Dispatch returns an error wrapping
+// validate.ErrValidation when an action is a create or the result fails to decode or
+// validate, and an error wrapping query.ErrNotFound when no range has the key.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	key Key,
 	dispatchKey string,
 	acts []Action,
 ) error {
 	return s.state.Dispatch(
-		ctx,
+		tx,
 		key,
 		dispatchKey,
 		acts,

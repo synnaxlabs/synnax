@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -764,8 +765,10 @@ var _ = Describe("Import", func() {
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
 		// The import lands beside the original, where the name is taken.
-		Expect(arcSvc.Dispatch(ctx, a.Base().Key, "", []arc.Action{
-			arc.NewRenameAction(arc.RenamePayload{Name: "Startup Source"}),
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return arcSvc.Dispatch(ctx, tx, a.Base().Key, "", []arc.Action{
+				arc.NewRenameAction(arc.RenamePayload{Name: "Startup Source"}),
+			})
 		})).To(Succeed())
 		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, files)

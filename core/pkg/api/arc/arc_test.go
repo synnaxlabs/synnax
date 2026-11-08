@@ -266,7 +266,7 @@ var _ = Describe("Service", func() {
 				"Should reject the request with access.ErrDenied when the subject has no policy",
 				func(ctx SpecContext) {
 					a := createArc(ctx, "no-policy")
-					Expect(apiSvc.Dispatch(
+					Expect(dispatch(
 						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
@@ -285,7 +285,7 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					a := createArc(ctx, "with-policy")
 					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
-					Expect(apiSvc.Dispatch(
+					Expect(dispatch(
 						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
@@ -316,7 +316,7 @@ var _ = Describe("Service", func() {
 					a := createArc(ctx, "policy-target")
 					b := createArc(ctx, "no-policy-target")
 					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
-					Expect(apiSvc.Dispatch(
+					Expect(dispatch(
 						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         b.Base().Key,
 							DispatchKey: "sess-1",
@@ -337,7 +337,7 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					a := createArc(ctx, "multi-action")
 					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
-					Expect(apiSvc.Dispatch(
+					Expect(dispatch(
 						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
@@ -368,7 +368,7 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					missing := uuid.New()
 					grantUpdateOn(ctx, author.ResourceID(), arc.ResourceID(missing))
-					Expect(apiSvc.Dispatch(
+					Expect(dispatch(
 						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         missing,
 							DispatchKey: "sess-1",
@@ -395,7 +395,7 @@ var _ = Describe("Service", func() {
 							seen <- sa
 						}),
 					)
-					Expect(apiSvc.Dispatch(
+					Expect(dispatch(
 						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "session-marker-xyz",

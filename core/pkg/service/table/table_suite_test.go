@@ -10,6 +10,7 @@
 package table_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -56,3 +57,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	proj.Name = "test-project"
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
+
+// dispatch runs svc.Dispatch in a transaction of its own.
+func dispatch(
+	ctx context.Context,
+	key table.Key,
+	dispatchKey string,
+	acts []table.Action,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Dispatch(ctx, tx, key, dispatchKey, acts)
+	})
+}

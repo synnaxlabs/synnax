@@ -221,7 +221,7 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					s := createSchematic(ctx, "no-policy")
 					Expect(
-						apiSvc.Dispatch(
+						dispatch(
 							AuthedCtx(ctx, author),
 							apischematic.DispatchRequest{
 								Key:         s.Key,
@@ -246,7 +246,7 @@ var _ = Describe("Service", func() {
 					s := createSchematic(ctx, "with-policy")
 					grantUpdateOn(ctx, author.ResourceID(), s.ResourceID())
 					Expect(
-						apiSvc.Dispatch(
+						dispatch(
 							AuthedCtx(ctx, author),
 							apischematic.DispatchRequest{
 								Key:         s.Key,
@@ -279,7 +279,7 @@ var _ = Describe("Service", func() {
 					b := createSchematic(ctx, "no-policy-target")
 					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					Expect(
-						apiSvc.Dispatch(
+						dispatch(
 							AuthedCtx(ctx, author),
 							apischematic.DispatchRequest{
 								Key:         b.Key,
@@ -306,7 +306,7 @@ var _ = Describe("Service", func() {
 					s := createSchematic(ctx, "multi-action")
 					grantUpdateOn(ctx, author.ResourceID(), s.ResourceID())
 					Expect(
-						apiSvc.Dispatch(
+						dispatch(
 							AuthedCtx(ctx, author),
 							apischematic.DispatchRequest{
 								Key:         s.Key,
@@ -362,7 +362,7 @@ var _ = Describe("Service", func() {
 					).To(Succeed())
 					grantUpdateOn(ctx, author.ResourceID(), snap.ResourceID())
 					Expect(
-						apiSvc.Dispatch(
+						dispatch(
 							AuthedCtx(ctx, author),
 							apischematic.DispatchRequest{
 								Key:         snap.Key,
@@ -391,7 +391,7 @@ var _ = Describe("Service", func() {
 						schematic.ResourceID(missing),
 					)
 					Expect(
-						apiSvc.Dispatch(
+						dispatch(
 							AuthedCtx(ctx, author),
 							apischematic.DispatchRequest{
 								Key:         missing,
@@ -425,7 +425,7 @@ var _ = Describe("Service", func() {
 					)
 					DeferCleanup(disconnect)
 					Expect(
-						apiSvc.Dispatch(
+						dispatch(
 							AuthedCtx(ctx, author),
 							apischematic.DispatchRequest{
 								Key:         s.Key,

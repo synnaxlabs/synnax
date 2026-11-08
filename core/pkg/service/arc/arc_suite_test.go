@@ -10,6 +10,7 @@
 package arc_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -157,4 +158,16 @@ func graphOf(b arc.Base) graph.Graph {
 	src, ok := b.Source.Variant.(arc.GraphSource)
 	Expect(ok).To(BeTrue(), "expected a graph source, got %T", b.Source.Variant)
 	return src.Graph
+}
+
+// dispatch runs svc.Dispatch in a transaction of its own.
+func dispatch(
+	ctx context.Context,
+	key arc.Key,
+	dispatchKey string,
+	acts []arc.Action,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Dispatch(ctx, tx, key, dispatchKey, acts)
+	})
 }

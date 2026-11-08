@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // denied matches an error that denies u the action on object.
@@ -182,6 +183,76 @@ var _ = Describe("Delete", func() {
 				Entry(&lineplot.LinePlot{}).
 				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		},
+	)
+})
+
+var _ = Describe("Dispatch", func() {
+	var (
+		u   user.User
+		lp  lineplot.LinePlot
+		rec *Recorder[lineplot.Key, lineplot.Action]
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = newUser(ctx)
+		lp = createLinePlot(ctx, "Dispatched")
+		rec = &Recorder[lineplot.Key, lineplot.Action]{}
+		DeferCleanup(svc.LinePlot.OnAction(rec.Record))
+	})
+	dispatchAs := func(ctx SpecContext, acts ...lineplot.Action) (struct{}, error) {
+		return dispatch(AuthedCtx(ctx, u), apilineplot.DispatchRequest{
+			Key:         lp.Key,
+			DispatchKey: "dk-dispatch",
+			Actions:     acts,
+		})
+	}
+	rename := lineplot.NewRenameAction(lineplot.RenamePayload{Name: "Renamed"})
+	It(
+		"Should refuse a dispatch without update on the line plot and write nothing",
+		func(ctx SpecContext) {
+			Expect(dispatchAs(ctx, rename)).Error().
+				To(denied(u, access.ActionUpdate, lp.ResourceID()))
+			Expect(retrieveLinePlot(ctx, lp.Key).Name).To(Equal("Dispatched"))
+			Expect(rec.Snapshot()).To(BeEmpty())
+		},
+	)
+	It("Should stamp the dispatch key onto the action batch", func(ctx SpecContext) {
+		grant(ctx, access.ActionUpdate, u.ResourceID(), lp.ResourceID())
+		MustSucceed(dispatchAs(ctx, rename))
+		Expect(retrieveLinePlot(ctx, lp.Key).Name).To(Equal("Renamed"))
+		Expect(rec.Snapshot()).To(HaveExactElements(SatisfyAll(
+			HaveField("Key", lp.Key),
+			HaveField("DispatchKey", "dk-dispatch"),
+			HaveField("Actions", []lineplot.Action{rename}),
+		)))
+	})
+	DescribeTable(
+		"Should refuse an action that only the Core dispatches",
+		func(ctx SpecContext, act func() lineplot.Action, what string) {
+			grant(ctx, access.ActionUpdate, u.ResourceID(), lp.ResourceID())
+			Expect(dispatchAs(ctx, act())).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("only the Core dispatches %s", what)),
+			))
+			Expect(retrieveLinePlot(ctx, lp.Key).Project).To(Equal(&proj.Key))
+			Expect(rec.Snapshot()).To(BeEmpty())
+		},
+		Entry(
+			"a set group",
+			func() lineplot.Action {
+				g := uuid.New()
+				return lineplot.NewSetGroupAction(lineplot.SetGroupPayload{Group: &g})
+			},
+			"a line plot group change",
+		),
+		Entry(
+			"a set project",
+			func() lineplot.Action {
+				return lineplot.NewSetProjectAction(
+					lineplot.SetProjectPayload{Project: uuid.New()},
+				)
+			},
+			"a line plot project change",
+		),
 	)
 })
 

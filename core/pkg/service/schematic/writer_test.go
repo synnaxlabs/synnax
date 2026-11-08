@@ -163,7 +163,7 @@ var _ = Describe("Writer", func() {
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
 				Expect(
-					svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					dispatch(ctx, s.Key, "session-1", []schematic.Action{
 						schematic.NewRenameAction(schematic.RenamePayload{}),
 					}),
 				).To(MatchError(ContainSubstring("name: required")))
@@ -181,7 +181,7 @@ var _ = Describe("Writer", func() {
 			s := schematic.Schematic{Project: &proj.Key, Name: "test"}
 			Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
 			Expect(
-				svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+				dispatch(ctx, s.Key, "session-1", []schematic.Action{
 					{Type: schematic.ActionTypeRename},
 				}),
 			).To(MatchError(union.ErrMissingPayload))
@@ -194,7 +194,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(nil).Create(ctx, &target)).To(Succeed())
 				other := schematic.Schematic{Project: &proj.Key, Name: "other"}
 				Expect(svc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
-				Expect(svc.Dispatch(ctx, target.Key, "d1", []schematic.Action{
+				Expect(dispatch(ctx, target.Key, "d1", []schematic.Action{
 					schematic.NewCreateAction(schematic.CreatePayload{
 						Schematic: schematic.Schematic{
 							Key:  other.Key,
@@ -226,7 +226,7 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
 			Expect(
-				svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+				dispatch(ctx, s.Key, "session-1", []schematic.Action{
 					schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 						Key:      "n1",
 						Position: spatial.XY{X: 100, Y: 200},
@@ -249,7 +249,7 @@ var _ = Describe("Writer", func() {
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
 				Expect(
-					svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					dispatch(ctx, s.Key, "session-1", []schematic.Action{
 						schematic.NewSetNodeAction(schematic.SetNodePayload{
 							Node: schematic.Node{
 								Key:      "n1",
@@ -292,7 +292,7 @@ var _ = Describe("Writer", func() {
 					svc.NewWriter(nil).Copy(ctx, s.Key, "snap", true, nil, &snap),
 				).To(Succeed())
 				Expect(
-					svc.Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
+					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
 						schematic.NewRemoveNodeAction(
 							schematic.RemoveNodePayload{Key: "n1"},
 						),
@@ -310,7 +310,7 @@ var _ = Describe("Writer", func() {
 					svc.NewWriter(nil).Copy(ctx, s.Key, "snap", true, nil, &snap),
 				).To(Succeed())
 				Expect(
-					svc.Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
+					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
 						schematic.NewRenameAction(
 							schematic.RenamePayload{Name: "renamed-snap"},
 						),
@@ -336,7 +336,7 @@ var _ = Describe("Writer", func() {
 					svc.NewWriter(nil).Copy(ctx, s.Key, "snap", true, nil, &snap),
 				).To(Succeed())
 				Expect(
-					svc.Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
+					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
 						schematic.NewRenameAction(
 							schematic.RenamePayload{Name: "renamed-snap"},
 						),
@@ -361,7 +361,7 @@ var _ = Describe("Writer", func() {
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
 				Expect(
-					svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					dispatch(ctx, s.Key, "session-1", []schematic.Action{
 						schematic.NewRemoveNodeAction(
 							schematic.RemoveNodePayload{Key: "ghost"},
 						),
@@ -404,7 +404,7 @@ var _ = Describe("Writer", func() {
 					)
 				}
 				Expect(
-					svc.Dispatch(ctx, s.Key, "session-1", actions),
+					dispatch(ctx, s.Key, "session-1", actions),
 				).To(Succeed())
 				var res schematic.Schematic
 				Expect(
@@ -423,7 +423,7 @@ var _ = Describe("Writer", func() {
 				s := schematic.Schematic{Project: &proj.Key, Name: "graph"}
 				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
 				Expect(
-					svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					dispatch(ctx, s.Key, "session-1", []schematic.Action{
 						schematic.NewSetNodeAction(schematic.SetNodePayload{
 							Node: schematic.Node{
 								Key:      "pump",
@@ -486,7 +486,7 @@ var _ = Describe("Writer", func() {
 					}),
 				}
 				Expect(
-					svc.Dispatch(ctx, s.Key, "client-xyz", actions),
+					dispatch(ctx, s.Key, "client-xyz", actions),
 				).To(Succeed())
 				seen := rec.Snapshot()
 				Expect(seen).To(HaveLen(1))
@@ -515,7 +515,7 @@ var _ = Describe("Writer", func() {
 				}
 				for range 3 {
 					Expect(
-						svc.Dispatch(ctx, s.Key, "client-xyz", action),
+						dispatch(ctx, s.Key, "client-xyz", action),
 					).To(Succeed())
 				}
 				seen := rec.Snapshot()
@@ -537,7 +537,7 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[schematic.Key, schematic.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(
-					svc.Dispatch(ctx, snap.Key, "client-xyz", []schematic.Action{
+					dispatch(ctx, snap.Key, "client-xyz", []schematic.Action{
 						schematic.NewRemoveNodeAction(
 							schematic.RemoveNodePayload{Key: "n1"},
 						),
@@ -553,7 +553,7 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[schematic.Key, schematic.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(
-					svc.Dispatch(ctx, uuid.New(), "client-xyz", []schematic.Action{
+					dispatch(ctx, uuid.New(), "client-xyz", []schematic.Action{
 						schematic.NewRemoveNodeAction(
 							schematic.RemoveNodePayload{Key: "n1"},
 						),
@@ -641,7 +641,7 @@ var _ = Describe("Writer", func() {
 					svc.NewWriter(nil).Copy(ctx, s.Key, "test2", true, nil, &cpy),
 				).To(Succeed())
 				Expect(
-					svc.Dispatch(ctx, cpy.Key, "session-1", []schematic.Action{
+					dispatch(ctx, cpy.Key, "session-1", []schematic.Action{
 						schematic.NewSetNodeAction(schematic.SetNodePayload{
 							Node: schematic.Node{Key: "n1"},
 						}),

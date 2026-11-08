@@ -41,10 +41,14 @@ var (
 	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apilineplot.Service
-	// create and del run the create and delete routes as the API layer binds them.
-	create freighter.UnaryHandler[apilineplot.CreateRequest, apilineplot.CreateResponse]
-	del    freighter.UnaryHandler[apilineplot.DeleteRequest, struct{}]
-	proj   project.Project
+	// create, del, and dispatch run their routes as the API layer binds them.
+	create freighter.UnaryHandler[
+		apilineplot.CreateRequest,
+		apilineplot.CreateResponse,
+	]
+	del      freighter.UnaryHandler[apilineplot.DeleteRequest, struct{}]
+	dispatch freighter.UnaryHandler[apilineplot.DispatchRequest, struct{}]
+	proj     project.Project
 	// author can do nothing until a spec grants it access.
 	author user.User
 )
@@ -64,6 +68,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	proj = project.Project{Name: "test-project"}
 	Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 	author = MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{

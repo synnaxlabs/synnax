@@ -15,6 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -46,10 +48,12 @@ var (
 	rbacSvc      *rbac.Service
 	schematicSvc *schematic.Service
 	apiSvc       *apischematic.Service
-	proj         project.Project
-	projectSvc   *project.Service
-	author       user.User
-	userSvc      *user.Service
+	// dispatch runs the Dispatch route in one transaction, as the API layer binds it.
+	dispatch   freighter.UnaryHandler[apischematic.DispatchRequest, struct{}]
+	proj       project.Project
+	projectSvc *project.Service
+	author     user.User
+	userSvc    *user.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -92,6 +96,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:      rbacSvc,
 		Schematic: schematicSvc,
 	}))
+	dispatch = fgorp.CreateWriteUnaryHandler(db, apiSvc.Dispatch)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))
