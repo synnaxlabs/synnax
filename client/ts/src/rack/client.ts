@@ -333,7 +333,7 @@ export class Rack {
   }
 
   async listTasks(): Promise<task.Task[]> {
-    return await this.tasks.retrieve({ where: { rack: { eq: this.key } } });
+    return await this.tasks.retrieve({ rack: this.key });
   }
 
   async createTask(task: task.New): Promise<task.Task>;
