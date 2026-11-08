@@ -127,7 +127,7 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    // The secret table never holds uses, so a retrieve that asks for them reads this one.
+    // The secret table never holds uses. A retrieve that asks for them reads this one.
     const usesStore = cache.createTable<Key, Uses>({
       name: "secret.uses",
       fetch: async (keys) =>
