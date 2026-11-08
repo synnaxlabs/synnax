@@ -48,7 +48,6 @@ func (d *storedDetails) DecodeMsgpack(dec *msgpack.Decoder) (err error) {
 
 // Writer is used to create and update statuses within the DB.
 type Writer struct {
-	svc     *Service
 	tx      gorp.Tx
 	table   *gorp.Table[Key, Status[any]]
 	indexes indexes

@@ -140,7 +140,6 @@ func (s *Service) Changes(
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:    s,
 		tx:     tx,
 		table:  s.table,
 		onMove: s.cfg.MoveMembers,
@@ -220,7 +219,6 @@ func (s *Service) Close() error {
 }
 
 type Writer struct {
-	svc    *Service
 	tx     gorp.Tx
 	table  *gorp.Table[Key, Group]
 	onMove MoveMembers

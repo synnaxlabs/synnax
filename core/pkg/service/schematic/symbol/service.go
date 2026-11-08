@@ -119,7 +119,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // NewWriter opens a new writer for creating, updating, and deleting symbols in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:   s,
 		tx:    tx,
 		table: s.table,
 	}

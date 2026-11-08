@@ -25,7 +25,6 @@ import (
 
 // Writer is used to create, update, and delete racks within a Synnax cluster.
 type Writer struct {
-	svc *Service
 	// tx is the underlying gorp transaction that rack operations will be executed
 	// against.
 	tx gorp.Tx

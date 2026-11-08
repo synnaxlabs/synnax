@@ -49,7 +49,6 @@ func validateWrite(l Log) error {
 // Writer is used to create, update, and delete logs within Synnax. The writer executes
 // all operations within the transaction provided to the Service.NewWriter method.
 type Writer struct {
-	svc        *Service
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Log]
 	dispatcher actions.Dispatcher[Key, Action]

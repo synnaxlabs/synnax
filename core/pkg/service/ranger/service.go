@@ -155,7 +155,6 @@ func (s *Service) Close() error { return s.closer.Close() }
 // NewWriter opens a new Writer to create, update, and delete ranges in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:        s,
 		tx:         tx,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
