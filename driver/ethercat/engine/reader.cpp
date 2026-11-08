@@ -24,16 +24,18 @@ const auto READ_TIMEOUT_SLACK = x::telem::MILLISECOND * 200;
 }
 
 Engine::Reader::Reader(Engine &engine, std::shared_ptr<Input> input):
-    engine(engine),
-    input(std::move(input)),
-    values(this->input->samples_per_read * sizeof(uint64_t)) {
+    engine(engine), input(std::move(input)) {
+    size_t width = 0;
     this->decoders.reserve(this->input->entries.size());
-    for (size_t i = 0; i < this->input->entries.size(); ++i)
-        this->decoders.emplace_back(
+    for (size_t i = 0; i < this->input->entries.size(); ++i) {
+        const auto &decoder = this->decoders.emplace_back(
             this->input->offsets[i].bit,
             this->input->entries[i].bit_length,
             this->input->entries[i].data_type
         );
+        width = std::max(width, decoder.type().density());
+    }
+    this->values.resize(this->input->samples_per_read * width);
 }
 
 Engine::Reader::~Reader() {
@@ -84,7 +86,7 @@ x::errors::Error Engine::Reader::read(
             errors::CYCLE_OVERRUN,
             std::format(
                 "no inputs from {} within {}",
-                this->engine.interface_name(),
+                this->engine.iface,
                 timeout.to_string()
             )
         );

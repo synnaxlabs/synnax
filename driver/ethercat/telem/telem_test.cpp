@@ -166,6 +166,7 @@ void decode(
 }
 }
 
+/// @brief it should decode a single bit at bit 0.
 TEST(Decoder, SingleBitAtOffset0) {
     uint8_t buffer[] = {0b00000001};
     x::telem::Series series(x::telem::UINT8_T, 1);
@@ -173,6 +174,7 @@ TEST(Decoder, SingleBitAtOffset0) {
     EXPECT_EQ(series.at<uint8_t>(0), 1);
 }
 
+/// @brief it should decode a single bit at bit 7.
 TEST(Decoder, SingleBitAtOffset7) {
     uint8_t buffer[] = {0b10000000};
     x::telem::Series series(x::telem::UINT8_T, 1);
@@ -180,6 +182,7 @@ TEST(Decoder, SingleBitAtOffset7) {
     EXPECT_EQ(series.at<uint8_t>(0), 1);
 }
 
+/// @brief it should decode four bits at bit 0.
 TEST(Decoder, FourBitsAtOffset0) {
     uint8_t buffer[] = {0b00001111};
     x::telem::Series series(x::telem::UINT8_T, 1);
@@ -187,6 +190,7 @@ TEST(Decoder, FourBitsAtOffset0) {
     EXPECT_EQ(series.at<uint8_t>(0), 0x0F);
 }
 
+/// @brief it should decode four bits at bit 4.
 TEST(Decoder, FourBitsAtOffset4) {
     uint8_t buffer[] = {0b11110000};
     x::telem::Series series(x::telem::UINT8_T, 1);
@@ -194,6 +198,7 @@ TEST(Decoder, FourBitsAtOffset4) {
     EXPECT_EQ(series.at<uint8_t>(0), 0x0F);
 }
 
+/// @brief it should decode bits that cross a byte boundary.
 TEST(Decoder, SubByteSpanningByteBoundary) {
     uint8_t buffer[] = {0b11100000, 0b00000011};
     x::telem::Series series(x::telem::UINT8_T, 1);
@@ -201,6 +206,7 @@ TEST(Decoder, SubByteSpanningByteBoundary) {
     EXPECT_EQ(series.at<uint8_t>(0), 0b00011111);
 }
 
+/// @brief it should decode a whole byte.
 TEST(Decoder, ByteAligned8Bit) {
     uint8_t buffer[] = {0xAB};
     x::telem::Series series(x::telem::UINT8_T, 1);
@@ -208,6 +214,7 @@ TEST(Decoder, ByteAligned8Bit) {
     EXPECT_EQ(series.at<uint8_t>(0), 0xAB);
 }
 
+/// @brief it should decode a little-endian 16 bit value.
 TEST(Decoder, ByteAligned16Bit) {
     uint8_t buffer[] = {0x34, 0x12};
     x::telem::Series series(x::telem::UINT16_T, 1);
@@ -215,6 +222,7 @@ TEST(Decoder, ByteAligned16Bit) {
     EXPECT_EQ(series.at<uint16_t>(0), 0x1234);
 }
 
+/// @brief it should decode a little-endian 32 bit value.
 TEST(Decoder, ByteAligned32Bit) {
     uint8_t buffer[] = {0x78, 0x56, 0x34, 0x12};
     x::telem::Series series(x::telem::UINT32_T, 1);
@@ -222,6 +230,7 @@ TEST(Decoder, ByteAligned32Bit) {
     EXPECT_EQ(series.at<uint32_t>(0), 0x12345678);
 }
 
+/// @brief it should decode an unsigned 24 bit value without the byte after it.
 TEST(Decoder, Unsigned24BitAligned) {
     uint8_t buffer[] = {0x56, 0x34, 0x12, 0x00};
     x::telem::Series series(x::telem::UINT32_T, 1);
@@ -229,6 +238,7 @@ TEST(Decoder, Unsigned24BitAligned) {
     EXPECT_EQ(series.at<uint32_t>(0), 0x00123456);
 }
 
+/// @brief it should decode a positive signed 24 bit value.
 TEST(Decoder, Signed24BitPositive) {
     uint8_t buffer[] = {0x56, 0x34, 0x12, 0x00};
     x::telem::Series series(x::telem::INT32_T, 1);
@@ -236,6 +246,7 @@ TEST(Decoder, Signed24BitPositive) {
     EXPECT_EQ(series.at<int32_t>(0), 0x00123456);
 }
 
+/// @brief it should sign-extend a signed 24 bit value of -1.
 TEST(Decoder, Signed24BitNegative) {
     uint8_t buffer[] = {0xFF, 0xFF, 0xFF, 0x00};
     x::telem::Series series(x::telem::INT32_T, 1);
@@ -243,6 +254,7 @@ TEST(Decoder, Signed24BitNegative) {
     EXPECT_EQ(series.at<int32_t>(0), -1);
 }
 
+/// @brief it should sign-extend the most negative signed 24 bit value.
 TEST(Decoder, Signed24BitNegativeValue) {
     uint8_t buffer[] = {0x00, 0x00, 0x80, 0x00};
     x::telem::Series series(x::telem::INT32_T, 1);
@@ -250,6 +262,7 @@ TEST(Decoder, Signed24BitNegativeValue) {
     EXPECT_EQ(series.at<int32_t>(0), static_cast<int32_t>(0xFF800000));
 }
 
+/// @brief it should decode a 24 bit value that starts at bit 2.
 TEST(Decoder, TwentyFourBitWithBitOffset) {
     uint8_t buffer[] = {0x58, 0xD1, 0x48, 0x00};
     x::telem::Series series(x::telem::UINT32_T, 1);

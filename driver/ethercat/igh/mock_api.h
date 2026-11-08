@@ -172,7 +172,15 @@ public:
         return this->request_master_fails ? nullptr : this->handle;
     }
 
-    void release_master(ec_master_t *) const override { this->released = true; }
+    void release_master(ec_master_t *) const override {
+        this->released = true;
+        this->domains_created = 0;
+        this->activated = false;
+        for (auto &slave: this->slaves) {
+            slave.configured = false;
+            slave.settled = false;
+        }
+    }
 
     int master_activate(ec_master_t *) const override {
         if (this->activate_result < 0) return this->activate_result;

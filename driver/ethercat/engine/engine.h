@@ -74,9 +74,12 @@ class Engine {
     std::shared_ptr<master::Master> master;
     /// @brief the slaves of the latest discovery, with the layouts of the running bus.
     std::vector<slave::DiscoveryResult> slaves;
-    /// @brief the process data of the running bus.
+    /// @brief the process data of the running bus. Written only while the bus is
+    /// stopped, so the cycle thread reads it without a lock.
     master::Image image;
     /// @brief why the running bus started without each slave, keyed by position.
+    /// Written only while the bus is stopped, so the supervisor reads it without a
+    /// lock.
     std::map<uint16_t, slave::Refusal> left_out;
 
     /// @brief the entries of one reader and the samples the cycle thread hands it.
@@ -206,18 +209,22 @@ class Engine {
     /// errors::PDO_MAPPING_ERROR when the image does not hold an entry.
     [[nodiscard]] std::pair<std::vector<pdo::Offset>, x::errors::Error>
     offsets_locked(const std::vector<pdo::Entry> &entries, size_t image_size) const;
-    /// @brief returns the bus rate in millihertz and the offset of each entry once the
-    /// bus runs at a rate that also serves rate as a read rate, or as a write rate when
-    /// output is true. Starts the bus when it is stopped, and stops it again on an
-    /// error.
-    [[nodiscard]] std::
-        pair<std::pair<uint64_t, std::vector<pdo::Offset>>, x::errors::Error>
-        join_locked(
-            std::unique_lock<std::mutex> &lock,
-            const std::vector<pdo::Entry> &entries,
-            x::telem::Rate rate,
-            bool output
-        );
+    /// @brief what join_locked() gives a new reader or writer.
+    struct Joined {
+        /// @brief the bus rate in millihertz.
+        uint64_t mhz = 0;
+        /// @brief the offset of each entry in the process image.
+        std::vector<pdo::Offset> offsets;
+    };
+    /// @brief returns the bus rate and the offset of each entry once the bus runs at a
+    /// rate that also serves rate as a read rate, or as a write rate when output is
+    /// true. Starts the bus when it is stopped, and stops it again on an error.
+    [[nodiscard]] std::pair<Joined, x::errors::Error> join_locked(
+        std::unique_lock<std::mutex> &lock,
+        const std::vector<pdo::Entry> &entries,
+        x::telem::Rate rate,
+        bool output
+    );
     void close_input(const std::shared_ptr<Input> &input);
     void close_output(const std::shared_ptr<Output> &output);
 
@@ -354,8 +361,5 @@ public:
     /// @brief returns the latest condition of each enabled slave, then each left-out
     /// slave with its refusal, or an empty list when the bus is not running.
     [[nodiscard]] std::vector<slave::Health> health() const;
-
-    /// @brief returns the interface name.
-    [[nodiscard]] std::string interface_name() const;
 };
 }
