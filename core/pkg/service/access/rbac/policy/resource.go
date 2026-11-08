@@ -30,12 +30,6 @@ func ResourceID(k Key) resource.ID {
 	return resource.ID{Type: resource.TypePolicy, Key: k.String()}
 }
 
-// ResourceIDsFromPolicies constructs a slice of unique resource.IDs for the given
-// Policys.
-func ResourceIDsFromPolicies(policies []Policy) []resource.ID {
-	return lo.Map(policies, func(p Policy, _ int) resource.ID { return p.ResourceID() })
-}
-
 // KeysFromResourceIDs extracts the Policy keys from the given resource.IDs.
 func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
