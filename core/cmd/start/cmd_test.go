@@ -41,7 +41,10 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 			set()
 			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
 				Error().
-				To(MatchError(ContainSubstring("a Core no longer joins other Cores")))
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("a Core no longer joins other Cores")),
+				))
 		},
 		Entry("in the config file", func() {
 			viper.Set("peers", []string{"localhost:9092"})
