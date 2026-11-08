@@ -10,6 +10,7 @@
 import json
 import re
 import subprocess
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any
@@ -332,7 +333,10 @@ def recheck(t: Target, gh: GH) -> None:
         key = gh("api", run, "--jq", ".external_id").strip()
         rescore(t, gh, threads(t, gh), key)
     except subprocess.CalledProcessError as e:
-        print(f"::warning::Could not read dismissals after the review: {e}")
+        print(
+            f"::warning::Could not read dismissals after the review: {e}",
+            file=sys.stderr,
+        )
 
 
 def rescore(t: Target, gh: GH, found: list[Thread], key: str) -> bool:

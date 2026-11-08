@@ -269,7 +269,7 @@ class TestDismissedFindings:
         post(review(finding()), target=TARGET, gh=fail)
         [done] = gh.written("PATCH", "check-runs/55")
         assert done["output"]["title"] == "Confidence Score: 4/5"
-        assert "::warning::Could not read dismissals" in capsys.readouterr().out
+        assert "::warning::Could not read dismissals" in capsys.readouterr().err
 
     def test_should_keep_a_finding_whose_dismissal_is_quoted(self, gh: FakeGH) -> None:
         reply = "> reply `@sedosaur dismiss` and a reason\n\nNo, I disagree."

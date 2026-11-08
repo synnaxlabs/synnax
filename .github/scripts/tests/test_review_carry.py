@@ -167,7 +167,7 @@ class TestCarry:
         assert scored[2]["output"]["title"] == "Confidence Score: 5/5"
 
     def test_should_keep_the_review_when_dismissals_cannot_be_read(
-        self, gh: FakeGH
+        self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
     ) -> None:
         def fail(*args: str, stdin: str | None = None) -> str:
             if any("reviewThreads" in a for a in args):
@@ -175,6 +175,9 @@ class TestCarry:
             return gh(*args, stdin=stdin)
 
         assert carry(TARGET, fail, key=KEY)
+        out, err = capsys.readouterr()
+        assert out == ""
+        assert err.startswith("::warning::Could not read dismissals")
         [done] = gh.writes
         assert done[2]["output"]["title"] == "Confidence Score: 4/5"
 
