@@ -12,10 +12,14 @@ package table_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
+	var tx gorp.Tx
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	It("Should retrieve a Table", func(ctx SpecContext) {
 		s := table.Table{
 			Name:    "test",

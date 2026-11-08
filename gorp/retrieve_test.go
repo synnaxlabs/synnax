@@ -856,7 +856,9 @@ var _ = Describe("Retrieve", func() {
 			})
 		})
 	})
+})
 
+var _ = Describe("Retrieve", func() {
 	Describe("Validate", func() {
 		var (
 			entries []entry

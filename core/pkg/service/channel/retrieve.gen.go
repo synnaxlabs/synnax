@@ -20,6 +20,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// tableName names the Channel table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "channel"
+
 // Retrieve is used to retrieve Channel records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {

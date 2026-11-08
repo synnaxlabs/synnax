@@ -15,9 +15,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Builtin", func() {
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	It("Should retrieve the builtin root resource", func(ctx SpecContext) {
 		var res ontology.Resource
 		Expect(otg.NewRetrieve().WhereIDs(ontology.RootID).Entry(&res).Exec(ctx, tx)).

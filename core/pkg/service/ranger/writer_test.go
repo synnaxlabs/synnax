@@ -27,6 +27,7 @@ import (
 )
 
 var _ = Describe("Writer", func() {
+	BeforeEach(openTx)
 	Describe("Create", func() {
 		It("Should create a new range", func(ctx SpecContext) {
 			r := &ranger.Range{
@@ -492,6 +493,7 @@ var _ = Describe("Writer broadcasts", func() {
 	}
 
 	It("Should broadcast a create without labels or parent", func(ctx SpecContext) {
+		openTx()
 		parent := newRange()
 		Expect(w.Create(ctx, parent)).To(Succeed())
 		l := label.Label{Key: uuid.New(), Name: "Label"}

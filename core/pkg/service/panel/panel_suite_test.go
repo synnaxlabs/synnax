@@ -46,7 +46,6 @@ var (
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
 	parentID   resource.ID
-	tx         gorp.Tx
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -113,7 +112,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	)
 	parentID = parent.ResourceID()
 })
-
-var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

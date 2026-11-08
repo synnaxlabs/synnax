@@ -519,12 +519,13 @@ var _ = Describe("Service", func() {
 				// wraps the multi- envelope batch in db.WithTx. This test exercises
 				// that contract: the bad envelope causes the tx callback to return
 				// early, so the good envelope's write is rolled back along with it.
+				parent := newParent(ctx)
 				err := db.WithTx(ctx, func(tx gorp.Tx) error {
 					if _, err := svc.Import(
 						ctx,
 						tx,
 						sampleEnvelope("Good Record", resource.TypeChannel),
-						imex.ImportOptions{Parent: newParent(ctx)},
+						imex.ImportOptions{Parent: parent},
 					); err != nil {
 						return err
 					}
@@ -532,7 +533,7 @@ var _ = Describe("Service", func() {
 						Version: testVersion,
 						Type:    "nonexistent",
 						Name:    "Bad Type",
-					}, imex.ImportOptions{Parent: newParent(ctx)})
+					}, imex.ImportOptions{Parent: parent})
 					return err
 				})
 				Expect(err).To(MatchError(ContainSubstring("no importer registered")))

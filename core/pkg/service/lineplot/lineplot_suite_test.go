@@ -38,39 +38,35 @@ var (
 	proj    project.Project
 	svc     *lineplot.Service
 	imexSvc *imex.Service
-	tx      gorp.Tx
 )
 
-var (
-	_ = BeforeSuite(func(ctx SpecContext) {
-		ShouldNotLeakGoroutines()
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		var (
-			g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-		)
-		imexSvc = imex.NewService()
-		projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	var (
+		g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    g,
-			ImEx:     imexSvc,
-			Panel:    panelSvc,
 		}))
-		svc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
+		panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			ImEx:     imexSvc,
 		}))
-		proj.Name = "test-project"
-		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
-	})
-	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-)
+	)
+	imexSvc = imex.NewService()
+	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    g,
+		ImEx:     imexSvc,
+		Panel:    panelSvc,
+	}))
+	svc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		ImEx:     imexSvc,
+	}))
+	proj.Name = "test-project"
+	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+})

@@ -70,15 +70,48 @@ var _ = Describe("Status", Ordered, func() {
 			Group:    g,
 		}))
 	})
-	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+	openTx := func() {
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func(ctx SpecContext) {
-		Expect(tx.Close()).To(Succeed())
+	}
+
+	Describe("Msgpack storage", func() {
+		It(
+			"Should rename a status stored as msgpack, keeping every other field",
+			func(ctx SpecContext) {
+				type details struct {
+					Count int64 `json:"count" msgpack:"count"`
+				}
+				s := status.Status[details]{
+					Name:    "Before",
+					Key:     "rename-msgpack-key",
+					Variant: status.VariantSuccess,
+					Time:    telem.Now(),
+					Details: details{Count: 9007199254740993},
+				}
+				Expect(gorp.NewCreate[status.Key, status.Status[details]]().
+					Entry(&s).
+					Exec(ctx, gorp.Wrap(store, gorp.WithCodec(msgpack.Codec)))).
+					To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(svc.NewWriter(nil).Delete(ctx, s.Key)).To(Succeed())
+				})
+				Expect(svc.NewWriter(nil).Rename(ctx, s.Key, "After")).
+					To(Succeed())
+				var res status.Status[details]
+				Expect(svc.NewRetrieve[details]().
+					Where(status.MatchKeys[details](s.Key)).
+					Entry(&res).
+					Exec(ctx, nil)).To(Succeed())
+				expected := s
+				expected.Name = "After"
+				Expect(res).To(Equal(expected))
+			},
+		)
 	})
 
 	Describe("Writer", func() {
+		BeforeEach(openTx)
 		Describe("Set", func() {
 			It("Should create a new status", func(ctx SpecContext) {
 				s := &status.Status[any]{
@@ -211,38 +244,6 @@ var _ = Describe("Status", Ordered, func() {
 				},
 			)
 			It(
-				"Should rename a status stored as msgpack, keeping every other field",
-				func(ctx SpecContext) {
-					type details struct {
-						Count int64 `json:"count" msgpack:"count"`
-					}
-					s := status.Status[details]{
-						Name:    "Before",
-						Key:     "rename-msgpack-key",
-						Variant: status.VariantSuccess,
-						Time:    telem.Now(),
-						Details: details{Count: 9007199254740993},
-					}
-					Expect(gorp.NewCreate[status.Key, status.Status[details]]().
-						Entry(&s).
-						Exec(ctx, gorp.Wrap(store, gorp.WithCodec(msgpack.Codec)))).
-						To(Succeed())
-					DeferCleanup(func(ctx SpecContext) {
-						Expect(svc.NewWriter(nil).Delete(ctx, s.Key)).To(Succeed())
-					})
-					Expect(svc.NewWriter(nil).Rename(ctx, s.Key, "After")).
-						To(Succeed())
-					var res status.Status[details]
-					Expect(svc.NewRetrieve[details]().
-						Where(status.MatchKeys[details](s.Key)).
-						Entry(&res).
-						Exec(ctx, nil)).To(Succeed())
-					expected := s
-					expected.Name = "After"
-					Expect(res).To(Equal(expected))
-				},
-			)
-			It(
 				"Should return a validation error for an empty name",
 				func(ctx SpecContext) {
 					s := &status.Status[any]{
@@ -316,6 +317,7 @@ var _ = Describe("Status", Ordered, func() {
 	})
 
 	Describe("Retrieve", func() {
+		BeforeEach(openTx)
 		BeforeEach(func(ctx SpecContext) {
 			statuses := []status.Status[any]{
 				{
@@ -363,8 +365,7 @@ var _ = Describe("Status", Ordered, func() {
 			}
 			Expect(w.SetMany(ctx, &statuses)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
-			tx = db.OpenTx()
-			w = svc.NewWriter(tx)
+			openTx()
 		})
 
 		Describe("WhereKeys", func() {
@@ -663,6 +664,7 @@ var _ = Describe("Status", Ordered, func() {
 	})
 
 	Describe("Generic Type Behavior", func() {
+		BeforeEach(openTx)
 		// This test suite documents how generic types work with Status[D] in gorp.
 		// All Status[D] types share the same gorp namespace because CustomTypeName()
 		// returns "Status" regardless of the type parameter D. This means:

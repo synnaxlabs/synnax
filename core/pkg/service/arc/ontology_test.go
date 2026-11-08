@@ -12,6 +12,7 @@ package arc_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/search"
@@ -21,6 +22,7 @@ import (
 var _ = Describe("RetrieveResource", func() {
 	DescribeTable("Should carry the Arc type in the resource data",
 		func(ctx SpecContext, t arc.Type) {
+			tx := DeferClose(db.OpenTx())
 			a := newArc(
 				t,
 				arc.Base{Name: "typed", Source: arc.Source{Variant: arc.TextSource{}}},
@@ -35,6 +37,8 @@ var _ = Describe("RetrieveResource", func() {
 })
 
 var _ = Describe("Search", func() {
+	var tx gorp.Tx
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	create := func(ctx SpecContext, name string) resource.ID {
 		GinkgoHelper()
 		a := newAutomation(

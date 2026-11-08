@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -27,6 +28,7 @@ import (
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create a Schematic", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			s := schematic.Schematic{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
 			Expect(s.Key).ToNot(Equal(uuid.Nil()))
@@ -34,6 +36,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				s := schematic.Schematic{}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).
 					To(MatchError(ContainSubstring("name: required")))
@@ -43,6 +46,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				rec := &Recorder[schematic.Key, schematic.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				v := schematic.Schematic{Name: "broadcast"}
@@ -77,6 +81,7 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("CreateMany", func() {
 		It("Should create multiple schematics", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			schematics := []schematic.Schematic{
 				{Name: "schematic-1"},
 				{Name: "schematic-2"},
@@ -109,7 +114,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(schematic.MatchKeys(s.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(res.Name).To(Equal("test"))
 			},
@@ -148,7 +153,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewRetrieve().
 					Where(schematic.MatchKeys(other.Key)).
 					Entry(&res).
-					Exec(ctx, tx)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(res.Name).To(Equal("other"))
 			},
 		)
@@ -174,7 +179,7 @@ var _ = Describe("Writer", func() {
 				svc.NewRetrieve().
 					Where(schematic.MatchKeys(s.Key)).
 					Entry(&res).
-					Exec(ctx, tx),
+					Exec(ctx, db),
 			).To(Succeed())
 			Expect(res.Nodes).To(HaveLen(1))
 			Expect(res.Nodes[0].Position).To(Equal(spatial.XY{X: 100, Y: 200}))
@@ -212,7 +217,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(schematic.MatchKeys(s.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(res.Nodes).To(HaveLen(2))
 				Expect(res.Edges).To(HaveLen(1))
@@ -257,7 +262,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(schematic.MatchKeys(snap.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(res.Name).To(Equal("renamed-snap"))
 			},
@@ -286,7 +291,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(schematic.MatchKeys(snap.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(res.Name).To(Equal("snap"))
 			},
@@ -311,7 +316,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(schematic.MatchKeys(s.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(res.Nodes).To(BeEmpty())
 				Expect(res.Edges).To(BeEmpty())
@@ -346,7 +351,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(schematic.MatchKeys(s.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(res.Nodes[0].Position).To(Equal(spatial.XY{X: 29, Y: 58}))
 			},
@@ -395,7 +400,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(schematic.MatchKeys(s.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(res.Nodes).To(HaveLen(2))
 				Expect(res.Edges).To(HaveLen(1))
@@ -503,6 +508,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should copy a Schematic with a new name under the same project",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				s := schematic.Schematic{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
 				var cpy schematic.Schematic

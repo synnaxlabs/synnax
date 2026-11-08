@@ -32,6 +32,7 @@ var _ = Describe("Where", func() {
 	})
 
 	BeforeEach(func(ctx SpecContext) {
+		openTx()
 		labels := make(map[label.Key]label.Label)
 		for _, r := range v.Records {
 			r.Labels = nil

@@ -119,10 +119,9 @@ type DispatchRequest = actions.DispatchRequest[label.Key, label.Action]
 // the label action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
-	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []resource.ID{label.ResourceID(req.Key)},

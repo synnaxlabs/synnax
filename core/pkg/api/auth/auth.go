@@ -189,7 +189,11 @@ func (s *Service) ChangePassword(
 	tx gorp.Tx,
 	req ChangePasswordRequest,
 ) (struct{}, error) {
-	identity, err := s.password.Authenticate(ctx, proofOf(req.Credentials))
+	identity, err := s.password.Verify(
+		ctx,
+		tx,
+		auth.PasswordProof{Credentials: req.Credentials},
+	)
 	if err != nil {
 		return struct{}{}, err
 	}

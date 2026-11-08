@@ -10,6 +10,8 @@
 package ontology
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/set"
@@ -20,6 +22,7 @@ import (
 // appears once. Ancestors reads the changes staged against tx, falling back to the
 // underlying database when tx is nil.
 func (o *Ontology) Ancestors(
+	ctx context.Context,
 	tx gorp.Tx,
 	root resource.ID,
 	ids ...resource.ID,
@@ -38,7 +41,7 @@ func (o *Ontology) Ancestors(
 	}
 	var rels []Relationship
 	for len(frontier) > 0 {
-		keys, err := o.relIndexes.byTo.Get(tx, frontier...)
+		keys, err := o.relIndexes.byTo.Get(ctx, tx, frontier...)
 		if err != nil {
 			return nil, err
 		}
@@ -64,6 +67,7 @@ func (o *Ontology) Ancestors(
 // descendants answers whether IDs descend from a root, and keeps each answer for the
 // next ID.
 type descendants struct {
+	ctx     context.Context
 	o       *Ontology
 	tx      gorp.Tx
 	root    resource.ID
@@ -74,8 +78,13 @@ type descendants struct {
 	err error
 }
 
-func (o *Ontology) newDescendants(tx gorp.Tx, root resource.ID) *descendants {
+func (o *Ontology) newDescendants(
+	ctx context.Context,
+	tx gorp.Tx,
+	root resource.ID,
+) *descendants {
 	return &descendants{
+		ctx:     ctx,
 		o:       o,
 		tx:      tx,
 		root:    root,
@@ -106,7 +115,7 @@ func (d *descendants) descends(id resource.ID) (bool, error) {
 	}
 	visited := set.New(id)
 	for frontier := []resource.ID{id}; len(frontier) > 0; {
-		keys, err := d.o.relIndexes.byTo.Get(d.tx, frontier...)
+		keys, err := d.o.relIndexes.byTo.Get(d.ctx, d.tx, frontier...)
 		if err != nil {
 			return false, err
 		}

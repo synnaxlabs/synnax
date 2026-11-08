@@ -18,15 +18,26 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-func newNameIndex() *gorp.SearchIndex[string, ontology.Resource] {
-	return gorp.NewSearchIndex("name", func(r *ontology.Resource) []string {
-		return []string{r.Name}
+// named is a table entry whose name the DB stores.
+type named struct {
+	Key  string
+	Name string
+}
+
+func (n named) GorpKey() string { return n.Key }
+
+func (named) SetOptions() []any { return nil }
+
+func newNameIndex() *gorp.SearchIndex[string, named] {
+	return gorp.NewSearchIndex("name", func(n *named) []string {
+		return []string{n.Name}
 	})
 }
 
@@ -64,29 +75,22 @@ func (constService) Search(
 var _ = Describe("SearchIndex", func() {
 	var (
 		d   *gorp.DB
-		idx *gorp.SearchIndex[string, ontology.Resource]
+		idx *gorp.SearchIndex[string, named]
 	)
 	BeforeEach(func(ctx SpecContext) {
-		d = DeferClose(gorp.Wrap(memkv.New()))
+		d = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		idx = newNameIndex()
 		table := MustOpen(
-			gorp.OpenTable(ctx, gorp.TableConfig[string, ontology.Resource]{
+			gorp.OpenTable(ctx, gorp.TableConfig[string, named]{
 				DB:      d,
-				Indexes: []gorp.Index[string, ontology.Resource]{idx},
+				Indexes: []gorp.Index[string, named]{idx},
 			}),
 		)
-		resources := []ontology.Resource{
-			ontology.NewResource(
-				schema, newSampleType("a"), "turbopump inlet", Sample{Key: "a"},
-			),
-			ontology.NewResource(
-				schema,
-				newSampleType("b"),
-				"turbopump",
-				Sample{Key: "b"},
-			),
+		entries := []named{
+			{Key: newSampleType("a").String(), Name: "turbopump inlet"},
+			{Key: newSampleType("b").String(), Name: "turbopump"},
 		}
-		Expect(table.NewCreate().Entries(&resources).Exec(ctx, d)).To(Succeed())
+		Expect(table.NewCreate().Entries(&entries).Exec(ctx, d)).To(Succeed())
 	})
 
 	DescribeTable("Should return the IDs of at most limit matches, closest match first",
@@ -135,6 +139,7 @@ var _ = Describe("Service", func() {
 	It(
 		"Should panic when retrieving a resource whose service is not registered",
 		func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
 			id := resource.ID{Type: resource.TypeUser, Key: "unregistered"}
 			Expect(otg.NewWriter(tx).DefineResources(ctx, id)).To(Succeed())
 			var res ontology.Resource

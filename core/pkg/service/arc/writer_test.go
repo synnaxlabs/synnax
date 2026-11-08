@@ -15,18 +15,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create an Arc with generated key", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			a := newAutomation(
 				arc.Base{
 					Name:   "test-arc",
@@ -40,6 +43,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				a := newAutomation(
 					arc.Base{Source: arc.Source{Variant: arc.TextSource{}}},
 				)
@@ -49,6 +53,7 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should create an Arc with explicit key", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			key := uuid.New()
 			a := newAutomation(
 				arc.Base{
@@ -62,6 +67,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should parent the Arc under the root directory", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			a := newAutomation(
 				arc.Base{
 					Name:   "parented-arc",
@@ -83,11 +89,13 @@ var _ = Describe("Writer", func() {
 		It("Should reject an Arc that is neither an automation nor a module", func(
 			ctx SpecContext,
 		) {
+			tx := DeferClose(db.OpenTx())
 			Expect(svc.NewWriter(tx).Create(ctx, &arc.Arc{})).
 				To(MatchError(validate.ErrValidation))
 		})
 
 		It("Should reject a change of type", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			a := newModule(
 				arc.Base{Name: "typed", Source: arc.Source{Variant: arc.TextSource{}}},
 			)
@@ -98,6 +106,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should handle multiple Arc creations", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			a1 := newAutomation(
 				arc.Base{Name: "arc-1", Source: arc.Source{Variant: arc.TextSource{}}},
 			)
@@ -114,6 +123,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				rec := &Recorder[arc.Key, arc.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				v := newAutomation(
@@ -156,6 +166,8 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("CreateMany", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should create multiple Arcs", func(ctx SpecContext) {
 			arcs := []arc.Arc{
 				newAutomation(
@@ -183,6 +195,8 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Update", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should update an existing Arc", func(ctx SpecContext) {
 			key := uuid.New()
 			a := newAutomation(arc.Base{
@@ -207,6 +221,8 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Delete", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should delete an Arc", func(ctx SpecContext) {
 			a := newAutomation(arc.Base{
 				Name:   "arc-to-delete",

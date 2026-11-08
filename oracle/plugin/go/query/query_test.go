@@ -283,8 +283,31 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 				Entry("filter", "@filter", "matcher"),
 				Entry("index", "@index lookup", "index"),
+				Entry("ref", "@ref on_delete restrict", "index"),
 				Entry("search", "@search", "index"),
 			)
+
+			It("Should reject a @ref on a union field", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+						owner uuid @ref on_delete restrict
+					}
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						@retrieve
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "view", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"view.View: @ref is not supported on union fields (owner)",
+				)))
+			})
 		})
 
 		Context("inherited key", func() {

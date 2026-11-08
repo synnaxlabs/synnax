@@ -30,6 +30,10 @@ import (
 
 // ServiceConfig is the configuration for the task API service.
 type ServiceConfig struct {
+	// DB runs the transaction of a delete.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Task stores and retrieves tasks.
 	//
 	// [REQUIRED]
@@ -61,6 +65,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
@@ -72,6 +77,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.task")
+	v.NotNil("db", c.DB)
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
@@ -81,6 +87,7 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	db          *gorp.DB
 	access      *rbac.Service
 	task        *task.Service
 	status      *status.Service
@@ -94,6 +101,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:          cfg.DB,
 		task:        cfg.Task,
 		status:      cfg.Status,
 		access:      cfg.RBAC,
@@ -154,10 +162,9 @@ type DispatchResponse = actions.DispatchResponse[task.Action]
 // carry its stored config.
 func (s *Service) Dispatch(
 	ctx context.Context,
-	tx gorp.Tx,
 	req DispatchRequest,
 ) (DispatchResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
+	enforcer := s.access.NewEnforcer(nil)
 	request := access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
@@ -223,10 +230,9 @@ type RenameRequest struct {
 // Rename renames the task. It requires update access on it.
 func (s *Service) Rename(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []resource.ID{task.ResourceID(req.Key)},
@@ -243,15 +249,12 @@ type DeleteRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete stops the running tasks in req, then deletes every task in req. The stops take
-// at most StopTimeout in total. A task that does not stop in time is still deleted, and
-// it can hold its channels open until its Driver removes it.
-func (s *Service) Delete(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DeleteRequest,
-) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+// Delete stops the running tasks in req, then deletes every task in req in one
+// transaction. The stops take at most StopTimeout in total. A task that does not stop
+// in time is still deleted, and it can hold its channels open until its Driver removes
+// it. Delete holds no transaction while it waits for the stops.
+func (s *Service) Delete(ctx context.Context, req DeleteRequest) (struct{}, error) {
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: task.ResourceIDs(req.Keys),
@@ -261,13 +264,15 @@ func (s *Service) Delete(
 	if err := s.stopRunning(ctx, req.Keys); err != nil {
 		return struct{}{}, err
 	}
-	w := s.task.NewWriter(tx)
-	for _, k := range req.Keys {
-		if err := w.Delete(ctx, k, false); err != nil {
-			return struct{}{}, err
+	return struct{}{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.task.NewWriter(tx)
+		for _, k := range req.Keys {
+			if err := w.Delete(ctx, k, false); err != nil {
+				return err
+			}
 		}
-	}
-	return struct{}{}, nil
+		return nil
+	})
 }
 
 type (

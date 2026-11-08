@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -31,6 +32,7 @@ import (
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create a Log", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			l := log.Log{
 				Name: "test",
 				Channels: []log.ChannelEntry{
@@ -47,6 +49,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				l := log.Log{}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).
 					To(MatchError(ContainSubstring("name: required")))
@@ -55,6 +58,7 @@ var _ = Describe("Writer", func() {
 
 		DescribeTable("Should return a validation error for an out-of-range precision",
 			func(ctx SpecContext, precision uint8, msg string) {
+				tx := DeferClose(db.OpenTx())
 				l := log.Log{
 					Name:     "test",
 					Channels: []log.ChannelEntry{{Channel: 5, Precision: &precision}},
@@ -66,12 +70,14 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should reject a channel of 0", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			l := log.Log{Name: "test", Channels: []log.ChannelEntry{{}}}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).
 				To(MatchError(ContainSubstring("channels.0.channel")))
 		})
 
 		It("Should reject two entries for one channel", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			l := log.Log{
 				Name:     "test",
 				Channels: []log.ChannelEntry{{Channel: 5}, {Channel: 5}},
@@ -81,6 +87,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should keep a channel precision of 0", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			l := log.Log{
 				Name:     "test",
 				Channels: []log.ChannelEntry{{Channel: 5, Precision: new(uint8(0))}},
@@ -97,6 +104,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should establish a ParentOf relationship to the project",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				l := log.Log{Name: "with-proj"}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
@@ -110,6 +118,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should skip the project ParentOf relationship when proj is uuid.Nil()",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				l := log.Log{Name: "no-proj"}
 				Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &l)).To(Succeed())
 				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
@@ -123,6 +132,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should still register the resource in the ontology when proj is uuid.Nil()",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				l := log.Log{Name: "orphan"}
 				Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &l)).To(Succeed())
 				var resource ontology.Resource
@@ -137,6 +147,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should update the existing log when called with an existing key",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				key := uuid.New()
 				first := log.Log{Key: key, Name: "first"}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &first)).To(Succeed())
@@ -154,6 +165,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				rec := &Recorder[log.Key, log.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				v := log.Log{Name: "broadcast"}
@@ -188,6 +200,7 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("CreateMany", func() {
 		It("Should create multiple logs", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			logs := []log.Log{
 				{Name: "log-1"},
 				{Name: "log-2"},
@@ -203,6 +216,8 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Delete", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should delete a Log so it is no longer retrievable", func(ctx SpecContext) {
 			l := log.Log{Name: "to-delete"}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
@@ -240,7 +255,7 @@ var _ = Describe("Writer", func() {
 			GinkgoHelper()
 			var res log.Log
 			Expect(
-				svc.NewRetrieve().Where(log.MatchKeys(key)).Entry(&res).Exec(ctx, tx),
+				svc.NewRetrieve().Where(log.MatchKeys(key)).Entry(&res).Exec(ctx, db),
 			).
 				To(Succeed())
 			return res

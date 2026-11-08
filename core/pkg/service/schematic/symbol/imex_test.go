@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -43,8 +44,8 @@ var _ = Describe("ImEx", func() {
 				Name: "exported",
 				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 			}
-			// Export reads committed data, so the symbol is created outside the
-			// per-spec tx and must be deleted to keep the shared DB's counts intact.
+			// Export reads committed data, so the symbol must be deleted to keep the
+			// shared DB's counts intact.
 			Expect(
 				svc.NewWriter(nil).Create(ctx, &sym, proj.ResourceID()),
 			).To(Succeed())
@@ -81,6 +82,8 @@ var _ = Describe("ImEx", func() {
 	Describe("Import", func() {
 		// Imports run on the per-spec tx so created rows roll back and the shared DB's
 		// symbol counts stay intact for the other specs.
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		importAndRetrieve := func(ctx SpecContext, path string) symbol.Symbol {
 			GinkgoHelper()
 			id := MustSucceed(imexSvc.Import(
@@ -230,6 +233,7 @@ var _ = Describe("ImEx", func() {
 					Expect(svc.NewWriter(nil).Delete(ctx, original.Key)).To(Succeed())
 				})
 				env := MustSucceed(svc.Export(ctx, symbol.ResourceID(original.Key)))
+				tx := DeferClose(db.OpenTx())
 				id := MustSucceed(imexSvc.Import(
 					ctx,
 					tx,

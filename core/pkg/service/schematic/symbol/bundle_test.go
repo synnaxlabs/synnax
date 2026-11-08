@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -65,8 +66,8 @@ func (e failEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) e
 
 func (failEncoder) Extension() string { return xjson.Codec.Extension() }
 
-// ExportGroup reads committed data, so every fixture below is created outside the
-// per-spec tx and deleted afterwards to keep the shared DB's counts intact.
+// ExportGroup reads committed data, so every fixture below is deleted afterwards to
+// keep the shared DB's counts intact.
 var _ = Describe("ExportGroup", func() {
 	createGroup := func(ctx SpecContext, name string, parent resource.ID) group.Group {
 		GinkgoHelper()
@@ -228,6 +229,8 @@ var _ = Describe("ExportGroup", func() {
 // Imports run on the per-spec tx so created rows roll back and the shared DB's counts
 // stay intact for the other specs.
 var _ = Describe("ImportGroup", func() {
+	var tx gorp.Tx
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	manifest := func(version int, name string) []byte {
 		GinkgoHelper()
 		return MustSucceed(json.Marshal(map[string]any{
@@ -288,7 +291,7 @@ var _ = Describe("ImportGroup", func() {
 		ctx SpecContext,
 	) {
 		src := MustSucceed(
-			groupSvc.NewWriter(nil).Create(ctx, "Valves", proj.ResourceID()),
+			groupSvc.NewWriter(tx).Create(ctx, "Valves", proj.ResourceID()),
 		)
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(groupSvc.NewWriter(nil).Delete(ctx, src.Key)).To(Succeed())
@@ -297,11 +300,13 @@ var _ = Describe("ImportGroup", func() {
 			Name: "Inlet",
 			Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &sym, src.ResourceID())).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, &sym, src.ResourceID())).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
 		})
+		Expect(tx.Commit(ctx)).To(Succeed())
 		files, _ := MustSucceed2(svc.ExportGroup(ctx, src.Key, xjson.Codec))
+		tx = DeferClose(db.OpenTx())
 		g := importGroup(ctx, files)
 		Expect(g.Key).ToNot(Equal(src.Key))
 		Expect(g.Name).To(Equal("Valves"))

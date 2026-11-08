@@ -71,8 +71,7 @@ var _ = Describe("Rename", func() {
 		t := createTask(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
-			apitask.RenameRequest{Key: t.Key, Name: "After"},
+			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
 		)).Error().ToNot(HaveOccurred())
 		renamed := retrieveTask(ctx, t.Key)
 		Expect(renamed.Name).To(Equal("After"))
@@ -84,8 +83,7 @@ var _ = Describe("Rename", func() {
 		t := createTask(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
-			apitask.RenameRequest{Key: t.Key, Name: ""},
+			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: ""},
 		)).Error().To(MatchError(ContainSubstring("name: required")))
 		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
 	})
@@ -94,16 +92,14 @@ var _ = Describe("Rename", func() {
 		key := uuid.New()
 		grant(ctx, access.ActionUpdate, u.ResourceID(), task.ResourceID(key))
 		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
-			apitask.RenameRequest{Key: key, Name: "After"},
+			AuthedCtx(ctx, u), apitask.RenameRequest{Key: key, Name: "After"},
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
 		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
-			apitask.RenameRequest{Key: t.Key, Name: "After"},
+			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
 	})
@@ -133,7 +129,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), t.ResourceID())
 		res := MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apitask.DispatchRequest{
 				Key:         t.Key,
 				DispatchKey: "dk",
@@ -156,7 +151,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		res := MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apitask.DispatchRequest{
 				Key:         t.Key,
 				DispatchKey: "dk",
@@ -171,7 +165,6 @@ var _ = Describe("Dispatch", func() {
 		t := createDraft(ctx)
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apitask.DispatchRequest{
 				Key:         t.Key,
 				DispatchKey: "dk",
@@ -186,7 +179,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), task.ResourceID(key))
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apitask.DispatchRequest{
 				Key:         key,
 				DispatchKey: "dk",
@@ -449,6 +441,7 @@ var _ = Describe("Delete", func() {
 	withTimeout := func(timeout time.Duration) *apitask.Service {
 		GinkgoHelper()
 		return MustSucceed(apitask.NewService(apitask.ServiceConfig{
+			DB:          node.DB,
 			Task:        svc.Task,
 			Status:      svc.Status,
 			RBAC:        svc.RBAC,
@@ -491,12 +484,34 @@ var _ = Describe("Delete", func() {
 			reportStopped(ctx, t)
 		}()
 		Expect(withTimeout(10*time.Second).Delete(
-			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 		)).Error().ToNot(HaveOccurred())
 		Expect(svc.Channel.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
 		Eventually(driver).Should(BeClosed())
 		expectGone(ctx, t.Key)
 	})
+	It(
+		"Should return as soon as a running task reports its stop",
+		func(ctx SpecContext) {
+			t := createRunningTask(ctx, true)
+			grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
+			commands := streamCommands(ctx)
+			driver := make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				defer close(driver)
+				Eventually(commands).Should(Receive())
+				reportStopped(ctx, t)
+			}()
+			start := time.Now()
+			Expect(withTimeout(5*time.Second).Delete(
+				AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
+			Eventually(driver).Should(BeClosed())
+			expectGone(ctx, t.Key)
+		},
+	)
 	It("Should stop a batch that never acks within one timeout", func(ctx SpecContext) {
 		const timeout = 300 * time.Millisecond
 		tasks := []task.Task{
@@ -512,7 +527,7 @@ var _ = Describe("Delete", func() {
 		commands := streamCommands(ctx)
 		start := time.Now()
 		Expect(withTimeout(timeout).Delete(
-			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: keys},
+			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: keys},
 		)).Error().ToNot(HaveOccurred())
 		elapsed := time.Since(start)
 		Expect(elapsed).To(BeNumerically(">=", timeout))
@@ -539,7 +554,7 @@ var _ = Describe("Delete", func() {
 			stallWrites(ctx)
 			start := time.Now()
 			Expect(withTimeout(timeout).Delete(
-				AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+				AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(time.Since(start)).To(BeNumerically("<", 2*timeout))
 			expectGone(ctx, t.Key)
@@ -559,7 +574,7 @@ var _ = Describe("Delete", func() {
 		Expect(svc.Status.NewWriter(nil).Set(ctx, &forged)).To(Succeed())
 		commands := streamCommands(ctx)
 		Expect(withTimeout(100*time.Millisecond).Delete(
-			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{target.Key}},
+			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{target.Key}},
 		)).Error().ToNot(HaveOccurred())
 		var cmd task.Command
 		Eventually(commands).Should(Receive(&cmd))
@@ -578,12 +593,8 @@ var _ = Describe("Delete", func() {
 				cancel()
 			}
 			Expect(withTimeout(10*time.Second).Delete(
-				AuthedCtx(
-					reqCtx,
-					u,
-				), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
-			),
-			).Error().To(MatchError(context.Canceled))
+				AuthedCtx(reqCtx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			)).Error().To(MatchError(context.Canceled))
 			Expect(retrieveTask(ctx, t.Key).Key).To(Equal(t.Key))
 		},
 		Entry("before the stop", time.Duration(0)),
@@ -597,7 +608,7 @@ var _ = Describe("Delete", func() {
 			commands := streamCommands(ctx)
 			start := time.Now()
 			Expect(withTimeout(10*time.Second).Delete(
-				AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+				AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(time.Since(start)).To(BeNumerically("<", time.Second))
 			Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
@@ -624,7 +635,7 @@ var _ = Describe("Delete", func() {
 		t := createRunningTask(ctx, true)
 		commands := streamCommands(ctx)
 		Expect(apiSvc.Delete(
-			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 		)).Error().To(MatchError(access.ErrDenied))
 		Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
 		Expect(retrieveTask(ctx, t.Key).Key).To(Equal(t.Key))

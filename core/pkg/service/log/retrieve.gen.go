@@ -17,6 +17,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the Log table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "log"
+
 // Retrieve is used to retrieve Log records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {

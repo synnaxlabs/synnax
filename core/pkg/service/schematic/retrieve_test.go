@@ -13,10 +13,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a Schematic", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
 		s := schematic.Schematic{Name: "test"}
 		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
 		var res schematic.Schematic

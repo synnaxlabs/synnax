@@ -18,12 +18,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Retrieve", func() {
 	var w ontology.Writer
-	BeforeEach(func() { w = otg.NewWriter(tx) })
+	BeforeEach(func() {
+		tx = DeferClose(db.OpenTx())
+		w = otg.NewWriter(tx)
+	})
 	Describe("Single Clause", func() {
 		It("Should retrieve a resource by its Name", func(ctx SpecContext) {
 			id := newSampleType("A")

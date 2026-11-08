@@ -145,6 +145,7 @@ var _ = Describe("Ontology", func() {
 			parent, child resource.ID
 		)
 		BeforeEach(func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
 			w = otg.NewWriter(tx)
 			parent, child = newSampleType(
 				"rel-exists-parent",
@@ -507,6 +508,7 @@ var _ = Describe("Ontology", func() {
 })
 
 var _ = Describe("ParentsTraverser", func() {
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	retrieveParents := func(ctx SpecContext, id resource.ID) []resource.ID {
 		GinkgoHelper()
 		var parents []ontology.Resource

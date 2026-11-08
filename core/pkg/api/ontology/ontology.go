@@ -161,6 +161,7 @@ func (s *Service) Retrieve(
 	if req.Ancestors {
 		var err error
 		if res.Relationships, err = s.ontology.Ancestors(
+			ctx,
 			nil,
 			req.Root,
 			ontology.ResourceIDs(resources)...,

@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -27,7 +28,7 @@ import (
 )
 
 var _ = Describe("Writer", func() {
-	retrieve := func(ctx context.Context, key panel.Key) panel.Panel {
+	retrieve := func(ctx context.Context, tx gorp.Tx, key panel.Key) panel.Panel {
 		GinkgoHelper()
 		var res panel.Panel
 		Expect(svc.NewRetrieve().Where(panel.MatchKeys(key)).Entry(&res).Exec(ctx, tx)).
@@ -37,6 +38,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("Create", func() {
 		It("Should assign a key when the panel's key is nil", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			p := panel.Panel{Name: "test", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(p.Key).ToNot(Equal(uuid.Nil()))
@@ -45,19 +47,21 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should default a freshly created panel to a single empty leaf",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				p := panel.Panel{Name: "test", Parent: &parentID}
 				Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-				res := retrieve(ctx, p.Key)
+				res := retrieve(ctx, tx, p.Key)
 				leaf := MustBeOk(asLeaf(res.Root))
 				Expect(leaf.Tabs).To(BeEmpty())
 			},
 		)
 
 		It("Should preserve a caller-provided tree", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			key := uuid.New()
 			p := panel.Panel{Name: "test", Root: leafNode(tab(key)), Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			res := retrieve(ctx, p.Key)
+			res := retrieve(ctx, tx, p.Key)
 			leaf := MustBeOk(asLeaf(res.Root))
 			Expect(leaf.Tabs).To(HaveLen(1))
 			Expect(leaf.Tabs[0].Key()).To(Equal(key))
@@ -65,6 +69,7 @@ var _ = Describe("Writer", func() {
 
 		DescribeTable("Should reject a caller-provided tree that violates invariants",
 			func(ctx SpecContext, root func() panel.Node, expected string) {
+				tx := DeferClose(db.OpenTx())
 				p := panel.Panel{Name: "invalid", Root: root(), Parent: &parentID}
 				Expect(svc.NewWriter(tx).Create(ctx, &p)).
 					To(MatchError(ContainSubstring(expected)))
@@ -102,6 +107,7 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should register the panel as an ontology resource", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			p := panel.Panel{Name: "test", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			var resource ontology.Resource
@@ -114,6 +120,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should parent the panel to the provided parent", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			p := panel.Panel{Name: "with-parent", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
@@ -126,6 +133,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should create a panel with no parent relationship when parent is absent",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				p := panel.Panel{Name: "draft"}
 				Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
@@ -139,6 +147,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should still register the resource when parent is absent",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				p := panel.Panel{Name: "draft"}
 				Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 				Expect(otg.NewRetrieve().
@@ -151,18 +160,20 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should update an existing panel when called with an existing key",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				key := uuid.New()
 				first := panel.Panel{Key: key, Name: "first", Parent: &parentID}
 				Expect(svc.NewWriter(tx).Create(ctx, &first)).To(Succeed())
 				second := panel.Panel{Key: key, Name: "second", Parent: &parentID}
 				Expect(svc.NewWriter(tx).Create(ctx, &second)).To(Succeed())
-				Expect(retrieve(ctx, key).Name).To(Equal("second"))
+				Expect(retrieve(ctx, tx, key).Name).To(Equal("second"))
 			},
 		)
 
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				rec := &Recorder[panel.Key, panel.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				v := panel.Panel{Name: "broadcast", Parent: &parentID}
@@ -198,6 +209,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should create every panel with keys assigned and trees defaulted",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				ps := []panel.Panel{
 					{Name: "a", Parent: &parentID},
 					{Name: "b", Parent: &parentID},
@@ -205,7 +217,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).CreateMany(ctx, &ps)).To(Succeed())
 				for _, p := range ps {
 					Expect(p.Key).ToNot(Equal(uuid.Nil()))
-					leaf := MustBeOk(asLeaf(retrieve(ctx, p.Key).Root))
+					leaf := MustBeOk(asLeaf(retrieve(ctx, tx, p.Key).Root))
 					Expect(leaf.Tabs).To(BeEmpty())
 				}
 			},
@@ -216,6 +228,7 @@ var _ = Describe("Writer", func() {
 				groupSvc.CreateOrRetrieve(ctx, "other-parent", ontology.RootID),
 			).
 				ResourceID()
+			tx := DeferClose(db.OpenTx())
 			ps := []panel.Panel{
 				{Name: "a", Parent: &parentID},
 				{Name: "b", Parent: &other},
@@ -236,6 +249,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should reject the batch when any panel's tree is invalid",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				key := uuid.New()
 				ps := []panel.Panel{
 					{Name: "ok", Parent: &parentID},
@@ -250,6 +264,8 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Delete", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It(
 			"Should delete a panel so it is no longer retrievable",
 			func(ctx SpecContext) {
@@ -301,7 +317,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewRenameAction(panel.RenamePayload{}),
 				})).To(MatchError(ContainSubstring("name: required")))
-				Expect(retrieve(ctx, key).Name).To(Equal("test"))
+				Expect(retrieve(ctx, db, key).Name).To(Equal("test"))
 			},
 		)
 
@@ -310,7 +326,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
 				{Type: panel.ActionTypeRename},
 			})).To(MatchError(union.ErrMissingPayload))
-			Expect(retrieve(ctx, key).Name).To(Equal("test"))
+			Expect(retrieve(ctx, db, key).Name).To(Equal("test"))
 		})
 
 		It(
@@ -333,7 +349,7 @@ var _ = Describe("Writer", func() {
 						ContainSubstring("only the Core dispatches a panel create"),
 					),
 				))
-				Expect(retrieve(ctx, other).Name).To(Equal("test"))
+				Expect(retrieve(ctx, db, other).Name).To(Equal("test"))
 			},
 		)
 
@@ -342,7 +358,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
 			})).To(Succeed())
-			Expect(retrieve(ctx, key).Name).To(Equal("renamed"))
+			Expect(retrieve(ctx, db, key).Name).To(Equal("renamed"))
 		})
 
 		It(
@@ -358,7 +374,7 @@ var _ = Describe("Writer", func() {
 						},
 					),
 				})).To(Succeed())
-				leaf := MustBeOk(asLeaf(retrieve(ctx, key).Root))
+				leaf := MustBeOk(asLeaf(retrieve(ctx, db, key).Root))
 				Expect(leaf.Tabs).To(HaveLen(1))
 				Expect(leaf.Tabs[0].Key()).To(Equal(tabKey))
 			},
@@ -376,7 +392,7 @@ var _ = Describe("Writer", func() {
 					},
 				),
 			})).To(Succeed())
-			res := retrieve(ctx, key)
+			res := retrieve(ctx, db, key)
 			Expect(res.Name).To(Equal("batched"))
 			Expect(MustBeOk(asLeaf(res.Root)).Tabs).To(HaveLen(1))
 		})
@@ -394,7 +410,7 @@ var _ = Describe("Writer", func() {
 						},
 					),
 				})).Error().To(MatchError(ContainSubstring("tab not found in tree")))
-				Expect(retrieve(ctx, key).Name).To(Equal("test"))
+				Expect(retrieve(ctx, db, key).Name).To(Equal("test"))
 			},
 		)
 
@@ -411,7 +427,7 @@ var _ = Describe("Writer", func() {
 						},
 					),
 				})).To(Succeed())
-				tabs := MustBeOk(asLeaf(retrieve(ctx, key).Root)).Tabs
+				tabs := MustBeOk(asLeaf(retrieve(ctx, db, key).Root)).Tabs
 				Expect(tabs).To(HaveLen(1))
 				Expect(tabs[0].Variant).To(Equal(panel.ResourceTab{
 					Key:      tabKey,

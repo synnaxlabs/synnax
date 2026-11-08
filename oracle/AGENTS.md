@@ -137,6 +137,10 @@ Never fake absence with a value. No `none` enum member, no empty string meaning 
 applicable". A sentinel claims the question was answered when it was not, and it makes
 the "did you forget" check impossible to write.
 
+One exception exists for `@ref`: a scalar with a zero default (`= 0`, `= ""`) holds no
+target while it is zero, because stored task configs use zero for "none". Give a new
+reference `X?` instead. A `detach` reference needs `X?`, an array, or a zero default.
+
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
 ## Union discriminators

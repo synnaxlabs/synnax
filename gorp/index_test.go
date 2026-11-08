@@ -117,8 +117,19 @@ func (f *failOnceDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) 
 	return f.DB.OpenIterator(opts)
 }
 
-// failingCommitDB is a kv.DB whose transactions fail to commit once fail is set. Each
-// failing commit calls during before it returns.
+// blockingDB is a kv.DB whose iterators open only once release is closed.
+type blockingDB struct {
+	kv.DB
+	release chan struct{}
+}
+
+func (b *blockingDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	<-b.release
+	return b.DB.OpenIterator(opts)
+}
+
+// failingCommitDB is a kv.DB whose transactions call during, when set, before they
+// commit. Once fail is set, each commit fails with it instead.
 type failingCommitDB struct {
 	kv.DB
 	fail   error
@@ -135,31 +146,13 @@ func (f *failingCommitDB) OpenTx() kv.Tx {
 }
 
 func (t failingCommitTx) Commit(ctx context.Context, opts ...any) error {
+	if t.db.during != nil {
+		t.db.during()
+	}
 	if t.db.fail == nil {
 		return t.Tx.Commit(ctx, opts...)
 	}
-	t.db.during()
 	return t.db.fail
-}
-
-// interceptedSetDB is a kv.DB that calls intercept before each write outside a
-// transaction. An error from intercept fails the write before it reaches storage.
-type interceptedSetDB struct {
-	kv.DB
-	intercept func() error
-}
-
-func (i *interceptedSetDB) Set(
-	ctx context.Context,
-	key, value []byte,
-	opts ...any,
-) error {
-	if i.intercept != nil {
-		if err := i.intercept(); err != nil {
-			return err
-		}
-	}
-	return i.DB.Set(ctx, key, value, opts...)
 }
 
 // openHostIndexedDB returns a DB whose indexes take local writes only from the commit
@@ -269,17 +262,22 @@ var _ = Describe("Index", func() {
 		DeferCleanup(func() { Expect(tx.Close()).To(Succeed()) })
 		Expect(table.NewCreate().
 			Entry(&indexedEntry{ID: 1, Name: "zeta"}).Exec(ctx, tx)).To(Succeed())
-		var during []indexedEntry
+		var (
+			during   []indexedEntry
+			inFlight []int32
+		)
 		failing.fail = errors.New("commit failed")
 		failing.during = func() {
 			Expect(table.NewRetrieve().
 				Where(nameIdx.Filter("zeta")).
 				Entries(&during).Exec(ctx, db)).To(Succeed())
+			inFlight = MustSucceed(nameIdx.Get(ctx, nil, "zeta"))
 		}
 		Expect(tx.Commit(ctx)).To(MatchError("commit failed"))
 		Expect(during).To(BeEmpty())
-		Expect(nameIdx.Get(nil, "zeta")).To(BeEmpty())
-		Expect(nameIdx.Get(nil, "alpha")).To(ConsistOf(int32(1)))
+		Expect(inFlight).To(ConsistOf(int32(1)))
+		Expect(nameIdx.Get(ctx, nil, "zeta")).To(BeEmpty())
+		Expect(nameIdx.Get(ctx, nil, "alpha")).To(ConsistOf(int32(1)))
 	})
 
 	It("Should finish a write through the DB of a NaN value", func(ctx SpecContext) {
@@ -293,69 +291,40 @@ var _ = Describe("Index", func() {
 			Exec(ctx, db)).To(Succeed())
 	})
 
-	Describe("Write through the DB", func() {
-		var (
-			store    *interceptedSetDB
-			db       *gorp.DB
-			table    *gorp.Table[int32, indexedEntry]
-			nameIdx  *gorp.LookupIndex[int32, indexedEntry, string]
-			scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
-		)
-		BeforeEach(func(ctx SpecContext) {
-			store = &interceptedSetDB{DB: memkv.New()}
-			db = DeferClose(openHostIndexedDB(store))
-			nameIdx = gorp.NewLookupIndex(
+	It(
+		"Should find an entry only by its stored value during a commit that updates it",
+		func(ctx SpecContext) {
+			store := &failingCommitDB{DB: memkv.New()}
+			db := DeferClose(openHostIndexedDB(store))
+			nameIdx := gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
-			scoreIdx = gorp.NewSortedIndex(
-				"score", func(e *indexedEntry) int64 { return e.Score },
-			)
-			table = DeferClose(openIndexedTable(ctx, db, nameIdx, scoreIdx))
+			table := DeferClose(openIndexedTable(ctx, db, nameIdx))
 			Expect(table.NewCreate().
-				Entry(&indexedEntry{ID: 1, Name: "alpha", Score: 10}).
+				Entry(&indexedEntry{ID: 1, Name: "alpha"}).
 				Exec(ctx, db)).To(Succeed())
-		})
-
-		It(
-			"Should find an entry only by its stored value during an update",
-			func(ctx SpecContext) {
-				retrieve := func(f gorp.Filter[int32, indexedEntry]) []int32 {
-					GinkgoHelper()
-					var res []indexedEntry
-					Expect(table.NewRetrieve().
-						Where(f).Entries(&res).Exec(ctx, db)).To(Succeed())
-					return idsOf(res)
-				}
-				var byOld, byNew []int32
-				store.intercept = func() error {
-					byOld = retrieve(nameIdx.Filter("alpha"))
-					byNew = retrieve(nameIdx.Filter("zeta"))
-					return nil
-				}
-				Expect(table.NewCreate().
-					Entry(&indexedEntry{ID: 1, Name: "zeta", Score: 99}).
-					Exec(ctx, db)).To(Succeed())
-				Expect(byOld).To(ConsistOf(int32(1)))
-				Expect(byNew).To(BeEmpty())
-				Expect(retrieve(nameIdx.Filter("alpha"))).To(BeEmpty())
-				Expect(retrieve(nameIdx.Filter("zeta"))).To(ConsistOf(int32(1)))
-			},
-		)
-
-		It("Should keep the indexes when the write fails", func(ctx SpecContext) {
-			store.intercept = func() error { return errors.New("set failed") }
+			retrieve := func(f gorp.Filter[int32, indexedEntry]) []int32 {
+				GinkgoHelper()
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(f).Entries(&res).Exec(ctx, db)).To(Succeed())
+				return idsOf(res)
+			}
+			var byOld, byNew []int32
+			store.during = func() {
+				byOld = retrieve(nameIdx.Filter("alpha"))
+				byNew = retrieve(nameIdx.Filter("zeta"))
+			}
 			Expect(table.NewCreate().
-				Entry(&indexedEntry{ID: 1, Name: "zeta", Score: 99}).
-				Exec(ctx, db)).To(MatchError("set failed"))
-			Expect(table.NewCreate().
-				Entry(&indexedEntry{ID: 2, Name: "zeta", Score: 99}).
-				Exec(ctx, db)).To(MatchError("set failed"))
-			Expect(nameIdx.Get(nil, "zeta")).To(BeEmpty())
-			Expect(nameIdx.Get(nil, "alpha")).To(ConsistOf(int32(1)))
-			Expect(scoreIdx.Get(nil, int64(99))).To(BeEmpty())
-			Expect(scoreIdx.Get(nil, int64(10))).To(ConsistOf(int32(1)))
-		})
-	})
+				Entry(&indexedEntry{ID: 1, Name: "zeta"}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(byOld).To(ConsistOf(int32(1)))
+			Expect(byNew).To(BeEmpty())
+			store.during = nil
+			Expect(retrieve(nameIdx.Filter("alpha"))).To(BeEmpty())
+			Expect(retrieve(nameIdx.Filter("zeta"))).To(ConsistOf(int32(1)))
+		},
+	)
 
 	Describe("Lookup", func() {
 		Describe("Population at OpenTable", func() {
@@ -376,10 +345,10 @@ var _ = Describe("Index", func() {
 					table := openIndexedTable(ctx, idxDB, nameIdx)
 					defer func() { Expect(table.Close()).To(Succeed()) }()
 
-					keys := MustSucceed(nameIdx.Get(nil, "alpha"))
+					keys := MustSucceed(nameIdx.Get(ctx, nil, "alpha"))
 					Expect(keys).To(ConsistOf(int32(1), int32(3)))
-					Expect(nameIdx.Get(nil, "beta")).To(ConsistOf(int32(2)))
-					Expect(nameIdx.Get(nil, "missing")).To(BeEmpty())
+					Expect(nameIdx.Get(ctx, nil, "beta")).To(ConsistOf(int32(2)))
+					Expect(nameIdx.Get(ctx, nil, "missing")).To(BeEmpty())
 				},
 			)
 
@@ -394,7 +363,7 @@ var _ = Describe("Index", func() {
 						"name", func(e *indexedEntry) string { return e.Name },
 					)
 					DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
-					Expect(nameIdx.Get(nil, "alpha")).Error().
+					Expect(nameIdx.Get(ctx, nil, "alpha")).Error().
 						To(MatchError(gorp.ErrIndexInvalid))
 				})
 
@@ -414,8 +383,8 @@ var _ = Describe("Index", func() {
 				table := openIndexedTable(ctx, idxDB, flagIdx)
 				defer func() { Expect(table.Close()).To(Succeed()) }()
 
-				Expect(flagIdx.Get(nil, true)).To(ConsistOf(int32(1), int32(3)))
-				Expect(flagIdx.Get(nil, false)).To(ConsistOf(int32(2), int32(4)))
+				Expect(flagIdx.Get(ctx, nil, true)).To(ConsistOf(int32(1), int32(3)))
+				Expect(flagIdx.Get(ctx, nil, false)).To(ConsistOf(int32(2), int32(4)))
 			})
 		})
 
@@ -436,7 +405,7 @@ var _ = Describe("Index", func() {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entry(&indexedEntry{ID: 10, Name: "gamma"}).
 					Exec(ctx, idxDB)).To(Succeed())
-				Expect(nameIdx.Get(nil, "gamma")).To(ConsistOf(int32(10)))
+				Expect(nameIdx.Get(ctx, nil, "gamma")).To(ConsistOf(int32(10)))
 			})
 
 			It(
@@ -445,13 +414,13 @@ var _ = Describe("Index", func() {
 					Expect(gorp.NewCreate[int32, indexedEntry]().
 						Entry(&indexedEntry{ID: 11, Name: "delta"}).
 						Exec(ctx, idxDB)).To(Succeed())
-					Expect(nameIdx.Get(nil, "delta")).To(ConsistOf(int32(11)))
+					Expect(nameIdx.Get(ctx, nil, "delta")).To(ConsistOf(int32(11)))
 
 					Expect(gorp.NewCreate[int32, indexedEntry]().
 						Entry(&indexedEntry{ID: 11, Name: "epsilon"}).
 						Exec(ctx, idxDB)).To(Succeed())
-					Expect(nameIdx.Get(nil, "delta")).To(BeEmpty())
-					Expect(nameIdx.Get(nil, "epsilon")).To(ConsistOf(int32(11)))
+					Expect(nameIdx.Get(ctx, nil, "delta")).To(BeEmpty())
+					Expect(nameIdx.Get(ctx, nil, "epsilon")).To(ConsistOf(int32(11)))
 				},
 			)
 
@@ -459,12 +428,12 @@ var _ = Describe("Index", func() {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entry(&indexedEntry{ID: 12, Name: "zeta"}).
 					Exec(ctx, idxDB)).To(Succeed())
-				Expect(nameIdx.Get(nil, "zeta")).To(ConsistOf(int32(12)))
+				Expect(nameIdx.Get(ctx, nil, "zeta")).To(ConsistOf(int32(12)))
 
 				Expect(gorp.NewDelete[int32, indexedEntry]().
 					Where(gorp.MatchKeys[int32, indexedEntry](12)).
 					Exec(ctx, idxDB)).To(Succeed())
-				Expect(nameIdx.Get(nil, "zeta")).To(BeEmpty())
+				Expect(nameIdx.Get(ctx, nil, "zeta")).To(BeEmpty())
 			})
 
 			It(
@@ -473,12 +442,12 @@ var _ = Describe("Index", func() {
 					Expect(gorp.NewCreate[int32, indexedEntry]().
 						Entry(&indexedEntry{ID: 13, Name: "eta", Score: 5}).
 						Exec(ctx, idxDB)).To(Succeed())
-					Expect(nameIdx.Get(nil, "eta")).To(ConsistOf(int32(13)))
+					Expect(nameIdx.Get(ctx, nil, "eta")).To(ConsistOf(int32(13)))
 
 					Expect(gorp.NewCreate[int32, indexedEntry]().
 						Entry(&indexedEntry{ID: 13, Name: "eta", Score: 10}).
 						Exec(ctx, idxDB)).To(Succeed())
-					Expect(nameIdx.Get(nil, "eta")).To(ConsistOf(int32(13)))
+					Expect(nameIdx.Get(ctx, nil, "eta")).To(ConsistOf(int32(13)))
 				},
 			)
 		})
@@ -648,12 +617,12 @@ var _ = Describe("Index", func() {
 					})
 					wg.Go(func() {
 						for range 200 {
-							_, _ = nameIdx.Get(nil, "shared")
+							_, _ = nameIdx.Get(ctx, nil, "shared")
 						}
 					})
 					wg.Wait()
 					Eventually(func() int {
-						keys, _ := nameIdx.Get(nil, "shared")
+						keys, _ := nameIdx.Get(ctx, nil, "shared")
 						return len(keys)
 					}).Should(Equal(100))
 				},
@@ -876,7 +845,7 @@ var _ = Describe("Index", func() {
 					// carry the rolled-back write.
 					Expect(tx.Close()).To(Succeed())
 
-					Expect(nameIdx.Get(nil, "alpha")).To(ConsistOf(int32(1)))
+					Expect(nameIdx.Get(ctx, nil, "alpha")).To(ConsistOf(int32(1)))
 
 					// And a fresh retrieve via the bare DB should see
 					// committed-only state.
@@ -901,7 +870,9 @@ var _ = Describe("Index", func() {
 
 					// Committed observer should have fired, updating the
 					// global index.
-					Expect(nameIdx.Get(nil, "alpha")).To(ConsistOf(int32(1), int32(50)))
+					Expect(
+						nameIdx.Get(ctx, nil, "alpha"),
+					).To(ConsistOf(int32(1), int32(50)))
 				},
 			)
 
@@ -945,10 +916,10 @@ var _ = Describe("Index", func() {
 					defer func() { Expect(table.Close()).To(Succeed()) }()
 
 					Expect(
-						scoreIdx.Get(nil, int64(20)),
+						scoreIdx.Get(ctx, nil, int64(20)),
 					).To(ConsistOf(int32(3), int32(4)))
-					Expect(scoreIdx.Get(nil, int64(10))).To(ConsistOf(int32(2)))
-					Expect(scoreIdx.Get(nil, int64(99))).To(BeEmpty())
+					Expect(scoreIdx.Get(ctx, nil, int64(10))).To(ConsistOf(int32(2)))
+					Expect(scoreIdx.Get(ctx, nil, int64(99))).To(BeEmpty())
 				},
 			)
 		})
@@ -1193,7 +1164,7 @@ var _ = Describe("Index", func() {
 				Expect(tx.Commit(ctx)).To(Succeed())
 				Expect(tx.Close()).To(Succeed())
 
-				Expect(nameIdx.Get(nil, "alpha")).To(ConsistOf(int32(1)))
+				Expect(nameIdx.Get(ctx, nil, "alpha")).To(ConsistOf(int32(1)))
 			},
 		)
 
@@ -1206,7 +1177,7 @@ var _ = Describe("Index", func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Close()).To(Succeed())
 
-				Expect(nameIdx.Get(nil, "beta")).To(BeEmpty())
+				Expect(nameIdx.Get(ctx, nil, "beta")).To(BeEmpty())
 			},
 		)
 
@@ -1215,7 +1186,7 @@ var _ = Describe("Index", func() {
 				Entry(&indexedEntry{ID: 3, Name: "gamma"}).
 				Exec(ctx, noopDB)).To(Succeed())
 
-			Expect(nameIdx.Get(nil, "gamma")).To(ConsistOf(int32(3)))
+			Expect(nameIdx.Get(ctx, nil, "gamma")).To(ConsistOf(int32(3)))
 		})
 
 		It(
@@ -1224,7 +1195,7 @@ var _ = Describe("Index", func() {
 				Expect(table.NewCreate().
 					Entry(&indexedEntry{ID: 4, Name: "delta"}).
 					Exec(ctx, noopDB)).To(Succeed())
-				Expect(nameIdx.Get(nil, "delta")).To(ConsistOf(int32(4)))
+				Expect(nameIdx.Get(ctx, nil, "delta")).To(ConsistOf(int32(4)))
 
 				tx := noopDB.OpenTx()
 				Expect(
@@ -1235,7 +1206,7 @@ var _ = Describe("Index", func() {
 				Expect(tx.Commit(ctx)).To(Succeed())
 				Expect(tx.Close()).To(Succeed())
 
-				Expect(nameIdx.Get(nil, "delta")).To(BeEmpty())
+				Expect(nameIdx.Get(ctx, nil, "delta")).To(BeEmpty())
 			},
 		)
 
@@ -1254,7 +1225,7 @@ var _ = Describe("Index", func() {
 				).To(Succeed())
 				Expect(tx.Close()).To(Succeed())
 
-				Expect(nameIdx.Get(nil, "epsilon")).To(ConsistOf(int32(5)))
+				Expect(nameIdx.Get(ctx, nil, "epsilon")).To(ConsistOf(int32(5)))
 			},
 		)
 
@@ -1264,14 +1235,14 @@ var _ = Describe("Index", func() {
 				Expect(table.NewCreate().
 					Entry(&indexedEntry{ID: 6, Name: "zeta"}).
 					Exec(ctx, noopDB)).To(Succeed())
-				Expect(nameIdx.Get(nil, "zeta")).To(ConsistOf(int32(6)))
+				Expect(nameIdx.Get(ctx, nil, "zeta")).To(ConsistOf(int32(6)))
 
 				Expect(
 					table.NewDelete().
 						Where(gorp.MatchKeys[int32, indexedEntry](6)).
 						Exec(ctx, noopDB),
 				).To(Succeed())
-				Expect(nameIdx.Get(nil, "zeta")).To(BeEmpty())
+				Expect(nameIdx.Get(ctx, nil, "zeta")).To(BeEmpty())
 			},
 		)
 	})
@@ -1302,11 +1273,11 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			table := openIndexedTable(ctx, idxDB, toIdx)
 			defer func() { Expect(table.Close()).To(Succeed()) }()
 
-			keys := MustSucceed(toIdx.Get(nil, "x"))
+			keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
 			asStrings := []string{string(keys[0]), string(keys[1])}
 			Expect(asStrings).To(ConsistOf("a->x", "c->x"))
-			Expect(toIdx.Get(nil, "y")).To(HaveLen(1))
-			Expect(toIdx.Get(nil, "missing")).To(BeEmpty())
+			Expect(toIdx.Get(ctx, nil, "y")).To(HaveLen(1))
+			Expect(toIdx.Get(ctx, nil, "missing")).To(BeEmpty())
 		})
 	})
 
@@ -1327,7 +1298,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			Expect(gorp.NewCreate[string, relationEntry]().
 				Entry(&relationEntry{From: "a", To: "x"}).
 				Exec(ctx, idxDB)).To(Succeed())
-			keys := MustSucceed(toIdx.Get(nil, "x"))
+			keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
 			Expect(keys).To(HaveLen(1))
 			Expect(string(keys[0])).To(Equal("a->x"))
 		})
@@ -1337,12 +1308,12 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			Expect(
 				gorp.NewCreate[string, relationEntry]().Entry(&e).Exec(ctx, idxDB),
 			).To(Succeed())
-			Expect(toIdx.Get(nil, "x")).To(HaveLen(1))
+			Expect(toIdx.Get(ctx, nil, "x")).To(HaveLen(1))
 
 			Expect(gorp.NewDelete[string, relationEntry]().
 				Where(gorp.MatchKeys[string, relationEntry](e.GorpKey())).
 				Exec(ctx, idxDB)).To(Succeed())
-			Expect(toIdx.Get(nil, "x")).To(BeEmpty())
+			Expect(toIdx.Get(ctx, nil, "x")).To(BeEmpty())
 		})
 	})
 
@@ -1461,7 +1432,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Close()).To(Succeed())
 
-				keys := MustSucceed(toIdx.Get(nil, "x"))
+				keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
 				Expect(keys).To(HaveLen(1))
 				Expect(string(keys[0])).To(Equal("a->x"))
 			},
@@ -1475,7 +1446,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 
-			keys := MustSucceed(toIdx.Get(nil, "x"))
+			keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
 			asStrings := make([]string, len(keys))
 			for i, k := range keys {
 				asStrings[i] = string(k)
@@ -1540,7 +1511,7 @@ var _ = Describe("Populate failure", func() {
 				Instrumentation: ins,
 			})),
 		)
-		Expect(nameIdx.Get(nil, "alpha")).Error().
+		Expect(nameIdx.Get(ctx, nil, "alpha")).Error().
 			To(MatchError(gorp.ErrIndexInvalid))
 	})
 

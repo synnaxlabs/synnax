@@ -92,6 +92,13 @@ func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) er
 func (w Writer) CreateMany(
 	ctx context.Context, channels *[]Channel, opts ...CreateOption,
 ) error {
+	if db, ok := w.tx.(*gorp.DB); ok {
+		// A create holds the service lock while it writes, so it takes the gorp write
+		// lock first.
+		return db.WithTx(ctx, func(tx gorp.Tx) error {
+			return w.svc.NewWriter(tx).CreateMany(ctx, channels, opts...)
+		})
+	}
 	if len(*channels) == 0 {
 		return nil
 	}

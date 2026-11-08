@@ -17,6 +17,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the Symbol table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "schematic_symbol"
+
 // Retrieve is used to retrieve Symbol records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
