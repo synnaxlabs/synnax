@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -123,8 +125,16 @@ func (s *Service) DeleteKeys(
 	tx gorp.Tx,
 	req KeyDeleteRequest,
 ) (struct{}, error) {
-	if err := s.apiKey.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {
+	var keys []apikey.APIKey
+	if err := s.apiKey.NewRetrieve().
+		Where(apikey.MatchKeys(req.Keys...)).
+		Entries(&keys).
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, req.Keys...)
+	stored := lo.Map(keys, func(k apikey.APIKey, _ int) apikey.Key { return k.Key })
+	if err := s.apiKey.NewWriter(tx).Delete(ctx, stored...); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, stored...)
 }
