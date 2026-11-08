@@ -83,6 +83,8 @@ type Transport struct {
 	UserDelete         freighter.UnaryServer[user.DeleteRequest, struct{}]
 	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
 	UserSetRole        freighter.UnaryServer[user.SetRoleRequest, struct{}]
+	// UserDispatch applies actions to a user.
+	UserDispatch freighter.UnaryServer[user.DispatchRequest, struct{}]
 	// CHANNEL
 	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
 	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
@@ -357,6 +359,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.UserDelete,
 		t.UserRetrieve,
 		t.UserSetRole,
+		t.UserDispatch,
 
 		// CHANNEL
 		t.ChannelCreate,
@@ -593,6 +596,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.UserDelete.BindHandler(bind.Write(l.binder, l.User.Delete))
 	t.UserRetrieve.BindHandler(bind.Read(l.binder, l.User.Retrieve))
 	t.UserSetRole.BindHandler(bind.Write(l.binder, l.User.SetRole))
+	t.UserDispatch.BindHandler(bind.Write(l.binder, l.User.Dispatch))
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Create))

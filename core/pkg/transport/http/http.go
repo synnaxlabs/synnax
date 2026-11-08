@@ -119,6 +119,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/user/set-role",
 		),
+		UserDispatch: unary[user.DispatchRequest, struct{}](
+			router,
+			"/api/v1/user/dispatch",
+		),
 
 		// CHANNEL
 		ChannelCreate: unary[channel.CreateRequest, channel.CreateResponse](

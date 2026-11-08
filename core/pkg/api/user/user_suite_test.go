@@ -49,6 +49,7 @@ var (
 	del            freighter.UnaryHandler[apiuser.DeleteRequest, struct{}]
 	rename         freighter.UnaryHandler[apiuser.RenameRequest, struct{}]
 	setRole        freighter.UnaryHandler[apiuser.SetRoleRequest, struct{}]
+	dispatch       freighter.UnaryHandler[apiuser.DispatchRequest, struct{}]
 	retrieve       freighter.UnaryHandler[
 		apiuser.RetrieveRequest,
 		apiuser.RetrieveResponse,
@@ -99,6 +100,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	del = bind.Write(binder, apiSvc.Delete)
 	rename = bind.Write(binder, apiSvc.Rename)
 	setRole = bind.Write(binder, apiSvc.SetRole)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 

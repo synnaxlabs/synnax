@@ -515,6 +515,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.User) {
 		return nil, err
 	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[user.Key, user.Action]{
+			Name:     "sy_user_action_set",
+			Actions:  l.User.Actions(),
+			Resource: user.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if l.APIKey, err = apikey.OpenService(ctx, apikey.ServiceConfig{
 		Instrumentation: cfg.Child("apikey"),
 		DB:              cfg.Distribution.DB,
