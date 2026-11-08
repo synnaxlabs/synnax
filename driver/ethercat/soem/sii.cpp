@@ -26,7 +26,7 @@ uint32_t read(const std::span<const uint8_t> data, const size_t offset, const in
 
 std::vector<pdo::PDO> parse_pdos(
     const std::span<const uint8_t> data,
-    const uint8_t max_syncs,
+    const std::function<bool(uint8_t sync)> &keep,
     const Strings &strings
 ) {
     std::vector<pdo::PDO> pdos;
@@ -47,7 +47,7 @@ std::vector<pdo::PDO> parse_pdos(
                 .name = strings(data[e + 3]),
                 .type = static_cast<telem::DataType>(data[e + 4]),
             });
-        if (sync_manager < max_syncs) pdos.push_back(std::move(pdo));
+        if (keep(sync_manager)) pdos.push_back(std::move(pdo));
         off = end;
     }
     return pdos;

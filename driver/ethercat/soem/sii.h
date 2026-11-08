@@ -24,10 +24,13 @@ namespace driver::ethercat::soem::sii {
 using Strings = std::function<std::string(uint8_t index)>;
 
 /// @brief parses a TxPDO or RxPDO category. data holds the category after its length
-/// word. Leaves out a PDO on a sync manager at or above max_syncs, and a PDO that runs
-/// past the end of data.
-std::vector<pdo::PDO>
-parse_pdos(std::span<const uint8_t> data, uint8_t max_syncs, const Strings &strings);
+/// word. Keeps only the PDOs on a sync manager that keep accepts, and leaves out a PDO
+/// that runs past the end of data.
+std::vector<pdo::PDO> parse_pdos(
+    std::span<const uint8_t> data,
+    const std::function<bool(uint8_t sync)> &keep,
+    const Strings &strings
+);
 
 /// @brief parses the DC category, the synchronization modes of a slave, in SII order.
 /// data holds the category after its length word.

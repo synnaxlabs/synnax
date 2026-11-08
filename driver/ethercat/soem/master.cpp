@@ -633,6 +633,25 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
                 auto &pdos = sync.is_input ? props.input_pdos : props.output_pdos;
                 pdo::append(pdos, sync.is_input, pdo);
             }
+        const auto lists_fixed_pdos = [&](const pdo::Sync &sync) {
+            const auto on_sync = [&](const uint8_t sm) { return sm == sync.index; };
+            return sync.fixed &&
+                   !this->read_sii_pdos(pos, sync.is_input, on_sync).empty();
+        };
+        const bool assigned = !props.input_pdos.empty() || !props.output_pdos.empty();
+        const auto fixed = assigned ? std::ranges::find_if(syncs, lists_fixed_pdos)
+                                    : syncs.end();
+        if (fixed != syncs.end()) {
+            props.input_pdos.clear();
+            props.output_pdos.clear();
+            slave.status.pdo_discovery_error = std::format(
+                "SOEM cannot map this slave because sync manager {} has fixed PDOs and "
+                "the other sync managers have assigned PDOs. Use IgH for this slave",
+                fixed->index
+            );
+            // No esi::fill: SOEM would still leave the fixed sync manager unmapped.
+            return;
+        }
     }
     // SOEM maps a slave from its SII when CoE gives no process data.
     if (props.input_pdos.empty() && props.output_pdos.empty())
@@ -662,19 +681,29 @@ sii::Strings Master::sii_strings(const uint16_t pos) {
     };
 }
 
+std::vector<pdo::PDO> Master::read_sii_pdos(
+    const uint16_t pos,
+    const bool is_input,
+    const std::function<bool(uint8_t sync)> &keep
+) {
+    const auto data = this->read_sii_category(
+        pos,
+        is_input ? ECT_SII_PDO : ECT_SII_PDO + 1
+    );
+    auto pdos = sii::parse_pdos(data, keep, this->sii_strings(pos));
+    this->api->eeprom2pdi(pos);
+    return pdos;
+}
+
 void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
     const auto pos = props.position;
+    const auto below_max = [](const uint8_t sync) { return sync < EC_MAXSM; };
     for (const bool is_input: {true, false}) {
-        const auto data = this->read_sii_category(
-            pos,
-            is_input ? ECT_SII_PDO : ECT_SII_PDO + 1
-        );
         auto &pdos = is_input ? props.input_pdos : props.output_pdos;
-        for (const auto &pdo: sii::parse_pdos(data, EC_MAXSM, this->sii_strings(pos)))
+        for (const auto &pdo: this->read_sii_pdos(pos, is_input, below_max))
             pdo::append(pdos, is_input, pdo);
     }
-    this->api->eeprom2pdi(pos);
     if (props.input_pdos.empty() && props.output_pdos.empty())
         slave.status.pdo_discovery_error = "no PDOs found";
 }
