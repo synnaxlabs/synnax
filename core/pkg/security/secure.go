@@ -87,18 +87,6 @@ func (p *secureProvider) VerifyCertHost(src cert.Source, host string) error {
 	return leaf.VerifyHostname(host)
 }
 
-func (p *secureProvider) VerifyCertCoreCA(src cert.Source) error {
-	leaf, intermediates, err := chainOf(src)
-	if err != nil {
-		return err
-	}
-	_, err = leaf.Verify(x509.VerifyOptions{
-		Roots:         p.certPool,
-		Intermediates: intermediates,
-	})
-	return err
-}
-
 func (p *secureProvider) VerifyCertTrustAnchors(src cert.Source) error {
 	leaf, intermediates, err := chainOf(src)
 	if err != nil {
