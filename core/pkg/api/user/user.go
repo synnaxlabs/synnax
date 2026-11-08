@@ -301,29 +301,22 @@ func (s *Service) SetRole(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	var users []user.User
-	if err := s.internal.NewRetrieve().
-		Where(user.MatchKeys(req.Keys...)).
-		Entries(&users).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	for _, u := range users {
+	// The guard reads each user as the write stores it, so a role change that commits
+	// after the check above cannot slip past it.
+	guard := func(u user.User) error {
 		if u.RootUser {
-			return struct{}{}, errors.Wrapf(
+			return errors.Wrapf(
 				validate.ErrValidation,
 				"cannot change the role of root user %s",
 				u.Name,
 			)
 		}
+		return enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionUpdate,
+			Objects: []resource.ID{role.ResourceID(u.Role)},
+		})
 	}
-	held := lo.Uniq(lo.Map(users, func(u user.User, _ int) role.Key { return u.Role }))
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionUpdate,
-		Objects: role.ResourceIDs(held),
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.NewWriter(tx).SetRole(ctx, req.Role, req.Keys...)
+	return struct{}{}, s.internal.NewWriter(tx).
+		SetRole(ctx, req.Role, guard, req.Keys...)
 }

@@ -75,15 +75,26 @@ func (w Writer) ChangeName(ctx context.Context, key Key, name string) error {
 		}).Exec(ctx, w.tx)
 }
 
-// SetRole gives the role r to each user with the given keys, root users included. It
-// returns a validation error when r does not exist, and query.ErrNotFound when a user
-// does not exist.
-func (w Writer) SetRole(ctx context.Context, r role.Key, keys ...Key) error {
+// SetRole gives the role r to each user with the given keys, root users included. A
+// non-nil guard runs on each stored user just before its change, and an error from it
+// stops the write. SetRole returns a validation error when r does not exist, and
+// query.ErrNotFound when a user does not exist.
+func (w Writer) SetRole(
+	ctx context.Context,
+	r role.Key,
+	guard func(User) error,
+	keys ...Key,
+) error {
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, User](keys...)).
-		Change(func(_ gorp.Context, u User) User {
+		ChangeErr(func(_ gorp.Context, u User) (User, error) {
+			if guard != nil {
+				if err := guard(u); err != nil {
+					return User{}, err
+				}
+			}
 			u.Role = r
-			return u
+			return u, nil
 		}).
 		Exec(ctx, w.tx)
 }

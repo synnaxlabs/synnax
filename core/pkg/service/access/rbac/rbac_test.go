@@ -48,7 +48,7 @@ func userKey(subject resource.ID) user.Key {
 
 func setRole(ctx context.Context, tx gorp.Tx, subject resource.ID, r role.Key) {
 	GinkgoHelper()
-	Expect(userSvc.NewWriter(tx).SetRole(ctx, r, userKey(subject))).To(Succeed())
+	Expect(userSvc.NewWriter(tx).SetRole(ctx, r, nil, userKey(subject))).To(Succeed())
 }
 
 var _ = Describe("ServiceConfig", func() {

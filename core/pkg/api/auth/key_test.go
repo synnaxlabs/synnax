@@ -45,7 +45,7 @@ func setBuiltinRole(ctx context.Context, subject user.Key, name string) {
 		})).
 		Entry(&r).
 		Exec(ctx, nil)).To(Succeed())
-	Expect(userSvc.NewWriter(nil).SetRole(ctx, r.Key, subject)).To(Succeed())
+	Expect(userSvc.NewWriter(nil).SetRole(ctx, r.Key, nil, subject)).To(Succeed())
 }
 
 // grant grants the action on the object to the subject.

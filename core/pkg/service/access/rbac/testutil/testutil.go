@@ -154,5 +154,5 @@ func ownRole(
 	if err := rbacSvc.Role.NewWriter(nil, false).Create(ctx, &r); err != nil {
 		return uuid.Nil(), err
 	}
-	return r.Key, users.NewWriter(nil).SetRole(ctx, r.Key, key)
+	return r.Key, users.NewWriter(nil).SetRole(ctx, r.Key, nil, key)
 }

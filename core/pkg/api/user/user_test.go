@@ -620,7 +620,7 @@ var _ = Describe("Service", func() {
 			"Should move a user that is not the root user off the Owner role",
 			func(ctx SpecContext) {
 				owner := createUser(ctx, "owner-"+uuid.New().String())
-				Expect(writer.SetRole(ctx, rbacSvc.Builtin.OwnerKey, owner.Key)).
+				Expect(writer.SetRole(ctx, rbacSvc.Builtin.OwnerKey, nil, owner.Key)).
 					To(Succeed())
 				Expect(apiSvc.SetRole(rootCtx(ctx), db, apiuser.SetRoleRequest{
 					Keys: []user.Key{owner.Key},
@@ -634,7 +634,7 @@ var _ = Describe("Service", func() {
 		) {
 			r := createRole(ctx)
 			u := createUser(ctx, "by-role-"+uuid.New().String())
-			Expect(writer.SetRole(ctx, r, u.Key)).To(Succeed())
+			Expect(writer.SetRole(ctx, r, nil, u.Key)).To(Succeed())
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Where: &user.Where{Roles: []role.Key{r, uuid.New()}},
 			}))

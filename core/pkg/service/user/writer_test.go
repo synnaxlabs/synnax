@@ -116,13 +116,26 @@ var _ = Describe("Writer", func() {
 			next := createRole(ctx, tx, "next")
 			a := MustSucceed(w.Create(ctx, user.User{Name: "a", Role: member}))
 			b := MustSucceed(w.Create(ctx, user.User{Name: "b", Role: member}))
-			Expect(w.SetRole(ctx, next, a.Key, b.Key)).To(Succeed())
+			Expect(w.SetRole(ctx, next, nil, a.Key, b.Key)).To(Succeed())
 			Expect(roleOf(ctx, a.Key)).To(Equal(next))
 			Expect(roleOf(ctx, b.Key)).To(Equal(next))
 		})
+		It("Should run the guard on each stored user and stop on its error", func(
+			ctx SpecContext,
+		) {
+			next := createRole(ctx, tx, "next")
+			u := MustSucceed(w.Create(ctx, user.User{Name: "a", Role: member}))
+			var guarded []user.User
+			Expect(w.SetRole(ctx, next, func(stored user.User) error {
+				guarded = append(guarded, stored)
+				return validate.ErrValidation
+			}, u.Key)).To(MatchError(validate.ErrValidation))
+			Expect(guarded).To(Equal([]user.User{u}))
+			Expect(roleOf(ctx, u.Key)).To(Equal(member))
+		})
 		It("Should refuse to give a role that does not exist", func(ctx SpecContext) {
 			u := MustSucceed(w.Create(ctx, user.User{Name: "a", Role: member}))
-			Expect(w.SetRole(ctx, uuid.New(), u.Key)).To(SatisfyAll(
+			Expect(w.SetRole(ctx, uuid.New(), nil, u.Key)).To(SatisfyAll(
 				BeAssignableToTypeOf(validate.PathError{}),
 				MatchError(ContainSubstring("does not exist")),
 			))
@@ -131,7 +144,7 @@ var _ = Describe("Writer", func() {
 		It("Should return not found for a user that does not exist", func(
 			ctx SpecContext,
 		) {
-			Expect(w.SetRole(ctx, member, uuid.New())).
+			Expect(w.SetRole(ctx, member, nil, uuid.New())).
 				To(MatchError(query.ErrNotFound))
 		})
 		It("Should retrieve the users that hold a role", func(ctx SpecContext) {
