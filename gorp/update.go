@@ -67,7 +67,7 @@ func (u Update[K, E]) exec(ctx context.Context, tx Tx) (err error) {
 	}
 	for i, e := range entries {
 		if entries[i], err = u.changes.exec(
-			Context{Context: ctx, Tx: tx},
+			newContext(ctx, tx),
 			e,
 		); err != nil {
 			return err

@@ -24,7 +24,7 @@ import (
 
 // Reader is used to retrieve aliases.
 type Reader struct {
-	tx              gorp.Tx
+	snap            gorp.Snapshot
 	parentRetriever ParentRetriever
 	table           *gorp.Table[string, Alias]
 }
@@ -41,12 +41,12 @@ func (r Reader) Retrieve(
 	err := r.table.NewRetrieve().
 		Where(gorp.MatchKeys[string, Alias](Alias{Range: rng, Channel: ch}.GorpKey())).
 		Entry(&res).
-		Exec(ctx, r.tx)
+		Exec(ctx, r.snap)
 	if errors.Is(err, query.ErrNotFound) {
 		if r.parentRetriever == nil {
 			return res.Alias, err
 		}
-		parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.tx)
+		parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.snap)
 		if errors.Is(pErr, query.ErrNotFound) {
 			return res.Alias, err
 		}
@@ -79,12 +79,12 @@ func (r Reader) Resolve(
 	err = r.table.NewRetrieve().
 		Where(gorp.Match(matcher)).
 		Entry(&res).
-		Exec(ctx, r.tx)
+		Exec(ctx, r.snap)
 	if errors.Is(err, query.ErrNotFound) {
 		if r.parentRetriever == nil {
 			return 0, err
 		}
-		parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.tx)
+		parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.snap)
 		if errors.Is(pErr, query.ErrNotFound) {
 			return 0, err
 		}
@@ -124,7 +124,7 @@ func (r Reader) listAliases(
 			return a.Range == rng, nil
 		})).
 		Entries(&aliases).
-		Exec(ctx, r.tx); err != nil {
+		Exec(ctx, r.snap); err != nil {
 		return err
 	}
 	for _, a := range aliases {
@@ -133,7 +133,7 @@ func (r Reader) listAliases(
 	if r.parentRetriever == nil {
 		return nil
 	}
-	parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.tx)
+	parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.snap)
 	if errors.Is(pErr, query.ErrNotFound) {
 		return nil
 	} else if pErr != nil {
@@ -153,7 +153,7 @@ func (r Reader) Search(
 	if err := r.table.NewRetrieve().
 		WherePrefix([]byte(rng.String()+keySeparator)).
 		Entries(&aliases).
-		Exec(ctx, r.tx); err != nil {
+		Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
 	idx := search.New[channel.Key]()
@@ -183,7 +183,7 @@ func (r Reader) SearchChannels(
 		if err := q.SkipMissingKeys().
 			Where(channel.MatchKeys(keys...)).
 			Entries(&aliased).
-			Exec(ctx, r.tx); err != nil {
+			Exec(ctx, r.snap); err != nil {
 			return nil, err
 		}
 	}
@@ -195,7 +195,7 @@ func (r Reader) SearchChannels(
 		named = named.Limit(limit + offset)
 	}
 	var byName []channel.Channel
-	if err := named.Entries(&byName).Exec(ctx, r.tx); err != nil {
+	if err := named.Entries(&byName).Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
 	merged := lo.FilterMap(keys, func(k channel.Key, _ int) (channel.Channel, bool) {
