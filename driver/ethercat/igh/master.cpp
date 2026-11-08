@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <system_error>
 
 #include "absl/log/log.h"
 
@@ -181,52 +182,48 @@ x::errors::Error Master::initialize() {
             "IgH master not available - is kernel module loaded?"
         );
 
-    ec_master_info_t master_info;
-    if (this->api->master(this->ec_master, &master_info) < 0) {
+    const auto fail = [this](const std::string &msg) {
         this->api->release_master(this->ec_master);
         this->ec_master = nullptr;
-        return x::errors::Error(errors::MASTER_INIT_ERROR, "failed to get master info");
-    }
+        return x::errors::Error(errors::MASTER_INIT_ERROR, msg);
+    };
+
+    ec_master_info_t master_info;
+    if (this->api->master(this->ec_master, &master_info) < 0)
+        return fail("failed to get master info");
 
     this->cached_slaves.clear();
     this->cached_slaves.reserve(master_info.slave_count);
 
     for (unsigned int i = 0; i < master_info.slave_count; ++i) {
         ec_slave_info_t slave_info;
-        if (this->api->master_get_slave(this->ec_master, i, &slave_info) == 0) {
-            slave::DiscoveryResult result{};
-            result.properties.network = this->interface_name();
-            result.properties.position = static_cast<uint16_t>(i);
-            result.properties.vendor_id = slave_info.vendor_id;
-            result.properties.product_code = slave_info.product_code;
-            result.properties.revision = slave_info.revision_number;
-            result.properties.serial = slave_info.serial_number;
-            result.properties.name = slave_info.name;
-            result.status.state = slave::State::INIT;
-            this->discover_slave_pdos(result);
-            this->cached_slaves.push_back(std::move(result));
-        }
+        if (const int ret = this->api
+                                ->master_get_slave(this->ec_master, i, &slave_info);
+            ret != 0)
+            return fail(
+                std::format(
+                    "failed to read slave {}: {}",
+                    i,
+                    std::generic_category().message(-ret)
+                )
+            );
+        slave::DiscoveryResult result{};
+        result.properties.network = this->interface_name();
+        result.properties.position = static_cast<uint16_t>(i);
+        result.properties.vendor_id = slave_info.vendor_id;
+        result.properties.product_code = slave_info.product_code;
+        result.properties.revision = slave_info.revision_number;
+        result.properties.serial = slave_info.serial_number;
+        result.properties.name = slave_info.name;
+        result.status.state = slave::State::INIT;
+        this->discover_slave_pdos(result);
+        this->cached_slaves.push_back(std::move(result));
     }
 
     this->output_domain = this->api->master_create_domain(this->ec_master);
-    if (!this->output_domain) {
-        this->api->release_master(this->ec_master);
-        this->ec_master = nullptr;
-        return x::errors::Error(
-            errors::MASTER_INIT_ERROR,
-            "failed to create output domain"
-        );
-    }
-
+    if (!this->output_domain) return fail("failed to create output domain");
     this->input_domain = this->api->master_create_domain(this->ec_master);
-    if (!this->input_domain) {
-        this->api->release_master(this->ec_master);
-        this->ec_master = nullptr;
-        return x::errors::Error(
-            errors::MASTER_INIT_ERROR,
-            "failed to create input domain"
-        );
-    }
+    if (!this->input_domain) return fail("failed to create input domain");
 
     this->initialized = true;
     VLOG(1) << "[ethercat.igh] master " << this->master_index << " initialized with "
@@ -352,21 +349,15 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
             return err;
         if (!params.empty())
             if (auto err = this->configure_assigned_pdos(pos, sc)) return err;
-        this->register_pdo_entries(pos, sc);
+        this->register_pdo_entries(slave.properties, sc);
     }
 
-    const size_t output_domain_size = this->api->domain_size(this->output_domain);
-    const size_t input_domain_size = this->api->domain_size(this->input_domain);
-
+    this->output_sz = this->api->domain_size(this->output_domain);
+    this->input_sz = this->api->domain_size(this->input_domain);
     VLOG(1) << "[ethercat.igh] activating master " << this->master_index << " with "
-            << this->slave_configs.size() << " configured slaves"
-            << ", calculated: input_sz=" << this->input_sz
-            << ", output_sz=" << this->output_sz
-            << ", actual: input_domain_size=" << input_domain_size
-            << ", output_domain_size=" << output_domain_size;
-
-    this->output_sz = output_domain_size;
-    this->input_sz = input_domain_size;
+            << this->slave_configs.size()
+            << " configured slaves, input_sz=" << this->input_sz
+            << ", output_sz=" << this->output_sz;
 
     if (this->api->master_activate(this->ec_master) < 0)
         return x::errors::Error(
@@ -436,6 +427,7 @@ void Master::deactivate() {
     this->initialized = false;
     this->slave_configs.clear();
     this->pdo_offsets.clear();
+    this->rejected_entries.clear();
     this->cached_slaves.clear();
     this->input_sz = 0;
     this->output_sz = 0;
@@ -502,6 +494,22 @@ Master::pdo_offset(const pdo::Entry &entry) const {
                 pos,
                 this->cached_slaves.at(pos).properties.name,
                 it->second
+            )
+        };
+    const pdo::Key key{pos, entry.index, entry.sub_index, entry.is_input};
+    if (const auto it = this->rejected_entries.find(key);
+        it != this->rejected_entries.end())
+        return {
+            {},
+            x::errors::Error(
+                errors::PDO_MAPPING_ERROR,
+                std::format(
+                    "the IgH master rejected PDO {} of slave {} ({}): {}",
+                    telem::format_index_sub_index(entry.index, entry.sub_index),
+                    pos,
+                    this->cached_slaves.at(pos).properties.name,
+                    it->second
+                )
             )
         };
     return pdo::find_offset(this->pdo_offsets, entry);
@@ -664,94 +672,36 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
     return x::errors::NIL;
 }
 
-void Master::register_pdo_entries(const uint16_t position, ec_slave_config_t *sc) {
-    std::lock_guard lock(this->mu);
-    const auto &slave = this->cached_slaves[position].properties;
-    size_t registered_outputs = 0;
-    size_t registered_inputs = 0;
-
-    for (const auto &pdo: slave.output_pdos) {
-        if (pdo.is_padding()) continue;
-        unsigned int bit_pos = 0;
-        const int result = this->api->slave_config_reg_pdo_entry(
-            sc,
-            pdo.index,
-            pdo.sub_index,
-            this->output_domain,
-            &bit_pos
-        );
-        if (result >= 0) {
-            const auto abs_offset = static_cast<size_t>(result);
-            const size_t byte_size = telem::pdo_required_bytes(
-                static_cast<uint8_t>(bit_pos),
-                pdo.bit_length
-            );
-            pdo::Key key{position, pdo.index, pdo.sub_index, false};
-            this->pdo_offsets[key] = {
-                abs_offset,
-                static_cast<uint8_t>(bit_pos),
-                pdo.bit_length
-            };
-            this->output_sz = std::max(this->output_sz, abs_offset + byte_size);
-            registered_outputs++;
-        } else {
-            LOG(WARNING) << "[ethercat.igh] failed to register output PDO 0x"
-                         << std::hex << pdo.index << ":"
-                         << static_cast<int>(pdo.sub_index) << std::dec << " ("
-                         << static_cast<int>(pdo.bit_length) << " bits)"
-                         << " for slave " << position << " (error=" << result << ")";
-        }
-    }
-
-    for (const auto &pdo: slave.input_pdos) {
-        if (pdo.is_padding()) continue;
-        unsigned int bit_pos = 0;
-        const int result = this->api->slave_config_reg_pdo_entry(
-            sc,
-            pdo.index,
-            pdo.sub_index,
-            this->input_domain,
-            &bit_pos
-        );
-        if (result >= 0) {
-            const auto abs_offset = static_cast<size_t>(result);
-            const size_t byte_size = telem::pdo_required_bytes(
-                static_cast<uint8_t>(bit_pos),
-                pdo.bit_length
-            );
-            pdo::Key key{position, pdo.index, pdo.sub_index, true};
-            this->pdo_offsets[key] = {
-                abs_offset,
-                static_cast<uint8_t>(bit_pos),
-                pdo.bit_length
-            };
-            this->input_sz = std::max(this->input_sz, abs_offset + byte_size);
-            registered_inputs++;
-        } else {
-            LOG(WARNING) << "[ethercat.igh] failed to register input PDO 0x" << std::hex
-                         << pdo.index << ":" << static_cast<int>(pdo.sub_index)
-                         << std::dec << " (" << static_cast<int>(pdo.bit_length)
-                         << " bits)"
-                         << " for slave " << position << " (error=" << result << ")";
-        }
-    }
-
-    VLOG(1) << "[ethercat.igh] slave " << position << " (" << slave.name
-            << "): registered " << registered_outputs << " output PDOs and "
-            << registered_inputs << " input PDOs"
-            << " (output_sz=" << this->output_sz << ", input_sz=" << this->input_sz
-            << ")";
-}
-
-std::string Master::read_pdo_entry_name(
-    const uint16_t slave_pos,
-    const uint16_t index,
-    const uint8_t subindex
+void Master::register_pdo_entries(
+    const slave::Properties &slave,
+    ec_slave_config_t *sc
 ) {
-    (void) slave_pos;
-    (void) index;
-    (void) subindex;
-    return "";
+    std::lock_guard lock(this->mu);
+    const auto add = [&](const pdo::Properties &pdo, ec_domain_t *domain) {
+        if (pdo.is_padding()) return;
+        const pdo::Key key{slave.position, pdo.index, pdo.sub_index, pdo.is_input};
+        unsigned int bit = 0;
+        const int offset = this->api->slave_config_reg_pdo_entry(
+            sc,
+            pdo.index,
+            pdo.sub_index,
+            domain,
+            &bit
+        );
+        if (offset < 0) {
+            this->rejected_entries[key] = std::generic_category().message(-offset);
+            return;
+        }
+        this->pdo_offsets[key] = {
+            static_cast<size_t>(offset),
+            static_cast<uint8_t>(bit),
+            pdo.bit_length
+        };
+    };
+    for (const auto &pdo: slave.output_pdos)
+        add(pdo, this->output_domain);
+    for (const auto &pdo: slave.input_pdos)
+        add(pdo, this->input_domain);
 }
 
 void Master::append_scanned_pdos(slave::Properties &props, const uint8_t sync_index) {
@@ -808,11 +758,6 @@ void Master::append_pdo_entry(
     const x::telem::DataType data_type = telem::infer_type_from_bit_length(
         entry_info.bit_length
     );
-    const std::string coe_name = this->read_pdo_entry_name(
-        props.position,
-        entry_info.index,
-        entry_info.subindex
-    );
     pdos.emplace_back(
         pdo_index,
         entry_info.index,
@@ -820,7 +765,7 @@ void Master::append_pdo_entry(
         entry_info.bit_length,
         is_input,
         telem::generate_pdo_entry_name(
-            coe_name,
+            "",
             entry_info.index,
             entry_info.subindex,
             is_input,

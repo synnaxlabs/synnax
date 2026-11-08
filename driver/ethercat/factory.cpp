@@ -63,7 +63,8 @@ std::unique_ptr<master::Manager> default_manager() {
         LOG(INFO) << "[ethercat] using IgH EtherCAT master backend";
         return std::move(igh_mgr);
     }
-    LOG(INFO) << "[ethercat] IgH unavailable, falling back to SOEM backend";
+    LOG(INFO) << "[ethercat] IgH unavailable, falling back to SOEM backend: "
+              << err.message();
 #else
     LOG(INFO) << "[ethercat] using SOEM backend";
     if (!check_pcap_available()) return nullptr;
