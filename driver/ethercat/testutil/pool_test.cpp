@@ -30,8 +30,7 @@ TEST(PoolConfiguration, ConfigureMasterAllowsAcquire) {
     auto master = std::make_shared<Master>("eth0");
     pool.configure_master("eth0", master);
 
-    auto [engine, err] = pool.acquire("eth0");
-    ASSERT_NIL(err);
+    const auto engine = ASSERT_NIL_P(pool.acquire("eth0"));
     EXPECT_NE(engine, nullptr);
 }
 
@@ -41,8 +40,7 @@ TEST(PoolAcquire, CreatesEngine) {
     pool.configure_master("eth0", master);
 
     EXPECT_EQ(pool.get_engine("eth0"), nullptr);
-    auto [engine, err] = pool.acquire("eth0");
-    ASSERT_NIL(err);
+    const auto engine = ASSERT_NIL_P(pool.acquire("eth0"));
     EXPECT_NE(pool.get_engine("eth0"), nullptr);
 }
 
@@ -51,10 +49,8 @@ TEST(PoolAcquire, ReturnsSameEngine) {
     auto master = std::make_shared<Master>("eth0");
     pool.configure_master("eth0", master);
 
-    auto [engine1, err1] = pool.acquire("eth0");
-    ASSERT_NIL(err1);
-    auto [engine2, err2] = pool.acquire("eth0");
-    ASSERT_NIL(err2);
+    const auto engine1 = ASSERT_NIL_P(pool.acquire("eth0"));
+    const auto engine2 = ASSERT_NIL_P(pool.acquire("eth0"));
     EXPECT_EQ(engine1, engine2);
 }
 
@@ -136,8 +132,7 @@ TEST(PoolGetEngine, ReturnsEngineAfterAcquire) {
     auto master = std::make_shared<Master>("eth0");
     pool.configure_master("eth0", master);
 
-    auto [engine, err] = pool.acquire("eth0");
-    ASSERT_NIL(err);
+    const auto engine = ASSERT_NIL_P(pool.acquire("eth0"));
     EXPECT_EQ(pool.get_engine("eth0"), engine);
 }
 
@@ -148,8 +143,7 @@ TEST(PoolErrorInjection, ClearInjectedErrorsResetsAcquireError) {
     pool.inject_acquire_error(x::errors::Error(errors::MASTER_INIT_ERROR, "injected"));
     pool.clear_injected_errors();
 
-    auto [engine, err] = pool.acquire("eth0");
-    ASSERT_NIL(err);
+    const auto engine = ASSERT_NIL_P(pool.acquire("eth0"));
     EXPECT_NE(engine, nullptr);
 }
 
@@ -160,10 +154,8 @@ TEST(PoolMultipleMasters, ConfigureAndAcquireMultiple) {
     pool.configure_master("eth0", master1);
     pool.configure_master("eth1", master2);
 
-    auto [engine1, err1] = pool.acquire("eth0");
-    ASSERT_NIL(err1);
-    auto [engine2, err2] = pool.acquire("eth1");
-    ASSERT_NIL(err2);
+    const auto engine1 = ASSERT_NIL_P(pool.acquire("eth0"));
+    const auto engine2 = ASSERT_NIL_P(pool.acquire("eth1"));
 
     EXPECT_NE(engine1, engine2);
     EXPECT_EQ(pool.get_engine("eth0"), engine1);

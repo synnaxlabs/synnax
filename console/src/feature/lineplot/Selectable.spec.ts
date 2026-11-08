@@ -29,11 +29,11 @@ describe("lineplot/Selectable", () => {
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
     });
     const Selectable = LinePlot.SELECTABLES[0];
-    expect(Selectable.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
+    expect(Selectable.type).toBe(lineplot.TYPE_RESOURCE_ID.type);
     select(Selectable, wrapper);
     const tab = await resolveFocusedTab(store, client, (t) => t.variant === "resource");
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(lineplot.TYPE_RESOURCE_ID.type);
     const created = await client.lineplots.retrieve(tab.resource.key);
     expect(created.name).toBe("Line plot");
   });
@@ -42,7 +42,7 @@ describe("lineplot/Selectable", () => {
 describe("lineplot/Selectable permissions", () => {
   const findSelectable = () => {
     const Selectable = LinePlot.SELECTABLES.find(
-      (s) => s.type === lineplot.TYPE_ONTOLOGY_ID.type,
+      (s) => s.type === lineplot.TYPE_RESOURCE_ID.type,
     );
     assertDefined(Selectable, "no selectable registered for lineplot");
     return Selectable;
@@ -54,7 +54,7 @@ describe("lineplot/Selectable permissions", () => {
     });
     const { result } = renderVisible(
       findSelectable(),
-      lineplot.TYPE_ONTOLOGY_ID,
+      lineplot.TYPE_RESOURCE_ID,
       wrapper,
     );
     await waitFor(() => expect(result.current.visible).toBe(true));
@@ -66,7 +66,7 @@ describe("lineplot/Selectable permissions", () => {
     });
     const { result } = renderVisible(
       findSelectable(),
-      lineplot.TYPE_ONTOLOGY_ID,
+      lineplot.TYPE_RESOURCE_ID,
       wrapper,
     );
     await waitFor(() => expect(result.current.loaded).toBe(true));

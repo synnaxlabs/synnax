@@ -21,15 +21,16 @@ from synnax.group.types_gen import (
     Where,
     WhereInput,
 )
-from synnax.ontology.payload import ID, CrudeID
+from synnax.resource import ID, CrudeID, Type
 from synnax.util import request_where, returns_one, sole
 from x import filter
 
 
 class _CreateReq(BaseModel):
-    parent: ID
     key: UUID | None = None
     name: str
+    scope: Type | None = None
+    parent: ID | None = None
 
 
 class _CreateRes(BaseModel):
@@ -45,16 +46,44 @@ class _DeleteReq(BaseModel):
     keys: list[UUID]
 
 
+class _SetParentReq(BaseModel):
+    keys: list[Key]
+    parent: ID | None = None
+
+
 class Client:
     _client: UnaryClient
 
     def __init__(self, client: UnaryClient):
         self._client = client
 
-    def create(self, parent: CrudeID, name: str, *, key: str | None = None) -> Group:
+    def create(
+        self,
+        name: str,
+        *,
+        scope: Type | None = None,
+        parent: CrudeID | None = None,
+        key: str | None = None,
+    ) -> Group:
+        """Creates a group, or updates the group with the given key.
+
+        :param name: The name of the group.
+        :param scope: The type of resource the group holds. Required when the group
+            has no parent.
+        :param parent: The group, project, or rack to nest the group under. The group
+            takes its scope from the parent.
+        :param key: The key of the group to update. An existing group keeps its
+            parent and scope. Use set_parent to move it.
+        :returns: The created group.
+        """
         return self._client.send(
-            "/ontology/create-group",
-            _CreateReq(parent=ID(parent), key=UUID(key) if key else None, name=name),
+            "/group/create",
+            _CreateReq(
+                key=UUID(key) if key else None,
+                name=name,
+                scope=scope,
+                parent=ID(parent) if parent is not None else None,
+            ),
             _CreateRes,
         ).group
 
@@ -149,13 +178,23 @@ class Client:
             limit=limit,
             offset=offset,
         )
-        res = self._client.send("/ontology/retrieve-group", req, RetrieveResponse)
+        res = self._client.send("/group/retrieve", req, RetrieveResponse)
         return sole("group", req, res.groups) if single else res.groups
 
     def rename(self, key: UUID, name: str) -> Empty:
-        return self._client.send(
-            "/ontology/rename-group", _RenameReq(key=key, name=name), Empty
-        )
+        return self._client.send("/group/rename", _RenameReq(key=key, name=name), Empty)
 
     def delete(self, keys: list[UUID]) -> Empty:
-        return self._client.send("/ontology/delete-group", _DeleteReq(keys=keys), Empty)
+        return self._client.send("/group/delete", _DeleteReq(keys=keys), Empty)
+
+    def set_parent(self, keys: list[Key], parent: CrudeID | None = None) -> Empty:
+        """Moves groups under a parent, or to the top level when the parent is None.
+
+        :param keys: The keys of the groups to move.
+        :param parent: The group, project, or rack to move the groups under.
+        """
+        return self._client.send(
+            "/group/set-parent",
+            _SetParentReq(keys=keys, parent=ID(parent) if parent is not None else None),
+            Empty,
+        )

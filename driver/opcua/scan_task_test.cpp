@@ -143,9 +143,7 @@ protected:
         std::unordered_map<std::string, synnax::device::Device> devices{{dev.key, dev}};
         common::ScannerContext scan_ctx;
         scan_ctx.devices = &devices;
-        auto [scanned, err] = scanner.scan(scan_ctx);
-        EXPECT_FALSE(err) << err;
-        return scanned;
+        return ASSERT_NIL_P(scanner.scan(scan_ctx));
     }
 };
 
@@ -180,7 +178,7 @@ TEST_F(TestScanTask, testBasicScan) {
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
-    EXPECT_EQ(state.key, synnax::task::status_key(task));
+    EXPECT_EQ(state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(state.details.cmd, "scan_cmd");
     EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS);
 
@@ -309,7 +307,7 @@ TEST_F(TestScanTask, testTestConnection) {
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
-    EXPECT_EQ(state.key, synnax::task::status_key(task));
+    EXPECT_EQ(state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(state.details.cmd, "test_conn_cmd");
     EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(state.message, "Connected to server");
@@ -346,7 +344,7 @@ TEST_F(TestScanTask, testInvalidConnection) {
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
-    EXPECT_EQ(state.key, synnax::task::status_key(task));
+    EXPECT_EQ(state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(state.details.cmd, "invalid_scan_cmd");
     EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(state.message, "Failed to connect to server");

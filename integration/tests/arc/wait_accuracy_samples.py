@@ -54,6 +54,9 @@ class _WaitSamples(ArcCase):
     profile_ms: list[int]
     #: The limits of each runtime and OS that the waits of the case must hold.
     limit_table: dict[str, dict[str, Limits]] = LIMITS
+    #: The OS of the Driver that runs the task. The Core and its Driver run on the test
+    #: host, so they share its OS.
+    driver_os: str = platform.system()
 
     arc_name_prefix = "ArcWaitAccuracySamples"
     start_cmd_channel = "ws_start_cmd"
@@ -64,9 +67,7 @@ class _WaitSamples(ArcCase):
 
     def setup(self) -> None:
         self._retrieve_rack()
-        assert self.rack is not None
-        # The Core and its Driver run on the test host, so they share its OS.
-        self.limits = self.limit_table[runtime(self.rack)][platform.system()]
+        self.limits = self.limit_table[runtime(self.rack)][self.driver_os]
         min_ms = self.limits.min_wait_ms
         profile = [w for w in self.profile_ms if w >= min_ms]
         if not profile:
@@ -80,8 +81,9 @@ class _WaitSamples(ArcCase):
     def verify_sequence_execution(self) -> None:
         writes = list(range(1, len(self.waits_ms) + 2))
         self.wait_for_eq("ws_cmd", writes[-1], timeout=30 * sy.TimeSpan.SECOND)
+        # The Driver stamps samples with its own clock, which can run ahead of this one.
         frame = self.client.read(
-            sy.TimeRange(self.start, sy.TimeStamp.now()), ["ws_cmd_time", "ws_cmd"]
+            sy.TimeRange(self.start, sy.TimeStamp.MAX), ["ws_cmd_time", "ws_cmd"]
         )
         times = frame["ws_cmd_time"].to_numpy().astype(np.int64)
         values = frame["ws_cmd"].to_numpy().tolist()
@@ -100,6 +102,8 @@ class _WaitSamples(ArcCase):
             median = float(np.median(held))
             error = (median - wait_ms) / wait_ms * 100
             spread = float(held.max() - held.min())
+            self.metrics[f"wait_{wait_ms}ms_error_percent"] = error
+            self.metrics[f"wait_{wait_ms}ms_spread_ms"] = spread
             flags: list[str] = []
             if abs(error) > self.limits.max_error_percent:
                 flags.append(

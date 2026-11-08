@@ -19,11 +19,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -39,22 +39,30 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	db        *gorp.DB
 	statusSvc *status.Service
+	tasks     *gorp.Table[task.Key, task.Task]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB: db, Ontology: otg, Group: g,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: db,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB: db, Ontology: otg, Label: labelSvc, Group: g,
+		DB: db,
+	}))
+	// Task statuses reference their task, so the task table must be open.
+	tasks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[task.Key, task.Task]{
+		DB:   db,
+		Name: string(resource.TypeTask),
 	}))
 })
+
+func createTask(ctx context.Context, t task.Task) task.Task {
+	GinkgoHelper()
+	Expect(tasks.NewCreate().Entry(&t).Exec(ctx, db)).To(Succeed())
+	return t
+}
 
 // encodeConfig converts a config into the msgpack.EncodedJSON shape the driver
 // receives as task.Task.Config.

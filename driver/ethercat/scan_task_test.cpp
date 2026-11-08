@@ -730,14 +730,13 @@ TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotConnected) {
 
 /// @brief it should keep an enabled slave connected when its device is edited.
 TEST_F(EtherCATScanStatusTest, EditedSlaveStaysConnected) {
-    const auto dev = ASSERT_NIL_P(
-                         this->scanner->scan(common::ScannerContext{.count = 1})
-    )
-                         .at(0);
+    auto dev = ASSERT_NIL_P(this->scanner->scan(common::ScannerContext{.count = 1}))
+                   .at(0);
+    ASSERT_NIL(this->client->devices.create(dev));
     this->scanner->on_device_set(dev);
     const auto status = ASSERT_NIL_P(
-        this->client->statuses.retrieve<synnax::device::StatusDetails>(
-            synnax::device::status_key(dev)
+        this->client->statuses.retrieve_by_owner<synnax::device::StatusDetails>(
+            synnax::device::resource_id(dev.key)
         )
     );
     EXPECT_EQ(status.message, "Device enabled");
@@ -790,15 +789,15 @@ protected:
             },
         };
         const auto err = this->client->devices.create(dev);
-        EXPECT_FALSE(err) << err;
+        EXPECT_NIL(err);
         return dev;
     }
 
     [[nodiscard]] synnax::device::Status
     status(const synnax::device::Device &dev) const {
         return ASSERT_NIL_P(
-            this->client->statuses.retrieve<synnax::device::StatusDetails>(
-                synnax::device::status_key(dev)
+            this->client->statuses.retrieve_by_owner<synnax::device::StatusDetails>(
+                synnax::device::resource_id(dev.key)
             )
         );
     }
@@ -833,5 +832,54 @@ TEST_F(EtherCATScanDeviceSetTest, ReportsInvalidProperties) {
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Invalid device properties");
     EXPECT_EQ(status.description, "enabled: type must be boolean, but is null");
+}
+
+/// @brief it should report an error status that names an invalid startup parameter.
+TEST_F(EtherCATScanDeviceSetTest, ReportsAnInvalidStartupParameter) {
+    auto dev = this->create_slave(true);
+    dev.properties["startup_parameters"] = {
+        {{"index", 0x8000}, {"sub_index", 0x15}, {"data_type", "uint8"}, {"value", 300}}
+    };
+    this->scanner->on_device_set(dev);
+    const auto status = this->status(dev);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Invalid device properties");
+    EXPECT_EQ(
+        status.description,
+        "startup_parameters.0.value: must be a whole number from 0 to 255"
+    );
+}
+
+/// @brief it should show an invalid startup parameter on the device status at each
+/// scan.
+TEST_F(EtherCATScanDeviceSetTest, ScanReportsAnInvalidStartupParameter) {
+    const synnax::device::Device dev{
+        .key = "ethercat_eth0_0_0_0",
+        .model = SLAVE_DEVICE_MODEL,
+        .name = "EL3102",
+        .properties = {
+            {"startup_parameters",
+             {{{"index", 0x8000},
+               {"sub_index", 0x15},
+               {"data_type", "uint8"},
+               {"value", 300}}}},
+        },
+    };
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    for (std::size_t count = 0; count < 2; ++count) {
+        const auto scanned = ASSERT_NIL_P(this->scanner->scan(
+            common::ScannerContext{.count = count, .devices = &devices}
+        ));
+        ASSERT_EQ(scanned.size(), 1);
+        const auto status = scanned[0].status.value();
+        EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+        EXPECT_EQ(status.message, "Invalid device properties");
+        EXPECT_EQ(
+            status.description,
+            "startup_parameters.0.value: must be a whole number from 0 to 255"
+        );
+    }
 }
 }

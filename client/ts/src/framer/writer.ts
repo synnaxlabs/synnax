@@ -248,7 +248,10 @@ export class Writer {
     if (this.stream.received()) return await this.close();
     const frame = await this.adapter.adapt(channelsOrData, series);
     try {
-      this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
+      await this.stream.send({
+        command: WriterCommand.Write,
+        frame: frame.toPayload(),
+      });
     } catch (err) {
       if (!EOF.matches(err)) throw errors.fromUnknown(err);
     }
@@ -316,7 +319,7 @@ export class Writer {
 
   private async execute(req: WriteRequest): Promise<Response> {
     try {
-      this.stream.send(req);
+      await this.stream.send(req);
     } catch (err) {
       // A send failure is always EOF or StreamClosed, never WriterClosedError, so
       // closeInternal re-throws here and the receive loop below is reached only when

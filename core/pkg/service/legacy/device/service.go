@@ -17,9 +17,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -39,15 +37,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between devices and other resources in
-	// the Synnax cluster.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
-	// Group is used to create device related groups of ontology resources.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Status is used to define and process statuses for devices.
 	//
 	// [REQUIRED]
@@ -72,8 +61,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Override overrides parts of c with the valid parts of other.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Rack = override.Nil(c.Rack, other.Rack)
@@ -86,9 +73,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("device")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("status", c.Status)
-	v.NotNil("group", c.Group)
 	v.NotNil("rack", c.Rack)
 	return v.Error()
 }
@@ -101,7 +86,6 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Device]
 	indexes indexes
-	group   group.Group
 }
 
 // OpenService opens a new device service using the provided configuration. If error
@@ -116,8 +100,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
-		DB:      cfg.DB,
-		Indexes: s.indexes.all(),
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(
 			versions.MigrationsConfig{Status: cfg.Status},
 		),
@@ -125,17 +111,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Devices",
-		ontology.RootID,
-	); !ok(
-		err,
-		nil,
-	) {
-		return nil, err
-	}
-	cfg.Ontology.RegisterService(s)
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals != nil {
@@ -153,22 +128,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the device service and releases any resources that it may have acquired.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// RootGroup returns the permanent group for devices. Note that racks will be children
-// of this group, and devices will be children of racks (or children of groups that are
-// children of racks).
-func (s *Service) RootGroup() group.Group { return s.group }
-
 // NewWriter opens a new Writer to create, update, and delete devices. If tx is not nil,
 // the writer will use that transaction. If tx is nil, the writer will execute
 // operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:     tx,
-		otg:    s.cfg.Ontology.NewWriter(tx),
-		group:  s.group,
-		status: s.cfg.Status.NewWriter(tx),
-		table:  s.table,
+		svc:      s,
+		tx:       tx,
+		status:   s.cfg.Status.NewWriter(tx),
+		statuses: s.cfg.Status,
+		table:    s.table,
 	}
 }
 
@@ -187,8 +157,12 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Device]] {
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
+	rackKey, err := rack.KeyFromResourceID(*rackStat.Owner)
+	if err != nil {
+		return err
+	}
 	var devices []Device
-	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
+	if err := s.NewRetrieve().Where(MatchRacks(rackKey)).
 		Entries(&devices).
 		Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "failed to retrieve devices on suspect rack")
@@ -196,13 +170,13 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 	statuses := make([]Status, len(devices))
 	for i, device := range devices {
 		statuses[i] = Status{
-			Key:         device.OntologyID().String(),
+			Owner:       new(device.ResourceID()),
 			Name:        device.Name,
 			Time:        telem.Now(),
 			Variant:     rackStat.Variant,
 			Message:     rackStat.Message,
 			Description: rackStat.Description,
-			Details:     StatusDetails{Rack: rackStat.Details.Rack, Device: device.Key},
+			Details:     StatusDetails{Rack: rackKey},
 		}
 	}
 	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {

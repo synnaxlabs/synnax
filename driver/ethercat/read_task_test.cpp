@@ -135,7 +135,7 @@ protected:
             .properties = props,
         };
         auto err = client->devices.create(dev);
-        EXPECT_TRUE(!err) << err.message();
+        EXPECT_NIL(err);
         return dev;
     }
 
@@ -177,6 +177,24 @@ protected:
             {"channel", channel.key},
             {"disabled", false}
         };
+    }
+
+    /// @brief starts a source that reads the int16 entry at 0x6000:01 into a float64
+    /// channel with the given scale.
+    std::unique_ptr<ReadTaskSource> start_scaled_source(const x::json::json &scale) {
+        const auto data_ch = create_data_channel("scaled", x::telem::FLOAT64_T);
+        auto cfg = this->create_base_config();
+        cfg["sample_rate"] = 10;
+        cfg["stream_rate"] = 10;
+        auto ch = create_input_channel_config(data_ch, 0x6000, 1, "int16");
+        ch["scale"] = scale;
+        cfg["channels"].push_back(ch);
+        auto parser = x::json::Parser(cfg);
+        ReadTaskConfig task_cfg(client, parser);
+        EXPECT_NIL(parser.error());
+        auto source = std::make_unique<ReadTaskSource>(engine, std::move(task_cfg));
+        EXPECT_NIL(source->start());
+        return source;
     }
 
     synnax::channel::Channel
@@ -426,6 +444,30 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsADataTypeWiderThanTheEntry) {
     );
 }
 
+/// @brief it should reject a scaled read channel whose Synnax channel is not a float
+/// type.
+TEST_F(EtherCATReadTest, ParseConfigRejectsAScaledIntegerChannel) {
+    const auto data_ch = create_data_channel("analog", x::telem::INT16_T);
+
+    auto cfg = this->create_base_config();
+    auto ch = create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    ch["scale"] = {{"type", "linear"}, {"slope", 2}, {"offset", 1}};
+    cfg["channels"].push_back(ch);
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels");
+    EXPECT_EQ(
+        errors[0]["message"],
+        "channel " + data_ch.name +
+            " is int16, but a scaled channel must be float32 or float64. Pick a float "
+            "channel."
+    );
+}
+
 TEST_F(EtherCATReadTest, WriterConfigIncludesAllChannels) {
     auto ch1 = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("ch1"),
@@ -658,6 +700,168 @@ TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should reject a map scale whose pre-scaled bounds are equal.
+TEST_F(EtherCATReadTest, ParseConfigRejectsAMapScaleWithEqualPreScaledBounds) {
+    const auto data_ch = create_data_channel("analog", x::telem::FLOAT64_T);
+
+    auto cfg = this->create_base_config();
+    auto ch = create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    ch["scale"] = {
+        {"type", "map"},
+        {"pre_scaled_min", 4},
+        {"pre_scaled_max", 4},
+        {"scaled_min", 0},
+        {"scaled_max", 10},
+    };
+    cfg["channels"].push_back(ch);
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.scale.pre_scaled_max");
+    EXPECT_EQ(errors[0]["message"], "Pre-scaled min and pre-scaled max must differ");
+}
+
+/// @brief it should reject a table scale whose pre-scaled values do not increase.
+TEST_F(EtherCATReadTest, ParseConfigRejectsATableScaleWithUnorderedPreScaledValues) {
+    const auto data_ch = create_data_channel("analog", x::telem::FLOAT64_T);
+
+    auto cfg = this->create_base_config();
+    auto ch = create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    ch["scale"] = {
+        {"type", "table"},
+        {"pre_scaled_vals", {0, 200, 100}},
+        {"scaled_vals", {0, 10, 40}},
+    };
+    cfg["channels"].push_back(ch);
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.scale.pre_scaled_vals");
+    EXPECT_EQ(errors[0]["message"], "Pre-scaled values must be in increasing order");
+}
+
+/// @brief it should skip the map scale check on a disabled channel.
+TEST_F(EtherCATReadTest, ParseConfigSkipsTheMapScaleCheckOnADisabledChannel) {
+    const auto valid_ch = create_data_channel("valid", x::telem::INT16_T);
+    const auto disabled_ch = create_data_channel("disabled", x::telem::FLOAT64_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_input_channel_config(valid_ch, 0x6000, 1, "int16")
+    );
+    auto disabled = create_input_channel_config(disabled_ch, 0x6000, 2, "int32", true);
+    disabled["scale"] = {
+        {"type", "map"},
+        {"pre_scaled_min", 4},
+        {"pre_scaled_max", 4},
+        {"scaled_min", 0},
+        {"scaled_max", 10},
+    };
+    cfg["channels"].push_back(disabled);
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(task_cfg.channels.size(), 1);
+    EXPECT_EQ(task_cfg.channels[0]->synnax_key, valid_ch.key);
+}
+
+/// @brief it should apply a linear scale to each sample it reads.
+TEST_F(EtherCATReadTest, SourceAppliesALinearScale) {
+    const auto source = start_scaled_source(
+        {{"type", "linear"}, {"slope", 2.5}, {"offset", -10}}
+    );
+    this->mock_master->set_input<int16_t>(0, -40);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source->read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        -110.0
+    );
+    brk.stop();
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should apply a map scale to each sample it reads.
+TEST_F(EtherCATReadTest, SourceAppliesAMapScale) {
+    const auto source = start_scaled_source(
+        {{"type", "map"},
+         {"pre_scaled_min", 0},
+         {"pre_scaled_max", 32000},
+         {"scaled_min", 0},
+         {"scaled_max", 10}}
+    );
+    this->mock_master->set_input<int16_t>(0, 8000);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source->read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        2.5
+    );
+    brk.stop();
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should apply a polynomial scale to each sample it reads.
+TEST_F(EtherCATReadTest, SourceAppliesAPolynomialScale) {
+    const auto source = start_scaled_source(
+        {{"type", "polynomial"}, {"coeffs", {1, 2, 3}}}
+    );
+    this->mock_master->set_input<int16_t>(0, 2);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source->read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        17.0
+    );
+    brk.stop();
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should apply a table scale to each sample it reads.
+TEST_F(EtherCATReadTest, SourceAppliesATableScale) {
+    const auto source = start_scaled_source(
+        {{"type", "table"},
+         {"pre_scaled_vals", {0, 100, 200}},
+         {"scaled_vals", {0, 10, 40}}}
+    );
+    this->mock_master->set_input<int16_t>(0, 150);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source->read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        25.0
+    );
+    brk.stop();
+    ASSERT_NIL(source->stop());
+}
+
 TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
     auto ch1 = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("status"),
@@ -821,6 +1025,47 @@ TEST_F(EtherCATReadTest, StartRunsTheModeChosenOnASavedDevice) {
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
     EXPECT_EQ(this->mock_master->chosen_mode(1), choice);
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    read_task->exec(stop);
+}
+
+/// @brief it should pass the startup parameters saved on a device to the master when
+/// the bus starts.
+TEST_F(EtherCATReadTest, StartPassesTheStartupParametersOfASavedDevice) {
+    auto saved = this->create_configured_slave(NETWORK_INTERFACE, 1, true);
+    saved.properties["startup_parameters"] = {
+        {{"index", 0x8000}, {"sub_index", 0x15}, {"data_type", "uint16"}, {"value", 3}}
+    };
+    ASSERT_NIL(this->client->devices.create(saved));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    read_task->exec(start);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
+    EXPECT_EQ(
+        this->mock_master->startup_parameters(1),
+        (std::vector<slave::StartupParameter>{{
+            .index = 0x8000,
+            .sub_index = 0x15,
+            .data_type = x::telem::UINT16_T,
+            .value = 3,
+        }})
+    );
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     read_task->exec(stop);
 }

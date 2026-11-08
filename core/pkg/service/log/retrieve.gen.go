@@ -13,9 +13,18 @@ package log
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 )
+
+// tableName names the Log table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "log"
 
 // Retrieve is used to retrieve Log records from the database using a
 // builder pattern for constructing queries.
@@ -30,7 +39,11 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	search *gorp.SearchIndex[Key, Log]
+	group           *gorp.KeyReference[Key, Log, group.Key]
+	project         *gorp.KeyReference[Key, Log, project.Key]
+	rangeVal        *gorp.KeyReference[Key, Log, ranger.Key]
+	channelsChannel *gorp.KeyReference[Key, Log, channel.Key]
+	search          *gorp.SearchIndex[Key, Log]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -38,6 +51,60 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, group.Key]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: gorp.Detach,
+			Targets: func(e *Log) []group.Key {
+				if e.Group == nil {
+					return nil
+				}
+				return []group.Key{*e.Group}
+			},
+			Detach: func(e *Log, _ group.Key) { e.Group = nil },
+		}),
+		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, project.Key]{
+			Name:     "project",
+			Table:    "project",
+			OnDelete: gorp.Cascade,
+			Targets: func(e *Log) []project.Key {
+				if e.Project == nil {
+					return nil
+				}
+				return []project.Key{*e.Project}
+			},
+		}),
+		rangeVal: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, ranger.Key]{
+			Name:     "range",
+			Table:    "range",
+			OnDelete: gorp.Cascade,
+			Targets: func(e *Log) []ranger.Key {
+				if e.Range == nil {
+					return nil
+				}
+				return []ranger.Key{*e.Range}
+			},
+		}),
+		channelsChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, channel.Key]{
+			Name:     "channels.channel",
+			Table:    "channel",
+			OnDelete: gorp.Detach,
+			Targets: func(e *Log) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Channels {
+					targets = append(targets, v1.Channel)
+				}
+				return targets
+			},
+			Detach: func(e *Log, t channel.Key) {
+				e.Channels = slices.DeleteFunc(e.Channels, func(v2 ChannelEntry) bool {
+					if v2.Channel == t {
+						return true
+					}
+					return false
+				})
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Log](
 			"search",
 			func(e *Log) []string {
@@ -52,6 +119,17 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Log] {
 	return []gorp.Index[Key, Log]{
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Log] {
+	return []gorp.Reference[Key, Log]{
+		i.group,
+		i.project,
+		i.rangeVal,
+		i.channelsChannel,
 	}
 }
 
@@ -112,6 +190,72 @@ func (r Retrieve) Search(term string) Retrieve {
 func MatchKeys(keys ...Key) Filter {
 	return func(Retrieve) gorp.Filter[Key, Log] {
 		return gorp.MatchKeys[Key, Log](keys...)
+	}
+}
+
+// MatchGroups returns a filter for logs
+// whose Group matches any of the provided
+// values.
+func MatchGroups(vals ...group.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Log] {
+		return r.indexes.group.Filter(vals...)
+	}
+}
+
+// MatchHasGroup returns a filter for logs whose
+// Group holds a target when has is true, and holds none when has is false.
+func MatchHasGroup(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Log] {
+		return r.indexes.group.FilterHolding(has)
+	}
+}
+
+// setGroup returns an update that sets the Group of the
+// logs with keys to v.
+func setGroup(
+	table *gorp.Table[Key, Log],
+	v *group.Key,
+	keys ...Key,
+) gorp.Update[Key, Log] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Log](keys...)).
+		Change(func(_ gorp.Context, e Log) Log {
+			e.Group = v
+			return e
+		})
+}
+
+// MatchProjects returns a filter for logs
+// whose Project matches any of the provided
+// values.
+func MatchProjects(vals ...project.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Log] {
+		return r.indexes.project.Filter(vals...)
+	}
+}
+
+// MatchHasProject returns a filter for logs whose
+// Project holds a target when has is true, and holds none when has is false.
+func MatchHasProject(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Log] {
+		return r.indexes.project.FilterHolding(has)
+	}
+}
+
+// MatchRanges returns a filter for logs
+// whose Range matches any of the provided
+// values.
+func MatchRanges(vals ...ranger.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Log] {
+		return r.indexes.rangeVal.Filter(vals...)
+	}
+}
+
+// MatchHasRange returns a filter for logs whose
+// Range holds a target when has is true, and holds none when has is false.
+func MatchHasRange(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Log] {
+		return r.indexes.rangeVal.FilterHolding(has)
 	}
 }
 
