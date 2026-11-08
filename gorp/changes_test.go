@@ -59,6 +59,7 @@ var _ = Describe("Changes", func() {
 		records *gorp.Table[int32, entry]
 		record  = gorp.NewTarget("record", int32(1))
 		encode  = func(data string) []byte {
+			GinkgoHelper()
 			return MustSucceed(
 				msgpack.Codec.Encode(context.Background(), entry{ID: 1, Data: data}),
 			)
