@@ -80,11 +80,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 ch
             );
             if (slave == nullptr) return;
-            auto channel_ptr = channel::make_input(parsed, *slave, ch);
-            if (!channel_ptr->enabled) return;
-            transform::validate_scale(ch, "scale", channel_ptr->scale);
-            claims.claim(*channel_ptr, *slave, ch);
-            this->channels.push_back(std::move(channel_ptr));
+            auto input = channel::make_input(parsed, *slave, ch);
+            if (input == nullptr) return;
+            transform::validate_scale(ch, "scale", input->scale);
+            claims.claim(input->entry, *slave, ch);
+            this->channels.push_back(std::move(input));
         });
 
         if (cfg.error()) return;
@@ -113,7 +113,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         };
         for (size_t i = 0; i < this->channels.size(); i++) {
             auto &ch = *this->channels[i];
-            ch.bind_remote_info(synnax_channels[i]);
+            ch.ch = synnax_channels[i];
             if (synnax_channels[i].index != 0)
                 this->indexes.insert(synnax_channels[i].index);
             if (!ch.scaled()) continue;
@@ -183,7 +183,7 @@ public:
         std::vector<pdo::Entry> entries;
         entries.reserve(this->cfg.channels.size());
         for (const auto &ch: this->cfg.channels)
-            entries.push_back(*ch);
+            entries.push_back(ch->entry);
 
         auto [rdr, err] = this->engine->open_reader(
             entries,

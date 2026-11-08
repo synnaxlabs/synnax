@@ -220,10 +220,10 @@ TEST_F(EtherCATReadTest, ParseConfigWithEntryChannel) {
     ASSERT_NIL(parser.error());
     EXPECT_EQ(task_cfg.channels.size(), 1);
     EXPECT_EQ(task_cfg.slaves.network, "eth0");
-    EXPECT_EQ(task_cfg.channels[0]->index, 0x6000);
-    EXPECT_EQ(task_cfg.channels[0]->sub_index, 1);
-    EXPECT_EQ(task_cfg.channels[0]->bit_length, 16);
-    EXPECT_EQ(task_cfg.channels[0]->data_type, x::telem::INT16_T);
+    EXPECT_EQ(task_cfg.channels[0]->entry.index, 0x6000);
+    EXPECT_EQ(task_cfg.channels[0]->entry.sub_index, 1);
+    EXPECT_EQ(task_cfg.channels[0]->entry.bit_length, 16);
+    EXPECT_EQ(task_cfg.channels[0]->entry.data_type, x::telem::INT16_T);
 }
 
 /// @brief it should report a read channel that does not exist in the Core.

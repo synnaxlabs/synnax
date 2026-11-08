@@ -55,8 +55,8 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
             );
             if (slave == nullptr) continue;
             auto output = channel::make_output(this->channels[i], *slave, cfg, path);
-            if (!output->enabled) continue;
-            claims.claim(*output, *slave, cfg, path);
+            if (output == nullptr) continue;
+            claims.claim(output->entry, *slave, cfg, path);
             this->outputs.push_back(std::move(output));
         }
 
@@ -119,10 +119,8 @@ public:
 
         std::vector<engine::Engine::Writer::Entry> entries;
         entries.reserve(this->cfg.outputs.size());
-        for (const auto &ch: this->cfg.outputs) {
-            const pdo::Entry &entry = *ch;
-            entries.push_back({.entry = entry, .stop_value = ch->stop_value});
-        }
+        for (const auto &ch: this->cfg.outputs)
+            entries.push_back({.entry = ch->entry, .stop_value = ch->stop_value});
         auto [wtr, err] = this->engine->open_writer(entries, this->cfg.execution_rate);
         if (err) return err;
         this->writer = std::move(wtr);
