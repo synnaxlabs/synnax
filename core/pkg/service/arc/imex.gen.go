@@ -17,12 +17,12 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Export retrieves the Arc identified by id and serializes it, stamping
 // versions.Latest. It returns query.ErrNotFound if no Arc has id.Key.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
+func (s *Service) Export(ctx context.Context, id resource.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return imex.Envelope{}, err

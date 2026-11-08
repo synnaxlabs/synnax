@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
 
-from synnax import device, task
+from synnax import device, rack as rack_, task
 from synnax.ethercat.types_gen import (
     ReadChannel,
     ReadConfig,
@@ -173,10 +173,10 @@ class Device(device.Device):
         product_code: int = 0,
         revision: int = 0,
         serial: int = 0,
-        rack: int = 0,
+        rack: rack_.Key = 0,
         input_pdos: list[PDOEntry] | None = None,
         output_pdos: list[PDOEntry] | None = None,
-        key: str = "",
+        key: device.Key = "",
         configured: bool = False,
         enabled: bool = True,
     ):

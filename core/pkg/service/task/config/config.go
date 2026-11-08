@@ -12,67 +12,91 @@ package config
 import (
 	"context"
 	"encoding/json/v2"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Store persists the configuration records of one task type.
+// Store persists the configuration records of one task type. A record's key is the key
+// of its task, and deleting the task deletes the record.
 type Store interface {
 	// Type returns the task type whose records the store owns.
 	Type() string
-	// Write decodes data into the store's record type, validates it, and stores it
-	// under key, creating or overwriting the record. It returns the stored record as
-	// Read returns it, or an error wrapping validate.ErrValidation when data does not
-	// decode or fails validation.
-	Write(
+	// Prepare decodes data into the store's record type under key and validates it,
+	// writing nothing. It returns the record to write, or an error wrapping
+	// validate.ErrValidation when data does not decode or fails validation.
+	Prepare(
 		ctx context.Context,
 		tx gorp.Tx,
 		key uuid.UUID,
 		data msgpack.EncodedJSON,
-	) (msgpack.EncodedJSON, error)
-	// WriteStrict is Write, except that it also rejects data holding a member that the
-	// record type does not declare.
-	WriteStrict(
+	) (Record, error)
+	// PrepareStrict is Prepare, except that it also rejects data holding a member that
+	// the record type does not declare.
+	PrepareStrict(
 		ctx context.Context,
 		tx gorp.Tx,
 		key uuid.UUID,
 		data msgpack.EncodedJSON,
-	) (msgpack.EncodedJSON, error)
+	) (Record, error)
 	// Read returns the record stored under key, or an error wrapping
 	// query.ErrNotFound when no record exists.
 	Read(ctx context.Context, tx gorp.Tx, key uuid.UUID) (msgpack.EncodedJSON, error)
 	// Delete removes the records stored under keys. Delete is idempotent.
 	Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
-	// Copy duplicates the record stored under from into a new record stored under
-	// to. It returns an error wrapping query.ErrNotFound when from does not exist.
+	// Copy duplicates the record stored under from into a new record stored under to,
+	// which must be the key of a task. It returns an error wrapping query.ErrNotFound
+	// when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
 	// Normalize converts a config blob at the given version to the current stored
-	// shape with defaults applied. A version that predates the type's ladder runs the
-	// type's legacy rewrite first. It returns a validation error when data does not
-	// decode at version or version is newer than the store's.
+	// shape with defaults applied, and drops each target of the blob's references that
+	// does not exist in tx and that its reference can drop. A version that predates the
+	// type's ladder runs the type's legacy rewrite first. It returns a validation error
+	// when data does not decode at version or version is newer than the store's.
 	Normalize(
 		ctx context.Context,
+		tx gorp.Tx,
 		version imex.Version,
 		data msgpack.EncodedJSON,
 	) (msgpack.EncodedJSON, error)
 	// Version returns the current version of the store's config type, stamped on
 	// exported envelopes.
 	Version() imex.Version
+	// ObserveDetaches returns an observable that notifies the key of each record that a
+	// delete of one of its targets detached. Handlers run synchronously after the
+	// delete's transaction commits.
+	ObserveDetaches() observe.Observable[uuid.UUID]
 }
+
+// Record is a validated configuration record that is not written yet. Only a Store
+// builds one.
+type Record struct {
+	data  msgpack.EncodedJSON
+	write func(ctx context.Context, tx gorp.Tx) error
+}
+
+// Data returns the record as Read returns it once written.
+func (r Record) Data() msgpack.EncodedJSON { return r.data }
+
+// Write writes the record under its key, creating or overwriting it. It returns a
+// validation error when no task has the key.
+func (r Record) Write(ctx context.Context, tx gorp.Tx) error { return r.write(ctx, tx) }
 
 // ServiceConfig is the configuration for opening a Service. E is the record type
 // the service stores.
-type ServiceConfig[E any] struct {
+type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -82,9 +106,13 @@ type ServiceConfig[E any] struct {
 	// SetEntryKey stamps key onto an entry before it is stored.
 	// [REQUIRED]
 	SetEntryKey func(e *E, key uuid.UUID)
-	// Migrations is the stored-shape migration chain for the record type. Empty for
-	// a type whose stored shape has never changed.
+	// Migrations is the stored-shape migration chain for the record type. Empty for a
+	// type whose stored shape has never changed.
 	Migrations []gorp.Migration
+	// References are the references the records hold, besides the one to their task.
+	// Opening the service drops each target that does not exist from stored entries.
+	// [OPTIONAL]
+	References []gorp.Reference[uuid.UUID, E]
 	// Ladder decodes typed config blobs at every version the type has exported and
 	// migrates them to the current shape. Its Latest is stamped on exports.
 	// [REQUIRED]
@@ -106,14 +134,13 @@ type ServiceConfig[E any] struct {
 	alamos.Instrumentation
 }
 
-var _ xconfig.Config[ServiceConfig[struct{}]] = ServiceConfig[struct{}]{}
-
 // Override implements xconfig.Config.
 func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Type = override.String(c.Type, other.Type)
 	c.SetEntryKey = override.Nil(c.SetEntryKey, other.SetEntryKey)
 	c.Migrations = override.Slice(c.Migrations, other.Migrations)
+	c.References = override.Slice(c.References, other.References)
 	c.Ladder = override.If(c.Ladder, other.Ladder, other.Ladder.Decode != nil)
 	c.LegacyVersion = override.Numeric(c.LegacyVersion, other.LegacyVersion)
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
@@ -151,14 +178,35 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 		return nil, err
 	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{
-		DB:              cfg.DB,
-		Migrations:      cfg.Migrations,
+		DB:   cfg.DB,
+		Name: TableName(cfg.Type),
+		Migrations: append(
+			slices.Clone(cfg.Migrations),
+			gorp.DanglingMigration("v61_dangling_references"),
+		),
+		References: append(
+			[]gorp.Reference[uuid.UUID, E]{newTaskReference[E]()},
+			cfg.References...,
+		),
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &Service[E]{cfg: cfg, table: table}, nil
+}
+
+// TableName returns the name of the table that stores the config records of taskType.
+func TableName(taskType string) string { return taskType + "_config" }
+
+// newTaskReference returns the reference from a record to the task that shares its key.
+func newTaskReference[E gorp.Entry[uuid.UUID]]() *gorp.KeyReference[uuid.UUID, E, uuid.UUID] {
+	return gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, E, uuid.UUID]{
+		Name:     "key",
+		Table:    string(resource.TypeTask),
+		OnDelete: gorp.Cascade,
+		Targets:  func(e *E) []uuid.UUID { return []uuid.UUID{(*e).GorpKey()} },
+	})
 }
 
 // Type implements Store.
@@ -168,42 +216,42 @@ func (s *Service[E]) Type() string { return s.cfg.Type }
 // to call concurrently with any other service methods.
 func (s *Service[E]) Close() error { return s.table.Close() }
 
-// Write implements Store.
-func (s *Service[E]) Write(
+// Prepare implements Store.
+func (s *Service[E]) Prepare(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
-) (msgpack.EncodedJSON, error) {
-	return s.write(ctx, tx, key, data, json.RejectUnknownMembers(false))
+) (Record, error) {
+	return s.prepare(ctx, tx, key, data, json.RejectUnknownMembers(false))
 }
 
-// WriteStrict implements Store.
-func (s *Service[E]) WriteStrict(
+// PrepareStrict implements Store.
+func (s *Service[E]) PrepareStrict(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
-) (msgpack.EncodedJSON, error) {
-	return s.write(ctx, tx, key, data, json.RejectUnknownMembers(true))
+) (Record, error) {
+	return s.prepare(ctx, tx, key, data, json.RejectUnknownMembers(true))
 }
 
-func (s *Service[E]) write(
+func (s *Service[E]) prepare(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
 	opts json.Options,
-) (msgpack.EncodedJSON, error) {
+) (Record, error) {
 	b, err := json.Marshal(data)
 	if err != nil {
-		return nil, errors.Wrapf(
+		return Record{}, errors.Wrapf(
 			validate.ErrValidation, "encoding %s config: %s", s.cfg.Type, err,
 		)
 	}
 	var e E
 	if err := json.Unmarshal(b, &e, opts); err != nil {
-		return nil, errors.Wrapf(
+		return Record{}, errors.Wrapf(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
@@ -214,18 +262,22 @@ func (s *Service[E]) write(
 			gorp.OverrideTx(s.cfg.DB, tx),
 			&e,
 		); err != nil {
-			return nil, err
+			return Record{}, err
 		}
 	}
 	if s.cfg.ValidateEntry != nil {
 		if err := s.cfg.ValidateEntry(&e); err != nil {
-			return nil, err
+			return Record{}, err
 		}
 	}
-	if err := s.create(ctx, tx, &e); err != nil {
-		return nil, err
+	encoded, err := encode(e)
+	if err != nil {
+		return Record{}, err
 	}
-	return encode(e)
+	return Record{
+		data:  encoded,
+		write: func(ctx context.Context, tx gorp.Tx) error { return s.create(ctx, tx, &e) },
+	}, nil
 }
 
 func (s *Service[E]) create(ctx context.Context, tx gorp.Tx, e *E) error {
@@ -275,6 +327,7 @@ func (s *Service[E]) Delete(
 // Normalize implements Store.
 func (s *Service[E]) Normalize(
 	ctx context.Context,
+	tx gorp.Tx,
 	version imex.Version,
 	data msgpack.EncodedJSON,
 ) (msgpack.EncodedJSON, error) {
@@ -294,34 +347,38 @@ func (s *Service[E]) Normalize(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	if version == ladder.Latest {
-		return encode(e)
+	if version != ladder.Latest {
+		if e, err = withInputDefaults(e, data); err != nil {
+			return nil, err
+		}
 	}
-	return withInputDefaults(e, data)
+	if _, err := s.table.DropDangling(
+		ctx,
+		gorp.OverrideTx(s.cfg.DB, tx),
+		&e,
+	); err != nil {
+		return nil, err
+	}
+	return encode(e)
 }
 
-// withInputDefaults returns the encoding of e, an entry that a ladder lifted from the
-// input blob in, with the schema default in every member that in omits. A lift builds
-// a member its source version lacks as a zero, while a member that in carries keeps
-// the value the lift gave it, zero or not.
-func withInputDefaults[E any](
-	e E,
-	in msgpack.EncodedJSON,
-) (msgpack.EncodedJSON, error) {
+// withInputDefaults returns e, an entry that a ladder lifted from the input blob in,
+// with the schema default in every member that in omits. A lift builds a member its
+// source version lacks as a zero, while a member that in carries keeps the value the
+// lift gave it, zero or not.
+func withInputDefaults[E any](e E, in msgpack.EncodedJSON) (E, error) {
+	var filled E
 	out, err := encode(e)
 	if err != nil {
-		return nil, err
+		return filled, err
 	}
 	dropOmittedZeros(out, in)
 	b, err := json.Marshal(out)
 	if err != nil {
-		return nil, err
+		return filled, err
 	}
-	var filled E
-	if err = json.Unmarshal(b, &filled); err != nil {
-		return nil, err
-	}
-	return encode(filled)
+	err = json.Unmarshal(b, &filled)
+	return filled, err
 }
 
 // dropOmittedZeros deletes from out every member, at any object depth, that in omits
@@ -374,6 +431,16 @@ func isZeroJSON(v any) bool {
 
 // Version implements Store.
 func (s *Service[E]) Version() imex.Version { return s.cfg.Ladder.Latest }
+
+// ObserveDetaches implements Store.
+func (s *Service[E]) ObserveDetaches() observe.Observable[uuid.UUID] {
+	return observe.Translator[E, uuid.UUID]{
+		Observable: s.table.ObserveDetaches(),
+		Translate: func(_ context.Context, e E) (uuid.UUID, bool) {
+			return e.GorpKey(), true
+		},
+	}
+}
 
 // Copy implements Store.
 func (s *Service[E]) Copy(

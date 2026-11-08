@@ -376,7 +376,7 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "request.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					"func (r RetrieveRequest) Apply(q Retrieve) (Retrieve, error) {",
+					"func ApplyRetrieve(r RetrieveRequest, q Retrieve) (Retrieve, error) {",
 					"q = q.SkipMissingKeys()",
 					"f, err := MatchWhere(*r.Where)",
 					`return Retrieve{}, validate.PathedError(err, "where")`,
@@ -390,7 +390,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToPreserveOrder("r.Where", "r.SearchTerm", "r.Limit", "r.Offset")
 		})
 
-		It("Should generate the request methods at the request output", func(
+		It("Should generate the request functions at the request output", func(
 			ctx SpecContext,
 		) {
 			resp := MustGenerate(ctx, `
@@ -416,7 +416,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToContain(
 					"package thing",
 					`servicething "github.com/synnaxlabs/synnax/core/pkg/service/thing"`,
-					"func (r RetrieveRequest) Apply(q servicething.Retrieve) "+
+					"func ApplyRetrieve(r RetrieveRequest, q servicething.Retrieve) "+
 						"(servicething.Retrieve, error) {",
 					"f, err := servicething.MatchWhere(*r.Where)",
 					"return servicething.Retrieve{}, validate.PathedError(err, \"where\")",
@@ -445,7 +445,8 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "request.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					"func (r RetrieveRequest) Apply(q Retrieve[any]) (Retrieve[any], error) {",
+					"func ApplyRetrieve(r RetrieveRequest, q Retrieve[any]) "+
+						"(Retrieve[any], error) {",
 					"f, err := MatchWhere[any](*r.Where)",
 					"q = q.Where(MatchSearch(r.SearchTerm))",
 					"return q.Where(MatchKeys[any]()), nil",

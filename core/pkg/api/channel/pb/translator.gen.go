@@ -12,6 +12,8 @@
 package pb
 
 import (
+	"uuid"
+
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelpb "github.com/synnaxlabs/synnax/pkg/service/channel/pb"
@@ -56,6 +58,10 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 			return nil, err
 		}
 	}
+	if r.Group != nil {
+		v := r.Group.String()
+		pb.Group = &v
+	}
 	return pb, nil
 }
 
@@ -96,6 +102,13 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 			return channel.Channel{}, err
 		}
 		r.Status = &val
+	}
+	if pb.Group != nil {
+		v, err := uuid.Parse(*pb.Group)
+		if err != nil {
+			return channel.Channel{}, err
+		}
+		r.Group = &v
 	}
 	defaults.FillGroups(&r)
 	return r, nil

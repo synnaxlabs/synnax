@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { AccessDeniedError, NotFoundError } from "@/index";
+import { project } from "@/project";
 import { schematic } from "@/schematic";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -26,7 +27,8 @@ describe("schematic", () => {
       const proj = await client.projects.create({
         name: "test",
       });
-      const randomSchematic = await client.schematics.create(proj.key, {
+      const randomSchematic = await client.schematics.create({
+        project: proj.key,
         name: "test",
       });
       await expect(
@@ -37,13 +39,14 @@ describe("schematic", () => {
     it("should allow the caller to retrieve schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematic.resourceID("")],
         actions: ["retrieve"],
       });
       const proj = await client.projects.create({
         name: "test",
       });
-      const randomSchematic = await client.schematics.create(proj.key, {
+      const randomSchematic = await client.schematics.create({
+        project: proj.key,
         name: "test",
       });
       const retrieved = await userClient.schematics.retrieve(randomSchematic.key);
@@ -54,43 +57,52 @@ describe("schematic", () => {
     it("should allow the caller to create schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
-        actions: ["create"],
+        objects: [schematic.resourceID(""), project.TYPE_RESOURCE_ID],
+        actions: ["create", "update"],
       });
       const proj = await client.projects.create({
         name: "test",
       });
-      await userClient.schematics.create(proj.key, {
+      await userClient.schematics.create({ project: proj.key, name: "test" });
+    });
+
+    it("should deny creating a schematic in a project the caller cannot update", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
+        objects: [schematic.resourceID("")],
+        actions: ["create"],
       });
+      const proj = await client.projects.create({ name: "test" });
+      await expect(
+        userClient.schematics.create({ project: proj.key, name: "test" }),
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematic.resourceID("")],
         actions: [],
       });
       const proj = await client.projects.create({
         name: "test",
       });
       await expect(
-        userClient.schematics.create(proj.key, {
-          name: "test",
-        }),
+        userClient.schematics.create({ project: proj.key, name: "test" }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematic.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const proj = await client.projects.create({
         name: "test",
       });
-      const randomSchematic = await client.schematics.create(proj.key, {
+      const randomSchematic = await client.schematics.create({
+        project: proj.key,
         name: "test",
       });
       await userClient.schematics.delete(randomSchematic.key);
@@ -102,13 +114,14 @@ describe("schematic", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematic.resourceID("")],
         actions: [],
       });
       const proj = await client.projects.create({
         name: "test",
       });
-      const randomSchematic = await client.schematics.create(proj.key, {
+      const randomSchematic = await client.schematics.create({
+        project: proj.key,
         name: "test",
       });
       await expect(userClient.schematics.delete(randomSchematic.key)).rejects.toSatisfy(

@@ -15,11 +15,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/defaults"
-	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -27,23 +28,33 @@ import (
 
 var _ = Describe("Directories", func() {
 	var (
+		tx   gorp.Tx
 		w    arc.Writer
 		root directory.Key
 	)
-	parentsOf := func(ctx SpecContext, id ontology.ID) []ontology.ID {
+	parentsOf := func(ctx SpecContext, id resource.ID) []resource.ID {
 		GinkgoHelper()
-		var parents []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(id).
-			TraverseTo(ontology.ParentsTraverser).
-			ExcludeFieldData(true).
-			Entries(&parents).
-			Exec(ctx, tx)).To(Succeed())
-		ids := make([]ontology.ID, 0, len(parents))
-		for _, p := range parents {
-			ids = append(ids, p.ID)
+		key := MustSucceed(resource.ParseUUIDKey(id))
+		var parent *directory.Key
+		if id.Type == resource.TypeArc {
+			var a arc.Arc
+			Expect(svc.NewRetrieve().
+				Where(arc.MatchKeys(key)).
+				Entry(&a).
+				Exec(ctx, tx)).To(Succeed())
+			parent = a.Base().Directory
+		} else {
+			var d directory.Directory
+			Expect(svc.NewDirectoryRetrieve().
+				Where(directory.MatchKeys(key)).
+				Entry(&d).
+				Exec(ctx, tx)).To(Succeed())
+			parent = d.Parent
 		}
-		return ids
+		if parent == nil {
+			return nil
+		}
+		return []resource.ID{directory.ResourceID(*parent)}
 	}
 	createDirectory := func(
 		ctx SpecContext,
@@ -65,17 +76,11 @@ var _ = Describe("Directories", func() {
 		return a
 	}
 	BeforeEach(func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-		var roots []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(ontology.RootID).
-			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(ontology.ResourceTypeArcDirectory).
-			Entries(&roots).
-			Exec(ctx, tx)).To(Succeed())
-		Expect(roots).To(HaveLen(1))
-		Expect(roots[0].Name).To(Equal("Arcs"))
-		root = MustSucceed(directory.KeyFromOntologyID(roots[0].ID))
+		r := rootDirectory(ctx, tx)
+		Expect(r.Name).To(Equal("Arcs"))
+		root = r.Key
 	})
 
 	Describe("Root", func() {
@@ -85,7 +90,7 @@ var _ = Describe("Directories", func() {
 		})
 		It("Should reject moving the root", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
-			Expect(w.Move(ctx, root, lib.Key, directory.OntologyID(root))).
+			Expect(w.Move(ctx, root, lib.Key, directory.ResourceID(root))).
 				To(MatchError(ContainSubstring("root Arcs directory cannot be moved")))
 		})
 		It("Should reject deleting the root", func(ctx SpecContext) {
@@ -98,7 +103,7 @@ var _ = Describe("Directories", func() {
 		It("Should create a directory under its parent", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
 			sub := createDirectory(ctx, "sub", lib.Key)
-			Expect(parentsOf(ctx, sub.OntologyID())).To(ConsistOf(lib.OntologyID()))
+			Expect(parentsOf(ctx, sub.ResourceID())).To(ConsistOf(lib.ResourceID()))
 		})
 		It("Should reject a name that is not an identifier", func(ctx SpecContext) {
 			d := directory.Directory{Name: "my lib"}
@@ -136,9 +141,9 @@ var _ = Describe("Directories", func() {
 		It("Should rename a directory", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
 			Expect(w.RenameDirectory(ctx, lib.Key, "core")).To(Succeed())
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(lib.OntologyID()).
+			var res directory.Directory
+			Expect(svc.NewDirectoryRetrieve().
+				Where(directory.MatchKeys(lib.Key)).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("core"))
@@ -155,8 +160,10 @@ var _ = Describe("Directories", func() {
 		It("Should delete an empty directory", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
 			Expect(w.DeleteDirectory(ctx, lib.Key)).To(Succeed())
-			Expect(otg.NewRetrieve().
-				WhereIDs(lib.OntologyID()).
+			var res directory.Directory
+			Expect(svc.NewDirectoryRetrieve().
+				Where(directory.MatchKeys(lib.Key)).
+				Entry(&res).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 		It("Should reject deleting a directory that is not empty", func(
@@ -164,6 +171,15 @@ var _ = Describe("Directories", func() {
 		) {
 			lib := createDirectory(ctx, "lib", root)
 			createDirectory(ctx, "sub", lib.Key)
+			Expect(w.DeleteDirectory(ctx, lib.Key)).
+				To(MatchError(ContainSubstring(`directory "lib" is not empty`)))
+		})
+		It("Should reject deleting a directory that holds an Arc", func(
+			ctx SpecContext,
+		) {
+			lib := createDirectory(ctx, "lib", root)
+			m := createArc(ctx, "m", arc.TypeModule)
+			Expect(w.Move(ctx, root, lib.Key, m.ResourceID())).To(Succeed())
 			Expect(w.DeleteDirectory(ctx, lib.Key)).
 				To(MatchError(ContainSubstring(`directory "lib" is not empty`)))
 		})
@@ -175,26 +191,26 @@ var _ = Describe("Directories", func() {
 			func(ctx SpecContext) {
 				lib := createDirectory(ctx, "lib", root)
 				m := createArc(ctx, "m", arc.TypeModule)
-				Expect(w.Move(ctx, root, lib.Key, m.OntologyID())).To(Succeed())
-				Expect(parentsOf(ctx, m.OntologyID())).To(ConsistOf(lib.OntologyID()))
+				Expect(w.Move(ctx, root, lib.Key, m.ResourceID())).To(Succeed())
+				Expect(parentsOf(ctx, m.ResourceID())).To(ConsistOf(lib.ResourceID()))
 			},
 		)
 		It("Should move a directory with its entries", func(ctx SpecContext) {
 			a := createDirectory(ctx, "a", root)
 			b := createDirectory(ctx, "b", root)
 			m := createArc(ctx, "m", arc.TypeModule)
-			Expect(w.Move(ctx, root, a.Key, m.OntologyID())).To(Succeed())
-			Expect(w.Move(ctx, root, b.Key, a.OntologyID())).To(Succeed())
-			Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(b.OntologyID()))
-			Expect(parentsOf(ctx, m.OntologyID())).To(ConsistOf(a.OntologyID()))
+			Expect(w.Move(ctx, root, a.Key, m.ResourceID())).To(Succeed())
+			Expect(w.Move(ctx, root, b.Key, a.ResourceID())).To(Succeed())
+			Expect(parentsOf(ctx, a.ResourceID())).To(ConsistOf(b.ResourceID()))
+			Expect(parentsOf(ctx, m.ResourceID())).To(ConsistOf(a.ResourceID()))
 		})
 		It("Should leave an entry moved into its own directory", func(
 			ctx SpecContext,
 		) {
 			m := createArc(ctx, "m", arc.TypeModule)
-			Expect(w.Move(ctx, root, root, m.OntologyID())).To(Succeed())
-			Expect(parentsOf(ctx, m.OntologyID())).
-				To(ConsistOf(directory.OntologyID(root)))
+			Expect(w.Move(ctx, root, root, m.ResourceID())).To(Succeed())
+			Expect(parentsOf(ctx, m.ResourceID())).
+				To(ConsistOf(directory.ResourceID(root)))
 		})
 		It("Should reject an entry that is not in the source", func(
 			ctx SpecContext,
@@ -202,10 +218,10 @@ var _ = Describe("Directories", func() {
 			a := createDirectory(ctx, "a", root)
 			b := createDirectory(ctx, "b", root)
 			m := createArc(ctx, "m", arc.TypeModule)
-			Expect(w.Move(ctx, a.Key, b.Key, m.OntologyID())).
+			Expect(w.Move(ctx, a.Key, b.Key, m.ResourceID())).
 				To(MatchError(ContainSubstring(`"m" is not in the source directory`)))
-			Expect(parentsOf(ctx, m.OntologyID())).
-				To(ConsistOf(directory.OntologyID(root)))
+			Expect(parentsOf(ctx, m.ResourceID())).
+				To(ConsistOf(directory.ResourceID(root)))
 		})
 		It("Should reject a batch with one entry outside the source", func(
 			ctx SpecContext,
@@ -214,20 +230,20 @@ var _ = Describe("Directories", func() {
 			b := createDirectory(ctx, "b", root)
 			inRoot := createArc(ctx, "in_root", arc.TypeModule)
 			inA := createArc(ctx, "in_a", arc.TypeModule)
-			Expect(w.Move(ctx, root, a.Key, inA.OntologyID())).To(Succeed())
+			Expect(w.Move(ctx, root, a.Key, inA.ResourceID())).To(Succeed())
 			Expect(w.Move(
-				ctx, root, b.Key, inRoot.OntologyID(), inA.OntologyID(),
+				ctx, root, b.Key, inRoot.ResourceID(), inA.ResourceID(),
 			)).To(MatchError(ContainSubstring(`"in_a" is not in the source directory`)))
-			Expect(parentsOf(ctx, inRoot.OntologyID())).
-				To(ConsistOf(directory.OntologyID(root)))
-			Expect(parentsOf(ctx, inA.OntologyID())).To(ConsistOf(a.OntologyID()))
+			Expect(parentsOf(ctx, inRoot.ResourceID())).
+				To(ConsistOf(directory.ResourceID(root)))
+			Expect(parentsOf(ctx, inA.ResourceID())).To(ConsistOf(a.ResourceID()))
 		})
 		It("Should reject a move that duplicates a name", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
 			first := createArc(ctx, "m", arc.TypeModule)
-			Expect(w.Move(ctx, root, lib.Key, first.OntologyID())).To(Succeed())
+			Expect(w.Move(ctx, root, lib.Key, first.ResourceID())).To(Succeed())
 			second := createArc(ctx, "m", arc.TypeModule)
-			Expect(w.Move(ctx, root, lib.Key, second.OntologyID())).
+			Expect(w.Move(ctx, root, lib.Key, second.ResourceID())).
 				To(MatchError(ContainSubstring(`name "m" is already used`)))
 		})
 		It("Should reject two legacy entries of one name moved together", func(
@@ -236,33 +252,34 @@ var _ = Describe("Directories", func() {
 			lib := createDirectory(ctx, "lib", root)
 			// Stored without the name rules, as Arcs migrated from a release before
 			// the rules are.
-			first := newAutomation(arc.Base{Key: uuid.New(), Name: "dup"})
-			second := newAutomation(arc.Base{Key: uuid.New(), Name: "dup"})
+			first := newAutomation(
+				arc.Base{Key: uuid.New(), Name: "dup", Directory: &root},
+			)
+			second := newAutomation(
+				arc.Base{Key: uuid.New(), Name: "dup", Directory: &root},
+			)
 			first = defaults.Fill(first)
 			second = defaults.Fill(second)
 			Expect(gorp.NewCreate[arc.Key, arc.Arc]().
 				Entries(&[]arc.Arc{first, second}).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(otg.NewWriter(tx).DefineResources(
-				ctx, first.OntologyID(), second.OntologyID(),
-			)).To(Succeed())
-			Expect(w.Move(ctx, root, lib.Key, first.OntologyID(), second.OntologyID())).
+			Expect(w.Move(ctx, root, lib.Key, first.ResourceID(), second.ResourceID())).
 				To(MatchError(ContainSubstring(`name "dup" is already used`)))
 		})
 		It("Should reject moving a directory into itself", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
-			Expect(w.Move(ctx, root, lib.Key, lib.OntologyID())).
+			Expect(w.Move(ctx, root, lib.Key, lib.ResourceID())).
 				To(MatchError(validate.ErrValidation))
 		})
 		It("Should reject moving a directory below itself", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
 			sub := createDirectory(ctx, "sub", lib.Key)
-			Expect(w.Move(ctx, root, sub.Key, lib.OntologyID())).
-				To(MatchError(graph.ErrCyclicDependency))
+			Expect(w.Move(ctx, root, sub.Key, lib.ResourceID())).
+				To(MatchError(ContainSubstring("would form a cycle")))
 		})
 		It("Should reject moving a resource of another type", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
-			other := ontology.ID{Type: ontology.ResourceTypeChannel, Key: "1"}
+			other := resource.ID{Type: resource.TypeChannel, Key: "1"}
 			Expect(w.Move(ctx, root, lib.Key, other)).
 				To(MatchError(ContainSubstring("cannot go in an Arc directory")))
 		})
@@ -305,46 +322,85 @@ var _ = Describe("Directories", func() {
 			a.SetBase(b)
 			Expect(w.Create(ctx, &a)).To(MatchError(ContainSubstring("already used")))
 		})
-		It("Should reject a dispatched rename that duplicates a name", func(
-			ctx SpecContext,
-		) {
-			taken := newAutomation(
-				arc.Base{
-					Name:   "dispatch_taken",
-					Source: arc.Source{Variant: arc.TextSource{}},
-				},
-			)
-			Expect(writer.Create(ctx, &taken)).To(Succeed())
-			renamed := newAutomation(
-				arc.Base{
-					Name:   "dispatch_free",
-					Source: arc.Source{Variant: arc.TextSource{}},
-				},
-			)
-			Expect(writer.Create(ctx, &renamed)).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(
-					writer.Delete(ctx, taken.Base().Key, renamed.Base().Key),
-				).To(Succeed())
-			})
-			Expect(svc.Dispatch(ctx, renamed.Base().Key, "", []arc.Action{
-				arc.NewRenameAction(arc.RenamePayload{Name: "dispatch_taken"}),
-			})).To(MatchError(ContainSubstring("already used")))
-		})
 	})
 
 	Describe("Ownership", func() {
-		It("Should refuse a generic writer moving an Arc", func(ctx SpecContext) {
-			g := MustSucceed(groupSvc.NewWriter(tx).Create(ctx, "g", ontology.RootID))
-			a := createArc(ctx, "a", arc.TypeAutomation)
-			Expect(otg.NewWriter(tx).DefineRelationships(
-				ctx, g.OntologyID(), ontology.RelationshipTypeParentOf, a.OntologyID(),
-			)).To(MatchError(validate.ErrValidation))
-		})
 		It("Should refuse a group created in a directory", func(ctx SpecContext) {
-			Expect(groupSvc.NewWriter(tx).Create(
-				ctx, "g", directory.OntologyID(root),
-			)).Error().To(MatchError(validate.ErrValidation))
+			Expect(groupSvc.NewWriter(tx).Create(ctx, &group.Group{
+				Name:   "g",
+				Parent: new(directory.ResourceID(root)),
+			})).To(MatchError(ContainSubstring(
+				`must be a group, project, or rack, got "arc_directory"`,
+			)))
 		})
 	})
+})
+
+var _ = Describe("Dispatched Arc names", func() {
+	It("Should reject a dispatched rename that duplicates a name", func(
+		ctx SpecContext,
+	) {
+		taken := newAutomation(
+			arc.Base{
+				Name:   "dispatch_taken",
+				Source: arc.Source{Variant: arc.TextSource{}},
+			},
+		)
+		Expect(writer.Create(ctx, &taken)).To(Succeed())
+		renamed := newAutomation(
+			arc.Base{
+				Name:   "dispatch_free",
+				Source: arc.Source{Variant: arc.TextSource{}},
+			},
+		)
+		Expect(writer.Create(ctx, &renamed)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(
+				writer.Delete(ctx, taken.Base().Key, renamed.Base().Key),
+			).To(Succeed())
+		})
+		Expect(svc.Dispatch(ctx, renamed.Base().Key, "", []arc.Action{
+			arc.NewRenameAction(arc.RenamePayload{Name: "dispatch_taken"}),
+		})).To(MatchError(ContainSubstring("already used")))
+	})
+})
+
+var _ = Describe("Move broadcast", func() {
+	It(
+		"Should broadcast an edit that commits between a move and its broadcast",
+		func(ctx SpecContext) {
+			w := svc.NewWriter(nil)
+			root := rootDirectory(ctx, db).Key
+			lib := directory.Directory{Name: "moved_into"}
+			Expect(w.CreateDirectory(ctx, &lib, root)).To(Succeed())
+			a := newArc(arc.TypeModule, arc.Base{
+				Name:   "moved",
+				Source: arc.Source{Variant: arc.TextSource{}},
+			})
+			Expect(w.Create(ctx, &a)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(w.Delete(ctx, a.Base().Key)).To(Succeed())
+				Expect(w.DeleteDirectory(ctx, lib.Key)).To(Succeed())
+			})
+			rec := &Recorder[arc.Key, arc.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			tx := DeferClose(db.OpenTx())
+			gorp.OnCommit(tx, func() {
+				Expect(svc.Dispatch(ctx, a.Base().Key, "", []arc.Action{
+					arc.NewRenameAction(arc.RenamePayload{Name: "renamed"}),
+				})).To(Succeed())
+			})
+			Expect(svc.NewWriter(tx).Move(ctx, root, lib.Key, a.ResourceID())).
+				To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			seen := rec.Snapshot()
+			Expect(seen).ToNot(BeEmpty())
+			last := seen[len(seen)-1]
+			Expect(last.Actions).To(HaveLen(1))
+			Expect(last.Actions[0].Create).ToNot(BeNil())
+			moved := last.Actions[0].Create.Arc.Base()
+			Expect(moved.Name).To(Equal("renamed"))
+			Expect(moved.Directory).To(Equal(&lib.Key))
+		},
+	)
 })

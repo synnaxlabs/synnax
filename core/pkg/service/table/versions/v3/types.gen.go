@@ -169,7 +169,6 @@ type Table struct {
 // schema constraints.
 func (t Table) Validate() error {
 	v := validate.New("Table")
-	v.NotEmptyString("name", t.Name)
 	for i := range t.Rows {
 		v.Exec(func() error { return validate.PathedError(t.Rows[i].Validate(), "rows", strconv.Itoa(i)) })
 	}

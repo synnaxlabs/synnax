@@ -18,7 +18,9 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -192,6 +194,14 @@ type LinePlot struct {
 	Lines []Line `json:"lines" msgpack:"lines"`
 	// Rules holds annotation rules drawn over the plot.
 	Rules []Rule `json:"rules" msgpack:"rules"`
+	// Group is the group the line plot sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Project is the project that owns the line plot, if any. Exactly one of project
+	// and range is set.
+	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
+	// Range is the range that owns the line plot, if any. Exactly one of project and
+	// range is set.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.

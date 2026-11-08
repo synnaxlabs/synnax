@@ -20,9 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -37,29 +35,17 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: node.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: node.DB,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelWriter = channelSvc.NewWriter(nil)
 })
@@ -1198,10 +1184,7 @@ var _ = Describe("Graph", func() {
 				calc1.Expression = "return f32(chain3_raw)"
 				calc1.DataType = telem.Float32T
 				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
-				err := g.Update(ctx, calc1)
-				Expect(
-					err,
-				).To(MatchError(ContainSubstring(
+				Expect(g.Update(ctx, calc1)).To(MatchError(ContainSubstring(
 					"failed to recompile dependent channel",
 				)))
 			},
@@ -1249,10 +1232,7 @@ var _ = Describe("Graph", func() {
 				left.Expression = "return f32(diamond_raw)"
 				left.DataType = telem.Float32T
 				Expect(channelWriter.Create(ctx, &left)).To(Succeed())
-				err := g.Update(ctx, left)
-				Expect(
-					err,
-				).To(MatchError(ContainSubstring(
+				Expect(g.Update(ctx, left)).To(MatchError(ContainSubstring(
 					"failed to recompile dependent channel",
 				)))
 
@@ -1353,10 +1333,7 @@ var _ = Describe("Graph", func() {
 				calc1.Expression = "return i64(rb_raw)"
 				calc1.DataType = telem.Int64T
 				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
-				err := g.Update(ctx, calc1)
-				Expect(
-					err,
-				).To(MatchError(ContainSubstring(
+				Expect(g.Update(ctx, calc1)).To(MatchError(ContainSubstring(
 					"failed to recompile dependent channel",
 				)))
 

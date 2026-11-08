@@ -642,9 +642,9 @@ func buildUnionCodec(
 
 	enc := []string{fmt.Sprintf("\tswitch v := %s.Variant.(type) {", recv)}
 	dec := []string{
-		"\ttag, err := r.String()",
+		"\ttag, err := r.StringBytes()",
 		"\tif err != nil { return err }",
-		"\tswitch tag {",
+		"\tswitch string(tag) {",
 	}
 	for _, v := range form.Variants {
 		payload, ok := v.Type.Resolve(table)

@@ -17,7 +17,7 @@ import (
 	"reflect"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 

@@ -16,7 +16,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -28,7 +30,7 @@ type APIKey struct {
 	// Key is the unique identifier for this API key.
 	Key apikey.Key `json:"key" msgpack:"key"`
 	// Subject is the user or rack the key logs in as.
-	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Name is a label that tells the subject's keys apart.
 	Name string `json:"name" msgpack:"name"`
 	// Created is when the key was created.
@@ -42,7 +44,7 @@ func apiKey(k apikey.APIKey) APIKey {
 // KeyCreateRequest creates an API key.
 type KeyCreateRequest struct {
 	// Subject is the user or rack the key logs in as. Empty means the caller.
-	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Name is a label that tells the subject's keys apart.
 	Name string `json:"name" msgpack:"name"`
 }
@@ -57,7 +59,8 @@ type KeyCreateResponse struct {
 
 // CreateKey creates an API key for the caller, or for another user or rack when the
 // caller may create that subject. It returns a validation error when the subject is not
-// a user or rack, and an error wrapping query.ErrNotFound when it does not exist.
+// a user or rack or has a malformed key, and an error wrapping query.ErrNotFound when
+// it does not exist.
 func (s *Service) CreateKey(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -65,8 +68,7 @@ func (s *Service) CreateKey(
 ) (KeyCreateResponse, error) {
 	caller := GetSubject(ctx)
 	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
-	if subject.Type != ontology.ResourceTypeUser &&
-		subject.Type != ontology.ResourceTypeRack {
+	if subject.Type != resource.TypeUser && subject.Type != resource.TypeRack {
 		return KeyCreateResponse{}, errors.Wrapf(
 			validate.ErrValidation,
 			"an API key cannot log in as a %s",
@@ -77,11 +79,11 @@ func (s *Service) CreateKey(
 		ctx,
 		caller,
 		access.ActionCreate,
-		[]ontology.ID{subject},
+		[]resource.ID{subject},
 	); err != nil {
 		return KeyCreateResponse{}, err
 	}
-	exists, err := s.ontology.NewRetrieve().WhereIDs(subject).Exists(ctx, tx)
+	exists, err := s.subjectExists(ctx, tx, subject)
 	if err != nil {
 		return KeyCreateResponse{}, err
 	}
@@ -95,10 +97,37 @@ func (s *Service) CreateKey(
 	return KeyCreateResponse{Token: token, Key: apiKey(k)}, nil
 }
 
+func (s *Service) subjectExists(
+	ctx context.Context,
+	tx gorp.Tx,
+	subject resource.ID,
+) (bool, error) {
+	switch subject.Type {
+	case resource.TypeUser:
+		key, err := user.KeyFromResourceID(subject)
+		if err != nil {
+			return false, err
+		}
+		return s.user.NewRetrieve().Where(user.MatchKeys(key)).Exists(ctx, tx)
+	case resource.TypeRack:
+		key, err := rack.KeyFromResourceID(subject)
+		if err != nil {
+			return false, err
+		}
+		return s.rack.NewRetrieve().Where(rack.MatchKeys(key)).Exists(ctx, tx)
+	default:
+		return false, errors.Wrapf(
+			validate.ErrValidation,
+			"an API key cannot log in as a %s",
+			subject.Type,
+		)
+	}
+}
+
 // KeyRetrieveRequest selects API keys to list.
 type KeyRetrieveRequest struct {
 	// Subjects limits the result to these subjects' keys. Empty means the caller.
-	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
+	Subjects []resource.ID `json:"subjects" msgpack:"subjects"`
 }
 
 // KeyRetrieveResponse lists API keys without their hashes.
@@ -116,7 +145,7 @@ func (s *Service) RetrieveKeys(
 	caller := GetSubject(ctx)
 	subjects := req.Subjects
 	if len(subjects) == 0 {
-		subjects = []ontology.ID{caller}
+		subjects = []resource.ID{caller}
 	}
 	if err := s.enforceOthers(
 		ctx,
@@ -159,7 +188,7 @@ func (s *Service) DeleteKeys(
 		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return struct{}{}, err
 	}
-	subjects := lo.Uniq(lo.Map(keys, func(k apikey.APIKey, _ int) ontology.ID {
+	subjects := lo.Uniq(lo.Map(keys, func(k apikey.APIKey, _ int) resource.ID {
 		return k.Subject
 	}))
 	if err := s.enforceOthers(

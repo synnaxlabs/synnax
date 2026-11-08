@@ -56,7 +56,7 @@ If you already cloned the repository without submodules, run
 
 ## 5 Set up Go
 
-We use [Go](https://go.dev/) for the Core, Aspen, Cesium, Arc, Freighter, and Oracle.
+We use [Go](https://go.dev/) for the Core, Cesium, Arc, Freighter, and Oracle.
 
 ```zsh
 brew install go

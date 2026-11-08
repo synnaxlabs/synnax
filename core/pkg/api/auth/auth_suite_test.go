@@ -17,11 +17,12 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -39,8 +40,8 @@ var (
 	passwordSvc *password.Service
 	apiKeySvc   *apikey.Service
 	rbacSvc     *rbac.Service
-	otg         *ontology.Ontology
 	userSvc     *user.Service
+	rackSvc     *rack.Service
 	apiSvc      *apiauth.Service
 	root        user.User
 	creds       = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
@@ -50,22 +51,27 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = testutil.NewNode(ctx)
 	db := node.DB
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg,
-	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Ontology: otg, Group: groupSvc, Password: passwordSvc,
+		DB: db, Password: passwordSvc,
 	}))
-	root, _ = MustSucceed2(user.ProvisionRoot(ctx, userSvc, passwordSvc, creds))
 	apiKeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		User:     userSvc,
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB: db,
 	}))
+	access := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+		DB:     db,
+		User:   userSvc,
+		Status: statusSvc,
+	}))
+	root, _ = MustSucceed2(user.ProvisionRoot(
+		ctx,
+		userSvc,
+		passwordSvc,
+		creds,
+		access.RBAC.Builtin.OwnerKey,
+	))
+	rbacSvc, rackSvc = access.RBAC, access.Rack
 	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 		DB: db,
 		Authenticators: map[auth.Method]auth.Authenticator{
@@ -77,9 +83,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Auth:     authSvc,
 		Password: passwordSvc,
 		APIKey:   apiKeySvc,
-		Ontology: otg,
 		User:     userSvc,
+		Rack:     rackSvc,
 		RBAC:     rbacSvc,
-		Cluster:  node.Cluster,
+		Identity: node.Identity,
 	}))
 })

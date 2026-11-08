@@ -93,9 +93,9 @@ export interface ModalHookHandle<T> {
 }
 
 /**
- * Renders a modal hook (an opener or prompt hook) within {@link Wrapper} and returns its
- * value alongside the window's modal store, letting a spec invoke the opener and inspect
- * or settle the resulting stack directly.
+ * Renders a modal hook (an opener or prompt hook) within {@link Wrapper} and returns
+ * its value alongside the window's modal store, letting a spec invoke the opener and
+ * inspect or settle the resulting stack directly.
  */
 export const renderModalHook = <T,>(
   useHook: () => T,
@@ -104,7 +104,9 @@ export const renderModalHook = <T,>(
   return renderHook(useHandle, { wrapper: Wrapper });
 };
 
-/** Pulls the close callback the store bound into the topmost modal's rendered content. */
+/**
+ * Pulls the close callback the store bound into the topmost modal's rendered content.
+ */
 export const closeOf = (
   store: Session.Modals.Store,
 ): Session.Modals.ContentProps["close"] =>

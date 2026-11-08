@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/defaults"
@@ -218,6 +219,12 @@ func WhereToPB(r task.Where) (*Where, error) {
 			return nil, err
 		}
 	}
+	if r.Ranges != nil {
+		pb.Ranges = &RangerKeyList{Values: lo.Map(r.Ranges, func(u ranger.Key, _ int) string { return uuid.UUID(u).String() })}
+	}
+	if r.Arcs != nil {
+		pb.Arcs = &UuidList{Values: lo.Map(r.Arcs, func(u uuid.UUID, _ int) string { return uuid.UUID(u).String() })}
+	}
 	return pb, nil
 }
 
@@ -289,6 +296,40 @@ func WhereFromPB(pb *Where) (task.Where, error) {
 			return task.Where{}, err
 		}
 		r.Snapshot = &val
+	}
+	if pb.Ranges != nil {
+		vals, err := func() ([]ranger.Key, error) {
+			result := make([]ranger.Key, len(pb.Ranges.Values))
+			for i, s := range pb.Ranges.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = ranger.Key(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Ranges = xpb.ListValues(vals)
+	}
+	if pb.Arcs != nil {
+		vals, err := func() ([]uuid.UUID, error) {
+			result := make([]uuid.UUID, len(pb.Arcs.Values))
+			for i, s := range pb.Arcs.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = uuid.UUID(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Arcs = xpb.ListValues(vals)
 	}
 	return r, nil
 }
@@ -396,7 +437,6 @@ func StatusDetailsToPB(
 		Cmd:        r.Cmd,
 		ConfigHash: r.ConfigHash,
 		Rack:       uint32(r.Rack),
-		Task:       r.Task.String(),
 	}
 	if r.Data != nil {
 		var err error
@@ -416,11 +456,6 @@ func StatusDetailsFromPB(
 	var r task.StatusDetails
 	if pb == nil {
 		return r, nil
-	}
-	var err error
-	r.Task, err = uuid.Parse(pb.Task)
-	if err != nil {
-		return task.StatusDetails{}, err
 	}
 	r.Running = pb.Running
 	r.Cmd = pb.Cmd
