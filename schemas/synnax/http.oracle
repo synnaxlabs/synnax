@@ -219,6 +219,7 @@ ReadConfig struct extends task.PersistConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
 
@@ -379,6 +380,7 @@ WriteConfig struct extends task.StartConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
 
@@ -387,4 +389,5 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
 }
