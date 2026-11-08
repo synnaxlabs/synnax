@@ -19,6 +19,7 @@ package pebblekv
 import (
 	"context"
 	"io"
+	"sync"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/synnaxlabs/alamos"
@@ -34,6 +35,9 @@ import (
 type db struct {
 	observe.Observer[kv.TxReader]
 	*pebble.DB
+	// notifyMu orders the notifications of an injected observer by commit. It is nil
+	// for the default observer, whose handlers can commit inline.
+	notifyMu *sync.Mutex
 }
 
 var _ kv.DB = (*db)(nil)
@@ -53,6 +57,7 @@ func parseOpts(opts []any) *pebble.WriteOptions {
 
 type openOptions struct {
 	observer observe.Observer[kv.TxReader]
+	injected bool
 }
 
 // OpenOption configures behavior when wrapping a pebble.DB.
@@ -66,10 +71,16 @@ func DisableObservation() OpenOption {
 	return func(o *openOptions) { o.observer = nil }
 }
 
-// WithObserver sets the observer that delivers each commit to OnChange handlers. The
-// default runs the handlers on the committing goroutine, before Commit returns.
+// WithObserver sets the observer that delivers each commit to OnChange handlers. The DB
+// holds a lock while it notifies the observer, so handlers see commits in the order
+// they apply. A handler that the observer runs inline must not write to the DB. The
+// default observer runs the handlers on the committing goroutine, before Commit
+// returns, and gives no order across goroutines.
 func WithObserver(observer observe.Observer[kv.TxReader]) OpenOption {
-	return func(o *openOptions) { o.observer = observer }
+	return func(o *openOptions) {
+		o.observer = observer
+		o.injected = true
+	}
 }
 
 // Wrap wraps a pebble.DB to satisfy the kv.db interface.
@@ -78,7 +89,11 @@ func Wrap(base *pebble.DB, opts ...OpenOption) kv.DB {
 	for _, opt := range opts {
 		opt(o)
 	}
-	return &db{DB: base, Observer: o.observer}
+	d := &db{DB: base, Observer: o.observer}
+	if o.injected {
+		d.notifyMu = &sync.Mutex{}
+	}
+	return d
 }
 
 // OnChange implements kv.Observable. When observation has been disabled via
@@ -178,6 +193,10 @@ func (d db) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 }
 
 func (d db) apply(ctx context.Context, txn *tx, opts []any) error {
+	if d.notifyMu != nil {
+		d.notifyMu.Lock()
+		defer d.notifyMu.Unlock()
+	}
 	err := d.Apply(txn.Batch, nil)
 	if err != nil {
 		return translateError(err)
