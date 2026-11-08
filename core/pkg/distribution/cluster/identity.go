@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/version"
 )
 
@@ -53,9 +52,7 @@ var (
 )
 
 // OpenIdentity reads the identity of the Core from db. When db holds none, it creates
-// one with host key 1 and a new cluster key, reachable at the address host. It returns
-// an error when db belongs to a node other than 1, or lists other nodes. Otherwise, it
-// deletes the digests and the version counter that Aspen stored for each write.
+// one with host key 1 and a new cluster key, reachable at the address host.
 func OpenIdentity(
 	ctx context.Context,
 	db kv.DB,
@@ -72,19 +69,6 @@ func OpenIdentity(
 	err = identityCodec.Decode(ctx, b, &r)
 	if err = errors.Combine(err, closer.Close()); err != nil {
 		return Identity{}, errors.Wrap(err, "failed to decode the identity of the Core")
-	}
-	if r.HostKey != node.KeyBootstrapper || len(r.Nodes) > 1 {
-		return Identity{}, errors.Wrapf(
-			validate.ErrValidation,
-			"the data directory belongs to node %d of a cluster, and a Core no longer runs as a cluster",
-			r.HostKey,
-		)
-	}
-	if err = deleteAspenKeys(ctx, db); err != nil {
-		return Identity{}, errors.Wrap(
-			err,
-			"failed to delete the Aspen digest and version keys",
-		)
 	}
 	return Identity{Key: r.ClusterKey, HostKey: r.HostKey}, nil
 }
