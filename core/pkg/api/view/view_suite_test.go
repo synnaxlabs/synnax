@@ -37,10 +37,13 @@ func TestAPIView(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	svc      *service.Layer
-	apiSvc   *apiview.Service
+	db  *gorp.DB
+	svc *service.Layer
+	// The handlers below run their routes as the API layer binds them.
 	retrieve freighter.UnaryHandler[apiview.RetrieveRequest, apiview.RetrieveResponse]
+	create   freighter.UnaryHandler[apiview.CreateRequest, apiview.CreateResponse]
+	del      freighter.UnaryHandler[apiview.DeleteRequest, struct{}]
+	rename   freighter.UnaryHandler[apiview.RenameRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -48,12 +51,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
-	apiSvc = MustSucceed(apiview.NewService(apiview.ServiceConfig{
-		View: svc.View,
-		RBAC: svc.RBAC,
-	}))
+	apiSvc := MustSucceed(apiview.NewService(apiview.ServiceConfig{View: svc.View}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: svc.RBAC}))
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	rename = bind.Write(binder, apiSvc.Rename)
 })
 
 // createUser creates a user that can do nothing.

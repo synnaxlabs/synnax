@@ -12,21 +12,15 @@ package symbol
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/zip"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,11 +30,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Symbol *symbol.Service
-	// RBAC checks the access of create, rename, delete, import group, and delete group
-	// requests.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -52,7 +41,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Symbol = override.Nil(c.Symbol, other.Symbol)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -60,14 +48,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.schematic.symbol")
 	v.NotNil("symbol", c.Symbol)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
-// Service is the API for schematic symbols and the groups that hold them. It enforces
-// access control and delegates to the symbol service.
+// Service is the API for schematic symbols and the groups that hold them.
 type Service struct {
-	access   *rbac.Service
 	internal *symbol.Service
 }
 
@@ -77,10 +62,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{
-		internal: cfg.Symbol,
-		access:   cfg.RBAC,
-	}, nil
+	return &Service{internal: cfg.Symbol}, nil
 }
 
 type (
@@ -96,44 +78,13 @@ type (
 	}
 )
 
-// Create persists the symbols in req. It requires create access on the symbol type,
-// and update access on each group a symbol sits in.
+// Create creates the symbols in req, and overwrites each one whose key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeSchematicSymbol}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	var stored []symbol.Symbol
-	if err := s.internal.NewRetrieve().
-		Where(symbol.MatchKeys(lo.Map(
-			req.Symbols,
-			func(sym symbol.Symbol, _ int) symbol.Key { return sym.Key },
-		)...)).
-		Entries(&stored).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return CreateResponse{}, err
-	}
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			req.Symbols,
-			stored,
-			func(sym symbol.Symbol) *group.Key { return sym.Group },
-		),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	writer := s.internal.NewWriter(tx)
-	if err := writer.CreateMany(ctx, &req.Symbols); err != nil {
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Symbols); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
@@ -175,19 +126,12 @@ type RenameRequest struct {
 	Key symbol.Key `json:"key" msgpack:"key"`
 }
 
-// Rename renames the symbol. It requires update access on it.
+// Rename renames the symbol.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{symbol.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
@@ -197,19 +141,12 @@ type DeleteRequest struct {
 	Keys []symbol.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete removes the symbols. It requires delete access on every one.
+// Delete deletes the symbols. A key that matches no symbol is ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: symbol.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -266,27 +203,12 @@ type (
 	}
 )
 
-// ImportGroup imports a symbol group bundle in a single transaction. It requires
-// create access on the group and symbol types, enforced before any file decodes.
+// ImportGroup imports a symbol group bundle into a new top-level group.
 func (s *Service) ImportGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	req ImportGroupRequest,
 ) (ImportGroupResponse, error) {
-	var (
-		enforcer = s.access.NewEnforcer(tx)
-		subject  = auth.GetSubject(ctx)
-	)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{
-			{Type: resource.TypeGroup},
-			{Type: resource.TypeSchematicSymbol},
-		},
-	}); err != nil {
-		return ImportGroupResponse{}, err
-	}
 	g, err := s.internal.ImportGroup(ctx, tx, req)
 	if err != nil {
 		return ImportGroupResponse{}, err
@@ -300,39 +222,14 @@ type DeleteGroupRequest struct {
 	Key group.Key `json:"key" msgpack:"key"`
 }
 
-// DeleteGroup deletes the group and every symbol in it in a single transaction. It
-// requires delete access on the group, which it enforces before it reads a symbol, and
-// on every symbol the group holds.
+// DeleteGroup deletes the group and every symbol in it. It returns a validation error
+// when the group holds anything other than symbols.
 func (s *Service) DeleteGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteGroupRequest,
 ) (struct{}, error) {
-	var (
-		enforcer = s.access.NewEnforcer(tx)
-		subject  = auth.GetSubject(ctx)
-	)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionDelete,
-		Objects: []resource.ID{group.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	// Read through tx so the symbols enforced on and the symbols deleted come from one
-	// snapshot.
-	symbols, err := s.internal.RetrieveGroupSymbols(ctx, tx, req.Key)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionDelete,
-		Objects: symbols,
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.DeleteGroup(ctx, tx, req.Key, symbols)
+	return struct{}{}, s.internal.DeleteGroup(ctx, tx, req.Key)
 }
 
 // SetGroupRequest moves symbols into Group, or out of their group when Group is nil.
