@@ -23,8 +23,12 @@ func (Assertion) NotTo(any)  {}
 func (Assertion) To(any)     {}
 func (Assertion) Should(any) {}
 
-func MatchError(any) any { return nil }
-func Equal(any) any      { return nil }
+func MatchError(any) any    { return nil }
+func Equal(any) any         { return nil }
+func SatisfyAll(...any) any { return nil }
+func SatisfyAny(...any) any { return nil }
+func And(...any) any        { return nil }
+func Or(...any) any         { return nil }
 
 type testErr struct{}
 
@@ -138,6 +142,21 @@ func example() {
 	// Expect(f()).Should(Equal(e))
 	kErr := returnsErr() // want "assert the error inline"
 	Expect(kErr).Should(Equal(errSentinel))
+
+	// Pattern L: err := f(); Expect(err).Should(Succeed()) →
+	// Expect(f()).To(Succeed())
+	err = returnsErr() // want "can be replaced with Expect"
+	Expect(err).Should(Succeed())
+
+	// Pattern M: composite matchers assert inline like MatchError.
+	_, allErr := returnsValErr() // want "assert the error inline"
+	Expect(allErr).To(SatisfyAll(MatchError(errSentinel)))
+	_, anyErr := returnsValErr() // want "assert the error inline"
+	Expect(anyErr).To(SatisfyAny(MatchError(errSentinel), Equal(errSentinel)))
+	_, andErr := returnsValErr() // want "assert the error inline"
+	Expect(andErr).To(And(MatchError(errSentinel)))
+	_, orErr := returnsValErr() // want "assert the error inline"
+	Expect(orErr).Should(Or(Succeed(), MatchError(errSentinel)))
 
 	// Should NOT match: a named result stays bound for a later assertion.
 	v3, nErr := returnsValErr()

@@ -178,6 +178,10 @@ var _ = Describe("Analyzer", func() {
 			"Expect(returnsValErr()).Error().To(MatchError(errSentinel))",
 			"Expect(returnsErr()).Should(Equal(errSentinel))",
 			"Expect(returnsErr()).To(Succeed())",
+			"Expect(returnsValErr()).Error().To(SatisfyAll(MatchError(errSentinel)))",
+			"Expect(returnsValErr()).Error().To(SatisfyAny(MatchError(errSentinel), Equal(errSentinel)))",
+			"Expect(returnsValErr()).Error().To(And(MatchError(errSentinel)))",
+			"Expect(returnsValErr()).Error().Should(Or(Succeed(), MatchError(errSentinel)))",
 		))
 	})
 

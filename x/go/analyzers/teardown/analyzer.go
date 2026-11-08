@@ -20,11 +20,12 @@ import (
 // Analyzer reports each Close call in a Ginkgo teardown node.
 var Analyzer = &analysis.Analyzer{
 	Name: "teardown",
-	Doc: `forbids Close calls in AfterEach, JustAfterEach, AfterAll, and AfterSuite.
+	Doc: `forbids Close calls in Ginkgo teardown nodes.
 
-Cleanup belongs next to the open. MustOpen(v, err) or DeferClose(v) from
-github.com/synnaxlabs/x/testutil registers DeferCleanup(v.Close) in the node that opens
-v, and DeferCleanup runs in reverse order of registration.`,
+The teardown nodes are AfterEach, JustAfterEach, AfterAll, AfterSuite, and
+SynchronizedAfterSuite. Cleanup belongs next to the open. MustOpen(v, err) or
+DeferClose(v) from github.com/synnaxlabs/x/testutil registers DeferCleanup(v.Close) in
+the node that opens v, and DeferCleanup runs in reverse order of registration.`,
 	Run: run,
 }
 

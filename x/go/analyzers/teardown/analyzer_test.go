@@ -26,6 +26,6 @@ var _ = Describe("Analyzer", func() {
 			)
 		},
 		Entry("cleanup next to the open, and closes outside teardown", "good"),
-		Entry("closes in AfterEach, JustAfterEach, AfterAll, and AfterSuite", "bad"),
+		Entry("closes in each teardown node", "bad"),
 	)
 })

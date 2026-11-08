@@ -16,13 +16,14 @@ func (Assertion) To(any, ...any) bool { return true }
 func Expect(any, ...any) Assertion { return Assertion{} }
 func Succeed() any                 { return nil }
 
-func It(string, func())        {}
-func BeforeEach(func())        {}
-func AfterEach(func())         {}
-func JustAfterEach(func())     {}
-func AfterAll(func())          {}
-func AfterSuite(func())        {}
-func DeferCleanup(any, ...any) {}
+func It(string, func())                     {}
+func BeforeEach(func())                     {}
+func AfterEach(func())                      {}
+func JustAfterEach(func())                  {}
+func AfterAll(func())                       {}
+func AfterSuite(func())                     {}
+func SynchronizedAfterSuite(func(), func()) {}
+func DeferCleanup(any, ...any)              {}
 
 type closer struct{}
 

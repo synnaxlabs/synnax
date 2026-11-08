@@ -25,4 +25,9 @@ func bad() {
 	AfterSuite(func() {
 		Expect(db.Close()).To(Succeed()) // want "not in AfterSuite"
 	})
+	SynchronizedAfterSuite(func() {
+		Expect(db.Close()).To(Succeed()) // want "not in SynchronizedAfterSuite"
+	}, func() {
+		Expect(db.Close()).To(Succeed()) // want "not in SynchronizedAfterSuite"
+	})
 }
