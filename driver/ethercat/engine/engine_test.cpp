@@ -573,18 +573,23 @@ TEST_F(EngineTest, ReaderKeepsItsSpacingWhileTheBusRateChanges) {
 /// writer raises the bus rate between two of them.
 TEST_F(EngineLockTest, ReaderKeepsExactSampleTimesWhenTheBusRateRises) {
     this->master->stall();
+    // At 20 Hz, the 10 Hz reader skips one cycle after each sample, so a sample is
+    // pending when the rate rises.
+    const auto slow = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(20))
+    );
+    // Destroyed before the reader and writers, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
+    this->master->wait_until_stalled();
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(10), 3)
     );
-    // Destroyed before the reader, which cannot stop a stalled bus.
-    x::defer::defer resume([this] { this->master->resume(); });
-    this->master->wait_until_stalled();
-    // Lets one cycle through, so that the bus runs the reader at 10 Hz before the
-    // writer raises the rate.
+    // The stalled cycle took its schedule before the reader joined.
     this->master->step();
     this->master->wait_until_stalled();
-    const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(200))
+    // The stalled cycle samples, and the rate rises in the cycle after it.
+    const auto fast = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I32, 0}}, x::telem::Rate(200))
     );
     this->master->resume();
     const auto times = this->read_times(*reader, 3);
