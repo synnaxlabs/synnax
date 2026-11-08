@@ -10,6 +10,7 @@
 package ranger_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -55,3 +56,15 @@ func openTx() {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// dispatch runs svc.Dispatch in a transaction of its own.
+func dispatch(
+	ctx context.Context,
+	key ranger.Key,
+	dispatchKey string,
+	acts []ranger.Action,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Dispatch(ctx, tx, key, dispatchKey, acts)
+	})
+}

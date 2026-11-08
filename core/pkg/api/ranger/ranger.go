@@ -148,6 +148,7 @@ type DispatchRequest = actions.DispatchRequest[ranger.Key, ranger.Action]
 // of parent also needs update on the old and the new parent.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
 	enforcer := s.access.NewEnforcer(nil)
@@ -163,7 +164,7 @@ func (s *Service) Dispatch(
 	if err := s.internal.NewRetrieve().
 		Where(ranger.MatchKeys(req.Key)).
 		Entry(&stored).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, tx); err != nil {
 		return struct{}{}, err
 	}
 	next, err := ranger.Reduce(stored, req.Actions...)
@@ -181,7 +182,13 @@ func (s *Service) Dispatch(
 			return struct{}{}, err
 		}
 	}
-	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return struct{}{}, s.internal.Dispatch(
+		ctx,
+		tx,
+		req.Key,
+		req.DispatchKey,
+		req.Actions,
+	)
 }
 
 func (s *Service) Retrieve(
@@ -214,6 +221,7 @@ type RenameRequest struct {
 
 func (s *Service) Rename(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
@@ -223,7 +231,7 @@ func (s *Service) Rename(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.Dispatch(ctx, req.Key, "", []ranger.Action{
+	return struct{}{}, s.internal.Dispatch(ctx, tx, req.Key, "", []ranger.Action{
 		ranger.NewSetAction(ranger.SetPayload{Path: []string{"name"}, Value: req.Name}),
 	})
 }
@@ -235,6 +243,7 @@ type SetEndRequest struct {
 
 func (s *Service) SetEnd(
 	ctx context.Context,
+	tx gorp.Tx,
 	req SetEndRequest,
 ) (struct{}, error) {
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
@@ -244,7 +253,7 @@ func (s *Service) SetEnd(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.Dispatch(ctx, req.Key, "", []ranger.Action{
+	return struct{}{}, s.internal.Dispatch(ctx, tx, req.Key, "", []ranger.Action{
 		ranger.NewSetAction(ranger.SetPayload{
 			Path:  []string{"time_range", "end"},
 			Value: req.End,

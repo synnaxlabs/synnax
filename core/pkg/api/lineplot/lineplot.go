@@ -11,7 +11,6 @@ package lineplot
 
 import (
 	"context"
-	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -24,9 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,7 +33,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	LinePlot *lineplot.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of retrieve, set group, and set project requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -89,57 +86,12 @@ type CreateResponse struct {
 	LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
 }
 
+// Create creates the line plots, and overwrites each one whose key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeLineplot}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	var stored []lineplot.LinePlot
-	if err := s.internal.NewRetrieve().
-		Where(lineplot.MatchKeys(lo.Map(
-			req.LinePlots,
-			func(e lineplot.LinePlot, _ int) lineplot.Key { return e.Key },
-		)...)).
-		Entries(&stored).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return CreateResponse{}, err
-	}
-	owners, err := project.CreateObjects(
-		ctx,
-		tx,
-		resource.TypeLineplot,
-		req.LinePlots,
-		stored,
-		func(e lineplot.LinePlot) *group.Key { return e.Group },
-		func(e lineplot.LinePlot) *resource.ID {
-			return project.OwnerID(e.Project, e.Range)
-		},
-	)
-	if err != nil {
-		return CreateResponse{}, err
-	}
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: slices.Concat(
-			group.CreateObjects(
-				req.LinePlots,
-				stored,
-				func(e lineplot.LinePlot) *group.Key { return e.Group },
-			),
-			owners,
-		),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, &req.LinePlots); err != nil {
@@ -153,21 +105,15 @@ func (s *Service) Create(
 // deduplicated against the local optimistic update.
 type DispatchRequest = actions.DispatchRequest[lineplot.Key, lineplot.Action]
 
-// Dispatch applies the action sequence to the target line plot atomically. Subscribers
-// to the line plot action signals receive the sequence after the transaction commits.
+// Dispatch applies the action sequence to the target line plot in tx. Subscribers to
+// the line plot action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{lineplot.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.
-		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+		Dispatch(ctx, tx, req.Key, req.DispatchKey, req.Actions)
 }
 
 func (s *Service) Retrieve(
@@ -196,18 +142,13 @@ type DeleteRequest struct {
 	Keys []lineplot.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the line plots with the given keys. A key that matches no line plot
+// is ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: lineplot.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 

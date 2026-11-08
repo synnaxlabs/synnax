@@ -15,6 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
 	apilabel "github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -36,6 +38,8 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	svc    *service.Layer
 	apiSvc *apilabel.Service
+	// dispatch runs the Dispatch route in one transaction, as the API layer binds it.
+	dispatch freighter.UnaryHandler[apilabel.DispatchRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -48,6 +52,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ranger: svc.Ranger,
 		Status: svc.Status,
 	}))
+	dispatch = fgorp.CreateWriteUnaryHandler(node.DB, apiSvc.Dispatch)
 })
 
 // createUser creates a user that can do nothing.

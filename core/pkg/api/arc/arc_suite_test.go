@@ -16,6 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/freighter"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -47,11 +49,13 @@ func TestAPIArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	rbacSvc  *rbac.Service
-	userSvc  *user.Service
-	arcSvc   *arc.Service
-	apiSvc   *apiarc.Service
+	db      *gorp.DB
+	rbacSvc *rbac.Service
+	userSvc *user.Service
+	arcSvc  *arc.Service
+	apiSvc  *apiarc.Service
+	// dispatch runs the Dispatch route in one transaction, as the API layer binds it.
+	dispatch freighter.UnaryHandler[apiarc.DispatchRequest, struct{}]
 	author   user.User
 	rackSvc  *rack.Service
 	testRack *rack.Rack
@@ -127,6 +131,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Arc:    arcSvc,
 		Status: statusSvc,
 	}))
+	dispatch = fgorp.CreateWriteUnaryHandler(db, apiSvc.Dispatch)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)

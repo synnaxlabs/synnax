@@ -96,26 +96,25 @@ func NewState[K comparable, A any](db *gorp.DB) *State[K, A] {
 	return &State[K, A]{db: db, attached: gorp.NewAttachment[Scoped[K, A]]()}
 }
 
-// Dispatch runs stage in a transaction of its own, then attaches acts and the actions
-// that stage returns, such as a set of a field that only the Core computes. When stage
-// or the commit fails, nothing persists and the commit delivers no actions.
+// Dispatch runs stage in tx, then attaches acts and the actions that stage returns,
+// such as a set of a field that only the Core computes, as one batch with dispatchKey.
+// When stage fails, Dispatch attaches nothing. The commit of tx delivers the batch, and
+// a rollback of tx drops it. It panics when tx is a DB.
 func (s *State[K, A]) Dispatch(
-	ctx context.Context,
+	tx gorp.Tx,
 	key K,
 	dispatchKey string,
 	acts []A,
 	stage func(gorp.Tx) ([]A, error),
 ) error {
-	return s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		added, err := stage(tx)
-		if err != nil {
-			return err
-		}
-		s.Dispatcher().
-			WithDispatchKey(dispatchKey).
-			Attach(tx, key, slices.Concat(acts, added)...)
-		return nil
-	})
+	added, err := stage(tx)
+	if err != nil {
+		return err
+	}
+	s.Dispatcher().
+		WithDispatchKey(dispatchKey).
+		Attach(tx, key, slices.Concat(acts, added)...)
+	return nil
 }
 
 // Of returns the action batches that the transaction of c attached, in the order that

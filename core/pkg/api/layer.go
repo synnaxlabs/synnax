@@ -27,6 +27,7 @@ import (
 	arcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
@@ -289,6 +290,7 @@ type Layer struct {
 	Status       *status.Service
 	ImEx         *imex.Service
 	Batch        *batch.Service
+	binder       *bind.Service
 	config       config.LayerConfig
 }
 
@@ -640,9 +642,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.RangeRetrieve.BindHandler(l.Range.Retrieve)
 	t.RangeCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Create))
 	t.RangeDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Delete))
-	t.RangeRename.BindHandler(l.Range.Rename)
-	t.RangeSetEnd.BindHandler(l.Range.SetEnd)
-	t.RangeDispatch.BindHandler(l.Range.Dispatch)
+	t.RangeRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Rename))
+	t.RangeSetEnd.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.SetEnd))
+	t.RangeDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Dispatch))
 
 	// KV
 	t.KVGet.BindHandler(l.KV.Get)
@@ -668,7 +670,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Create))
 	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
 	t.SchematicDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Delete))
-	t.SchematicDispatch.BindHandler(l.Schematic.Dispatch)
+	t.SchematicDispatch.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Schematic.Dispatch),
+	)
 	t.SchematicCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Copy))
 
 	// SCHEMATIC SYMBOL
@@ -691,28 +695,28 @@ func (l *Layer) BindTo(t Transport) {
 	)
 
 	// LINE PLOT
-	t.LinePlotCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Create))
-	t.LinePlotDispatch.BindHandler(l.LinePlot.Dispatch)
+	t.LinePlotCreate.BindHandler(bind.Write(l.binder, l.LinePlot.Create))
+	t.LinePlotDispatch.BindHandler(bind.Write(l.binder, l.LinePlot.Dispatch))
 	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
-	t.LinePlotDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Delete))
+	t.LinePlotDelete.BindHandler(bind.Write(l.binder, l.LinePlot.Delete))
 
 	// PANEL
 	t.PanelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Create))
 	t.PanelRetrieve.BindHandler(l.Panel.Retrieve)
 	t.PanelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Delete))
-	t.PanelDispatch.BindHandler(l.Panel.Dispatch)
+	t.PanelDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Dispatch))
 
 	// LOG
 	t.LogCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Create))
 	t.LogRetrieve.BindHandler(l.Log.Retrieve)
 	t.LogDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Delete))
-	t.LogDispatch.BindHandler(l.Log.Dispatch)
+	t.LogDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Dispatch))
 
 	// TABLE
 	t.TableCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.Create))
 	t.TableRetrieve.BindHandler(l.Table.Retrieve)
 	t.TableDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.Delete))
-	t.TableDispatch.BindHandler(l.Table.Dispatch)
+	t.TableDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.Dispatch))
 
 	// LABEL
 	t.LabelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Create))
@@ -720,7 +724,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.LabelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Delete))
 	t.LabelAdd.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Add))
 	t.LabelRemove.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Remove))
-	t.LabelDispatch.BindHandler(l.Label.Dispatch)
+	t.LabelDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Dispatch))
 
 	// RACK
 	t.RackCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Create))
@@ -733,8 +737,8 @@ func (l *Layer) BindTo(t Transport) {
 	t.TaskRetrieve.BindHandler(l.Task.Retrieve)
 	t.TaskDelete.BindHandler(l.Task.Delete)
 	t.TaskCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Copy))
-	t.TaskRename.BindHandler(l.Task.Rename)
-	t.TaskDispatch.BindHandler(l.Task.Dispatch)
+	t.TaskRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Rename))
+	t.TaskDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Dispatch))
 
 	// DEVICE
 	t.DeviceCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Create))
@@ -777,7 +781,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Create))
 	t.ArcDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Delete))
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
-	t.ArcDispatch.BindHandler(l.Arc.Dispatch)
+	t.ArcDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Dispatch))
 	t.ArcUpdateTask.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.UpdateTask))
 	t.ArcRetrieveDirectory.BindHandler(l.Arc.RetrieveDirectories)
 	t.ArcCreateDirectory.BindHandler(
@@ -805,6 +809,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	l := &Layer{config: cfg}
+	if l.binder, err = bind.NewService(bind.ServiceConfig{
+		DB:   cfg.Distribution.DB,
+		RBAC: cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
 	if l.Auth, err = auth.NewService(auth.ServiceConfig{
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,

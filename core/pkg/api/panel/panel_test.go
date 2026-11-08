@@ -318,7 +318,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				p := createPanel(ctx, "dispatch-denied")
 				Expect(
-					apiSvc.Dispatch(
+					dispatch(
 						AuthedCtx(ctx, author),
 						apipanel.DispatchRequest{
 							Key:         p.Key,
@@ -339,7 +339,7 @@ var _ = Describe("Service", func() {
 				p := createPanel(ctx, "dispatch-ok")
 				grant(ctx, author.ResourceID(), access.ActionUpdate, p.ResourceID())
 				Expect(
-					apiSvc.Dispatch(
+					dispatch(
 						AuthedCtx(ctx, author),
 						apipanel.DispatchRequest{
 							Key:         p.Key,

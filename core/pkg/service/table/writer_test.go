@@ -205,7 +205,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				s := table.Table{Project: &proj.Key, Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
-				Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
 					table.NewRenameAction(table.RenamePayload{}),
 				})).To(MatchError(ContainSubstring("name: required")))
 				Expect(retrieve(ctx, s.Key).Name).To(Equal("test"))
@@ -214,7 +214,7 @@ var _ = Describe("Writer", func() {
 
 		It("Should reject an action with no payload", func(ctx SpecContext) {
 			s := seed(ctx)
-			Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
+			Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
 				{Type: table.ActionTypeRename},
 			})).To(MatchError(union.ErrMissingPayload))
 			Expect(retrieve(ctx, s.Key).Name).To(Equal("test"))
@@ -222,7 +222,7 @@ var _ = Describe("Writer", func() {
 
 		It("Should reject an action that duplicates a row key", func(ctx SpecContext) {
 			s := seed(ctx)
-			Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
+			Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
 				table.NewAddRowAction(
 					table.AddRowPayload{Index: 1, Key: "r0", Size: 30},
 				),
@@ -240,7 +240,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(nil).Create(ctx, &target)).To(Succeed())
 				other := table.Table{Project: &proj.Key, Name: "other"}
 				Expect(svc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
-				Expect(svc.Dispatch(ctx, target.Key, "d1", []table.Action{
+				Expect(dispatch(ctx, target.Key, "d1", []table.Action{
 					table.NewCreateAction(table.CreatePayload{
 						Table: table.Table{Key: other.Key, Name: "overwritten"},
 					}),
@@ -257,7 +257,7 @@ var _ = Describe("Writer", func() {
 		It("Should rename a Table via a Rename action", func(ctx SpecContext) {
 			s := table.Table{Project: &proj.Key, Name: "test"}
 			Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
-			Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
+			Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
 				table.NewRenameAction(table.RenamePayload{Name: "test2"}),
 			})).To(Succeed())
 			Expect(retrieve(ctx, s.Key).Name).To(Equal("test2"))
@@ -267,7 +267,7 @@ var _ = Describe("Writer", func() {
 			"Should apply a multi-action sequence atomically and persist the result",
 			func(ctx SpecContext) {
 				s := seed(ctx)
-				Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
 					table.NewRenameAction(table.RenamePayload{Name: "multi"}),
 					table.NewAddRowAction(table.AddRowPayload{
 						Index: 1,
@@ -295,10 +295,10 @@ var _ = Describe("Writer", func() {
 				s := seed(ctx)
 				rec := &Recorder[table.Key, table.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
-				Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
 					table.NewRenameAction(table.RenamePayload{Name: "first"}),
 				})).To(Succeed())
-				Expect(svc.Dispatch(ctx, s.Key, "dk-2", []table.Action{
+				Expect(dispatch(ctx, s.Key, "dk-2", []table.Action{
 					table.NewRenameAction(table.RenamePayload{Name: "second"}),
 				})).To(Succeed())
 				received := rec.Snapshot()

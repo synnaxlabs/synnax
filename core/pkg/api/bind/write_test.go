@@ -1,0 +1,407 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package bind_test
+
+import (
+	"context"
+	"uuid"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+// apply is the write of a spec.
+type apply func(ctx context.Context, tx gorp.Tx) error
+
+// newUser creates a user that can do nothing until a spec grants it access.
+func newUser(ctx context.Context) user.User {
+	GinkgoHelper()
+	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+		Name: "user-" + uuid.New().String(),
+	}))
+}
+
+// grant gives u the action on the objects.
+func grant(
+	ctx context.Context,
+	u user.User,
+	action access.Action,
+	objects ...resource.ID,
+) {
+	GinkgoHelper()
+	MustSucceed(rbactestutil.Grant(
+		ctx,
+		svc.RBAC,
+		svc.User,
+		u.Key,
+		[]access.Action{action},
+		objects...,
+	))
+}
+
+// write runs f through bind.Write as u.
+func write(ctx context.Context, u user.User, f apply) error {
+	_, err := bind.Write(
+		binder,
+		func(ctx context.Context, tx gorp.Tx, _ struct{}) (struct{}, error) {
+			return struct{}{}, f(ctx, tx)
+		},
+	)(AuthedCtx(ctx, u), struct{}{})
+	return err
+}
+
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
+}
+
+func createLabel(ctx context.Context) label.Label {
+	GinkgoHelper()
+	l := label.Label{Name: "label"}
+	Expect(svc.Label.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+	return l
+}
+
+func newRange(parent *ranger.Key, labels ...label.Key) ranger.Range {
+	return ranger.Range{
+		Key:  uuid.New(),
+		Name: "range",
+		TimeRange: telem.TimeRange{
+			Start: telem.TimeStamp(5 * telem.Second),
+			End:   telem.TimeStamp(10 * telem.Second),
+		},
+		Parent: parent,
+		Labels: labels,
+	}
+}
+
+func createRange(
+	ctx context.Context,
+	parent *ranger.Key,
+	labels ...label.Key,
+) ranger.Range {
+	GinkgoHelper()
+	r := newRange(parent, labels...)
+	Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	return r
+}
+
+func labelExists(ctx context.Context, key label.Key) bool {
+	GinkgoHelper()
+	err := svc.Label.NewRetrieve().
+		Where(label.MatchKeys(key)).
+		Entry(&label.Label{}).
+		Exec(ctx, nil)
+	Expect(errors.Skip(err, query.ErrNotFound)).To(Succeed())
+	return err == nil
+}
+
+// need is an action on an object.
+type need struct {
+	action access.Action
+	object resource.ID
+}
+
+// rule is a write, the access it needs besides needed, and the access that the rule
+// under test requires.
+type rule struct {
+	write   apply
+	granted []need
+	needed  need
+}
+
+var _ = Describe("Write", func() {
+	DescribeTable(
+		"Should deny a write and name the record without the access a rule requires",
+		func(ctx SpecContext, setup func(ctx context.Context) rule) {
+			u := newUser(ctx)
+			r := setup(ctx)
+			for _, g := range r.granted {
+				grant(ctx, u, g.action, g.object)
+			}
+			Expect(write(ctx, u, r.write)).
+				To(denied(u, r.needed.action, r.needed.object))
+			grant(ctx, u, r.needed.action, r.needed.object)
+			Expect(write(ctx, u, r.write)).To(Succeed())
+		},
+		Entry("create on a new record", func(ctx context.Context) rule {
+			key := uuid.New()
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					l := label.Label{Key: key, Name: "new"}
+					return svc.Label.NewWriter(tx).Create(ctx, &l)
+				},
+				needed: need{access.ActionCreate, label.ResourceID(key)},
+			}
+		}),
+		Entry("update on a changed record", func(ctx context.Context) rule {
+			stored := createLabel(ctx)
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					l := label.Label{Key: stored.Key, Name: "changed"}
+					return svc.Label.NewWriter(tx).Create(ctx, &l)
+				},
+				needed: need{access.ActionUpdate, stored.ResourceID()},
+			}
+		}),
+		Entry("delete on a deleted record", func(ctx context.Context) rule {
+			l := createLabel(ctx)
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					return svc.Label.NewWriter(tx).Delete(ctx, l.Key)
+				},
+				needed: need{access.ActionDelete, l.ResourceID()},
+			}
+		}),
+		Entry("delete on a cascaded record", func(ctx context.Context) rule {
+			parent := createRange(ctx, nil)
+			child := createRange(ctx, &parent.Key)
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					return svc.Ranger.NewWriter(tx).Delete(ctx, parent.Key)
+				},
+				granted: []need{
+					{access.ActionDelete, parent.ResourceID()},
+					{access.ActionUpdate, parent.ResourceID()},
+				},
+				needed: need{access.ActionDelete, child.ResourceID()},
+			}
+		}),
+		Entry(
+			"update on the place target of a deleted record",
+			func(ctx context.Context) rule {
+				parent := createRange(ctx, nil)
+				child := createRange(ctx, &parent.Key)
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						return svc.Ranger.NewWriter(tx).Delete(ctx, child.Key)
+					},
+					granted: []need{{access.ActionDelete, child.ResourceID()}},
+					needed:  need{access.ActionUpdate, parent.ResourceID()},
+				}
+			},
+		),
+		Entry(
+			"update on the place target of a cascaded record",
+			func(ctx context.Context) rule {
+				parent := createRange(ctx, nil)
+				child := createRange(ctx, &parent.Key)
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						return svc.Ranger.NewWriter(tx).Delete(ctx, parent.Key)
+					},
+					granted: []need{
+						{access.ActionDelete, parent.ResourceID()},
+						{access.ActionDelete, child.ResourceID()},
+					},
+					needed: need{access.ActionUpdate, parent.ResourceID()},
+				}
+			},
+		),
+		Entry("update on a detached record", func(ctx context.Context) rule {
+			l := createLabel(ctx)
+			holder := createRange(ctx, nil, l.Key)
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					return svc.Label.NewWriter(tx).Delete(ctx, l.Key)
+				},
+				granted: []need{{access.ActionDelete, l.ResourceID()}},
+				needed:  need{access.ActionUpdate, holder.ResourceID()},
+			}
+		}),
+		Entry(
+			"update on the target of a place link added",
+			func(ctx context.Context) rule {
+				parent := createRange(ctx, nil)
+				child := newRange(&parent.Key)
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						r := child
+						return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+					},
+					granted: []need{{access.ActionCreate, child.ResourceID()}},
+					needed:  need{access.ActionUpdate, parent.ResourceID()},
+				}
+			},
+		),
+		Entry(
+			"update on the target of a place link removed",
+			func(ctx context.Context) rule {
+				from := createRange(ctx, nil)
+				to := createRange(ctx, nil)
+				child := createRange(ctx, &from.Key)
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						r := child
+						r.Parent = &to.Key
+						return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+					},
+					granted: []need{
+						{access.ActionUpdate, child.ResourceID()},
+						{access.ActionUpdate, to.ResourceID()},
+					},
+					needed: need{access.ActionUpdate, from.ResourceID()},
+				}
+			},
+		),
+		Entry(
+			"retrieve on the target of a use link added",
+			func(ctx context.Context) rule {
+				l := createLabel(ctx)
+				r := createRange(ctx, nil)
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						return svc.Ranger.NewWriter(tx).
+							AddLabels(ctx, r.Key, []label.Key{l.Key})
+					},
+					granted: []need{{access.ActionUpdate, r.ResourceID()}},
+					needed:  need{access.ActionRetrieve, l.ResourceID()},
+				}
+			},
+		),
+	)
+
+	It(
+		"Should not require access on the target of a use link removed",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			l := createLabel(ctx)
+			r := createRange(ctx, nil, l.Key)
+			grant(ctx, u, access.ActionUpdate, r.ResourceID())
+			Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Ranger.NewWriter(tx).
+					RemoveLabels(ctx, r.Key, []label.Key{l.Key})
+			})).To(Succeed())
+		},
+	)
+
+	It("Should roll back every write when access is denied", func(ctx SpecContext) {
+		u := newUser(ctx)
+		allowed := label.Label{Key: uuid.New(), Name: "allowed"}
+		refused := label.Label{Key: uuid.New(), Name: "refused"}
+		grant(ctx, u, access.ActionCreate, allowed.ResourceID())
+		Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
+			return svc.Label.NewWriter(tx).
+				CreateMany(ctx, &[]label.Label{allowed, refused})
+		})).To(denied(u, access.ActionCreate, refused.ResourceID()))
+		Expect(labelExists(ctx, allowed.Key)).To(BeFalse())
+		Expect(labelExists(ctx, refused.Key)).To(BeFalse())
+	})
+
+	It(
+		"Should return an error for a write to a table with no resource type",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			r := createRange(ctx, nil)
+			grant(ctx, u, access.ActionUpdate, r.ResourceID())
+			Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
+				return svc.KV.NewWriter(tx).
+					SetMany(ctx, []kv.Pair{{Range: r.Key, Key: "k", Value: "v"}})
+			})).To(MatchError(ContainSubstring("has no resource type")))
+			Expect(svc.KV.NewReader(nil).List(ctx, r.Key)).To(BeEmpty())
+		},
+	)
+
+	DescribeTable(
+		"Should ignore access that the write itself grants",
+		func(ctx SpecContext, stage func(context.Context, gorp.Tx, user.User) error) {
+			u := newUser(ctx)
+			f := func(ctx context.Context, tx gorp.Tx) error {
+				if err := stage(ctx, tx, u); err != nil {
+					return err
+				}
+				l := label.Label{Name: "staged"}
+				return svc.Label.NewWriter(tx).Create(ctx, &l)
+			}
+			Expect(write(ctx, u, f)).To(MatchError(access.ErrDenied))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return stage(ctx, tx, u)
+			})).To(Succeed())
+			Expect(write(ctx, u, f)).To(Succeed())
+		},
+		Entry(
+			"a policy",
+			func(ctx context.Context, tx gorp.Tx, u user.User) error {
+				p := policy.Policy{
+					Name: "staged",
+					Role: u.Role,
+					Objects: []resource.ID{
+						{Type: resource.TypeLabel},
+						{Type: resource.TypePolicy},
+						{Type: resource.TypeRole},
+					},
+					Actions: access.AllActions,
+				}
+				return svc.RBAC.Policy.NewWriter(tx, false).Create(ctx, &p)
+			},
+		),
+		Entry(
+			"a role",
+			func(ctx context.Context, tx gorp.Tx, u user.User) error {
+				return svc.User.NewWriter(tx).
+					SetRole(ctx, svc.RBAC.Builtin.OwnerKey, nil, u.Key)
+			},
+		),
+	)
+
+	It("Should return the response of apply", func(ctx SpecContext) {
+		u := newUser(ctx)
+		Expect(bind.Write(
+			binder,
+			func(context.Context, gorp.Tx, string) (string, error) {
+				return "response", nil
+			},
+		)(AuthedCtx(ctx, u), "request")).To(Equal("response"))
+	})
+
+	It(
+		"Should return a zero response and roll back when apply fails",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			l := label.Label{Key: uuid.New(), Name: "failed"}
+			grant(ctx, u, access.ActionCreate, l.ResourceID())
+			failed := errors.New("failed")
+			Expect(bind.Write(
+				binder,
+				func(ctx context.Context, tx gorp.Tx, _ struct{}) (string, error) {
+					if err := svc.Label.NewWriter(tx).Create(ctx, &l); err != nil {
+						return "", err
+					}
+					return "response", failed
+				},
+			)(AuthedCtx(ctx, u), struct{}{})).Error().To(MatchError(failed))
+			Expect(labelExists(ctx, l.Key)).To(BeFalse())
+		},
+	)
+})

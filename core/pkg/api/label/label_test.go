@@ -54,7 +54,7 @@ var _ = Describe("Dispatch", func() {
 		u := createUser(ctx)
 		l := createLabel(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), l.ResourceID())
-		MustSucceed(apiSvc.Dispatch(
+		MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
 			apilabel.DispatchRequest{Key: l.Key, DispatchKey: "dk", Actions: rename},
 		))
@@ -63,7 +63,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		l := createLabel(ctx)
-		Expect(apiSvc.Dispatch(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
 			apilabel.DispatchRequest{Key: l.Key, DispatchKey: "dk", Actions: rename},
 		)).Error().To(MatchError(access.ErrDenied))
@@ -73,7 +73,7 @@ var _ = Describe("Dispatch", func() {
 		u := createUser(ctx)
 		key := uuid.New()
 		grant(ctx, access.ActionUpdate, u.ResourceID(), label.ResourceID(key))
-		Expect(apiSvc.Dispatch(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
 			apilabel.DispatchRequest{Key: key, DispatchKey: "dk", Actions: rename},
 		)).Error().To(MatchError(query.ErrNotFound))

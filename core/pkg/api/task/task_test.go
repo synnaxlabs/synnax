@@ -89,7 +89,7 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		t := createTask(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
-		Expect(apiSvc.Rename(
+		Expect(rename(
 			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
 		)).Error().ToNot(HaveOccurred())
 		renamed := retrieveTask(ctx, t.Key)
@@ -101,7 +101,7 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		t := createTask(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
-		Expect(apiSvc.Rename(
+		Expect(rename(
 			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: ""},
 		)).Error().To(MatchError(ContainSubstring("name: required")))
 		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
@@ -110,14 +110,14 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		key := uuid.New()
 		grant(ctx, access.ActionUpdate, u.ResourceID(), task.ResourceID(key))
-		Expect(apiSvc.Rename(
+		Expect(rename(
 			AuthedCtx(ctx, u), apitask.RenameRequest{Key: key, Name: "After"},
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
-		Expect(apiSvc.Rename(
+		Expect(rename(
 			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
@@ -146,7 +146,7 @@ var _ = Describe("Dispatch", func() {
 		t := createDraft(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), t.ResourceID())
-		res := MustSucceed(apiSvc.Dispatch(
+		res := MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
 			apitask.DispatchRequest{
 				Key:         t.Key,
@@ -168,7 +168,7 @@ var _ = Describe("Dispatch", func() {
 		u := createUser(ctx)
 		t := createDraft(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
-		res := MustSucceed(apiSvc.Dispatch(
+		res := MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
 			apitask.DispatchRequest{
 				Key:         t.Key,
@@ -182,7 +182,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createDraft(ctx)
-		Expect(apiSvc.Dispatch(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
 			apitask.DispatchRequest{
 				Key:         t.Key,
@@ -196,7 +196,7 @@ var _ = Describe("Dispatch", func() {
 		u := createUser(ctx)
 		key := uuid.New()
 		grant(ctx, access.ActionUpdate, u.ResourceID(), task.ResourceID(key))
-		Expect(apiSvc.Dispatch(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
 			apitask.DispatchRequest{
 				Key:         key,

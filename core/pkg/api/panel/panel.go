@@ -193,6 +193,7 @@ type DispatchRequest = actions.DispatchRequest[panel.Key, panel.Action]
 // is broadcast on the panel set channel so connected clients can mirror the change.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
@@ -203,7 +204,7 @@ func (s *Service) Dispatch(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.
-		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+		Dispatch(ctx, tx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type DeleteRequest struct {

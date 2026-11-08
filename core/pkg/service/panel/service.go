@@ -123,21 +123,20 @@ func (s *Service) OnAction(
 	return s.state.OnChange(handler)
 }
 
-// Dispatch applies a sequence of actions atomically to the panel with the given key.
-// Dispatches for the same panel run one at a time, each in its own transaction
-// committed before the actions are notified, so two concurrent dispatches can never
-// overwrite each other's edits. dispatchKey is a client-generated identifier carried
-// verbatim onto the broadcast so the originating client can recognize its own echo.
-// Returns a validation error, and stores nothing, if the actions leave the panel
-// invalid.
+// Dispatch applies a sequence of actions to the panel with the given key in tx and
+// attaches them to tx, so the commit of tx broadcasts them. dispatchKey is a
+// client-generated identifier carried verbatim onto the broadcast so the originating
+// client can recognize its own echo. Returns a validation error, and stores nothing, if
+// the actions leave the panel invalid.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	key Key,
 	dispatchKey string,
 	acts []Action,
 ) error {
 	return s.state.Dispatch(
-		ctx,
+		tx,
 		key,
 		dispatchKey,
 		acts,

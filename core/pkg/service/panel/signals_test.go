@@ -72,7 +72,7 @@ var _ = Describe("Signals", func() {
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 			})
-			Expect(svc.Dispatch(ctx, p.Key, "dk-1", []panel.Action{
+			Expect(dispatch(ctx, p.Key, "dk-1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
 			})).To(Succeed())
 			var decoded []actions.Scoped[panel.Key, panel.Action]

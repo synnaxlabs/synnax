@@ -138,6 +138,7 @@ type DispatchRequest = actions.DispatchRequest[label.Key, label.Action]
 // the label action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
@@ -147,7 +148,13 @@ func (s *Service) Dispatch(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return struct{}{}, s.internal.Dispatch(
+		ctx,
+		tx,
+		req.Key,
+		req.DispatchKey,
+		req.Actions,
+	)
 }
 
 func (s *Service) Retrieve(

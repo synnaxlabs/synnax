@@ -47,7 +47,7 @@ var _ = Describe("Dispatch", func() {
 					writer.Delete(ctx, target.Base().Key, other.Base().Key),
 				).To(Succeed())
 			})
-			Expect(svc.Dispatch(ctx, target.Base().Key, "d1", []arc.Action{
+			Expect(dispatch(ctx, target.Base().Key, "d1", []arc.Action{
 				arc.NewCreateAction(arc.CreatePayload{
 					Arc: newAutomation(arc.Base{
 						Key:    other.Base().Key,
@@ -80,7 +80,7 @@ var _ = Describe("Dispatch", func() {
 				}}},
 			})
 			Expect(writer.Create(ctx, &a)).To(Succeed())
-			Expect(svc.Dispatch(ctx, a.Base().Key, "session-1", []arc.Action{
+			Expect(dispatch(ctx, a.Base().Key, "session-1", []arc.Action{
 				arc.NewSetNodePositionAction(arc.SetNodePositionPayload{
 					Key:      "n1",
 					Position: spatial.XY{X: 100, Y: 200},
@@ -109,7 +109,7 @@ var _ = Describe("Dispatch", func() {
 				},
 			)
 			Expect(writer.Create(ctx, &a)).To(Succeed())
-			Expect(svc.Dispatch(ctx, a.Base().Key, "session-1", []arc.Action{
+			Expect(dispatch(ctx, a.Base().Key, "session-1", []arc.Action{
 				arc.NewSetNodeAction(
 					arc.SetNodePayload{Node: graph.Node{Key: "n1"}},
 				),
@@ -157,7 +157,7 @@ var _ = Describe("Dispatch", func() {
 				arc.NewRenameAction(arc.RenamePayload{Name: "observed-renamed"}),
 			}
 			Expect(
-				svc.Dispatch(ctx, a.Base().Key, "client-xyz", actions),
+				dispatch(ctx, a.Base().Key, "client-xyz", actions),
 			).To(Succeed())
 			seen := rec.Snapshot()
 			Expect(seen).To(HaveLen(1))
@@ -189,7 +189,7 @@ var _ = Describe("Dispatch", func() {
 			}
 			for range 3 {
 				Expect(
-					svc.Dispatch(ctx, a.Base().Key, "client-xyz", action),
+					dispatch(ctx, a.Base().Key, "client-xyz", action),
 				).To(Succeed())
 			}
 			seen := rec.Snapshot()
@@ -205,7 +205,7 @@ var _ = Describe("Dispatch", func() {
 			rec := &Recorder[arc.Key, arc.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(
-				svc.Dispatch(ctx, uuid.New(), "client-xyz", []arc.Action{
+				dispatch(ctx, uuid.New(), "client-xyz", []arc.Action{
 					arc.NewRenameAction(arc.RenamePayload{Name: "ghost"}),
 				}),
 			).To(MatchError(query.ErrNotFound))
@@ -257,7 +257,7 @@ var _ = Describe("Collaborative text", func() {
 
 			client := crdt.New(2)
 			Expect(
-				svc.Dispatch(
+				dispatch(
 					ctx,
 					a.Base().Key,
 					"dk",
@@ -292,7 +292,7 @@ var _ = Describe("Collaborative text", func() {
 			Expect(client.String()).To(Equal("base"))
 
 			Expect(
-				svc.Dispatch(
+				dispatch(
 					ctx,
 					a.Base().Key,
 					"dk",
@@ -343,7 +343,7 @@ var _ = Describe("Collaborative text", func() {
 			)
 
 			Expect(
-				svc.Dispatch(
+				dispatch(
 					ctx,
 					a.Base().Key,
 					"dk",
@@ -355,7 +355,7 @@ var _ = Describe("Collaborative text", func() {
 
 			base = base.Add(2 * telem.Second)
 			Expect(
-				svc.Dispatch(
+				dispatch(
 					ctx,
 					a.Base().Key,
 					"dk",
@@ -368,7 +368,7 @@ var _ = Describe("Collaborative text", func() {
 
 			base = base.Add(10 * telem.Second)
 			Expect(
-				svc.Dispatch(
+				dispatch(
 					ctx,
 					a.Base().Key,
 					"dk",
@@ -382,6 +382,48 @@ var _ = Describe("Collaborative text", func() {
 			Expect(textOf(swept.Base()).Doc.Deletes).To(BeEmpty())
 			Expect(textOf(swept.Base()).Doc.Inserts).To(HaveLen(8))
 			Expect(textOf(swept.Base()).Materialize().Raw).To(Equal("YXhello "))
+		},
+	)
+
+	It(
+		"Should attach the sweep after the edit in the same commit",
+		func(ctx SpecContext) {
+			base := telem.Now()
+			arcClock = func() telem.TimeStamp { return base }
+			DeferCleanup(func() { arcClock = telem.Now })
+			a := newAutomation(arc.Base{
+				Name: "collab-sweep-order",
+				Source: arc.Source{
+					Variant: arc.TextSource{Text: text.Text{Raw: "hello world"}},
+				},
+			})
+			Expect(writer.Create(ctx, &a)).To(Succeed())
+			client := crdt.New(2)
+			seeded := fetch(ctx, a.Base().Key)
+			client.Load(
+				textOf(seeded.Base()).Doc.Inserts,
+				textOf(seeded.Base()).Doc.Deletes,
+			)
+			Expect(dispatch(
+				ctx,
+				a.Base().Key,
+				"dk",
+				toDeleteActions(client.Delete(6, 5)),
+			)).To(Succeed())
+			base = base.Add(12 * telem.Second)
+			rec := &Recorder[arc.Key, arc.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			edit := toInsertActions(client.Insert(0, "Y"))
+			Expect(dispatch(ctx, a.Base().Key, "dk", edit)).To(Succeed())
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(2))
+			Expect(seen[0].DispatchKey).To(Equal("dk"))
+			Expect(seen[0].Actions).To(Equal(edit))
+			Expect(seen[1].DispatchKey).To(BeEmpty())
+			Expect(seen[1].Actions).To(HaveExactElements(
+				HaveField("Type", arc.ActionTypeForgetChars),
+			))
+			Expect(seen[1].Seq).To(Equal(seen[0].Seq + 1))
 		},
 	)
 
@@ -414,7 +456,7 @@ var _ = Describe("Collaborative text", func() {
 			for _, batch := range batches {
 				wg.Go(func() {
 					defer GinkgoRecover()
-					Expect(svc.Dispatch(ctx, a.Base().Key, "dk", batch)).To(Succeed())
+					Expect(dispatch(ctx, a.Base().Key, "dk", batch)).To(Succeed())
 				})
 			}
 			wg.Wait()

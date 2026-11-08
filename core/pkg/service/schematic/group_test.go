@@ -180,7 +180,7 @@ var _ = Describe("SetGroup", func() {
 	})
 
 	It("Should reject a client dispatch of a group change", func(ctx SpecContext) {
-		Expect(svc.Dispatch(ctx, target.Key, "d1", []schematic.Action{
+		Expect(dispatch(ctx, target.Key, "d1", []schematic.Action{
 			schematic.NewSetGroupAction(schematic.SetGroupPayload{Group: &g.Key}),
 		})).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
@@ -193,7 +193,7 @@ var _ = Describe("SetGroup", func() {
 
 	It("Should reject a client dispatch of a project change", func(ctx SpecContext) {
 		dest := createProject(ctx)
-		Expect(svc.Dispatch(ctx, target.Key, "d1", []schematic.Action{
+		Expect(dispatch(ctx, target.Key, "d1", []schematic.Action{
 			schematic.NewSetProjectAction(
 				schematic.SetProjectPayload{Project: dest.Key},
 			),

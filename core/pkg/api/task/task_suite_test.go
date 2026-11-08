@@ -15,6 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -37,6 +39,10 @@ var (
 	node   testutil.Node
 	svc    *service.Layer
 	apiSvc *apitask.Service
+	// dispatch runs the Dispatch route in one transaction, as the API layer binds it.
+	dispatch freighter.UnaryHandler[apitask.DispatchRequest, apitask.DispatchResponse]
+	// rename runs the Rename route in one transaction, as the API layer binds it.
+	rename freighter.UnaryHandler[apitask.RenameRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -50,6 +56,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:   svc.RBAC,
 		Framer: svc.Framer,
 	}))
+	dispatch = fgorp.CreateWriteUnaryHandler(node.DB, apiSvc.Dispatch)
+	rename = fgorp.CreateWriteUnaryHandler(node.DB, apiSvc.Rename)
 })
 
 // createUser creates a user that can do nothing.

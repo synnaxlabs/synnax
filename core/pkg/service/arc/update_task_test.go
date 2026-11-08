@@ -474,7 +474,7 @@ var _ = Describe("Task sync", func() {
 				arc.TaskUpdate{Rack: new(testRack.Key)},
 			),
 		)
-		Expect(svc.Dispatch(ctx, a.Base().Key, "", []arc.Action{
+		Expect(dispatch(ctx, a.Base().Key, "", []arc.Action{
 			arc.NewRenameAction(arc.RenamePayload{Name: "renamed_by_dispatch"}),
 		})).To(Succeed())
 		Eventually(taskName(ctx, tsk.Key)).Should(Equal("renamed_by_dispatch"))
@@ -513,7 +513,7 @@ var _ = Describe("Task sync", func() {
 			before := retrieveTask(ctx, db, tsk.Key)
 			client := crdt.New(2)
 			Expect(
-				svc.Dispatch(
+				dispatch(
 					ctx,
 					a.Base().Key,
 					"dk",
@@ -535,7 +535,7 @@ var _ = Describe("Task sync", func() {
 		Expect(writer.Create(ctx, &unbound)).To(Succeed())
 		client := crdt.New(2)
 		Expect(
-			svc.Dispatch(
+			dispatch(
 				ctx,
 				unbound.Base().Key,
 				"dk",
@@ -560,7 +560,7 @@ var _ = Describe("Task sync", func() {
 
 	It("Should leave the task config on a layout-only edit", func(ctx SpecContext) {
 		createArc(ctx, arc.ModeGraph)
-		Expect(svc.Dispatch(ctx, a.Base().Key, "dk", setNode(0))).To(Succeed())
+		Expect(dispatch(ctx, a.Base().Key, "dk", setNode(0))).To(Succeed())
 		tsk := MustSucceed(
 			writer.UpdateTask(
 				ctx,
@@ -569,7 +569,7 @@ var _ = Describe("Task sync", func() {
 			),
 		)
 		before := retrieveTask(ctx, db, tsk.Key)
-		Expect(svc.Dispatch(ctx, a.Base().Key, "dk", setNode(9))).To(Succeed())
+		Expect(dispatch(ctx, a.Base().Key, "dk", setNode(9))).To(Succeed())
 		Consistently(
 			taskConfigHash(ctx, tsk.Key),
 			time.Millisecond*100,
@@ -648,7 +648,7 @@ var _ = Describe("Task sync", func() {
 			before := retrieveTask(ctx, db, tsk.Key)
 			client := crdt.New(2)
 			Expect(
-				svc.Dispatch(
+				dispatch(
 					ctx,
 					a.Base().Key,
 					"dk",
@@ -661,7 +661,7 @@ var _ = Describe("Task sync", func() {
 			Eventually(taskConfigHash(ctx, tsk.Key)).
 				ShouldNot(Equal(before.ConfigHash))
 			Expect(
-				svc.Dispatch(
+				dispatch(
 					ctx,
 					a.Base().Key,
 					"dk",

@@ -242,24 +242,24 @@ func (s *Service) OnAction(
 	return s.state.OnChange(handler)
 }
 
-// Dispatch applies the actions atomically to the task with the given key. Dispatches
-// for the same task run one at a time, each in its own transaction. After the commit,
-// Dispatch broadcasts the actions, then a set of the stored config when storing changed
-// it, such as by filling a default, then a set of the new config hash. Dispatch returns
-// the sets it added. dispatchKey is carried onto the broadcast so the sender recognizes
-// its echo. Dispatch returns an error wrapping validate.ErrValidation when an action is
-// a create, an action other than a set of the name targets a snapshot, or the result
+// Dispatch applies the actions to the task with the given key in tx. The commit of tx
+// broadcasts the actions, then a set of the stored config when storing changed it, such
+// as by filling a default, then a set of the new config hash. Dispatch returns the sets
+// it added. dispatchKey is carried onto the broadcast so the sender recognizes its
+// echo. Dispatch returns an error wrapping validate.ErrValidation when an action is a
+// create, an action other than a set of the name targets a snapshot, or the result
 // fails to decode or validate, and an error wrapping query.ErrNotFound when no task has
 // the key.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	key Key,
 	dispatchKey string,
 	acts []Action,
 ) ([]Action, error) {
 	var added []Action
 	if err := s.state.Dispatch(
-		ctx,
+		tx,
 		key,
 		dispatchKey,
 		acts,
