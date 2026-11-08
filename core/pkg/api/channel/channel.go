@@ -41,7 +41,7 @@ type Key = channel.Key
 
 // ServiceConfig is the configuration for the channel API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of every request except set group.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service

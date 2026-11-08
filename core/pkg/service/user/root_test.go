@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -72,10 +71,8 @@ func createUser(ctx context.Context, username, pwd string, root bool) user.User 
 				return err
 			}
 		}
-		return passwordSvc.NewWriter(tx).Set(ctx, u.ResourceID(), auth.Credentials{
-			Username: username,
-			Password: pwd,
-		})
+		return passwordSvc.NewWriter(tx).
+			Set(ctx, u.ResourceID(), username, hash(passwordSvc, pwd))
 	})).To(Succeed())
 	return u
 }
@@ -105,27 +102,26 @@ func rootUsers(ctx context.Context) []user.User {
 	return roots
 }
 
-// purgeUsers deletes raw, because [user.Writer.Delete] rejects root users.
+// purgeUsers deletes raw, because [user.Writer.Delete] rejects root users. A raw delete
+// follows no cascade, so it deletes the passwords too.
 func purgeUsers(ctx context.Context) {
 	GinkgoHelper()
 	var users []user.User
 	Expect(svc.NewRetrieve().Entries(&users).Exec(ctx, nil)).To(Succeed())
-	if len(users) == 0 {
-		return
-	}
 	keys := make([]user.Key, len(users))
 	for i, u := range users {
 		keys[i] = u.Key
 	}
-	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := gorp.WrapWriter[user.Key, user.User](
-			tx,
-		).Delete(ctx, keys...); err != nil {
-			return err
-		}
-		return passwordSvc.NewWriter(tx).
-			DeleteFor(ctx, user.ResourceIDsFromKeys(keys)...)
-	})).To(Succeed())
+	Expect(gorp.WrapWriter[user.Key, user.User](db).Delete(ctx, keys...)).
+		To(Succeed())
+	var passwords []password.Password
+	Expect(passwordSvc.NewRetrieve().Entries(&passwords).Exec(ctx, nil)).To(Succeed())
+	pwKeys := make([]password.Key, len(passwords))
+	for i, p := range passwords {
+		pwKeys[i] = p.Key
+	}
+	Expect(gorp.WrapWriter[password.Key, password.Password](db).Delete(ctx, pwKeys...)).
+		To(Succeed())
 }
 
 var _ = Describe("ProvisionRoot", Serial, func() {
@@ -232,10 +228,10 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		owner := MustSucceed(
 			svc.NewWriter(nil).Create(ctx, user.User{Name: "owner", Role: member}),
 		)
-		Expect(passwordSvc.NewWriter(nil).Set(ctx, owner.ResourceID(), auth.Credentials{
-			Username: "delta",
-			Password: "p",
-		})).To(Succeed())
+		Expect(
+			passwordSvc.NewWriter(nil).
+				Set(ctx, owner.ResourceID(), "delta", hash(passwordSvc, "p")),
+		).To(Succeed())
 		root := provision(ctx, "delta", "p")
 		Expect(root.Key).To(Equal(owner.Key))
 		Expect(root.Key).ToNot(Equal(decoy.Key))
@@ -250,24 +246,5 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		Expect(root.Key).ToNot(Equal(other.Key))
 		Expect(MustSucceed(login(ctx, "orphan", "p")).Subject).
 			To(Equal(root.ResourceID()))
-	})
-	It("Should reject a username whose password is not held by a user", func(
-		ctx SpecContext,
-	) {
-		Expect(passwordSvc.NewWriter(nil).Set(
-			ctx,
-			resource.ID{Type: "rack", Key: "1"},
-			auth.Credentials{Username: "rack-held", Password: "p"},
-		)).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(passwordSvc.NewWriter(nil).DeleteFor(
-				ctx,
-				resource.ID{Type: "rack", Key: "1"},
-			)).To(Succeed())
-		})
-		Expect(user.ProvisionRoot(ctx, svc, passwordSvc, auth.Credentials{
-			Username: "rack-held",
-			Password: "p",
-		}, owner)).Error().To(MatchError(ContainSubstring("not held by a user")))
 	})
 })

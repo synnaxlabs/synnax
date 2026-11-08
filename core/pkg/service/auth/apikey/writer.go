@@ -55,9 +55,3 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Where(gorp.MatchKeys[Key, APIKey](keys...)).
 		Exec(ctx, w.tx)
 }
-
-func (w Writer) deleteFor(ctx context.Context, subjects ...resource.ID) error {
-	return w.svc.table.NewDelete().
-		Where(MatchSubjects(subjects...)(w.svc.NewRetrieve())).
-		Exec(ctx, w.tx)
-}

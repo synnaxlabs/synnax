@@ -74,3 +74,9 @@ func createRole(ctx SpecContext, tx gorp.Tx, name string) role.Key {
 	Expect(roleSvc.NewWriter(tx, false).Create(ctx, &r)).To(Succeed())
 	return r.Key
 }
+
+// hash hashes plaintext with svc.
+func hash(svc *password.Service, plaintext string) password.Hash {
+	GinkgoHelper()
+	return MustSucceed(svc.Hash(plaintext))
+}

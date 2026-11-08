@@ -16,12 +16,11 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 // SessionCookieParam is the request parameter a handler sets to ask the transport to
@@ -179,36 +178,17 @@ type SessionDeleteRequest struct {
 	Keys []auth.SessionKey `json:"keys" msgpack:"keys"`
 }
 
-// DeleteSessions ends the given sessions. A caller may end its own sessions; ending
-// another subject's needs permission to delete that subject. Unknown keys are ignored.
-// Ending the caller's own session asks the transport to clear its cookie, if it set
-// one.
+// DeleteSessions ends the given sessions. Unknown keys are ignored. Ending the caller's
+// own session asks the transport to clear its cookie, if it set one.
 func (s *Service) DeleteSessions(
 	ctx context.Context,
+	tx gorp.Tx,
 	req SessionDeleteRequest,
 ) (struct{}, error) {
-	var sessions []auth.Session
-	if err := s.auth.NewRetrieve().
-		Where(auth.MatchKeys(req.Keys...)).
-		Entries(&sessions).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return struct{}{}, err
-	}
-	subjects := lo.Uniq(lo.Map(sessions, func(e auth.Session, _ int) resource.ID {
-		return e.Subject
-	}))
-	if err := s.enforceOthers(
-		ctx,
-		GetSubject(ctx),
-		access.ActionDelete,
-		subjects,
-	); err != nil {
-		return struct{}{}, err
-	}
 	if lo.Contains(req.Keys, getSession(ctx).Key) {
 		freighter.MDFromContext(ctx).Set(SessionCookieParam, SessionCookie{})
 	}
-	return struct{}{}, s.auth.Logout(ctx, req.Keys...)
+	return struct{}{}, s.auth.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 func (s *Service) enforceOthers(

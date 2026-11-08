@@ -15,8 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -121,10 +119,8 @@ var _ = Describe("Service", func() {
 					w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
 				)
 				Expect(
-					passwordSvc.NewWriter(tx).Set(ctx, u.ResourceID(), auth.Credentials{
-						Username: username,
-						Password: "p",
-					}),
+					passwordSvc.NewWriter(tx).
+						Set(ctx, u.ResourceID(), username, hash(passwordSvc, "p")),
 				).To(Succeed())
 			})
 			It(
@@ -178,24 +174,6 @@ var _ = Describe("Service", func() {
 					Entries(&ret).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(ret).To(ConsistOf(other))
-			})
-			It("Should skip a password held by a subject that is not a user", func(
-				ctx SpecContext,
-			) {
-				rackName := uuid.New().String()
-				Expect(passwordSvc.NewWriter(tx).Set(
-					ctx,
-					resource.ID{Type: resource.TypeRack, Key: rackName},
-					auth.Credentials{Username: rackName, Password: "p"},
-				)).To(Succeed())
-				var ret []user.User
-				Expect(
-					svc.NewRetrieve().
-						Where(user.MatchUsernames(rackName)).
-						Entries(&ret).
-						Exec(ctx, tx),
-				).To(Succeed())
-				Expect(ret).To(BeEmpty())
 			})
 		})
 	})
