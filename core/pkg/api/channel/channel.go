@@ -301,7 +301,7 @@ func (s *Service) retrieve(
 	r := req.Request
 	if req.RangeKey == nil || r.SearchTerm == "" {
 		var res []channel.Channel
-		q, err := r.Apply(s.internal.NewRetrieve().Entries(&res))
+		q, err := ApplyRetrieve(r, s.internal.NewRetrieve().Entries(&res))
 		if err != nil {
 			return nil, err
 		}
@@ -326,7 +326,7 @@ func (s *Service) retrieve(
 		)
 	}
 	// The alias search limits the merged list, so the query carries only the where.
-	q, err := RetrieveRequest{Where: r.Where}.Apply(s.internal.NewRetrieve())
+	q, err := ApplyRetrieve(RetrieveRequest{Where: r.Where}, s.internal.NewRetrieve())
 	if err != nil {
 		return nil, err
 	}
