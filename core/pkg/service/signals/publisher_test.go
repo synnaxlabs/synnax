@@ -42,7 +42,7 @@ var _ = Describe("Publisher", Serial, func() {
 		sigs := MustSucceed(signals.New(signals.Config{
 			DB:      db,
 			Channel: channelSvc,
-			Framer:  framerSvc,
+			Framer:  nodeFramer,
 		}))
 		obs = observe.New[[]signals.Change]()
 		cfg = signals.ObservablePublisherConfig{

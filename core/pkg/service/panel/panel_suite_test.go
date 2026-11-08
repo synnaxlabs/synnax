@@ -83,7 +83,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	sigs := MustSucceed(signals.New(signals.Config{
 		DB:      db,
 		Channel: channelSvc,
-		Framer:  framerSvc,
+		Framer:  node.Framer,
 	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB:      node.DB,
