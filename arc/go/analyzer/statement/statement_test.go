@@ -401,6 +401,19 @@ var _ = Describe("Statement", func() {
 				Expect(literals).To(Equal(count))
 			},
 			Entry("f32", "y series f32 := [1.5]", types.F32(), 1),
+			Entry("an integer into an empty series", "y := []\ny += 1", types.F64(), 1),
+			Entry(
+				"an integer then a float into an empty series",
+				"y := []\ny += 1\ny += 1.5",
+				types.F64(),
+				2,
+			),
+			Entry(
+				"a float then an integer into an empty series",
+				"y := []\ny += 1.5\ny += 1",
+				types.F64(),
+				2,
+			),
 			Entry("f64", "y series f64 := [1.5]", types.F64(), 1),
 			Entry(
 				"every f32 element",
@@ -676,6 +689,21 @@ var _ = Describe("Statement", func() {
 			Entry("an integer", "x := 0\nx = 2", ""),
 			Entry("an integer into a float", "x := 0.0\nx = 1", ""),
 			Entry("a float into an empty series", "y := []\ny += 1.5", ""),
+			Entry(
+				"an integer then a float into an empty series",
+				"y := []\ny += 1\ny += 1.5",
+				"",
+			),
+			Entry(
+				"a float then an integer into an empty series",
+				"y := []\ny += 1.5\ny += 1",
+				"",
+			),
+			Entry(
+				"a float series after an integer into an empty series",
+				"y := []\ny += 1\ny = [1.5]",
+				"",
+			),
 		)
 
 		It(

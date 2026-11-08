@@ -132,6 +132,23 @@ var _ = Describe("Type Unification", func() {
 			Entry("numeric first", false),
 		)
 
+		DescribeTable(
+			"Should keep a numeric variable open for an integer in either order",
+			func(firstIsInteger bool) {
+				numericConstraint := types.NumericConstraint()
+				numeric := types.Variable("numeric", &numericConstraint)
+				left, right := integer, numeric
+				if !firstIsInteger {
+					left, right = numeric, integer
+				}
+				system := constraints.New()
+				Expect(system.AddEquality(left, right, nil, "test")).To(Succeed())
+				Expect(system.ApplySubstitutions(integer)).To(Equal(numeric))
+			},
+			Entry("integer first", true),
+			Entry("numeric first", false),
+		)
+
 		It("Should take a concrete f32 through the float", func() {
 			system := constraints.New()
 			Expect(system.AddCompatible(float, integer, nil, "test")).To(Succeed())

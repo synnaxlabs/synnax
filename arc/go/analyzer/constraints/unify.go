@@ -223,6 +223,17 @@ func (s *System) unifyTypesWithVisited(
 }
 
 // unifyTypeVariableWithVisited is the internal recursive function with cycle detection
+// numericYields reports whether a variable constrained to a takes a variable
+// constrained to b when one of them is numeric. A float literal fixes a numeric
+// variable as a float, and a numeric variable fixes an integer literal, so an integer
+// literal never makes an empty series an integer series.
+func numericYields(a, b types.Kind) bool {
+	if a == types.KindNumericConstant {
+		return b != types.KindNumericConstant && b != types.KindIntegerConstant
+	}
+	return a == types.KindIntegerConstant && b == types.KindNumericConstant
+}
+
 func (s *System) unifyTypeVariableWithVisited(
 	tv, other types.Type,
 	source Constraint,
@@ -262,9 +273,7 @@ func (s *System) unifyTypeVariableWithVisited(
 			s.Substitutions[other.Name] = tv
 			return nil
 		} else if tv.Constraint != nil && other.Constraint != nil &&
-			tv.Constraint.Kind != types.KindNumericConstant &&
-			other.Constraint.Kind == types.KindNumericConstant {
-			// A numeric variable takes the narrower literal constraint.
+			numericYields(other.Constraint.Kind, tv.Constraint.Kind) {
 			s.Substitutions[other.Name] = tv
 			return nil
 		} else if other.Constraint != nil && tv.Constraint == nil {
