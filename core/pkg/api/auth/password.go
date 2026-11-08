@@ -63,7 +63,8 @@ func (s *Service) PrepareSetPassword(
 		)
 	}
 	if subject != caller {
-		// Each hash is slow, so a caller that cannot update the user costs none.
+		// Each hash is slow, so a caller that cannot update the user costs none. The
+		// binder checks delete on the user when SetPassword ends its sessions.
 		if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 			return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
 				Subject: caller,
@@ -94,8 +95,10 @@ func (s *Service) PrepareSetPassword(
 // SetPassword stores the password that PrepareSetPassword hashed for the caller or
 // another user, and ends every session the old password opened. When the change ends
 // the caller's session, SetPassword opens a new one on the new password and returns
-// it. It returns [auth.ErrInvalidCredentials] when the caller's password changed after
-// its proof, and an error wrapping query.ErrNotFound when the user has no password.
+// it. Setting another user's password needs update on that user, and delete on it when
+// the change ends its sessions. It returns [auth.ErrInvalidCredentials] when the
+// caller's password changed after its proof, and an error wrapping query.ErrNotFound
+// when the user has no password.
 func (s *Service) SetPassword(
 	ctx context.Context,
 	tx gorp.Tx,
