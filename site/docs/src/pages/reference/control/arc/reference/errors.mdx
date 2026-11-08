@@ -181,10 +181,10 @@ This section lists the most common diagnostics without a code, not all of them.
 </Problem.Item>
 <Problem.Item message={"variable '<x>' of type <T> cannot have a computed initializer"}>
   <Problem.Cause>
-    A `:=` or `$=` in a sequence or stage starts from an expression of a type with no
-    zero value, such as a series.
+    A `:=` or `$=` outside a function starts from a value of a type with no zero value,
+    such as a series. A series literal counts.
   </Problem.Cause>
-  <Problem.Fix>Start from a literal, or compute the value in a function.</Problem.Fix>
+  <Problem.Fix>Declare the variable in the function that uses it.</Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"cannot assign to loop variable '<i>'"}>
   <Problem.Cause>The loop body changes the loop variable.</Problem.Cause>
