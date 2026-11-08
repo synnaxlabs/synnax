@@ -936,12 +936,16 @@ var _ = Describe("Task", Ordered, func() {
 		) {
 			frames := collect()
 			acts := []task.Action{set([]string{"name"}, "Renamed")}
-			Expect(
+			computed := MustSucceed(
 				svc.NewWriter(nil).
 					WithDispatchKey("dk").
 					Apply(ctx, alerts.Key, acts...),
-			).Error().ToNot(HaveOccurred())
-			Expect(retrieve(ctx, alerts.Key).Name).To(Equal("Renamed"))
+			)
+			res := retrieve(ctx, alerts.Key)
+			Expect(res.Name).To(Equal("Renamed"))
+			Expect(
+				computed,
+			).To(Equal([]task.Action{set([]string{"config_hash"}, res.ConfigHash)}))
 			Expect(*frames).To(HaveLen(1))
 			Expect((*frames)[0].DispatchKey).To(Equal("dk"))
 		})
