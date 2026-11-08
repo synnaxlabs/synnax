@@ -945,12 +945,12 @@ TEST_F(EngineTest, ActivationErrorPropagates) {
 /// @brief it should discover the slaves again while the bus is stopped, and not while
 /// it runs.
 TEST_F(EngineTest, RediscoverOnlyWhileStopped) {
-    ASSERT_NIL(this->engine->discover(true).second);
+    ASSERT_NIL_P(this->engine->discover(true));
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
-    ASSERT_NIL(this->engine->discover(true).second);
+    ASSERT_NIL_P(this->engine->discover(true));
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
 }
 
@@ -1578,8 +1578,8 @@ TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
 /// @brief it should keep the discovered slaves and not reinitialize the master when the
 /// slave count is unchanged.
 TEST_F(EngineTest, DiscoverKeepsDiscoveryWhenTheBusIsUnchanged) {
-    ASSERT_NIL(this->engine->discover().second);
-    ASSERT_NIL(this->engine->discover().second);
+    ASSERT_NIL_P(this->engine->discover());
+    ASSERT_NIL_P(this->engine->discover());
     const auto calls = this->master->call_log();
     EXPECT_EQ(std::ranges::count(calls, "deactivate"), 0);
 }
@@ -1587,9 +1587,9 @@ TEST_F(EngineTest, DiscoverKeepsDiscoveryWhenTheBusIsUnchanged) {
 /// @brief it should reinitialize the master and discover again when the slave count
 /// changes.
 TEST_F(EngineTest, DiscoverRediscoversWhenASlaveIsPluggedIn) {
-    ASSERT_NIL(this->engine->discover().second);
+    ASSERT_NIL_P(this->engine->discover());
     this->master->set_bus_slaves(2);
-    ASSERT_NIL(this->engine->discover().second);
+    ASSERT_NIL_P(this->engine->discover());
     EXPECT_EQ(
         this->master->call_log(),
         (std::vector<std::string>{
@@ -1610,7 +1610,7 @@ TEST_F(EngineTest, DiscoverDoesNotRediscoverWhileTheBusRuns) {
     );
     this->master->set_bus_slaves(2);
     this->master->clear_call_log();
-    ASSERT_NIL(this->engine->discover().second);
+    ASSERT_NIL_P(this->engine->discover());
     const auto calls = this->master->call_log();
     EXPECT_EQ(std::ranges::count(calls, "count_slaves"), 0);
 }

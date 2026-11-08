@@ -38,7 +38,7 @@ pdo::Entry bind(
     const x::json::Parser &parser,
     const std::string &path
 ) {
-    const pdo::Entry unbound{.slave_position = slave.position, .is_input = is_input};
+    pdo::Entry unbound{.slave_position = slave.position, .is_input = is_input};
     const auto pdo = slave.find_pdo(index, sub_index, is_input);
     if (!pdo) {
         parser.field_err(
