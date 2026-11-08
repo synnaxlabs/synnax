@@ -22,12 +22,11 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 func keyProof(key string) auth.Proof {
@@ -44,8 +43,10 @@ func setBuiltinRole(ctx context.Context, subject user.Key, name string) {
 			return r.Name == name, nil
 		})).
 		Entry(&r).
-		Exec(ctx, nil)).To(Succeed())
-	Expect(userSvc.NewWriter(nil).SetRole(ctx, r.Key, nil, subject)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return userSvc.NewWriter(tx).SetRole(ctx, r.Key, nil, subject)
+	})).To(Succeed())
 }
 
 // grant grants the action on the object to the subject.
@@ -57,7 +58,7 @@ func grant(
 ) {
 	GinkgoHelper()
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, subject, actions, object))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, subject, actions, object))
 }
 
 var _ = Describe("API keys", func() {
@@ -79,9 +80,8 @@ var _ = Describe("API keys", func() {
 		token string,
 		subject resource.ID,
 	) (apiauth.KeyCreateResponse, error) {
-		return apiSvc.CreateKey(
+		return createKey(
 			authed(ctx, token),
-			nil,
 			apiauth.KeyCreateRequest{Subject: subject, Name: "ci"},
 		)
 	}
@@ -93,7 +93,9 @@ var _ = Describe("API keys", func() {
 		engToken = login(ctx, passwordProof(eng.Name, "p"))
 		rootToken = login(ctx, passwordProof(creds.Username, creds.Password))
 		r := rack.Rack{Name: "rack-" + uuid.New().String()}
-		Expect(rackSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rackSvc.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		rackID = r.ResourceID()
 	})
 	Describe("CreateKey", func() {
@@ -123,23 +125,18 @@ var _ = Describe("API keys", func() {
 			Expect(create(ctx, engToken, bob.ResourceID())).Error().
 				To(MatchError(access.ErrDenied))
 		})
-		It("Should deny a key for a user the caller may only update", func(
+		It("Should let a caller that may update a user create a key for it", func(
 			ctx SpecContext,
 		) {
 			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
-			Expect(create(ctx, bobToken, eng.ResourceID())).Error().
-				To(MatchError(access.ErrDenied))
+			res := MustSucceed(create(ctx, bobToken, eng.ResourceID()))
+			Expect(res.Key.Subject).To(Equal(eng.ResourceID()))
 		})
-		It("Should deny a key for a rack the caller may only update", func(
+		It("Should deny a key for a user the caller may only create", func(
 			ctx SpecContext,
 		) {
-			grant(
-				ctx,
-				bob.Key,
-				access.ActionUpdate,
-				resource.ID{Type: resource.TypeRack},
-			)
-			Expect(create(ctx, bobToken, rackID)).Error().
+			grant(ctx, bob.Key, access.ActionCreate, eng.ResourceID())
+			Expect(create(ctx, bobToken, eng.ResourceID())).Error().
 				To(MatchError(access.ErrDenied))
 		})
 		It("Should deny a user without a role a key for a rack", func(ctx SpecContext) {
@@ -151,23 +148,19 @@ var _ = Describe("API keys", func() {
 			Expect(res.Key.Subject).To(Equal(bob.ResourceID()))
 		})
 		DescribeTable("Should reject a subject that is malformed or missing",
-			func(ctx SpecContext, subject resource.ID, sentinel error, message string) {
-				Expect(create(ctx, rootToken, subject)).Error().To(SatisfyAll(
-					MatchError(sentinel),
-					MatchError(ContainSubstring(message)),
-				))
+			func(ctx SpecContext, subject resource.ID, message string) {
+				Expect(create(ctx, rootToken, subject)).Error().
+					To(MatchError(ContainSubstring(message)))
 			},
 			Entry(
 				"malformed user",
 				resource.ID{Type: resource.TypeUser, Key: "missing"},
-				validate.ErrValidation,
-				`invalid user key "missing"`,
+				`subject: "missing" is not a key of user`,
 			),
 			Entry(
 				"malformed rack",
 				resource.ID{Type: resource.TypeRack, Key: "missing"},
-				validate.ErrValidation,
-				`invalid rack key "missing"`,
+				`subject: "missing" is not a key of rack`,
 			),
 			Entry(
 				"missing user",
@@ -175,23 +168,20 @@ var _ = Describe("API keys", func() {
 					Type: resource.TypeUser,
 					Key:  "00000000-0000-0000-0000-000000000001",
 				},
-				query.ErrNotFound,
-				"user:00000000-0000-0000-0000-000000000001",
+				"subject: user 00000000-0000-0000-0000-000000000001 does not exist",
 			),
 			Entry(
 				"missing rack",
 				resource.ID{Type: resource.TypeRack, Key: "4000000000"},
-				query.ErrNotFound,
-				"rack:4000000000",
+				"subject: rack 4000000000 does not exist",
 			),
 		)
 		It("Should reject a channel subject before it checks access", func(
 			ctx SpecContext,
 		) {
 			channel := resource.ID{Type: resource.TypeChannel, Key: "1"}
-			Expect(create(ctx, bobToken, channel)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("an API key cannot log in as a channel")),
+			Expect(create(ctx, bobToken, channel)).Error().To(MatchError(
+				ContainSubstring("subject: APIKey cannot reference channel 1"),
 			))
 		})
 	})
@@ -199,14 +189,14 @@ var _ = Describe("API keys", func() {
 		It("Should list the caller's own keys by default", func(ctx SpecContext) {
 			own := MustSucceed(create(ctx, bobToken, resource.ID{})).Key
 			MustSucceed(create(ctx, rootToken, resource.ID{}))
-			res := MustSucceed(apiSvc.RetrieveKeys(
+			res := MustSucceed(retrieveKeys(
 				authed(ctx, bobToken),
 				apiauth.KeyRetrieveRequest{},
 			))
 			Expect(res.Keys).To(ConsistOf(own))
 		})
 		It("Should deny a user listing another subject's keys", func(ctx SpecContext) {
-			Expect(apiSvc.RetrieveKeys(
+			Expect(retrieveKeys(
 				authed(ctx, bobToken),
 				apiauth.KeyRetrieveRequest{Subjects: []resource.ID{root.ResourceID()}},
 			)).Error().To(MatchError(access.ErrDenied))
@@ -214,9 +204,8 @@ var _ = Describe("API keys", func() {
 	})
 	Describe("DeleteKeys", func() {
 		del := func(ctx context.Context, token string, keys ...apikey.Key) error {
-			_, err := apiSvc.DeleteKeys(
+			_, err := deleteKeys(
 				authed(ctx, token),
-				nil,
 				apiauth.KeyDeleteRequest{Keys: keys},
 			)
 			return err
@@ -243,8 +232,35 @@ var _ = Describe("API keys", func() {
 				apiauth.SessionCreateRequest{Proof: keyProof(res.Token)},
 			))
 		})
+		It("Should let a caller that may update a subject delete its key", func(
+			ctx SpecContext,
+		) {
+			res := MustSucceed(create(ctx, rootToken, eng.ResourceID()))
+			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
+			Expect(del(ctx, bobToken, res.Key.Key)).To(Succeed())
+			Expect(apiSvc.CreateSession(
+				requestCtx(ctx),
+				apiauth.SessionCreateRequest{Proof: keyProof(res.Token)},
+			)).Error().To(MatchError(auth.ErrInvalidCredentials))
+		})
 		It("Should ignore unknown keys", func(ctx SpecContext) {
-			Expect(del(ctx, bobToken, uuid.New())).To(Succeed())
+			res := MustSucceed(create(ctx, bobToken, resource.ID{}))
+			Expect(del(ctx, bobToken, uuid.New(), res.Key.Key)).To(Succeed())
+			Expect(apiSvc.CreateSession(
+				requestCtx(ctx),
+				apiauth.SessionCreateRequest{Proof: keyProof(res.Token)},
+			)).Error().To(MatchError(auth.ErrInvalidCredentials))
+		})
+		It("Should not end the sessions of a password whose key is sent", func(
+			ctx SpecContext,
+		) {
+			var p password.Password
+			Expect(passwordSvc.NewRetrieve().
+				Where(password.MatchSubjects(bob.ResourceID())).
+				Entry(&p).
+				Exec(ctx, db)).To(Succeed())
+			Expect(del(ctx, bobToken, p.Key)).To(Succeed())
+			MustSucceed(authSvc.Authenticate(ctx, bobToken))
 		})
 	})
 })

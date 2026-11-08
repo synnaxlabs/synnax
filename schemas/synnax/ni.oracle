@@ -673,6 +673,7 @@ BaseAIChannel struct {
     }
     channel  channel.Key = 0 {
         @doc value     "is the Synnax channel that raw samples are written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     port     int32 = 0 {
@@ -680,6 +681,7 @@ BaseAIChannel struct {
     }
     device   device.Key = "" {
         @doc value     "is the key of the device the channel belongs to."
+        @ref kind      use
         @ref on_delete restrict
     }
 
@@ -1193,6 +1195,7 @@ BaseCIChannel struct {
     }
     channel  channel.Key = 0 {
         @doc value     "is the Synnax channel that raw samples are written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     port     int32 = 0 {
@@ -1200,6 +1203,7 @@ BaseCIChannel struct {
     }
     device   device.Key = "" {
         @doc value     "is the key of the device the counter belongs to."
+        @ref kind      use
         @ref on_delete restrict
     }
 
@@ -1505,10 +1509,12 @@ BaseAOChannel struct {
     }
     cmd_channel        channel.Key = 0 {
         @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
         @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
         @doc value     "is the Synnax channel the output state is written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
@@ -1569,6 +1575,7 @@ DIChannel struct {
     }
     channel  channel.Key = 0 {
         @doc value     "is the Synnax channel that raw samples are written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     port     int32 = 0 {
@@ -1592,10 +1599,12 @@ DOChannel struct {
     }
     cmd_channel        channel.Key = 0 {
         @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
         @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
         @doc value     "is the Synnax channel the output state is written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
@@ -1668,6 +1677,7 @@ AnalogWriteConfig struct extends WriteConfig {
 DigitalReadConfig struct extends task.ReadConfig {
     device   device.Key = "" {
         @doc value     "is the key of the device the task acquires from."
+        @ref kind      use
         @ref on_delete restrict
     }
     channels DIChannel[] {

@@ -113,6 +113,7 @@ ReadField struct {
     }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax channel the extracted value is written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     pointer     string = "" {
@@ -141,6 +142,7 @@ ReadField struct {
 ReadConfig struct extends task.PersistConfig {
     device       device.Key = "" {
         @doc value     "is the key of the Kafka cluster device to consume from."
+        @ref kind      use
         @ref on_delete restrict
     }
     topic        string = "" {
@@ -179,6 +181,7 @@ WriteChannel struct {
     }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax channel whose samples are produced."
+        @ref kind      use
         @ref on_delete restrict
     }
     json_type   http.JSONType = number {
@@ -230,6 +233,7 @@ Record struct {
 WriteConfig struct extends task.StartConfig {
     device     device.Key = "" {
         @doc value     "is the key of the Kafka cluster device to produce to."
+        @ref kind      use
         @ref on_delete restrict
     }
     topic      string = "" {

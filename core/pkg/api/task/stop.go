@@ -15,6 +15,7 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -77,10 +78,12 @@ func (s *Service) retrieveRunning(
 		return task.ResourceID(k), k
 	})
 	var statuses []task.Status
-	if err := s.status.NewRetrieve[task.StatusDetails]().
-		Where(status.MatchOwners[task.StatusDetails](lo.Keys(byOwner)...)).
-		Entries(&statuses).
-		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.status.NewRetrieve[task.StatusDetails]().
+			Where(status.MatchOwners[task.StatusDetails](lo.Keys(byOwner)...)).
+			Entries(&statuses).
+			Exec(ctx, snap)
+	}); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
 	running := make([]task.Key, 0, len(statuses))

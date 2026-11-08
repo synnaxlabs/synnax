@@ -15,7 +15,6 @@ package user
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -100,11 +99,13 @@ func OpenService(
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(
+		if err = cfg.Signals.PublishTable(
 			ctx,
-			signals.GorpPublisherConfigUUID(s.table.Observe()),
-		); !ok(err, sig) {
+			signals.TableConfig[Key, User]{
+				Changes:  s.table.Changes,
+				Resource: ResourceID,
+			},
+		); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -115,7 +116,7 @@ func OpenService(
 // The [Writer] operates within the given transaction [gorp.Tx].
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		tx:    tx,
 		svc:   s,
 		table: s.table,
 	}
@@ -125,7 +126,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:     s.table.NewRetrieve(),
-		baseTX:   s.cfg.DB,
 		indexes:  s.indexes,
 		password: s.cfg.Password,
 	}

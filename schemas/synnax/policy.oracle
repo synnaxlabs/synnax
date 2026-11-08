@@ -43,6 +43,7 @@ Policy struct {
     }
     role     role.Key        {
         @doc value     "is the role that grants this policy to its subjects."
+        @ref kind      place
         @ref on_delete cascade
     }
 

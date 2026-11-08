@@ -31,6 +31,7 @@ import (
 
 var _ = Describe("Where", Ordered, func() {
 	var (
+		db  *gorp.DB
 		v   vectors.Vectors[device.Device, device.Where]
 		svc *device.Service
 	)
@@ -44,7 +45,7 @@ var _ = Describe("Where", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))
@@ -61,7 +62,7 @@ var _ = Describe("Where", Ordered, func() {
 			DB:         db,
 			HostKey:    1,
 			Status:     stat,
-			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:     db,
@@ -70,8 +71,12 @@ var _ = Describe("Where", Ordered, func() {
 		}))
 		for _, d := range v.Records {
 			r := rack.Rack{Key: d.Rack, Name: "Rack"}
-			Expect(racks.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return racks.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &d)
+			})).To(Succeed())
 		}
 	})
 
@@ -84,7 +89,7 @@ var _ = Describe("Where", Ordered, func() {
 				SkipMissingKeys().
 				Where(f).
 				Entries(&res).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(lo.Map(res, func(d device.Device, _ int) string {
 				return aliases[d.Key]
 			})).To(ConsistOf(c.Expected))
