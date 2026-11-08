@@ -11,11 +11,18 @@ package driver_test
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -48,13 +55,46 @@ var _ = Describe("Discover", func() {
 			return &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots}
 		}
 
-		// expectFailure expects err to be a driver.Failure with message.
-		expectFailure := func(err error, message string) {
+		// critical returns a TLS server whose self-signed certificate has a critical
+		// extension that no verifier handles.
+		critical := func() *httptest.Server {
+			GinkgoHelper()
+			key := MustSucceed(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
+			tmpl := &x509.Certificate{
+				SerialNumber:          big.NewInt(1),
+				NotBefore:             time.Now().Add(-time.Hour),
+				NotAfter:              time.Now().Add(time.Hour),
+				KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+				ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+				BasicConstraintsValid: true,
+				IsCA:                  true,
+				IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+				ExtraExtensions: []pkix.Extension{{
+					Id:       asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 99999, 1},
+					Critical: true,
+					Value:    []byte{0x05, 0x00},
+				}},
+			}
+			der := MustSucceed(
+				x509.CreateCertificate(rand.Reader, tmpl, tmpl, key.Public(), key),
+			)
+			s := httptest.NewUnstartedServer(noop)
+			s.TLS = &tls.Config{Certificates: []tls.Certificate{
+				{Certificate: [][]byte{der}, PrivateKey: key},
+			}}
+			s.StartTLS()
+			DeferCleanup(s.Close)
+			return s
+		}
+
+		// expectFailure expects err to be a driver.Failure with message and a
+		// description that gives advice.
+		expectFailure := func(err error, message, advice string) {
 			GinkgoHelper()
 			var f driver.Failure
 			Expect(errors.As(err, &f)).To(BeTrue())
 			Expect(f.Message).To(Equal(message))
-			Expect(f.Description).ToNot(BeEmpty())
+			Expect(f.Description).To(ContainSubstring(advice))
 		}
 
 		var server *httptest.Server
@@ -72,7 +112,23 @@ var _ = Describe("Discover", func() {
 
 		It("Should not trust a certificate that the roots do not sign",
 			func(ctx SpecContext) {
-				expectFailure(handshake(ctx, server, nil), "Certificate not trusted")
+				expectFailure(
+					handshake(ctx, server, nil),
+					"Certificate not trusted",
+					"Set the CA certificate that signed the certificate of the server.",
+				)
+			},
+		)
+
+		It("Should not trust a certificate with an unhandled critical extension",
+			func(ctx SpecContext) {
+				server := critical()
+				expectFailure(
+					handshake(ctx, server, trusting(server)),
+					"Certificate not trusted",
+					"Check the certificate of the server, or set the CA certificate "+
+						"that signed it.",
+				)
 			},
 		)
 
@@ -83,6 +139,7 @@ var _ = Describe("Discover", func() {
 				expectFailure(
 					handshake(ctx, server, cfg),
 					"Certificate does not match the address",
+					"Connect with a host name that the certificate names.",
 				)
 			},
 		)
@@ -90,7 +147,11 @@ var _ = Describe("Discover", func() {
 		It("Should report a server that does not use TLS", func(ctx SpecContext) {
 			plain := httptest.NewServer(noop)
 			DeferCleanup(plain.Close)
-			expectFailure(handshake(ctx, plain, nil), "Server does not use TLS")
+			expectFailure(
+				handshake(ctx, plain, nil),
+				"Server does not use TLS",
+				"Turn off TLS, or connect to the TLS port of the server.",
+			)
 		})
 	})
 
