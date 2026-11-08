@@ -34,7 +34,8 @@ const calculatedIndexNameSuffix = "_time"
 // Writer creates, deletes, and renames channels within a single transaction. It infers
 // DataTypes for calculated channels before persisting. It changes storage channels when
 // the transaction commits, before the channel records reach the store, and a storage
-// error aborts the commit. Obtain one from Service.NewWriter. A Writer is not safe for
+// error aborts the commit. A failed commit does not undo the storage changes that ran
+// before the failure. Obtain one from Service.NewWriter. A Writer is not safe for
 // concurrent use.
 type Writer struct {
 	svc      *Service
@@ -185,8 +186,8 @@ func (w Writer) RenameMany(
 }
 
 // create orchestrates channel creation: it validates names, preprocesses calculated
-// channels, resolves existing channels, allocates keys and storage through the
-// distribution allocator, and writes the rich channel records to the table.
+// channels, resolves existing channels, allocates keys through the distribution
+// allocator, and writes the rich channel records to the table.
 func (w Writer) create(
 	ctx context.Context,
 	_channels *[]Channel,
@@ -394,8 +395,8 @@ func (w Writer) create(
 	}
 
 	// Resolve channels that already exist by name (when RetrieveIfNameExists is set,
-	// reusing their stored records), then allocate local keys and storage for the
-	// remaining new channels through the distribution allocator.
+	// reusing their stored records), then allocate local keys for the remaining new
+	// channels through the distribution allocator.
 	if opts.retrieveIfNameExists {
 		names := Names(channels)
 		var existing []Channel
