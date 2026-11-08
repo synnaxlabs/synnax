@@ -414,6 +414,34 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     );
 }
 
+/// @brief it should reject each channel on a slave that is on another network than the
+/// slaves before it.
+TEST_F(EtherCATReadTest, SlaveOnAnotherNetworkIsInvalid) {
+    auto other = this->slave_device;
+    other.key += "_eth1";
+    other.properties["network"] = "eth1";
+    ASSERT_NIL(this->client->devices.create(other));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto off_network = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    off_network["device"] = other.key;
+    cfg["channels"].push_back(off_network);
+    off_network["sub_index"] = 2;
+    cfg["channels"].push_back(off_network);
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 2);
+    EXPECT_EQ(errors[0]["path"], "channels.1.device");
+    EXPECT_EQ(errors[1]["path"], "channels.2.device");
+    EXPECT_EQ(errors[1]["message"], "all slaves must be on the same network");
+}
+
 /// @brief it should reject a stream rate that does not divide the sample rate.
 TEST_F(EtherCATReadTest, StreamRateThatDoesNotDivideSampleRateIsInvalid) {
     auto cfg = this->create_base_config();
