@@ -612,6 +612,14 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/access/role/retrieve",
 		),
+		AccessDispatchPolicy: unary[policy.DispatchRequest, struct{}](
+			router,
+			"/api/v1/access/policy/dispatch",
+		),
+		AccessDispatchRole: unary[role.DispatchRequest, struct{}](
+			router,
+			"/api/v1/access/role/dispatch",
+		),
 
 		// ARC
 		ArcCreate: unary[arc.CreateRequest, arc.CreateResponse](

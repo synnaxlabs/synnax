@@ -206,3 +206,33 @@ var _ = Describe("Retrieve", func() {
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 })
+
+var _ = Describe("Dispatch", func() {
+	rename := func(r role.Role, name string) apirole.DispatchRequest {
+		return apirole.DispatchRequest{
+			Key: r.Key,
+			Actions: []role.Action{role.NewSetAction(role.SetPayload{
+				Path:  []string{"name"},
+				Value: name,
+			})},
+		}
+	}
+	It("Should refuse a subject that cannot update the role", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRole(ctx)
+		Expect(dispatch(AuthedCtx(ctx, u), rename(r, "renamed"))).Error().
+			To(denied(u, access.ActionUpdate, r.ResourceID()))
+	})
+	It("Should rename a role the subject can update", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRole(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, r.ResourceID())
+		MustSucceed(dispatch(AuthedCtx(ctx, u), rename(r, "renamed")))
+		var stored role.Role
+		Expect(svc.RBAC.Role.NewRetrieve().
+			Where(role.MatchKeys(r.Key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(stored.Name).To(Equal("renamed"))
+	})
+})

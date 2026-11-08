@@ -332,3 +332,32 @@ var _ = Describe("Delete", func() {
 		Expect(policyExists(ctx, builtin.Key)).To(BeTrue())
 	})
 })
+
+var _ = Describe("Dispatch", func() {
+	rename := func(p policy.Policy, name string) apipolicy.DispatchRequest {
+		return apipolicy.DispatchRequest{
+			Key: p.Key,
+			Actions: []policy.Action{policy.NewSetAction(policy.SetPayload{
+				Path:  []string{"name"},
+				Value: name,
+			})},
+		}
+	}
+	It("Should refuse a subject that cannot update the policy", func(ctx SpecContext) {
+		p := createPolicy(ctx, createRole(ctx).Key)
+		u := createUser(ctx)
+		Expect(dispatch(AuthedCtx(ctx, u), rename(p, "renamed"))).Error().
+			To(denied(u, access.ActionUpdate, p.ResourceID()))
+	})
+	It("Should rename a policy the subject can update", func(ctx SpecContext) {
+		p := createPolicy(ctx, createRole(ctx).Key)
+		u := createEditor(ctx, access.ActionUpdate)
+		MustSucceed(dispatch(AuthedCtx(ctx, u), rename(p, "renamed")))
+		var stored policy.Policy
+		Expect(svc.RBAC.Policy.NewRetrieve().
+			Where(policy.MatchKeys(p.Key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(stored.Name).To(Equal("renamed"))
+	})
+})
