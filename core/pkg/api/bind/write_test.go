@@ -11,6 +11,7 @@ package bind_test
 
 import (
 	"context"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,16 +23,41 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// copyRequest is a request that copies its sources.
+type copyRequest struct{ sources []resource.ID }
+
+var _ bind.Copy = copyRequest{}
+
+func (r copyRequest) Sources() []resource.ID { return r.sources }
+
+// unmapped is a record whose table has no resource type.
+type unmapped struct{ Key string }
+
+func (u unmapped) GorpKey() string { return u.Key }
+
+func (u unmapped) EncodeOrc(w *orc.Writer) error {
+	w.String(u.Key)
+	return nil
+}
+
+func (u *unmapped) DecodeOrc(r *orc.Reader) (err error) {
+	u.Key, err = r.String()
+	return err
+}
 
 // apply is the write of a spec.
 type apply func(ctx context.Context, tx gorp.Tx) error
@@ -62,14 +88,14 @@ func grant(
 	))
 }
 
-// write runs f through bind.Write as u.
-func write(ctx context.Context, u user.User, f apply) error {
+// write runs f through bind.Write as u, with a request that copies sources.
+func write(ctx context.Context, u user.User, f apply, sources ...resource.ID) error {
 	_, err := bind.Write(
 		binder,
-		func(ctx context.Context, tx gorp.Tx, _ struct{}) (struct{}, error) {
+		func(ctx context.Context, tx gorp.Tx, _ copyRequest) (struct{}, error) {
 			return struct{}{}, f(ctx, tx)
 		},
-	)(AuthedCtx(ctx, u), struct{}{})
+	)(AuthedCtx(ctx, u), copyRequest{sources: sources})
 	return err
 }
 
@@ -117,6 +143,22 @@ func createRange(
 	return r
 }
 
+func createChannel(ctx context.Context) channel.Channel {
+	GinkgoHelper()
+	ch := channel.Channel{
+		Name:     "aliased_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
+		DataType: telem.Float64T,
+		Virtual:  true,
+	}
+	Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+	return ch
+}
+
+func setPair(ctx context.Context, tx gorp.Tx, rng ranger.Key, value string) error {
+	return svc.KV.NewWriter(tx).
+		SetMany(ctx, []kv.Pair{{Range: rng, Key: "k", Value: value}})
+}
+
 func labelExists(ctx context.Context, key label.Key) bool {
 	GinkgoHelper()
 	err := svc.Label.NewRetrieve().
@@ -133,10 +175,11 @@ type need struct {
 	object resource.ID
 }
 
-// rule is a write, the access it needs besides needed, and the access that the rule
-// under test requires.
+// rule is a write, the sources it copies, the access it needs besides needed, and the
+// access that the rule under test requires.
 type rule struct {
 	write   apply
+	sources []resource.ID
 	granted []need
 	needed  need
 }
@@ -150,10 +193,10 @@ var _ = Describe("Write", func() {
 			for _, g := range r.granted {
 				grant(ctx, u, g.action, g.object)
 			}
-			Expect(write(ctx, u, r.write)).
+			Expect(write(ctx, u, r.write, r.sources...)).
 				To(denied(u, r.needed.action, r.needed.object))
 			grant(ctx, u, r.needed.action, r.needed.object)
-			Expect(write(ctx, u, r.write)).To(Succeed())
+			Expect(write(ctx, u, r.write, r.sources...)).To(Succeed())
 		},
 		Entry("create on a new record", func(ctx context.Context) rule {
 			key := uuid.New()
@@ -290,6 +333,71 @@ var _ = Describe("Write", func() {
 				}
 			},
 		),
+		Entry("retrieve on a source", func(ctx context.Context) rule {
+			source := createLabel(ctx)
+			key := uuid.New()
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					l := label.Label{Key: key, Name: source.Name}
+					return svc.Label.NewWriter(tx).Create(ctx, &l)
+				},
+				sources: []resource.ID{source.ResourceID()},
+				granted: []need{{access.ActionCreate, label.ResourceID(key)}},
+				needed:  need{access.ActionRetrieve, source.ResourceID()},
+			}
+		}),
+		Entry(
+			"update on the range of a new range key-value pair",
+			func(ctx context.Context) rule {
+				r := createRange(ctx, nil)
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						return setPair(ctx, tx, r.Key, "new")
+					},
+					needed: need{access.ActionUpdate, r.ResourceID()},
+				}
+			},
+		),
+		Entry(
+			"update on the range of a changed range key-value pair",
+			func(ctx context.Context) rule {
+				r := createRange(ctx, nil)
+				Expect(setPair(ctx, nil, r.Key, "stored")).To(Succeed())
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						return setPair(ctx, tx, r.Key, "changed")
+					},
+					needed: need{access.ActionUpdate, r.ResourceID()},
+				}
+			},
+		),
+		Entry(
+			"update on the range of a deleted range key-value pair",
+			func(ctx context.Context) rule {
+				r := createRange(ctx, nil)
+				Expect(setPair(ctx, nil, r.Key, "stored")).To(Succeed())
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						return svc.KV.NewWriter(tx).Delete(ctx, r.Key, "k")
+					},
+					needed: need{access.ActionUpdate, r.ResourceID()},
+				}
+			},
+		),
+		Entry("create on a new range alias", func(ctx context.Context) rule {
+			r := createRange(ctx, nil)
+			ch := createChannel(ctx)
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "alias")
+				},
+				granted: []need{{access.ActionUpdate, r.ResourceID()}},
+				needed: need{
+					access.ActionCreate,
+					alias.ResourceID(r.Key, ch.Key()),
+				},
+			}
+		}),
 	)
 
 	It(
@@ -323,13 +431,15 @@ var _ = Describe("Write", func() {
 		"Should return an error for a write to a table with no resource type",
 		func(ctx SpecContext) {
 			u := newUser(ctx)
-			r := createRange(ctx, nil)
-			grant(ctx, u, access.ActionUpdate, r.ResourceID())
 			Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
-				return svc.KV.NewWriter(tx).
-					SetMany(ctx, []kv.Pair{{Range: r.Key, Key: "k", Value: "v"}})
-			})).To(MatchError(ContainSubstring("has no resource type")))
-			Expect(svc.KV.NewReader(nil).List(ctx, r.Key)).To(BeEmpty())
+				return gorp.NewCreate[string, unmapped]().
+					Entry(&unmapped{Key: "k"}).
+					Exec(ctx, tx)
+			})).To(MatchError("[bind] - table unmapped has no resource type"))
+			Expect(gorp.NewRetrieve[string, unmapped]().
+				Where(gorp.MatchKeys[string, unmapped]("k")).
+				Entry(&unmapped{}).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		},
 	)
 

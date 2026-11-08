@@ -593,87 +593,69 @@ func (l *Layer) BindTo(t Transport) {
 	t.ResourceRetrieve.BindHandler(l.Resource.Retrieve)
 
 	// GROUP
-	t.GroupCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Create))
-	t.GroupDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Delete))
-	t.GroupRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Rename))
+	t.GroupCreate.BindHandler(bind.Write(l.binder, l.Group.Create))
+	t.GroupDelete.BindHandler(bind.Write(l.binder, l.Group.Delete))
+	t.GroupRename.BindHandler(bind.Write(l.binder, l.Group.Rename))
 	t.GroupRetrieve.BindHandler(l.Group.Retrieve)
 	t.GroupRetrieveAncestors.BindHandler(l.Group.RetrieveAncestors)
 
 	// GROUP MEMBERSHIP
-	t.GroupSetParent.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.SetParent))
-	t.ChannelSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.SetGroup))
-	t.DeviceSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.SetGroup))
-	t.RackSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.SetGroup))
-	t.ProjectSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.SetGroup))
-	t.SchematicSetGroup.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Schematic.SetGroup),
-	)
-	t.SchematicSymbolSetGroup.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.SetGroup),
-	)
-	t.LinePlotSetGroup.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.LinePlot.SetGroup),
-	)
-	t.LogSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.SetGroup))
-	t.TableSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.SetGroup))
-	t.PanelSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.SetGroup))
+	t.GroupSetParent.BindHandler(bind.Write(l.binder, l.Group.SetParent))
+	t.ChannelSetGroup.BindHandler(bind.Write(l.binder, l.Channel.SetGroup))
+	t.DeviceSetGroup.BindHandler(bind.Write(l.binder, l.Device.SetGroup))
+	t.RackSetGroup.BindHandler(bind.Write(l.binder, l.Rack.SetGroup))
+	t.ProjectSetGroup.BindHandler(bind.Write(l.binder, l.Project.SetGroup))
+	t.SchematicSetGroup.BindHandler(bind.Write(l.binder, l.Schematic.SetGroup))
+	t.SchematicSymbolSetGroup.BindHandler(bind.Write(l.binder, l.Symbol.SetGroup))
+	t.LinePlotSetGroup.BindHandler(bind.Write(l.binder, l.LinePlot.SetGroup))
+	t.LogSetGroup.BindHandler(bind.Write(l.binder, l.Log.SetGroup))
+	t.TableSetGroup.BindHandler(bind.Write(l.binder, l.Table.SetGroup))
+	t.PanelSetGroup.BindHandler(bind.Write(l.binder, l.Panel.SetGroup))
 
 	// PROJECT MEMBERSHIP
-	t.SchematicSetProject.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Schematic.SetProject),
-	)
-	t.LinePlotSetProject.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.LinePlot.SetProject),
-	)
-	t.LogSetProject.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Log.SetProject),
-	)
-	t.TableSetProject.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Table.SetProject),
-	)
-	t.PanelSetProject.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Panel.SetProject),
-	)
+	t.SchematicSetProject.BindHandler(bind.Write(l.binder, l.Schematic.SetProject))
+	t.LinePlotSetProject.BindHandler(bind.Write(l.binder, l.LinePlot.SetProject))
+	t.LogSetProject.BindHandler(bind.Write(l.binder, l.Log.SetProject))
+	t.TableSetProject.BindHandler(bind.Write(l.binder, l.Table.SetProject))
+	t.PanelSetProject.BindHandler(bind.Write(l.binder, l.Panel.SetProject))
 
 	// BATCH
-	t.Batch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Batch.Exec))
+	t.Batch.BindHandler(bind.Write(l.binder, l.Batch.Exec))
 
 	// RANGE
 	t.RangeRetrieve.BindHandler(l.Range.Retrieve)
-	t.RangeCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Create))
-	t.RangeDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Delete))
-	t.RangeRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Rename))
-	t.RangeSetEnd.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.SetEnd))
-	t.RangeDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Dispatch))
+	t.RangeCreate.BindHandler(bind.Write(l.binder, l.Range.Create))
+	t.RangeDelete.BindHandler(bind.Write(l.binder, l.Range.Delete))
+	t.RangeRename.BindHandler(bind.Write(l.binder, l.Range.Rename))
+	t.RangeSetEnd.BindHandler(bind.Write(l.binder, l.Range.SetEnd))
+	t.RangeDispatch.BindHandler(bind.Write(l.binder, l.Range.Dispatch))
 
 	// KV
 	t.KVGet.BindHandler(l.KV.Get)
-	t.KVSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.KV.Set))
-	t.KVDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.KV.Delete))
+	t.KVSet.BindHandler(bind.Write(l.binder, l.KV.Set))
+	t.KVDelete.BindHandler(bind.Write(l.binder, l.KV.Delete))
 
 	// ALIAS
-	t.AliasSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Alias.Set))
+	t.AliasSet.BindHandler(bind.Write(l.binder, l.Alias.Set))
 	t.AliasResolve.BindHandler(l.Alias.Resolve)
 	t.AliasRetrieve.BindHandler(l.Alias.Retrieve)
 	t.AliasList.BindHandler(l.Alias.List)
-	t.AliasDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Alias.Delete))
+	t.AliasDelete.BindHandler(bind.Write(l.binder, l.Alias.Delete))
 
 	// PROJECT
-	t.ProjectCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Create))
-	t.ProjectDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Delete))
+	t.ProjectCreate.BindHandler(bind.Write(l.binder, l.Project.Create))
+	t.ProjectDelete.BindHandler(bind.Write(l.binder, l.Project.Delete))
 	t.ProjectRetrieve.BindHandler(l.Project.Retrieve)
-	t.ProjectRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Rename))
+	t.ProjectRename.BindHandler(bind.Write(l.binder, l.Project.Rename))
 	t.ProjectExport.BindHandler(l.Project.Export)
-	t.ProjectImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Import))
+	t.ProjectImport.BindHandler(bind.Write(l.binder, l.Project.Import))
 
 	// SCHEMATIC
-	t.SchematicCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Create))
+	t.SchematicCreate.BindHandler(bind.Write(l.binder, l.Schematic.Create))
 	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
-	t.SchematicDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Delete))
-	t.SchematicDispatch.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Schematic.Dispatch),
-	)
-	t.SchematicCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Copy))
+	t.SchematicDelete.BindHandler(bind.Write(l.binder, l.Schematic.Delete))
+	t.SchematicDispatch.BindHandler(bind.Write(l.binder, l.Schematic.Dispatch))
+	t.SchematicCopy.BindHandler(bind.Write(l.binder, l.Schematic.Copy))
 
 	// SCHEMATIC SYMBOL
 	t.SchematicSymbolCreate.BindHandler(
@@ -701,30 +683,30 @@ func (l *Layer) BindTo(t Transport) {
 	t.LinePlotDelete.BindHandler(bind.Write(l.binder, l.LinePlot.Delete))
 
 	// PANEL
-	t.PanelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Create))
+	t.PanelCreate.BindHandler(bind.Write(l.binder, l.Panel.Create))
 	t.PanelRetrieve.BindHandler(l.Panel.Retrieve)
-	t.PanelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Delete))
-	t.PanelDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Dispatch))
+	t.PanelDelete.BindHandler(bind.Write(l.binder, l.Panel.Delete))
+	t.PanelDispatch.BindHandler(bind.Write(l.binder, l.Panel.Dispatch))
 
 	// LOG
-	t.LogCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Create))
+	t.LogCreate.BindHandler(bind.Write(l.binder, l.Log.Create))
 	t.LogRetrieve.BindHandler(l.Log.Retrieve)
-	t.LogDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Delete))
-	t.LogDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Dispatch))
+	t.LogDelete.BindHandler(bind.Write(l.binder, l.Log.Delete))
+	t.LogDispatch.BindHandler(bind.Write(l.binder, l.Log.Dispatch))
 
 	// TABLE
-	t.TableCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.Create))
+	t.TableCreate.BindHandler(bind.Write(l.binder, l.Table.Create))
 	t.TableRetrieve.BindHandler(l.Table.Retrieve)
-	t.TableDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.Delete))
-	t.TableDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.Dispatch))
+	t.TableDelete.BindHandler(bind.Write(l.binder, l.Table.Delete))
+	t.TableDispatch.BindHandler(bind.Write(l.binder, l.Table.Dispatch))
 
 	// LABEL
-	t.LabelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Create))
+	t.LabelCreate.BindHandler(bind.Write(l.binder, l.Label.Create))
 	t.LabelRetrieve.BindHandler(l.Label.Retrieve)
-	t.LabelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Delete))
-	t.LabelAdd.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Add))
-	t.LabelRemove.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Remove))
-	t.LabelDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Dispatch))
+	t.LabelDelete.BindHandler(bind.Write(l.binder, l.Label.Delete))
+	t.LabelAdd.BindHandler(bind.Write(l.binder, l.Label.Add))
+	t.LabelRemove.BindHandler(bind.Write(l.binder, l.Label.Remove))
+	t.LabelDispatch.BindHandler(bind.Write(l.binder, l.Label.Dispatch))
 
 	// RACK
 	t.RackCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Create))
@@ -763,7 +745,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.AccessRetrieveRole.BindHandler(l.Role.Retrieve)
 
 	// STATUS
-	t.StatusSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Set))
+	t.StatusSet.BindHandler(bind.Write(l.binder, l.Status.Set))
 	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
 	t.StatusDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Delete))
 	t.StatusRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Rename))
