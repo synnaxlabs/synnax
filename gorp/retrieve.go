@@ -613,7 +613,6 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 	}
 	if snapshot {
 		r.orderBy.sort(matched)
-		matched = matched[min(r.offset, len(matched)):]
 		if r.limit > 0 {
 			matched = matched[:min(r.limit, len(matched))]
 		}

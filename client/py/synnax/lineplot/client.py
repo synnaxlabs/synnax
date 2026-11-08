@@ -182,7 +182,7 @@ class Client:
             matches.
         :raises ValidationError: If a filter field is None.
         """
-        single = returns_one(fields, one, None)
+        single = returns_one(fields, one)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields)

@@ -191,7 +191,7 @@ class Client:
         :raises ValidationError: If a filter field is None, or if one view is wanted
             beside a limit.
         """
-        single = returns_one(fields, one, limit)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             type=None if types is None else filter.Set[Type](in_=types),

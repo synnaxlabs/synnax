@@ -247,7 +247,7 @@ class Client:
                 )
             where = filter.merge(where, Where(usernames=[username]))
             one = True
-        single = returns_one(fields, one, limit)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
