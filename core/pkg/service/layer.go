@@ -528,6 +528,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
+	// The Driver reads sy_rack_set as racks, so actions take their own channel.
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[rack.Key, rack.Action]{
+			Name:     "sy_rack_action_set",
+			Actions:  l.Rack.Actions(),
+			Resource: rack.Key.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if l.RBAC, err = rbac.NewService(ctx, rbac.ServiceConfig{
 		Instrumentation: cfg.Child("rbac"),
 		DB:              cfg.Distribution.DB,

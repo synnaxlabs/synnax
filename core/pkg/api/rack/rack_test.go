@@ -276,6 +276,52 @@ var _ = Describe("Create", func() {
 	})
 })
 
+var _ = Describe("Dispatch", func() {
+	dispatchGroup := func(
+		ctx SpecContext,
+		u user.User,
+		r rack.Rack,
+		g group.Group,
+	) (struct{}, error) {
+		return dispatch(AuthedCtx(ctx, u), apirack.DispatchRequest{
+			Key:         r.Key,
+			DispatchKey: "dk",
+			Actions: []rack.Action{rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"group"},
+				Value: g.Key.String(),
+			})},
+		})
+	}
+	It("Should apply the actions with update on the rack and group", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		r := createRackWithStatus(ctx, "Dispatch granted")
+		g := createDeviceGroup(ctx, "Dispatch granted")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID(), g.ResourceID())
+		MustSucceed(dispatchGroup(ctx, u, r, g))
+		Expect(retrieveRack(ctx, r.Key).Group).To(Equal(&g.Key))
+	})
+	It("Should refuse the actions without update on the rack", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRackWithStatus(ctx, "Dispatch denied")
+		g := createDeviceGroup(ctx, "Dispatch denied")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+		Expect(dispatchGroup(ctx, u, r, g)).
+			Error().To(denied(u, access.ActionUpdate, r.ResourceID()))
+		Expect(retrieveRack(ctx, r.Key).Group).To(BeNil())
+	})
+	It("Should refuse the actions without update on the group", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRackWithStatus(ctx, "Dispatch group denied")
+		g := createDeviceGroup(ctx, "Dispatch group denied")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
+		Expect(dispatchGroup(ctx, u, r, g)).
+			Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
+		Expect(retrieveRack(ctx, r.Key).Group).To(BeNil())
+	})
+})
+
 var _ = Describe("Rename", func() {
 	It("Should rename the rack and its status with update on both", func(
 		ctx SpecContext,

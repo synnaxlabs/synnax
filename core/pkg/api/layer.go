@@ -184,6 +184,8 @@ type Transport struct {
 	RackDelete   freighter.UnaryServer[rack.DeleteRequest, struct{}]
 	// RackRename renames a rack.
 	RackRename freighter.UnaryServer[rack.RenameRequest, struct{}]
+	// RackDispatch applies actions to a rack.
+	RackDispatch freighter.UnaryServer[rack.DispatchRequest, struct{}]
 	// TASK
 	TaskCreate   freighter.UnaryServer[task.CreateRequest, task.CreateResponse]
 	TaskRetrieve freighter.UnaryServer[task.RetrieveRequest, task.RetrieveResponse]
@@ -464,6 +466,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.RackRetrieve,
 		t.RackDelete,
 		t.RackRename,
+		t.RackDispatch,
 
 		// TASK
 		t.TaskCreate,
@@ -730,6 +733,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.RackRetrieve.BindHandler(bind.Read(l.binder, l.Rack.Retrieve))
 	t.RackDelete.BindHandler(bind.Write(l.binder, l.Rack.Delete))
 	t.RackRename.BindHandler(bind.Write(l.binder, l.Rack.Rename))
+	t.RackDispatch.BindHandler(bind.Write(l.binder, l.Rack.Dispatch))
 
 	// TASK
 	t.TaskCreate.BindHandler(bind.Write(l.binder, l.Task.Create))
