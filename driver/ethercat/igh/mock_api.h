@@ -87,7 +87,12 @@ public:
         /// @brief abort codes for objects that reject downloads. A code of 0 makes the
         /// download time out.
         std::map<std::pair<uint16_t, uint8_t>, uint32_t> download_aborts;
+        /// @brief whether master_get_slave fails for the slave.
         bool unreadable = false;
+        /// @brief whether slave_config_state fails for the slave.
+        bool state_unreadable = false;
+        /// @brief whether master_get_pdo fails for the slave.
+        bool layout_unreadable = false;
         bool online = true;
         /// @brief the state the slave reaches after activation.
         uint8_t reaches = EC_AL_STATE_OP;
@@ -144,6 +149,9 @@ public:
     int activate_result = 0;
     bool slave_config_fails = false;
     bool config_sdo_fails = false;
+    /// @brief the result of master_receive and master_send.
+    int receive_result = 0;
+    int send_result = 0;
     mutable bool released = false;
     mutable bool deactivated = false;
 
@@ -220,9 +228,9 @@ public:
         return 0;
     }
 
-    int master_send(ec_master_t *) const override { return 0; }
+    int master_send(ec_master_t *) const override { return this->send_result; }
 
-    int master_receive(ec_master_t *) const override { return 0; }
+    int master_receive(ec_master_t *) const override { return this->receive_result; }
 
     int master(ec_master_t *, ec_master_info_t *info) const override {
         if (this->master_info_result < 0) return this->master_info_result;
@@ -260,6 +268,7 @@ public:
         ec_slave_config_state_t *state
     ) const override {
         auto &slave = this->slave(sc);
+        if (slave.state_unreadable) return -EIO;
         if (this->activated && !slave.settled) {
             if (slave.reads_to_reach > 0)
                 slave.reads_to_reach--;
@@ -422,7 +431,9 @@ public:
         uint16_t pos,
         ec_pdo_info_t *pdo
     ) const override {
-        const auto &syncs = this->slaves.at(position).syncs;
+        const auto &slave = this->slaves.at(position);
+        if (slave.layout_unreadable) return -EIO;
+        const auto &syncs = slave.syncs;
         if (sync_index >= syncs.size() || pos >= syncs[sync_index].pdos.size())
             return -ENOENT;
         const auto &fake = syncs[sync_index].pdos[pos];
