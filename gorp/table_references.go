@@ -14,6 +14,8 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/gorp/internal/key"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -61,6 +63,7 @@ func (t *Table[K, E]) unregister() {
 // table's references when checked is true.
 func (t *Table[K, E]) writer(tx Tx, checked bool) Writer[K, E] {
 	w := wrapWriter[K, E](tx, t.name, t.keyPrefix, t.indexes)
+	w.references = t.references
 	if checked && len(t.references) > 0 {
 		w.table = t
 	}
@@ -80,7 +83,17 @@ func (t *Table[K, E]) exists(ctx context.Context, tx Tx, k string) (bool, error)
 		return false, err
 	}
 	codec := key.NewCodec[K](t.keyPrefix)
-	return keyExists(ctx, tx, codec.Encode(pk))
+	_, closer, err := tx.Get(ctx, codec.Encode(pk))
+	if errors.Is(err, query.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if err = closer.Close(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // deleteKeys implements registeredTable.

@@ -108,6 +108,7 @@ func newDeviceRefs() deviceRefs {
 			Name:     "rack",
 			Table:    "rack",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Place,
 			Targets:  func(d *refDevice) []uint32 { return []uint32{d.Rack} },
 		}),
 		parent: gorp.NewKeyReference(
@@ -115,6 +116,7 @@ func newDeviceRefs() deviceRefs {
 				Name:     "parent",
 				Table:    "device",
 				OnDelete: gorp.Cascade,
+				Kind:     gorp.Place,
 				Acyclic:  true,
 				Targets: func(d *refDevice) []string {
 					if d.Parent == "" {
@@ -129,6 +131,7 @@ func newDeviceRefs() deviceRefs {
 				Name:     "labels",
 				Table:    "label",
 				OnDelete: gorp.Detach,
+				Kind:     gorp.Use,
 				Targets:  func(d *refDevice) []string { return d.Labels },
 				Detach: func(d *refDevice, l string) {
 					d.Labels = slices.DeleteFunc(
@@ -152,6 +155,7 @@ func newOwnerRef() *gorp.TargetReference[string, refStatus] {
 		Name:     "owner",
 		Tables:   []string{"rack", "device"},
 		OnDelete: gorp.Cascade,
+		Kind:     gorp.Place,
 		Unique:   true,
 		Targets: func(s *refStatus) []gorp.Target {
 			if s.Owner == nil {
