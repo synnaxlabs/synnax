@@ -44,8 +44,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC checks the access of retrieve and delete requests, and the read access that
-	// a dispatch response needs.
+	// RBAC checks the access of delete requests, and the read access that a dispatch
+	// response needs.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service

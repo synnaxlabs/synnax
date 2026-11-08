@@ -34,7 +34,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// RBAC checks the access of retrieve requests.
+	// RBAC checks that the subject can create users before it hashes their passwords.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service

@@ -33,7 +33,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of activate and deactivate requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service

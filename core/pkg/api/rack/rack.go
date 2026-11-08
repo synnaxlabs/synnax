@@ -47,8 +47,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC checks the access of retrieve requests, and the read access that a create
-	// response needs.
+	// RBAC checks the read access that a create response needs.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
