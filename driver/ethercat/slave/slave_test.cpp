@@ -267,8 +267,6 @@ TEST(PropertiesToJson, SerializesAllFields) {
         .revision = 1,
         .serial = 12345,
         .name = "EL3001",
-        .input_bits = 16,
-        .output_bits = 8,
         .input_pdos =
             {{.pdo_index = 0x1A00,
               .index = 0x6000,
@@ -296,8 +294,6 @@ TEST(PropertiesToJson, SerializesAllFields) {
     ASSERT_EQ(j["name"], "EL3001");
     ASSERT_EQ(j["network"], "eth0");
     ASSERT_EQ(j["position"], 3);
-    ASSERT_EQ(j["input_bits"], 16);
-    ASSERT_EQ(j["output_bits"], 8);
     ASSERT_EQ(j["enabled"], true);
     ASSERT_EQ(j["pdos"]["inputs"].size(), 1);
     ASSERT_EQ(j["pdos"]["inputs"][0]["name"], "Value");

@@ -10,7 +10,6 @@
 #pragma once
 
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <optional>
 #include <span>
@@ -26,11 +25,16 @@ extern "C" {
 
 namespace driver::ethercat::soem {
 
-/// @brief abstract interface for SOEM EtherCAT operations, abstracting both ecx_*
-/// function calls and ecx_contextt struct field access for testability.
+/// @brief the SOEM calls that the master makes, so that tests can run the master
+/// without a bus.
 class API {
 public:
     virtual ~API() = default;
+
+    /// @brief the SOEM context. The master reads and writes its slave table, group
+    /// table, and DC time directly, and each call below updates it as its ecx_*
+    /// function does.
+    ecx_contextt context{};
 
     /// @brief checks that the process can open a raw EtherCAT socket.
     /// @param ifname the interface named in the returned error.
@@ -57,18 +61,8 @@ public:
     /// @brief discovers and initializes all slaves on the network.
     virtual int config_init() = 0;
 
-    /// @brief sets the length of each process data sync manager (SM2 and up) of the
-    /// slaves in the group to zero. config_map_group then gives a sync manager a length
-    /// only from its PDOs, and turns off one that has none.
-    virtual void clear_process_data_sms(uint8_t group) = 0;
-
     /// @brief maps I/O buffer for process data exchange for a slave group.
     virtual int config_map_group(void *iomap, uint8_t group) = 0;
-
-    /// @brief sets whether the caller requests each state change itself. When true,
-    /// config_init does not request PRE-OP and config_map_group does not request
-    /// SAFE-OP.
-    virtual void set_manual_state_change(bool manual) = 0;
 
     /// @brief sends the process data of a slave group.
     virtual int send_processdata(uint8_t group) = 0;
@@ -101,10 +95,6 @@ public:
     /// @brief measures propagation delays and sets up the distributed clock of every
     /// slave that has one, returning true when at least one does.
     virtual bool configdc() = 0;
-
-    /// @brief returns the reference clock system time from the latest process data
-    /// frame, in nanoseconds since 2000-01-01.
-    [[nodiscard]] virtual int64_t dc_time() const = 0;
 
     /// @brief makes every slave latch its local time (0x0918) as one frame passes it,
     /// with a timeout in microseconds, returning the number of slaves that latched.
@@ -189,93 +179,10 @@ public:
         ec_ODlistt *od_list,
         ec_OElistt *oe_list
     ) = 0;
-
-    /// @brief returns the number of slaves found.
-    [[nodiscard]] virtual int slave_count() const = 0;
-
-    /// @brief returns the EtherCAT state of a slave.
-    [[nodiscard]] virtual uint16_t slave_state(uint16_t pos) const = 0;
-
-    /// @brief sets the EtherCAT state of a slave.
-    virtual void set_slave_state(uint16_t pos, uint16_t state) = 0;
-
-    /// @brief returns the manufacturer ID from slave EEPROM.
-    [[nodiscard]] virtual uint32_t slave_eep_man(uint16_t pos) const = 0;
-
-    /// @brief returns the product ID from slave EEPROM.
-    [[nodiscard]] virtual uint32_t slave_eep_id(uint16_t pos) const = 0;
-
-    /// @brief returns the revision from slave EEPROM.
-    [[nodiscard]] virtual uint32_t slave_eep_rev(uint16_t pos) const = 0;
-
-    /// @brief returns the serial number from slave EEPROM.
-    [[nodiscard]] virtual uint32_t slave_eep_ser(uint16_t pos) const = 0;
-
-    /// @brief returns the slave name.
-    [[nodiscard]] virtual std::string slave_name(uint16_t pos) const = 0;
-
-    /// @brief returns the input bits for a slave.
-    [[nodiscard]] virtual uint16_t slave_Ibits(uint16_t pos) const = 0;
-
-    /// @brief returns the output bits for a slave.
-    [[nodiscard]] virtual uint16_t slave_Obits(uint16_t pos) const = 0;
-
-    /// @brief returns the group assignment of a slave.
-    [[nodiscard]] virtual uint8_t slave_group(uint16_t pos) const = 0;
-
-    /// @brief sets the group assignment of a slave.
-    virtual void set_slave_group(uint16_t pos, uint8_t group) = 0;
-
-    /// @brief returns the output data pointer for a slave.
-    [[nodiscard]] virtual uint8_t *slave_outputs(uint16_t pos) const = 0;
-
-    /// @brief returns the input data pointer for a slave.
-    [[nodiscard]] virtual uint8_t *slave_inputs(uint16_t pos) const = 0;
-
-    /// @brief returns the mailbox protocol flags for a slave.
-    [[nodiscard]] virtual uint16_t slave_mbx_proto(uint16_t pos) const = 0;
-
-    /// @brief returns the AL status code for a slave.
-    [[nodiscard]] virtual uint16_t slave_ALstatuscode(uint16_t pos) const = 0;
-
-    /// @brief returns true when the slave has a distributed clock.
-    [[nodiscard]] virtual bool slave_hasdc(uint16_t pos) const = 0;
-
-    /// @brief returns the propagation delay in nanoseconds from the reference clock to
-    /// a slave, as configdc measured it.
-    [[nodiscard]] virtual int32_t slave_pdelay(uint16_t pos) const = 0;
-
-    /// @brief returns whether a slave is marked as no longer responding.
-    [[nodiscard]] virtual bool slave_lost(uint16_t pos) const = 0;
-
-    /// @brief marks whether a slave no longer responds.
-    virtual void set_slave_lost(uint16_t pos, bool lost) = 0;
-
-    /// @brief returns the input bytes for a group.
-    [[nodiscard]] virtual uint32_t group_Ibytes(uint8_t grp) const = 0;
-
-    /// @brief returns the output bytes for a group.
-    [[nodiscard]] virtual uint32_t group_Obytes(uint8_t grp) const = 0;
-
-    /// @brief returns the expected output working counter for a group.
-    [[nodiscard]] virtual uint16_t group_outputsWKC(uint8_t grp) const = 0;
-
-    /// @brief returns the expected input working counter for a group.
-    [[nodiscard]] virtual uint16_t group_inputsWKC(uint8_t grp) const = 0;
-
-    /// @brief returns true when the group's process data frames carry the reference
-    /// clock time.
-    [[nodiscard]] virtual bool group_hasdc(uint8_t grp) const = 0;
-
-    /// @brief makes the process data frames of a group read the reference clock time.
-    /// configdc does this only for the group of the reference slave. Call it after
-    /// configdc.
-    virtual void set_group_dc(uint8_t grp) = 0;
 };
 
 /// @brief production implementation of soem::API wrapping ecx_contextt.
 class ProdAPI final : public API {
-    ecx_contextt context{};
     std::unordered_map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
 
     static int run_PO2SOconfig(ecx_contextt *context, const uint16 slave) {
@@ -284,8 +191,6 @@ class ProdAPI final : public API {
     }
 
 public:
-    ProdAPI() { std::memset(&this->context, 0, sizeof(this->context)); }
-
     x::errors::Error check_socket(const char *ifname) override;
 
     bool dewesoft_filter_bound(const char *ifname) override;
@@ -298,21 +203,8 @@ public:
 
     int config_init() override { return ecx_config_init(&this->context); }
 
-    void clear_process_data_sms(const uint8_t group) override {
-        for (int i = 1; i <= this->context.slavecount; ++i) {
-            auto &slave = this->context.slavelist[i];
-            if (slave.group != group) continue;
-            for (int sm = 2; sm < EC_MAXSM; ++sm)
-                slave.SM[sm].SMlength = 0;
-        }
-    }
-
     int config_map_group(void *iomap, uint8_t group) override {
         return ecx_config_map_group(&this->context, iomap, group);
-    }
-
-    void set_manual_state_change(const bool manual) override {
-        this->context.manualstatechange = manual ? 1 : 0;
     }
 
     int send_processdata(uint8_t group) override {
@@ -346,8 +238,6 @@ public:
     }
 
     bool configdc() override { return ecx_configdc(&this->context); }
-
-    [[nodiscard]] int64_t dc_time() const override { return this->context.DCtime; }
 
     int sync_dc(uint8_t group, int timeout) override {
         const auto ref = this->context.grouplist[group].DCnext;
@@ -499,109 +389,6 @@ public:
         ec_OElistt *oe_list
     ) override {
         return ecx_readOEsingle(&this->context, item, sub_index, od_list, oe_list);
-    }
-
-    [[nodiscard]] int slave_count() const override { return this->context.slavecount; }
-
-    [[nodiscard]] uint16_t slave_state(uint16_t pos) const override {
-        return this->context.slavelist[pos].state;
-    }
-
-    void set_slave_state(uint16_t pos, uint16_t state) override {
-        this->context.slavelist[pos].state = state;
-    }
-
-    [[nodiscard]] uint32_t slave_eep_man(uint16_t pos) const override {
-        return this->context.slavelist[pos].eep_man;
-    }
-
-    [[nodiscard]] uint32_t slave_eep_id(uint16_t pos) const override {
-        return this->context.slavelist[pos].eep_id;
-    }
-
-    [[nodiscard]] uint32_t slave_eep_rev(uint16_t pos) const override {
-        return this->context.slavelist[pos].eep_rev;
-    }
-
-    [[nodiscard]] uint32_t slave_eep_ser(uint16_t pos) const override {
-        return this->context.slavelist[pos].eep_ser;
-    }
-
-    [[nodiscard]] std::string slave_name(uint16_t pos) const override {
-        return this->context.slavelist[pos].name;
-    }
-
-    [[nodiscard]] uint16_t slave_Ibits(uint16_t pos) const override {
-        return this->context.slavelist[pos].Ibits;
-    }
-
-    [[nodiscard]] uint16_t slave_Obits(uint16_t pos) const override {
-        return this->context.slavelist[pos].Obits;
-    }
-
-    [[nodiscard]] uint8_t slave_group(uint16_t pos) const override {
-        return this->context.slavelist[pos].group;
-    }
-
-    void set_slave_group(uint16_t pos, uint8_t group) override {
-        this->context.slavelist[pos].group = group;
-    }
-
-    [[nodiscard]] uint8_t *slave_outputs(uint16_t pos) const override {
-        return this->context.slavelist[pos].outputs;
-    }
-
-    [[nodiscard]] uint8_t *slave_inputs(uint16_t pos) const override {
-        return this->context.slavelist[pos].inputs;
-    }
-
-    [[nodiscard]] uint16_t slave_mbx_proto(uint16_t pos) const override {
-        return this->context.slavelist[pos].mbx_proto;
-    }
-
-    [[nodiscard]] uint16_t slave_ALstatuscode(uint16_t pos) const override {
-        return this->context.slavelist[pos].ALstatuscode;
-    }
-
-    [[nodiscard]] bool slave_hasdc(uint16_t pos) const override {
-        return this->context.slavelist[pos].hasdc;
-    }
-
-    [[nodiscard]] int32_t slave_pdelay(uint16_t pos) const override {
-        return this->context.slavelist[pos].pdelay;
-    }
-
-    [[nodiscard]] bool slave_lost(uint16_t pos) const override {
-        return this->context.slavelist[pos].islost;
-    }
-
-    void set_slave_lost(uint16_t pos, bool lost) override {
-        this->context.slavelist[pos].islost = lost;
-    }
-
-    [[nodiscard]] uint32_t group_Ibytes(uint8_t grp) const override {
-        return this->context.grouplist[grp].Ibytes;
-    }
-
-    [[nodiscard]] uint32_t group_Obytes(uint8_t grp) const override {
-        return this->context.grouplist[grp].Obytes;
-    }
-
-    [[nodiscard]] uint16_t group_outputsWKC(uint8_t grp) const override {
-        return this->context.grouplist[grp].outputsWKC;
-    }
-
-    [[nodiscard]] uint16_t group_inputsWKC(uint8_t grp) const override {
-        return this->context.grouplist[grp].inputsWKC;
-    }
-
-    [[nodiscard]] bool group_hasdc(uint8_t grp) const override {
-        return this->context.grouplist[grp].hasdc;
-    }
-
-    void set_group_dc(uint8_t grp) override {
-        this->context.grouplist[grp].hasdc = this->context.slavelist[0].hasdc;
-        this->context.grouplist[grp].DCnext = this->context.slavelist[0].DCnext;
     }
 };
 

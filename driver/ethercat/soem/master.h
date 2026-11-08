@@ -153,6 +153,12 @@ public:
     std::optional<x::telem::TimeStamp> dc_time() const override;
 
 private:
+    /// @brief returns the entry of the slave at pos in the SOEM slave table. Entry 0
+    /// describes the whole bus.
+    [[nodiscard]] ec_slavet &slave(const uint16_t pos) const {
+        return this->api->context.slavelist[pos];
+    }
+
     /// @brief writes a slave's startup parameters in order, recording why the slave
     /// rejected the first one that fails. Returns true when the slave took them all.
     bool write_startup_parameters(

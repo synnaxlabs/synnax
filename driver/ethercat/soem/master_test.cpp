@@ -117,14 +117,24 @@ protected:
         ASSERT_NIL(this->master->scan().second);
     }
 
-    /// @brief writes modes to the SII DC category that every slave reads.
+    /// @brief writes modes to the SII DC category of every slave.
     void set_op_modes(const std::vector<dc::OpMode> &modes) {
+        for (auto &slave: this->mock->slave_infos)
+            set_op_modes(slave, modes);
+    }
+
+    /// @brief writes modes to the SII DC category of slave.
+    static void
+    set_op_modes(MockSlaveInfo &slave, const std::vector<dc::OpMode> &modes) {
         constexpr uint16_t start = 0x200;
-        this->mock->sii_categories = {{60, start}};
-        const auto put = [this](const size_t addr, const uint64_t value, const int n) {
+        slave.sii_categories = {{60, start}};
+        const auto put = [&slave](
+                             const size_t addr,
+                             const uint64_t value,
+                             const int n
+                         ) {
             for (int i = 0; i < n; ++i)
-                this->mock
-                    ->sii_bytes[static_cast<uint16_t>(addr + i)] = static_cast<uint8_t>(
+                slave.sii_bytes[static_cast<uint16_t>(addr + i)] = static_cast<uint8_t>(
                     value >> (8 * i)
                 );
         };
@@ -140,7 +150,7 @@ protected:
             put(a + 16, static_cast<uint16_t>(m.sync0_factor), 2);
             if (m.name.empty()) continue;
             put(a + 18, i + 1, 1);
-            this->mock->sii_strings[static_cast<uint16_t>(i + 1)] = m.name;
+            slave.sii_strings[static_cast<uint16_t>(i + 1)] = m.name;
         }
     }
 
@@ -318,8 +328,6 @@ TEST_F(SOEMMasterTest, ScanHappyPath) {
     EXPECT_EQ(slaves[0].properties.revision, 0x0001);
     EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
     EXPECT_EQ(slaves[0].properties.name, "TestSlave");
-    EXPECT_EQ(slaves[0].properties.input_bits, 32);
-    EXPECT_EQ(slaves[0].properties.output_bits, 16);
 }
 
 /// @brief it should return the socket check error and not start SOEM when the Driver
@@ -427,7 +435,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
     slave.eep_id = 0x5678;
     slave.mbx_proto = ECT_MBXPROT_COE;
     this->add_slave(slave);
-    this->mock->sdo_objects = {
+    this->mock->slave_infos[0].sdo_objects = {
         {{0x1C00, 0}, 4},
         {{0x1C00, 3}, 3},
         {{0x1C00, 4}, 4},
@@ -438,7 +446,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
         {{0x1A00, 2}, 0x60000220},
         {{ECT_SDO_RXPDOASSIGN, 0}, 0},
     };
-    this->mock->oe_entries = {
+    this->mock->slave_infos[0].oe_entries = {
         {{0x6000, 1}, {"Status", 0x0003}},
         {{0x6000, 2}, {"Value", 0x0008}},
     };
@@ -463,7 +471,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryWaitsForPreOp) {
     slave.bus_state = EC_STATE_INIT;
     slave.mbx_proto = ECT_MBXPROT_COE;
     this->add_slave(slave);
-    this->mock->sdo_objects = {
+    this->mock->slave_infos[0].sdo_objects = {
         {{0x1C00, 0}, 4},
         {{0x1C00, 3}, 3},
         {{0x1C00, 4}, 4},
@@ -492,14 +500,14 @@ TEST_F(SOEMMasterTest, SIIDiscoveryUsesEntryDataTypes) {
     slave.state = EC_STATE_PRE_OP;
     this->add_slave(slave);
     constexpr uint16_t start = 0x40;
-    this->mock->sii_categories = {{ECT_SII_PDO, start}};
+    this->mock->slave_infos[0].sii_categories = {{ECT_SII_PDO, start}};
     // One TxPDO, 0x1A00, with entries 0x6000:01 (INTEGER16) and 0x6000:02 (REAL32).
     const std::vector<uint8_t> category = {
         12, 0,    0x00, 0x1A, 2, 3,    0,    0, 0, 0,    0x00, 0x60, 1,
         0,  0x03, 16,   0,    0, 0x00, 0x60, 2, 0, 0x08, 32,   0,    0,
     };
     for (size_t i = 0; i < category.size(); ++i)
-        this->mock->sii_bytes[start + i] = category[i];
+        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
 
     ASSERT_NIL(this->master->scan().second);
 
@@ -522,12 +530,12 @@ TEST_F(SOEMMasterTest, CoEDiscoveryReadsTheSIIWithoutSyncManagerTypes) {
     slave.mbx_proto = ECT_MBXPROT_COE;
     this->add_slave(slave);
     constexpr uint16_t start = 0x40;
-    this->mock->sii_categories = {{ECT_SII_PDO, start}};
+    this->mock->slave_infos[0].sii_categories = {{ECT_SII_PDO, start}};
     // One TxPDO, 0x1A00, with entry 0x6000:01 (INTEGER16).
     const std::vector<uint8_t> category =
         {8, 0, 0x00, 0x1A, 1, 3, 0, 0, 0, 0, 0x00, 0x60, 1, 0, 0x03, 16, 0, 0};
     for (size_t i = 0; i < category.size(); ++i)
-        this->mock->sii_bytes[start + i] = category[i];
+        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
 
     const auto slaves = ASSERT_NIL_P(this->master->scan());
 
@@ -543,7 +551,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryReportsAFailedRead) {
     slave.state = EC_STATE_PRE_OP;
     slave.mbx_proto = ECT_MBXPROT_COE;
     this->add_slave(slave);
-    this->mock->sdo_objects = {
+    this->mock->slave_infos[0].sdo_objects = {
         {{0x1C00, 0}, 4},
         {{0x1C00, 3}, 3},
         {{0x1C00, 4}, 4},
@@ -552,11 +560,11 @@ TEST_F(SOEMMasterTest, CoEDiscoveryReportsAFailedRead) {
         {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
     };
     constexpr uint16_t start = 0x40;
-    this->mock->sii_categories = {{ECT_SII_PDO, start}};
+    this->mock->slave_infos[0].sii_categories = {{ECT_SII_PDO, start}};
     const std::vector<uint8_t> category =
         {8, 0, 0x00, 0x1A, 1, 3, 0, 0, 0, 0, 0x00, 0x60, 1, 0, 0x03, 16, 0, 0};
     for (size_t i = 0; i < category.size(); ++i)
-        this->mock->sii_bytes[start + i] = category[i];
+        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
 
     const auto slaves = ASSERT_NIL_P(this->master->scan());
 
@@ -574,12 +582,12 @@ TEST_F(SOEMMasterTest, SIIDiscoveryGivesTheEEPROMBackToTheSlave) {
     slave.state = EC_STATE_PRE_OP;
     this->add_slave(slave);
     constexpr uint16_t start = 0x40;
-    this->mock->sii_categories = {{ECT_SII_PDO, start}};
+    this->mock->slave_infos[0].sii_categories = {{ECT_SII_PDO, start}};
     // One TxPDO, 0x1A00, with entry 0x6000:01 (INTEGER16).
     const std::vector<uint8_t> category =
         {8, 0, 0x00, 0x1A, 1, 3, 0, 0, 0, 0, 0x00, 0x60, 1, 0, 0x03, 16, 0, 0};
     for (size_t i = 0; i < category.size(); ++i)
-        this->mock->sii_bytes[start + i] = category[i];
+        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
 
     ASSERT_NIL(this->master->scan().second);
 
@@ -594,7 +602,7 @@ TEST_F(SOEMMasterTest, ScanReadsOpModesFromSII) {
     slave.state = EC_STATE_PRE_OP;
     this->add_slave(slave);
     constexpr uint16_t start = 0x200;
-    this->mock->sii_categories = {{60, start}};
+    this->mock->slave_infos[0].sii_categories = {{60, start}};
     // The DC category of a slave on the test bench: SM, DC with a 1 s SYNC0, and DC
     // with a 1 us SYNC0 and a SYNC1 of 1000 bus cycles.
     const std::vector<uint8_t> category = {
@@ -605,8 +613,9 @@ TEST_F(SOEMMasterTest, ScanReadsOpModesFromSII) {
         0,  0, 0x18, 0xFC, 0, 0x07, 0,    0, 5, 0, 0, 0,    0,    0,
     };
     for (size_t i = 0; i < category.size(); ++i)
-        this->mock->sii_bytes[start + i] = category[i];
-    this->mock->sii_strings = {{3, "SM-Synchron"}, {4, "DC"}, {5, "DC-bus1"}};
+        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
+    this->mock->slave_infos[0]
+        .sii_strings = {{3, "SM-Synchron"}, {4, "DC"}, {5, "DC-bus1"}};
 
     ASSERT_NIL(this->master->scan().second);
 
@@ -627,12 +636,12 @@ TEST_F(SOEMMasterTest, ScanGivesTheEEPROMBackAfterReadingOpModes) {
     slave.state = EC_STATE_PRE_OP;
     this->add_slave(slave);
     constexpr uint16_t start = 0x200;
-    this->mock->sii_categories = {{60, start}};
+    this->mock->slave_infos[0].sii_categories = {{60, start}};
     // One SM mode with every field 0.
     std::vector<uint8_t> category(26, 0);
     category[0] = 12;
     for (size_t i = 0; i < category.size(); ++i)
-        this->mock->sii_bytes[start + i] = category[i];
+        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
 
     ASSERT_NIL(this->master->scan().second);
 
@@ -647,14 +656,14 @@ TEST_F(SOEMMasterTest, ScanReadsSignedShiftsAndUnnamedOpModes) {
     slave.state = EC_STATE_PRE_OP;
     this->add_slave(slave);
     constexpr uint16_t start = 0x200;
-    this->mock->sii_categories = {{60, start}};
+    this->mock->slave_infos[0].sii_categories = {{60, start}};
     // One DC mode: SYNC0 = bus cycle, SYNC0 shift -100 us, SYNC1 shift 25 us, no name.
     const std::vector<uint8_t> category = {
         12, 0,    0,    0,    0,    0,    0x60, 0x79, 0xFE, 0xFF, 0xA8, 0x61, 0,
         0,  0x01, 0x00, 0x00, 0x03, 0x01, 0x00, 0,    0,    0,    0,    0,    0,
     };
     for (size_t i = 0; i < category.size(); ++i)
-        this->mock->sii_bytes[start + i] = category[i];
+        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
 
     ASSERT_NIL(this->master->scan().second);
 
@@ -964,7 +973,7 @@ TEST_F(SOEMMasterTest, ActivateHoldsProcessDataUntilSAFEOP) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    this->mock->slave_infos[0].hasdc = true;
+    this->mock->context.slavelist[1].hasdc = 1;
     this->mock->statecheck_pending_polls[EC_STATE_SAFE_OP] = 3;
     ASSERT_NIL(this->activate());
     EXPECT_GT(this->mock->sync_dc_count, 0);
@@ -997,7 +1006,7 @@ TEST_F(SOEMMasterTest, SendAndReceiveFailWhenTheReferenceClockFrameIsLost) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    this->mock->slave_infos[0].hasdc = true;
+    this->mock->context.slavelist[1].hasdc = 1;
     this->mock->sync_dc_return = 0;
     x::errors::Error send_err;
     x::errors::Error receive_err;
@@ -1017,7 +1026,7 @@ TEST_F(SOEMMasterTest, ActivateMapsTheSlavesWithoutASAFEOPRequest) {
     this->initialize_with_slave();
     this->activate_master();
     EXPECT_EQ(this->mock->manual_at_map, true);
-    EXPECT_FALSE(this->mock->manual_state_change);
+    EXPECT_EQ(this->mock->context.manualstatechange, 0);
 }
 
 /// @brief it should fail activation without a request for OP when no frame passes the
@@ -1055,8 +1064,8 @@ TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->activate());
-    EXPECT_EQ(this->mock->slave_infos[0].group, 1);
-    EXPECT_EQ(this->mock->slave_infos[1].group, 2);
+    EXPECT_EQ(this->mock->context.slavelist[1].group, 1);
+    EXPECT_EQ(this->mock->context.slavelist[2].group, 2);
     EXPECT_EQ(this->mock->mapped_group, 1);
 }
 
@@ -1522,9 +1531,9 @@ TEST_F(SOEMMasterTest, DCTimeIsAbsentWithoutADistributedClock) {
 /// 2000, to a Unix timestamp.
 TEST_F(SOEMMasterTest, DCTimeCountsFromTheDCEpoch) {
     this->initialize_with_slave();
-    this->mock->slave_infos[0].hasdc = true;
+    this->mock->context.slavelist[1].hasdc = 1;
     this->activate_master();
-    this->mock->dc_time_value = 1'000'000'000;
+    this->mock->context.DCtime = 1'000'000'000;
     EXPECT_EQ(
         this->master->dc_time(),
         x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
@@ -1545,8 +1554,9 @@ TEST_F(SOEMMasterTest, DCTimeIsPresentWhenTheReferenceSlaveIsDisabled) {
     ASSERT_NIL(this->master->scan().second);
     this->configs = {{1, {.enabled = false}}};
     this->activate_master();
-    this->mock->dc_time_value = 1'000'000'000;
-    EXPECT_EQ(this->mock->dc_groups, (std::map<uint8_t, uint16_t>{{1, 1}, {2, 1}}));
+    this->mock->context.DCtime = 1'000'000'000;
+    EXPECT_EQ(this->mock->context.grouplist[1].hasdc, 1);
+    EXPECT_EQ(this->mock->context.grouplist[1].DCnext, 1);
     EXPECT_EQ(
         this->master->dc_time(),
         x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
@@ -1691,10 +1701,10 @@ TEST_F(SOEMMasterTest, CheckRecoversLostSlave) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_NONE;
-    this->mock->slave_infos[0].lost = true;
+    this->mock->context.slavelist[1].islost = 1;
     this->master->check(this->brk);
     EXPECT_EQ(this->mock->recovered_slaves, std::vector<uint16_t>{1});
-    EXPECT_FALSE(this->mock->slave_infos[0].lost);
+    EXPECT_FALSE(this->mock->context.slavelist[1].islost);
 }
 
 /// @brief it should clear the lost flag of a slave that answers again, without a
@@ -1703,10 +1713,10 @@ TEST_F(SOEMMasterTest, CheckFindsLostSlaveThatAnswers) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
-    this->mock->slave_infos[0].lost = true;
+    this->mock->context.slavelist[1].islost = 1;
     this->master->check(this->brk);
     EXPECT_TRUE(this->mock->recovered_slaves.empty());
-    EXPECT_FALSE(this->mock->slave_infos[0].lost);
+    EXPECT_FALSE(this->mock->context.slavelist[1].islost);
 }
 
 /// @brief it should leave a disabled slave out of the health report and not write its
@@ -1820,10 +1830,10 @@ TEST_F(SOEMMasterTest, CheckRestoresTheOnlyDCSlaveFromTheDCTimeOfTheLatestFrame)
 /// keep a matching working counter.
 TEST_F(SOEMMasterTest, CheckIgnoresTheResetClockOfAReturningReferenceClock) {
     this->initialize_with_dc_slave({DC_ONLY});
-    this->mock->dc_time_value = 7'000'000'000;
+    this->mock->context.DCtime = 7'000'000'000;
     this->activate_master();
     this->mock->register_writes.clear();
-    this->mock->dc_time_value = 1'000;
+    this->mock->context.DCtime = 1'000;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->register_values[{1, 0x0918}] = 2'000;
     this->check_while_cycling();
@@ -1835,7 +1845,7 @@ TEST_F(SOEMMasterTest, CheckIgnoresTheResetClockOfAReturningReferenceClock) {
 /// whole bus comes back from a power loss, then set the next one from the first, and
 /// hold none of them in PRE-OP.
 TEST_F(SOEMMasterTest, CheckRestoresEveryDCSlaveAfterTheWholeBusLostPower) {
-    this->mock->dc_time_value = 7'000'000'000;
+    this->mock->context.DCtime = 7'000'000'000;
     this->activate_two_dc_slaves({DC_ONLY});
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->slave_infos[1].state = EC_STATE_INIT;
@@ -1854,7 +1864,7 @@ TEST_F(SOEMMasterTest, CheckRestoresEveryDCSlaveAfterTheWholeBusLostPower) {
 /// slave whose restore failed in the same check, when the whole bus comes back from a
 /// power loss.
 TEST_F(SOEMMasterTest, CheckSetsNoClockFromASlaveWhoseRestoreFailed) {
-    this->mock->dc_time_value = 7'000'000'000;
+    this->mock->context.DCtime = 7'000'000'000;
     this->activate_two_dc_slaves({DC_ONLY});
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->slave_infos[1].state = EC_STATE_INIT;
@@ -2124,7 +2134,7 @@ MockSlaveInfo coe_slave(const uint16_t input_bits) {
 /// @brief serves one TxPDO, 0x1A00, holding a 1-bit entry, 7 bits of padding, and a
 /// 16-bit entry.
 void serve_padded_txpdo(MockAPI &mock) {
-    mock.sdo_objects = {
+    mock.slave_infos[0].sdo_objects = {
         {{0x1C00, 0}, 4},
         {{0x1C00, 3}, 3},
         {{0x1C00, 4}, 4},
@@ -2136,7 +2146,7 @@ void serve_padded_txpdo(MockAPI &mock) {
         {{0x1A00, 3}, 0x60001110},
         {{ECT_SDO_RXPDOASSIGN, 0}, 0},
     };
-    mock.oe_entries = {
+    mock.slave_infos[0].oe_entries = {
         {{0x6000, 1}, {"Underrange", 0x0001}},
         {{0x6000, 17}, {"Value", 0x0003}},
     };
@@ -2148,7 +2158,7 @@ void serve_padded_txpdo(MockAPI &mock) {
 TEST_F(SOEMMasterTest, CoEDiscoveryKeepsPaddingAndPDOName) {
     this->add_slave(coe_slave(24));
     serve_padded_txpdo(*this->mock);
-    this->mock->od_names[0x1A00] = "Channel 1";
+    this->mock->slave_infos[0].od_names[0x1A00] = "Channel 1";
     ASSERT_NIL(this->master->scan().second);
 
     const auto inputs = this->master->scan().first[0].properties.input_pdos;
@@ -2179,7 +2189,7 @@ TEST_F(SOEMMasterTest, SIIDiscoveryKeepsPaddingAndPDOName) {
     slave.state = EC_STATE_PRE_OP;
     this->add_slave(slave);
     constexpr uint16_t start = 0x40;
-    this->mock->sii_categories = {{ECT_SII_PDO, start}};
+    this->mock->slave_infos[0].sii_categories = {{ECT_SII_PDO, start}};
     // One TxPDO, 0x1A00 named by string 1, with 0x6000:01 (1 bit, string 2), 7 bits of
     // padding, and 0x6000:11 (INTEGER16, string 3).
     const std::vector<uint8_t> category = {
@@ -2187,8 +2197,9 @@ TEST_F(SOEMMasterTest, SIIDiscoveryKeepsPaddingAndPDOName) {
         0,  0x00, 0x00, 0,    0, 0, 7, 0, 0, 0x00, 0x60, 17,   3, 0x03, 16,   0, 0,
     };
     for (size_t i = 0; i < category.size(); ++i)
-        this->mock->sii_bytes[start + i] = category[i];
-    this->mock->sii_strings = {{1, "Channel 1"}, {2, "Underrange"}, {3, "Value"}};
+        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
+    this->mock->slave_infos[0]
+        .sii_strings = {{1, "Channel 1"}, {2, "Underrange"}, {3, "Value"}};
 
     ASSERT_NIL(this->master->scan().second);
 
@@ -2257,7 +2268,7 @@ TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithUnreadableMapping) {
     info.eep_man = BECKHOFF;
     info.eep_id = EL1008;
     this->add_slave(info);
-    this->mock->sdo_objects = {
+    this->mock->slave_infos[0].sdo_objects = {
         {{0x1C00, 0}, 4},
         {{0x1C00, 3}, 3},
         {{0x1C00, 4}, 4},
@@ -2343,7 +2354,7 @@ TEST_F(SOEMMasterTest, ActivateWritesStartupParametersInOrder) {
 TEST_F(SOEMMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
     this->initialize_with_slave();
     this->configs = {{1, {.startup_parameters = {FILTER, RANGE}}}};
-    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
@@ -2359,7 +2370,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
 TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
     this->initialize_with_slave();
     this->configs = {{1, {.startup_parameters = {RANGE}}}};
-    this->mock->sdo_write_aborts[{0x8000, 0x19}] = 0;
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x19}] = 0;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
@@ -2374,7 +2385,7 @@ TEST_F(SOEMMasterTest, StartupFailureIgnoresAbortsOfOtherObjects) {
     this->initialize_with_slave();
     this->configs = {{1, {.startup_parameters = {RANGE}}}};
     this->mock->push_sdo_abort(1, 0x1C12, 0, 0x06020000);
-    this->mock->sdo_write_aborts[{0x8000, 0x19}] = 0;
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x19}] = 0;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
@@ -2425,9 +2436,9 @@ TEST_F(SOEMMasterTest, ActivateSkipsStartupParametersOfDisabledSlave) {
 TEST_F(SOEMMasterTest, ActivateReadsLayoutThatStartupParametersAssign) {
     this->add_slave(coe_slave(24));
     serve_padded_txpdo(*this->mock);
-    this->mock->sdo_objects[{0x1A01, 0}] = 1;
-    this->mock->sdo_objects[{0x1A01, 1}] = 0x60100110;
-    this->mock->oe_entries[{0x6010, 1}] = {"Value", 0x0003};
+    this->mock->slave_infos[0].sdo_objects[{0x1A01, 0}] = 1;
+    this->mock->slave_infos[0].sdo_objects[{0x1A01, 1}] = 0x60100110;
+    this->mock->slave_infos[0].oe_entries[{0x6010, 1}] = {"Value", 0x0003};
     ASSERT_NIL(this->master->scan().second);
     const slave::StartupParameter assign_1a01{
         .index = ECT_SDO_TXPDOASSIGN,
@@ -2465,7 +2476,7 @@ TEST_F(SOEMMasterTest, CheckHoldsSlaveInPreOpWhenReconfigWriteFails) {
     this->initialize_with_slave();
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     this->activate_master();
-    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->master->check(this->brk);
     EXPECT_EQ(
@@ -2515,7 +2526,7 @@ TEST_F(SOEMMasterTest, CheckWritesStartupParametersThenRestoresTheClock) {
 /// startup parameter on its way back from a power loss, and report the rejection.
 TEST_F(SOEMMasterTest, CheckRestoresNoClockOnASlaveThatRejectsAStartupParameter) {
     this->activate_two_dc_slaves({DC_ONLY}, {{2, {.startup_parameters = {FILTER}}}});
-    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[1].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
     this->mock->slave_infos[1].state = EC_STATE_INIT;
     this->check_while_cycling();
@@ -2537,10 +2548,10 @@ TEST_F(SOEMMasterTest, CheckStopsRecoveringSlaveThatRejectsStartupParameter) {
     this->initialize_with_slave();
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     this->activate_master();
-    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->master->check(this->brk);
-    this->mock->sdo_write_aborts.clear();
+    this->mock->slave_infos[0].sdo_write_aborts.clear();
     this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
     const auto health = this->master->check(this->brk);
     EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{1});
@@ -2554,7 +2565,7 @@ TEST_F(SOEMMasterTest, CheckClearsLostFlagOfSlaveThatRejectsStartupParameter) {
     this->initialize_with_slave();
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     this->activate_master();
-    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->master->check(this->brk);
     this->mock->slave_infos[0].bus_state = EC_STATE_NONE;
@@ -2570,10 +2581,10 @@ TEST_F(SOEMMasterTest, ActivateClearsStartupFailureFromRecovery) {
     this->initialize_with_slave();
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     this->activate_master();
-    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->master->check(this->brk);
-    this->mock->sdo_write_aborts.clear();
+    this->mock->slave_infos[0].sdo_write_aborts.clear();
     this->master->deactivate();
     ASSERT_NIL(this->master->scan().second);
     this->activate_master();
