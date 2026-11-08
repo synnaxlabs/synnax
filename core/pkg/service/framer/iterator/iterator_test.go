@@ -2512,6 +2512,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				}},
 				"aggregation: invalid aggregation: median",
 			),
+			Entry(
+				"a limit built in Go without an aggregation",
+				iterator.Config{Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{PointLimit: 10},
+				}},
+				"aggregation: invalid aggregation: ",
+			),
 		)
 
 		It(
