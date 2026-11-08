@@ -495,7 +495,7 @@ export class Table<
 
   /**
    * Writes fetched records into the table under its declared hydrate mode, or the given
-   * one: "set" overwrites entries, "if-absent" leaves existing entries untouched. A
+   * one: "set" overwrites entries, "if-absent" leaves existing entries as they are. A
    * tombstoned key is skipped, as is a key written after the given stamp: the fetch may
    * predate the delete or the write, and only a {@link set} revives a deleted record.
    * On a revivable table, a key deleted before the given stamp also revives, unless its
@@ -519,20 +519,28 @@ export class Table<
     if (typeof keyOrValues !== "object") {
       const key = keyOrValues as Key;
       const { mode = this.hydrateMode, since } = options ?? {};
+      let rollback = destructor.NOOP;
       if (
-        !this.ingestible(key, since) ||
-        (mode === "if-absent" && this.entries.has(key))
+        this.ingestible(key, since) &&
+        (mode !== "if-absent" || !this.entries.has(key))
       )
-        return destructor.NOOP;
-      return this.setOne(key, valueOrOptions as Value) ?? destructor.NOOP;
+        rollback = this.setOne(key, valueOrOptions as Value) ?? destructor.NOOP;
+      this.touch(key);
+      return rollback;
     }
     const { mode = this.hydrateMode, since }: IngestOptions =
       (valueOrOptions as IngestOptions | undefined) ?? {};
-    const arr = array
-      .toArray(keyOrValues)
-      .filter(({ key }) => this.ingestible(key, since));
-    if (mode === "if-absent") return this.setIfAbsent(arr);
-    return this.setMany(arr);
+    const values = array.toArray(keyOrValues);
+    const arr = values.filter(({ key }) => this.ingestible(key, since));
+    const rollback = mode === "if-absent" ? this.setIfAbsent(arr) : this.setMany(arr);
+    values.forEach(({ key }) => this.touch(key));
+    return rollback;
+  }
+
+  // A fetch reads each record it ingests, so a trim keeps the record until the fetch
+  // composes its answer, even when the record left the entry as it was.
+  private touch(key: Key): void {
+    if (this.entries.has(key)) this.touches.set(key, ++this.touchSeq);
   }
 
   private ingestible(key: Key, since?: Stamp): boolean {
