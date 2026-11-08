@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 )
 
@@ -66,13 +65,7 @@ func (s Snapshot) Allowed(id resource.ID) bool { return s.allowed(id) }
 func (s Snapshot) Enforce(ids ...resource.ID) error {
 	for _, id := range ids {
 		if !s.allowed(id) {
-			return errors.Wrapf(
-				access.ErrDenied,
-				"%s cannot %s %s",
-				s.subject,
-				access.ActionRetrieve,
-				id,
-			)
+			return access.Denied(s.subject, access.ActionRetrieve, id)
 		}
 	}
 	return nil
