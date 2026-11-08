@@ -32,7 +32,10 @@ var _ = Describe("OpenLayer", func() {
 			Expect(distribution.OpenLayer(ctx, distribution.LayerConfig{
 				Storage:          store,
 				AdvertiseAddress: "localhost:0",
-			})).Error().To(MatchError(validate.ErrValidation))
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("the data directory belongs to node 2")),
+			))
 		},
 	)
 })
