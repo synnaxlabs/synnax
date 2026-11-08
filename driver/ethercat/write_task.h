@@ -62,6 +62,11 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
 
         if (cfg.error()) return;
 
+        if (this->outputs.empty()) {
+            cfg.field_err("channels", "task must have at least one enabled channel");
+            return;
+        }
+
         channel::sort_by_position(this->outputs);
         std::vector<synnax::channel::Key> state_keys;
         for (const auto &ch: this->outputs)

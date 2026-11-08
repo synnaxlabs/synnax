@@ -607,8 +607,7 @@ Engine::~Engine() {
     this->stop_locked();
 }
 
-std::pair<std::pair<uint64_t, std::vector<pdo::Offset>>, x::errors::Error>
-Engine::join_locked(
+std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     std::unique_lock<std::mutex> &lock,
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate rate,
@@ -633,7 +632,7 @@ Engine::join_locked(
         if (started) this->stop_locked();
         return {{}, err};
     }
-    return {{mhz, std::move(offsets)}, x::errors::NIL};
+    return {{.mhz = mhz, .offsets = std::move(offsets)}, x::errors::NIL};
 }
 
 std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader(
@@ -644,15 +643,14 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     std::unique_lock lock(this->mu);
     auto [joined, err] = this->join_locked(lock, entries, sample_rate, false);
     if (err) return {nullptr, err};
-    auto &[mhz, offsets] = joined;
     auto input = std::make_shared<Input>(
         entries,
-        std::move(offsets),
+        std::move(joined.offsets),
         sample_rate,
         samples_per_read
     );
     this->inputs.push_back(input);
-    this->publish_schedule_locked(mhz);
+    this->publish_schedule_locked(joined.mhz);
     return {std::make_unique<Reader>(*this, std::move(input)), x::errors::NIL};
 }
 
@@ -671,15 +669,14 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
     std::unique_lock lock(this->mu);
     auto [joined, err] = this->join_locked(lock, pdo_entries, execution_rate, true);
     if (err) return {nullptr, err};
-    auto &[mhz, offsets] = joined;
     auto output = std::make_shared<Output>(Output{
         .entries = std::move(pdo_entries),
         .rate = execution_rate,
-        .offsets = std::move(offsets),
+        .offsets = std::move(joined.offsets),
         .stop_values = std::move(stop_values),
     });
     this->outputs.push_back(output);
-    this->publish_schedule_locked(mhz);
+    this->publish_schedule_locked(joined.mhz);
     return {std::make_unique<Writer>(*this, std::move(output)), x::errors::NIL};
 }
 

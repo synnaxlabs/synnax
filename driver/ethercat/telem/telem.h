@@ -201,6 +201,7 @@ class Decoder {
     x::telem::DataType decoded;
 
 public:
+    /// @brief resolves the layout of an entry.
     /// @param bit_offset the bit offset of the entry within its first byte (0-7).
     /// @param bit_length the bit length of the entry.
     /// @param data_type the data type of the entry.

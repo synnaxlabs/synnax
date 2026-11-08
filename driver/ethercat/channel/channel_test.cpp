@@ -633,6 +633,7 @@ TEST(Output, ReportsAnUnresolvedNameTheSlaveDoesNotHave) {
     );
 }
 
+/// @brief it should give an output no state channel when the config leaves it out.
 TEST(Output, StateKeyDefaultsToZero) {
     const auto slave = repeated_name_slave();
     auto j = write_entry(0x7000, 1);

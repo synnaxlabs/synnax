@@ -256,9 +256,7 @@ synnax::device::Device Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_SUCCESS;
     } else {
         status.message = "Failed to discover PDOs";
-        status.description = pdo_error_description(
-            sts.pdo_discovery_error.empty() ? "no PDOs found" : sts.pdo_discovery_error
-        );
+        status.description = pdo_error_description(sts.pdo_discovery_error);
         status.variant = synnax::status::VARIANT_WARNING;
     }
     dev.status = std::move(status);

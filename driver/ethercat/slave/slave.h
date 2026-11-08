@@ -311,7 +311,7 @@ struct Properties {
 /// @brief dynamic status information about an EtherCAT slave from discovery.
 struct Status {
     /// @brief current application layer state of the slave.
-    State state;
+    State state = State::UNKNOWN;
     /// @brief why PDO discovery failed, or empty when it succeeded.
     std::string pdo_discovery_error;
 };

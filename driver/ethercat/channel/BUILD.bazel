@@ -31,6 +31,7 @@ cc_test(
     srcs = ["channel_test.cpp"],
     deps = [
         ":channel",
+        "//client/cpp/ethercat",
         "@googletest//:gtest_main",
     ],
 )
