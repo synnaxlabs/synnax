@@ -110,7 +110,9 @@ public:
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
     /// @brief returns nullopt, since this master does not read the distributed clock.
-    std::optional<x::telem::TimeStamp> dc_time() const override { return std::nullopt; }
+    [[nodiscard]] std::optional<x::telem::TimeStamp> dc_time() const override {
+        return std::nullopt;
+    }
 
 private:
     /// @brief opens the master, reads each slave on the bus, and creates the domains.

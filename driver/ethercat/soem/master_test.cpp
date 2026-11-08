@@ -115,7 +115,7 @@ protected:
 
     void initialize_with_slave() {
         this->add_default_slave();
-        ASSERT_NIL(this->master->scan().second);
+        ASSERT_NIL_P(this->master->scan());
     }
 
     /// @brief writes modes to the SII DC category of every slave.
@@ -165,7 +165,7 @@ protected:
         this->add_slave(slave);
         this->set_op_modes(modes);
         this->mock->register_values[{1, 0x0910}] = 5'000'000'000;
-        ASSERT_NIL(this->master->scan().second);
+        ASSERT_NIL_P(this->master->scan());
         this->mock->obytes = 2;
         this->mock->ibytes = 4;
         this->mock->outputs_wkc = 1;
@@ -252,7 +252,7 @@ protected:
         slave.pdelay = 300;
         this->add_slave(slave);
         this->set_op_modes(modes);
-        ASSERT_NIL(this->master->scan().second);
+        ASSERT_NIL_P(this->master->scan());
         this->configs = std::move(configs);
         this->activate_master();
         this->mock->register_writes.clear();
@@ -286,7 +286,7 @@ protected:
         refusing.ALstatuscode = code;
         refusing.Ibits = 16;
         this->add_slave(refusing);
-        ASSERT_NIL(this->master->scan().second);
+        ASSERT_NIL_P(this->master->scan());
         this->mock->obytes = 2;
         this->mock->ibytes = 4;
         this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
@@ -301,7 +301,7 @@ protected:
             slave.name = name;
             this->add_slave(slave);
         }
-        ASSERT_NIL(this->master->scan().second);
+        ASSERT_NIL_P(this->master->scan());
         this->mock->obytes = 2;
         this->mock->ibytes = 4;
     }
@@ -339,7 +339,7 @@ TEST_F(SOEMMasterTest, ScanSocketCheckFails) {
         errors::PERMISSION_DENIED,
         "permission denied opening eth0"
     );
-    ASSERT_OCCURRED_AS(this->master->scan().second, errors::PERMISSION_DENIED);
+    ASSERT_OCCURRED_AS_P(this->master->scan(), errors::PERMISSION_DENIED);
     EXPECT_FALSE(this->mock->init_called);
 }
 
@@ -418,7 +418,7 @@ TEST_F(SOEMMasterTest, CountSlavesReportsTheSlavesThatAnswer) {
 
 TEST_F(SOEMMasterTest, ScanIdempotent) {
     this->initialize_with_slave();
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
 }
 
 /// @brief it should name and type each PDO entry from the CoE object dictionary of the
@@ -446,7 +446,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
         {{0x6000, 2}, {"Value", 0x0008}},
     };
 
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
 
     const auto slaves = this->master->scan().first;
     ASSERT_EQ(slaves.size(), 1);
@@ -508,7 +508,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryWaitsForPreOp) {
         {{ECT_SDO_RXPDOASSIGN, 0}, 0},
     };
 
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
 
     const auto slaves = this->master->scan().first;
     ASSERT_EQ(slaves.size(), 1);
@@ -587,7 +587,7 @@ TEST_F(SOEMMasterTest, SIIDiscoveryGivesTheEEPROMBackToTheSlave) {
     for (size_t i = 0; i < category.size(); ++i)
         this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
 
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
 
     ASSERT_EQ(this->master->scan().first[0].properties.input_pdos.size(), 1);
     EXPECT_TRUE(this->mock->eeprom_held.empty());
@@ -606,7 +606,7 @@ TEST_F(SOEMMasterTest, ScanGivesTheEEPROMBackAfterReadingOpModes) {
     for (size_t i = 0; i < category.size(); ++i)
         this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
 
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
 
     ASSERT_EQ(this->master->scan().first[0].properties.op_modes.size(), 1);
     EXPECT_TRUE(this->mock->eeprom_held.empty());
@@ -748,7 +748,7 @@ TEST_F(SOEMMasterTest, ActivateRecordsASlaveThatRefusesOp) {
         slave.Ibits = 16;
         this->add_slave(slave);
     }
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     this->mock->inputs_wkc = 1;
@@ -774,7 +774,7 @@ TEST_F(SOEMMasterTest, ActivateForgetsTheRefusalsOfTheLastStart) {
     this->add_pending_and_refusing_slaves();
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
     this->master->deactivate();
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->configs = {{2, {.enabled = false}}};
     this->mock->slave_infos[0].ALstatuscode = 0x001D;
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
@@ -795,7 +795,7 @@ TEST_F(SOEMMasterTest, ActivateReportsADCSyncRefusal) {
     MockSlaveInfo second = first;
     second.name = "SecondSlave";
     this->add_slave(second);
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
@@ -984,7 +984,7 @@ TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
     slave2.name = "DisabledSlave";
     this->add_slave(slave2);
 
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->configs = {{2, {.enabled = false}}};
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -1003,7 +1003,7 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     slave2.state = EC_STATE_PRE_OP;
     this->add_slave(slave2);
 
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->configs = {{2, {.enabled = false}}};
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -1026,7 +1026,7 @@ TEST_F(SOEMMasterTest, ActivateClearsDCActivationBeforeMapping) {
     plain.state = EC_STATE_PRE_OP;
     this->add_slave(plain);
     this->add_slave(dc);
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->configs = {{3, {.enabled = false}}};
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -1046,7 +1046,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenDCActivationCannotBeCleared) {
     dc.hasdc = true;
     dc.name = "EL3104";
     this->add_slave(dc);
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->mock->write_register_return = 0;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
@@ -1176,7 +1176,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenSYNC0EventsDoNotLineUpWithTheBusCycle) {
     this->set_op_modes(
         {{.name = "DC", .assign_activate = 0x0300, .sync0_cycle = 150'000}}
     );
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
@@ -1325,7 +1325,7 @@ TEST_F(SOEMMasterTest, DeactivateClearsDCActivationPastAFailedSlave) {
     dc.hasdc = true;
     this->add_slave(dc);
     this->add_slave(dc);
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->activate());
@@ -1349,7 +1349,7 @@ TEST_F(SOEMMasterTest, DCSyncReportsEachSlaveThatRunsSYNC0) {
     this->add_slave(dc);
     this->add_slave(dc);
     this->set_op_modes({DC_SECOND});
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     this->mock->outputs_wkc = 2;
@@ -1468,7 +1468,7 @@ TEST_F(SOEMMasterTest, DCTimeIsPresentWhenTheReferenceSlaveIsDisabled) {
     enabled.state = EC_STATE_PRE_OP;
     enabled.hasdc = true;
     this->add_slave(enabled);
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->configs = {{1, {.enabled = false}}};
     this->activate_master();
     this->mock->context.DCtime = 1'000'000'000;
@@ -1575,7 +1575,7 @@ TEST_F(SOEMMasterTest, CheckMarksSilentSlaveLost) {
 TEST_F(SOEMMasterTest, CheckKeepsStatesOnDroppedStateRead) {
     this->add_default_slave();
     this->add_default_slave();
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->activate_master();
     this->mock->dropped_state_reads = 1;
     const auto health = this->master->check(this->brk);
@@ -1642,7 +1642,7 @@ TEST_F(SOEMMasterTest, CheckSkipsDisabledSlave) {
     this->add_default_slave();
     this->add_default_slave();
     this->configs = {{2, {.enabled = false}}};
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->activate_master();
     this->mock->slave_infos[1].state = EC_STATE_SAFE_OP;
     const auto health = this->master->check(this->brk);
@@ -1991,7 +1991,7 @@ TEST_F(SOEMMasterTest, DeactivateDropsTheSavedDCTime) {
     this->mock->host_dc_offset = 7'000'000'000;
     this->activate_master();
     this->master->deactivate();
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->mock->receive_return = 2;
     ASSERT_NIL(this->activate());
     this->mock->slave_infos[0].state = EC_STATE_INIT;
@@ -2015,7 +2015,7 @@ TEST_F(SOEMMasterTest, DeactivateClearsTheRestoreFailures) {
     ASSERT_TRUE(this->master->check(this->brk)[0].faulted);
     this->master->deactivate();
     this->mock->latch_return = 1;
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->activate_master();
     const auto health = this->master->check(this->brk);
     ASSERT_EQ(health.size(), 1);
@@ -2076,7 +2076,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryKeepsPaddingAndPDOName) {
     this->add_slave(coe_slave(24));
     serve_padded_txpdo(*this->mock);
     this->mock->slave_infos[0].od_names[0x1A00] = "Channel 1";
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
 
     const auto inputs = this->master->scan().first[0].properties.input_pdos;
     ASSERT_EQ(inputs.size(), 3);
@@ -2092,7 +2092,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryKeepsPaddingAndPDOName) {
 TEST_F(SOEMMasterTest, CoEDiscoveryWithoutPDOName) {
     this->add_slave(coe_slave(24));
     serve_padded_txpdo(*this->mock);
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
 
     const auto inputs = this->master->scan().first[0].properties.input_pdos;
     ASSERT_EQ(inputs.size(), 3);
@@ -2106,7 +2106,7 @@ TEST_F(SOEMMasterTest, LiveMappingTakesPrecedenceOverRegistry) {
     info.eep_id = EL1008;
     this->add_slave(info);
     serve_padded_txpdo(*this->mock);
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
 
     const auto inputs = this->master->scan().first[0].properties.input_pdos;
     ASSERT_EQ(inputs.size(), 3);
@@ -2124,7 +2124,7 @@ TEST_F(SOEMMasterTest, RegistryNamesLiveEntriesOfAKnownDevice) {
     info.eep_id = EL1008;
     this->add_slave(info);
     serve_padded_txpdo(*this->mock);
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
 
     const auto inputs = this->master->scan().first[0].properties.input_pdos;
     ASSERT_EQ(inputs.size(), 3);
@@ -2140,7 +2140,7 @@ TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithoutLiveMapping) {
     info.eep_man = BECKHOFF;
     info.eep_id = EL1008;
     this->add_slave(info);
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
 
     const auto slave = this->master->scan().first[0];
     EXPECT_EQ(slave.properties.input_pdos.size(), 8);
@@ -2162,7 +2162,7 @@ TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithUnreadableMapping) {
         {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
         {{ECT_SDO_RXPDOASSIGN, 0}, 0},
     };
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
 
     const auto slave = this->master->scan().first[0];
     EXPECT_EQ(slave.properties.input_pdos.size(), 8);
@@ -2173,7 +2173,7 @@ TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithUnreadableMapping) {
 TEST_F(SOEMMasterTest, OffsetsCountPadding) {
     this->add_slave(coe_slave(24));
     serve_padded_txpdo(*this->mock);
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->mock->ibytes = 3;
     ASSERT_NIL(this->activate());
 
@@ -2189,7 +2189,7 @@ TEST_F(SOEMMasterTest, OffsetsCountPadding) {
 TEST_F(SOEMMasterTest, SlaveWhoseLayoutDisagreesWithMappingHasNoOffsets) {
     this->add_slave(coe_slave(16));
     serve_padded_txpdo(*this->mock);
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->mock->ibytes = 2;
     ASSERT_NIL(this->activate());
 
@@ -2325,7 +2325,7 @@ TEST_F(SOEMMasterTest, ActivateReadsLayoutThatStartupParametersAssign) {
     this->mock->slave_infos[0].sdo_objects[{0x1A01, 0}] = 1;
     this->mock->slave_infos[0].sdo_objects[{0x1A01, 1}] = 0x60100110;
     this->mock->slave_infos[0].oe_entries[{0x6010, 1}] = {"Value", 0x0003};
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     const slave::StartupParameter assign_1a01{
         .index = ECT_SDO_TXPDOASSIGN,
         .sub_index = 1,
@@ -2472,7 +2472,7 @@ TEST_F(SOEMMasterTest, ActivateClearsStartupFailureFromRecovery) {
     this->master->check(this->brk);
     this->mock->slave_infos[0].sdo_write_aborts.clear();
     this->master->deactivate();
-    ASSERT_NIL(this->master->scan().second);
+    ASSERT_NIL_P(this->master->scan());
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->master->check(this->brk);

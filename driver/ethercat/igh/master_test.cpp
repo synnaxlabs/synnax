@@ -160,7 +160,7 @@ TEST_F(IGHMasterTest, ScanReadsTheLayoutOfEachSlave) {
 /// @brief it should return the slaves it found without a new discovery.
 TEST_F(IGHMasterTest, ScanReturnsTheSlavesItFound) {
     this->api->add_slave();
-    ASSERT_NIL(this->master.scan().second);
+    ASSERT_NIL_P(this->master.scan());
     this->api->add_slave();
     EXPECT_EQ(ASSERT_NIL_P(this->master.scan()).size(), 1);
 }
@@ -181,19 +181,19 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheDeviceCheckFails) {
         errors::PERMISSION_DENIED,
         "permission denied opening /dev/EtherCAT0"
     );
-    ASSERT_OCCURRED_AS(this->master.scan().second, errors::PERMISSION_DENIED);
+    ASSERT_OCCURRED_AS_P(this->master.scan(), errors::PERMISSION_DENIED);
 }
 
 /// @brief it should fail when the kernel module gives no master.
 TEST_F(IGHMasterTest, ScanFailsWhenTheMasterIsMissing) {
     this->api->request_master_fails = true;
-    ASSERT_OCCURRED_AS(this->master.scan().second, errors::MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(this->master.scan(), errors::MASTER_INIT_ERROR);
 }
 
 /// @brief it should release the master when it cannot read the master info.
 TEST_F(IGHMasterTest, ScanFailsWhenTheMasterInfoCannotBeRead) {
     this->api->master_info_result = -1;
-    ASSERT_OCCURRED_AS(this->master.scan().second, errors::MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(this->master.scan(), errors::MASTER_INIT_ERROR);
     EXPECT_TRUE(this->api->released);
 }
 
@@ -201,7 +201,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheMasterInfoCannotBeRead) {
 TEST_F(IGHMasterTest, ScanFailsWhenTheOutputDomainFails) {
     this->api->add_slave();
     this->api->output_domain_fails = true;
-    ASSERT_OCCURRED_AS(this->master.scan().second, errors::MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(this->master.scan(), errors::MASTER_INIT_ERROR);
     EXPECT_TRUE(this->api->released);
 }
 
@@ -209,7 +209,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheOutputDomainFails) {
 TEST_F(IGHMasterTest, ScanFailsWhenTheInputDomainFails) {
     this->api->add_slave();
     this->api->input_domain_fails = true;
-    ASSERT_OCCURRED_AS(this->master.scan().second, errors::MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(this->master.scan(), errors::MASTER_INIT_ERROR);
     EXPECT_TRUE(this->api->released);
 }
 
@@ -264,7 +264,7 @@ TEST_F(IGHMasterTest, ScanFillsNamesAndDataTypesFromTheRegistry) {
 /// @brief it should return the number of slaves on the bus.
 TEST_F(IGHMasterTest, CountSlavesReportsTheSlavesOnTheBus) {
     this->api->add_slave();
-    ASSERT_NIL(this->master.scan().second);
+    ASSERT_NIL_P(this->master.scan());
     this->api->add_slave();
     EXPECT_EQ(ASSERT_NIL_P(this->master.count_slaves()), 2);
 }
@@ -331,7 +331,7 @@ TEST_F(IGHMasterTest, ActivateStartsABusWithNoProcessData) {
 /// @brief it should start the bus cycle once send() works.
 TEST_F(IGHMasterTest, ActivateStartsTheCycleOnceSendWorks) {
     this->api->add_slave();
-    ASSERT_NIL(this->master.scan().second);
+    ASSERT_NIL_P(this->master.scan());
     bool started = false;
     ASSERT_NIL(this->master
                    .activate(
@@ -365,7 +365,7 @@ TEST_F(IGHMasterTest, ActivateReturnsTheRefusalOfEachSlave) {
     auto &safe_op = this->api->add_slave("EL1008");
     safe_op.reaches = EC_AL_STATE_SAFEOP;
     safe_op.refuses = true;
-    ASSERT_NIL(this->master.scan().second);
+    ASSERT_NIL_P(this->master.scan());
     const auto activation = this->activate();
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
@@ -384,7 +384,7 @@ TEST_F(IGHMasterTest, ActivateReturnsTheRefusalOfEachSlave) {
 /// error.
 TEST_F(IGHMasterTest, ActivateFailsWhenASlaveStaysBelowOP) {
     this->api->add_slave().reaches = EC_AL_STATE_SAFEOP;
-    ASSERT_NIL(this->master.scan().second);
+    ASSERT_NIL_P(this->master.scan());
     const auto activation = this->activate();
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
