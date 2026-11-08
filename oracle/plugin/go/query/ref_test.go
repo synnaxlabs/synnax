@@ -443,6 +443,14 @@ var _ = Describe("@ref", func() {
 				}
 			}`,
 			"@ref field rack needs one value for kind, not 2"),
+		Entry("with a kind declared twice", `rack rack.Key {
+				@ref {
+					on_delete restrict
+					kind      use
+					kind      place
+				}
+			}`,
+			"@ref field rack declares kind twice"),
 		Entry("named search", `search rack.Key {
 				@ref on_delete restrict
 				@ref kind use
