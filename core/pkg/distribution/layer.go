@@ -49,7 +49,7 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Transport Transport
-	// GorpCodec sets the codec used to encode/decode data structures within the cluster
+	// GorpCodec sets the codec used to encode/decode data structures within the
 	// metadata DB.
 	//
 	// [OPTIONAL] - Defaults to encoding.NewDecodeFallbackCodec(orc.Codec,
@@ -107,13 +107,11 @@ type Layer struct {
 	// Host is the host node of the Core.
 	Host cluster.Host
 	// Channel is the distribution-layer channel allocator: it assigns local keys and
-	// creates, renames, and deletes storage channels across the cluster.
+	// creates, renames, and deletes storage channels.
 	Channel *channel.Service
-	// Framer is for reading, writing, and streaming frames of telemetry across the
-	// cluster.
+	// Framer is for reading, writing, and streaming frames of telemetry.
 	Framer *framer.Service
-	// Control is for reading and observing the control state of channels across the
-	// cluster.
+	// Control is for reading and observing the control state of channels.
 	Control *control.Service
 	closer  io.MultiCloser
 }
