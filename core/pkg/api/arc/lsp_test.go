@@ -147,4 +147,66 @@ var _ = Describe("LSP", func() {
 				HaveKeyWithValue("value", ContainSubstring("api_lsp_ch")),
 			)))
 	})
+
+	Describe("Rename", func() {
+		var u user.User
+		BeforeEach(func(ctx SpecContext) {
+			u = MustSucceed(rbactestutil.CreateUser(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				user.User{Name: "lsp-renamer"},
+			))
+			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, ch.ResourceID())
+		})
+		rename := func() map[string]any {
+			GinkgoHelper()
+			params := at(1, 8)
+			params["newName"] = "api_lsp_renamed"
+			return openLSP(u.ResourceID(), "func test() {\n\tx := api_lsp_ch\n}").
+				call("textDocument/rename", params)
+		}
+		names := func(ctx SpecContext) (string, string) {
+			GinkgoHelper()
+			var stored channel.Channel
+			Expect(channelSvc.NewRetrieve().
+				Where(channel.MatchKeys(ch.Key())).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			return stored.Name, MustSucceed(
+				node.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+			).Name
+		}
+
+		It("Should not rename a channel that the subject cannot update", func(
+			ctx SpecContext,
+		) {
+			denied := access.Denied(
+				u.ResourceID(),
+				access.ActionUpdate,
+				ch.ResourceID(),
+			)
+			Expect(rename()).To(HaveKeyWithValue(
+				"error",
+				HaveKeyWithValue("message", ContainSubstring(denied.Error())),
+			))
+			gorpName, cesiumName := names(ctx)
+			Expect(gorpName).To(Equal("api_lsp_ch"))
+			Expect(cesiumName).To(Equal("api_lsp_ch"))
+		})
+
+		It(
+			"Should rename a channel in both stores when the subject can update it",
+			func(
+				ctx SpecContext,
+			) {
+				grantOn(ctx, u.ResourceID(), access.ActionUpdate, ch.ResourceID())
+				Expect(rename()).ToNot(HaveKey("error"))
+				gorpName, cesiumName := names(ctx)
+				Expect(gorpName).To(Equal("api_lsp_renamed"))
+				Expect(cesiumName).To(Equal("api_lsp_renamed"))
+			},
+		)
+	})
 })

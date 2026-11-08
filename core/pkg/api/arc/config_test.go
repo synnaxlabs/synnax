@@ -10,11 +10,14 @@
 package arc_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -28,6 +31,12 @@ var _ = Describe("ServiceConfig", func() {
 			Arc:             &arc.Service{},
 			Status:          &status.Service{},
 			RBAC:            &rbac.Service{},
+			RenameChannel: func(
+				context.Context,
+				apichannel.RenameRequest,
+			) (struct{}, error) {
+				return struct{}{}, nil
+			},
 		}
 	}
 
@@ -63,6 +72,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apiarc.ServiceConfig) { c.RBAC = nil },
 				"rbac: must be non-nil",
 			),
+			Entry(
+				"rename_channel",
+				func(c *apiarc.ServiceConfig) { c.RenameChannel = nil },
+				"rename_channel: must be non-nil",
+			),
 		)
 	})
 
@@ -74,6 +88,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Arc).To(BeIdenticalTo(cfg.Arc))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.RenameChannel).ToNot(BeNil())
 			Expect(merged.Meta).To(Equal(cfg.Meta))
 		})
 
@@ -84,6 +99,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Arc).To(BeIdenticalTo(cfg.Arc))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.RenameChannel).ToNot(BeNil())
 			Expect(merged.Meta).To(Equal(cfg.Meta))
 		})
 	})

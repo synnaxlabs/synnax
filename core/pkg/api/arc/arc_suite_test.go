@@ -22,6 +22,7 @@ import (
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -32,9 +33,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -52,6 +56,7 @@ func TestAPIArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	node       testutil.Node
 	db         *gorp.DB
 	rbacSvc    *rbac.Service
 	userSvc    *user.Service
@@ -91,7 +96,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
@@ -154,13 +159,30 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:     statusSvc,
 		ImEx:       imexSvc,
 	}))
-	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
-		DB:     db,
-		Arc:    arcSvc,
-		Status: statusSvc,
-		RBAC:   rbacSvc,
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+		DB:    db,
+		Group: groupSvc,
+	}))
+	aliasSvc := MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
+		DB:              db,
+		Channel:         channelSvc,
+		ParentRetriever: rangerSvc,
+	}))
+	apiChannelSvc := MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
+		DB:      db,
+		Channel: channelSvc,
+		Status:  statusSvc,
+		Alias:   aliasSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
+		DB:            db,
+		Arc:           arcSvc,
+		Status:        statusSvc,
+		RBAC:          rbacSvc,
+		RenameChannel: bind.Write(binder, apiChannelSvc.Rename),
+	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)

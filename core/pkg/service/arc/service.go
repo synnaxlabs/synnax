@@ -200,6 +200,8 @@ type LSPConfig struct {
 	// Allowed reads the access of the subject of the session and returns whether the
 	// subject can retrieve a record. The server calls it once for each analysis.
 	Allowed func(context.Context) (func(resource.ID) bool, error)
+	// Rename renames the channel with key to name when an editor renames it.
+	Rename func(ctx context.Context, key channel.Key, name string) error
 }
 
 // NewLSP opens the language server of one editor session. The server treats the
@@ -212,16 +214,13 @@ func (s *Service) NewLSP(cfg LSPConfig) (*lsp.Server, error) {
 		OnRename: func(
 			ctx context.Context,
 			sym *symbol.Symbol,
-			oldName,
+			_,
 			newName string,
 		) error {
 			if sym.Kind != symbol.KindChannel {
 				return nil
 			}
-			return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return s.cfg.Channel.NewWriter(tx).
-					Rename(ctx, channel.Key(sym.ID), newName, false)
-			})
+			return cfg.Rename(ctx, channel.Key(sym.ID), newName)
 		},
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.Observe(),
