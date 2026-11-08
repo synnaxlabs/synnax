@@ -93,6 +93,13 @@ describe("schematic", () => {
     });
 
     it("should allow the caller to delete schematics with the correct policy", async () => {
+      const proj = await client.projects.create({
+        name: "test",
+      });
+      const randomSchematic = await client.schematics.create({
+        project: proj.key,
+        name: "test",
+      });
       const userClient = await createTestClientWithPolicy(client, [
         {
           name: "test",
@@ -101,13 +108,6 @@ describe("schematic", () => {
         },
         { name: "test", objects: [project.TYPE_RESOURCE_ID], actions: ["update"] },
       ]);
-      const proj = await client.projects.create({
-        name: "test",
-      });
-      const randomSchematic = await client.schematics.create({
-        project: proj.key,
-        name: "test",
-      });
       await userClient.schematics.delete(randomSchematic.key);
       await expect(userClient.schematics.retrieve(randomSchematic.key)).rejects.toThrow(
         NotFoundError,
