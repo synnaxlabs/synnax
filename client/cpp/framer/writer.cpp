@@ -71,12 +71,13 @@ std::pair<CommitResult, x::errors::Error> Writer::commit_result() {
     req.set_command(COMMIT);
     const auto [res, err] = this->exec(req, true);
     if (err) return {CommitResult{}, err};
-    return {
-        CommitResult{
-            .end = x::telem::TimeStamp(res.end()),
-            .authorized = res.authorized()
-        },
-        x::errors::NIL,
+    return {CommitResult::from_proto(res), x::errors::NIL};
+}
+
+CommitResult CommitResult::from_proto(const grpc::framer::WriterResponse &res) {
+    return CommitResult{
+        .end = x::telem::TimeStamp(res.end()),
+        .authorized = !res.unauthorized(),
     };
 }
 

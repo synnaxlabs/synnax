@@ -359,6 +359,11 @@ struct CommitResult {
     x::telem::TimeStamp end;
     /// @brief whether the writer had control of every channel it writes at the commit.
     bool authorized = false;
+
+    /// @brief parses a commit result from a writer response. A response from a Core
+    /// that does not send the unauthorized field reads as authorized.
+    [[nodiscard]] static CommitResult
+    from_proto(const grpc::framer::WriterResponse &res);
 };
 
 /// @brief used to write a new domain of telemetry frames to a set of channels in

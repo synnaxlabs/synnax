@@ -401,8 +401,9 @@ type WriterResponse struct {
 	Counter int32                  `protobuf:"varint,3,opt,name=counter,proto3" json:"counter,omitempty"`
 	Error   *errors.PBPayload      `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
 	End     int64                  `protobuf:"varint,5,opt,name=end,proto3" json:"end,omitempty"`
-	// authorized is false when the writer lacks control of a channel at this commit.
-	Authorized    bool `protobuf:"varint,6,opt,name=authorized,proto3" json:"authorized,omitempty"`
+	// unauthorized is true when the writer lacks control of a channel at this commit.
+	// A Core without this field sends no value, which reads as authorized.
+	Unauthorized  bool `protobuf:"varint,6,opt,name=unauthorized,proto3" json:"unauthorized,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -472,9 +473,9 @@ func (x *WriterResponse) GetEnd() int64 {
 	return 0
 }
 
-func (x *WriterResponse) GetAuthorized() bool {
+func (x *WriterResponse) GetUnauthorized() bool {
 	if x != nil {
-		return x.Authorized
+		return x.Unauthorized
 	}
 	return false
 }
@@ -712,16 +713,14 @@ const file_core_pkg_transport_grpc_framer_framer_proto_rawDesc = "" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x121\n" +
 	"\x06config\x18\x02 \x01(\v2\x19.grpc.framer.WriterConfigR\x06config\x12'\n" +
 	"\x05frame\x18\x03 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12\x16\n" +
-	"\x06buffer\x18\x04 \x01(\fR\x06buffer\"\xba\x01\n" +
+	"\x06buffer\x18\x04 \x01(\fR\x06buffer\"\xbe\x01\n" +
 	"\x0eWriterResponse\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x19\n" +
 	"\bnode_key\x18\x02 \x01(\x05R\anodeKey\x12\x18\n" +
 	"\acounter\x18\x03 \x01(\x05R\acounter\x12'\n" +
 	"\x05error\x18\x04 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x10\n" +
-	"\x03end\x18\x05 \x01(\x03R\x03end\x12\x1e\n" +
-	"\n" +
-	"authorized\x18\x06 \x01(\bR\n" +
-	"authorized\"\xc8\x01\n" +
+	"\x03end\x18\x05 \x01(\x03R\x03end\x12\"\n" +
+	"\funauthorized\x18\x06 \x01(\bR\funauthorized\"\xc8\x01\n" +
 	"\x0fStreamerRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12+\n" +
 	"\x11downsample_factor\x18\x02 \x01(\rR\x10downsampleFactor\x12(\n" +

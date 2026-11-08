@@ -292,6 +292,18 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
     ASSERT_TRUE(err.message().contains("test_writer_1"));
 }
 
+/// @brief it should read a commit response without the unauthorized field as
+/// authorized.
+TEST(WriterTests, testCommitResultFromProto) {
+    grpc::framer::WriterResponse res;
+    res.set_end(5);
+    const auto authorized = synnax::framer::CommitResult::from_proto(res);
+    ASSERT_TRUE(authorized.authorized);
+    ASSERT_EQ(authorized.end, x::telem::TimeStamp(5));
+    res.set_unauthorized(true);
+    ASSERT_FALSE(synnax::framer::CommitResult::from_proto(res).authorized);
+}
+
 /// @brief it should report a commit without control and keep the writer open.
 TEST(WriterTests, testCommitResultReportsControl) {
     auto client = new_test_client();

@@ -235,7 +235,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 				)[0]
 				Expect(res.Command).To(Equal(int32(framer.WriterCommandCommit)))
 				Expect(res.End).To(Equal(int64(123)))
-				Expect(res.Authorized).To(Equal(authorized))
+				Expect(res.Unauthorized).To(Equal(!authorized))
 			},
 			Entry("authorized", true),
 			Entry("unauthorized", false),
