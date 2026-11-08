@@ -13,8 +13,114 @@ package pb
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
+	servicerack "github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackpb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
+	"github.com/synnaxlabs/x/errors"
 )
+
+// CursorToPB converts Cursor to Cursor.
+func CursorToPB(r rack.Cursor) (*Cursor, error) {
+	pb := &Cursor{
+		Key: uint32(r.Key),
+	}
+	if r.Name != nil {
+		pb.Name = r.Name
+	}
+	return pb, nil
+}
+
+// CursorFromPB converts Cursor to Cursor.
+func CursorFromPB(pb *Cursor) (rack.Cursor, error) {
+	var r rack.Cursor
+	if pb == nil {
+		return r, nil
+	}
+	r.Key = servicerack.Key(pb.Key)
+	if pb.Name != nil {
+		r.Name = pb.Name
+	}
+	return r, nil
+}
+
+// CursorsToPB converts a slice of Cursor to Cursor.
+func CursorsToPB(rs []rack.Cursor) ([]*Cursor, error) {
+	result := make([]*Cursor, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = CursorToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CursorsFromPB converts a slice of Cursor to Cursor.
+func CursorsFromPB(pbs []*Cursor) ([]rack.Cursor, error) {
+	result := make([]rack.Cursor, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = CursorFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// OrderToPB converts Order to Order.
+func OrderToPB(r rack.Order) (*Order, error) {
+	fieldVal, err := OrderFieldToPB(r.Field)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Order{
+		Descending: r.Descending,
+		Field:      fieldVal,
+	}
+	return pb, nil
+}
+
+// OrderFromPB converts Order to Order.
+func OrderFromPB(pb *Order) (rack.Order, error) {
+	var r rack.Order
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Field, err = OrderFieldFromPB(pb.Field)
+	if err != nil {
+		return rack.Order{}, err
+	}
+	r.Descending = pb.Descending
+	return r, nil
+}
+
+// OrdersToPB converts a slice of Order to Order.
+func OrdersToPB(rs []rack.Order) ([]*Order, error) {
+	result := make([]*Order, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = OrderToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// OrdersFromPB converts a slice of Order to Order.
+func OrdersFromPB(pbs []*Order) ([]rack.Order, error) {
+	result := make([]rack.Order, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = OrderFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
 
 // RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
 func RetrieveRequestToPB(r rack.RetrieveRequest) (*RetrieveRequest, error) {
@@ -26,6 +132,20 @@ func RetrieveRequestToPB(r rack.RetrieveRequest) (*RetrieveRequest, error) {
 	if r.Where != nil {
 		var err error
 		pb.Where, err = rackpb.WhereToPB(*r.Where)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Order != nil {
+		var err error
+		pb.Order, err = OrderToPB(*r.Order)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.After != nil {
+		var err error
+		pb.After, err = CursorToPB(*r.After)
 		if err != nil {
 			return nil, err
 		}
@@ -51,6 +171,20 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (rack.RetrieveRequest, error) {
 			return rack.RetrieveRequest{}, err
 		}
 		r.Where = &val
+	}
+	if pb.Order != nil {
+		val, err := OrderFromPB(pb.Order)
+		if err != nil {
+			return rack.RetrieveRequest{}, err
+		}
+		r.Order = &val
+	}
+	if pb.After != nil {
+		val, err := CursorFromPB(pb.After)
+		if err != nil {
+			return rack.RetrieveRequest{}, err
+		}
+		r.After = &val
 	}
 	if pb.Limit != nil {
 		r.Limit = pb.Limit
@@ -134,4 +268,24 @@ func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]rack.RetrieveResponse, 
 		}
 	}
 	return result, nil
+}
+
+// OrderFieldToPB converts rack.OrderField to OrderField.
+func OrderFieldToPB(v rack.OrderField) (OrderField, error) {
+	switch v {
+	case rack.OrderFieldName:
+		return OrderField_ORDER_FIELD_NAME, nil
+	default:
+		return 0, errors.Newf("unrecognized rack.OrderField value: %v", v)
+	}
+}
+
+// OrderFieldFromPB converts OrderField to rack.OrderField.
+func OrderFieldFromPB(v OrderField) (rack.OrderField, error) {
+	switch v {
+	case OrderField_ORDER_FIELD_NAME:
+		return rack.OrderFieldName, nil
+	default:
+		return rack.OrderField(""), errors.Newf("unrecognized OrderField value: %v", v)
+	}
 }

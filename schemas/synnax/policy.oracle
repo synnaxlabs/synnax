@@ -28,6 +28,7 @@ Policy struct {
     name     string          {
         @doc value         "is a human-readable name for the policy."
         @filter
+        @index sorted
         @search
         @validate required
     }

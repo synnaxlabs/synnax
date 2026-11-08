@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, TypedDict
+from typing import Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
@@ -21,7 +21,24 @@ from synnax.resource import ID
 from x import color as color_
 from x import filter
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 Key: TypeAlias = UUID
+
+
+class Order(BaseModel):
+    """Is a sort of labels.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class Label(BaseModel):
@@ -78,6 +95,18 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of labels: the sort value and the key of a label.
+
+    Attributes:
+        key: Is the key of the label at the position.
+        name: Is the name of the label at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
 class RetrieveResponse(BaseModel):
     """Holds the labels a RetrieveRequest selects.
 
@@ -94,6 +123,8 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the labels to retrieve. An absent where selects all of them.
         search_term: Keeps the labels that match the term, closest match first.
+        order: Sorts the labels. An absent order sorts them by key.
+        after: Starts the labels strictly past this position in their order.
         limit: Is the most labels to return.
         offset: Is the number of matching labels to skip.
     """
@@ -102,6 +133,8 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
 

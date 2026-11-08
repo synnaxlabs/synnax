@@ -38,6 +38,11 @@ OPERATION_TYPE_DERIVATIVE: Literal["derivative"] = "derivative"
 
 OperationType = Literal["min", "max", "avg", "none", "derivative"]
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 Name: TypeAlias = str
 
 Status: TypeAlias = status_.Status
@@ -125,6 +130,30 @@ WhereInput = TypedDict(
 )
 
 
+class Order(BaseModel):
+    """Is a sort of channels.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of channels: the sort value and the key of a channel.
+
+    Attributes:
+        key: Is the key of the channel at the position.
+        name: Is the name of the channel at the position, when the order sorts by it.
+    """
+
+    key: Key = Field(ge=0, le=4294967295)
+    name: Name | None = None
+
+
 class Payload(BaseModel):
     """Is a logical collection of samples emitted by or representing values from a
     single source. Channels are the fundamental unit of telemetry storage and streaming
@@ -183,6 +212,8 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the channels to retrieve. An absent where selects all of them.
         search_term: Keeps the channels that match the term, closest match first.
+        order: Sorts the channels. An absent order sorts them by key.
+        after: Starts the channels strictly past this position in their order.
         limit: Is the most channels to return.
         offset: Is the number of matching channels to skip.
         include_status: Includes the status of each record.
@@ -192,6 +223,8 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
     include_status: bool = False

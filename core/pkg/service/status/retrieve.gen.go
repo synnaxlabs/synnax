@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/compare"
 )
 
 // tableName names the Status table for references. Pass it as
@@ -28,6 +29,7 @@ const tableName = "status"
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	name   *gorp.SortedIndex[Key, Status[any], string]
 	labels *gorp.KeyReference[Key, Status[any], label.Key]
 	owner  *gorp.TargetReference[Key, Status[any]]
 	search *gorp.SearchIndex[Key, Status[any]]
@@ -38,6 +40,10 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, Status[any], string](
+			"name",
+			func(e *Status[any]) string { return compare.TextKey(string(e.Name)) },
+		),
 		labels: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Status[any], label.Key]{
 			Name:     "labels",
 			Table:    "label",
@@ -76,6 +82,7 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Status[any]] {
 	return []gorp.Index[Key, Status[any]]{
+		i.name,
 		i.search,
 	}
 }
@@ -99,5 +106,36 @@ func resourceTarget(id resource.ID) gorp.Target {
 func MatchSearch(term string) Filter[any] {
 	return func(r Retrieve[any]) gorp.Filter[Key, Status[any]] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order[Details any] func(r Retrieve[Details]) gorp.OrderQuery[Key, Status[Details]]
+
+// OrderBy walks the statuses in the order o defines.
+func (r Retrieve[Details]) OrderBy(o Order[Details]) Retrieve[Details] {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order[any] {
+	return func(r Retrieve[any]) gorp.OrderQuery[Key, Status[any]] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order[any] {
+	return func(r Retrieve[any]) gorp.OrderQuery[Key, Status[any]] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }

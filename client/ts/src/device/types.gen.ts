@@ -17,6 +17,10 @@ import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
 /**
  * StatusDetails contains device-specific status details, including the rack the device
  * belongs to.
@@ -33,6 +37,15 @@ export const statusDetailsZ = z.object({
   data: zod.nullToUndefined(record.unknownZ()),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
+
+/** Order is a sort of devices. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
@@ -94,6 +107,17 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   nested: z.boolean().optional(),
 });
 
+/**
+ * Cursor is a position in an order of devices: the sort value and the key of a device.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the device at the position. */
+  key: keyZ,
+  /** name is the name of the device at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
 export interface DeviceSchemas<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodType<string>,
@@ -146,6 +170,10 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the devices that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the devices. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the devices strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most devices to return. */
   limit: z.uint32().optional(),
   /** offset is the number of matching devices to skip. */

@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias, TypedDict
+from typing import Any, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID
 
@@ -22,7 +22,24 @@ from synnax.resource import ID
 from x import filter
 from x.filter import shorthand
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 Key: TypeAlias = UUID
+
+
+class Order(BaseModel):
+    """Is a sort of users.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class User(BaseModel):
@@ -90,6 +107,18 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of users: the sort value and the key of a user.
+
+    Attributes:
+        key: Is the key of the user at the position.
+        name: Is the name of the user at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
 class RetrieveResponse(BaseModel):
     """Holds the users a RetrieveRequest selects.
 
@@ -106,6 +135,8 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the users to retrieve. An absent where selects all of them.
         search_term: Keeps the users that match the term, closest match first.
+        order: Sorts the users. An absent order sorts them by key.
+        after: Starts the users strictly past this position in their order.
         limit: Is the most users to return.
         offset: Is the number of matching users to skip.
     """
@@ -114,6 +145,8 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
 

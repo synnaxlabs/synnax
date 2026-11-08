@@ -25,6 +25,7 @@ User struct {
     }
     name      string   {
         @doc value           "is the user's display name."
+        @index sorted
         @search
         @validate min_length 1
     }

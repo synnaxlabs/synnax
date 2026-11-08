@@ -18,6 +18,7 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/plugin"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
@@ -203,9 +204,13 @@ type indexInfo struct {
 	FieldName   string // oracle field name (e.g. "created_at")
 	GoName      string // PascalCase field name (e.g. "CreatedAt")
 	Access      string // selector that reads the field from an entry
-	GoType      string // resolved Go type (e.g. "telem.TimeStamp")
+	GoType      string // Go type of the indexed value (e.g. "telem.TimeStamp")
+	ValueGoType string // Go type of the field's value, which GoType keys for Text
 	StructField string // camelCase field on the indexes struct (e.g. "createdAt")
 	Kind        string // "lookup" or "sorted"
+	// Text is true for a sorted index on a string, which holds compare.TextKey of the
+	// value.
+	Text bool
 }
 
 // IsSorted reports whether the index is a sorted index. Used by the template
@@ -229,6 +234,9 @@ type retrieveInfo struct {
 	// AnyArgs passes any for each type parameter of an indexes-only generic type, whose
 	// table holds records of every type argument.
 	AnyArgs string
+	// Params declares the type parameters of a generic type, such as [D any], and
+	// Args passes them, such as [D]. Both are empty for a type with none.
+	Params, Args string
 	// GoName is the Go type of a record in the table.
 	GoName   string
 	KeyType  string
@@ -361,6 +369,18 @@ func generateRetrieveFile(
 		gomod.ResolveImportPath("gorp", repoRoot, gomod.DefaultModulePrefix),
 	)
 
+	if lo.SomeBy(infos, func(i retrieveInfo) bool {
+		return lo.SomeBy(i.Indexes, func(idx indexInfo) bool { return idx.Text })
+	}) {
+		imps.AddInternal(
+			"compare",
+			gomod.ResolveImportPath(
+				"x/go/compare",
+				repoRoot,
+				gomod.DefaultModulePrefix,
+			),
+		)
+	}
 	if lo.SomeBy(infos, retrieveInfo.needsSlices) ||
 		lo.SomeBy(refRoots, referencesInfo.needsSlices) {
 		imps.AddExternal("slices")
@@ -422,7 +442,7 @@ func extractRetrieveInfo(
 	}
 
 	name := naming.GetGoName(typ)
-	var anyArgs string
+	var anyArgs, typeArgs, typeParams string
 
 	isCustom := plugindomain.HasExprFromType(typ, "retrieve", "custom")
 	indexesOnly := plugindomain.HasExprFromType(typ, "retrieve", "indexes")
@@ -436,11 +456,15 @@ func extractRetrieveInfo(
 				)
 			}
 			// The table of a generic type holds records of every type argument.
-			args := make([]string, len(params))
-			for i := range args {
-				args[i] = "any"
+			anys := make([]string, len(params))
+			names := make([]string, len(params))
+			decls := make([]string, len(params))
+			for i, tp := range params {
+				anys[i], names[i], decls[i] = "any", tp.Name, tp.Name+" any"
 			}
-			anyArgs = "[" + strings.Join(args, ", ") + "]"
+			anyArgs = "[" + strings.Join(anys, ", ") + "]"
+			typeArgs = "[" + strings.Join(names, ", ") + "]"
+			typeParams = "[" + strings.Join(decls, ", ") + "]"
 		}
 	}
 
@@ -457,11 +481,10 @@ func extractRetrieveInfo(
 		ownTable = plugindomain.GetStringFromType(typ, resourceDomain, "type")
 	)
 	for _, field := range allFields {
-		if indexesOnly && (plugindomain.HasDomainFromField(field, "filter") ||
-			plugindomain.HasExprFromField(field, "index", "sorted")) {
+		if indexesOnly && plugindomain.HasDomainFromField(field, "filter") {
 			return nil, errors.Newf(
-				"%s: @retrieve indexes generates no matchers or orderings, so field "+
-					"%s cannot take @filter or @index sorted",
+				"%s: @retrieve indexes generates no matchers, so field %s cannot "+
+					"take @filter",
 				typ.QualifiedName,
 				field.Name,
 			)
@@ -545,23 +568,44 @@ func extractRetrieveInfo(
 		}
 		goFieldName := naming.GetFieldName(field)
 
-		var structField string
+		// indexField names the index that backs the field's filter. A text index holds
+		// the lower case of a string, and a sub-field index holds part of the value, so
+		// neither answers an exact match.
+		var indexField string
 		if hasIndex {
-			kind := "lookup"
-			if plugindomain.HasExprFromField(field, "index", "sorted") {
-				kind = "sorted"
-			}
-			// camelCase field name on the per-Retrieve indexes struct. Unexported
-			// because the indexes struct itself is unexported.
-			structField = naming.LowerFirst(goFieldName)
-			indexes = append(indexes, indexInfo{
+			idx := indexInfo{
 				FieldName:   field.Name,
 				GoName:      goFieldName,
 				Access:      access,
 				GoType:      goType,
-				StructField: structField,
-				Kind:        kind,
-			})
+				ValueGoType: goType,
+				Kind:        "lookup",
+			}
+			if plugindomain.HasExprFromField(field, "index", "sorted") {
+				sorts, err := resolution.Sorts([]resolution.Field{field}, table)
+				if err != nil {
+					return nil, errors.Wrapf(err, "%s", typ.QualifiedName)
+				}
+				sort := sorts[0]
+				idx.Kind, idx.Text = "sorted", sort.Text
+				for _, sub := range sort.Path[1:] {
+					idx.FieldName = sort.Name
+					idx.GoName += naming.GetFieldName(sub)
+					idx.Access += "." + naming.GetFieldName(sub)
+					idx.ValueGoType = r.ResolveTypeRef(sub.Type, ctx)
+				}
+				idx.GoType = idx.ValueGoType
+				if idx.Text {
+					idx.GoType = "string"
+				}
+			}
+			// camelCase field name on the per-Retrieve indexes struct. Unexported
+			// because the indexes struct itself is unexported.
+			idx.StructField = naming.LowerFirst(idx.GoName)
+			if !idx.Text && idx.Access == access {
+				indexField = idx.StructField
+			}
+			indexes = append(indexes, idx)
 		}
 
 		if hasFilter {
@@ -575,7 +619,7 @@ func extractRetrieveInfo(
 				IsScalar:       m.Kind.Scalar(),
 				IsBool:         key.ResolvePrimitive(field.Type, table) == "bool",
 				IsSlice:        m.Kind == matcher.Element,
-				IndexFieldName: structField,
+				IndexFieldName: indexField,
 			})
 		}
 	}
@@ -627,6 +671,8 @@ func extractRetrieveInfo(
 		TableName:   ownTable,
 		Name:        name,
 		AnyArgs:     anyArgs,
+		Params:      typeParams,
+		Args:        typeArgs,
 		GoName:      name + anyArgs,
 		KeyType:     keyType,
 		IsCustom:    isCustom,
@@ -713,6 +759,7 @@ type templateData struct {
 }
 
 var templateFuncs = template.FuncMap{
+	"comment":   func(name, text string) string { return doc.FormatGo(name, text) },
 	"toPascal":  naming.ToPascalCase,
 	"toLower":   strings.ToLower,
 	"pluralize": matcher.Plural,
@@ -787,7 +834,11 @@ func newIndexes() indexes {
 {{- range $idx := $ret.Indexes}}
 		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
 			"{{$idx.FieldName}}",
+{{- if $idx.Text}}
+			func(e *{{$ret.GoName}}) string { return compare.TextKey(string(e.{{$idx.Access}})) },
+{{- else}}
 			func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$idx.Access}} },
+{{- end}}
 		),
 {{- end}}
 {{- range $ref := $ret.Refs}}
@@ -901,35 +952,39 @@ func MatchSearch(term string) Filter{{$ret.AnyArgs}} {
 {{- end}}
 {{- if $ret.HasSortedIndex}}
 
-// Order is a per-service sort handle that is bound to the Retrieve when
-// passed to OrderBy. Construct one via an OrderByX free function (e.g.
-// OrderByCreatedAt). Order mirrors the Filter pattern: a closure that
-// receives the Retrieve at evaluation time and resolves the typed
-// SortedQuery against r.indexes, so the cursor stays statically typed
-// without needing a method on Retrieve.
-type Order func(r Retrieve) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}]
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order{{$ret.Params}} func(r Retrieve{{$ret.Args}}) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.Name}}{{$ret.Args}}]
 
-// OrderBy walks the results in the order defined by the given Order handle.
-// The Order is invoked with this Retrieve, which lets it reach r.indexes to
-// resolve the typed SortedQuery before passing it to gorp.
-func (r Retrieve) OrderBy(o Order) Retrieve {
+// OrderBy walks the {{$ret.Name | toLower | pluralize}} in the order o defines.
+func (r Retrieve{{$ret.Args}}) OrderBy(o Order{{$ret.Args}}) Retrieve{{$ret.Args}} {
 	r.gorp = r.gorp.OrderBy(o(r))
 	return r
 }
 {{- range $idx := $ret.Indexes}}
 {{- if $idx.IsSorted}}
 
-// OrderBy{{$idx.GoName}} returns an Order that walks
-// {{$ret.GoName | toLower | pluralize}} via the {{$idx.FieldName}} sorted index in
-// the given direction. Pass an optional cursor to resume pagination after a
-// previously visited value; the cursor is type-checked at the call site.
-func OrderBy{{$idx.GoName}}(dir gorp.Direction, cursor ...{{$idx.GoType}}) Order {
-	return func(r Retrieve) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}] {
-		q := r.indexes.{{$idx.StructField}}.Ordered(dir)
-		if len(cursor) > 0 {
-			q = q.After(cursor[0])
-		}
-		return q
+{{comment (print "OrderBy" $idx.GoName) (print "returns an Order by " $idx.FieldName (or (and $idx.Text " in lower case") "") ", then by key.")}}
+func OrderBy{{$idx.GoName}}(dir gorp.Direction) Order{{$ret.AnyArgs}} {
+	return func(r Retrieve{{$ret.AnyArgs}}) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}] {
+		return r.indexes.{{$idx.StructField}}.Ordered(dir)
+	}
+}
+
+{{comment (print "OrderBy" $idx.GoName "After") (print "returns an Order like OrderBy" $idx.GoName " that starts strictly past the position of value and key.")}}
+func OrderBy{{$idx.GoName}}After(
+	dir gorp.Direction,
+	value {{$idx.ValueGoType}},
+	key {{$ret.KeyType}},
+) Order{{$ret.AnyArgs}} {
+	return func(r Retrieve{{$ret.AnyArgs}}) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}] {
+{{- if $idx.Text}}
+		return r.indexes.{{$idx.StructField}}.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
+{{- else}}
+		return r.indexes.{{$idx.StructField}}.Ordered(dir).After(value, key)
+{{- end}}
 	}
 }
 {{- end}}
@@ -1120,6 +1175,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key {{$ret.KeyType}}) Retrieve {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 {{- if $ret.Filtered}}

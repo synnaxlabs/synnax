@@ -17,18 +17,43 @@ import "core/pkg/service/rack/pb/rack.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/rack/pb";
 
+// OrderField is a field that racks can be sorted by.
+enum OrderField {
+  ORDER_FIELD_NAME = 0;
+}
+
+// Cursor is a position in an order of racks: the sort value and the key of a rack.
+message Cursor {
+  // key is the key of the rack at the position.
+  uint32 key = 1;
+  // name is the name of the rack at the position, when the order sorts by it.
+  optional string name = 2;
+}
+
+// Order is a sort of racks.
+message Order {
+  // field is the field to sort by. Records with equal values sort by key.
+  OrderField field = 1;
+  // descending sorts from the greatest value to the least.
+  bool descending = 2;
+}
+
 // RetrieveRequest is a request to retrieve racks.
 message RetrieveRequest {
   // where selects the racks to retrieve. An absent where selects all of them.
   optional .service.rack.pb.Where where = 1;
   // search_term keeps the racks that match the term, closest match first.
   string search_term = 2;
+  // order sorts the racks. An absent order sorts them by key.
+  optional Order order = 3;
+  // after starts the racks strictly past this position in their order.
+  optional Cursor after = 4;
   // limit is the most racks to return.
-  optional uint32 limit = 3;
+  optional uint32 limit = 5;
   // offset is the number of matching racks to skip.
-  uint32 offset = 4;
+  uint32 offset = 6;
   // include_status includes the status of each record.
-  bool include_status = 5;
+  bool include_status = 7;
 }
 
 // RetrieveResponse holds the racks a RetrieveRequest selects.

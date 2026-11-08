@@ -25,6 +25,7 @@ Project struct {
     }
     name  string     {
         @doc value         "is a human-readable name for the project."
+        @index sorted
         @search
         @validate required
     }

@@ -913,6 +913,7 @@ Schematic struct {
     }
     name     string                     {
         @doc value         "is a human-readable name for the schematic."
+        @index sorted
         @search
         @validate required
     }

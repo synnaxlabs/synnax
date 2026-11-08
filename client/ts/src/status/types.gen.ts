@@ -32,6 +32,19 @@ export const loadingVariantZ = z.literal("loading");
 export const disabledVariantZ = z.literal("disabled");
 export type Variant = z.infer<typeof variantZ>;
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
+/** Order is a sort of statuses. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
@@ -135,6 +148,17 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   /** owners matches the statuses that the given resources own. */
   owners: zod.nullToUndefined(resource.idZ.array()),
 });
+
+/**
+ * Cursor is a position in an order of statuses: the sort value and the key of a status.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the status at the position. */
+  key: keyZ,
+  /** name is the name of the status at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 export type New<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
@@ -162,6 +186,10 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the statuses that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the statuses. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the statuses strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most statuses to return. */
   limit: z.uint32().optional(),
   /** offset is the number of matching statuses to skip. */

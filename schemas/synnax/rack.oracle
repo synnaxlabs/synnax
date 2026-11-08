@@ -42,6 +42,7 @@ Rack struct {
     name         string     {
         @doc value         "is a human-readable name for the rack."
         @filter
+        @index sorted
         @search
         @validate required
     }

@@ -55,10 +55,11 @@ Status struct<Details?, V extends Variant = Variant> {
         @key
     }
     name        string = "" {
-        @doc value """
+        @doc value    """
             is the name of what the status is about, such as a task, device, or rack.
             Empty when the status is not about a named thing.
         """
+        @index sorted
         @search
     }
     variant     V               {

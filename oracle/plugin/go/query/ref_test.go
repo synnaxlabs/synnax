@@ -537,8 +537,8 @@ var _ = Describe("@ref", func() {
 				"a filter with no generated Retrieve",
 				`name string @filter`,
 				"@retrieve indexes",
-				"@retrieve indexes generates no matchers or orderings, so field name "+
-					"cannot take @filter or @index sorted",
+				"@retrieve indexes generates no matchers, so field name cannot take "+
+					"@filter",
 			),
 			Entry(
 				"a type with no index",

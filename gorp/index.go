@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/internal/index"
+	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/gorp/internal/keyset"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -227,10 +228,10 @@ func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	return indexFilter[K, E](l.store, holdsValue(l.extract), values)
 }
 
-// SortedIndex is an ordered in-memory index on a field of type V extracted from entries
-// of type E. V is constrained to cmp.Ordered so the index can compare values without a
-// caller-supplied comparator. SortedIndex supports exact-match lookups via Filter (same
-// semantics as LookupIndex) and ordered cursor-based pagination via Retrieve.OrderBy.
+// SortedIndex is an ordered in-memory index on a value of type V extracted from entries
+// of type E. Entries order by value, then by key, so every walk has one total order.
+// SortedIndex supports exact-match lookups via Filter (same semantics as LookupIndex)
+// and ordered cursor-based pagination via Retrieve.OrderBy.
 //
 // Read-your-own-writes is v1-scoped to equality Filter. Ordered cursor iteration via
 // Retrieve.OrderBy does NOT reflect uncommitted tx writes; an open write tx that staged
@@ -253,7 +254,7 @@ func NewSortedIndex[K Key, E Entry[K], V cmp.Ordered](
 	return &SortedIndex[K, E, V]{
 		name:    name,
 		extract: extract,
-		store:   index.NewSorted[*txState, K, V](),
+		store:   index.NewSorted[*txState, K, V](key.Order[K]()),
 	}
 }
 

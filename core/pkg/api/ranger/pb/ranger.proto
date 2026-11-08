@@ -17,16 +17,45 @@ import "core/pkg/service/ranger/pb/ranger.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/ranger/pb";
 
+// OrderField is a field that ranges can be sorted by.
+enum OrderField {
+  ORDER_FIELD_NAME = 0;
+  ORDER_FIELD_TIME_RANGE_START = 1;
+}
+
+// Cursor is a position in an order of ranges: the sort value and the key of a range.
+message Cursor {
+  // key is the key of the range at the position.
+  string key = 1;
+  // name is the name of the range at the position, when the order sorts by it.
+  optional string name = 2;
+  // time_range_start is the time range start of the range at the position, when the
+  // order sorts by it.
+  optional int64 time_range_start = 3;
+}
+
+// Order is a sort of ranges.
+message Order {
+  // field is the field to sort by. Records with equal values sort by key.
+  OrderField field = 1;
+  // descending sorts from the greatest value to the least.
+  bool descending = 2;
+}
+
 // RetrieveRequest is a request to retrieve ranges.
 message RetrieveRequest {
   // where selects the ranges to retrieve. An absent where selects all of them.
   optional .service.ranger.pb.Where where = 1;
   // search_term keeps the ranges that match the term, closest match first.
   string search_term = 2;
+  // order sorts the ranges. An absent order sorts them by key.
+  optional Order order = 3;
+  // after starts the ranges strictly past this position in their order.
+  optional Cursor after = 4;
   // limit is the most ranges to return.
-  optional uint32 limit = 3;
+  optional uint32 limit = 5;
   // offset is the number of matching ranges to skip.
-  uint32 offset = 4;
+  uint32 offset = 6;
 }
 
 // RetrieveResponse holds the ranges a RetrieveRequest selects.
