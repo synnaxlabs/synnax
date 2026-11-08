@@ -1184,10 +1184,7 @@ var _ = Describe("Graph", func() {
 				calc1.Expression = "return f32(chain3_raw)"
 				calc1.DataType = telem.Float32T
 				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
-				err := g.Update(ctx, calc1)
-				Expect(
-					err,
-				).To(MatchError(ContainSubstring(
+				Expect(g.Update(ctx, calc1)).To(MatchError(ContainSubstring(
 					"failed to recompile dependent channel",
 				)))
 			},
@@ -1235,10 +1232,7 @@ var _ = Describe("Graph", func() {
 				left.Expression = "return f32(diamond_raw)"
 				left.DataType = telem.Float32T
 				Expect(channelWriter.Create(ctx, &left)).To(Succeed())
-				err := g.Update(ctx, left)
-				Expect(
-					err,
-				).To(MatchError(ContainSubstring(
+				Expect(g.Update(ctx, left)).To(MatchError(ContainSubstring(
 					"failed to recompile dependent channel",
 				)))
 
@@ -1339,10 +1333,7 @@ var _ = Describe("Graph", func() {
 				calc1.Expression = "return i64(rb_raw)"
 				calc1.DataType = telem.Int64T
 				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
-				err := g.Update(ctx, calc1)
-				Expect(
-					err,
-				).To(MatchError(ContainSubstring(
+				Expect(g.Update(ctx, calc1)).To(MatchError(ContainSubstring(
 					"failed to recompile dependent channel",
 				)))
 

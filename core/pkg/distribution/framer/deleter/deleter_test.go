@@ -55,7 +55,7 @@ var _ = Describe("Deleter", Ordered, func() {
 					))).To(BeTrue())
 					Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
 					Expect(w.Close()).To(Succeed())
-					i = MustSucceed(
+					i = MustOpen(
 						s.dist.Framer.OpenIterator(
 							ctx,
 							iterator.Config{
@@ -69,7 +69,6 @@ var _ = Describe("Deleter", Ordered, func() {
 					Expect(
 						s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax),
 					).To(Succeed())
-					Expect(i.Close()).To(Succeed())
 				})
 
 				It("Should delete one channel by key", func(ctx SpecContext) {

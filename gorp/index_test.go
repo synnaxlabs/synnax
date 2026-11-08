@@ -160,10 +160,7 @@ func wrapMsgpack(kvDB kv.DB) *gorp.DB {
 var _ = Describe("Index", func() {
 	var idxDB *gorp.DB
 	BeforeEach(func() {
-		idxDB = OpenGorpMsgpackDB()
-	})
-	AfterEach(func() {
-		Expect(idxDB.Close()).To(Succeed())
+		idxDB = DeferClose(OpenGorpMsgpackDB())
 	})
 
 	Describe("Filter from an observer of a commit", func() {
@@ -381,17 +378,13 @@ var _ = Describe("Index", func() {
 		})
 
 		Describe("Maintenance", func() {
-			var (
-				table   *gorp.Table[int32, indexedEntry]
-				nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
-			)
+			var nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
 			BeforeEach(func(ctx SpecContext) {
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				table = openIndexedTable(ctx, idxDB, nameIdx)
+				DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
 			})
-			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 			It("Should index newly created entries", func(ctx SpecContext) {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
@@ -453,7 +446,7 @@ var _ = Describe("Index", func() {
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				table = openIndexedTable(ctx, idxDB, nameIdx)
+				table = DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
 				seed := []indexedEntry{
 					{ID: 1, Name: "a"},
 					{ID: 2, Name: "b"},
@@ -464,7 +457,6 @@ var _ = Describe("Index", func() {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 			})
-			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 			It("Should return matching entries via Where", func(ctx SpecContext) {
 				var res []indexedEntry
@@ -523,7 +515,7 @@ var _ = Describe("Index", func() {
 				categoryIdx = gorp.NewLookupIndex(
 					"category", func(e *indexedEntry) string { return e.Category },
 				)
-				table = openIndexedTable(ctx, idxDB, nameIdx, categoryIdx)
+				table = DeferClose(openIndexedTable(ctx, idxDB, nameIdx, categoryIdx))
 				seed := []indexedEntry{
 					{ID: 1, Name: "a", Category: "x"},
 					{ID: 2, Name: "a", Category: "y"},
@@ -534,7 +526,6 @@ var _ = Describe("Index", func() {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 			})
-			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 			It("Should intersect two indexed filters via And", func(ctx SpecContext) {
 				var res []indexedEntry
@@ -609,15 +600,15 @@ var _ = Describe("Index", func() {
 						}
 					})
 					wg.Go(func() {
+						defer GinkgoRecover()
 						for range 200 {
-							_, _ = nameIdx.Get(ctx, nil, "shared")
+							MustSucceed(nameIdx.Get(ctx, nil, "shared"))
 						}
 					})
 					wg.Wait()
-					Eventually(func() int {
-						keys, _ := nameIdx.Get(ctx, nil, "shared")
-						return len(keys)
-					}).Should(Equal(100))
+					Eventually(func() ([]int32, error) {
+						return nameIdx.Get(ctx, nil, "shared")
+					}).Should(HaveLen(100))
 				},
 			)
 
@@ -716,7 +707,7 @@ var _ = Describe("Index", func() {
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				table = openIndexedTable(ctx, idxDB, nameIdx)
+				table = DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
 				seed := []indexedEntry{
 					{ID: 1, Name: "alpha"},
 					{ID: 2, Name: "beta"},
@@ -724,7 +715,6 @@ var _ = Describe("Index", func() {
 				Expect(table.NewCreate().
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 			})
-			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 			It("Should see an insert staged in the same tx", func(ctx SpecContext) {
 				tx := idxDB.OpenTx()
@@ -914,7 +904,7 @@ var _ = Describe("Index", func() {
 				scoreIdx = gorp.NewSortedIndex(
 					"score", func(e *indexedEntry) int64 { return e.Score },
 				)
-				table = openIndexedTable(ctx, idxDB, scoreIdx)
+				table = DeferClose(openIndexedTable(ctx, idxDB, scoreIdx))
 				seed := make([]indexedEntry, 20)
 				for i := range 20 {
 					seed[i] = indexedEntry{ID: int32(i), Score: int64(i * 10)}
@@ -922,7 +912,6 @@ var _ = Describe("Index", func() {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 			})
-			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 			It("Should walk ascending order with a limit", func(ctx SpecContext) {
 				var res []indexedEntry
@@ -1263,10 +1252,7 @@ var _ = Describe("Index", func() {
 var _ = Describe("Composite-string-keyed Lookup", func() {
 	var idxDB *gorp.DB
 	BeforeEach(func() {
-		idxDB = OpenGorpMsgpackDB()
-	})
-	AfterEach(func() {
-		Expect(idxDB.Close()).To(Succeed())
+		idxDB = DeferClose(OpenGorpMsgpackDB())
 	})
 
 	Describe("Population at OpenTable", func() {
@@ -1294,17 +1280,13 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 	})
 
 	Describe("Maintenance", func() {
-		var (
-			table *gorp.Table[string, relationEntry]
-			toIdx *gorp.LookupIndex[string, relationEntry, string]
-		)
+		var toIdx *gorp.LookupIndex[string, relationEntry, string]
 		BeforeEach(func(ctx SpecContext) {
 			toIdx = gorp.NewLookupIndex(
 				"to", func(e *relationEntry) string { return e.To },
 			)
-			table = openIndexedTable(ctx, idxDB, toIdx)
+			DeferClose(openIndexedTable(ctx, idxDB, toIdx))
 		})
-		AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 		It("Should index newly created entries", func(ctx SpecContext) {
 			Expect(gorp.NewCreate[string, relationEntry]().
@@ -1391,7 +1373,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			toIdx = gorp.NewLookupIndex(
 				"to", func(e *relationEntry) string { return e.To },
 			)
-			table = openIndexedTable(ctx, idxDB, toIdx)
+			table = DeferClose(openIndexedTable(ctx, idxDB, toIdx))
 			seed := []relationEntry{
 				{From: "a", To: "x"},
 				{From: "b", To: "y"},
@@ -1399,7 +1381,6 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			Expect(table.NewCreate().
 				Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 		})
-		AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 		It("Should see an insert staged in the same tx", func(ctx SpecContext) {
 			tx := idxDB.OpenTx()

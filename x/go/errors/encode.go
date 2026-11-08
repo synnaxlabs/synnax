@@ -71,12 +71,7 @@ func Expected(ctx context.Context, err error) bool {
 		}
 		return true
 	}
-	for _, p := range _registry.providers {
-		if _, ok := p.encode(ctx, err); ok {
-			return true
-		}
-	}
-	return false
+	return _registry.encode(ctx, err, false).Type != TypeUnknown
 }
 
 // Decode decodes a payload into an error. If the payload's type is TypeUnknown, returns
