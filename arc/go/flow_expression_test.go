@@ -82,7 +82,7 @@ var _ = Describe("Literal expressions in flows", func() {
 		Entry("stateful f32", "v f32 $= 0.0", "1.5 * 2.0", types.F32(), 3.0),
 	)
 
-	It("Should type a literal in each format string placeholder", func(ctx SpecContext) {
+	It("Should type each placeholder literal on its own", func(ctx SpecContext) {
 		h := newRuntimeHarness(ctx, `
 		func f() {a f32} {
 			b f64 := 2.0
