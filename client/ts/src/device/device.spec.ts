@@ -257,7 +257,7 @@ describe("Device", async () => {
       await waitForStreamLive(local.connection);
       await local.devices.retrieve(d.key);
       const { responded, release } = holdResponses(local, "/device/retrieve");
-      const fetching = local.devices.retrieve({ where: { name: { eq: d.name } } });
+      const fetching = local.devices.retrieve({ name: [d.name] });
       await responded;
       const name = `device-renamed-${id.create()}`;
       await client.devices.rename(d.key, name);
@@ -362,13 +362,9 @@ describe("Device", async () => {
       const chassis = await client.devices.create(make("chassis"));
       const module = await client.devices.create(make("module", chassis.key));
       expect(module.parent).toEqual(chassis.key);
-      const held = await client.devices.retrieve({
-        where: { parents: [chassis.key] },
-      });
+      const held = await client.devices.retrieve({ parents: [chassis.key] });
       expect(held.map(({ key }) => key)).toEqual([module.key]);
-      const top = await client.devices.retrieve({
-        where: { rack: { eq: rack }, nested: false },
-      });
+      const top = await client.devices.retrieve({ rack, nested: false });
       expect(top.map(({ key }) => key)).toEqual([chassis.key]);
     });
 
@@ -407,9 +403,7 @@ describe("Device", async () => {
         model: "dog",
         properties: { cat: "dog" },
       });
-      const retrieved = await client.devices.retrieve({
-        where: { key: { in: [d1.key, d2.key] } },
-      });
+      const retrieved = await client.devices.retrieve({ key: [d1.key, d2.key] });
       expect(retrieved.length).toBe(2);
       expect(retrieved[0].key).toBe(d1.key);
       expect(retrieved[1].key).toBe(d2.key);
@@ -478,7 +472,7 @@ describe("Device", async () => {
         properties: {},
       });
       const retrieved = await createTestClient().devices.retrieve({
-        where: { key: { in: [d.key, id.create()] } },
+        key: [d.key, id.create()],
       });
       expect(retrieved.map(({ key }) => key)).toEqual([d.key]);
     });
@@ -640,7 +634,7 @@ describe("Device", async () => {
         await expect
           .poll(async () => {
             const retrievedDevices = await client.devices.retrieve({
-              where: { key: { in: [d1.key, d2.key] } },
+              key: [d1.key, d2.key],
               includeStatus: true,
             });
             if (retrievedDevices.length !== 2) return false;
@@ -712,7 +706,7 @@ describe("Device", async () => {
 
       it("should retrieve devices by names", async () => {
         const result = await client.devices.retrieve({
-          where: { name: { in: ["sensor1", "actuator1"] } },
+          name: ["sensor1", "actuator1"],
         });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(unique.unique(result.map((d) => d.name).sort())).toEqual([
@@ -722,17 +716,13 @@ describe("Device", async () => {
       });
 
       it("should retrieve devices by makes", async () => {
-        const result = await client.devices.retrieve({
-          where: { make: { eq: "ni" } },
-        });
+        const result = await client.devices.retrieve({ make: "ni" });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(result.every((d) => d.make === "ni")).toBe(true);
       });
 
       it("should retrieve devices by models", async () => {
-        const result = await client.devices.retrieve({
-          where: { model: { in: ["pxi-6281", "t7"] } },
-        });
+        const result = await client.devices.retrieve({ model: ["pxi-6281", "t7"] });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(unique.unique(result.map((d) => d.model).sort())).toEqual([
           "pxi-6281",
@@ -741,17 +731,13 @@ describe("Device", async () => {
       });
 
       it("should retrieve devices by locations", async () => {
-        const result = await client.devices.retrieve({
-          where: { location: { eq: "Lab1" } },
-        });
+        const result = await client.devices.retrieve({ location: "Lab1" });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(result.every((d) => d.location === "Lab1")).toBe(true);
       });
 
       it("should retrieve devices by racks", async () => {
-        const result = await client.devices.retrieve({
-          where: { rack: { eq: testRack.key } },
-        });
+        const result = await client.devices.retrieve({ rack: testRack.key });
         expect(result.length).toBeGreaterThanOrEqual(5);
         expect(result.every((d) => d.rack === testRack.key)).toBe(true);
       });
@@ -768,14 +754,14 @@ describe("Device", async () => {
 
       it("should support pagination with limit and offset", async () => {
         const firstPage = await client.devices.retrieve({
-          where: { rack: { eq: testRack.key } },
+          rack: testRack.key,
           limit: 2,
           offset: 0,
         });
         expect(firstPage).toHaveLength(2);
 
         const secondPage = await client.devices.retrieve({
-          where: { rack: { eq: testRack.key } },
+          rack: testRack.key,
           limit: 2,
           offset: 2,
         });
@@ -788,7 +774,8 @@ describe("Device", async () => {
 
       it("should support combined filters", async () => {
         const result = await client.devices.retrieve({
-          where: { make: { eq: "ni" }, location: { in: ["Lab1", "Lab2"] } },
+          make: "ni",
+          location: ["Lab1", "Lab2"],
           includeStatus: true,
         });
         expect(result.length).toBeGreaterThanOrEqual(1);
@@ -799,7 +786,8 @@ describe("Device", async () => {
         await expect
           .poll(async () => {
             const devices = await client.devices.retrieve({
-              where: { make: { eq: "ni" }, location: { in: ["Lab1", "Lab2"] } },
+              make: "ni",
+              location: ["Lab1", "Lab2"],
               includeStatus: true,
             });
             return devices.every((d) => d.status !== undefined);
@@ -960,7 +948,7 @@ describe("Device", async () => {
         );
 
         const retrieved = await client.devices.retrieve({
-          where: { key: { in: [d1.key, d2.key] } },
+          key: [d1.key, d2.key],
           schemas,
         });
         expect(retrieved).toHaveLength(2);
@@ -1063,12 +1051,10 @@ describe("Device", async () => {
         model: "dog",
         properties: {},
       });
-      await client.devices.retrieve({ where: { key: { in: [d1.key, d2.key] } } });
+      await client.devices.retrieve({ key: [d1.key, d2.key] });
       // Fetched records in the store do not answer a filter query that was
       // never fetched itself.
-      expect(
-        client.devices.getCached({ where: { make: { eq: make } } }),
-      ).toBeUndefined();
+      expect(client.devices.getCached({ make })).toBeUndefined();
     });
 
     it("returns undefined for unfetched server-computed query shapes", async () => {
@@ -1082,10 +1068,8 @@ describe("Device", async () => {
         model: "dog",
         properties: {},
       });
-      await client.devices.retrieve({ where: { key: { in: [dev.key] } } });
-      expect(
-        client.devices.getCached({ where: { make: { eq: make } }, limit: 1 }),
-      ).toBeUndefined();
+      await client.devices.retrieve({ key: [dev.key] });
+      expect(client.devices.getCached({ make, limit: 1 })).toBeUndefined();
       expect(client.devices.getCached({ searchTerm: make })).toBeUndefined();
     });
   });

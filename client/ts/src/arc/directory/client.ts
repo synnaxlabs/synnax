@@ -103,7 +103,7 @@ export class Client extends query.Retriever<
 
   /** Retrieves the directory that holds every other directory and Arc. */
   async retrieveRoot(): Promise<Directory> {
-    const [root] = await this.retrieve({ where: { nested: false } });
+    const [root] = await this.retrieve({ nested: false });
     return root;
   }
 
