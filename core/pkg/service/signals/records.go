@@ -28,6 +28,12 @@ type RecordOf func(sample []byte) (resource.ID, error)
 // created. The caller must not modify the map.
 func (p *Provider) Records() map[channel.Key]RecordOf { return p.records }
 
+// Publishes reports whether PublishTable or PublishActions created the channel.
+func (p *Provider) Publishes(key channel.Key) bool {
+	_, ok := p.records[key]
+	return ok
+}
+
 // UnmarshalEntryKey returns the key of the entry that a JSON sample holds. Use it as
 // TableConfig.SetKey when the key field of the JSON is not the key of the entry.
 func UnmarshalEntryKey[K gorp.Key, E gorp.Entry[K]](sample []byte) (K, error) {
