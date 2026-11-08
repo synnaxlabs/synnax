@@ -54,7 +54,9 @@ export interface NumericProps
    * works as the sentinel.
    */
   emptyValue?: number;
-  /** Called when the user commits an empty input. Without it, an empty input reverts. */
+  /**
+   * Called when the user commits an empty input. Without it, an empty input reverts.
+   */
   onClear?: () => void;
 }
 
