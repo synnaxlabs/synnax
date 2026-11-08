@@ -55,6 +55,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	svccertificate "github.com/synnaxlabs/synnax/pkg/service/certificate"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcsecret "github.com/synnaxlabs/synnax/pkg/service/secret"
 	svctask "github.com/synnaxlabs/synnax/pkg/service/task"
@@ -893,9 +894,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
 		Records: map[svcchannel.Key]framer.RecordOf{
-			cfg.Service.Task.ActionChannelKey():   svctask.ActionRecord,
-			cfg.Service.Secret.SetChannelKey():    svcsecret.SetRecord,
-			cfg.Service.Secret.DeleteChannelKey(): svcsecret.DeleteRecord,
+			cfg.Service.Task.ActionChannelKey():        svctask.ActionRecord,
+			cfg.Service.Secret.SetChannelKey():         svcsecret.SetRecord,
+			cfg.Service.Secret.DeleteChannelKey():      svcsecret.DeleteRecord,
+			cfg.Service.Certificate.SetChannelKey():    svccertificate.SetRecord,
+			cfg.Service.Certificate.DeleteChannelKey(): svccertificate.DeleteRecord,
 		},
 	}); err != nil {
 		return nil, err
