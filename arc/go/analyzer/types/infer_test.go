@@ -68,6 +68,43 @@ var _ = Describe("Module constants", func() {
 		return ctx
 	}
 
+	DescribeTable("Should give a read of an untyped variable one type",
+		func(bCtx SpecContext, constraint *types.Type, expected types.Kind) {
+			parsed := MustSucceed(parser.ParseExpression("x + x"))
+			ctx := acontext.NewRoot(bCtx, parsed, NewRoot(nil, symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindVariable,
+				Type: types.Variable("x", constraint),
+			}))
+			Expect(atypes.InferFromExpression(ctx).Kind).To(Equal(expected))
+		},
+		Entry("an integer", new(types.IntegerConstraint()), types.KindI64),
+		Entry("a float", new(types.FloatConstraint()), types.KindF64),
+		Entry("a numeric value", new(types.NumericConstraint()), types.KindVariable),
+		Entry("an unconstrained value", nil, types.KindVariable),
+	)
+
+	DescribeTable("Should reject a series element of another type",
+		func(bCtx SpecContext, expr, message string) {
+			parsed := MustSucceed(parser.ParseExpression(expr))
+			ctx := acontext.NewRoot(bCtx, parsed, NewRoot(nil, symbol.Symbol{
+				Name: "n", Kind: symbol.KindVariable, Type: types.I32(),
+			}, symbol.Symbol{
+				Name: "e",
+				Kind: symbol.KindVariable,
+				Type: types.Series(types.Variable("e", nil)),
+			}))
+			atypes.InferFromExpression(ctx)
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+		},
+		Entry("after a float", "[1.5, n]", "has incompatible type i32"),
+		Entry(
+			"after a float bound an open element",
+			"[e[0], 1.5, n]",
+			"float is not compatible with i32",
+		),
+	)
+
 	It(
 		"Should add no constraint for a read of a typed variable",
 		func(bCtx SpecContext) {
@@ -1052,6 +1089,19 @@ var _ = Describe("Type Inference", func() {
 			Entry("channel to scalar", types.I32(), types.Chan(types.I32()), false),
 			Entry("scalar to channel", types.Chan(types.I32()), types.I32(), false),
 		)
+
+		It("Should store a typed series element at its kind, units aside", func() {
+			psi := MustSucceed(atypes.InferFromTypeContext(
+				parseTypeFromDecl("p f32 psi := 0"),
+			))
+			system := constraints.New()
+			Expect(atypes.LiteralAssignmentCompatible(
+				system, types.Series(psi), types.Series(types.F32()), nil,
+			)).To(BeTrue())
+			Expect(atypes.LiteralAssignmentCompatible(
+				system, types.Series(types.F32()), types.Series(types.F64()), nil,
+			)).To(BeFalse())
+		})
 
 		DescribeTable("Should bind a series element variable",
 			func(elem, constraint types.Type) {

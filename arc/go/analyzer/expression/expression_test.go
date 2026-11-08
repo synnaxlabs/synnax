@@ -1963,6 +1963,21 @@ var _ = Describe("Expressions", func() {
 		)
 	})
 
+	Describe("Empty series operands", func() {
+		It("Should bind empty series to an arithmetic operator", func(ctx SpecContext) {
+			expectSuccess(ctx, "func f() {\na := []\nb := []\nz := a * b\n}", nil)
+		})
+
+		It("Should reject an empty series with a bool series", func(ctx SpecContext) {
+			expectFailure(
+				ctx,
+				"func f() {\nflags series bool := [true]\nz := [] * flags\n}",
+				nil,
+				"cannot use bool",
+			)
+		})
+	})
+
 	Describe("NaN and infinity", func() {
 		extras := []symbol.Symbol{
 			{Name: "nan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},

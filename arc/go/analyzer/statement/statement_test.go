@@ -552,6 +552,16 @@ var _ = Describe("Statement", func() {
 			Entry("a float after a typed write", "x := 0\nx = v\nx = 1.5", ""),
 			Entry("a typed write after a float", "x := 0.0\nx = 1.0\nx = v", ""),
 			Entry(
+				"an integer write after a float added to an empty series",
+				"n i32 := 1\ny := []\ny += 1.5\ny[0] = n",
+				"i32",
+			),
+			Entry(
+				"an integer write after a float written to an empty series element",
+				"n i32 := 1\ny := []\nw := len(y)\ny[0] += 1.5\ny[0] = n",
+				"i32",
+			),
+			Entry(
 				"a typed element after a float bound an open element",
 				"n i32 := 1\ne := []\ny := [e[0], 1.5, n]",
 				"float is not compatible with i32",
@@ -587,6 +597,23 @@ var _ = Describe("Statement", func() {
 				"n i32 := 1\ny := [2.0, 1.5]\ny[0] = n",
 				"i32 is not compatible with float",
 			),
+		)
+
+		DescribeTable("Should check a returned series literal",
+			func(specCtx SpecContext, returnType, message string) {
+				ast := MustSucceed(parser.Parse(
+					"func g() series " + returnType + " {\nreturn [1.5]\n}",
+				))
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				if message == "" {
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					return
+				}
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("a float series", "f32", ""),
+			Entry("an integer series", "i32", "cannot return"),
 		)
 
 		DescribeTable(

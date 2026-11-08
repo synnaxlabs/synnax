@@ -114,6 +114,24 @@ var _ = Describe("Type Unification", func() {
 			Entry("exact float first", false),
 		)
 
+		DescribeTable(
+			"Should keep the float's constraint with a numeric variable in either order",
+			func(firstIsFloat bool) {
+				numericConstraint := types.NumericConstraint()
+				numeric := types.Variable("numeric", &numericConstraint)
+				left, right := float, numeric
+				if !firstIsFloat {
+					left, right = numeric, float
+				}
+				system := constraints.New()
+				Expect(system.AddEquality(left, right, nil, "test")).To(Succeed())
+				Expect(system.AddEquality(numeric, types.I32(), nil, "test")).
+					To(MatchError(ContainSubstring("i32")))
+			},
+			Entry("float first", true),
+			Entry("numeric first", false),
+		)
+
 		It("Should take a concrete f32 through the float", func() {
 			system := constraints.New()
 			Expect(system.AddCompatible(float, integer, nil, "test")).To(Succeed())
