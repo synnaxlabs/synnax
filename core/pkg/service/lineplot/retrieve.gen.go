@@ -15,7 +15,14 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 )
+
+// tableName names the LinePlot table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "lineplot"
 
 // Retrieve is used to retrieve LinePlot records from the database using a
 // builder pattern for constructing queries.
@@ -30,7 +37,10 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	search *gorp.SearchIndex[Key, LinePlot]
+	group    *gorp.KeyReference[Key, LinePlot, group.Key]
+	project  *gorp.KeyReference[Key, LinePlot, project.Key]
+	rangeVal *gorp.KeyReference[Key, LinePlot, ranger.Key]
+	search   *gorp.SearchIndex[Key, LinePlot]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -38,6 +48,40 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, LinePlot, group.Key]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: gorp.Detach,
+			Targets: func(e *LinePlot) []group.Key {
+				if e.Group == nil {
+					return nil
+				}
+				return []group.Key{*e.Group}
+			},
+			Detach: func(e *LinePlot, _ group.Key) { e.Group = nil },
+		}),
+		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, LinePlot, project.Key]{
+			Name:     "project",
+			Table:    "project",
+			OnDelete: gorp.Cascade,
+			Targets: func(e *LinePlot) []project.Key {
+				if e.Project == nil {
+					return nil
+				}
+				return []project.Key{*e.Project}
+			},
+		}),
+		rangeVal: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, LinePlot, ranger.Key]{
+			Name:     "range",
+			Table:    "range",
+			OnDelete: gorp.Cascade,
+			Targets: func(e *LinePlot) []ranger.Key {
+				if e.Range == nil {
+					return nil
+				}
+				return []ranger.Key{*e.Range}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, LinePlot](
 			"search",
 			func(e *LinePlot) []string {
@@ -52,6 +96,16 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, LinePlot] {
 	return []gorp.Index[Key, LinePlot]{
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, LinePlot] {
+	return []gorp.Reference[Key, LinePlot]{
+		i.group,
+		i.project,
+		i.rangeVal,
 	}
 }
 
@@ -112,6 +166,72 @@ func (r Retrieve) Search(term string) Retrieve {
 func MatchKeys(keys ...Key) Filter {
 	return func(Retrieve) gorp.Filter[Key, LinePlot] {
 		return gorp.MatchKeys[Key, LinePlot](keys...)
+	}
+}
+
+// MatchGroups returns a filter for lineplots
+// whose Group matches any of the provided
+// values.
+func MatchGroups(vals ...group.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, LinePlot] {
+		return r.indexes.group.Filter(vals...)
+	}
+}
+
+// MatchHasGroup returns a filter for lineplots whose
+// Group holds a target when has is true, and holds none when has is false.
+func MatchHasGroup(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, LinePlot] {
+		return r.indexes.group.FilterHolding(has)
+	}
+}
+
+// setGroup returns an update that sets the Group of the
+// lineplots with keys to v.
+func setGroup(
+	table *gorp.Table[Key, LinePlot],
+	v *group.Key,
+	keys ...Key,
+) gorp.Update[Key, LinePlot] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[Key, LinePlot](keys...)).
+		Change(func(_ gorp.Context, e LinePlot) LinePlot {
+			e.Group = v
+			return e
+		})
+}
+
+// MatchProjects returns a filter for lineplots
+// whose Project matches any of the provided
+// values.
+func MatchProjects(vals ...project.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, LinePlot] {
+		return r.indexes.project.Filter(vals...)
+	}
+}
+
+// MatchHasProject returns a filter for lineplots whose
+// Project holds a target when has is true, and holds none when has is false.
+func MatchHasProject(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, LinePlot] {
+		return r.indexes.project.FilterHolding(has)
+	}
+}
+
+// MatchRanges returns a filter for lineplots
+// whose Range matches any of the provided
+// values.
+func MatchRanges(vals ...ranger.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, LinePlot] {
+		return r.indexes.rangeVal.Filter(vals...)
+	}
+}
+
+// MatchHasRange returns a filter for lineplots whose
+// Range holds a target when has is true, and holds none when has is false.
+func MatchHasRange(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, LinePlot] {
+		return r.indexes.rangeVal.FilterHolding(has)
 	}
 }
 

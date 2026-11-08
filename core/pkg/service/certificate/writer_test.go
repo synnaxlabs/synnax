@@ -26,13 +26,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -363,12 +363,12 @@ var _ = Describe("Writer", func() {
 				Expect(e.secrets.NewRetrieve().
 					Where(secret.MatchKeys(secretKey)).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-				Expect(e.otg.NewRetrieve().
-					WhereIDs(c.OntologyID()).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				var found []status.Status[any]
 				Expect(e.status.NewRetrieve[any]().
-					Where(status.MatchKeys[any](c.OntologyID().String())).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Where(status.MatchOwners[any](c.ResourceID())).
+					Entries(&found).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(found).To(BeEmpty())
 			},
 		)
 		It("Should succeed for a missing certificate", func(ctx SpecContext) {
@@ -383,13 +383,13 @@ var _ = Describe("Writer", func() {
 					encodeKey(key),
 				)
 				secretKey := *c.Variant.(certificate.StoredCertificate).PrivateKey
-				Expect(e.secrets.NewWriter(nil).Delete(ctx, secretKey)).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(
-						`cannot delete secret "Plant private key" because `+
-							`certificate "Plant" uses it`,
-					)),
-				))
+				Expect(e.secrets.NewWriter(nil).Delete(ctx, secretKey)).To(
+					MatchError(gorp.RestrictError{
+						Target:    gorp.NewTarget("secret", secretKey),
+						Holder:    gorp.NewTarget("certificate", c.Base().Key),
+						Reference: "private_key",
+					}),
+				)
 			},
 		)
 	})

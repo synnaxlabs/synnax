@@ -58,7 +58,7 @@ func ResolveReadConfig(
 	slaves Slaves,
 	cfg *ReadConfig,
 ) error {
-	found, err := readSlaves(
+	found, err := ReadSlaves(
 		ctx,
 		tx,
 		slaves,
@@ -75,7 +75,7 @@ func ResolveReadConfig(
 		if !ok {
 			continue
 		}
-		if e, ok := resolve(found[u.Device].Inputs, u.Pdo); ok {
+		if e, ok := FindEntry(found[u.Device].Inputs, u.Pdo); ok {
 			cfg.Channels[i].Variant = EntryReadChannel{
 				BaseReadChannel: u.BaseReadChannel,
 				Index:           e.Index,
@@ -96,7 +96,7 @@ func ResolveWriteConfig(
 	slaves Slaves,
 	cfg *WriteConfig,
 ) error {
-	found, err := readSlaves(
+	found, err := ReadSlaves(
 		ctx,
 		tx,
 		slaves,
@@ -113,7 +113,7 @@ func ResolveWriteConfig(
 		if !ok {
 			continue
 		}
-		if e, ok := resolve(found[u.Device].Outputs, u.Pdo); ok {
+		if e, ok := FindEntry(found[u.Device].Outputs, u.Pdo); ok {
 			cfg.Channels[i].Variant = EntryWriteChannel{
 				BaseWriteChannel: u.BaseWriteChannel,
 				Index:            e.Index,
@@ -178,9 +178,9 @@ func newMigration[I, O gorp.Entry[uuid.UUID]](
 	)
 }
 
-// resolve returns the entry in entries named name. ok is false when the name matches no
-// entry, or entries at more than one address.
-func resolve(entries []Entry, name string) (Entry, bool) {
+// FindEntry returns the entry in entries named name. ok is false when the name matches
+// no entry, or entries at more than one address.
+func FindEntry(entries []Entry, name string) (Entry, bool) {
 	matches := lo.UniqBy(
 		lo.Filter(entries, func(e Entry, _ int) bool { return e.Name == name }),
 		func(e Entry) [2]int { return [2]int{int(e.Index), int(e.SubIndex)} },
@@ -191,7 +191,9 @@ func resolve(entries []Entry, name string) (Entry, bool) {
 	return matches[0], true
 }
 
-func readSlaves(
+// ReadSlaves returns the slaves among keys, read through tx. It reads nothing when keys
+// is empty.
+func ReadSlaves(
 	ctx context.Context,
 	tx gorp.Tx,
 	slaves Slaves,

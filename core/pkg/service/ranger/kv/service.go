@@ -51,9 +51,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Service is the main entry point for managing key-value pairs on ranges.
 type Service struct {
-	closer xio.MultiCloser
-	cfg    ServiceConfig
-	table  *gorp.Table[string, Pair]
+	closer  xio.MultiCloser
+	cfg     ServiceConfig
+	table   *gorp.Table[string, Pair]
+	indexes indexes
 }
 
 // OpenService opens a new kv.Service with the provided configuration.
@@ -62,11 +63,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Pair]{
 		DB:              cfg.DB,
+		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

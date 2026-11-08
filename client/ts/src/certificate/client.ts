@@ -17,14 +17,12 @@ import {
   fileCertificateZ,
   type Key,
   keyZ,
-  ontologyID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
   storedCertificateZ,
 } from "@/certificate/types.gen";
 import { matches, retrieveInputZ, serverComputed } from "@/certificate/where.gen";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_certificate_set";
@@ -63,7 +61,6 @@ export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiPara
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<
@@ -126,10 +123,7 @@ export class Client extends query.Retriever<
    * @throws {AccessDeniedError} if the caller may not update the certificate.
    */
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
@@ -150,12 +144,7 @@ export class Client extends query.Retriever<
    */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const ids = ontologyID(keysArr);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(ids),
-      this.store.delete(keysArr),
-      this.cfg.ontology.cache.resources.delete(ontology.idToString(ids)),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

@@ -74,10 +74,10 @@ class Target:
 
 
 def post(review: Review, *, target: Target, gh: GH) -> None:
-    """Posts a review the way Greptile does. Findings on lines of the diff become one
-    review of inline threads, skipping any finding an unresolved thread of the bot
-    already holds. The rest go in one comment the bot edits on each review. The
-    summary in the pull request body is replaced, and the check run completes.
+    """Posts a review. Findings on lines of the diff become one review of inline
+    threads, skipping any finding an unresolved thread of the bot already holds. The
+    rest go in one comment the bot edits on each review. The summary in the pull
+    request body is replaced, and the check run completes.
     """
     t = target
     blob = f"https://github.com/{t.repo}/blob/{t.head}"

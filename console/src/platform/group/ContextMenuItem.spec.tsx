@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, ranger, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  access,
+  channel,
+  group,
+  resource,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
@@ -22,17 +28,17 @@ import { createConsoleWrapper } from "@/testutil";
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-const parentID = group.ontologyID(id.create());
-const childID = ranger.ontologyID(id.create());
-const parentKey = ontology.idToString(parentID);
-const childKey = ontology.idToString(childID);
+const parentID = group.resourceID(id.create());
+const childID = channel.resourceID(1);
+const parentKey = resource.idToString(parentID);
+const childKey = resource.idToString(childID);
 
 const shape: Tree.Shape = Tree.flatten({
   nodes: [{ key: parentKey, children: [{ key: childKey }] }],
   expanded: [parentKey],
 });
 
-const nestedRootID = group.ontologyID(id.create());
+const rootID = channel.TYPE_RESOURCE_ID;
 
 const renderItems = async (ui: ReactElement) => {
   const { wrapper } = await createConsoleWrapper({ client });
@@ -46,7 +52,7 @@ describe("Group.ContextMenuItem", () => {
       <PMenu.Menu onChange={onChange}>
         <Group.ContextMenuItem
           ids={[childID]}
-          rootID={ontology.ROOT_ID}
+          rootID={rootID}
           parentID={parentID}
           shape={shape}
         />
@@ -57,31 +63,31 @@ describe("Group.ContextMenuItem", () => {
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("group"));
   });
 
-  it("should show the group item for a top-level selection when the root is not the ontology root", async () => {
+  it("should show the group item for a top-level selection", async () => {
     await renderItems(
       <Group.ContextMenuItem
         ids={[parentID]}
-        rootID={nestedRootID}
-        parentID={nestedRootID}
+        rootID={rootID}
+        parentID={rootID}
         shape={shape}
       />,
     );
     await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
   });
 
-  it("should hide the group item for a top-level selection at the ontology root", async () => {
+  it("should hide the group item in a tree that holds no groups", async () => {
     await renderItems(
       <>
         <Group.ContextMenuItem
           ids={[childID]}
-          rootID={ontology.ROOT_ID}
+          rootID={rootID}
           parentID={parentID}
           shape={shape}
         />
         <Group.ContextMenuItem
-          ids={[parentID]}
-          rootID={ontology.ROOT_ID}
-          parentID={ontology.ROOT_ID}
+          ids={[childID]}
+          rootID={access.role.TYPE_RESOURCE_ID}
+          parentID={parentID}
           shape={shape}
         />
       </>,
@@ -90,19 +96,19 @@ describe("Group.ContextMenuItem", () => {
   });
 
   it("should hide the group item when the selection is absent from the tree", async () => {
-    const absentID = ranger.ontologyID(id.create());
+    const absentID = channel.resourceID(3);
     await renderItems(
       <>
         <Group.ContextMenuItem
           ids={[childID]}
-          rootID={ontology.ROOT_ID}
+          rootID={rootID}
           parentID={parentID}
           shape={shape}
         />
         <Group.ContextMenuItem
           ids={[absentID]}
-          rootID={ontology.ROOT_ID}
-          parentID={ontology.ROOT_ID}
+          rootID={rootID}
+          parentID={rootID}
           shape={shape}
         />
       </>,
@@ -115,13 +121,13 @@ describe("Group.ContextMenuItem", () => {
       <>
         <Group.ContextMenuItem
           ids={[childID]}
-          rootID={ontology.ROOT_ID}
+          rootID={rootID}
           parentID={parentID}
           shape={shape}
         />
         <Group.ContextMenuItem
           ids={[childID]}
-          rootID={ontology.ROOT_ID}
+          rootID={rootID}
           parentID={null}
           shape={shape}
         />
@@ -131,8 +137,8 @@ describe("Group.ContextMenuItem", () => {
   });
 
   it("should show the group item for a multi-item selection sharing the same minimum depth", async () => {
-    const siblingID = ranger.ontologyID(id.create());
-    const siblingKey = ontology.idToString(siblingID);
+    const siblingID = channel.resourceID(2);
+    const siblingKey = resource.idToString(siblingID);
     const multiShape: Tree.Shape = Tree.flatten({
       nodes: [{ key: parentKey, children: [{ key: childKey }, { key: siblingKey }] }],
       expanded: [parentKey],
@@ -140,7 +146,7 @@ describe("Group.ContextMenuItem", () => {
     await renderItems(
       <Group.ContextMenuItem
         ids={[childID, siblingID]}
-        rootID={ontology.ROOT_ID}
+        rootID={rootID}
         parentID={parentID}
         shape={multiShape}
       />,
@@ -155,7 +161,7 @@ describe("Group.ContextMenuItem permissions", () => {
     return render(
       <Group.ContextMenuItem
         ids={[childID]}
-        rootID={ontology.ROOT_ID}
+        rootID={rootID}
         parentID={parentID}
         shape={shape}
       />,

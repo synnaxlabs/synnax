@@ -13,9 +13,10 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
+from synnax.access import role
 from synnax.exceptions import ValidationError
 from synnax.user.payload import New, User
-from synnax.user.types_gen import RetrieveRequest, Where, WhereInput
+from synnax.user.types_gen import Key, RetrieveRequest, Where, WhereInput
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -48,6 +49,12 @@ class _ChangeNameRequest(BaseModel):
     name: str
 
 
+class _SetRolesRequest(BaseModel):
+    keys: list[Key]
+    add: list[role.Key]
+    remove: list[role.Key]
+
+
 class Client:
     client: UnaryClient
 
@@ -62,6 +69,7 @@ class Client:
         password: str,
         name: str = "",
         key: UUID | None = None,
+        roles: list[role.Key] | None = None,
     ) -> User: ...
 
     @overload
@@ -78,6 +86,7 @@ class Client:
         password: str | None = None,
         name: str = "",
         key: UUID | None = None,
+        roles: list[role.Key] | None = None,
         user: New | None = None,
         users: list[New] | None = None,
     ) -> User | list[User]:
@@ -89,6 +98,7 @@ class Client:
                 password=password,
                 name=name,
                 key=key,
+                roles=roles or [],
             )
         single = user is not None
         if user is not None:
@@ -112,12 +122,35 @@ class Client:
     def change_name(self, key: UUID, *, name: str) -> None:
         self.client.send("/user/rename", _ChangeNameRequest(key=key, name=name), Empty)
 
+    def set_roles(
+        self,
+        keys: Key | list[Key],
+        *,
+        add: list[role.Key] | None = None,
+        remove: list[role.Key] | None = None,
+    ) -> None:
+        """Removes roles from the users with the given keys, then adds roles to them.
+        The Core applies both in one transaction, and a role in both lists is held
+        after the call.
+
+        :param keys: The keys of the users.
+        :param add: The keys of the roles to add. Each one goes ahead of the roles a
+            user keeps.
+        :param remove: The keys of the roles to remove.
+        """
+        self.client.send(
+            "/user/set-roles",
+            _SetRolesRequest(keys=normalize(keys), add=add or [], remove=remove or []),
+            Empty,
+        )
+
     @overload
     def retrieve(
         self,
         *,
         key: UUID,
         usernames: str | list[str] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -133,6 +166,7 @@ class Client:
         key: filter.SetInput[UUID] = ...,
         username: str,
         usernames: str | list[str] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -147,6 +181,7 @@ class Client:
         *,
         key: filter.SetInput[UUID] = ...,
         usernames: str | list[str] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -162,6 +197,7 @@ class Client:
         *,
         key: list[UUID] | filter.SetDict[UUID] | filter.Set[UUID] = ...,
         usernames: str | list[str] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -193,6 +229,7 @@ class Client:
         :param key: Keeps users with this key.
         :param username: Keeps the user with this username.
         :param usernames: Keeps users with this username, or any username in the list.
+        :param roles: Keeps the users that hold any of these roles.
         :param and_: Keeps users that match every filter in the list.
         :param or_: Keeps users that match any filter in the list.
         :param not_: Keeps users that do not match the filter.
@@ -210,7 +247,6 @@ class Client:
         :raises ValidationError: If a filter field or ``username`` is None, or if one
             user is wanted beside a limit or an offset.
         """
-        query = dict(fields)
         if "username" in fields:
             username = fields.pop("username")
             if username is None:
@@ -221,17 +257,14 @@ class Client:
             one = True
         single = returns_one(fields, one, limit, offset)
         flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
-        res = self.client.send(
-            "/user/retrieve",
-            RetrieveRequest(
-                where=request_where(Where, filter.merge(where, flat), fields),
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-            ),
-            _RetrieveResponse,
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
         )
-        return sole("User", query, res.users) if single else res.users
+        res = self.client.send("/user/retrieve", req, _RetrieveResponse)
+        return sole("user", req, res.users) if single else res.users
 
     def delete(self, keys: UUID | list[UUID] | None = None) -> None:
         self.client.send("/user/delete", _DeleteRequest(keys=normalize(keys)), Empty)

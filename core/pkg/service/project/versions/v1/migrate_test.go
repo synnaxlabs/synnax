@@ -18,9 +18,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,14 +31,10 @@ import (
 // runMigrations runs the full project migration chain against db.
 func runMigrations(ctx context.Context, db *gorp.DB) {
 	GinkgoHelper()
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-		DB:        db,
-		Namespace: "Project",
-		Migrations: append(
-			[]gorp.Migration{v0.Migration},
-			v1.NewMigrations(v1.MigrationsConfig{Ontology: otg})...,
-		),
+		DB:         db,
+		Namespace:  "Project",
+		Migrations: append([]gorp.Migration{v0.Migration}, v1.Migrations...),
 	})).To(Succeed())
 }
 
@@ -48,7 +45,7 @@ var _ = Describe("Workspace to project migration", func() {
 			ctx, gorp.TableConfig[v1.Key, v1.Project]{DB: db},
 		))
 	}
-	rel := func(from, to ontology.ID) ontology.Relationship {
+	rel := func(from, to resource.ID) ontology.Relationship {
 		return ontology.Relationship{
 			From: from,
 			Type: ontology.RelationshipTypeParentOf,
@@ -91,23 +88,23 @@ var _ = Describe("Workspace to project migration", func() {
 					Entry(&group.Group{Key: groupKey, Name: "Workspaces"}).
 					Exec(ctx, db),
 			).To(Succeed())
-			groupID := group.OntologyID(groupKey)
-			wsAID := ontology.ID{
-				Type: ontology.ResourceType("workspace"),
+			groupID := group.ResourceID(groupKey)
+			wsAID := resource.ID{
+				Type: resource.Type("workspace"),
 				Key:  wsA.String(),
 			}
-			wsBID := ontology.ID{
-				Type: ontology.ResourceType("workspace"),
+			wsBID := resource.ID{
+				Type: resource.Type("workspace"),
 				Key:  wsB.String(),
 			}
-			lpID := ontology.ID{
-				Type: ontology.ResourceTypeLineplot,
+			lpID := resource.ID{
+				Type: resource.TypeLineplot,
 				Key:  uuid.New().String(),
 			}
 			resTable := MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[string, ontology.Resource]{DB: db},
 			))
-			for _, id := range []ontology.ID{wsAID, wsBID, lpID} {
+			for _, id := range []resource.ID{wsAID, wsBID, lpID} {
 				Expect(
 					resTable.NewCreate().
 						Entry(&ontology.Resource{ID: id}).
@@ -160,8 +157,8 @@ var _ = Describe("Workspace to project migration", func() {
 			).To(MatchError(query.ErrNotFound))
 
 			By("Re-keying the workspace resource nodes to project")
-			projectAID := ontology.ID{
-				Type: ontology.ResourceTypeProject,
+			projectAID := resource.ID{
+				Type: resource.TypeProject,
 				Key:  wsA.String(),
 			}
 			Expect(
@@ -176,8 +173,8 @@ var _ = Describe("Workspace to project migration", func() {
 			).To(BeFalse())
 
 			By("Repointing workspace relationships and leaving unrelated ones intact")
-			projectBID := ontology.ID{
-				Type: ontology.ResourceTypeProject,
+			projectBID := resource.ID{
+				Type: resource.TypeProject,
 				Key:  wsB.String(),
 			}
 			Expect(hasRel(ctx, db, rel(groupID, projectAID))).To(Succeed())
@@ -212,7 +209,7 @@ var _ = Describe("Workspace to project migration", func() {
 })
 
 var _ = Describe("Remove author relationships migration", func() {
-	parentOf := func(from, to ontology.ID) ontology.Relationship {
+	parentOf := func(from, to resource.ID) ontology.Relationship {
 		return ontology.Relationship{
 			From: from,
 			Type: ontology.RelationshipTypeParentOf,
@@ -233,17 +230,17 @@ var _ = Describe("Remove author relationships migration", func() {
 			relTable := MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
 			))
-			projectID := ontology.ID{
-				Type: ontology.ResourceTypeProject,
+			projectID := resource.ID{
+				Type: resource.TypeProject,
 				Key:  uuid.New().String(),
 			}
-			userID := ontology.ID{
-				Type: ontology.ResourceTypeUser,
+			userID := resource.ID{
+				Type: resource.TypeUser,
 				Key:  uuid.New().String(),
 			}
-			groupID := group.OntologyID(uuid.New())
-			lpID := ontology.ID{
-				Type: ontology.ResourceTypeLineplot,
+			groupID := group.ResourceID(uuid.New())
+			lpID := resource.ID{
+				Type: resource.TypeLineplot,
 				Key:  uuid.New().String(),
 			}
 

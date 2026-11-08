@@ -18,15 +18,15 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func subject() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
+func subject() resource.ID {
+	return resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
 }
 
 func proof(username, pwd string) auth.Proof {
@@ -38,7 +38,7 @@ func proof(username, pwd string) auth.Proof {
 func storedHash(
 	ctx context.Context,
 	svc *password.Service,
-	subject ontology.ID,
+	subject resource.ID,
 ) []byte {
 	GinkgoHelper()
 	var p password.Password
@@ -51,7 +51,7 @@ func storedHash(
 func createHash(
 	ctx context.Context,
 	db *gorp.DB,
-	subject ontology.ID,
+	subject resource.ID,
 	username string,
 	hash []byte,
 ) {
@@ -112,7 +112,7 @@ var _ = Describe("OpenService", func() {
 var _ = Describe("Service", func() {
 	var (
 		svc      *password.Service
-		alice    ontology.ID
+		alice    resource.ID
 		username string
 	)
 	BeforeEach(func(ctx SpecContext) {
@@ -191,8 +191,36 @@ var _ = Describe("Service", func() {
 			Entry("bcrypt with a bad body", "$2a$garbage"),
 		)
 	})
+	Describe("Verify", func() {
+		It(
+			"Should check a bcrypt hash in a transaction and keep it",
+			func(ctx SpecContext) {
+				bob := subject()
+				hash := MustSucceed(
+					bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost),
+				)
+				name := uuid.New().String()
+				createHash(ctx, db, bob, name, hash)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					identity, err := svc.Verify(ctx, tx, auth.PasswordProof{
+						Username: name,
+						Password: "p",
+					})
+					Expect(identity.Subject).To(Equal(bob))
+					return err
+				})).To(Succeed())
+				Expect(storedHash(ctx, svc, bob)).To(Equal(hash))
+			},
+		)
+		It("Should reject a wrong password", func(ctx SpecContext) {
+			Expect(svc.Verify(ctx, nil, auth.PasswordProof{
+				Username: username,
+				Password: "wrong",
+			})).Error().To(MatchError(auth.ErrInvalidCredentials))
+		})
+	})
 	Describe("NewRetrieve", func() {
-		var bob ontology.ID
+		var bob resource.ID
 		BeforeEach(func(ctx SpecContext) {
 			bob = subject()
 			Expect(svc.NewWriter(nil).Set(ctx, bob, auth.Credentials{

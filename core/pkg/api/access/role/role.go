@@ -17,8 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbacrole "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -84,7 +83,7 @@ func (s *Service) Create(
 ) (CreateResponse, error) {
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeRole}},
+		Objects: []resource.ID{{Type: resource.TypeRole}},
 		Action:  access.ActionCreate,
 	}); err != nil {
 		return CreateResponse{}, err
@@ -112,7 +111,7 @@ func (s *Service) Retrieve(
 	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rbacrole.OntologyIDsFromRoles(res.Roles),
+		Objects: rbacrole.ResourceIDsFromRoles(res.Roles),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -130,13 +129,9 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	roleIDs := make([]ontology.ID, len(req.Keys))
-	for i, key := range req.Keys {
-		roleIDs[i] = rbacrole.OntologyID(key)
-	}
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: roleIDs,
+		Objects: rbacrole.ResourceIDs(req.Keys),
 		Action:  access.ActionDelete,
 	}); err != nil {
 		return struct{}{}, err
@@ -148,52 +143,4 @@ func (s *Service) Delete(
 		}
 	}
 	return struct{}{}, nil
-}
-
-// AssignRequest names a user and the role to assign to them.
-type AssignRequest struct {
-	User user.Key     `json:"user" msgpack:"user"`
-	Role rbacrole.Key `json:"role" msgpack:"role"`
-}
-
-// Assign assigns the role in the request to the user in the request.
-func (s *Service) Assign(
-	ctx context.Context,
-	tx gorp.Tx,
-	req AssignRequest,
-) (struct{}, error) {
-	userID := user.OntologyID(req.User)
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{userID},
-		Action:  access.ActionUpdate,
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.Role.NewWriter(tx, allowInternal).
-		AssignRole(ctx, userID, req.Role)
-}
-
-// UnassignRequest names a user and the role to remove from them.
-type UnassignRequest struct {
-	User user.Key     `json:"user" msgpack:"user"`
-	Role rbacrole.Key `json:"role" msgpack:"role"`
-}
-
-// Unassign removes the role in the request from the user in the request.
-func (s *Service) Unassign(
-	ctx context.Context,
-	tx gorp.Tx,
-	req UnassignRequest,
-) (struct{}, error) {
-	userID := user.OntologyID(req.User)
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{userID},
-		Action:  access.ActionUpdate,
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.Role.NewWriter(tx, allowInternal).
-		UnassignRole(ctx, userID, req.Role)
 }

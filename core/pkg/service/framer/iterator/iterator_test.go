@@ -24,9 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -43,28 +41,16 @@ func openServices(
 	ctx context.Context, node testutil.Node,
 ) (*iterator.Service, *channel.Service) {
 	GinkgoHelper()
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: node.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: node.DB,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	iteratorSvc := MustSucceed(iterator.NewService(iterator.ServiceConfig{
@@ -2941,6 +2927,16 @@ var _ = Describe("Calculations across Cores", func() {
 		nodes := []testutil.Node{cluster.Provision(ctx), cluster.Provision(ctx)}
 		iteratorSvc, channelSvc := openServices(ctx, nodes[0])
 		writer := channelSvc.NewWriter(nil)
+		// A channel leased by the second Core reaches the first by gossip.
+		gossiped := func(key channel.Key) {
+			Eventually(func(g Gomega) {
+				var res channel.Channel
+				g.Expect(channelSvc.NewRetrieve().
+					Where(channel.MatchKeys(key)).
+					Entry(&res).
+					Exec(ctx, nil)).To(Succeed())
+			}).Should(Succeed())
+		}
 		for k, n := range nodes {
 			idx := &channel.Channel{
 				Name:        "cross_time_" + strconv.Itoa(k),
@@ -2949,6 +2945,8 @@ var _ = Describe("Calculations across Cores", func() {
 				Leaseholder: n.Cluster.HostKey(),
 			}
 			Expect(writer.Create(ctx, idx)).To(Succeed())
+			// The first Core checks that the index of a data channel exists.
+			gossiped(idx.Key())
 			data := &channel.Channel{
 				Name:        "cross_" + strconv.Itoa(k),
 				DataType:    telem.Float32T,
@@ -2956,14 +2954,7 @@ var _ = Describe("Calculations across Cores", func() {
 				Leaseholder: n.Cluster.HostKey(),
 			}
 			Expect(writer.Create(ctx, data)).To(Succeed())
-			// A channel leased by the second Core reaches the first by gossip.
-			Eventually(func(g Gomega) {
-				var res channel.Channel
-				g.Expect(channelSvc.NewRetrieve().
-					Where(channel.MatchKeys(data.Key())).
-					Entry(&res).
-					Exec(ctx, nil)).To(Succeed())
-			}).Should(Succeed())
+			gossiped(data.Key())
 			stamps := make([]telem.TimeStamp, 20)
 			values := make([]float32, 20)
 			for j := range values {

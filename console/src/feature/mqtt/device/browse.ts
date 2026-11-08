@@ -46,7 +46,8 @@ export const browseTopics = async (
   });
   if (variant !== "success") throw new Error(message);
   const data = details?.data;
-  if (data == null || !("topics" in data))
+  // A sample answer holds topics too, beside its shapes.
+  if (data == null || !("topics" in data) || "shapes" in data)
     throw new Error("The scan task replied without topics");
   return {
     topics: data.topics.map((t) => ({ ...t, key: t.topic })),

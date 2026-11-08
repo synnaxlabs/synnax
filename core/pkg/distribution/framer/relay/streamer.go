@@ -116,7 +116,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
-		responses, disconnect := s.relay.connectToDelta(1)
+		responses, disconnect := s.relay.connectToDelta()
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
 			// we do this before updating our demands, otherwise we may deadlock.

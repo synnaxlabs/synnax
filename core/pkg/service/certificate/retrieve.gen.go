@@ -15,7 +15,12 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 )
+
+// tableName names the Certificate table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "certificate"
 
 // Retrieve is used to retrieve Certificate records from the database using a
 // builder pattern for constructing queries.
@@ -30,7 +35,8 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	search *gorp.SearchIndex[Key, Certificate]
+	privateKey *gorp.KeyReference[Key, Certificate, secret.Key]
+	search     *gorp.SearchIndex[Key, Certificate]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -38,6 +44,30 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		privateKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Certificate, secret.Key]{
+			Name:     "private_key",
+			Table:    "secret",
+			OnDelete: gorp.Restrict,
+			Targets: func(e *Certificate) []secret.Key {
+				var targets []secret.Key
+				switch v1 := e.Variant.(type) {
+				case StoredCertificate:
+					if v1.PrivateKey != nil {
+						targets = append(targets, *v1.PrivateKey)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Certificate, t secret.Key) {
+				switch v2 := e.Variant.(type) {
+				case StoredCertificate:
+					if v2.PrivateKey != nil && *v2.PrivateKey == t {
+						v2.PrivateKey = nil
+					}
+					e.Variant = v2
+				}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Certificate](
 			"search",
 			func(e *Certificate) []string {
@@ -52,6 +82,14 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Certificate] {
 	return []gorp.Index[Key, Certificate]{
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Certificate] {
+	return []gorp.Reference[Key, Certificate]{
+		i.privateKey,
 	}
 }
 

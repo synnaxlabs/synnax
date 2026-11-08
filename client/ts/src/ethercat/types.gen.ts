@@ -64,6 +64,11 @@ export const entryReadChannelZ = baseReadChannelZ.extend({
   subIndex: zod.uint8,
   /** dataType is the data type of the PDO entry. */
   dataType: z.string(),
+  /**
+   * scale is the scale applied to raw samples after acquisition. A scaled channel
+   * writes to a float Synnax channel.
+   */
+  scale: task.scaleZ.prefault({ type: "none" }),
 });
 export interface EntryReadChannel extends z.infer<typeof entryReadChannelZ> {}
 
@@ -108,6 +113,11 @@ export const entryWriteChannelZ = baseWriteChannelZ.extend({
   subIndex: zod.uint8,
   /** dataType is the data type of the PDO entry. */
   dataType: z.string(),
+  /**
+   * stopValue is the value the entry takes when the task stops. The bus sends it before
+   * the slaves leave OP.
+   */
+  stopValue: z.number().default(0),
 });
 export interface EntryWriteChannel extends z.infer<typeof entryWriteChannelZ> {}
 

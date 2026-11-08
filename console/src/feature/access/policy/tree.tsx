@@ -14,7 +14,6 @@ import { Tree } from "@/platform/tree";
 const TreeItem = Tree.createItem({
   type: "policy",
   icon: <Icon.Policy />,
-  hasChildren: false,
   visible: () => false,
 });
 

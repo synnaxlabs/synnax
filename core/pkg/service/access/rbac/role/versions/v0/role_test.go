@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,11 +37,11 @@ var _ = Describe("Role", func() {
 			Expect(v0.Role{}.SetOptions()).To(BeNil())
 		})
 	})
-	Describe("OntologyID", func() {
-		It("Should return the role ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the role resource identifier", func() {
 			k := uuid.New()
-			Expect(v0.Role{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeRole, Key: k.String(),
+			Expect(v0.Role{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeRole, Key: k.String(),
 			}))
 		})
 	})

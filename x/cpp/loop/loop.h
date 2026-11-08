@@ -12,7 +12,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <thread>
 
 #include "x/cpp/breaker/breaker.h"
@@ -29,15 +31,36 @@ const telem::TimeSpan MEDIUM_RES_THRESHOLD = telem::Rate(20).period();
 /// @brief Span of one sleep step of a precise sleep.
 const telem::TimeSpan RESOLUTION = (100 * telem::MICROSECOND);
 
+/// @brief a clock that a Timer reads and sleeps on in place of the host's steady clock.
+/// A test passes one whose sleep moves its time forward at once.
+struct Clock {
+    /// @brief returns the current time.
+    std::function<hs_clock::time_point()> now;
+    /// @brief returns once the span has passed on this clock.
+    std::function<void(telem::TimeSpan)> sleep;
+};
+
 class Timer {
 public:
     Timer() = default;
 
+    /// @brief a timer that waits on the host's steady clock.
     explicit Timer(const telem::TimeSpan &interval):
         interval(interval), last(hs_clock::now()) {}
 
-    explicit Timer(const telem::Rate &rate):
-        interval(rate.period()), last(hs_clock::now()) {}
+    /// @brief a timer that waits on the host's steady clock. A precise timer spins to
+    /// each deadline at any interval. Otherwise, only an interval under
+    /// HIGH_RES_THRESHOLD spins, and a longer one sleeps, which on Windows can wake up
+    /// to 2 ms late.
+    Timer(const telem::TimeSpan &interval, const bool precise):
+        interval(interval), precise(precise), last(hs_clock::now()) {}
+
+    /// @brief a timer that reads and sleeps on clock in place of the host's steady
+    /// clock.
+    Timer(const telem::TimeSpan &interval, Clock clock):
+        interval(interval), clock(std::move(clock)), last(this->clock_now()) {}
+
+    explicit Timer(const telem::Rate &rate): Timer(rate.period()) {}
 
     telem::TimeSpan elapsed(const hs_clock::time_point now) {
         if (!last_set) {
@@ -49,7 +72,7 @@ public:
     }
 
     std::pair<telem::TimeSpan, bool> wait() {
-        const auto now = hs_clock::now();
+        const auto now = this->clock_now();
         const auto elapsed = this->elapsed(now);
         if (elapsed > interval) {
             last = now;
@@ -57,18 +80,20 @@ public:
         }
         const auto remaining = interval - elapsed;
         const auto deadline = now + remaining.chrono();
-        if (this->high_rate())
+        if (this->clock)
+            this->clock->sleep(remaining);
+        else if (this->precise || this->high_rate())
             this->precise_sleep(remaining);
         else
             std::this_thread::sleep_for(remaining.chrono());
         // Anchor to the deadline so a late wake shortens the next sleep instead of
         // stretching every period. An early wake keeps the wake time.
-        last = std::min(deadline, hs_clock::now());
+        last = std::min(deadline, this->clock_now());
         return {telem::TimeSpan(elapsed), true};
     }
 
     std::pair<telem::TimeSpan, bool> wait(breaker::Breaker &breaker) {
-        const auto now = hs_clock::now();
+        const auto now = this->clock_now();
         const auto elapsed = this->elapsed(now);
         if (elapsed > interval) {
             last = now;
@@ -76,15 +101,21 @@ public:
         }
         const auto remaining = interval - elapsed;
         const auto deadline = now + remaining.chrono();
-        if (this->high_rate())
-            this->precise_sleep(remaining);
+        if (this->clock)
+            this->clock->sleep(remaining);
+        else if (this->precise || this->high_rate())
+            this->precise_sleep(remaining, breaker);
         else if (this->medium_rate())
             std::this_thread::sleep_for(remaining.chrono());
         else
             breaker.wait_for(remaining);
-        last = std::min(deadline, hs_clock::now());
+        last = std::min(deadline, this->clock_now());
         return {telem::TimeSpan(elapsed), true};
     }
+
+    /// @brief moves the end of the next wait by offset. A positive offset delays it.
+    /// Has no effect before the first wait(), which always lasts one interval.
+    void shift(const telem::TimeSpan &offset) { this->last += offset.chrono(); }
 
     /// @brief Fine-grained sleep that ends early when the breaker stops.
     /// @returns false if the breaker stopped before or during the sleep.
@@ -102,6 +133,10 @@ private:
     /// @brief sleeps precisely for dur, and ends early once running returns false.
     template<typename Running>
     void sleep_while(const telem::TimeSpan &dur, const Running &running) {
+        if (this->clock) {
+            if (running()) this->clock->sleep(dur);
+            return;
+        }
         const auto end = hs_clock::now() + dur.chrono();
         while (true) {
             if (!running()) return;
@@ -120,6 +155,10 @@ private:
         }
         while (end > hs_clock::now())
             if (!running()) return;
+    }
+
+    [[nodiscard]] hs_clock::time_point clock_now() const {
+        return this->clock ? this->clock->now() : hs_clock::now();
     }
 
     [[nodiscard]] bool high_rate() const { return interval < HIGH_RES_THRESHOLD; }
@@ -141,6 +180,8 @@ private:
     void step();
 
     telem::TimeSpan interval;
+    std::optional<Clock> clock;
+    bool precise = false;
     bool last_set = false;
     hs_clock::time_point last;
     /// @brief the OS state of a sleep step.
@@ -155,5 +196,51 @@ private:
     telem::TimeSpan sleep_M2_ = telem::TimeSpan::ZERO();
     /// @brief Welford's algorithm state: sample count.
     int64_t sleep_count_ = 1;
+};
+
+/// @brief the host clocks that a loop reads: steady time to wait on and wall time to
+/// stamp with. A default HostClock reads the host.
+class HostClock {
+    telem::TimeStamp wall_start;
+    hs_clock::time_point steady_start;
+    std::optional<Clock> source;
+
+public:
+    HostClock() = default;
+
+    /// @brief reads both times from source. The wall time starts at the host's wall
+    /// time and then moves with source.
+    explicit HostClock(Clock source):
+        wall_start(telem::TimeStamp::now()),
+        steady_start(source.now()),
+        source(std::move(source)) {}
+
+    /// @brief returns the steady time.
+    [[nodiscard]] hs_clock::time_point steady() const {
+        return this->source ? this->source->now() : hs_clock::now();
+    }
+
+    /// @brief returns once span has passed on this clock.
+    void sleep(const telem::TimeSpan &span) const {
+        if (this->source)
+            this->source->sleep(span);
+        else
+            std::this_thread::sleep_for(span.chrono());
+    }
+
+    /// @brief returns a timer that waits on this clock. precise is as for Timer. A
+    /// timer on a source waits exactly at any interval.
+    [[nodiscard]] Timer
+    timer(const telem::TimeSpan &interval, const bool precise = false) const {
+        if (!this->source) return {interval, precise};
+        return {interval, *this->source};
+    }
+
+    /// @brief returns the wall time.
+    [[nodiscard]] telem::TimeStamp now() const {
+        if (!this->source) return telem::TimeStamp::now();
+        return this->wall_start +
+               telem::TimeSpan(this->source->now() - this->steady_start);
+    }
 };
 }

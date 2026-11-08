@@ -209,6 +209,63 @@ var _ = Describe("Migrate", func() {
 		})
 	})
 
+	Describe("FindEntry", func() {
+		It("Should return a unique entry", func() {
+			e := MustBeOk(v2.FindEntry(createMixed().Inputs, "Value"))
+			Expect(e).To(Equal(v2.Entry{
+				Name:     "Value",
+				Index:    0x6000,
+				SubIndex: 0x11,
+				DataType: "int16",
+			}))
+		})
+
+		It("Should return an entry repeated at one address", func() {
+			e := MustBeOk(v2.FindEntry(createMixed().Inputs, "Sync error"))
+			Expect(e).To(Equal(v2.Entry{
+				Name:     "Sync error",
+				Index:    0x1C32,
+				SubIndex: 0x20,
+				DataType: "uint8",
+			}))
+		})
+
+		DescribeTable("Should find no entry",
+			func(entries []v2.Entry, name string) {
+				e, ok := v2.FindEntry(entries, name)
+				Expect(ok).To(BeFalse())
+				Expect(e).To(BeZero())
+			},
+			Entry("for a name the entries do not list", createMixed().Inputs, "Gone"),
+			Entry("for a name at several addresses", createEL1008().Inputs, "Input"),
+			Entry("for no entries", nil, "Value"),
+		)
+	})
+
+	Describe("ReadSlaves", func() {
+		It("Should read nothing for no keys", func(ctx SpecContext) {
+			Expect(MustSucceed(v2.ReadSlaves(ctx, nil, slaves, []string{}))).
+				To(BeEmpty())
+			Expect(requested).To(BeEmpty())
+		})
+
+		It("Should read each repeated key once", func(ctx SpecContext) {
+			found := MustSucceed(v2.ReadSlaves(
+				ctx,
+				nil,
+				slaves,
+				[]string{"mixed", "el1008", "mixed"},
+			))
+			Expect(found).To(Equal(stored))
+			Expect(requested).To(Equal([][]string{{"mixed", "el1008"}}))
+		})
+
+		It("Should return the error of the lookup", func(ctx SpecContext) {
+			Expect(v2.ReadSlaves(ctx, nil, failLookup, []string{"mixed"})).
+				Error().To(MatchError("lookup failed"))
+		})
+	})
+
 	Describe("ResolveReadConfig", func() {
 		resolveRead := func(ctx SpecContext, channels ...v2.ReadChannel) v2.ReadConfig {
 			GinkgoHelper()
