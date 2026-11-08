@@ -36,7 +36,10 @@ var _ = Describe("OpenLayer", func() {
 				Storage:          store,
 				Transport:        transporttestutil.NewNetwork().New(addr, 1),
 				AdvertiseAddress: addr,
-			})).Error().To(MatchError(validate.ErrValidation))
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("the data directory belongs to node 2")),
+			))
 		},
 	)
 })
