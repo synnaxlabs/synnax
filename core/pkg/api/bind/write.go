@@ -43,9 +43,11 @@ type Copy interface {
 //   - create on a new record, update on a changed record, and delete on a deleted
 //     record, cascades and detaches included;
 //   - update on the range of each range key-value pair that changes;
-//   - update on the user or rack of each API key, password, or session that changes,
-//     unless the subject is that user or rack;
-//   - update on the target of each place link added or removed;
+//   - create, update, or delete on the user or rack of each API key, password, or
+//     session that is created, updated, or deleted, unless the subject is that user or
+//     rack;
+//   - update on the target of each place link added or removed, except a link to the
+//     range, user, or rack that the two rules above cover;
 //   - retrieve on the target of each use link added;
 //   - retrieve on each source of a request that implements Copy.
 //
@@ -102,31 +104,33 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 	needs := make(map[access.Action][]resource.ID, len(access.AllActions))
 	needs[access.ActionRetrieve] = slices.Clone(sources)
 	subject := auth.GetSubject(ctx)
-	// self is true while checking a credential that the subject holds. The subject
-	// writes it, and links it to itself, with no check.
-	var self bool
+	// owner is the owner of the record being checked, or zero. The owner rule covers the
+	// links of the record to its owner, so need skips them.
+	var owner resource.ID
 	need := func(action access.Action, target gorp.Target) error {
 		id, err := resourceOf(target)
 		if err != nil {
 			return err
 		}
-		if !self || id != subject {
+		if owner.IsZero() || id != owner {
 			needs[action] = append(needs[action], id)
 		}
 		return nil
 	}
 	for _, c := range gorp.ChangesOf(tx) {
-		owner, owned, err := s.ownerOf(ctx, c)
-		if err != nil {
+		var (
+			action access.Action
+			err    error
+		)
+		if owner, action, err = s.ownerOf(ctx, c); err != nil {
 			return err
 		}
-		self = owned && owner == subject
-		if owned {
-			if !self {
-				needs[access.ActionUpdate] = append(needs[access.ActionUpdate], owner)
+		if owner.IsZero() {
+			if err = need(actionOf(c.Kind), c.Record); err != nil {
+				return err
 			}
-		} else if err = need(actionOf(c.Kind), c.Record); err != nil {
-			return err
+		} else if owner != subject {
+			needs[action] = append(needs[action], owner)
 		}
 		for _, l := range c.Added {
 			if err := need(addedLinkAction(l.Kind), l.Target); err != nil {
@@ -162,19 +166,20 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 }
 
 // ownerOf returns the resource that owns the record of c when its table has no resource
-// type: the range of a range key-value pair, or the user or rack of an API key,
-// password, or session. It reports false when the table has a resource type.
+// type, and the action that c needs on it. A range key-value pair needs update on its
+// range. An API key, password, or session needs the action of c on its user or rack. It
+// returns a zero ID when the table has a resource type.
 func (s *Service) ownerOf(
 	ctx context.Context,
 	c gorp.Change,
-) (resource.ID, bool, error) {
+) (resource.ID, access.Action, error) {
 	switch c.Record.Table {
 	case types.Name[kv.Pair]():
 		rng, err := kv.RangeOf(c.Record.Key)
 		if err != nil {
-			return resource.ID{}, false, err
+			return resource.ID{}, "", err
 		}
-		return ranger.ResourceID(rng), true, nil
+		return ranger.ResourceID(rng), access.ActionUpdate, nil
 	case types.Name[apikey.APIKey]():
 		return subjectOf(ctx, s.cfg.DB, c, func(k apikey.APIKey) resource.ID {
 			return k.Subject
@@ -188,34 +193,32 @@ func (s *Service) ownerOf(
 			return e.Subject
 		})
 	}
-	return resource.ID{}, false, nil
+	return resource.ID{}, "", nil
 }
 
-// subjectOf returns the user or rack that holds the auth record of c.
+// subjectOf returns the subject that holds the auth record of c and the action of c.
 func subjectOf[E any](
 	ctx context.Context,
 	db *gorp.DB,
 	c gorp.Change,
 	subject func(E) resource.ID,
-) (resource.ID, bool, error) {
+) (resource.ID, access.Action, error) {
+	action := actionOf(c.Kind)
 	if c.Kind != gorp.ChangeDelete {
 		var e E
 		if err := db.Decode(ctx, c.Value, &e); err != nil {
-			return resource.ID{}, false, err
+			return resource.ID{}, "", err
 		}
-		return subject(e), true, nil
+		return subject(e), action, nil
 	}
 	// A deleted record names its subject only through the link it removed.
 	for _, l := range c.Removed {
 		if l.Kind == gorp.Place {
 			id, err := resourceOf(l.Target)
-			if err != nil {
-				return resource.ID{}, false, err
-			}
-			return id, true, nil
+			return id, action, err
 		}
 	}
-	return resource.ID{}, false, errors.Newf(
+	return resource.ID{}, "", errors.Newf(
 		"[bind] - deleted %s %s removed no link to its subject",
 		c.Record.Table,
 		c.Record.Key,

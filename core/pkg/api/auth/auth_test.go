@@ -615,12 +615,12 @@ var _ = Describe("Sessions", func() {
 			},
 		)
 		It(
-			"Should let a caller that may update a subject end its session",
+			"Should let a caller that may delete on a subject end its session",
 			func(ctx SpecContext) {
 				eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
 				engToken := login(ctx, eng.Name, "p").Token
 				key := MustSucceed(authSvc.Authenticate(ctx, engToken)).Key
-				grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
+				grant(ctx, bob.Key, access.ActionDelete, eng.ResourceID())
 				Expect(deleteSessions(
 					authed(ctx, bobToken),
 					apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
