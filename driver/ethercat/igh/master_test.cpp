@@ -173,6 +173,18 @@ TEST_F(IGHMasterTest, InitializeMultipleSlaves) {
     EXPECT_EQ(slaves[1].properties.name, "Slave1");
 }
 
+/// @brief it should fail to initialize, and release the master, when it cannot read a
+/// slave.
+TEST_F(IGHMasterTest, InitializeFailsWhenASlaveCannotBeRead) {
+    this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 10, "Slave0");
+    this->mock_api->add_slave(1, 0x3333, 0x4444, 2, 20, "Slave1");
+    this->mock_api->unreadable_slave = 0;
+    const auto err = this->master_instance->initialize();
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(err.data, "failed to read slave 0: Input/output error");
+    EXPECT_TRUE(this->mock_api->release_master_called());
+}
+
 /// @brief it should return the number of slaves on the bus.
 TEST_F(IGHMasterTest, CountSlavesReportsTheSlavesOnTheBus) {
     this->initialize_with_slave();
@@ -295,6 +307,29 @@ TEST_F(IGHMasterTest, ActivateRunsAChosenSMMode) {
     );
     this->activate_with_domains();
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
+}
+
+/// @brief it should start the bus when the master rejects an entry, and return the
+/// reason only for that entry.
+TEST_F(IGHMasterTest, ActivateReturnsWhyTheMasterRejectedAnEntry) {
+    this->mock_api->fake_syncs = {
+        {EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x01, 16}, {0x6000, 0x02, 16}}}}},
+    };
+    this->mock_api->rejected_entry = {{0x6000, 0x01}};
+    this->initialize_with_slave();
+    this->activate_with_domains();
+    const auto res = this->master_instance->pdo_offset(
+        pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T)
+    );
+    ASSERT_OCCURRED_AS_P(res, errors::PDO_MAPPING_ERROR);
+    EXPECT_EQ(
+        res.second.data,
+        "the IgH master rejected PDO 0x6000:01 of slave 0 (TestSlave): No such file or "
+        "directory"
+    );
+    ASSERT_NIL_P(this->master_instance->pdo_offset(
+        pdo::Entry(0, 0x6000, 2, 16, true, x::telem::INT16_T)
+    ));
 }
 
 /// @brief it should return an activation error that names the slave when its

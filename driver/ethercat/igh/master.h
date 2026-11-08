@@ -57,6 +57,8 @@ class Master final : public master::Master {
     size_t output_sz;
     /// @brief cached PDO offsets computed during activation.
     pdo::Offsets pdo_offsets;
+    /// @brief why the master rejected the registration of an entry, keyed by entry.
+    std::unordered_map<pdo::Key, std::string, pdo::KeyHash> rejected_entries;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> cached_slaves;
     /// @brief lazily configured slave handles (position -> slave_config).
@@ -149,9 +151,9 @@ private:
     /// layout.
     x::errors::Error configure_assigned_pdos(uint16_t position, ec_slave_config_t *sc);
 
-    /// @brief registers every PDO entry the slave at a position maps, recording the
-    /// offset of each.
-    void register_pdo_entries(uint16_t position, ec_slave_config_t *sc);
+    /// @brief registers every PDO entry that a slave maps, recording the offset of each
+    /// entry or the reason the master rejected it.
+    void register_pdo_entries(const slave::Properties &slave, ec_slave_config_t *sc);
 
     /// @brief writes a slave's startup parameters and adds them to its config, so the
     /// master writes them again at each move to SAFE-OP.
@@ -177,10 +179,6 @@ private:
         uint16_t pdo_index,
         const ec_pdo_entry_info_t &entry_info
     );
-
-    /// @brief reads the name of a PDO entry from the slave's object dictionary.
-    std::string
-    read_pdo_entry_name(uint16_t slave_pos, uint16_t index, uint8_t subindex);
 };
 
 /// @brief sysfs path where IgH EtherCAT masters are exposed.
