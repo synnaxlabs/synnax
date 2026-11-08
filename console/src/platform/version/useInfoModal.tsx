@@ -21,33 +21,35 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Size, sleep, TimeSpan } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { check, type Update } from "@tauri-apps/plugin-updater";
+import { type Update } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
-import { isDevBuild } from "@/platform/version/build";
+import { type Available, find, useTarget } from "@/platform/version/check";
 import { useInstallMiddleware } from "@/platform/version/Install";
 import { Session } from "@/session";
+
+// The shortest time the modal shows the check, so a fast check does not flash.
+const MIN_CHECK_DURATION = TimeSpan.milliseconds(500);
 
 type UpdateCheck =
   | { variant: "loading" }
   | { variant: "error"; status: status.Status }
-  | { variant: "success"; update: Update | null };
-
-const checkForUpdate = async (): Promise<Update | null> => {
-  if (Session.Runtime.ENGINE !== "tauri" || (await isDevBuild())) return null;
-  await sleep.sleep(TimeSpan.milliseconds(500));
-  return await check();
-};
+  | { variant: "success"; available: Available | null };
 
 const useUpdateCheck = (): UpdateCheck => {
+  const target = useTarget();
   const [result, setResult] = useState<UpdateCheck>({ variant: "loading" });
   useAsyncEffect(async (signal) => {
     let next: UpdateCheck;
     try {
-      next = { variant: "success", update: await checkForUpdate() };
+      const [available] = await Promise.all([
+        find(target),
+        sleep.sleep(MIN_CHECK_DURATION),
+      ]);
+      next = { variant: "success", available };
     } catch (error) {
       next = {
         variant: "error",
@@ -117,8 +119,23 @@ const useDownload = (): UseDownloadReturn => {
 
 const Info = () => {
   const version = Session.Version.use();
-  const available = useUpdateCheck();
+  const check = useUpdateCheck();
   const { download, start } = useDownload();
+  const confirm = Modals.useConfirm();
+  const startAfterConfirm = async (found: Available): Promise<void> => {
+    if (
+      found.breaking &&
+      !(await confirm({
+        message: `Console ${found.update.version} cannot work with Core ${found.coreVersion}`,
+        description:
+          "The Console cannot open the workspace of this Core until you update the Core to the same minor version.",
+        confirm: { label: "Update Console", variant: "warning" },
+        title: "Update Console",
+      }))
+    )
+      return;
+    start(found.update);
+  };
   const total = download.total.valueOf();
   const progressPercent = total === 0 ? 0 : (download.progress.valueOf() / total) * 100;
 
@@ -127,8 +144,8 @@ const Info = () => {
       Checking for updates
     </Status.Summary>
   );
-  if (available.variant === "error")
-    updateContent = <Status.Summary level="h4" status={available.status} />;
+  if (check.variant === "error")
+    updateContent = <Status.Summary level="h4" status={check.status} />;
   else if (download.variant === "error" && download.status != null)
     updateContent = <Status.Summary level="h4" status={download.status} />;
   else if (download.variant === "loading")
@@ -158,15 +175,15 @@ const Info = () => {
           </Flex.Box>
         </Flex.Box>
       );
-  else if (available.variant === "success")
-    if (available.update != null) {
-      const { update } = available;
+  else if (check.variant === "success")
+    if (check.available != null) {
+      const found = check.available;
       updateContent = (
         <>
           <Status.Summary level="h4" variant="success">
-            Version {update.version} available
+            Version {found.update.version} available
           </Status.Summary>
-          <Button.Button variant="filled" onClick={() => start(update)}>
+          <Button.Button variant="filled" onClick={() => void startAfterConfirm(found)}>
             Update and restart
           </Button.Button>
         </>

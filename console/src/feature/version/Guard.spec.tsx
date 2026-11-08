@@ -9,7 +9,7 @@
 
 import { connection } from "@synnaxlabs/client";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "tauri" }));
@@ -21,7 +21,9 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 
 import { Auth } from "@/feature/auth";
 import { Version } from "@/feature/version";
+import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { callsOf, mockUpdater } from "@/platform/version/testutil";
 import {
   CONNECTION_PARAMS,
   createCore,
@@ -68,11 +70,14 @@ const renderGuard = async (
 ): Promise<StatusHarness> => {
   const core = createCore(CORE_NAME, { secure });
   return await renderWithStatus(
-    <Auth.Guard>
-      <Version.Guard>
-        <span>{WORKSPACE}</span>
-      </Version.Guard>
-    </Auth.Guard>,
+    <>
+      <Auth.Guard>
+        <Version.Guard>
+          <span>{WORKSPACE}</span>
+        </Version.Guard>
+      </Auth.Guard>
+      <Modals.Stack />
+    </>,
     { client: null, status, preloadedState: createCoreState([core], core.key) },
   );
 };
@@ -144,6 +149,23 @@ describe("Version.Guard", () => {
     expect(screen.queryByText(TITLE)).toBeNull();
     expect(await screen.findByText(CORE_NAME)).toBeTruthy();
     expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).toBeNull();
+  });
+
+  it("should offer the update of the Console that the Core serves", async () => {
+    mockUpdater({ version: "0.61.0", served: "0.60.2" });
+    await renderGuard(INCOMPATIBLE_STATUS);
+    fireEvent.click(await screen.findByRole("button", { name: "Update Console" }));
+    expect(await screen.findByText("Version 0.60.2 available")).toBeTruthy();
+  });
+
+  it("should not offer an update when the Core serves none", async () => {
+    const ipc = mockUpdater({ version: "0.61.0", served: null });
+    await renderGuard(INCOMPATIBLE_STATUS);
+    await waitFor(() =>
+      expect(callsOf(ipc, "updater_check").length).toBeGreaterThan(0),
+    );
+    await act(async () => {});
+    expect(screen.queryByRole("button", { name: "Update Console" })).toBeNull();
   });
 
   it("should render the workspace before a check reports a version", async () => {

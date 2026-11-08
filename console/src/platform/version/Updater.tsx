@@ -11,28 +11,33 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { useAsyncEffect, useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { id, TimeSpan } from "@synnaxlabs/x";
-import { check } from "@tauri-apps/plugin-updater";
 
 import { Notifications } from "@/platform/notifications";
-import { isDevBuild } from "@/platform/version/build";
+import { find, useTarget } from "@/platform/version/check";
 import { useInfoModal } from "@/platform/version/useInfoModal";
-import { Session } from "@/session";
 
 const STATUS_KEY_PREFIX = "versionUpdate";
 const CHECK_INTERVAL = TimeSpan.seconds(30);
 
+/**
+ * Checks for an update now and every 30 seconds until one is found, and adds a status
+ * when it is. A change of the Core, its version, or the grant starts the checks again.
+ * @returns true when an update is available.
+ */
 export const useCheckForUpdates = (): boolean => {
   const addStatus = Status.useAdder();
+  const target = useTarget();
   const [available, setAvailable, availableRef] =
     useCombinedStateAndRef<boolean>(false);
 
   /** Never rejects: a check the network cannot serve is logged and retried later. */
-  const checkForUpdates = async () => {
-    if (Session.Runtime.ENGINE !== "tauri" || availableRef.current) return;
+  const checkForUpdates = async (signal: AbortSignal) => {
+    if (availableRef.current) return;
     try {
-      if (await isDevBuild()) return;
-      const update = await check();
-      if (update == null) return;
+      const found = await find(target);
+      if (found == null) return;
+      await found.update.close();
+      if (signal.aborted) return;
       setAvailable(true);
       addStatus({
         key: `${STATUS_KEY_PREFIX}-${id.create()}`,
@@ -44,12 +49,19 @@ export const useCheckForUpdates = (): boolean => {
     }
   };
 
-  useAsyncEffect(async (signal) => {
-    await checkForUpdates();
-    if (signal.aborted) return;
-    const i = setInterval(() => void checkForUpdates(), CHECK_INTERVAL.milliseconds);
-    return () => clearInterval(i);
-  }, []);
+  useAsyncEffect(
+    async (signal) => {
+      setAvailable(false);
+      await checkForUpdates(signal);
+      if (signal.aborted) return;
+      const i = setInterval(
+        () => void checkForUpdates(signal),
+        CHECK_INTERVAL.milliseconds,
+      );
+      return () => clearInterval(i);
+    },
+    [target?.endpoint, target?.version, target?.latestGranted],
+  );
 
   return available;
 };
