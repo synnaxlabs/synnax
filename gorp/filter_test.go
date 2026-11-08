@@ -175,10 +175,10 @@ var _ = Describe("Filter Combinators", func() {
 		)
 
 		It("Should call the function with the open transaction", func(ctx SpecContext) {
-			var got gorp.Tx
+			var got gorp.Snapshot
 			f := gorp.MatchKeysFunc[int32, entry](
 				func(ctx gorp.Context) ([]int32, error) {
-					got = ctx.Tx
+					got = ctx.Snapshot
 					return nil, nil
 				},
 			)

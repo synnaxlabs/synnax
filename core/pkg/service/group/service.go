@@ -379,7 +379,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Group](keys...)).
 		Guard(func(ctx gorp.Context, g Group) error {
-			deps, err := w.table.Dependents(ctx, ctx.Tx, g.Key)
+			deps, err := w.table.Dependents(ctx, ctx.Snapshot, g.Key)
 			if err != nil {
 				return err
 			}

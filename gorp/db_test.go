@@ -342,23 +342,46 @@ var _ = Describe("DB", func() {
 				},
 			)
 
-			It(
-				"Should give a filter no transaction when it reads through a snapshot",
-				func(ctx SpecContext) {
-					var tx gorp.Tx = lockDB
+			Context("A filter that retrieves other entries", func() {
+				// matchNamed returns a filter whose keys a retrieve by name reads
+				// through the Context of the filter.
+				matchNamed := func(name string) gorp.Filter[int32, indexedEntry] {
+					return gorp.MatchKeysFunc[int32, indexedEntry](
+						func(qCtx gorp.Context) ([]int32, error) {
+							var res []indexedEntry
+							err := table.NewRetrieve().
+								Where(nameIdx.Filter(name)).
+								Entries(&res).
+								Exec(qCtx, qCtx.Snapshot)
+							return idsOf(res), err
+						},
+					)
+				}
+
+				It("Should read through the snapshot", func(ctx SpecContext) {
+					var res []indexedEntry
 					Expect(lockDB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 						return table.NewRetrieve().
-							Where(gorp.Match(
-								func(qCtx gorp.Context, _ *indexedEntry) (bool, error) {
-									tx = qCtx.Tx
-									return true, nil
-								},
-							)).
+							Where(matchNamed("beta")).
+							Entries(&res).
 							Exec(ctx, snap)
 					})).To(Succeed())
-					Expect(tx).To(BeNil())
-				},
-			)
+					Expect(idsOf(res)).To(Equal([]int32{2}))
+				})
+
+				It("Should see the writes of a transaction", func(ctx SpecContext) {
+					tx := DeferClose(lockDB.OpenTx())
+					Expect(table.NewCreate().
+						Entry(&indexedEntry{ID: 3, Name: "gamma"}).
+						Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						Where(matchNamed("gamma")).
+						Entries(&res).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(idsOf(res)).To(Equal([]int32{3}))
+				})
+			})
 
 			It("Should run two snapshots at the same time", func(ctx SpecContext) {
 				release, first := holdSnapshot(ctx)

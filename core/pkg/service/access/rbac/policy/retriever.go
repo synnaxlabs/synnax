@@ -52,7 +52,7 @@ func MatchSubjects(subjects ...resource.ID) Filter {
 			}
 			var roles []role.Key
 			for _, subject := range subjects {
-				held, err := r.rolesOf(ctx, ctx.Tx, subject)
+				held, err := r.rolesOf(ctx, ctx.Snapshot, subject)
 				if errors.Is(err, query.ErrNotFound) {
 					continue
 				}
@@ -64,7 +64,7 @@ func MatchSubjects(subjects ...resource.ID) Filter {
 			if len(roles) == 0 {
 				return nil, nil
 			}
-			return r.indexes.role.Get(ctx, ctx.Tx, roles...)
+			return r.indexes.role.Get(ctx, ctx.Snapshot, roles...)
 		})
 	}
 }
