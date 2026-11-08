@@ -23,9 +23,8 @@ import (
 )
 
 // Grant creates a grant that lets subject read the secrets with the given keys once,
-// whether or not anything on subject uses them, until the grant expires. It returns
-// query.ErrNotFound when a secret does not exist, and a validation error when subject
-// is not a rack or keys is empty.
+// until the grant expires. It returns query.ErrNotFound when a secret does not exist,
+// and a validation error when subject is not a rack or keys is empty.
 func (s *Service) Grant(
 	ctx context.Context,
 	tx gorp.Tx,
