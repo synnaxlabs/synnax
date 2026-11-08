@@ -104,8 +104,8 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 	needs := make(map[access.Action][]resource.ID, len(access.AllActions))
 	needs[access.ActionRetrieve] = slices.Clone(sources)
 	subject := auth.GetSubject(ctx)
-	// owner is the owner of the record being checked, or zero. The owner rule covers the
-	// links of the record to its owner, so need skips them.
+	// owner is the owner of the record being checked, or zero. The owner rule covers
+	// the links of the record to its owner, so need skips them.
 	var owner resource.ID
 	need := func(action access.Action, target gorp.Target) error {
 		id, err := resourceOf(target)

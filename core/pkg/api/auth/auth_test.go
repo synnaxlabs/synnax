@@ -295,7 +295,10 @@ var _ = Describe("SetPassword", func() {
 			eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
 			engToken := login(ctx, eng.Name, "p")
 			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
-			req := apiauth.PasswordSetRequest{Subject: eng.ResourceID(), Password: "new"}
+			req := apiauth.PasswordSetRequest{
+				Subject:  eng.ResourceID(),
+				Password: "new",
+			}
 			Expect(set(ctx, bobToken, req)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
 				MatchError(ContainSubstring("cannot delete %s", eng.ResourceID())),
