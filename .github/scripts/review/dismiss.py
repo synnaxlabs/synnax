@@ -10,18 +10,14 @@
 """Lets a member tell the bot to stop reporting a finding on a pull request, with a
 reply of `@sedosaur dismiss` on the thread of the finding."""
 
-from review import render
 from review.post import (
-    DISMISSED,
     GH,
     Target,
     Thread,
     command,
-    dismissed,
     member,
-    newest,
+    rescore,
     threads,
-    write,
 )
 
 USAGE = (
@@ -63,7 +59,7 @@ def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
     elif not member(reply):
         _reply(gh, thread, REFUSED)
     else:
-        _reply(gh, thread, DONE + (PASSED if _pass(t, gh, found, key) else ""))
+        _reply(gh, thread, DONE + (PASSED if rescore(t, gh, found, key) else ""))
         gh("api", "graphql", "-f", f"query={_RESOLVE}", "-f", f"t={thread.id}")
 
 
@@ -78,32 +74,3 @@ def _reply(gh: GH, thread: Thread, body: str) -> None:
         "-f",
         f"b={body}",
     )
-
-
-def _pass(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
-    """Scores the head 5/5 in a new check run when a member dismissed every finding of
-    its newest review. Returns whether it did."""
-    run = newest(t, gh, t.head, key)
-    if run is None or run["conclusion"] != "success":
-        return False
-    if run["output"]["title"] == render.scored(5):
-        return False
-    listed = render.listed(run["output"]["text"] or "")
-    if not listed or not listed <= {(d.path, d.title) for d in dismissed(found)}:
-        return False
-    output = {
-        "title": render.scored(5),
-        "summary": f"{DISMISSED}\n\n{run['output']['summary']}",
-        "text": run["output"]["text"],
-    }
-    payload = {
-        "name": run["name"],
-        "head_sha": t.head,
-        "external_id": key,
-        "details_url": t.run_url,
-        "status": "completed",
-        "conclusion": "success",
-        "output": output,
-    }
-    write(gh, "POST", f"repos/{t.repo}/check-runs", payload)
-    return True

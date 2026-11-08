@@ -87,7 +87,8 @@ class Target:
 
 def post(review: Review, *, target: Target, gh: GH) -> None:
     """Posts a review, without the findings that a member dismissed. A review with
-    none left scores 5. Findings on lines of the diff become one review of inline
+    none left scores 5, and so does the head when the rest are dismissed while the
+    review posts. Findings on lines of the diff become one review of inline
     threads, skipping any finding an unresolved thread of the bot already holds. The
     rest go in one comment the bot edits on each review. The summary in the pull
     request body is replaced, and the check run completes.
@@ -129,6 +130,11 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
         "output": render.check(review),
     }
     write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
+    if review.findings:
+        # A dismissal that came while this review posted found its check run running.
+        run = f"repos/{t.repo}/check-runs/{t.check_run}"
+        key = gh("api", run, "--jq", ".external_id").strip()
+        rescore(t, gh, threads(t, gh), key)
 
 
 def _drop(review: Review, gone: set[tuple[str, str]]) -> Review:
@@ -319,3 +325,35 @@ def _upsert_outside(t: Target, gh: GH, body: str, *, created: bool) -> None:
             return
     if created:
         write(gh, "POST", f"repos/{t.repo}/issues/{t.pr}/comments", {"body": body})
+
+
+def rescore(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
+    """Scores the head 5/5 in a new check run when a member dismissed every finding of
+    its newest review in the threads. Returns whether it did.
+
+    :param key: The external ID of the review's check run, `<pr>:<base ref>`.
+    """
+    run = newest(t, gh, t.head, key)
+    if run is None or run["conclusion"] != "success":
+        return False
+    if run["output"]["title"] == render.scored(5):
+        return False
+    listed = render.listed(run["output"]["text"] or "")
+    if not listed or not listed <= {(d.path, d.title) for d in dismissed(found)}:
+        return False
+    output = {
+        "title": render.scored(5),
+        "summary": f"{DISMISSED}\n\n{run['output']['summary']}",
+        "text": run["output"]["text"],
+    }
+    payload = {
+        "name": run["name"],
+        "head_sha": t.head,
+        "external_id": key,
+        "details_url": t.run_url,
+        "status": "completed",
+        "conclusion": "success",
+        "output": output,
+    }
+    write(gh, "POST", f"repos/{t.repo}/check-runs", payload)
+    return True

@@ -69,6 +69,9 @@ class FakeGH:
             {"filename": "image.png", "patch": None},
         ]
         self.threads: list[dict[str, Any]] = []
+        self.later: list[dict[str, Any]] | None = None
+        """The threads after the first read, if they changed."""
+        self.runs: list[dict[str, Any]] = []
         self.edits: list[dict[str, Any]] = []
         self.comments: list[dict[str, Any]] = []
         self.body = "Fixes the thing."
@@ -84,7 +87,16 @@ class FakeGH:
             return lines(self.files)
         if path == "graphql":
             query = next(a for a in args if a.startswith("query="))
-            return lines(self.edits if "userContentEdits" in query else self.threads)
+            if "userContentEdits" in query:
+                return lines(self.edits)
+            threads = self.threads
+            if self.later is not None:
+                self.threads = self.later
+            return lines(threads)
+        if path == f"repos/{REPO}/check-runs/55":
+            return "7:main\n"
+        if path.startswith(f"repos/{REPO}/commits/head/check-runs?"):
+            return lines(self.runs)
         if path == f"repos/{REPO}/issues/7/comments":
             return lines(self.comments)
         if path == f"repos/{REPO}/commits/head":
@@ -226,6 +238,26 @@ class TestDismissedFindings:
         assert done["output"]["summary"] == (
             "A member dismissed every finding of the review.\n\nFindings: none."
         )
+
+    def test_should_score_the_head_5_after_a_dismissal_while_posting(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("sedosaur")]
+        gh.later = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
+        gh.runs = [
+            {
+                "name": "Sedosaur Review",
+                "app": {"slug": "sedosaur"},
+                "external_id": "7:main",
+                "started_at": "2026-11-08T05:00:00Z",
+                "conclusion": "success",
+                "output": render.check(review(finding())),
+            }
+        ]
+        post(review(finding()), target=TARGET, gh=gh)
+        [check] = gh.written("POST", "check-runs")
+        assert check["output"]["title"] == "Confidence Score: 5/5"
+        assert check["external_id"] == "7:main"
 
     def test_should_keep_a_finding_whose_dismissal_is_quoted(self, gh: FakeGH) -> None:
         reply = "> reply `@sedosaur dismiss` and a reason\n\nNo, I disagree."
