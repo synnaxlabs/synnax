@@ -14,8 +14,8 @@
 #include <optional>
 #include <string>
 
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/key.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
@@ -62,9 +62,9 @@ struct Chassis {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("ni_chassis", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("ni_chassis", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("ni_chassis", key.to_string());
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("ni_chassis", key.to_string());
 }
 }

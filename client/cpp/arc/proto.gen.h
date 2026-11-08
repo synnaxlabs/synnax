@@ -129,6 +129,7 @@ inline std::pair<::service::arc::pb::Base, x::errors::Error> Base::to_proto() co
         if (err) return {{}, err};
         *pb.mutable_source() = v;
     }
+    if (this->directory.has_value()) pb.set_directory(this->directory->to_string());
     return {pb, x::errors::NIL};
 }
 
@@ -145,6 +146,11 @@ Base::from_proto(const ::service::arc::pb::Base &pb) {
         auto [v, err] = ::synnax::arc::source_from_proto(pb.source());
         if (err) return {{}, err};
         cpp.source = v;
+    }
+    if (!pb.directory().empty()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.directory());
+        if (err) return {{}, err};
+        cpp.directory = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -182,6 +188,12 @@ inline std::pair<::service::arc::pb::Where, x::errors::Error> Where::to_proto() 
         if (err) return {{}, err};
         *pb.mutable_name() = v;
     }
+    if (this->directories.has_value()) {
+        auto *wrapper = pb.mutable_directories();
+        for (const auto &item: *this->directories) {
+            wrapper->add_values(item.to_string());
+        }
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -212,6 +224,14 @@ Where::from_proto(const ::service::arc::pb::Where &pb) {
         auto [v, err] = ::x::filter::String::from_proto(pb.name());
         if (err) return {{}, err};
         cpp.name = v;
+    }
+    if (pb.has_directories()) {
+        cpp.directories.emplace();
+        for (const auto &item: pb.directories().values()) {
+            auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            cpp.directories->push_back(v);
+        }
     }
     return {cpp, x::errors::NIL};
 }

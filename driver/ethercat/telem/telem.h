@@ -230,8 +230,8 @@ inline void read_pdo_to_series(
     series.write_casted(&raw, 1, is_signed ? x::telem::INT64_T : x::telem::UINT64_T);
 }
 
-/// @brief writes a sample value to a byte buffer as a PDO value.
-/// Handles sub-byte values, 24-bit values, and standard byte-aligned values.
+/// @brief writes a sample value to a byte buffer as a PDO value. Bits outside the
+/// entry keep their values.
 /// @param dest pointer to the start of the PDO data in the buffer.
 /// @param bit_offset bit offset within the first byte (0-7).
 /// @param bit_length total bit length of the value.
@@ -297,9 +297,27 @@ inline void write_pdo_from_value(
         return;
     }
 
-    const size_t byte_len = (bit_length + 7) / 8;
     const void *data = x::telem::cast_to_void_ptr(casted);
-    std::memcpy(dest, data, byte_len);
+    if (bit_offset == 0 && bit_length % 8 == 0) {
+        std::memcpy(dest, data, bit_length / 8);
+        return;
+    }
+    // The bits around a narrow or unaligned entry belong to other entries.
+    uint64_t raw = 0;
+    std::memcpy(&raw, data, std::min<size_t>((bit_length + 7) / 8, sizeof(raw)));
+    const uint64_t entry_mask = bit_length >= 64 ? ~uint64_t{0}
+                                                 : (uint64_t{1} << bit_length) - 1;
+    raw &= entry_mask;
+    for (size_t i = 0; i < pdo_required_bytes(bit_offset, bit_length); ++i) {
+        const int shift = static_cast<int>(8 * i) - bit_offset;
+        const auto bits = static_cast<uint8_t>(
+            shift < 0 ? raw << -shift : raw >> shift
+        );
+        const auto in_entry = static_cast<uint8_t>(
+            shift < 0 ? entry_mask << -shift : entry_mask >> shift
+        );
+        dest[i] = static_cast<uint8_t>((dest[i] & ~in_entry) | (bits & in_entry));
+    }
 }
 
 }

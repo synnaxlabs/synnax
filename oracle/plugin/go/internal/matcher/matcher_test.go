@@ -74,6 +74,27 @@ var _ = Describe("Matcher", func() {
 			}))
 		})
 
+		It("Should name the bare line of a @ref field after its reference filter", func(
+			ctx SpecContext,
+		) {
+			t := table(ctx, `
+				Thing struct {
+					key    uuid   { @key }
+					parent uuid   { @ref on_delete cascade }
+					labels uuid[] { @ref on_delete detach }
+				}
+				Where filter Thing {
+					parent
+					labels
+				}
+			`)
+			ms := MustSucceed(matcher.List(t.MustGet("thing.Thing"), t))
+			Expect(summarize(ms)).To(Equal([]summary{
+				{Func: "MatchParents", Access: "Parent", Kind: matcher.Variadic},
+				{Func: "MatchLabels", Access: "Labels", Kind: matcher.Variadic},
+			}))
+		})
+
 		It("Should read a union's base fields and tag through its methods", func(
 			ctx SpecContext,
 		) {

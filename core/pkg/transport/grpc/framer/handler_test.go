@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
@@ -49,7 +50,9 @@ func createVirtualChannels(ctx context.Context, dt telem.DataType, n int) channe
 			Virtual:  true,
 		}
 	}
-	Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &chs)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).CreateMany(ctx, &chs)
+	})).To(Succeed())
 	return channel.KeysFromChannels(chs)
 }
 

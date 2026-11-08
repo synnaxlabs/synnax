@@ -10,17 +10,14 @@
 import { describe } from "vitest";
 
 import { status } from "@/status";
-import { type Lines, matches, serverComputed } from "@/status/where.gen";
+import { LINES } from "@/status/where";
+import { matches, serverComputed } from "@/status/where.gen";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
-
-const lines: Lines = {
-  labels: (s, keys) => s.labels?.some((l) => keys.includes(l.key)) ?? false,
-};
 
 describe("Where", () => {
   itMatchesVectors(
     readVectors("statuses", status.statusZ(), status.whereZ),
-    (s, where) => matches(lines, s, where),
-    (where) => serverComputed(lines, where),
+    (s, where) => matches(LINES, s, where),
+    (where) => serverComputed(LINES, where),
   );
 });

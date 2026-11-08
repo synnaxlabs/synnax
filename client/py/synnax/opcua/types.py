@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from pydantic import JsonValue
 
-from synnax import device, task
+from synnax import device, rack as rack_, task
 from synnax.opcua.types_gen import ReadChannel, ReadConfig, WriteChannel, WriteConfig
 from synnax.telem import CrudeRate, Rate
 
@@ -228,8 +228,8 @@ class Device(device.Device):
         session_timeout_ms: int = 1_200_000,
         name: str = "",
         location: str = "",
-        rack: int = 0,
-        key: str = "",
+        rack: rack_.Key = 0,
+        key: device.Key = "",
         configured: bool = True,
     ):
         if not key:

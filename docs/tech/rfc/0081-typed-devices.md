@@ -157,7 +157,7 @@ Each resource is a struct in its own `.oracle` file with its own package, such a
 `ni_device.oracle` and `core/pkg/service/ni/device`, because Oracle allows one
 `@retrieve` per output. Each file has `@go`, `@ts`, `@py`, and `@cpp` outputs. Every
 struct carries `@create`, `@retrieve`, `@go marshal`, `@go migrate`, and
-`@ontology type`, and declares `key uuid = create` with `@key`, `rack rack.Key` with
+`@resource type`, and declares `key uuid = create` with `@key`, `rack rack.Key` with
 `@filter`, `name string` with `@filter` and `@search`, and a `status` of its own
 `Status` type with `@go marshal omit`. A base struct would carry nothing else, so the
 three fields repeat.
@@ -215,8 +215,9 @@ Field groups per make:
   `thermocouple_index`, `write_state_index`, four port channel maps.
 - **EtherCAT master**: identity `interface`, `slaves Slave.Key[]` in bus order.
 - **EtherCAT slave**: identity `serial`, `vendor_id`, `product_code`, `revision`,
-  `master Master.Key`, `pdos`; configuration `identifier`, `enabled`, `read_index`,
-  `write_state_index`, input and output channel maps.
+  `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,
+  `startup_parameters`, `read_index`, `write_state_index`, input and output channel
+  maps.
 - **OPC UA server**: `connection` (endpoint, credentials, security mode and policy,
   certificates), `read_indexes`, node channel maps
   (`console/src/feature/opcua/device/types/v1.ts:18-30`).

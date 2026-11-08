@@ -110,7 +110,7 @@ describe("License Commands", () => {
     const gate = findCommand(License.COMMANDS, "Show license info").useVisible;
     assertDefined(gate);
     const client = await createTestClientWithGrants(createTestClient(), {
-      retrieve: [license.ONTOLOGY_ID],
+      retrieve: [license.RESOURCE_ID],
     });
     const { result } = await renderHookWithConsole(gate, { client });
     await waitFor(() => expect(result.current).toBe(true));
@@ -123,7 +123,7 @@ describe("License Commands", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(user.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(user.TYPE_RESOURCE_ID),
       }),
       { client },
     );

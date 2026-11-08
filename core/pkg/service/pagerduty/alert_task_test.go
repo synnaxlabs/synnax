@@ -44,12 +44,12 @@ var _ = Describe("AlertTask", func() {
 		cfg pd.TaskConfig,
 	) driver.Task {
 		GinkgoHelper()
-		t := task.Task{
+		t := createTask(ctx, task.Task{
 			Key:    uuid.New(),
 			Name:   "PagerDuty Test",
 			Type:   pd.AlertTaskType,
 			Config: encodeConfig(cfg),
-		}
+		})
 		tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 		Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 		return tsk
@@ -90,27 +90,28 @@ var _ = Describe("AlertTask", func() {
 		It("Should return ErrUnsupportedCommand for unknown commands",
 			func(ctx context.Context) {
 				cfg := validConfig(pd.Alert{Status: "s1"})
-				t := task.Task{
+				t := createTask(ctx, task.Task{
 					Key:    uuid.New(),
 					Name:   "test",
 					Type:   pd.AlertTaskType,
 					Config: encodeConfig(cfg),
-				}
+				})
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
-				err := tsk.Exec(ctx, task.Command{Type: "restart"})
-				Expect(err).To(MatchError(driver.ErrUnsupportedCommand))
+				Expect(
+					tsk.Exec(ctx, task.Command{Type: "restart"}),
+				).To(MatchError(driver.ErrUnsupportedCommand))
 			},
 		)
 
 		DescribeTable("Should acknowledge a command that needs no work",
 			func(ctx context.Context, cmdType string, running bool) {
-				t := task.Task{
+				t := createTask(ctx, task.Task{
 					Key:    uuid.New(),
 					Name:   "PagerDuty Test",
 					Type:   pd.AlertTaskType,
 					Config: encodeConfig(validConfig(pd.Alert{Status: "s1"})),
-				}
+				})
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(false)).To(Succeed()) }()
 				if running {
@@ -125,8 +126,8 @@ var _ = Describe("AlertTask", func() {
 				})).To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Details.Cmd).To(Equal("cmd-again"))
 				Expect(stat.Details.Running).To(Equal(running))
 			},
@@ -178,6 +179,35 @@ var _ = Describe("AlertTask", func() {
 				events := sender.getEvents()
 				Expect(events[0].Action).To(Equal("resolve"))
 				Expect(events[0].DedupKey).To(Equal("watched-resolve"))
+			},
+		)
+
+		It("Should send one event for each of two quick changes, in order",
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
+					pd.Alert{Status: "quick-blocker"},
+					pd.Alert{Status: "quick-flap"},
+				))
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
+				release := sender.hold()
+				setStatus(ctx, "quick-blocker", status.VariantError, "Busy", nil)
+				setStatus(ctx, "quick-flap", status.VariantError, "Broke", nil)
+				setStatus(ctx, "quick-flap", status.VariantSuccess, "Fixed", nil)
+				release()
+				Eventually(func() int { return len(sender.getEvents()) }).
+					WithTimeout(2 * time.Second).
+					Should(Equal(3))
+				Expect(sender.getEvents()).To(HaveExactElements(
+					HaveField("DedupKey", "quick-blocker"),
+					And(
+						HaveField("DedupKey", "quick-flap"),
+						HaveField("Action", "trigger"),
+					),
+					And(
+						HaveField("DedupKey", "quick-flap"),
+						HaveField("Action", "resolve"),
+					),
+				))
 			},
 		)
 
@@ -419,23 +449,21 @@ var _ = Describe("AlertTask", func() {
 		It("Should set error status when sendEvent fails",
 			func(ctx context.Context) {
 				sender.setError(errors.New("simulated PagerDuty outage"))
-				t := task.Task{
+				t := createTask(ctx, task.Task{
 					Key:    uuid.New(),
 					Name:   "PagerDuty Test",
 					Type:   pd.AlertTaskType,
 					Config: encodeConfig(validConfig(pd.Alert{Status: "send-failure"})),
-				}
+				})
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 				retrieve := func(g Gomega) task.Status {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](
-							t.OntologyID().String(),
-						)).
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&stat).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					return stat
 				}
 				const (

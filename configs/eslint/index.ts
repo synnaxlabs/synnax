@@ -12,6 +12,7 @@ import pluginReact from "@eslint-react/eslint-plugin";
 import stylistic from "@stylistic/eslint-plugin";
 import type { ESLint, Linter, Rule } from "eslint";
 import { includeIgnoreFile } from "eslint/config";
+import jsdoc from "eslint-plugin-jsdoc";
 import reactHooks from "eslint-plugin-react-hooks";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
@@ -19,6 +20,7 @@ import path from "path";
 import tseslint from "typescript-eslint";
 
 import { isWorker } from "./compiler";
+import { aliasImports } from "./rules/aliasImports";
 import { barrelImports } from "./rules/barrelImports";
 import { jsxFilenameExtension } from "./rules/jsxFilenameExtension";
 import { namedHookCallers } from "./rules/namedHookCallers";
@@ -33,6 +35,7 @@ const skipWorkers = (rule: Rule.RuleModule): Rule.RuleModule => ({
 
 const synnax: ESLint.Plugin = {
   rules: {
+    "alias-imports": aliasImports,
     "barrel-imports": barrelImports,
     "jsx-filename-extension": jsxFilenameExtension,
     "named-hook-callers": skipWorkers(namedHookCallers),
@@ -138,6 +141,7 @@ const config: Linter.Config[] = [
     plugins: {
       "simple-import-sort": simpleImportSort,
       "@stylistic": stylistic,
+      jsdoc,
       "react-hooks": {
         rules: {
           ...reactHooks.rules,
@@ -147,6 +151,7 @@ const config: Linter.Config[] = [
       synnax,
     },
     rules: {
+      "synnax/alias-imports": "error",
       "synnax/barrel-imports": "error",
       "synnax/jsx-filename-extension": "error",
       "new-cap": ["error", { capIsNew: false }],
@@ -197,6 +202,18 @@ const config: Linter.Config[] = [
         "error",
         { props: "never", children: "never" },
       ],
+      // Prettier leaves comments alone, so this checks only lines that start with one.
+      "@stylistic/max-len": [
+        "error",
+        {
+          code: 88,
+          ignorePattern: "^(?!\\s*(//|/?\\*))",
+          ignoreUrls: true,
+          ignoreTemplateLiterals: true,
+        },
+      ],
+      "jsdoc/no-types": "error",
+      "jsdoc/require-hyphen-before-param-description": ["error", "always"],
       "no-restricted-syntax": ["error", ...RESTRICTED_SYNTAX],
       "@eslint-react/no-missing-component-display-name": "error",
       "@eslint-react/no-missing-context-display-name": "error",
@@ -298,9 +315,11 @@ const config: Linter.Config[] = [
     },
   },
   {
-    // Oracle imports one generated module into another as a namespace.
+    // Oracle imports one generated module into another as a namespace. A generated file
+    // follows its generator, so its comment length is not checked.
     files: ["**/*.gen.ts"],
     rules: {
+      "@stylistic/max-len": "off",
       "no-restricted-syntax": [
         "error",
         ...RESTRICTED_SYNTAX.filter((r) => r !== NAMESPACE_IMPORT),

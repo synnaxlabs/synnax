@@ -890,7 +890,7 @@ describe("queries", () => {
       // let that settle so it does not race the status set below.
       await sleep.sleep(TimeSpan.milliseconds(500));
       await client.statuses.set({
-        key: channel.statusKey(calc.key),
+        owner: channel.resourceID(calc.key),
         name: calc.name,
         variant: "error",
         message: "invalid expression",
@@ -958,7 +958,7 @@ describe("queries", () => {
       await sleep.sleep(TimeSpan.milliseconds(500));
       await act(async () => {
         await client.statuses.set({
-          key: channel.statusKey(calc.key),
+          owner: channel.resourceID(calc.key),
           name: calc.name,
           variant: "error",
           message: "broken expression",
@@ -993,12 +993,11 @@ describe("queries", () => {
       const createCalculatedWithStatus = async () => {
         const calc = await createCalculated();
         await client.statuses.set({
-          key: channel.statusKey(calc.key),
+          owner: channel.resourceID(calc.key),
           name: calc.name,
           variant: "error",
           message: "invalid expression",
           time: TimeStamp.now(),
-          details: { channel: calc.key },
         });
         return calc;
       };
@@ -1052,7 +1051,10 @@ describe("queries", () => {
 
       it("should fetch once when the channel has no status row", async () => {
         const calc = await createCalculated();
-        await client.statuses.delete(channel.statusKey(calc.key));
+        const held = await client.statuses.retrieve({
+          owners: [channel.resourceID(calc.key)],
+        });
+        await client.statuses.delete(held.map((s) => s.key));
         const local = createTestClient();
         await local.channels.retrieve([calc.key]);
         const localWrapper = await createAsyncSynnaxWrapper({ client: local });
@@ -1314,18 +1316,17 @@ describe("queries", () => {
       });
     });
 
-    it("should handle delete errors gracefully", async () => {
-      const nonExistentKey = 999999999;
+    it("should fail to delete an internal channel", async () => {
+      const [internal] = await client.channels.retrieve({ internal: true });
       const { result } = renderHook(() => Channel.useDelete(), { wrapper });
-
       await act(async () => {
-        try {
-          await result.current.updateAsync(nonExistentKey);
-        } catch (error) {
-          expect(error).toBeDefined();
-        }
+        expect(await result.current.updateAsync(internal.key)).toBe(false);
       });
       expect(result.current.variant).toEqual("error");
+      expect(result.current.status.description).toContain(
+        `can't delete internal channel "${internal.name}"`,
+      );
+      await expect(client.channels.retrieve(internal.key)).resolves.toBeDefined();
     });
   });
 
@@ -1541,36 +1542,6 @@ describe("queries", () => {
       });
 
       expect(order).toEqual([`optimistic:${ch.key}`, "success"]);
-    });
-  });
-
-  describe("useGroup", () => {
-    it("should retrieve the channel group", async () => {
-      const { result } = await renderHookSuspended(() => Channel.useGroup({}), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current).not.toBeNull());
-      expect(result.current?.key).toBeDefined();
-      expect(result.current?.name).toEqual("Channels");
-    });
-
-    it("should serve the same group to a second caller", async () => {
-      const { result: result1 } = await renderHookSuspended(
-        () => Channel.useGroup({}),
-        {
-          wrapper,
-        },
-      );
-      await waitFor(() => expect(result1.current).not.toBeNull());
-      const firstGroup = result1.current;
-
-      const { result: result2 } = await renderHookSuspended(
-        () => Channel.useGroup({}),
-        {
-          wrapper,
-        },
-      );
-      await waitFor(() => expect(result2.current?.key).toEqual(firstGroup?.key));
     });
   });
 

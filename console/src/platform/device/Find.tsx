@@ -30,7 +30,6 @@ import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { Configure } from "@/platform/device/Configure";
 import { ConnectFrame } from "@/platform/device/ConnectFrame";
 import { type Hardware } from "@/platform/device/integration";
 import { isRunning } from "@/platform/device/racks";
@@ -374,11 +373,10 @@ const FindModal = ({
   const [configuring, setConfiguring] = useState<device.Key | null>(null);
   if (configuring == null)
     return <Find hardware={hardware} filter={filter} onConfigure={setConfiguring} />;
+  const { Configure } = hardware;
   return (
     <Configure
       deviceKey={configuring}
-      icon={hardware.icon}
-      initialProperties={hardware.zeroProperties}
       onBack={() => setConfiguring(null)}
       close={() => close(configuring)}
     />

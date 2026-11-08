@@ -10,8 +10,7 @@
 import re
 from typing import Literal
 
-from playwright.sync_api import Locator, expect
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
 from console.layout import LayoutClient
 from console.range.explorer import Explorer

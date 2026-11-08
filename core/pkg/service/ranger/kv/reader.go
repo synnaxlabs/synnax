@@ -19,7 +19,7 @@ import (
 
 // Reader is used to retrieve key-value pairs.
 type Reader struct {
-	tx    gorp.Tx
+	snap  gorp.Snapshot
 	table *gorp.Table[string, Pair]
 }
 
@@ -36,7 +36,7 @@ func (r Reader) GetMany(
 	err := r.table.NewRetrieve().
 		Where(gorp.MatchKeys[string, Pair](tKeys...)).
 		Entries(&res).
-		Exec(ctx, r.tx)
+		Exec(ctx, r.snap)
 	return res, err
 }
 
@@ -48,6 +48,6 @@ func (r Reader) List(ctx context.Context, rng ranger.Key) ([]Pair, error) {
 			return kv.Range == rng, nil
 		})).
 		Entries(&res).
-		Exec(ctx, r.tx)
+		Exec(ctx, r.snap)
 	return res, err
 }

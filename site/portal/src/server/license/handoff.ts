@@ -33,8 +33,8 @@ export interface OfferArgs {
 }
 
 /**
- * offer holds a license key for the Console that made `code`, replacing any key held for
- * it, and drops the keys that nobody collected in time.
+ * offer holds a license key for the Console that made `code`, replacing any key held
+ * for it, and drops the keys that nobody collected in time.
  */
 export const offer = async (
   store: Store,

@@ -486,6 +486,33 @@ synnax cert node synnax.example.com
 
 <Divider.Divider x />
 
+## Update
+
+The `update` commands undo an update of the Core. Before a new version first opens the
+data, the Core backs up its metadata. Stop the Core first. Both commands take `--data`
+with the same default as `start`. See
+[Go back to an earlier version](/reference/enterprise/upgrade#go-back-to-an-earlier-version).
+
+### update undo
+
+Restores the backup of the last update, or the named backup, and prints the Core version
+to run on the data. Without a name, it refuses if the last update is already undone:
+
+```bash
+synnax update undo
+synnax update undo 1793000000-0.60.1
+```
+
+### update history
+
+Lists the backups, oldest first:
+
+```bash
+synnax update history
+```
+
+<Divider.Divider x />
+
 ## Version
 
 The `version` command, or `synnax --version`, prints the version of the Core:

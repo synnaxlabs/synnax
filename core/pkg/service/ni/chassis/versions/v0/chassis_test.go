@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -28,9 +28,8 @@ var _ = Describe("Chassis", func() {
 		key := uuid.MustParse("11111111-1111-4111-8111-111111111111")
 		c := v0.Chassis{Key: key}
 		Expect(c.GorpKey()).To(Equal(key))
-		Expect(c.SetOptions()).To(BeNil())
-		Expect(c.OntologyID()).To(Equal(ontology.ID{
-			Type: ontology.ResourceTypeNiChassis,
+		Expect(c.ResourceID()).To(Equal(resource.ID{
+			Type: resource.TypeNiChassis,
 			Key:  key.String(),
 		}))
 	})

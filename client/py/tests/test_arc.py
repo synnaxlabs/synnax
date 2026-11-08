@@ -126,6 +126,11 @@ class TestArc:
         retrieved = client.arcs.retrieve(where=where, keys=keys)
         assert [arc.key for arc in retrieved] == [created[1].key]
 
+    def test_retrieve_by_directory(self, client: sy.Synnax) -> None:
+        """Should keep no Arcs for a directory that holds none."""
+        created = client.arcs.create(name=f"test-arc-{uuid4()}", mode="text")
+        assert client.arcs.retrieve(key=[created.key], directories=uuid4()) == []
+
     def test_retrieve_name_operator(self, client: sy.Synnax) -> None:
         """Should retrieve the Arcs whose name matches an operator."""
         prefix = f"test-arc-op-{uuid4()}"
@@ -273,7 +278,7 @@ class TestArcTask:
             text=sy.Text(raw="x := 1"),
         )
         task = sy.arc.Task(name="Test Arc Task", arc_key=arc.key, auto_start=False)
-        assert task.config.arc_key == str(arc.key)
+        assert task.config.arc_key == arc.key
         assert task.config.auto_start is False
         assert task.TYPE == "arc"
 
@@ -288,6 +293,18 @@ class TestArcTask:
         assert payload.type == "arc"
         assert payload.name == "Test Arc Task"
         assert payload.config["arc_key"] == str(arc.key)
+
+    def test_arc_task_keeps_stored_fields(self) -> None:
+        """Should keep the hash and data saving flag of a stored config."""
+        stored = {
+            "arc_key": str(uuid4()),
+            "hash": "abc",
+            "data_saving_disabled": True,
+        }
+        task = sy.arc.Task(internal=sy.task.Task(type="arc", config=stored))
+        config = task.to_payload().config
+        assert config["hash"] == "abc"
+        assert config["data_saving_disabled"] is True
 
     def test_arc_task_requires_arc_key(self) -> None:
         """Should raise error when arc_key is not provided."""
@@ -331,6 +348,23 @@ class TestArcTask:
         assert retrieved.key == created.key
         assert retrieved.type == "arc"
 
+    def test_retrieve_tasks_by_arc(self, client: sy.Synnax) -> None:
+        """Should retrieve only the tasks that run the given Arcs."""
+        arcs = [
+            client.arcs.create(name=f"test-arc-by-arc-{uuid4()}", mode="text")
+            for _ in range(2)
+        ]
+        created = [
+            client.tasks.create(
+                name=f"Test Arc Task {uuid4()}",
+                type="arc",
+                config=sy.arc.Task(name="", arc_key=a.key).to_payload().config,
+            )
+            for a in arcs
+        ]
+        retrieved = client.tasks.retrieve(arcs=[arcs[0].key])
+        assert [t.key for t in retrieved] == [created[0].key]
+
     def test_wrap_retrieved_task_as_arc_task(self, client: sy.Synnax) -> None:
         """Should wrap a retrieved task as an ArcTask."""
         arc = client.arcs.create(
@@ -347,7 +381,7 @@ class TestArcTask:
         retrieved = client.tasks.retrieve(key=created.key)
         # Wrap the generic Task as an ArcTask
         arc_task = sy.arc.Task(internal=retrieved)
-        assert arc_task.config.arc_key == str(arc.key)
+        assert arc_task.config.arc_key == arc.key
         assert arc_task.config.auto_start is False
 
     def test_performance_defaults_to_auto(self) -> None:

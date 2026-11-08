@@ -11,7 +11,7 @@ package v0
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Chassis{}
@@ -23,10 +23,7 @@ func (Chassis) CustomTypeName() string { return "ni_chassis" }
 // GorpKey returns the key of the chassis.
 func (c Chassis) GorpKey() Key { return c.Key }
 
-// SetOptions returns nil.
-func (Chassis) SetOptions() []any { return nil }
-
-// OntologyID returns the ontology ID of the chassis.
-func (c Chassis) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeNiChassis, Key: c.Key.String()}
+// ResourceID returns the resource ID of the chassis.
+func (c Chassis) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeNiChassis, Key: c.Key.String()}
 }

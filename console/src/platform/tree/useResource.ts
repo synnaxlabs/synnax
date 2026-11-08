@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { resource } from "@synnaxlabs/client";
 import { Store } from "@synnaxlabs/lyra/store";
 
-import { type TreeState } from "@/platform/tree/types";
+import { type Resource, type TreeState } from "@/platform/tree/types";
 
 export interface ResourceSource extends Pick<
   TreeState,
@@ -23,10 +23,10 @@ export interface ResourceSource extends Pick<
  */
 export const useResources = (
   { getResource, subscribeResource }: ResourceSource,
-  ids: ontology.ID[],
-): ontology.Resource[] =>
+  ids: resource.ID[],
+): Resource[] =>
   Store.useItems({
-    keys: ontology.idToString(ids),
+    keys: resource.idToString(ids),
     subscribe: subscribeResource,
     getItem: getResource,
   });
@@ -37,5 +37,5 @@ export const useResources = (
  */
 export const useResource = (
   source: ResourceSource,
-  id: ontology.ID,
-): ontology.Resource | undefined => useResources(source, [id])[0];
+  id: resource.ID,
+): Resource | undefined => useResources(source, [id])[0];

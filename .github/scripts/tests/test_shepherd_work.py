@@ -17,7 +17,7 @@ from scripts_common import FakeGH
 SCRIPT = Path(__file__).resolve().parents[1] / "shepherd_work.sh"
 
 
-FINDINGS = "<!-- greptile_outside_diff -->\n\n- **Bug** `a.go:1`\n"
+FINDINGS = "<!-- sedosaur_outside_diff -->\n\n- **Bug** `a.go:1`\n"
 
 
 class Harness:
@@ -60,7 +60,7 @@ class Harness:
         self.gh.serve("api graphql", {"data": {"repository": {"pullRequest": pull}}})
 
     def comments(self, outside: bool = False) -> None:
-        user = {"login": "greptile-apps[bot]", "type": "Bot"}
+        user = {"login": "sedosaur[bot]", "type": "Bot"}
         at = "2026-01-01T00:00:00Z"
         found = [{"user": user, "body": FINDINGS, "created_at": at, "updated_at": at}]
         self.gh.serve("api */comments*", found if outside else [])

@@ -11,7 +11,7 @@ package v0
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Device{}
@@ -23,10 +23,7 @@ func (Device) CustomTypeName() string { return "ni_device" }
 // GorpKey returns the key of the device.
 func (d Device) GorpKey() Key { return d.Key }
 
-// SetOptions returns nil.
-func (Device) SetOptions() []any { return nil }
-
-// OntologyID returns the ontology ID of the device.
-func (d Device) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeNiDevice, Key: d.Key.String()}
+// ResourceID returns the resource ID of the device.
+func (d Device) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeNiDevice, Key: d.Key.String()}
 }

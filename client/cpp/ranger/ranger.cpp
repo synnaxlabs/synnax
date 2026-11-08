@@ -12,9 +12,31 @@
 
 namespace synnax::ranger {
 
+std::pair<Range, x::errors::Error>
+Client::retrieve(const Key &key, const RetrieveOptions &options) const {
+    return this->retrieve(Where{.key = key}, x::filter::one, options);
+}
+
+std::pair<Range, x::errors::Error>
+Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
+    return this->retrieve(Where{.name = name}, x::filter::one, options);
+}
+
 std::pair<std::vector<Range>, x::errors::Error>
-Client::retrieve(const RetrieveRequest &req) const {
-    auto [pb_req, pb_err] = req.to_proto();
+Client::retrieve(const std::vector<Key> &keys, const RetrieveOptions &options) const {
+    return this->retrieve(Where{.key = keys}, options);
+}
+
+std::pair<std::vector<Range>, x::errors::Error> Client::retrieve(
+    const std::vector<std::string> &names,
+    const RetrieveOptions &options
+) const {
+    return this->retrieve(Where{.name = names}, options);
+}
+
+std::pair<std::vector<Range>, x::errors::Error>
+Client::retrieve(const Where &where, const RetrieveOptions &options) const {
+    auto [pb_req, pb_err] = RetrieveRequest::from(where, options).to_proto();
     if (pb_err) return {std::vector<Range>(), pb_err};
     grpc::ranger::RetrieveRequest grpc_req;
     *grpc_req.mutable_request() = pb_req;
@@ -27,37 +49,18 @@ Client::retrieve(const RetrieveRequest &req) const {
     return {std::move(decoded.ranges), x::errors::NIL};
 }
 
-std::pair<Range, x::errors::Error> Client::retrieve_by_key(const Key &key) const {
-    auto [ranges, err] = this->retrieve(
-        {.where = Where{.key = x::filter::Set<Key>{.eq = key}}}
-    );
+std::pair<Range, x::errors::Error> Client::retrieve(
+    const Where &where,
+    x::filter::One,
+    const RetrieveOptions &options
+) const {
+    if (options.limit.has_value() || options.offset != 0)
+        return {Range(), errors::paged_one_error()};
+    auto [ranges, err] = this->retrieve(where, options);
     if (err) return {Range(), err};
-    if (ranges.empty())
-        return {Range(), errors::not_found_error("range", "key " + key.to_string())};
-    return {ranges[0], x::errors::NIL};
-}
-
-std::pair<Range, x::errors::Error>
-Client::retrieve_by_name(const std::string &name) const {
-    auto [ranges, err] = this->retrieve(
-        {.where = Where{.name = x::filter::String{.eq = name}}}
-    );
-    if (err) return {Range(), err};
-    if (ranges.empty())
-        return {Range(), errors::not_found_error("range", "name " + name)};
-    if (ranges.size() > 1)
-        return {Range(), errors::multiple_found_error("ranges", "name " + name)};
-    return {ranges[0], x::errors::NIL};
-}
-
-std::pair<std::vector<Range>, x::errors::Error>
-Client::retrieve_by_name(const std::vector<std::string> &names) const {
-    return this->retrieve({.where = Where{.name = x::filter::String{.in = names}}});
-}
-
-std::pair<std::vector<Range>, x::errors::Error>
-Client::retrieve_by_key(const std::vector<Key> &keys) const {
-    return this->retrieve({.where = Where{.key = x::filter::Set<Key>{.in = keys}}});
+    if (const auto one_err = errors::check_one("range", where.to_json(), ranges.size()))
+        return {Range(), one_err};
+    return {std::move(ranges[0]), x::errors::NIL};
 }
 
 x::errors::Error Client::create(std::vector<Range> &ranges) const {

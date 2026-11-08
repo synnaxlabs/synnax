@@ -111,12 +111,12 @@ func newHarness(
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 	statefulMod := MustSucceed(stateful.NewHost(ctx, wasmRT, seriesState, stringsState))
-	_, _ = series.NewHost(ctx, wasmRT, seriesState)
+	MustSucceed(series.NewHost(ctx, wasmRT, seriesState))
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, wasmRT, stringsState, nil))
 	mathMod := MustSucceed(stlmath.NewHost(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewHost(ctx, wasmRT, nil))
-	_, _ = stltime.NewHost(ctx, wasmRT)
-	channelMod, _ := channels.NewHost(ctx, wasmRT, channelState, stringsState)
+	MustSucceed(stltime.NewHost(ctx, wasmRT))
+	channelMod := MustSucceed(channels.NewHost(ctx, wasmRT, channelState, stringsState))
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
 	stringsMod.SetMemory(guest.Memory())
@@ -241,12 +241,12 @@ func newTextHarness(
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 	statefulMod := MustSucceed(stateful.NewHost(ctx, wasmRT, seriesState, stringsState))
-	_, _ = series.NewHost(ctx, wasmRT, seriesState)
+	MustSucceed(series.NewHost(ctx, wasmRT, seriesState))
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, wasmRT, stringsState, nil))
 	mathMod := MustSucceed(stlmath.NewHost(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewHost(ctx, wasmRT, nil))
-	_, _ = stltime.NewHost(ctx, wasmRT)
-	channelMod, _ := channels.NewHost(ctx, wasmRT, channelState, stringsState)
+	MustSucceed(stltime.NewHost(ctx, wasmRT))
+	channelMod := MustSucceed(channels.NewHost(ctx, wasmRT, channelState, stringsState))
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
 	stringsMod.SetMemory(guest.Memory())
