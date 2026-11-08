@@ -34,7 +34,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of every request except set.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
