@@ -12,6 +12,7 @@ package orc
 import (
 	"io"
 	"math"
+	"unsafe"
 
 	"github.com/synnaxlabs/x/errors"
 )
@@ -42,6 +43,9 @@ var MaxCollectionLen uint32 = 10_000_000
 // crafted input cannot drive unbounded stack growth. Defaults to 10,000.
 var MaxDecodeDepth = 10_000
 
+// stringBufMax is the size limit of a buffer that String allocates in direct mode.
+const stringBufMax = 8 << 10
+
 // Reader reads primitive data types using big-endian byte order. It supports two modes:
 // direct byte-slice mode (via ResetBytes) for zero-copy decoding from in-memory data,
 // and io.Reader mode (via NewReader) for streaming. Direct mode avoids intermediate
@@ -52,6 +56,9 @@ type Reader struct {
 	depth int
 	data  []byte
 	pos   int
+	// stringBuf holds the bytes of the strings read since ResetBytes. String only
+	// appends to it, so the strings that point into it never change.
+	stringBuf []byte
 }
 
 // NewReader creates a new Reader in io.Reader mode.
@@ -64,6 +71,7 @@ func (r *Reader) ResetBytes(data []byte) {
 	r.pos = 0
 	r.r = nil
 	r.depth = 0
+	r.stringBuf = nil
 }
 
 // Uint8 reads a single byte.
@@ -195,10 +203,24 @@ func (r *Reader) Bool() (bool, error) {
 
 // String reads a length-prefixed string (4-byte length + raw bytes). In io.Reader mode,
 // a length above MaxStringLen is an error, so a corrupt prefix cannot cause a massive
-// allocation.
+// allocation. In direct mode, the strings read after one ResetBytes share buffers of up
+// to 8 KB, so a string that stays alive keeps its buffer alive.
 func (r *Reader) String() (string, error) {
 	b, err := r.StringBytes()
-	return string(b), err
+	if err != nil || len(b) == 0 {
+		return "", err
+	}
+	if r.data == nil {
+		return unsafe.String(&b[0], len(b)), nil
+	}
+	if cap(r.stringBuf)-len(r.stringBuf) < len(b) {
+		// The rest of the data bounds the bytes of the strings still to read.
+		size := max(len(b), min(len(b)+len(r.data)-r.pos, stringBufMax))
+		r.stringBuf = make([]byte, 0, size)
+	}
+	start := len(r.stringBuf)
+	r.stringBuf = append(r.stringBuf, b...)
+	return unsafe.String(&r.stringBuf[start], len(b)), nil
 }
 
 // StringBytes reads a length-prefixed string like String, but returns its bytes without
