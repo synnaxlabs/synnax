@@ -39,10 +39,11 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	db  *gorp.DB
 	svc *service.Layer
-	// create, del, and rename run their routes as the API layer binds them.
-	create freighter.UnaryHandler[apiview.CreateRequest, apiview.CreateResponse]
-	del    freighter.UnaryHandler[apiview.DeleteRequest, struct{}]
-	rename freighter.UnaryHandler[apiview.RenameRequest, struct{}]
+	// The handlers below run their routes as the API layer binds them.
+	retrieve freighter.UnaryHandler[apiview.RetrieveRequest, apiview.RetrieveResponse]
+	create   freighter.UnaryHandler[apiview.CreateRequest, apiview.CreateResponse]
+	del      freighter.UnaryHandler[apiview.DeleteRequest, struct{}]
+	rename   freighter.UnaryHandler[apiview.RenameRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -52,6 +53,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc := MustSucceed(apiview.NewService(apiview.ServiceConfig{View: svc.View}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: svc.RBAC}))
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	rename = bind.Write(binder, apiSvc.Rename)
@@ -78,10 +80,4 @@ func grantOn(
 	MustSucceed(
 		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, key, actions, objects...),
 	)
-}
-
-// grantUpdateOn grants update on the objects to the subject.
-func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
-	GinkgoHelper()
-	grantOn(ctx, subject, access.ActionUpdate, objects...)
 }

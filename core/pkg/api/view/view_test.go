@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -116,7 +117,7 @@ var _ = Describe("Rename", func() {
 	It("Should rename the view when update is granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		v := createView(ctx)
-		grantUpdateOn(ctx, u.ResourceID(), v.ResourceID())
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, v.ResourceID())
 		MustSucceed(rename(
 			AuthedCtx(ctx, u),
 			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
@@ -128,7 +129,7 @@ var _ = Describe("Rename", func() {
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := createUser(ctx)
 		v := createView(ctx)
-		grantUpdateOn(ctx, u.ResourceID(), v.ResourceID())
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, v.ResourceID())
 		Expect(rename(
 			AuthedCtx(ctx, u),
 			apiview.RenameRequest{Key: v.GorpKey(), Name: ""},
@@ -138,7 +139,7 @@ var _ = Describe("Rename", func() {
 	It("Should return a not found error for a missing view", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
-		grantUpdateOn(ctx, u.ResourceID(), view.ResourceID(key))
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, view.ResourceID(key))
 		Expect(rename(
 			AuthedCtx(ctx, u),
 			apiview.RenameRequest{Key: key, Name: "After"},
@@ -152,5 +153,61 @@ var _ = Describe("Rename", func() {
 			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
 		)).Error().To(denied(u, access.ActionUpdate, v.ResourceID()))
 		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
+	})
+})
+
+var _ = Describe("Retrieve", func() {
+	keysOf := func(res apiview.RetrieveResponse) []view.Key {
+		keys := make([]view.Key, len(res.Views))
+		for i, v := range res.Views {
+			keys[i] = v.GorpKey()
+		}
+		return keys
+	}
+	byKeys := func(keys ...view.Key) apiview.RetrieveRequest {
+		return apiview.RetrieveRequest{
+			Where: &view.Where{Key: &filter.Set[view.Key]{In: keys}},
+		}
+	}
+
+	It("Should return the named views that the subject can retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		v := createView(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionRetrieve, v.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), byKeys(v.GorpKey())))
+		Expect(keysOf(res)).To(Equal([]view.Key{v.GorpKey()}))
+	})
+
+	It("Should deny a named view that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		allowed, denied := createView(ctx), createView(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionRetrieve, allowed.ResourceID())
+		Expect(retrieve(
+			AuthedCtx(ctx, u),
+			byKeys(allowed.GorpKey(), denied.GorpKey()),
+		)).Error().To(MatchError(access.Denied(
+			u.ResourceID(),
+			access.ActionRetrieve,
+			denied.ResourceID(),
+		).Error()))
+	})
+
+	It("Should leave out matched views that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		allowed, denied := createView(ctx), createView(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionRetrieve, allowed.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiview.RetrieveRequest{
+			Where: &view.Where{Or: []view.Where{
+				{Key: &filter.Set[view.Key]{Eq: new(allowed.GorpKey())}},
+				{Key: &filter.Set[view.Key]{Eq: new(denied.GorpKey())}},
+			}},
+		}))
+		Expect(keysOf(res)).To(Equal([]view.Key{allowed.GorpKey()}))
 	})
 })
