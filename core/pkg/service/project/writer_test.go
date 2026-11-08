@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -177,6 +178,21 @@ var _ = Describe("Writer", func() {
 				))
 			},
 		)
+	})
+	It("Should return the children of a project through a snapshot", func(
+		ctx SpecContext,
+	) {
+		proj := project.Project{Name: "snapshot"}
+		Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+		l := log.Log{Name: "l", Project: &proj.Key}
+		Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var children []resource.ID
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			children, err = svc.Children(ctx, snap, proj.Key)
+			return err
+		})).To(Succeed())
+		Expect(children).To(ConsistOf(l.ResourceID()))
 	})
 	Describe("Group", func() {
 		createGroup := func(ctx context.Context, g group.Group) group.Group {

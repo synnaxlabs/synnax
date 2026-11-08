@@ -311,7 +311,7 @@ func (s *Service) NewRetrieve() Retrieve {
 func (s *Service) guardRack(ctx gorp.Context, r rack.Rack) error {
 	exists, err := s.NewRetrieve().
 		Where(And(MatchRacks(r.Key), MatchInternal(false))).
-		Exists(ctx, ctx.Tx)
+		Exists(ctx, ctx.Snapshot)
 	if err != nil || !exists {
 		return err
 	}
