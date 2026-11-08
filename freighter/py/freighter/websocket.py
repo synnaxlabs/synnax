@@ -419,11 +419,8 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         """
         Create a new client with a different codec.
 
-        Args:
-            codec: The codec to use for the new client
-
-        Returns:
-            A new AsyncWebsocketClient with the specified codec
+        :param codec: The codec to use for the new client
+        :returns: A new AsyncWebsocketClient with the specified codec
         """
         client = AsyncWebsocketClient(
             encoder=codec,
@@ -511,11 +508,8 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
         """
         Create a new client with a different codec.
 
-        Args:
-            codec: The codec to use for the new client
-
-        Returns:
-            A new WebsocketClient with the specified codec
+        :param codec: The codec to use for the new client
+        :returns: A new WebsocketClient with the specified codec
         """
         client = WebsocketClient(
             encoder=codec,

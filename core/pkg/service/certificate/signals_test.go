@@ -10,7 +10,9 @@
 package certificate_test
 
 import (
+	"encoding/json/v2"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -107,6 +109,14 @@ var _ = Describe("Signals", Ordered, func() {
 })
 
 var _ = Describe("SetRecord", func() {
+	It("Should return the resource ID of the certificate in a sample", func() {
+		c := certificate.Certificate{Variant: certificate.FileCertificate{
+			Base:            certificate.Base{Key: uuid.New(), Name: "Plant"},
+			CertificatePath: "/etc/plant.pem",
+		}}
+		Expect(certificate.SetRecord(MustSucceed(json.Marshal(c)))).
+			To(Equal(c.ResourceID()))
+	})
 	It("Should reject a sample that is not a certificate", func() {
 		Expect(certificate.SetRecord([]byte("not json"))).Error().
 			To(MatchError(ContainSubstring("invalid character")))
