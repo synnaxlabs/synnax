@@ -247,7 +247,8 @@ type DeleteRequest struct {
 	Keys []Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete deletes the secrets. It requires delete access on each of them.
+// Delete deletes the secrets. It requires delete access on each of them, and refuses
+// while anything uses one.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
