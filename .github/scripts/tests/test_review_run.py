@@ -18,7 +18,17 @@ from typing import Any
 
 import pytest
 
-from review import Config, Doc, Finding, Lens, PullRequest, Window, load, run
+from review import (
+    Config,
+    Dismissal,
+    Doc,
+    Finding,
+    Lens,
+    PullRequest,
+    Window,
+    load,
+    run,
+)
 from review.__main__ import claude as launch
 from review.__main__ import main
 
@@ -288,6 +298,21 @@ class TestPrompt:
     def test_should_list_the_open_findings(self) -> None:
         stdin = review(pr=pull(open={("core/a.go", "Old bug")})).system
         assert "# Earlier findings still open\n\n- `core/a.go`: Old bug" in stdin
+
+    def test_should_list_the_dismissed_findings_with_their_reasons(self) -> None:
+        dismissed = [
+            Dismissal(path="a.go", title="Old bug", reason="Meant.\n\nSee #1."),
+            Dismissal(path="b.go", title="Nit", reason=""),
+        ]
+        stdin = review(pr=pull(dismissed=dismissed)).system
+        assert (
+            "# Dismissed findings\n\nA member dismissed each of these findings. Do not "
+            "report them again in any form, and do not let them lower the score.\n\n"
+            "- `a.go`: Old bug. Reason: Meant. See #1.\n- `b.go`: Nit"
+        ) in stdin
+
+    def test_should_leave_out_dismissals_when_there_are_none(self) -> None:
+        assert "Dismissed findings" not in review().system
 
     def test_should_hide_every_review_in_the_body(self) -> None:
         body = (

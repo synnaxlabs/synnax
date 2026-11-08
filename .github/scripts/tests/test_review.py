@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from review import Finding, Review, Target, parse, post, reviewed
+from review import Finding, Review, Target, parse, post, render, reviewed
 from review import gh as call_gh
 
 REPO = "synnaxlabs/synnax"
@@ -188,17 +188,17 @@ class TestInlineFindings:
     def test_should_skip_a_finding_an_open_thread_of_the_bot_holds(
         self, gh: FakeGH
     ) -> None:
-        body = "<picture></picture> **Samples return old data**\n\nOld text."
-        gh.threads = [
-            {"path": "a.go", "first": {"author": {"login": "sedosaur"}, "body": body}}
-        ]
+        gh.threads = [thread("sedosaur")]
         post(review(finding()), target=TARGET, gh=gh)
         assert gh.written("POST", "pulls/7/reviews") == []
 
+    def test_should_post_a_finding_of_a_resolved_thread(self, gh: FakeGH) -> None:
+        gh.threads = [thread("sedosaur", resolved=True)]
+        post(review(finding()), target=TARGET, gh=gh)
+        assert len(gh.written("POST", "pulls/7/reviews")) == 1
+
     def test_should_post_a_finding_another_author_raised(self, gh: FakeGH) -> None:
-        body = "<picture></picture> **Samples return old data**"
-        author = {"login": "greptile-apps"}
-        gh.threads = [{"path": "a.go", "first": {"author": author, "body": body}}]
+        gh.threads = [thread("greptile-apps")]
         post(review(finding()), target=TARGET, gh=gh)
         assert len(gh.written("POST", "pulls/7/reviews")) == 1
 
@@ -310,6 +310,37 @@ class TestSummary:
         assert done["conclusion"] == "success"
         assert done["output"]["title"] == "Confidence Score: 4/5"
         assert done["output"]["summary"].endswith("Findings: 1 P1, 1 P2.")
+        assert render.listed(done["output"]["text"]) == {
+            ("a.go", "Samples return old data"),
+            ("a.go", "Nit"),
+        }
+
+
+class TestListing:
+    """Tests the hidden list of findings in the text of a check run."""
+
+    def test_should_read_back_what_it_wrote(self) -> None:
+        text = "Above.\n" + render.listing([finding(title="A --> B")]) + "\nBelow."
+        assert text.count("-->") == 1
+        assert render.listed(text) == {("a.go", "A --> B")}
+
+    def test_should_read_an_empty_list(self) -> None:
+        assert render.listed(render.listing([])) == set()
+
+    def test_should_read_none_from_a_text_without_a_list(self) -> None:
+        assert render.listed("Findings: 1 P1.") is None
+
+
+def thread(login: str, *, resolved: bool = False) -> dict[str, Any]:
+    body = "<picture></picture> **Samples return old data**\n\nOld text."
+    author = {"__typename": "Bot", "login": login}
+    first = {
+        "databaseId": 1,
+        "author": author,
+        "authorAssociation": "NONE",
+        "body": body,
+    }
+    return {"id": "T", "path": "a.go", "resolved": resolved, "comments": [first]}
 
 
 def summary_edit(commit: str, login: str = "sedosaur") -> dict[str, Any]:

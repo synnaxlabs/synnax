@@ -12,6 +12,7 @@
     python3 -m review run <review.json>
     python3 -m review post <review.json>
     python3 -m review carry
+    python3 -m review dismiss
     python3 -m review compare <days>
 
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
@@ -25,10 +26,12 @@ Claude Code. A replay needs no CHECK_RUN.
 policy commit, the usage, the review, and each pass before the join. `post` posts the
 review in a record. `carry` gives the head the newest review of the pull request when
 the diff did not change, completes CHECK_RUN with it, and prints `true` if it did. It
-also takes KEY, the external ID of the check run, `<pr>:<base ref>`. `compare` takes
-only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and prints a
-Markdown comparison of the records of the last days with Greptile's reviews of the same
-commits.
+also takes KEY, the external ID of the check run, `<pr>:<base ref>`. `dismiss` answers
+COMMENT, a reply that mentions the bot on the thread of one of its findings: a member's
+`@sedosaur dismiss` resolves the thread, and scores the head 5/5 when no finding of its
+review is left. It also takes KEY. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY,
+runs in a clone with full history, and prints a Markdown comparison of the records of
+the last days with Greptile's reviews of the same commits.
 """
 
 import contextlib
@@ -47,13 +50,15 @@ from review import (
     Target,
     carry,
     compare,
+    dismiss,
+    dismissed,
     gh,
     load,
-    open_findings,
     parse,
     post,
     reviewed,
     run,
+    threads,
 )
 
 
@@ -130,14 +135,16 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
             '{title, body: (.body // "")}',
         )
     )
+    # A replay of an old commit must not see the threads that came after it.
+    found = [] if replay else threads(target, gh)
     pr = PullRequest(
         number=target.pr,
         title=meta["title"],
         body=meta["body"],
         head=head,
         diff=diff,
-        # A replay of an old commit must not see the threads that came after it.
-        open=set() if replay else open_findings(target, gh),
+        open={(th.path, th.title) for th in found if not th.resolved},
+        dismissed=dismissed(found),
         new=new,
         reviewed=since is not None,
     )
@@ -166,7 +173,7 @@ def _before(head: Path, commit: str, tip: str) -> bool:
 
 
 def main(argv: list[str]) -> None:
-    args = {"run": 2, "post": 2, "carry": 1, "compare": 2}
+    args = {"run": 2, "post": 2, "carry": 1, "dismiss": 1, "compare": 2}
     if not argv or args.get(argv[0]) != len(argv):
         sys.exit(__doc__)
     env = os.environ
@@ -188,6 +195,9 @@ def main(argv: list[str]) -> None:
     )
     if argv[0] == "carry":
         print(str(carry(target, gh, key=env["KEY"])).lower())
+        return
+    if argv[0] == "dismiss":
+        dismiss(target, gh, comment=int(env["COMMENT"]), key=env["KEY"])
         return
     path = Path(argv[1])
     if argv[0] == "run":

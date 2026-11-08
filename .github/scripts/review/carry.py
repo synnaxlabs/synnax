@@ -12,9 +12,8 @@ change, as after a merge of the base, so the head needs no review of its own."""
 
 import json
 import re
-from typing import Any
 
-from review.post import GH, Target, reviewed, write
+from review.post import GH, Target, newest, reviewed, write
 
 LISTED = 300
 """The most files that a comparison of two commits lists."""
@@ -33,7 +32,7 @@ def carry(t: Target, gh: GH, *, key: str) -> bool:
     old = next(iter(reviewed(t, gh)), None)
     if old is None or old == t.head:
         return False
-    run = _newest(t, gh, old, key)
+    run = newest(t, gh, old, key)
     if run is None or run["conclusion"] != "success":
         return False
     before = _diff(t, gh, old)
@@ -50,19 +49,6 @@ def carry(t: Target, gh: GH, *, key: str) -> bool:
     done = {"status": "completed", "conclusion": "success", "output": output}
     write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
     return True
-
-
-def _newest(t: Target, gh: GH, commit: str, key: str) -> dict[str, Any] | None:
-    out = gh(
-        "api",
-        f"repos/{t.repo}/commits/{commit}/check-runs"
-        "?check_name=Sedosaur%20Review&filter=all&per_page=100",
-        "--jq",
-        ".check_runs[] | tojson",
-    )
-    runs = [json.loads(line) for line in out.splitlines() if line]
-    ours = [r for r in runs if r["app"]["slug"] == t.bot and r["external_id"] == key]
-    return max(ours, key=lambda r: r["started_at"], default=None)
 
 
 def _diff(t: Target, gh: GH, commit: str) -> list[tuple[str, ...]] | None:

@@ -25,7 +25,14 @@ THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
     pullRequest(number: $p) {
       reviewThreads(first: 100, after: $endCursor) {
         pageInfo { hasNextPage endCursor }
-        nodes { isResolved path comments(first: 1) { nodes { author { login } body } } }
+        nodes {
+          id
+          isResolved
+          path
+          comments(first: 100) {
+            nodes { databaseId author { __typename login } authorAssociation body }
+          }
+        }
       }
     }
   }
@@ -40,9 +47,9 @@ EDITS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
     }
   }
 }"""
-OPEN_THREADS = (
-    ".data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved | not)"
-    " | {path, first: .comments.nodes[0]} | tojson"
+THREAD_NODES = (
+    ".data.repository.pullRequest.reviewThreads.nodes[]"
+    " | {id, path, resolved: .isResolved, comments: .comments.nodes} | tojson"
 )
 
 
@@ -144,8 +151,20 @@ def _diff_lines(t: Target, gh: GH) -> dict[str, set[int]]:
     return {f["filename"]: _commentable(f["patch"] or "") for f in files}
 
 
-def open_findings(t: Target, gh: GH) -> set[tuple[str, str]]:
-    """Returns the path and title of each finding in an unresolved thread of the bot."""
+@dataclass(frozen=True, kw_only=True)
+class Thread:
+    """A review thread that a finding of the bot started."""
+
+    id: str
+    path: str
+    title: str
+    resolved: bool
+    replies: list[dict[str, Any]]
+    """The comments after the finding, oldest first, as GraphQL serves them."""
+
+
+def threads(t: Target, gh: GH) -> list[Thread]:
+    """Returns each review thread that a finding of the bot started."""
     owner, name = t.repo.split("/")
     out = gh(
         "api",
@@ -160,17 +179,49 @@ def open_findings(t: Target, gh: GH) -> set[tuple[str, str]]:
         "-F",
         f"p={t.pr}",
         "--jq",
-        OPEN_THREADS,
+        THREAD_NODES,
     )
-    keys: set[tuple[str, str]] = set()
+    found: list[Thread] = []
     for line in out.splitlines():
         node = json.loads(line)
-        first = node["first"]
-        if first is None or (first["author"] or {}).get("login") != t.bot:
+        if not node["comments"]:
+            continue
+        first, *replies = node["comments"]
+        if (first["author"] or {}).get("login") != t.bot:
             continue
         if title := render.title(first["body"]):
-            keys.add((node["path"], title))
-    return keys
+            found.append(
+                Thread(
+                    id=node["id"],
+                    path=node["path"],
+                    title=title,
+                    resolved=node["resolved"],
+                    replies=replies,
+                )
+            )
+    return found
+
+
+def open_findings(t: Target, gh: GH) -> set[tuple[str, str]]:
+    """Returns the path and title of each finding in an unresolved thread of the bot."""
+    return {(th.path, th.title) for th in threads(t, gh) if not th.resolved}
+
+
+def newest(t: Target, gh: GH, commit: str, key: str) -> dict[str, Any] | None:
+    """Returns the newest check run of the bot's reviews of a commit for a key, or None.
+
+    :param key: The external ID of the review's check run, `<pr>:<base ref>`.
+    """
+    out = gh(
+        "api",
+        f"repos/{t.repo}/commits/{commit}/check-runs"
+        "?check_name=Sedosaur%20Review&filter=all&per_page=100",
+        "--jq",
+        ".check_runs[] | tojson",
+    )
+    runs = [json.loads(line) for line in out.splitlines() if line]
+    ours = [r for r in runs if r["app"]["slug"] == t.bot and r["external_id"] == key]
+    return max(ours, key=lambda r: r["started_at"], default=None)
 
 
 def reviewed(t: Target, gh: GH) -> list[str]:

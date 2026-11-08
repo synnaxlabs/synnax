@@ -1,0 +1,85 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Answers a reply that mentions Sedosaur on the thread of one of its findings, as the
+# sedosaur GitHub App. A member's `@sedosaur dismiss` resolves the thread, and later
+# reviews of the pull request do not report the finding. When no finding of the head's
+# review is left, a new check run scores the head 5/5. The scripts come from the default
+# branch, never from the pull request.
+
+name: Dismiss - Sedosaur
+run-name: ${{ inputs.pr }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Pull request of the finding"
+        type: number
+        required: true
+      comment:
+        description: "Reply that mentions Sedosaur on the thread of the finding"
+        type: string
+        required: true
+
+permissions: {}
+
+# Each answer reads the dismissals before it, so two of one pull request never run at
+# once.
+concurrency:
+  group: dismiss-sedosaur-${{ inputs.pr }}
+  cancel-in-progress: false
+
+jobs:
+  dismiss:
+    name: Answer the reply
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Read the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+        run: |
+          set -o pipefail
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r '
+            "head=\(.head.sha)", "base=\(.base.sha)", "key=\(.number):\(.base.ref)"
+          ' >> "$GITHUB_OUTPUT"
+
+      - name: Check out the scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+          permission-pull-requests: write
+
+      - name: Answer the reply
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+          PR: ${{ inputs.pr }}
+          COMMENT: ${{ inputs.comment }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          BASE_SHA: ${{ steps.pr.outputs.base }}
+          KEY: ${{ steps.pr.outputs.key }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: python3 -m review dismiss
