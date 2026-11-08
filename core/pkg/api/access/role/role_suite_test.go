@@ -62,7 +62,7 @@ func createRole(ctx SpecContext) role.Role {
 	return r
 }
 
-// grantOn grants the action on the objects to the subject through a fresh role, and
+// grantOn grants the action on the objects to the subject through a new role, and
 // returns the role.
 func grantOn(
 	ctx SpecContext,
@@ -72,15 +72,13 @@ func grantOn(
 ) role.Role {
 	GinkgoHelper()
 	r := createRole(ctx)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	p := &policy.Policy{
+	Expect(svc.RBAC.Policy.NewWriter(nil, true).Create(ctx, &policy.Policy{
+		Role:    r.Key,
 		Name:    "policy-" + uuid.New().String(),
 		Objects: objects,
 		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(svc.RBAC.Role.NewWriter(nil, true).AssignRole(ctx, subject, r.Key)).
-		To(Succeed())
+	})).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	Expect(svc.User.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
 	return r
 }

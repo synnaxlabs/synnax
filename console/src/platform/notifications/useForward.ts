@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { resource, type status, type Synnax as Client } from "@synnaxlabs/client";
+import { type resource, type status, type Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { TimeSpan } from "@synnaxlabs/x";
@@ -22,24 +22,24 @@ export type Kind = "reply" | "alarm" | "state";
 /** Parameters for {@link Rule.inUse}. */
 export interface InUseParams {
   client: Client;
-  /** The key of the thing, which is the part of the status key after its type. */
+  /** The key of the thing that owns the status. */
   key: string;
 }
 
-/** How the statuses on the keys that one feature owns notify. */
+/** How the statuses of the things of one feature notify. */
 export interface Rule {
-  /** @returns the kind of a status on one of the feature's keys. */
+  /** @returns the kind of a status that one of the feature's things owns. */
   kind: (status: status.Status) => Kind;
   /**
    * @returns whether the thing that a state is about is in use. Runs only when a
-   * problem starts on the key. Leave it out when the thing is always in use.
+   * problem starts on its status. Leave it out when the thing is always in use.
    */
   inUse?: (params: InUseParams) => Promise<boolean>;
   /** Whether a warning notifies only if its problem is still open after 5 s. */
   warningsDelayed?: boolean;
 }
 
-/** The rule of each feature that owns status keys, by the resource type of its keys. */
+/** The rule of each feature, by the resource type of the things that own statuses. */
 export type Rules = Partial<Record<resource.Type, Rule>>;
 
 const WARNING_DELAY = TimeSpan.seconds(5);
@@ -51,13 +51,11 @@ interface Owner {
   key: string;
 }
 
-const getOwner = (rules: Rules, key: status.Key): Owner | null => {
-  const separator = key.indexOf(":");
-  if (separator < 0) return null;
-  const type = resource.typeZ.safeParse(key.slice(0, separator));
-  const rule = type.success ? rules[type.data] : undefined;
+const getOwner = (rules: Rules, { owner }: status.Status): Owner | null => {
+  if (owner == null) return null;
+  const rule = rules[owner.type];
   if (rule == null) return null;
-  return { rule, key: key.slice(separator + 1) };
+  return { rule, key: owner.key };
 };
 
 interface Problem {
@@ -138,7 +136,7 @@ const createForwarder = ({ client, rules, add }: ForwarderParams): Forwarder => 
   };
 
   const write = (stat: status.Status): void => {
-    const owner = getOwner(rules, stat.key);
+    const owner = getOwner(rules, stat);
     const kind = owner?.rule.kind(stat) ?? "alarm";
     if (kind !== "state") retire(stat.key);
     if (owner == null || kind === "alarm") {
@@ -173,9 +171,9 @@ const createForwarder = ({ client, rules, add }: ForwarderParams): Forwarder => 
  * Notifies the status writes that the Core streams, by kind. A reply notifies at once
  * unless it is a success, loading, or disabled status. An alarm notifies at once. A
  * state notifies only when it is a warning or an error and its thing is in use. A
- * delayed warning notifies only if its key is still bad 5 s after the problem starts.
- * Mount it once, in the main window.
- * @param rules - The rules of the features that own status keys.
+ * delayed warning notifies only if its status is still bad 5 s after the problem
+ * starts. Mount it once, in the main window.
+ * @param rules - The rules of the features whose things own statuses.
  */
 export const useForward = (rules: Rules): void => {
   const client = Synnax.use();

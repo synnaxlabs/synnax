@@ -47,11 +47,15 @@ var unknownRangesMigration = migrate.New(
 	},
 )
 
-// migrations is the line plot version chain followed by unknownRangesMigration.
-var migrations = append(
-	slices.Clone(versions.Migrations),
-	unknownRangesMigration,
-)
+// newMigrations returns the line plot version chain followed by the migrations that
+// drop unknown ranges and missing targets.
+func newMigrations() []gorp.Migration {
+	return append(
+		slices.Clone(versions.Migrations),
+		unknownRangesMigration,
+		gorp.DanglingMigration("v61_dangling_references"),
+	)
+}
 
 func dropUnknownRanges(ctx context.Context, tx gorp.Tx, p LinePlot) (LinePlot, error) {
 	kept := make([]ranger.Ref, 0, len(p.Ranges))

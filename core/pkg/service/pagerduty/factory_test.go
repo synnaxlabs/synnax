@@ -120,7 +120,10 @@ var _ = Describe("Factory", func() {
 		Describe("ConfigureTask", func() {
 			It("Should return ErrTaskNotHandled for non-pagerduty types",
 				func(ctx context.Context) {
-					t := task.Task{Key: uuid.New(), Name: "test", Type: "modbus_read"}
+					t := createTask(
+						ctx,
+						task.Task{Key: uuid.New(), Name: "test", Type: "modbus_read"},
+					)
 					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(driver.ErrTaskNotHandled))
 				},
@@ -144,10 +147,10 @@ var _ = Describe("Factory", func() {
 						RoutingKey: "tooshort",
 						Alerts:     []pd.Alert{{Status: "test-status"}},
 					})
-					t := task.Task{
+					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
-					}
+					})
 					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 				},
@@ -161,10 +164,10 @@ var _ = Describe("Factory", func() {
 							{Status: "test-status", Disabled: true},
 						},
 					})
-					t := task.Task{
+					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
-					}
+					})
 					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(ContainSubstring("alerts")))
 				},
@@ -176,15 +179,15 @@ var _ = Describe("Factory", func() {
 						RoutingKey: "tooshort",
 						Alerts:     []pd.Alert{{Status: "test-status"}},
 					})
-					t := task.Task{
+					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
-					}
+					})
 					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
 					Expect(stat.Details.Cmd).To(Equal("cmd-1"))
@@ -199,15 +202,15 @@ var _ = Describe("Factory", func() {
 						RoutingKey: strings.Repeat("a", 32),
 						Alerts:     []pd.Alert{{Status: "test-status"}},
 					})
-					t := task.Task{
+					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "PagerDuty Test",
 						Type: pd.AlertTaskType, Config: cfg,
-					}
+					})
 					tsk := MustSucceed(factory.ConfigureTask(ctx, t, cmdKey))
 					Expect(tsk).ToNot(BeNil())
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 					Expect(tsk.Stop(true)).To(Succeed())
 				},
@@ -221,15 +224,15 @@ var _ = Describe("Factory", func() {
 					RoutingKey: strings.Repeat("a", 32),
 					Alerts:     []pd.Alert{{Status: "test-status"}},
 				})
-				t := task.Task{
+				t := createTask(ctx, task.Task{
 					Key: uuid.New(), Name: "PagerDuty Test",
 					Type: pd.AlertTaskType, Config: cfg,
-				}
+				})
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				Expect(tsk).ToNot(BeNil())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
 				Expect(stat.Message).To(Equal("Started task"))
@@ -243,15 +246,15 @@ var _ = Describe("Factory", func() {
 						RoutingKey: "tooshort",
 						Alerts:     []pd.Alert{{Status: "test-status"}},
 					})
-					t := task.Task{
+					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
-					}
+					})
 					Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](task.ResourceID(t.Key).String())).
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 				},
 			)
@@ -263,15 +266,15 @@ var _ = Describe("Factory", func() {
 						RoutingKey: "tooshort",
 						Alerts:     []pd.Alert{{Status: "test-status"}},
 					})
-					t := task.Task{
+					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
-					}
+					})
 					Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](task.ResourceID(t.Key).String())).
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
 					Expect(stat.Message).To(Equal("Failed to configure task"))
@@ -286,15 +289,15 @@ var _ = Describe("Factory", func() {
 						RoutingKey: strings.Repeat("a", 32),
 						Alerts:     []pd.Alert{{Status: "test-status"}},
 					})
-					t := task.Task{
+					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "PagerDuty Test",
 						Type: pd.AlertTaskType, Config: cfg,
-					}
+					})
 					tsk := MustSucceed(factory.ConfigureTask(ctx, t, driver.NoCommand))
 					Expect(tsk).ToNot(BeNil())
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](task.ResourceID(t.Key).String())).
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("success"))
 					Expect(stat.Message).To(Equal("Started task"))

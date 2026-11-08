@@ -165,11 +165,8 @@ class TestRangeClient:
             assert rng.name.startswith("test")
             assert rng.key != ""
 
-    def test_create_reusing_resolved_parent(self, client: sy.Synnax) -> None:
-        """Should accept a created range's resolved parent (a Payload) as the parent
-        of another range. The server resolves parent into a Payload, and passing it
-        back through create previously raised AttributeError because Range called
-        to_payload() on it."""
+    def test_create_with_parent_key(self, client: sy.Synnax) -> None:
+        """Should accept a range or its key as the parent of another range."""
         parent = client.ranges.create(
             name=f"parent-{uuid4()}",
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
@@ -179,15 +176,26 @@ class TestRangeClient:
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             parent=parent,
         )
-        assert child.parent is not None
-        assert child.parent.key == parent.key
+        assert child.parent == parent.key
         sibling = client.ranges.create(
             name=f"sibling-{uuid4()}",
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             parent=child.parent,
         )
-        assert sibling.parent is not None
-        assert sibling.parent.key == parent.key
+        assert sibling.parent == parent.key
+        assert client.ranges.retrieve(key=sibling.key).parent == parent.key
+
+    def test_recreate_keeps_parent(self, client: sy.Synnax) -> None:
+        """Should keep the stored parent on a re-create that carries no parent, and
+        replace it on one that does."""
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
+        a = client.ranges.create(name=random_name(), time_range=tr)
+        b = client.ranges.create(name=random_name(), time_range=tr)
+        child = client.ranges.create(name=random_name(), time_range=tr, parent=a)
+        client.ranges.create(key=child.key, name=child.name, time_range=tr)
+        assert client.ranges.retrieve(key=child.key).parent == a.key
+        client.ranges.create(key=child.key, name=child.name, time_range=tr, parent=b)
+        assert client.ranges.retrieve(key=child.key).parent == b.key
 
     def test_retrieve_by_key(
         self, two_ranges: list[sy.Range], client: sy.Synnax
@@ -588,8 +596,7 @@ class TestRangeClient:
                 time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
                 parent=parent_rng,
             )
-            assert child.parent is not None
-            assert child.parent.key == parent_rng.key
+            assert child.parent == parent_rng.key
             children = parent_rng.children
             assert child_name in {c.name for c in children}
 
@@ -609,8 +616,7 @@ class TestRangeClient:
                     parent=parent_rng,
                 )
             )
-            assert child.parent is not None
-            assert child.parent.key == parent_rng.key
+            assert child.parent == parent_rng.key
             children = parent_rng.children
             assert child_name in {c.name for c in children}
 
@@ -640,8 +646,7 @@ class TestRangeClient:
                 ]
             )
             for c in created:
-                assert c.parent is not None
-                assert c.parent.key == parent_rng.key
+                assert c.parent == parent_rng.key
             children = parent_rng.children
             child_names = {c.name for c in children}
             assert names[0] in child_names
@@ -800,48 +805,29 @@ class TestRangeRetrieveFilters:
         assert_eventually(check)
 
     def test_has_labels(self, client: sy.Synnax, window_ranges: list[sy.Range]) -> None:
-        """Should keep only ranges with the label and attach labels on request"""
+        """Should keep only ranges with the label, each with its label keys"""
         rng = window_ranges[1]
         lbl = _create_label(client, rng)
         res = client.ranges.retrieve(has_labels=[lbl.key])
         assert [r.key for r in res] == [rng.key]
-        assert res[0].labels is None
-        res = client.ranges.retrieve(has_labels=[lbl.key], include_labels=True)
-        assert res[0].labels is not None
-        assert [lb.key for lb in res[0].labels] == [lbl.key]
-        single = client.ranges.retrieve(key=rng.key, include_labels=True)
-        assert single.labels is not None
-        assert [lb.name for lb in single.labels] == [lbl.name]
+        assert res[0].labels == [lbl.key]
 
-    def test_include_parent(
-        self, client: sy.Synnax, window_ranges: list[sy.Range]
-    ) -> None:
-        """Should attach the parent of each range on request"""
-        parent = window_ranges[2]
+    def test_parents(self, client: sy.Synnax) -> None:
+        """Should keep only the children of the given ranges, each with its parent
+        key"""
+        parent = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
         child = parent.create_child_range(
             name=random_name(), time_range=parent.time_range
         )
-        assert client.ranges.retrieve(key=child.key).parent is None
-        res = client.ranges.retrieve(key=child.key, include_parent=True)
-        assert res.parent is not None
-        assert res.parent.key == parent.key
-        many = client.ranges.retrieve(keys=[child.key], include_parent=True)
-        assert many[0].parent is not None
-        assert many[0].parent.key == parent.key
-
-    def test_include_labels_only(
-        self, client: sy.Synnax, window_ranges: list[sy.Range]
-    ) -> None:
-        """Should return a list when given include_labels without a key or name"""
-        res = client.ranges.retrieve(include_labels=True)
-        assert {r.key for r in window_ranges} <= {r.key for r in res}
-
-    def test_include_parent_only(
-        self, client: sy.Synnax, window_ranges: list[sy.Range]
-    ) -> None:
-        """Should return a list when given include_parent without a key or name"""
-        res = client.ranges.retrieve(include_parent=True)
-        assert {r.key for r in window_ranges} <= {r.key for r in res}
+        parent.create_child_range(name=random_name(), time_range=parent.time_range)
+        res = client.ranges.retrieve(parents=[parent.key])
+        assert len(res) == 2
+        assert all(r.parent == parent.key for r in res)
+        assert client.ranges.retrieve(key=child.key).parent == parent.key
+        assert client.ranges.retrieve(key=parent.key).parent is None
 
 
 @pytest.mark.ranger
@@ -879,6 +865,28 @@ class TestRangeLabels:
         lbl = client.labels.create(name=random_name(), color="#FF0000")
         client.ranges.retrieve(key=rng.key).add_label(lbl.key)
         assert rng.retrieve_labels() == [lbl]
+        assert client.ranges.retrieve(key=rng.key).labels == [lbl.key]
+
+    def test_create_with_labels(self, client: sy.Synnax) -> None:
+        """Should attach the labels a create carries"""
+        lbl = client.labels.create(name=random_name(), color="#FF0000")
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            labels=[lbl.key],
+        )
+        assert rng.labels == [lbl.key]
+        assert rng.retrieve_labels() == [lbl]
+
+    def test_recreate_ignores_labels(self, client: sy.Synnax, rng: sy.Range) -> None:
+        """Should keep the stored labels on a re-create and ignore the carried ones"""
+        a = client.labels.create(name=random_name(), color="#FF0000")
+        b = client.labels.create(name=random_name(), color="#00FF00")
+        rng.add_label(a.key)
+        client.ranges.create(
+            key=rng.key, name=rng.name, time_range=rng.time_range, labels=[b.key]
+        )
+        assert client.ranges.retrieve(key=rng.key).labels == [a.key]
 
 
 @pytest.mark.ranger
@@ -886,47 +894,49 @@ class TestRangeConstructor:
     """Pure-Pydantic tests of Range construction — no server required."""
 
     def test_accepts_range_as_parent(self) -> None:
-        """Range(parent=other_range) should store the parent's identity"""
+        """Range(parent=other_range) should store the parent's key"""
         parent = sy.Range(
             name="parent",
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            key=uuid4(),
         )
         child = sy.Range(
             name="child",
             time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
             parent=parent,
         )
-        assert child.parent is not None
-        assert child.parent.key == parent.key
-        assert child.parent.name == parent.name
+        assert child.parent == parent.key
 
-    def test_strips_grandparent(self) -> None:
-        """A parent that itself has a parent should be flattened to depth 1"""
-        grandparent = sy.Range(
-            name="grandparent",
-            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-        )
-        parent = sy.Range(
-            name="parent",
-            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            parent=grandparent,
-        )
+    def test_accepts_key_as_parent(self) -> None:
+        """Range(parent=key) should store the key"""
+        key = uuid4()
         child = sy.Range(
             name="child",
             time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
-            parent=parent,
+            parent=key,
         )
-        assert child.parent is not None
-        assert child.parent.key == parent.key
-        assert child.parent.parent is None
+        assert child.parent == key
+        assert child.to_payload().parent == key
+
+    def test_labels(self) -> None:
+        """Range(labels=keys) should carry the label keys into its payload"""
+        keys = [uuid4(), uuid4()]
+        rng = sy.Range(
+            name="labeled",
+            time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+            labels=keys,
+        )
+        assert rng.labels == keys
+        assert rng.to_payload().labels == keys
 
     def test_no_parent(self) -> None:
-        """Range without a parent should have parent=None"""
+        """Range without a parent or labels should have no parent and no labels"""
         rng = sy.Range(
             name="solo",
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
         )
         assert rng.parent is None
+        assert rng.labels == []
 
 
 @pytest.mark.ranger

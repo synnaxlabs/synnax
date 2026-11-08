@@ -13,9 +13,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	Describe("By Keys", func() {
 		It(
 			"Should retrieve only the projects matching the given keys",

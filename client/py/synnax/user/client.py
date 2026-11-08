@@ -13,9 +13,10 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
+from synnax.access import role
 from synnax.exceptions import ValidationError
 from synnax.user.payload import New, User
-from synnax.user.types_gen import RetrieveRequest, Where, WhereInput
+from synnax.user.types_gen import Key, RetrieveRequest, Where, WhereInput
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -48,6 +49,12 @@ class _ChangeNameRequest(BaseModel):
     name: str
 
 
+class _SetRolesRequest(BaseModel):
+    keys: list[Key]
+    add: list[role.Key]
+    remove: list[role.Key]
+
+
 class Client:
     client: UnaryClient
 
@@ -62,6 +69,7 @@ class Client:
         password: str,
         name: str = "",
         key: UUID | None = None,
+        roles: list[role.Key] | None = None,
     ) -> User: ...
 
     @overload
@@ -78,6 +86,7 @@ class Client:
         password: str | None = None,
         name: str = "",
         key: UUID | None = None,
+        roles: list[role.Key] | None = None,
         user: New | None = None,
         users: list[New] | None = None,
     ) -> User | list[User]:
@@ -89,6 +98,7 @@ class Client:
                 password=password,
                 name=name,
                 key=key,
+                roles=roles or [],
             )
         single = user is not None
         if user is not None:
@@ -112,12 +122,35 @@ class Client:
     def change_name(self, key: UUID, *, name: str) -> None:
         self.client.send("/user/rename", _ChangeNameRequest(key=key, name=name), Empty)
 
+    def set_roles(
+        self,
+        keys: Key | list[Key],
+        *,
+        add: list[role.Key] | None = None,
+        remove: list[role.Key] | None = None,
+    ) -> None:
+        """Removes roles from the users with the given keys, then adds roles to them.
+        The Core applies both in one transaction, and a role in both lists is held
+        after the call.
+
+        :param keys: The keys of the users.
+        :param add: The keys of the roles to add. Each one goes ahead of the roles a
+            user keeps.
+        :param remove: The keys of the roles to remove.
+        """
+        self.client.send(
+            "/user/set-roles",
+            _SetRolesRequest(keys=normalize(keys), add=add or [], remove=remove or []),
+            Empty,
+        )
+
     @overload
     def retrieve(
         self,
         *,
         key: UUID,
         usernames: str | list[str] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -133,6 +166,7 @@ class Client:
         key: filter.SetInput[UUID] = ...,
         username: str,
         usernames: str | list[str] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -147,6 +181,7 @@ class Client:
         *,
         key: filter.SetInput[UUID] = ...,
         usernames: str | list[str] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -162,6 +197,7 @@ class Client:
         *,
         key: list[UUID] | filter.SetDict[UUID] | filter.Set[UUID] = ...,
         usernames: str | list[str] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -193,6 +229,7 @@ class Client:
         :param key: Keeps users with this key.
         :param username: Keeps the user with this username.
         :param usernames: Keeps users with this username, or any username in the list.
+        :param roles: Keeps the users that hold any of these roles.
         :param and_: Keeps users that match every filter in the list.
         :param or_: Keeps users that match any filter in the list.
         :param not_: Keeps users that do not match the filter.

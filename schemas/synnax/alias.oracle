@@ -15,7 +15,8 @@ import "schemas/synnax/ranger"
 
 Alias struct {
     range   ranger.Key  {
-        @doc value "is the unique identifier of the range containing this alias."
+        @doc value     "is the unique identifier of the range containing this alias."
+        @ref on_delete cascade
     }
     channel channel.Key {
         @doc value "is the unique identifier of the channel being aliased."
@@ -26,11 +27,13 @@ Alias struct {
         """
     }
 
-    @doc value  """
+    @doc value        """
         associates a human-readable string alias with a channel within the context of a
         specific range. Enables semantic naming of channels that varies by range
         context.
     """
     @go marshal
     @go migrate
+    @retrieve indexes
+    @retrieve key     "string"
 }

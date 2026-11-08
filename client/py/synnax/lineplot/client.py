@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
+from synnax import ranger
 from synnax.lineplot.types_gen import (
     Key,
     LinePlot,
@@ -27,7 +28,6 @@ from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
-    project: project_.Key
     line_plots: list[LinePlot]
 
 
@@ -56,7 +56,7 @@ class _DispatchRequest(BaseModel):
 
 class Client:
     """Client for creating, retrieving, renaming, and deleting line plots on a Synnax
-    Core. A line plot belongs to exactly one project.
+    Core. A line plot belongs to exactly one of a project and a range.
     """
 
     _client: UnaryClient
@@ -65,37 +65,38 @@ class Client:
         self._client = client
 
     @overload
-    def create(self, project: project_.Key, *, name: str) -> LinePlot: ...
+    def create(self, *, name: str, project: project_.Key) -> LinePlot: ...
 
     @overload
-    def create(self, project: project_.Key, line_plots: LinePlot) -> LinePlot: ...
+    def create(self, line_plots: LinePlot) -> LinePlot: ...
 
     @overload
-    def create(
-        self, project: project_.Key, line_plots: list[LinePlot]
-    ) -> list[LinePlot]: ...
+    def create(self, line_plots: list[LinePlot]) -> list[LinePlot]: ...
 
     def create(
         self,
-        project: project_.Key,
         line_plots: LinePlot | list[LinePlot] | None = None,
         *,
         name: str = "",
+        project: project_.Key | None = None,
     ) -> LinePlot | list[LinePlot]:
-        """Create one or more line plots in a project.
+        """Create one or more line plots.
 
-        :param project: The key of the project that owns the line plots.
-        :param line_plots: A single line plot or a list of them. When omitted, a line
-            plot is created from the ``name`` keyword argument.
-        :param name: The name of the line plot to create when ``line_plots`` is
-            omitted.
+        :param line_plots: A single line plot or a list of them. Each one belongs to
+            exactly one of a project and a range. When omitted, a line plot is created
+            from the ``name`` and ``project`` keyword arguments.
+        :param name: The name of the line plot to create when ``line_plots`` is omitted.
+        :param project: The key of the project that owns the line plot when
+            ``line_plots`` is omitted.
         :returns: The created line plot, or a list of created line plots when
             ``line_plots`` is a list.
+        :raises ValidationError: If a line plot does not belong to exactly one of a
+            project and a range.
         """
         is_single = not isinstance(line_plots, list)
         if line_plots is None:
-            line_plots = LinePlot(name=name)
-        req = _CreateRequest(project=project, line_plots=normalize(line_plots))
+            line_plots = LinePlot(name=name, project=project)
+        req = _CreateRequest(line_plots=normalize(line_plots))
         res = self._client.send("/lineplot/create", req, _CreateResponse)
         return res.line_plots[0] if is_single else res.line_plots
 
@@ -104,6 +105,8 @@ class Client:
         self,
         *,
         key: Key,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -116,6 +119,8 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -129,6 +134,8 @@ class Client:
         self,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -156,6 +163,8 @@ class Client:
         :param not_: Keeps line plots that do not match the filter.
         :param where: A filter tree that the line plots must also match.
         :param keys: Keeps line plots with one of these keys.
+        :param projects: Keeps the line plots owned by any of these projects.
+        :param ranges: Keeps the line plots owned by any of these ranges.
         :param one: Returns one line plot for any filter.
         :returns: One line plot for a plain ``key`` or when ``one`` is set, otherwise a
             list of line plots. The list leaves out keys that do not exist.

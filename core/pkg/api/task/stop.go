@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
@@ -71,21 +72,21 @@ func (s *Service) retrieveRunning(
 	ctx context.Context,
 	keys []task.Key,
 ) ([]task.Key, error) {
-	// Status details are caller-provided, so a stop target must come from keys.
-	byStatus := lo.SliceToMap(keys, func(k task.Key) (string, task.Key) {
-		return task.ResourceID(k).String(), k
+	// Status details are caller-provided, so a stop target must come from owners.
+	byOwner := lo.SliceToMap(keys, func(k task.Key) (resource.ID, task.Key) {
+		return task.ResourceID(k), k
 	})
 	var statuses []task.Status
 	if err := s.status.NewRetrieve[task.StatusDetails]().
-		Where(status.MatchKeys[task.StatusDetails](lo.Keys(byStatus)...)).
+		Where(status.MatchOwners[task.StatusDetails](lo.Keys(byOwner)...)).
 		Entries(&statuses).
 		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
 	running := make([]task.Key, 0, len(statuses))
 	for _, stat := range statuses {
-		if stat.Details.Running {
-			running = append(running, byStatus[stat.Key])
+		if stat.Details.Running && stat.Owner != nil {
+			running = append(running, byOwner[*stat.Owner])
 		}
 	}
 	return running, nil

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type Flux, Task } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
@@ -36,14 +35,13 @@ export const useRangeSnapshot = () => {
     afterFailure: ({ status }: Flux.AfterFailureParams<Task.SnapshotParams>) =>
       addStatus({ ...status, name: rng?.name ?? "" }),
   });
-  return ({ tasks }: Omit<Task.SnapshotParams, "parentID">) => {
+  return ({ tasks }: Omit<Task.SnapshotParams, "range">) => {
     if (rng == null)
       return addStatus({
         variant: "error",
         message: "Failed to snapshot tasks",
         description: "No range is active.",
       });
-    const parentID = ranger.resourceID(rng.key);
-    update({ tasks, parentID });
+    update({ tasks, range: rng.key });
   };
 };

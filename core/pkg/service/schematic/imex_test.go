@@ -10,12 +10,15 @@
 package schematic_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
@@ -38,8 +41,12 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export a schematic as a versioned envelope", func(ctx SpecContext) {
-			s := schematic.Schematic{Name: "exported", Snapshot: true}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+			s := schematic.Schematic{
+				Project:  &proj.Key,
+				Name:     "exported",
+				Snapshot: true,
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, schematic.ResourceID(s.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("schematic"))
@@ -140,13 +147,38 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
+		It(
+			"Should refuse a group that is not in the parent project",
+			func(ctx SpecContext) {
+				other := project.Project{Name: "other"}
+				Expect(projectSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+				g := group.Group{
+					Name:   "in other",
+					Parent: new(project.ResourceID(other.Key)),
+				}
+				Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+				Expect(imexSvc.Import(ctx, db,
+					LoadEnvelope("versions/testdata/import_v7.json"),
+					imex.ImportOptions{Parent: proj.ResourceID(), Group: &g.Key},
+				)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"group: group %s is not in project %s", g.Key, proj.Key,
+					))),
+					MatchError(ContainSubstring("validation error")),
+				))
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchGroups(g.Key)).
+					Count(ctx, db)).To(BeZero())
+			},
+		)
+
 		It("Should reject a zero parent", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
 				LoadEnvelope("versions/testdata/import_v7.json"),
 				imex.ImportOptions{},
 			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("parent")),
-				MatchError(ContainSubstring("required")),
+				MatchError(ContainSubstring(`parent: must be a project, got ""`)),
+				MatchError(ContainSubstring("validation error")),
 			))
 		})
 
@@ -184,8 +216,9 @@ var _ = Describe("ImEx", func() {
 			"Should preserve schematic content through export then import",
 			func(ctx SpecContext) {
 				original := schematic.Schematic{
-					Name:  "round-trip",
-					Nodes: []schematic.Node{{Key: "n1", ZIndex: 5}},
+					Project: &proj.Key,
+					Name:    "round-trip",
+					Nodes:   []schematic.Node{{Key: "n1", ZIndex: 5}},
 					Edges: []schematic.Edge{{
 						Key:    "e1",
 						Source: schematic.Handle{Node: "n1", Param: "out"},
@@ -193,7 +226,7 @@ var _ = Describe("ImEx", func() {
 					}},
 				}
 				Expect(
-					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
+					svc.NewWriter(nil).Create(ctx, &original),
 				).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, schematic.ResourceID(original.Key)))
 				id := MustSucceed(imexSvc.Import(

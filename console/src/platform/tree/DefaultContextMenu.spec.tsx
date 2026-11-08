@@ -7,14 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  access,
+  channel,
+  type resource,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import {
   type BuiltInRole,
   createTestClient,
   RoleClients,
 } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
-import { screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
@@ -24,31 +28,48 @@ import { createConsoleWrapper, renderSuspended, uniqueName } from "@/testutil";
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-const rootID = group.resourceID(id.create());
-
-const renderMenu = async (as: Client): Promise<void> => {
+const renderMenus = async (
+  as: Client,
+  roots: resource.ID[] = [channel.TYPE_RESOURCE_ID],
+): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client: as });
   await renderSuspended(
-    <DefaultContextMenu
-      root={rootID}
-      state={createState([createResource(rootID, uniqueName("root"))])}
-    />,
+    <>
+      {roots.map((root) => (
+        <DefaultContextMenu
+          key={root.type}
+          root={root}
+          state={createState([createResource(root, uniqueName("root"))])}
+        />
+      ))}
+    </>,
     { wrapper },
   );
 };
 
 describe("Tree.DefaultContextMenu", () => {
   it("should offer the new group item to an engineer", async () => {
-    await renderMenu(await roles.get("Engineer"));
+    await renderMenus(await roles.get("Engineer"));
     expect(await screen.findByText("New group")).toBeTruthy();
   });
 
   it.each<BuiltInRole>(["Viewer", "Operator"])(
     "should withhold the new group item from a %s",
     async (role) => {
-      await renderMenu(await roles.get(role));
+      await renderMenus(await roles.get(role));
       expect(await screen.findByText("Reload Console")).toBeTruthy();
       expect(screen.queryByText("New group")).toBeNull();
     },
   );
+
+  it("should withhold the new group item from a tree that holds no groups", async () => {
+    await renderMenus(await roles.get("Engineer"), [
+      channel.TYPE_RESOURCE_ID,
+      access.role.TYPE_RESOURCE_ID,
+    ]);
+    // The menu rooted at the channel scope proves the permission resolved.
+    await screen.findByText("New group");
+    await act(async () => {});
+    expect(screen.getAllByText("New group")).toHaveLength(1);
+  });
 });

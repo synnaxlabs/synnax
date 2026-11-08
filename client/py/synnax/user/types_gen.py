@@ -17,6 +17,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from synnax.access import role
 from synnax.resource import ID
 from x import filter
 from x.filter import shorthand
@@ -33,11 +34,13 @@ class User(BaseModel):
         name: Is the user's display name.
         root_user: Is true if this is a root/admin user with full system access. Root
             users cannot be deleted.
+        roles: Are the roles that grant the user its permissions.
     """
 
     key: Key
     name: str = Field(min_length=1)
     root_user: bool = False
+    roles: list[role.Key] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:
@@ -53,6 +56,7 @@ class Where(BaseModel):
         not_: Matches when the child does not match.
         key: Selects by key.
         usernames: Matches the users whose password has any of the given usernames.
+        roles: Matches the users that hold any of the given roles.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -62,8 +66,9 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     usernames: list[str] | None = None
+    roles: list[role.Key] | None = None
 
-    @field_validator("usernames", mode="before")
+    @field_validator("usernames", "roles", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -79,6 +84,7 @@ WhereInput = TypedDict(
         "not": "WhereInput",
         "key": filter.SetInput[Key],
         "usernames": str | list[str],
+        "roles": role.Key | list[role.Key],
     },
     total=False,
 )

@@ -46,8 +46,6 @@ type RetrieveRequest struct {
 	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
 	// include_status includes the status of each record.
 	IncludeStatus bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
-	// include_parent includes the parent of each record.
-	IncludeParent bool `protobuf:"varint,6,opt,name=include_parent,json=includeParent,proto3" json:"include_parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -117,13 +115,6 @@ func (x *RetrieveRequest) GetIncludeStatus() bool {
 	return false
 }
 
-func (x *RetrieveRequest) GetIncludeParent() bool {
-	if x != nil {
-		return x.IncludeParent
-	}
-	return false
-}
-
 // RetrieveResponse holds the devices a RetrieveRequest selects.
 type RetrieveResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -174,15 +165,14 @@ var File_core_pkg_api_device_pb_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/api/device/pb/device.proto\x12\rapi.device.pb\x1a.core/pkg/service/legacy/device/pb/device.proto\"\xfc\x01\n" +
+	"#core/pkg/api/device/pb/device.proto\x12\rapi.device.pb\x1a.core/pkg/service/legacy/device/pb/device.proto\"\xd5\x01\n" +
 	"\x0fRetrieveRequest\x123\n" +
 	"\x05where\x18\x01 \x01(\v2\x18.service.device.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
 	"searchTerm\x12\x19\n" +
 	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
 	"\x06offset\x18\x04 \x01(\rR\x06offset\x12%\n" +
-	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatus\x12%\n" +
-	"\x0einclude_parent\x18\x06 \x01(\bR\rincludeParentB\b\n" +
+	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatusB\b\n" +
 	"\x06_whereB\b\n" +
 	"\x06_limit\"G\n" +
 	"\x10RetrieveResponse\x123\n" +

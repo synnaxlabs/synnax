@@ -13,7 +13,7 @@ package v3
 
 import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 )
 
 // Units enumerates the engineering units for NI analog channel values.

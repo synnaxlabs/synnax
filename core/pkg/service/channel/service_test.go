@@ -24,17 +24,6 @@ import (
 )
 
 var _ = Describe("Service", func() {
-	Describe("Group", func() {
-		It(
-			"Should return the Channels group channels are created under",
-			func(ctx SpecContext) {
-				g := svc.Group()
-				Expect(g.Key).ToNot(BeZero())
-				Expect(g.Name).To(Equal("Channels"))
-			},
-		)
-	})
-
 	Describe("ShouldValidateNames", func() {
 		It("Should report true by default", func(ctx SpecContext) {
 			Expect(svc.ShouldValidateNames()).To(BeTrue())
@@ -42,7 +31,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should report false when name validation is disabled",
 			func(ctx SpecContext) {
-				noValidateSvc, _ := openService(
+				noValidateSvc := openService(
 					ctx,
 					testutil.NewNode(ctx),
 					channel.ServiceConfig{
