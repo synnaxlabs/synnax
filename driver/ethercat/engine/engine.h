@@ -26,6 +26,7 @@
 #include "x/cpp/thread/rt/rt.h"
 
 #include "driver/ethercat/master/master.h"
+#include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::engine {
 /// @brief Configuration for the Engine.
@@ -225,6 +226,10 @@ public:
     class Reader {
         Engine &engine;
         std::shared_ptr<Input> input;
+        /// @brief the decoder of each entry of input.
+        std::vector<telem::Decoder> decoders;
+        /// @brief the decoded values of one entry in a read.
+        std::vector<uint8_t> values;
 
     public:
         Reader(Engine &engine, std::shared_ptr<Input> input);

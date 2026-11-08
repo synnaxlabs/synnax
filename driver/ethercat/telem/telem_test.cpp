@@ -150,119 +150,135 @@ TEST(FormatIndexSubindex, FormatsCorrectly) {
     EXPECT_EQ(format_index_sub_index(0xFFFF, 0xAB), "0xFFFF:AB");
 }
 
-TEST(ReadPdoToSeries, SingleBitAtOffset0) {
+namespace {
+/// @brief decodes the entry at src into series.
+void decode(
+    const uint8_t *src,
+    const uint8_t bit_offset,
+    const uint8_t bit_length,
+    const x::telem::DataType &data_type,
+    x::telem::Series &series
+) {
+    const Decoder decoder(bit_offset, bit_length, data_type);
+    uint64_t value = 0;
+    decoder.decode(src, reinterpret_cast<uint8_t *>(&value));
+    series.write_casted(&value, 1, decoder.type());
+}
+}
+
+TEST(Decoder, SingleBitAtOffset0) {
     uint8_t buffer[] = {0b00000001};
     x::telem::Series series(x::telem::UINT8_T, 1);
-    read_pdo_to_series(buffer, 0, 1, x::telem::UINT8_T, series);
+    decode(buffer, 0, 1, x::telem::UINT8_T, series);
     EXPECT_EQ(series.at<uint8_t>(0), 1);
 }
 
-TEST(ReadPdoToSeries, SingleBitAtOffset7) {
+TEST(Decoder, SingleBitAtOffset7) {
     uint8_t buffer[] = {0b10000000};
     x::telem::Series series(x::telem::UINT8_T, 1);
-    read_pdo_to_series(buffer, 7, 1, x::telem::UINT8_T, series);
+    decode(buffer, 7, 1, x::telem::UINT8_T, series);
     EXPECT_EQ(series.at<uint8_t>(0), 1);
 }
 
-TEST(ReadPdoToSeries, FourBitsAtOffset0) {
+TEST(Decoder, FourBitsAtOffset0) {
     uint8_t buffer[] = {0b00001111};
     x::telem::Series series(x::telem::UINT8_T, 1);
-    read_pdo_to_series(buffer, 0, 4, x::telem::UINT8_T, series);
+    decode(buffer, 0, 4, x::telem::UINT8_T, series);
     EXPECT_EQ(series.at<uint8_t>(0), 0x0F);
 }
 
-TEST(ReadPdoToSeries, FourBitsAtOffset4) {
+TEST(Decoder, FourBitsAtOffset4) {
     uint8_t buffer[] = {0b11110000};
     x::telem::Series series(x::telem::UINT8_T, 1);
-    read_pdo_to_series(buffer, 4, 4, x::telem::UINT8_T, series);
+    decode(buffer, 4, 4, x::telem::UINT8_T, series);
     EXPECT_EQ(series.at<uint8_t>(0), 0x0F);
 }
 
-TEST(ReadPdoToSeries, SubByteSpanningByteBoundary) {
+TEST(Decoder, SubByteSpanningByteBoundary) {
     uint8_t buffer[] = {0b11100000, 0b00000011};
     x::telem::Series series(x::telem::UINT8_T, 1);
-    read_pdo_to_series(buffer, 5, 6, x::telem::UINT8_T, series);
+    decode(buffer, 5, 6, x::telem::UINT8_T, series);
     EXPECT_EQ(series.at<uint8_t>(0), 0b00011111);
 }
 
-TEST(ReadPdoToSeries, ByteAligned8Bit) {
+TEST(Decoder, ByteAligned8Bit) {
     uint8_t buffer[] = {0xAB};
     x::telem::Series series(x::telem::UINT8_T, 1);
-    read_pdo_to_series(buffer, 0, 8, x::telem::UINT8_T, series);
+    decode(buffer, 0, 8, x::telem::UINT8_T, series);
     EXPECT_EQ(series.at<uint8_t>(0), 0xAB);
 }
 
-TEST(ReadPdoToSeries, ByteAligned16Bit) {
+TEST(Decoder, ByteAligned16Bit) {
     uint8_t buffer[] = {0x34, 0x12};
     x::telem::Series series(x::telem::UINT16_T, 1);
-    read_pdo_to_series(buffer, 0, 16, x::telem::UINT16_T, series);
+    decode(buffer, 0, 16, x::telem::UINT16_T, series);
     EXPECT_EQ(series.at<uint16_t>(0), 0x1234);
 }
 
-TEST(ReadPdoToSeries, ByteAligned32Bit) {
+TEST(Decoder, ByteAligned32Bit) {
     uint8_t buffer[] = {0x78, 0x56, 0x34, 0x12};
     x::telem::Series series(x::telem::UINT32_T, 1);
-    read_pdo_to_series(buffer, 0, 32, x::telem::UINT32_T, series);
+    decode(buffer, 0, 32, x::telem::UINT32_T, series);
     EXPECT_EQ(series.at<uint32_t>(0), 0x12345678);
 }
 
-TEST(ReadPdoToSeries, Unsigned24BitAligned) {
+TEST(Decoder, Unsigned24BitAligned) {
     uint8_t buffer[] = {0x56, 0x34, 0x12, 0x00};
     x::telem::Series series(x::telem::UINT32_T, 1);
-    read_pdo_to_series(buffer, 0, 24, x::telem::UINT32_T, series);
+    decode(buffer, 0, 24, x::telem::UINT32_T, series);
     EXPECT_EQ(series.at<uint32_t>(0), 0x00123456);
 }
 
-TEST(ReadPdoToSeries, Signed24BitPositive) {
+TEST(Decoder, Signed24BitPositive) {
     uint8_t buffer[] = {0x56, 0x34, 0x12, 0x00};
     x::telem::Series series(x::telem::INT32_T, 1);
-    read_pdo_to_series(buffer, 0, 24, x::telem::INT32_T, series);
+    decode(buffer, 0, 24, x::telem::INT32_T, series);
     EXPECT_EQ(series.at<int32_t>(0), 0x00123456);
 }
 
-TEST(ReadPdoToSeries, Signed24BitNegative) {
+TEST(Decoder, Signed24BitNegative) {
     uint8_t buffer[] = {0xFF, 0xFF, 0xFF, 0x00};
     x::telem::Series series(x::telem::INT32_T, 1);
-    read_pdo_to_series(buffer, 0, 24, x::telem::INT32_T, series);
+    decode(buffer, 0, 24, x::telem::INT32_T, series);
     EXPECT_EQ(series.at<int32_t>(0), -1);
 }
 
-TEST(ReadPdoToSeries, Signed24BitNegativeValue) {
+TEST(Decoder, Signed24BitNegativeValue) {
     uint8_t buffer[] = {0x00, 0x00, 0x80, 0x00};
     x::telem::Series series(x::telem::INT32_T, 1);
-    read_pdo_to_series(buffer, 0, 24, x::telem::INT32_T, series);
+    decode(buffer, 0, 24, x::telem::INT32_T, series);
     EXPECT_EQ(series.at<int32_t>(0), static_cast<int32_t>(0xFF800000));
 }
 
-TEST(ReadPdoToSeries, TwentyFourBitWithBitOffset) {
+TEST(Decoder, TwentyFourBitWithBitOffset) {
     uint8_t buffer[] = {0x58, 0xD1, 0x48, 0x00};
     x::telem::Series series(x::telem::UINT32_T, 1);
-    read_pdo_to_series(buffer, 2, 24, x::telem::UINT32_T, series);
+    decode(buffer, 2, 24, x::telem::UINT32_T, series);
     EXPECT_EQ(series.at<uint32_t>(0), 0x00123456);
 }
 
 /// @brief it should sign extend a negative 40-bit input without reading the bytes of
 /// the next entry.
-TEST(ReadPdoToSeries, Signed40BitNegativeIgnoresNextEntry) {
+TEST(Decoder, Signed40BitNegativeIgnoresNextEntry) {
     uint8_t buffer[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00};
     x::telem::Series series(x::telem::INT64_T, 1);
-    read_pdo_to_series(buffer, 0, 40, x::telem::INT64_T, series);
+    decode(buffer, 0, 40, x::telem::INT64_T, series);
     EXPECT_EQ(series.at<int64_t>(0), -1);
 }
 
 /// @brief it should drop the bytes of the next entry from an unsigned 48-bit input.
-TEST(ReadPdoToSeries, Unsigned48BitIgnoresNextEntry) {
+TEST(Decoder, Unsigned48BitIgnoresNextEntry) {
     uint8_t buffer[] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0xAA, 0xBB};
     x::telem::Series series(x::telem::UINT64_T, 1);
-    read_pdo_to_series(buffer, 0, 48, x::telem::UINT64_T, series);
+    decode(buffer, 0, 48, x::telem::UINT64_T, series);
     EXPECT_EQ(series.at<uint64_t>(0), 0x800000000001);
 }
 
 /// @brief it should read a negative 56-bit input that starts mid byte.
-TEST(ReadPdoToSeries, Signed56BitWithBitOffset) {
+TEST(Decoder, Signed56BitWithBitOffset) {
     uint8_t buffer[] = {0xF0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0xAA};
     x::telem::Series series(x::telem::INT64_T, 1);
-    read_pdo_to_series(buffer, 4, 56, x::telem::INT64_T, series);
+    decode(buffer, 4, 56, x::telem::INT64_T, series);
     EXPECT_EQ(series.at<int64_t>(0), -1);
 }
 
@@ -440,7 +456,7 @@ TEST(ReadWriteRoundTrip, SingleBit) {
     uint8_t buffer[] = {0x00};
     write_pdo_from_value(buffer, 3, 1, x::telem::UINT8_T, uint8_t{1});
     x::telem::Series series(x::telem::UINT8_T, 1);
-    read_pdo_to_series(buffer, 3, 1, x::telem::UINT8_T, series);
+    decode(buffer, 3, 1, x::telem::UINT8_T, series);
     EXPECT_EQ(series.at<uint8_t>(0), 1);
 }
 
@@ -448,7 +464,7 @@ TEST(ReadWriteRoundTrip, FourBitsSpanning) {
     uint8_t buffer[] = {0xFF, 0xFF};
     write_pdo_from_value(buffer, 6, 4, x::telem::UINT8_T, uint8_t{0x09});
     x::telem::Series series(x::telem::UINT8_T, 1);
-    read_pdo_to_series(buffer, 6, 4, x::telem::UINT8_T, series);
+    decode(buffer, 6, 4, x::telem::UINT8_T, series);
     EXPECT_EQ(series.at<uint8_t>(0), 0x09);
 }
 
@@ -456,7 +472,7 @@ TEST(ReadWriteRoundTrip, TwentyFourBitWithOffset) {
     uint8_t buffer[] = {0x00, 0x00, 0x00, 0x00};
     write_pdo_from_value(buffer, 4, 24, x::telem::UINT32_T, uint32_t{0xABCDEF});
     x::telem::Series series(x::telem::UINT32_T, 1);
-    read_pdo_to_series(buffer, 4, 24, x::telem::UINT32_T, series);
+    decode(buffer, 4, 24, x::telem::UINT32_T, series);
     EXPECT_EQ(series.at<uint32_t>(0), 0xABCDEF);
 }
 
@@ -465,7 +481,7 @@ TEST(ReadWriteRoundTrip, StandardTypes) {
 
     write_pdo_from_value(buffer, 0, 32, x::telem::FLOAT32_T, 3.14159f);
     x::telem::Series series(x::telem::FLOAT32_T, 1);
-    read_pdo_to_series(buffer, 0, 32, x::telem::FLOAT32_T, series);
+    decode(buffer, 0, 32, x::telem::FLOAT32_T, series);
     EXPECT_FLOAT_EQ(series.at<float>(0), 3.14159f);
 }
 }
