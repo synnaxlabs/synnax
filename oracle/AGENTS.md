@@ -96,13 +96,16 @@ or generator logic and schemas disagree.
   compiles and stands still until a version file changes. The one exception is a type
   the new version redeclares: it stops being the live one, so the demoted package loses
   the type's live `@validate` and `@default` rules, `@go fields`, `@go imports`, and
-  `@go to_any`. To keep them, restate them in the version file that defines the type.
-  The `frozen` gate enforces this. Hand-written frozen definer files are marked
-  `@go hand` in their version file; hand-ness is version-local — an aliased member whose
-  definer is an older version still generates in the current package as a backward
-  alias. `migrate.gen.go` is a pure function of the two adjacent version files;
-  hand-written transforms live in `migrate.go` (renames and cross-resource moves have no
-  generated counterpart).
+  `@go to_any`. To keep them, restate them in the version file that defines the type. A
+  frozen package also reads a pinned dependency type's rules from its version file only,
+  so a live-only rule on that type (label's `name`) drops the frozen package's
+  `Validate` call into it. Restate such a rule in the dependency's version file too. The
+  `frozen` gate enforces this. Hand-written frozen definer files are marked `@go hand`
+  in their version file; hand-ness is version-local — an aliased member whose definer
+  is an older version still generates in the current package as a backward alias.
+  `migrate.gen.go` is a pure function of the two adjacent version files; hand-written
+  transforms live in `migrate.go` (renames and cross-resource moves have no generated
+  counterpart).
 - Omit-transient members — types reachable from a file's `@go marshal` declarations only
   through omitted fields, e.g. task's StatusDetails — track the live shape: they always
   declare fully, may match their predecessor (exempt from the minimality gate), and

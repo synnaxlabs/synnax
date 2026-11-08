@@ -14,6 +14,7 @@ package v1
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"strconv"
 
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
@@ -45,6 +46,19 @@ type Range struct {
 	// Parent is an optional parent range for hierarchical organization. Ranges can be
 	// nested within other ranges.
 	Parent *Range `json:"parent,omitzero" msgpack:"parent,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Range) Validate() error {
+	v := validate.New("Range")
+	for i := range r.Labels {
+		v.Exec(func() error { return validate.PathedError(r.Labels[i].Validate(), "labels", strconv.Itoa(i)) })
+	}
+	if r.Parent != nil {
+		v.Exec(func() error { return validate.PathedError(r.Parent.Validate(), "parent") })
+	}
+	return v.Error()
 }
 
 // RefType is the "variant" value that selects a variant of Ref.
