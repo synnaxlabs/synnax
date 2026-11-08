@@ -285,47 +285,21 @@ var _ = Describe("Member", func() {
 	})
 
 	Describe("CreateObjects", func() {
-		It("Should add only the groups that new records join", func() {
-			kept, joined := uuid.New(), uuid.New()
+		It("Should add each distinct group that new records join", func() {
+			kept, a, b := uuid.New(), uuid.New(), uuid.New()
 			stored := []rack{{Key: "kept", Group: &kept}}
 			records := []rack{
-				{Key: "kept", Group: &joined},
-				{Key: "new", Group: &joined},
+				{Key: "kept", Group: &b},
+				{Key: "r1", Group: &a},
+				{Key: "r2"},
+				{Key: "r3", Group: &a},
+				{Key: "r4", Group: &b},
 			}
 			Expect(group.CreateObjects(
 				records,
 				stored,
 				func(r rack) *group.Key { return r.Group },
-			)).To(Equal([]resource.ID{group.ResourceID(joined)}))
-		})
-	})
-
-	Describe("MoveObjects", func() {
-		It(
-			"Should add each distinct source group and the destination",
-			func() {
-				a, b := uuid.New(), uuid.New()
-				ids := []resource.ID{rackID("r1"), rackID("r2")}
-				Expect(group.MoveObjects(ids, []*group.Key{&a, &a, nil}, &b)).
-					To(Equal([]resource.ID{
-						rackID("r1"),
-						rackID("r2"),
-						group.ResourceID(a),
-						group.ResourceID(b),
-					}))
-			},
-		)
-
-		It("Should add nothing for records that move out of no group", func() {
-			ids := []resource.ID{rackID("r1")}
-			Expect(group.MoveObjects(ids, []*group.Key{nil}, nil)).To(Equal(ids))
-		})
-
-		It("Should add each distinct destination group of a create", func() {
-			a, b := uuid.New(), uuid.New()
-			Expect(group.MoveObjects(nil, nil, &a, nil, &b, &a)).To(Equal(
-				[]resource.ID{group.ResourceID(a), group.ResourceID(b)},
-			))
+			)).To(Equal([]resource.ID{group.ResourceID(a), group.ResourceID(b)}))
 		})
 	})
 })

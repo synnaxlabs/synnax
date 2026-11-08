@@ -70,12 +70,14 @@ RFC 0026 §1.1.10 named the problem, and RFC 0042 §7 deferred its fix to this R
 
 `@ref` is a field domain. Oracle gets the target from the field type: `rack.Key` points
 at the struct whose `@key` has that type. A `resource.ID` field lists its target tables.
-A field with only a policy takes the short form `@ref on_delete restrict`.
+Each expression can also take its own line, such as `@ref kind use` and then
+`@ref on_delete restrict`.
 
 ```
 Status struct {
     owner resource.ID? {
         @ref {
+            kind      place
             types     task rack device channel
             on_delete cascade
             unique
@@ -84,6 +86,8 @@ Status struct {
 }
 ```
 
+- `kind place | use`: Required. `place` says where the dependent sits, and `use` says
+  what the dependent depends on.
 - `on_delete cascade | restrict | detach`: Required. `cascade` deletes the dependent.
   `restrict` refuses the delete while the dependent exists. `detach` keeps the dependent
   and removes the target: it clears an optional scalar, writes zero to a scalar with a

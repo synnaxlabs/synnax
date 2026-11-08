@@ -86,6 +86,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostKey:    1,
 		Status:     statusSvc,
 		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		// No Driver reports for the rack, so a check would overwrite task statuses.
+		HealthCheckInterval: telem.Hour,
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     node.DB,

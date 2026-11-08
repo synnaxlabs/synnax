@@ -13,7 +13,6 @@ import { describe, expect, it, vi } from "vitest";
 import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { AccessDeniedError, NotFoundError } from "@/index";
-import { label } from "@/label";
 import { ranger } from "@/ranger";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -129,7 +128,6 @@ describe("range", () => {
             ],
             actions: ["retrieve", "update"],
           },
-          { name: "labels", objects: [label.TYPE_RESOURCE_ID], actions: ["update"] },
         ],
         onError,
       );
@@ -137,7 +135,7 @@ describe("range", () => {
         name: "test",
         timeRange: new TimeRange({ start: 1, end: 2 }),
       });
-      await userClient.labels.label(ranger.resourceID(rng.key), [lbl.key]);
+      await client.labels.label(ranger.resourceID(rng.key), [lbl.key]);
       const retrieved = await userClient.ranges.retrieve(rng.key);
       expect(retrieved.labels).toEqual([lbl.key]);
       await expect(userClient.labels.retrieve({ key: lbl.key })).rejects.toSatisfy(
