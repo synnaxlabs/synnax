@@ -66,6 +66,9 @@ type System struct {
 	// Defaults maps an unconstrained type variable to the type it takes when no
 	// constraint binds it.
 	Defaults map[string]types.Type
+	// openNumerics holds the numeric type variables that stand for an open series
+	// element.
+	openNumerics map[string]bool
 	// Constraints holds all type relationships to be solved.
 	Constraints []Constraint
 }
@@ -77,6 +80,7 @@ func New() *System {
 		Substitutions: make(map[string]types.Type),
 		TypeVars:      make(map[string]types.Type),
 		Defaults:      make(map[string]types.Type),
+		openNumerics:  make(map[string]bool),
 	}
 }
 
@@ -84,6 +88,15 @@ func New() *System {
 func (s *System) AddDefault(tv, t types.Type) {
 	s.recordTypeVars(tv)
 	s.Defaults[tv.Name] = t
+}
+
+// OpenNumeric returns a numeric type variable for the open series element elem. An
+// integer literal unified with it takes its type, so a later float still fits.
+func (s *System) OpenNumeric(elem types.Type) types.Type {
+	numeric := types.NumericConstraint()
+	tv := types.Variable(elem.Name+"_numeric", &numeric)
+	s.openNumerics[tv.Name] = true
+	return tv
 }
 
 // AddEquality adds an equality constraint requiring left and right to unify to the

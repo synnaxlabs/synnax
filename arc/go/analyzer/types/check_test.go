@@ -60,6 +60,17 @@ var _ = Describe("Check", func() {
 		)
 	})
 
+	It("Should let an integer literal fix a generic numeric parameter", func() {
+		numeric := types.NumericConstraint()
+		param := types.Variable("T", &numeric)
+		integer := types.IntegerConstraint()
+		value := types.Variable("value", &integer)
+		Expect(atypes.Check(cs, param, value, testutil.NewMockAST(1), "test")).
+			To(Succeed())
+		Expect(cs.Unify()).To(Succeed())
+		Expect(cs.ApplySubstitutions(param)).To(Equal(types.I64()))
+	})
+
 	It("Should check an untyped value against the type its target is bound to", func() {
 		integer := types.IntegerConstraint()
 		target := types.Variable("target", &integer)

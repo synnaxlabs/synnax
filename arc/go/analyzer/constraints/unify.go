@@ -222,14 +222,15 @@ func (s *System) unifyTypesWithVisited(
 	return errors.Wrapf(ErrUnresolvable, "%v and %v", t1, t2)
 }
 
-// numericYields reports whether a variable constrained to a takes a variable
-// constrained to b when one of them is numeric. A float literal fixes a numeric
-// variable as a float, and a numeric variable fixes an integer literal.
-func numericYields(a, b types.Kind) bool {
-	if a == types.KindNumericConstant {
-		return b != types.KindNumericConstant && b != types.KindIntegerConstant
+// numericYields reports whether the constrained variable a takes the type of the
+// constrained variable b when one of them is numeric. A float literal fixes a numeric
+// variable as a float, and an open series element fixes an integer literal.
+func (s *System) numericYields(a, b types.Type) bool {
+	if a.Constraint.Kind == types.KindNumericConstant {
+		return b.Constraint.Kind != types.KindNumericConstant &&
+			b.Constraint.Kind != types.KindIntegerConstant
 	}
-	return a == types.KindIntegerConstant && b == types.KindNumericConstant
+	return a.Constraint.Kind == types.KindIntegerConstant && s.openNumerics[b.Name]
 }
 
 // openIntegerTarget returns the one of a and b that is the open element of an empty
@@ -282,8 +283,7 @@ func (s *System) unifyTypeVariableWithVisited(
 		// An integer literal makes an empty series numeric, not integer, so on every
 		// write path a later float still fits and the element defaults to f64.
 		if open, ok := s.openIntegerTarget(tv, other); ok {
-			numeric := types.NumericConstraint()
-			bound := types.Variable(open.Name+"_numeric", &numeric)
+			bound := s.OpenNumeric(open)
 			s.recordTypeVars(bound)
 			s.Substitutions[open.Name] = bound
 			return s.unifyTypeVariableWithVisited(tv, other, source, visiting)
@@ -300,7 +300,7 @@ func (s *System) unifyTypeVariableWithVisited(
 			s.Substitutions[other.Name] = tv
 			return nil
 		} else if tv.Constraint != nil && other.Constraint != nil &&
-			numericYields(other.Constraint.Kind, tv.Constraint.Kind) {
+			s.numericYields(other, tv) {
 			s.Substitutions[other.Name] = tv
 			return nil
 		} else if other.Constraint != nil && tv.Constraint == nil {

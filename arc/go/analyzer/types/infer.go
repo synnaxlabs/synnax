@@ -284,10 +284,9 @@ func Numeric(
 	if elem.Kind != types.KindVariable || elem.Constraint != nil {
 		return false
 	}
-	numeric := types.NumericConstraint()
 	return cs.AddCompatible(
 		elem,
-		types.Variable(elem.Name+"_numeric", &numeric),
+		cs.OpenNumeric(elem),
 		source,
 		"numeric operand",
 	) == nil

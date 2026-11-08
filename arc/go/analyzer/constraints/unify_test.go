@@ -133,21 +133,29 @@ var _ = Describe("Type Unification", func() {
 		)
 
 		DescribeTable(
-			"Should keep a numeric variable open for an integer in either order",
+			"Should keep an open series element open for an integer in either order",
 			func(firstIsInteger bool) {
-				numericConstraint := types.NumericConstraint()
-				numeric := types.Variable("numeric", &numericConstraint)
+				system := constraints.New()
+				numeric := system.OpenNumeric(types.Variable("elem", nil))
 				left, right := integer, numeric
 				if !firstIsInteger {
 					left, right = numeric, integer
 				}
-				system := constraints.New()
 				Expect(system.AddEquality(left, right, nil, "test")).To(Succeed())
 				Expect(system.ApplySubstitutions(integer)).To(Equal(numeric))
 			},
 			Entry("integer first", true),
 			Entry("numeric first", false),
 		)
+
+		It("Should let an integer fix a generic numeric variable", func() {
+			numericConstraint := types.NumericConstraint()
+			numeric := types.Variable("T", &numericConstraint)
+			system := constraints.New()
+			Expect(system.AddEquality(numeric, integer, nil, "test")).To(Succeed())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(numeric)).To(Equal(types.I64()))
+		})
 
 		DescribeTable(
 			"Should make an empty series element numeric for an integer in either order",

@@ -76,6 +76,12 @@ func Check(
 		// The untyped value takes the target's type, and never changes it, so a later
 		// write can still fix an untyped target's type.
 		target := cs.ApplySubstitutions(t1)
+		// A generic numeric parameter takes the value's type, so an integer literal
+		// alone makes it i64.
+		if target.Kind == types.KindVariable && target.Constraint != nil &&
+			target.Constraint.Kind == types.KindNumericConstant {
+			return cs.AddEquality(target, t2, source, reason)
+		}
 		if !untypedFits(target, t2) {
 			return newTypeMismatchError(target, t2, reason)
 		}
