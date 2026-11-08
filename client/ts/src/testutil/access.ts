@@ -27,8 +27,8 @@ const logAllButDenials = (err: Error): void => {
 
 /**
  * Creates a client that logs in as an existing user. Denials are tolerated: the Core
- * refuses restricted subjects by design, and the change-stream refusal logs at any time,
- * even after teardown, which vitest counts as an unhandled error.
+ * refuses restricted subjects by design, and the change-stream refusal logs at any
+ * time, even after teardown, which vitest counts as an unhandled error.
  */
 export const createTestClientAs = (username: string, password: string): Synnax =>
   createTestClient({ username, password, onInternalError: logAllButDenials });
