@@ -318,8 +318,8 @@ jobs:
         run: python3 -m review post "$RUNNER_TEMP/review.json"
 
   # A pushed head can reach the queue after a newer one and replace its review, and the
-  # API can lag a push. So a run that ends with another head on the pull request asks
-  # for a review of that head.
+  # API can lag a push. So a run that ends with another head on a ready pull request
+  # asks for a review of that head, unless Dependabot opened the pull request.
   follow:
     needs: [start, review]
     if: always() && !inputs.replay && needs.start.result == 'success'
@@ -337,8 +337,10 @@ jobs:
           REVIEWED: ${{ needs.start.outputs.head }}
           REF: ${{ github.event.repository.default_branch }}
         run: |
-          head=$(gh api "repos/$GH_REPO/pulls/$PR" --jq .head.sha)
-          if [ "$head" != "$REVIEWED" ]; then
+          read -r head draft author < <(gh api "repos/$GH_REPO/pulls/$PR" \
+            --jq '"\(.head.sha) \(.draft) \(.user.login)"')
+          if [ "$head" != "$REVIEWED" ] && [ "$draft" = false ] &&
+            [ "$author" != "dependabot[bot]" ]; then
             gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR"
           fi
 
