@@ -49,7 +49,7 @@ func (h *Hash) Sum() string {
 func (h *Hash) Uint(v uint64) {
 	var b [8]byte
 	binary.LittleEndian.PutUint64(b[:], v)
-	_, _ = h.d.Write(b[:])
+	check(h.d.Write(b[:]))
 }
 
 // Int writes v.
@@ -73,13 +73,20 @@ func (h *Hash) Len(n int) { h.Uint(uint64(n)) }
 // String writes s after its length.
 func (h *Hash) String(s string) {
 	h.Len(len(s))
-	_, _ = h.d.WriteString(s)
+	check(h.d.WriteString(s))
 }
 
 // Bytes writes b after its length.
 func (h *Hash) Bytes(b []byte) {
 	h.Len(len(b))
-	_, _ = h.d.Write(b)
+	check(h.d.Write(b))
+}
+
+// check panics on a write error, which an xxhash digest never returns.
+func check(_ int, err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 
 const (

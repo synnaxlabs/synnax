@@ -746,7 +746,11 @@ func keySelector(
 		return "", errors.New("a keyed list entry needs a string key")
 	}
 	sel := recv + "." + selector(f)
-	if sh, _ := shapeOf(f.Type, table); sh.converted {
+	sh, err := shapeOf(f.Type, table)
+	if err != nil {
+		return "", err
+	}
+	if sh.converted {
 		return "string(" + sel + ")", nil
 	}
 	return sel, nil

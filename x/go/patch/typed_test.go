@@ -316,7 +316,7 @@ var _ = Describe("Patch", func() {
 					Value:  "Cold flow",
 					Guards: []patch.Guard{{Path: []string{"name"}, Value: "Hot fire"}},
 				},
-				"[name]: the guard names no discriminator on the path",
+				"[name]: the guard names no union that the path goes into",
 			),
 		)
 	})

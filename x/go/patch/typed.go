@@ -164,14 +164,15 @@ func (c Cursor) names(path []string, discriminator string) bool {
 		slices.Equal(path[:c.depth], c.path[:c.depth])
 }
 
-// unguarded returns an error for a guard that no union on the path checked, as the
-// document cannot evaluate it. Every write calls it first.
+// unguarded returns an error for a guard that no union checked. Only a union that the
+// path goes into checks guards, so a guard on a union that the action replaces fails.
+// Every write calls it first.
 func (c Cursor) unguarded() error {
 	for i, g := range c.guards {
 		if c.checked&(1<<i) == 0 {
 			return errors.Wrapf(
 				validate.ErrValidation,
-				"%s: the guard names no discriminator on the path",
+				"%s: the guard names no union that the path goes into",
 				format(g.Path),
 			)
 		}

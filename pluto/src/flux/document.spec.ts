@@ -492,21 +492,46 @@ describe("createDocumentForm", () => {
   );
 
   it("should guard a write inside a union on the value that picks its option", async () => {
+    // A Modbus write channel is a union on its type.
     const unionSchema = z.object({
       name: z.string(),
-      config: z.discriminatedUnion("routingKey", [
-        z.object({ routingKey: z.literal("dog"), alerts: alertZ.array() }),
-        z.object({ routingKey: z.literal("cat"), alerts: alertZ.array() }),
-      ]),
+      config: z.object({
+        channels: z
+          .discriminatedUnion("type", [
+            z.object({ type: z.literal("coil"), key: z.string(), address: z.number() }),
+            z.object({
+              type: z.literal("holding_register"),
+              key: z.string(),
+              address: z.number(),
+            }),
+          ])
+          .array(),
+      }),
     });
-    const useUnionForm = createForm(unionSchema);
-    const t = await createTask();
+    type UnionValues = z.infer<typeof unionSchema>;
+    const unionPath = deep.path<UnionValues>();
+    const useUnionForm = Flux.createDocumentForm<
+      task.Key,
+      task.Task,
+      typeof unionSchema
+    >({
+      name: "Task",
+      schema: unionSchema,
+      domain: (client) => client.tasks,
+      useEnsure,
+      toValues: ({ payload: { name, config } }) => ({ name, config }) as UnionValues,
+    });
+    const t = await testRack.createTask({
+      name: `document-${id.create()}`,
+      type: "modbus_write",
+      config: { channels: [{ type: "coil", key: "a", address: 1 }] },
+    });
     const { result } = await renderHookSuspended(
       () => useUnionForm({ query: { key: t.key } }),
       { wrapper },
     );
     const send = spyOnSend(formClient);
-    act(() => result.current.form.set(path.config.alerts.a.status, "st-b"));
+    act(() => result.current.form.set(unionPath.config.channels.a.address, 2));
     await act(async () => expect(await result.current.flush()).toBe(true));
     const [, req] =
       send.mock.calls.find(([target]) => target === "/task/dispatch") ?? [];
@@ -515,14 +540,14 @@ describe("createDocumentForm", () => {
         {
           type: "set",
           set: {
-            path: ["config", "alerts", "a", "status"],
-            guards: [{ path: ["config", "routing_key"], value: "dog" }],
+            path: ["config", "channels", "a", "address"],
+            guards: [{ path: ["config", "channels", "a", "type"], value: "coil" }],
           },
         },
       ],
     });
     expect((await fetchStored(t.key)).config).toMatchObject({
-      alerts: [{ key: "a", status: "st-b" }],
+      channels: [{ key: "a", address: 2 }],
     });
   });
 

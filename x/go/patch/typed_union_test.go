@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -502,7 +503,29 @@ var _ = Describe("Patch of lists, unions, and JSON values", func() {
 					"a",
 					"name",
 				),
-				"[entries, a, name]: the guard names no discriminator on the path",
+				"[entries, a, name]: the guard names no union that the path goes into",
+			),
+			Entry(
+				"a guard on the union of an entry that a set replaces",
+				guarded(
+					map[string]any{"type": "digital", "key": "c1", "port": "DIO1"},
+					[]string{"channels", "c1", "type"},
+					"analog",
+					"channels",
+					"c1",
+				),
+				"[channels, c1, type]: the guard names no union that the path goes into",
+			),
+			Entry(
+				"a guard on the union of an entry that a removal takes out",
+				patch.Remove{
+					Path: []string{"channels"},
+					Key:  "c1",
+					Guards: []patch.Guard{
+						{Path: []string{"channels", "c1", "type"}, Value: "analog"},
+					},
+				},
+				"[channels, c1, type]: the guard names no union that the path goes into",
 			),
 		)
 	})
@@ -519,41 +542,34 @@ var _ = Describe("Patch of lists, unions, and JSON values", func() {
 
 		It("Should leave a zero value for a removal of a required field", func() {
 			doc := base
-			filled, err := partial(&doc, patch.Remove{
+			Expect(MustSucceed(partial(&doc, patch.Remove{
 				Path: []string{"entries", "a"}, Key: "name",
-			})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(filled).To(BeTrue())
+			}))).To(BeTrue())
 			Expect(doc.Entries[0].Name).To(BeEmpty())
 		})
 
 		It("Should fill the members that a value lacks", func() {
 			doc := base
-			filled, err := partial(&doc, set(map[string]any{
+			Expect(MustSucceed(partial(&doc, set(map[string]any{
 				"key": "a", "name": "Z",
-			}, "entries", "a"))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(filled).To(BeTrue())
+			}, "entries", "a")))).To(BeTrue())
 			Expect(doc.Entries[0]).To(Equal(entry{Key: "a", Name: "Z"}))
 		})
 
 		It("Should fill the members that a new variant lacks", func() {
 			doc := base
-			filled, err := partial(&doc, set("analog", "scale", "type"))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(filled).To(BeTrue())
+			Expect(MustSucceed(partial(&doc, set("analog", "scale", "type")))).
+				To(BeTrue())
 			Expect(doc.Scale).To(Equal(channel{Variant: analogChannel{}}))
 		})
 
 		It("Should not report a value that holds every member", func() {
 			doc := base
-			filled, err := partial(&doc, set(map[string]any{
+			Expect(MustSucceed(partial(&doc, set(map[string]any{
 				"key":  "a",
 				"name": "Z",
 				"span": map[string]any{"start": 5.0, "end": 6.0},
-			}, "entries", "a"))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(filled).To(BeFalse())
+			}, "entries", "a")))).To(BeFalse())
 		})
 
 		It("Should still reject a member the document does not declare", func() {

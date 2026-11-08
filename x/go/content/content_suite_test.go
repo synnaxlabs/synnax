@@ -21,3 +21,5 @@ func TestContent(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Content Suite", SuiteConfig())
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
