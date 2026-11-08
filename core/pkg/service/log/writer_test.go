@@ -781,6 +781,25 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
+				"Should apply and broadcast through a writer with no transaction",
+				func(ctx SpecContext) {
+					l := log.Log{Project: &proj.Key, Name: "before"}
+					Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+					rec := &Recorder[log.Key, log.Action]{}
+					DeferCleanup(svc.OnAction(rec.Record))
+					Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
+						ctx,
+						l.Key,
+						log.NewRenameAction(log.RenamePayload{Name: "after"}),
+					)).To(Succeed())
+					Expect(retrieve(ctx, l.Key).Name).To(Equal("after"))
+					seen := rec.Snapshot()
+					Expect(seen).To(HaveLen(1))
+					Expect(seen[0].DispatchKey).To(Equal("dk"))
+				},
+			)
+
+			It(
 				"Should assign strictly monotonic Seq across successive dispatches",
 				func(ctx SpecContext) {
 					l := log.Log{Project: &proj.Key, Name: "seq"}

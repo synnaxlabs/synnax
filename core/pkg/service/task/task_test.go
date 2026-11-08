@@ -931,6 +931,21 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(f.Actions).To(Equal(append(acts, computed...)))
 		})
 
+		It("Should apply and broadcast through a writer with no transaction", func(
+			ctx SpecContext,
+		) {
+			frames := collect()
+			acts := []task.Action{set([]string{"name"}, "Renamed")}
+			Expect(
+				svc.NewWriter(nil).
+					WithDispatchKey("dk").
+					Apply(ctx, alerts.Key, acts...),
+			).Error().ToNot(HaveOccurred())
+			Expect(retrieve(ctx, alerts.Key).Name).To(Equal("Renamed"))
+			Expect(*frames).To(HaveLen(1))
+			Expect((*frames)[0].DispatchKey).To(Equal("dk"))
+		})
+
 		It(
 			"Should broadcast and return the stored config when it fills a default",
 			func(

@@ -1330,6 +1330,30 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
+				"Should apply and broadcast through a writer with no transaction",
+				func(ctx SpecContext) {
+					plot := lineplot.LinePlot{Project: &proj.Key, Name: "before"}
+					Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+					rec := &Recorder[lineplot.Key, lineplot.Action]{}
+					DeferCleanup(svc.OnAction(rec.Record))
+					Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
+						ctx,
+						plot.Key,
+						lineplot.NewRenameAction(lineplot.RenamePayload{Name: "after"}),
+					)).To(Succeed())
+					var res lineplot.LinePlot
+					Expect(svc.NewRetrieve().
+						Where(lineplot.MatchKeys(plot.Key)).
+						Entry(&res).
+						Exec(ctx, nil)).To(Succeed())
+					Expect(res.Name).To(Equal("after"))
+					seen := rec.Snapshot()
+					Expect(seen).To(HaveLen(1))
+					Expect(seen[0].DispatchKey).To(Equal("dk"))
+				},
+			)
+
+			It(
 				"Should assign strictly monotonic Seq across successive dispatches",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "seq"}

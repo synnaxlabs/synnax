@@ -502,6 +502,30 @@ var _ = Describe("Writer", func() {
 		)
 
 		It(
+			"Should apply and broadcast through a writer with no transaction",
+			func(ctx SpecContext) {
+				s := schematic.Schematic{Project: &proj.Key, Name: "before"}
+				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				rec := &Recorder[schematic.Key, schematic.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
+					ctx,
+					s.Key,
+					schematic.NewRenameAction(schematic.RenamePayload{Name: "after"}),
+				)).To(Succeed())
+				var res schematic.Schematic
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(s.Key)).
+					Entry(&res).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(res.Name).To(Equal("after"))
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].DispatchKey).To(Equal("dk"))
+			},
+		)
+
+		It(
 			"Should stamp strictly increasing Seq values onto successive Dispatch broadcasts",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "seq-test"}

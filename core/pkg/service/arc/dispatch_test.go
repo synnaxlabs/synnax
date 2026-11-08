@@ -173,6 +173,37 @@ var _ = Describe("Dispatch", func() {
 	)
 
 	It(
+		"Should apply and broadcast through a writer with no transaction",
+		func(ctx SpecContext) {
+			a := newAutomation(
+				arc.Base{
+					Name:   "before",
+					Source: arc.Source{Variant: arc.GraphSource{}},
+				},
+			)
+			Expect(writer.Create(ctx, &a)).To(Succeed())
+			rec := &Recorder[arc.Key, arc.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
+				ctx,
+				a.Base().Key,
+				arc.NewRenameAction(arc.RenamePayload{Name: "after"}),
+			)).To(Succeed())
+			var res arc.Arc
+			Expect(
+				svc.NewRetrieve().
+					Where(arc.MatchKeys(a.Base().Key)).
+					Entry(&res).
+					Exec(ctx, nil),
+			).To(Succeed())
+			Expect(res.Base().Name).To(Equal("after"))
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].DispatchKey).To(Equal("dk"))
+		},
+	)
+
+	It(
 		"Should stamp strictly increasing Seq values onto successive broadcasts",
 		func(ctx SpecContext) {
 			a := newAutomation(

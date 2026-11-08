@@ -99,6 +99,22 @@ var _ = Describe("Dispatch", func() {
 		Expect(f.Actions).To(Equal(acts))
 	})
 
+	It(
+		"Should apply and broadcast through a writer with no transaction",
+		func(ctx SpecContext) {
+			rec := record()
+			Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
+				ctx,
+				nominal.Key,
+				set([]string{"name"}, "Anomaly"),
+			)).To(Succeed())
+			Expect(retrieve(ctx).Name).To(Equal("Anomaly"))
+			frames := rec.Snapshot()
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].DispatchKey).To(Equal("dk"))
+		},
+	)
+
 	It("Should apply none of the actions when one fails", func(ctx SpecContext) {
 		rec := record()
 		Expect(dispatch(ctx, nominal.Key, "dk", []label.Action{
