@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Users"
 description:
-  "Register users, give them roles, and remove them. Includes the permissions of each
-  role."
+  "Register users, give each one a role, and remove them. Includes the permissions of
+  each role."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -15,9 +15,9 @@ import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Each person who uses a Synnax Core logs in as a user. A user's roles set what the user
-can see and change. Only users with the **Owner** role can register, change, or delete
-users.
+Each person who uses a Synnax Core logs in as a user. Each user holds one role, and the
+role sets what the user can see and change. Only users with the **Owner** role can
+register, change, or delete users.
 
 Owners manage users in the **Users** toolbar. To open it, click <Icon.User /> in the
 left navigation bar, or press **U**. Synnax Desktop has one user and no **Users**
@@ -86,18 +86,17 @@ the user and register them again.
 
 ## Manage users from code
 
-Create a user, then give it a role:
+Create a user with a role:
 
 <Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
 ```python
-user = client.users.create(
-    username="jdoe", password="secret", first_name="Jane", last_name="Doe"
-)
 engineer = next(r for r in client.access.roles.retrieve() if r.name == "Engineer")
-client.access.roles.assign(user=user.key, role=engineer.key)
+user = client.users.create(
+    username="jdoe", password="secret", name="Jane Doe", role=engineer.key
+)
 ```
 
   </Fragment>
@@ -105,25 +104,25 @@ client.access.roles.assign(user=user.key, role=engineer.key)
   <Fragment slot="typescript">
 
 ```typescript
+const roles = await client.access.roles.retrieve({});
+const engineer = roles.find((r) => r.name === "Engineer");
 const user = await client.users.create({
   username: "jdoe",
   password: "secret",
-  firstName: "Jane",
-  lastName: "Doe",
+  name: "Jane Doe",
+  role: engineer.key,
 });
-const roles = await client.access.roles.retrieve({});
-const engineer = roles.find((r) => r.name === "Engineer");
-await client.access.roles.assign({ user: user.key, role: engineer.key });
 ```
 
   </Fragment>
 
 </Client.Tabs>
 
-A user created from code has no role and no permissions until you assign one. A user can
-hold more than one role and gets the permissions of all of them. To take a role away,
-call `unassign` with the same arguments. To delete users, call `client.users.delete`
-with their keys.
+To give users a different role, call `client.users.set_role(keys, role)` in Python or
+`client.users.setRole(keys, role)` in TypeScript. The new role replaces the role of each
+user. To delete users, call `client.users.delete` with their keys.
+
+You cannot delete a role that a user holds. First give its users a different role.
 
 <Divider.Divider x />
 
@@ -172,3 +171,7 @@ A Core has five roles. **All** means create, read, change, and delete.
 - **Driver** -> given to each rack, so a Driver logs in as its rack. It can change its
   rack, but cannot create or delete racks.
 - **Viewer** -> sees everything and changes nothing.
+
+An upgrade from v0.60 or earlier gives each user that held no role a new **No access**
+role, which grants no permissions. A user that held several roles keeps the one that
+grants the most access.

@@ -34,9 +34,11 @@ var _ = Describe("Pair", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Pair{}.SetOptions()).To(BeNil())
+	Describe("GorpKeyRange", func() {
+		It("Should return the range of a key that GorpKey returns", func() {
+			rng := uuid.New()
+			key := v0.Pair{Range: rng, Key: "a<--->b"}.GorpKey()
+			Expect(v0.Pair{}.GorpKeyRange(key)).To(Equal(rng.String()))
 		})
 	})
 

@@ -11,6 +11,7 @@ package gorp_test
 
 import (
 	"bytes"
+	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,6 +38,29 @@ var _ = Describe("Retrieve", func() {
 			gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx),
 		).To(Succeed())
 	})
+
+	DescribeTable(
+		"Should panic on a nil snapshot",
+		func(
+			ctx SpecContext,
+			run func(context.Context, gorp.Retrieve[int32, entry]) error,
+		) {
+			Expect(func() {
+				Expect(run(ctx, gorp.NewRetrieve[int32, entry]())).To(Succeed())
+			}).To(PanicWith(ContainSubstring("nil transaction")))
+		},
+		Entry("Exec", func(ctx context.Context, r gorp.Retrieve[int32, entry]) error {
+			return r.Exec(ctx, nil)
+		}),
+		Entry("Count", func(ctx context.Context, r gorp.Retrieve[int32, entry]) error {
+			_, err := r.Count(ctx, nil)
+			return err
+		}),
+		Entry("Exists", func(ctx context.Context, r gorp.Retrieve[int32, entry]) error {
+			_, err := r.Exists(ctx, nil)
+			return err
+		}),
+	)
 
 	Describe("Query State", func() {
 		Describe("HasLimit", func() {
@@ -141,12 +165,11 @@ var _ = Describe("Retrieve", func() {
 				"Should return a query.ErrNotFound error if ANY key is not found",
 				func(ctx SpecContext) {
 					var res []entry
-					err := gorp.NewRetrieve[int32, entry]().
+					Expect(gorp.NewRetrieve[int32, entry]().
 						Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), 444444)).
 						Entries(&res).
-						Exec(ctx, tx)
+						Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 					By("Returning the correct error")
-					Expect(err).To(MatchError(query.ErrNotFound))
 					By("Still retrieving as many entries as possible")
 					Expect(res).To(HaveLen(1))
 				},
@@ -196,12 +219,8 @@ var _ = Describe("Retrieve", func() {
 
 		Context("Composed with another filter", func() {
 			// When MatchKeys is layered with another filter (Match, MatchRaw,
-			// WherePrefix, etc.), Exec must treat missing keys as empty slots
-			// rather than fail with ErrNotFound. The ontology Retrieve
-			// pipeline depends on this: between clauses it injects
-			// MatchKeys(nextIDs) on top of WhereTypes / WherePrefix, and a
-			// transient miss (orphaned relationship, freshly-deleted
-			// resource) must not blow up the whole traversal.
+			// WherePrefix, etc.), Exec treats missing keys as empty slots rather than
+			// failing with ErrNotFound.
 			DescribeTable(
 				"Should NOT return ErrNotFound when MatchKeys is combined with a filter and some keys are missing",
 				func(ctx SpecContext, build func() gorp.Retrieve[int32, entry], wantIndices []int) {
@@ -805,7 +824,7 @@ var _ = Describe("Retrieve", func() {
 						Where(gorp.Match(func(gCtx gorp.Context, _ *entry) (bool, error) {
 							callCount++
 							Expect(gCtx.Context).To(BeIdenticalTo(ctx))
-							Expect(gCtx.Tx).To(BeIdenticalTo(tx))
+							Expect(gCtx.Snapshot).To(BeIdenticalTo(tx))
 							return false, nil
 						})).
 						Count(ctx, tx)).To(Equal(0))
@@ -856,14 +875,16 @@ var _ = Describe("Retrieve", func() {
 			})
 		})
 	})
+})
 
+var _ = Describe("Retrieve", func() {
 	Describe("Validate", func() {
 		var (
 			entries []entry
 			tx      gorp.Tx
 		)
 		BeforeEach(func(ctx SpecContext) {
-			tx = db.OpenTx()
+			tx = DeferClose(db.OpenTx())
 			entries = make([]entry, 5)
 			for i := range entries {
 				entries[i] = entry{ID: int32(i), Data: "data"}
@@ -872,7 +893,6 @@ var _ = Describe("Retrieve", func() {
 				gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx),
 			).To(Succeed())
 		})
-		AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
 		It(
 			"Should receive the final bound result set via execFilter",
@@ -1035,14 +1055,13 @@ var _ = Describe("Retrieve", func() {
 			"Should preserve ErrNotFound when WhereKeys partial-match also triggers a validator error",
 			func(ctx SpecContext) {
 				var res []entry
-				err := gorp.NewRetrieve[int32, entry]().
+				Expect(gorp.NewRetrieve[int32, entry]().
 					Entries(&res).
 					Where(gorp.MatchKeys[int32, entry](0, 1, 999)).
 					Validate(func(_ gorp.Context, _ []entry) error {
 						return errors.New("partial validator failure")
 					}).
-					Exec(ctx, tx)
-				Expect(err).To(SatisfyAll(
+					Exec(ctx, tx)).To(SatisfyAll(
 					MatchError(query.ErrNotFound),
 					MatchError(ContainSubstring("partial validator failure")),
 				))

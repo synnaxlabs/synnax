@@ -26,10 +26,10 @@ export interface MountChild {
   state: record.Unknown;
 }
 
-/** Constructor + static-schema shape every component passed to {@link renderAether} must
- * satisfy. The state schema is read for typing only (the Leaf parses incoming state
- * itself), and is accepted under either the `stateZ` or `z` static — both conventions
- * exist in the codebase. */
+/** Constructor + static-schema shape every component passed to {@link renderAether}
+ * must satisfy. The state schema is read for typing only (the Leaf parses incoming
+ * state itself), and is accepted under either the `stateZ` or `z` static — both
+ * conventions exist in the codebase. */
 export type ComponentClass = {
   TYPE: string;
   new (props: aether.ComponentConstructorProps): aether.Component;
@@ -57,7 +57,9 @@ export interface Handle<C extends ComponentClass> {
   /** Replace the component's state. Accepts a value or a `(prev) => next` setter; the
    * result is parsed against the component's schema. */
   setState(next: state.SetArg<z.infer<SchemaOf<C>>>): void;
-  /** Create or replace a child of the component under test. `type` must be registered. */
+  /**
+   * Create or replace a child of the component under test. `type` must be registered.
+   */
   setChildState(key: string, type: string, childState: record.Unknown): void;
   /** Delete a child of the component under test. */
   deleteChild(key: string): void;
@@ -83,8 +85,8 @@ export interface RenderAetherOptions<C extends ComponentClass> extends ProviderO
   children?: Record<string, MountChild>;
 }
 
-// Active mounts awaiting teardown. Each renderAether registers its disposer here and the
-// afterEach below tears them all down, so tests never leak provider trees or telem
+// Active mounts awaiting teardown. Each renderAether registers its disposer here and
+// the afterEach below tears them all down, so tests never leak provider trees or telem
 // subscriptions (mirrors @testing-library/react's auto-cleanup). h.unmount() disposes
 // early and deregisters.
 const pendingTeardowns = new Set<() => void>();

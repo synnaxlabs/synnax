@@ -30,12 +30,6 @@ var _ = Describe("Schematic", func() {
 			Expect(v0.Schematic{Key: k}.GorpKey()).To(Equal(k))
 		})
 	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Schematic{}.SetOptions()).To(BeNil())
-		})
-	})
 })
 
 var _ = Describe("NormalizeKeys", func() {

@@ -10,9 +10,12 @@
 package writer_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -45,13 +48,17 @@ var _ = Describe("Writer", func() {
 			DataType: telem.TimestampT,
 			IsIndex:  true,
 		}
-		Expect(channelWriter.Create(ctx, &idxCh)).To(Succeed())
+		Expect(mockNode.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &idxCh)
+		})).To(Succeed())
 		dataCh := channel.Channel{
 			Name:       UniqueChannelName(),
 			DataType:   dataType,
 			LocalIndex: idxCh.LocalKey,
 		}
-		Expect(channelWriter.Create(ctx, &dataCh)).To(Succeed())
+		Expect(mockNode.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &dataCh)
+		})).To(Succeed())
 		return idxCh, dataCh
 	}
 
@@ -62,7 +69,9 @@ var _ = Describe("Writer", func() {
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
-		Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+		Expect(mockNode.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		return ch
 	}
 
@@ -86,7 +95,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				Expect(writerSvc.Open(ctx, writer.Config{
 					Keys: channel.Keys{
-						distchannel.NewKey(mockNode.Cluster.HostKey(), 9999),
+						distchannel.NewKey(mockNode.Identity.HostKey, 9999),
 					},
 					Start: telem.SecondTS,
 				})).Error().To(MatchError(query.ErrNotFound))
@@ -97,7 +106,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				Expect(writerSvc.NewStream(ctx, writer.Config{
 					Keys: channel.Keys{
-						distchannel.NewKey(mockNode.Cluster.HostKey(), 9999),
+						distchannel.NewKey(mockNode.Identity.HostKey, 9999),
 					},
 					Start: telem.SecondTS,
 				})).Error().To(MatchError(query.ErrNotFound))
@@ -125,6 +134,25 @@ var _ = Describe("Writer", func() {
 				})).Error().To(MatchError(query.ErrNotFound))
 			},
 		)
+	})
+
+	Describe("Reserved Channels", func() {
+		It("Should refuse a writer on a reserved channel", func(ctx SpecContext) {
+			ch := createVirtual(ctx)
+			svc := MustSucceed(writer.NewService(writer.ServiceConfig{
+				Framer:   mockNode.Framer,
+				Channel:  channelSvc,
+				DB:       mockNode.DB,
+				Reserved: func(k channel.Key) bool { return k == ch.Key() },
+			}))
+			Expect(svc.NewStream(ctx, writer.Config{
+				Keys:  channel.Keys{ch.Key()},
+				Start: telem.SecondTS,
+			})).Error().To(MatchError(fmt.Sprintf(
+				"channel %d holds changes that only the Core writes: validation error",
+				ch.Key(),
+			)))
+		})
 	})
 
 	Describe("Frame Errors", func() {
@@ -354,7 +382,9 @@ var _ = Describe("Writer", func() {
 					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				}
-				Expect(channelWriter.Create(ctx, &idxCh)).To(Succeed())
+				Expect(mockNode.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &idxCh)
+				})).To(Succeed())
 				dataCh := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Float32T,
@@ -362,7 +392,9 @@ var _ = Describe("Writer", func() {
 					Virtual:     true,
 					LocalIndex:  idxCh.LocalKey,
 				}
-				Expect(channelWriter.Create(ctx, &dataCh)).To(Succeed())
+				Expect(mockNode.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &dataCh)
+				})).To(Succeed())
 				keys := channel.Keys{idxCh.Key(), dataCh.Key()}
 
 				streamer := MustSucceed(

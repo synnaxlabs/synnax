@@ -34,6 +34,8 @@ var _ = Describe("Context", func() {
 			Expect(ctx.Constraints).ToNot(BeNil())
 			Expect(ctx.TypeMap).ToNot(BeNil())
 			Expect(ctx.TypeMap).To(BeEmpty())
+			Expect(ctx.FmtStrings).ToNot(BeNil())
+			Expect(ctx.FmtStrings).To(BeEmpty())
 			Expect(ctx.CallEdges).ToNot(BeNil())
 			Expect(*ctx.CallEdges).To(BeEmpty())
 			Expect(ctx.AST).To(Equal(ast))
@@ -92,6 +94,8 @@ var _ = Describe("Context", func() {
 			testAST := testutil.NewMockAST(3)
 			child.TypeMap[testAST] = types.I32()
 			Expect(parent.TypeMap[testAST]).To(Equal(types.I32()))
+			child.FmtStrings[nil] = []parser.FmtSegment{{Text: "a"}}
+			Expect(parent.FmtStrings).To(HaveLen(1))
 		})
 
 		It(
