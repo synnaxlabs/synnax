@@ -161,9 +161,10 @@ private:
 class Manager final : public master::Manager {
     std::shared_ptr<API> api;
 
+public:
+    /// @brief creates a manager whose masters make their IgH calls through api.
     explicit Manager(std::shared_ptr<API> api): api(std::move(api)) {}
 
-public:
     /// @brief opens the IgH manager.
     /// @returns errors::MASTER_INIT_ERROR when the IgH device is missing, or the error
     /// of loading the IgH library.

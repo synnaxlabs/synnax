@@ -125,17 +125,21 @@ bool serves(
 
 /// @brief returns err, the error of the last pass of a failed start, with a sentence
 /// for each slave that the start left out. The error ends with master::DC_SYNC_ADVICE
-/// once when dc_sync_refused is true or a left-out slave needs the advice.
+/// once when a slave that refused in the last pass or a left-out slave needs it.
 x::errors::Error start_error(
     x::errors::Error err,
-    const std::map<uint16_t, slave::Refusal> &left_out,
-    bool dc_sync_refused
+    const std::map<uint16_t, slave::Refusal> &refused,
+    const std::map<uint16_t, slave::Refusal> &left_out
 ) {
+    const auto needs_advice = [](const auto &entry) {
+        return entry.second.dc_sync_invalid;
+    };
+    const bool dc_sync_refused = std::ranges::any_of(refused, needs_advice) ||
+                                 std::ranges::any_of(left_out, needs_advice);
     for (const auto &[pos, refusal]: left_out) {
         if (!err.data.ends_with('.')) err.data += '.';
         err.data += " The Driver left out slave " + std::to_string(pos) +
                     " because it " + refusal.reason + ".";
-        dc_sync_refused |= refusal.dc_sync_invalid;
     }
     if (!dc_sync_refused) return err;
     if (!err.data.ends_with('.')) err.data += '.';
@@ -408,14 +412,13 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
     while (true) {
         const auto try_started = clock.steady();
         auto [slaves, err] = this->master->scan();
-        bool dc_sync_refused = false;
+        std::map<uint16_t, slave::Refusal> refused;
         if (!err) {
             this->slaves = std::move(slaves);
-            const auto activation = this->master->activate(plan, start_cycle);
+            auto activation = this->master->activate(plan, start_cycle);
             err = activation.err;
             if (!err) break;
-            dc_sync_refused = activation.dc_sync_refused;
-            const auto &refused = activation.refusals;
+            refused = std::move(activation.refusals);
             // A slave with no process data, such as a coupler, gives a task nothing to
             // run.
             const bool io_left = std::ranges::any_of(
@@ -449,7 +452,7 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
             err.matches(errors::SLAVE_CONFIG_ERROR) ||
             next_try_end > this->config.start_timeout || !retry.wait(err)) {
             retry.stop();
-            return start_error(err, this->left_out, dc_sync_refused);
+            return start_error(err, refused, this->left_out);
         }
     }
     retry.stop();

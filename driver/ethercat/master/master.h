@@ -101,9 +101,6 @@ struct Activation {
     x::errors::Error err;
     /// @brief why each slave refused a state, keyed by position.
     std::map<uint16_t, slave::Refusal> refusals;
-    /// @brief whether a slave that kept the bus from starting reports "Invalid DC SYNC
-    /// configuration", so that the error ends with DC_SYNC_ADVICE.
-    bool dc_sync_refused = false;
 };
 
 /// @brief abstract interface for an EtherCAT master.

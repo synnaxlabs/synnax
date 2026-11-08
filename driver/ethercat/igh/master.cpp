@@ -647,7 +647,7 @@ std::pair<std::unique_ptr<Manager>, x::errors::Error> Manager::open() {
         };
     auto [api, err] = API::load();
     if (err) return {nullptr, err};
-    return {std::unique_ptr<Manager>(new Manager(std::move(api))), x::errors::NIL};
+    return {std::make_unique<Manager>(std::move(api)), x::errors::NIL};
 }
 
 std::vector<master::Info> Manager::enumerate() {
