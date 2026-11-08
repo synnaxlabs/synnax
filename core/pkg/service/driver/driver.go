@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/coalesce"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -55,6 +54,9 @@ type Driver struct {
 type instance struct {
 	task Task
 	hash string
+	// deleted is true once a commit deletes the task. A deleted instance takes no
+	// commands, a start deploys a new one, and stopDeleted stops it.
+	deleted bool
 }
 
 // commandSink is a confluence sink that processes incoming command frames.
@@ -101,22 +103,29 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	}
 	d.startHeartbeat()
 	d.configureExistingTasks(ctx)
-	// A reader of a commit must not wait for a task to stop, so a worker stops the
-	// tasks that commits delete.
-	deleted, err := coalesce.Open(coalesce.Config[task.Key, struct{}]{
-		Instrumentation: cfg.Instrumentation,
-		Handle:          d.deleteTasks,
-	})
-	if !ok(err, deleted) {
-		return nil, err
-	}
+	// A reader of a commit must not wait for a task to stop, so it only marks the
+	// instances of deleted tasks, and a goroutine stops them.
+	wake := make(chan struct{}, 1)
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+	sCtx.Go(func(ctx context.Context) error {
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-wake:
+			}
+			d.stopDeleted()
+		}
+	}, signal.WithKey("stop_deleted"))
+	ok(nil, signal.NewHardShutdown(sCtx, cancel))
 	disconnect := cfg.Task.Observe().OnChange(func(
 		_ context.Context,
 		r gorp.TxReader[task.Key, task.Task],
 	) {
-		for ch := range r {
-			if ch.Variant == change.VariantDelete {
-				deleted.Add(ch.Key, struct{}{})
+		if d.markDeleted(r) {
+			select {
+			case wake <- struct{}{}:
+			default:
 			}
 		}
 	})
@@ -247,7 +256,7 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 			inst, ok := d.mu.instances[cmd.Task]
 			deployErr := d.mu.failures[cmd.Task]
 			d.mu.RUnlock()
-			if ok {
+			if ok && !inst.deleted {
 				d.exec(ctx, inst.task, cmd)
 				continue
 			}
@@ -307,7 +316,7 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	d.mu.RLock()
 	inst, ok := d.mu.instances[cmd.Task]
 	d.mu.RUnlock()
-	if !ok || inst.hash != tsk.ConfigHash {
+	if !ok || inst.deleted || inst.hash != tsk.ConfigHash {
 		if err := d.configure(ctx, tsk, cmd.Key); err != nil {
 			d.cfg.L.Error("failed to configure task",
 				zap.Stringer("task", tsk),
@@ -522,18 +531,6 @@ func unsupportedDescription(cmdType string) string {
 	return fmt.Sprintf("The task does not accept the '%s' command.", cmdType)
 }
 
-// deleteTasks stops the instance of each deleted task. The worker gets deletes only, so
-// a later create of the same key cannot hide one. Sets need nothing: configs deploy on
-// start, and a rack move leaves the old instance running until the task deploys again.
-func (d *Driver) deleteTasks(
-	_ context.Context,
-	deleted map[task.Key]struct{}, //nolint:set // coalesce.Worker hands values as a map
-) {
-	for key := range deleted {
-		d.delete(key)
-	}
-}
-
 func (d *Driver) configureExistingTasks(ctx context.Context) {
 	var tasks []task.Task
 	if err := d.cfg.Task.NewRetrieve().
@@ -616,10 +613,47 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 	return err
 }
 
-func (d *Driver) delete(key task.Key) {
-	// The teardown is silent: deleting a task deletes its status, and a terminal
-	// status written afterwards would resurrect it for a task that no longer exists.
-	if d.release(key, false) {
+// markDeleted marks the instance of each task that r deletes and forgets a failed
+// deploy of it. It reports whether it marked an instance.
+func (d *Driver) markDeleted(r gorp.TxReader[task.Key, task.Task]) bool {
+	marked := false
+	for ch := range r {
+		if ch.Variant != change.VariantDelete {
+			continue
+		}
+		d.mu.Lock()
+		if inst, ok := d.mu.instances[ch.Key]; ok {
+			inst.deleted = true
+			d.mu.instances[ch.Key] = inst
+			marked = true
+		}
+		delete(d.mu.failures, ch.Key)
+		d.mu.Unlock()
+	}
+	return marked
+}
+
+// stopDeleted stops and forgets every instance that markDeleted marked. The stop is
+// silent: a terminal status written for a deleted task would recreate its status.
+func (d *Driver) stopDeleted() {
+	stops := make(map[task.Key]Task)
+	d.mu.Lock()
+	for key, inst := range d.mu.instances {
+		if inst.deleted {
+			stops[key] = inst.task
+			delete(d.mu.instances, key)
+		}
+	}
+	d.mu.Unlock()
+	for key, t := range stops {
+		if err := t.Stop(false); err != nil {
+			d.cfg.L.Error(
+				"failed to stop task",
+				zap.Stringer("task", key),
+				zap.Error(err),
+			)
+			continue
+		}
 		d.cfg.L.Info("deleted task", zap.Stringer("task", key))
 	}
 }
@@ -646,9 +680,14 @@ func (d *Driver) release(key task.Key, sendStatus bool) bool {
 }
 
 func (d *Driver) Close() error {
+	// The stops run outside the lock: they write statuses, and the commit reader that
+	// those writes wait for takes the lock.
 	d.mu.Lock()
-	for key, inst := range d.mu.instances {
-		if err := inst.task.Stop(true); err != nil {
+	instances := d.mu.instances
+	d.mu.instances = make(map[task.Key]instance)
+	d.mu.Unlock()
+	for key, inst := range instances {
+		if err := inst.task.Stop(!inst.deleted); err != nil {
 			d.cfg.L.Error(
 				"failed to stop task during shutdown",
 				zap.Stringer("task", key),
@@ -656,7 +695,5 @@ func (d *Driver) Close() error {
 			)
 		}
 	}
-	clear(d.mu.instances)
-	d.mu.Unlock()
 	return d.closer.Close()
 }
