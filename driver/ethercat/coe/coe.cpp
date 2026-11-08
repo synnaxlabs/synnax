@@ -35,14 +35,20 @@ read_error(const uint16_t index, const uint8_t sub_index, const uint32_t abort_c
 }
 
 std::pair<std::vector<pdo::Sync>, x::errors::Error>
-read_layout(const Read &read, const uint32_t max_syncs) {
+read_layout(const Read &read, const uint32_t max_syncs, const OnError on_error) {
+    x::errors::Error first_err;
+    const auto stop = [&](const x::errors::Error &err) {
+        if (err && !first_err) first_err = err;
+        return err && on_error == OnError::FAIL;
+    };
     const auto read_count =
         [&](const uint16_t index,
             const uint32_t max) -> std::pair<uint32_t, x::errors::Error> {
         const auto [count, err] = read(index, 0);
-        if (err || count <= max) return {count, err};
+        if (err) return {0, err};
+        if (count <= max) return {count, x::errors::NIL};
         return {
-            0,
+            max,
             x::errors::Error(
                 errors::PDO_DISCOVERY_ERROR,
                 telem::format_index_sub_index(index, 0) + " counts " +
@@ -60,7 +66,8 @@ read_layout(const Read &read, const uint32_t max_syncs) {
     for (uint32_t sm = FIRST_PROCESS_DATA_SM; sm < std::min(sm_count, max_syncs);
          sm++) {
         auto [type, type_err] = read(SM_TYPE_INDEX, static_cast<uint8_t>(sm + 1));
-        if (type_err) return {{}, type_err};
+        if (stop(type_err)) return {{}, type_err};
+        if (type_err) continue;
         // SOEM reads the types that some slaves get wrong this way, and maps them so.
         if (sm == 2 && type == SM_TYPE_MAILBOX_IN) type_shift = 1;
         if (type != 0) type += type_shift;
@@ -70,7 +77,7 @@ read_layout(const Read &read, const uint32_t max_syncs) {
         const auto assign_index = static_cast<uint16_t>(PDO_ASSIGN_INDEX + sm);
         const auto [pdo_count, pdo_count_err] = read_count(assign_index, MAX_SUB_INDEX);
         const bool fixed = pdo_count_err.matches(OBJECT_MISSING);
-        if (pdo_count_err && !fixed) return {{}, pdo_count_err};
+        if (!fixed && stop(pdo_count_err)) return {{}, pdo_count_err};
         auto &sync = syncs.emplace_back(
             pdo::Sync{
                 .index = static_cast<uint8_t>(sm),
@@ -84,8 +91,8 @@ read_layout(const Read &read, const uint32_t max_syncs) {
                 assign_index,
                 static_cast<uint8_t>(i)
             );
-            if (pdo_err) return {{}, pdo_err};
-            if (pdo_index == 0) continue;
+            if (stop(pdo_err)) return {{}, pdo_err};
+            if (pdo_err || pdo_index == 0) continue;
             auto &pdo = sync.pdos.emplace_back(
                 pdo::PDO{.index = static_cast<uint16_t>(pdo_index), .entries = {}}
             );
@@ -93,13 +100,14 @@ read_layout(const Read &read, const uint32_t max_syncs) {
                 pdo.index,
                 MAX_SUB_INDEX
             );
-            if (entry_count_err) return {{}, entry_count_err};
+            if (stop(entry_count_err)) return {{}, entry_count_err};
             for (uint32_t j = 1; j <= entry_count; j++) {
                 const auto [mapping, mapping_err] = read(
                     pdo.index,
                     static_cast<uint8_t>(j)
                 );
-                if (mapping_err) return {{}, mapping_err};
+                if (stop(mapping_err)) return {{}, mapping_err};
+                if (mapping_err) continue;
                 pdo.entries.push_back({
                     .index = static_cast<uint16_t>(mapping >> 16),
                     .sub_index = static_cast<uint8_t>(mapping >> 8),
@@ -108,6 +116,6 @@ read_layout(const Read &read, const uint32_t max_syncs) {
             }
         }
     }
-    return {syncs, x::errors::NIL};
+    return {syncs, first_err};
 }
 }

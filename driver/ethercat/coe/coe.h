@@ -33,13 +33,23 @@ x::errors::Error read_error(uint16_t index, uint8_t sub_index, uint32_t abort_co
 using Read = std::function<
     std::pair<uint32_t, x::errors::Error>(uint16_t index, uint8_t sub_index)>;
 
+/// @brief what read_layout does after a failed read.
+enum class OnError {
+    /// @brief returns the error and no layout.
+    FAIL,
+    /// @brief leaves out what the read describes and keeps the rest, as SOEM does when
+    /// it maps a slave from CoE. A count above the maximum reads as the maximum.
+    SKIP,
+};
+
 /// @brief reads the PDOs that a slave assigns to each process data sync manager and the
 /// objects each PDO maps. Returns no sync managers when the slave has no sync manager
 /// type object (0x1C00) or no process data sync manager.
 /// @param max_syncs the most sync managers the master configures on a slave. The
 /// layout holds no sync manager past it.
 /// @returns errors::PDO_DISCOVERY_ERROR when a PDO assign or mapping object counts more
-/// sub-indices than it can hold, or the error of a failed read.
+/// sub-indices than it can hold, or the error of a failed read. With OnError::SKIP, the
+/// first such error comes with the layout, except a failed read of 0x1C00:00.
 std::pair<std::vector<pdo::Sync>, x::errors::Error>
-read_layout(const Read &read, uint32_t max_syncs);
+read_layout(const Read &read, uint32_t max_syncs, OnError on_error);
 }
