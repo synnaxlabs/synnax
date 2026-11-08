@@ -329,11 +329,10 @@ func BootupCore(
 				&server.SecureHTTPBranch{
 					Transports: []http.BindableTransport{r, embeddedConsole},
 				},
-				&server.GRPCBranch{Transports: append(
-					transportLayer.GRPC,
-					aspenTransport,
-					distTransport,
-				)},
+				// Aspen's servers stay unbound, so no other Core can join this one.
+				&server.GRPCBranch{
+					Transports: append(transportLayer.GRPC, distTransport),
+				},
 				server.NewHTTPRedirectBranch(),
 			},
 			Debug:           cfg.debug,
