@@ -274,6 +274,23 @@ TEST(ComputeOffsetsProperties, BaseOffsetPropagation) {
     EXPECT_EQ(offsets[k1].bit, 0);
 }
 
+/// @brief it should start at the given bit and carry later entries into the next byte.
+TEST(ComputeOffsetsProperties, StartBitCarriesIntoTheNextByte) {
+    Offsets offsets;
+    const std::vector<Properties> pdos = {
+        {.index = 0x6000, .sub_index = 1, .bit_length = 2},
+        {.index = 0x6000, .sub_index = 2, .bit_length = 2},
+    };
+    compute_offsets(offsets, 1, pdos, true, 3, 6);
+
+    const Key k1{1, 0x6000, 1, true};
+    const Key k2{1, 0x6000, 2, true};
+    EXPECT_EQ(offsets[k1].byte, 3);
+    EXPECT_EQ(offsets[k1].bit, 6);
+    EXPECT_EQ(offsets[k2].byte, 4);
+    EXPECT_EQ(offsets[k2].bit, 0);
+}
+
 TEST(ComputeOffsetsProperties, EmptyPdoList) {
     Offsets offsets;
     std::vector<Properties> pdos;

@@ -2257,6 +2257,55 @@ TEST_F(SOEMMasterTest, OffsetsCountPadding) {
     EXPECT_EQ(offset.bit, 0);
 }
 
+namespace {
+/// @brief returns a slave with one 4-bit input entry, 0x6000:01, and one 4-bit output
+/// entry, 0x7000:01, whose inputs follow one byte of outputs in the IOmap.
+MockSlaveInfo nibble_slave() {
+    auto info = coe_slave(4);
+    info.Obits = 4;
+    info.input_offset = 1;
+    info.sdo_objects = {
+        {{0x1C00, 0}, 4},
+        {{0x1C00, 3}, 3},
+        {{0x1C00, 4}, 4},
+        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+        {{0x1A00, 0}, 1},
+        {{0x1A00, 1}, 0x60000104},
+        {{ECT_SDO_RXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_RXPDOASSIGN, 1}, 0x1600},
+        {{0x1600, 0}, 1},
+        {{0x1600, 1}, 0x70000104},
+    };
+    return info;
+}
+}
+
+/// @brief it should place the entries of a slave that SOEM packs into the byte of the
+/// slave before it at the start bit SOEM gives the slave.
+TEST_F(SOEMMasterTest, OffsetsFollowTheStartBitOfAPackedSlave) {
+    this->add_slave(nibble_slave());
+    auto packed = nibble_slave();
+    packed.input_start_bit = 4;
+    packed.output_start_bit = 4;
+    this->add_slave(packed);
+    ASSERT_NIL_P(this->master->scan());
+    this->mock->ibytes = 1;
+    this->mock->obytes = 1;
+    ASSERT_NIL(this->activate());
+
+    const auto input = ASSERT_NIL_P(
+        this->image.offset(pdo::Entry(2, 0x6000, 1, 4, true, x::telem::UINT8_T))
+    );
+    EXPECT_EQ(input.byte, 0);
+    EXPECT_EQ(input.bit, 4);
+    const auto output = ASSERT_NIL_P(
+        this->image.offset(pdo::Entry(2, 0x7000, 1, 4, false, x::telem::UINT8_T))
+    );
+    EXPECT_EQ(output.byte, 0);
+    EXPECT_EQ(output.bit, 4);
+}
+
 /// @brief it should return a mapping error for a slave whose discovered entries do not
 /// match the bits it maps.
 TEST_F(SOEMMasterTest, SlaveWhoseLayoutDisagreesWithMappingHasNoOffsets) {
