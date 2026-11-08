@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 """Sedosaur, the pull request reviewer: runs Claude Code on a pull request, and posts
-its review in the form Greptile uses."""
+its review as a check run, inline threads, and a summary in the pull request body."""
 
 from review import compare
 from review.findings import SEVERITIES, Finding, Review, parse

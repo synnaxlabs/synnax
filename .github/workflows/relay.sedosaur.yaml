@@ -8,9 +8,9 @@
 # included in the file licenses/APL.txt.
 
 # Asks Sedosaur for a review when a pull request opens or is ready, and when a member
-# comments `@sedosaur review` or `@greptileai review`. The review holds secrets, so it
-# runs from the default branch through a dispatch. A fork's token cannot dispatch, and
-# the review skips a fork.
+# or an agent comments `@sedosaur review` or `@greptileai review`. The review holds
+# secrets, so it runs from the default branch through a dispatch. A fork's token cannot
+# dispatch, and the review skips a fork.
 
 name: Relay - Sedosaur
 run-name: ${{ github.event.pull_request.number || github.event.issue.number }}
@@ -35,8 +35,10 @@ jobs:
         && github.event.pull_request.head.repo.full_name == github.repository)
       || (github.event_name == 'issue_comment'
         && github.event.issue.pull_request
-        && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
-          github.event.comment.author_association)
+        && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
+            github.event.comment.author_association)
+          || contains(fromJSON('["synnax-claude-code[bot]", "synnax-codex[bot]"]'),
+            github.event.comment.user.login))
         && (contains(github.event.comment.body, '@sedosaur review')
           || contains(github.event.comment.body, '@greptileai review')))
     runs-on: ubuntu-latest

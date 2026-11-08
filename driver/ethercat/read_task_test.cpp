@@ -1029,6 +1029,47 @@ TEST_F(EtherCATReadTest, StartRunsTheModeChosenOnASavedDevice) {
     read_task->exec(stop);
 }
 
+/// @brief it should pass the startup parameters saved on a device to the master when
+/// the bus starts.
+TEST_F(EtherCATReadTest, StartPassesTheStartupParametersOfASavedDevice) {
+    auto saved = this->create_configured_slave(NETWORK_INTERFACE, 1, true);
+    saved.properties["startup_parameters"] = {
+        {{"index", 0x8000}, {"sub_index", 0x15}, {"data_type", "uint16"}, {"value", 3}}
+    };
+    ASSERT_NIL(this->client->devices.create(saved));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    read_task->exec(start);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
+    EXPECT_EQ(
+        this->mock_master->startup_parameters(1),
+        (std::vector<slave::StartupParameter>{{
+            .index = 0x8000,
+            .sub_index = 0x15,
+            .data_type = x::telem::UINT16_T,
+            .value = 3,
+        }})
+    );
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    read_task->exec(stop);
+}
+
 /// @brief it should drop the settings of a deleted device at the next bus start.
 TEST_F(EtherCATReadTest, StartDropsTheSettingsOfADeletedDevice) {
     auto saved = this->create_configured_slave(NETWORK_INTERFACE, 1, false);
