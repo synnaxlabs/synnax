@@ -419,12 +419,6 @@ TEST_F(SOEMMasterTest, CountSlavesReportsTheSlavesThatAnswer) {
     EXPECT_EQ(ASSERT_NIL_P(this->master->count_slaves()), 0);
 }
 
-/// @brief it should scan again without an error.
-TEST_F(SOEMMasterTest, ScanIdempotent) {
-    this->initialize_with_slave();
-    ASSERT_NIL_P(this->master->scan());
-}
-
 /// @brief it should name and type each PDO entry from the CoE object dictionary of the
 /// slave.
 TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {

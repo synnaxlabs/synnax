@@ -27,7 +27,6 @@ protected:
     std::shared_ptr<engine::Engine> engine;
     synnax::channel::Channel index_channel;
     synnax::rack::Rack rack;
-    synnax::device::Device network_device;
     synnax::device::Device slave_device;
     const uint32_t SLAVE_SERIAL = 12345;
     const std::string NETWORK_INTERFACE = "eth0";
@@ -46,7 +45,6 @@ protected:
 
         ctx = std::make_shared<task::MockContext>(client);
 
-        network_device = create_network_device(NETWORK_INTERFACE);
         slave_device = create_slave_device(
             SLAVE_SERIAL,
             x::json::json::array(),
@@ -89,22 +87,6 @@ protected:
             }
         );
         engine = std::make_shared<engine::Engine>(NETWORK_INTERFACE, mock_master);
-    }
-
-    synnax::device::Device create_network_device(const std::string &interface) {
-        x::json::json props = {{"interface", interface}, {"rate", 100.0}};
-        synnax::device::Device dev{
-            .key = "ecat_network_" + interface,
-            .rack = rack.key,
-            .location = interface,
-            .make = "EtherCAT",
-            .model = "Network",
-            .name = "Test Network",
-            .properties = props,
-        };
-        const auto err = client->devices.create(dev);
-        EXPECT_NIL(err);
-        return dev;
     }
 
     [[nodiscard]] synnax::device::Device create_slave_device(
@@ -164,19 +146,6 @@ protected:
         };
         if (state_key != 0) cfg["state_channel"] = state_key;
         return cfg;
-    }
-
-    x::json::json create_unresolved_output_channel_config(
-        const synnax::channel::Key &command_key,
-        const std::string &pdo_name
-    ) {
-        return {
-            {"type", "unresolved"},
-            {"device", slave_device.key},
-            {"pdo", pdo_name},
-            {"cmd_channel", command_key},
-            {"disabled", false}
-        };
     }
 
     synnax::channel::Channel create_command_channel(
@@ -367,8 +336,7 @@ TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
     EXPECT_EQ(this->mock_master->get_output<int16_t>(0), -3);
 }
 
-/// @brief when a frame contains multiple samples for a channel, only the last
-/// sample should be written to hardware.
+/// @brief it should write only the last sample of a channel in a frame.
 TEST_F(EtherCATWriteTest, SinkLastWriteWins) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("cmd"),
@@ -457,6 +425,7 @@ TEST_F(EtherCATWriteTest, SinkWritesMultipleChannels) {
     ASSERT_NIL(sink.stop());
 }
 
+/// @brief it should accept a frame that has no command for a channel.
 TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("cmd"),
@@ -483,6 +452,8 @@ TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
     ASSERT_NIL(sink.stop());
 }
 
+/// @brief it should refuse to start when a slave on the bus is not the device that
+/// the task names.
 TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("cmd"),
@@ -516,7 +487,13 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     );
 
     auto sink = WriteTaskSink(mismatched_engine, std::move(task_cfg));
-    ASSERT_OCCURRED_AS(sink.start(), errors::TOPOLOGY_MISMATCH);
+    const auto err = sink.start();
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "device " + this->slave_device.key +
+            " at position 0: expected vendor_id 0x00000001, found 0x00000099"
+    );
 }
 
 }

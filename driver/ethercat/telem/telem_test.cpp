@@ -166,6 +166,16 @@ void decode(
 }
 }
 
+/// @brief it should write bit fields as uint8, whole entries as their data type, and
+/// narrow integers as 64-bit integers of the same sign.
+TEST(Decoder, ReportsTheTypeItWrites) {
+    EXPECT_EQ(Decoder(0, 4, x::telem::UINT8_T).type(), x::telem::UINT8_T);
+    EXPECT_EQ(Decoder(0, 16, x::telem::INT16_T).type(), x::telem::INT16_T);
+    EXPECT_EQ(Decoder(0, 32, x::telem::FLOAT32_T).type(), x::telem::FLOAT32_T);
+    EXPECT_EQ(Decoder(0, 24, x::telem::INT32_T).type(), x::telem::INT64_T);
+    EXPECT_EQ(Decoder(0, 24, x::telem::UINT32_T).type(), x::telem::UINT64_T);
+}
+
 /// @brief it should decode a single bit at bit 0.
 TEST(Decoder, SingleBitAtOffset0) {
     uint8_t buffer[] = {0b00000001};

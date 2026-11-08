@@ -111,8 +111,7 @@ protected:
     synnax::device::Device create_slave_device(
         uint32_t serial,
         const x::json::json &input_pdos,
-        const x::json::json &output_pdos,
-        uint16_t position = 0
+        const x::json::json &output_pdos
     ) {
         x::json::json props = {
             {"serial", serial},
@@ -121,7 +120,7 @@ protected:
             {"revision", 1},
             {"name", "Test Slave"},
             {"network", NETWORK_INTERFACE},
-            {"position", position},
+            {"position", 0},
             {"enabled", true},
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
@@ -163,19 +162,6 @@ protected:
             {"data_type", data_type},
             {"channel", channel.key},
             {"disabled", disabled}
-        };
-    }
-
-    x::json::json create_unresolved_input_channel_config(
-        const synnax::channel::Channel &channel,
-        const std::string &pdo_name
-    ) {
-        return {
-            {"type", "unresolved"},
-            {"device", slave_device.key},
-            {"pdo", pdo_name},
-            {"channel", channel.key},
-            {"disabled", false}
         };
     }
 
@@ -307,6 +293,7 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsAScaledIntegerChannel) {
     );
 }
 
+/// @brief it should write the data channels and their index channel.
 TEST_F(EtherCATReadTest, WriterConfigIncludesAllChannels) {
     auto ch1 = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("ch1"),
@@ -384,6 +371,27 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsSlavesOnTwoNetworks) {
     ASSERT_EQ(errors.size(), 1);
     EXPECT_EQ(errors[0]["path"], "channels.1.device");
     EXPECT_EQ(errors[0]["message"], "all slaves must be on the same network");
+}
+
+/// @brief it should report a channel on a slave device whose saved properties are not
+/// valid.
+TEST_F(EtherCATReadTest, ParseConfigRejectsASlaveWithInvalidProperties) {
+    auto broken = this->slave_device;
+    broken.key = "ecat_slave_broken";
+    broken.properties["serial"] = "not a number";
+    ASSERT_NIL(this->client->devices.create(broken));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    ch["device"] = broken.key;
+    cfg["channels"].push_back(ch);
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.device");
+    EXPECT_EQ(errors[0]["message"], "serial: expected a number, got 'not a number'");
 }
 
 /// @brief it should reject a task whose channels are all disabled.
@@ -526,6 +534,7 @@ TEST_F(EtherCATReadTest, SourceAppliesALinearScale) {
     ASSERT_NIL(source->stop());
 }
 
+/// @brief it should read each channel from its own PDO entry.
 TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
     auto ch1 = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("status"),
@@ -884,6 +893,7 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
     read_task->exec(stop);
 }
 
+/// @brief it should return an empty frame when the breaker is stopped.
 TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {
     auto data_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("analog"),
@@ -912,6 +922,8 @@ TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should refuse to start when a slave on the bus is not the device that
+/// the task names.
 TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     auto data_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("analog"),
@@ -943,7 +955,13 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     );
 
     auto source = ReadTaskSource(mismatched_engine, std::move(task_cfg));
-    ASSERT_OCCURRED_AS(source.start(), errors::TOPOLOGY_MISMATCH);
+    const auto err = source.start();
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "device " + this->slave_device.key +
+            " at position 0: expected vendor_id 0x00000001, found 0x00000099"
+    );
 }
 
 }

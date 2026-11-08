@@ -105,6 +105,7 @@ protected:
     }
 };
 
+/// @brief it should report a test command that has no interface.
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     synnax::task::Task task{
         .rack = rack.key,
@@ -127,6 +128,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     EXPECT_EQ(ctx->statuses.back().description, "interface: This field is required");
 }
 
+/// @brief it should leave a command it does not know to another handler.
 TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
     synnax::task::Task task{
         .rack = rack.key,
@@ -145,6 +147,7 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
     EXPECT_FALSE(handled);
 }
 
+/// @brief it should report how many slaves a test command finds.
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     auto mock_master = std::make_shared<testutil::Master>();
     mock_master->add_slave(
@@ -220,6 +223,7 @@ TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
     ASSERT_OCCURRED_AS_P(scanner.scan({}), errors::PERMISSION_DENIED);
 }
 
+/// @brief it should report an interface that fails to open.
 TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     auto mock_master = std::make_shared<testutil::Master>();
     mock_master->inject_scan_error(

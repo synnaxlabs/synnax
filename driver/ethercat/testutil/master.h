@@ -35,6 +35,8 @@ namespace driver::ethercat::testutil {
 /// would on a real bus.
 class Master final : public master::Master {
     std::vector<slave::DiscoveryResult> slave_list;
+    /// @brief what scan() found, which it returns again until deactivate().
+    std::vector<slave::DiscoveryResult> scanned;
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
     /// @brief why the master could not restore the distributed clock of each slave.
@@ -289,8 +291,9 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("scan");
         if (this->inject_scan_err) return {{}, this->inject_scan_err};
+        if (!this->initialized) this->scanned = this->slave_list;
         this->initialized = true;
-        return {this->slave_list, x::errors::NIL};
+        return {this->scanned, x::errors::NIL};
     }
 
     std::pair<size_t, x::errors::Error> count_slaves() override {

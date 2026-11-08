@@ -138,7 +138,11 @@ protected:
         this->brk.start();
     }
 
-    void TearDown() override { this->brk.stop(); }
+    void TearDown() override {
+        // A failed assertion must not leave the bus stalled, or the teardown hangs.
+        this->master->resume();
+        this->brk.stop();
+    }
 
     /// @brief reads n samples of a single 16-bit entry and returns their times.
     x::telem::Series read_times(Engine::Reader &reader, const size_t n) {
@@ -593,6 +597,45 @@ TEST_F(EngineLockTest, ReaderKeepsExactSampleTimesWhenTheBusRateRises) {
         );
 }
 
+/// @brief it should decode each sample of reads that cross the end of the sample
+/// buffer, for entries of different widths.
+TEST_F(EngineLockTest, ReaderDecodesEachSampleAcrossTheBufferEnd) {
+    // 250 samples pass through a buffer that holds 200, so the reads wrap around it.
+    constexpr size_t SAMPLES = 50;
+    constexpr size_t READS = 5;
+    this->master->stall();
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16, IN_I24, IN_U4}, x::telem::Rate(100), SAMPLES)
+    );
+    // The first cycle runs before the reader joins the schedule.
+    this->master->wait_until_stalled();
+    this->master->step();
+    for (size_t r = 0; r < READS; ++r) {
+        for (size_t s = 0; s < SAMPLES; ++s) {
+            const auto k = static_cast<int32_t>(r * SAMPLES + s);
+            this->master->wait_until_stalled();
+            this->master->set_input<int16_t>(I16_BYTE, static_cast<int16_t>(k));
+            this->master->set_input<int32_t>(I24_BYTE, -k);
+            this->master->set_input<uint8_t>(U4_BYTE, static_cast<uint8_t>(k % 16));
+            this->master->step();
+        }
+        auto frame = frame_of(
+            {x::telem::INT16_T, x::telem::INT32_T, x::telem::UINT8_T},
+            SAMPLES
+        );
+        x::telem::Series times(x::telem::TIMESTAMP_T, SAMPLES);
+        ASSERT_NIL(reader->read(this->brk, frame, times));
+        ASSERT_EQ(frame.series->at(0).size(), SAMPLES);
+        for (size_t s = 0; s < SAMPLES; ++s) {
+            const auto k = static_cast<int32_t>(r * SAMPLES + s);
+            EXPECT_EQ(frame.series->at(0).at<int16_t>(s), k);
+            EXPECT_EQ(frame.series->at(1).at<int32_t>(s), -k);
+            EXPECT_EQ(frame.series->at(2).at<uint8_t>(s), k % 16);
+        }
+    }
+    this->master->resume();
+}
+
 /// @brief it should reject a reader with a sample rate below 0.001 Hz and not start the
 /// bus.
 TEST_F(EngineTest, ReadRateBelowOneMillihertzIsRejected) {
@@ -1010,8 +1053,28 @@ TEST_F(EngineTest, StartFailsWhenOnlyASlaveWithoutProcessDataIsLeft) {
     this->master->add_slave({.position = 1, .name = "Coupler"});
     this->master->refuse(0, REFUSAL);
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach SAFE-OP: refused SAFE-OP: Inconsistent settings"
+    );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(this->master->call_count("activate"), 1);
+}
+
+/// @brief it should tell the user how to fix the DC settings of a left-out slave that
+/// refused its DC sync configuration.
+TEST_F(EngineTest, ReaderOnASlaveThatRefusedDCSyncGetsAdvice) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid DC SYNC "
+        "configuration. Fix the device, then stop every task on the network to try it "
+        "again. " +
+            std::string(master::DC_SYNC_ADVICE)
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }
 
 /// @brief it should fail a reader on a slave that the bus started without, and stop the
