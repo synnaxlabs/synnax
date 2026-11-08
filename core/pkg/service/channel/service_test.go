@@ -132,6 +132,18 @@ var _ = Describe("Service", func() {
 			calc := create(ctx, "return "+base.Name+" * 2")
 			Expect(inputs(ctx, calc, base)).To(ConsistOf(base.Key()))
 		})
+		It(
+			"Should walk a stored calculation given as a channel that is not calculated",
+			func(ctx SpecContext) {
+				base := create(ctx, "")
+				inner := create(ctx, "return "+base.Name+" * 2")
+				outer := create(ctx, "return "+inner.Name+" + 1")
+				plain := inner
+				plain.Expression = ""
+				Expect(inputs(ctx, plain, outer)).
+					To(ConsistOf(inner.Key(), base.Key()))
+			},
+		)
 		It("Should return the inputs of a calculation that is not stored", func(
 			ctx SpecContext,
 		) {

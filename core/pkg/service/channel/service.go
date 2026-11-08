@@ -233,8 +233,15 @@ func (s *Service) CalculationInputs(
 	})
 	var (
 		inputs  Keys
-		visited = set.New(KeysFromChannels(channels)...)
+		visited = set.New[Key]()
 	)
+	// A write replaces only the stored form of a calculated channel, so the walk still
+	// reads the stored form of every other channel among channels.
+	for _, ch := range channels {
+		if ch.IsCalculated() {
+			visited.Add(ch.Key())
+		}
+	}
 	for len(channels) > 0 {
 		var next Keys
 		for _, ch := range channels {

@@ -161,6 +161,38 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
+			"Should refuse an edit that reads an unreadable channel through a stored one",
+			func(ctx SpecContext) {
+				stored := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float32T,
+					Expression: fmt.Sprintf("return %s * 2", secret.Name),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &stored)
+				})).To(Succeed())
+				grantOn(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					framer.ResourceIDs(channel.Keys{stored.Key()})...,
+				)
+				calc := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
+				plain := apichannel.Channel{
+					Key:         stored.Key(),
+					Name:        stored.Name,
+					Leaseholder: stored.Leaseholder,
+					DataType:    telem.Float32T,
+					Virtual:     true,
+				}
+				calc.Expression = fmt.Sprintf("return %s * 2", stored.Name)
+				Expect(create(ctx, plain, calc)).
+					Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveChannel(ctx, calc.Key).Expression).
+					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
+			},
+		)
+		It(
 			"Should refuse an edit that makes a calculation read an unreadable channel",
 			func(ctx SpecContext) {
 				calc := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
