@@ -556,6 +556,82 @@ var _ = Describe("NaN and infinity", func() {
 		})
 	})
 
+	Describe("Mixed float and integer literals", func() {
+		run := func(ctx SpecContext, dt types.Type, expr string) telem.Series {
+			GinkgoHelper()
+			dataType := telem.Float64T
+			if dt.Kind == types.KindF32 {
+				dataType = telem.Float32T
+			}
+			h := newRuntimeHarness(ctx, `
+			func check() {v `+dt.String()+`} `+dt.String()+` {
+				r `+dt.String()+` := `+expr+`
+				return r
+			}
+			x -> check() -> out`, channelSymbols(map[string]channelDef{
+				"x":   {dt, 100},
+				"out": {dt, 200},
+			}),
+				channels.Digest{Key: 100, DataType: dataType},
+				channels.Digest{Key: 200, DataType: dataType},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesFromAny(1.0, dataType))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			return out.Get(200).Series[0]
+		}
+
+		DescribeTable("Should give the exact f64 value",
+			func(ctx SpecContext, expr string, expected float64) {
+				Expect(
+					run(ctx, types.F64(), expr).Unmarshal[float64]()[0],
+				).To(Equal(expected))
+			},
+			Entry("float first", "3.2 + 2", 5.2),
+			Entry("integer first", "2 + 3.2", 5.2),
+			Entry("three operands", "2 + 3.2 + 1", 6.2),
+		)
+
+		DescribeTable("Should give the exact f32 value",
+			func(ctx SpecContext, expr string, expected float32) {
+				Expect(
+					run(ctx, types.F32(), expr).Unmarshal[float32]()[0],
+				).To(Equal(expected))
+			},
+			Entry("float first", "3.2 + 2", float32(5.2)),
+			Entry("integer first", "2 + 3.2", float32(5.2)),
+			Entry("three operands", "2 + 3.2 + 1", float32(6.2)),
+		)
+
+		DescribeTable("Should infer f64 without a declared type",
+			func(ctx SpecContext, expr string, expected float64) {
+				h := newRuntimeHarness(ctx, `
+				func check() {v f64} f64 {
+					r := `+expr+`
+					return r
+				}
+				x -> check() -> out`, channelSymbols(map[string]channelDef{
+					"x":   {types.F64(), 100},
+					"out": {types.F64(), 200},
+				}),
+					channels.Digest{Key: 100, DataType: telem.Float64T},
+					channels.Digest{Key: 200, DataType: telem.Float64T},
+				)
+				defer h.Close(ctx)
+				h.Ingest(100, telem.NewSeriesV(1.0))
+				h.Tick(ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(
+					out.Get(200).Series[0].Unmarshal[float64]()[0],
+				).To(Equal(expected))
+			},
+			Entry("float first", "3.2 + 2", 5.2),
+			Entry("integer first", "2 + 3.2", 5.2),
+			Entry("three operands", "2 + 3.2 + 1", 6.2),
+		)
+	})
+
 	Describe("Equality of two NaN channels", func() {
 		compare := func(
 			ctx SpecContext,
