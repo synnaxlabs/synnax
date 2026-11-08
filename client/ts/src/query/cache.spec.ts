@@ -757,6 +757,28 @@ describe("Cache", () => {
       await cache.close();
     });
 
+    it("should drop the records written offline once the stream reopens", async () => {
+      const first = new MockStreamer();
+      const reopen = Promise.withResolvers<void>();
+      let opens = 0;
+      const cache = capped(async () => {
+        opens++;
+        if (opens === 1) return first;
+        await reopen.promise;
+        return new MockStreamer();
+      });
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      await cache.ensureStreaming();
+      first.drop();
+      await expect.poll(() => opens).toBe(2);
+      table.set(docs(11));
+      reopen.resolve();
+      await expect.poll(() => cache.epoch).toBe(2);
+      table.set(docs(12)[11]);
+      await expect.poll(() => table.size).toBe(9);
+      await cache.close();
+    });
+
     it("should drop nothing while the stream is down", async () => {
       const first = new MockStreamer();
       let opens = 0;
