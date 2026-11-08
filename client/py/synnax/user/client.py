@@ -125,7 +125,8 @@ class Client:
 
         :param keys: The keys of the users.
         :param role: The key of the role to give.
-        :raises ValidationError: If one of the users is a root user.
+        :raises ValidationError: If one of the users is a root user or the role does
+            not exist.
         :raises NotFoundError: If one of the users does not exist.
         """
         self.client.send(
