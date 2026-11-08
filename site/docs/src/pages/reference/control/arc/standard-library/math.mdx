@@ -154,8 +154,8 @@ minus sign or `f32` or `f64` cast, a constant can also be a function input value
 initializer in a sequence or stage, or a variable's value outside a function, such as
 `limit := -math.inf`. Outside a function, an initializer that computes with a constant
 must also read a channel, as `scaled := raw * math.inf` does. A flow has no value to
-read for `limit := math.inf * 2.0`, so it fails with
-`'limit' cannot be initialized from math.inf*2.0 outside a function`.
+read for `limit := math.inf * 2.0`, so a flow that uses `limit` fails with
+`cannot use 'limit' in a flow: its initializer is not a compile-time constant`.
 
 ```arc bodies="lowest"
 import math
@@ -170,5 +170,5 @@ func lowest() {x f64} f64 {
 ```
 
 To test for NaN, use `is_nan`. `x != math.nan` is always `true`, and `==`, `<`, `>`,
-`<=`, or `>=` with `math.nan` is always `false`, so each gives warning ARC2004. Write
+`<=`, or `>=` with `math.nan` is always `false`, so each fails with error ARC2004. Write
 `math.is_nan(x)` and `not math.is_nan(x)`.
