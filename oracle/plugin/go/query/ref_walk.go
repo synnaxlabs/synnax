@@ -116,14 +116,21 @@ func newRefWalker(table *resolution.Table) *refWalker {
 }
 
 // walk returns the references that typ holds, in the order its fields declare them.
+// For a union, these are the references in the fields of its variants.
 func (w *refWalker) walk(typ resolution.Type) ([]*walkedRef, error) {
-	if _, ok := typ.Form.(resolution.StructForm); !ok {
-		return nil, errors.Newf(
-			"%s: @retrieve references needs a struct",
+	var err error
+	switch form := typ.Form.(type) {
+	case resolution.StructForm:
+		err = w.walkStruct(typ, nil, nil)
+	case resolution.UnionForm:
+		err = w.walkUnion(typ, form, nil, nil)
+	default:
+		err = errors.Newf(
+			"%s: @retrieve references needs a struct or a union",
 			typ.QualifiedName,
 		)
 	}
-	if err := w.walkStruct(typ, nil, nil); err != nil {
+	if err != nil {
 		return nil, err
 	}
 	return w.refs, nil

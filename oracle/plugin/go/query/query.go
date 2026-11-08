@@ -109,13 +109,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		addDeclared(typ, req.Resolutions, "search", searched)
 		addDeclared(typ, req.Resolutions, "ref", referenced)
-		if _, ok := typ.Form.(resolution.StructForm); ok {
-			w := newRefWalker(req.Resolutions)
-			if _, err := w.walk(typ); err != nil {
-				return nil, err
-			}
-			referenced.Add(w.declared.Slice()...)
+		w := newRefWalker(req.Resolutions)
+		if _, err := w.walk(typ); err != nil {
+			return nil, err
 		}
+		referenced.Add(w.declared.Slice()...)
 		e.structs = append(e.structs, typ)
 	}
 
@@ -603,20 +601,22 @@ func extractRetrieveInfo(
 		}
 	}
 
-	var nested []nestedRef
+	walked, err := newRefWalker(table).walk(typ)
+	if err != nil {
+		return nil, err
+	}
+	// The loop above declares the references of a struct's own fields. A union's own
+	// fields hold none, so every reference it holds is in a variant.
 	if _, ok := typ.Form.(resolution.StructForm); ok {
-		walked, err := newRefWalker(table).walk(typ)
-		if err != nil {
-			return nil, err
-		}
 		walked = lo.Filter(walked, func(ref *walkedRef, _ int) bool {
 			return strings.Contains(ref.path, ".")
 		})
-		if nested, err = renderNestedRefs(
-			typ, walked, ownTable, keyType, name+anyArgs, rt, table, r, ctx,
-		); err != nil {
-			return nil, err
-		}
+	}
+	nested, err := renderNestedRefs(
+		typ, walked, ownTable, keyType, name+anyArgs, rt, table, r, ctx,
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	info := &retrieveInfo{
