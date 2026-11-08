@@ -148,7 +148,9 @@ const createRow = (): Input.TableCell[] => [0, 0, DataType.UINT8.toString(), 0, 
 
 const PATH = deep.path<SlaveDevice>().properties.startupParameters;
 
-/** Edits the CoE values that the Driver writes to a slave each time the network starts. */
+/**
+ * Edits the CoE values that the Driver writes to a slave each time the network starts.
+ */
 export const StartupParameters = (): ReactElement => {
   const { value, onChange } = Form.useField(PATH);
   const statuses = Form.useStatuses(PATH);
