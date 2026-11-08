@@ -68,7 +68,7 @@ type System struct {
 	Defaults map[string]types.Type
 	// openNumerics holds the numeric type variables that stand for an open series
 	// element.
-	openNumerics map[string]bool
+	openNumerics set.Set[string]
 	// Constraints holds all type relationships to be solved.
 	Constraints []Constraint
 }
@@ -80,7 +80,7 @@ func New() *System {
 		Substitutions: make(map[string]types.Type),
 		TypeVars:      make(map[string]types.Type),
 		Defaults:      make(map[string]types.Type),
-		openNumerics:  make(map[string]bool),
+		openNumerics:  set.New[string](),
 	}
 }
 
@@ -95,7 +95,7 @@ func (s *System) AddDefault(tv, t types.Type) {
 func (s *System) OpenNumeric(elem types.Type) types.Type {
 	numeric := types.NumericConstraint()
 	tv := types.Variable(elem.Name+"_numeric", &numeric)
-	s.openNumerics[tv.Name] = true
+	s.openNumerics.Add(tv.Name)
 	return tv
 }
 

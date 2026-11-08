@@ -230,7 +230,8 @@ func (s *System) numericYields(a, b types.Type) bool {
 		return b.Constraint.Kind != types.KindNumericConstant &&
 			b.Constraint.Kind != types.KindIntegerConstant
 	}
-	return a.Constraint.Kind == types.KindIntegerConstant && s.openNumerics[b.Name]
+	return a.Constraint.Kind == types.KindIntegerConstant &&
+		s.openNumerics.Contains(b.Name)
 }
 
 // openIntegerTarget returns the one of a and b that is the open element of an empty
