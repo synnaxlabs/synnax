@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/internal/key"
+	"github.com/synnaxlabs/x/types"
 )
 
 // Writer wraps a key-value writer to provide a strongly typed interface for writing
@@ -28,36 +29,56 @@ type Writer[K Key, E Entry[K]] struct {
 	indexes []Index[K, E]
 	// table checks the references of each entry Set writes. Nil means no checks.
 	table *Table[K, E]
+	// tableName names the table of each record in the change list of tx.
+	tableName string
 }
 
 // WrapWriter wraps the given Tx to provide a strongly typed Writer that checks no
 // references. The Writer keeps the indexes of each open Table of E on the DB of tx
-// current.
+// current, and records its writes under the name of the table of E.
 func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
-	w := wrapWriter[K, E](tx, nil, nil)
+	w := wrapWriter[K, E](tx, "", nil, nil)
 	return &w
 }
 
-// wrapWriter constructs a Writer that encodes keys under prefix and stages each Set /
-// Delete against indexes. A nil prefix falls back to the prefix of E's table. Nil
-// indexes fall back to the indexes of the open tables of E. It returns a value so that
-// the Writer of a query stays off the heap.
+// wrapWriter constructs a Writer that records writes under the table named name,
+// encodes keys under prefix, and stages each Set / Delete against indexes. An empty
+// name falls back to the name of the table that stores under prefix. A nil prefix falls
+// back to the prefix of E's table. Nil indexes fall back to the indexes of the open
+// tables of E. It returns a value so that the Writer of a query stays off the heap.
 func wrapWriter[K Key, E Entry[K]](
 	tx Tx,
+	name string,
 	prefix []byte,
 	indexes []Index[K, E],
 ) Writer[K, E] {
 	if prefix == nil {
 		prefix = key.Prefix[E]()
 	}
+	if name == "" {
+		name = tableName[E](tx, prefix)
+	}
 	if indexes == nil {
 		indexes = openIndexes[K, E](tx, prefix)
 	}
 	return Writer[K, E]{
-		tx:       tx,
-		keyCodec: key.NewCodec[K](prefix),
-		indexes:  indexes,
+		tx:        tx,
+		keyCodec:  key.NewCodec[K](prefix),
+		indexes:   indexes,
+		tableName: name,
 	}
+}
+
+// tableName returns the name of the table that stores under prefix: the name of the
+// registered table that does, or else the type name of E, which an unregistered table
+// takes.
+func tableName[E any](tx Tx, prefix []byte) string {
+	if db := txDB(tx); db != nil {
+		if name, ok := db.registry.tableName(prefix); ok {
+			return name
+		}
+	}
+	return types.Name[E]()
 }
 
 // Set writes the provided entries to the DB. When the Writer wraps a DB, Set writes all
@@ -121,22 +142,36 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err != nil {
 		return err
 	}
-	v := w.keyCodec.Encode(entry.GorpKey())
-	if err := w.tx.Set(ctx, v, data, entry.SetOptions()...); err != nil {
+	k := entry.GorpKey()
+	encoded := w.keyCodec.Encode(k)
+	changes := &w.tx.txIdentity().changes
+	s, err := changes.find(ctx, w.tx, NewTarget(w.tableName, k), encoded)
+	if err != nil {
 		return err
 	}
+	if err = w.tx.Set(ctx, encoded, data, entry.SetOptions()...); err != nil {
+		return err
+	}
+	changes.set(s, data)
 	for _, idx := range w.indexes {
 		idx.stageSet(w.tx, entry)
 	}
 	return nil
 }
 
-func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
-	if err := w.tx.Delete(ctx, w.keyCodec.Encode(key)); err != nil {
+func (w *Writer[K, E]) delete(ctx context.Context, k K) error {
+	encoded := w.keyCodec.Encode(k)
+	changes := &w.tx.txIdentity().changes
+	s, err := changes.find(ctx, w.tx, NewTarget(w.tableName, k), encoded)
+	if err != nil {
 		return err
 	}
+	if err = w.tx.Delete(ctx, encoded); err != nil {
+		return err
+	}
+	changes.delete(s)
 	for _, idx := range w.indexes {
-		idx.stageDelete(w.tx, key)
+		idx.stageDelete(w.tx, k)
 	}
 	return nil
 }

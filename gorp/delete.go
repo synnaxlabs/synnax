@@ -96,7 +96,7 @@ func (d Delete[K, E]) exec(ctx context.Context, tx Tx) error {
 	if d.table != nil {
 		return d.table.delete(ctx, tx, keys)
 	}
-	w := wrapWriter[K, E](tx, d.retrieve.keyPrefix, nil)
+	w := wrapWriter[K, E](tx, "", d.retrieve.keyPrefix, nil)
 	return w.Delete(ctx, keys...)
 }
 

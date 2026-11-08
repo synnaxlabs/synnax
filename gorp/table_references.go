@@ -14,8 +14,6 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/gorp/internal/key"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -31,7 +29,7 @@ func (t *Table[K, E]) register(named bool) error {
 		}
 		r.bind(t.name, i)
 	}
-	if err := t.db.registry.register(t.name, t); err != nil {
+	if err := t.db.registry.register(t.name, t.keyPrefix, t); err != nil {
 		return err
 	}
 	t.registered = true
@@ -55,14 +53,14 @@ func (t *Table[K, E]) unregister() {
 	if !t.registered {
 		return
 	}
-	t.db.registry.unregister(t.name)
+	t.db.registry.unregister(t.name, t.keyPrefix)
 	t.registered = false
 }
 
 // writer returns a Writer that stages against the table's indexes and checks the
 // table's references when checked is true.
 func (t *Table[K, E]) writer(tx Tx, checked bool) Writer[K, E] {
-	w := wrapWriter[K, E](tx, t.keyPrefix, t.indexes)
+	w := wrapWriter[K, E](tx, t.name, t.keyPrefix, t.indexes)
 	if checked && len(t.references) > 0 {
 		w.table = t
 	}
@@ -82,17 +80,7 @@ func (t *Table[K, E]) exists(ctx context.Context, tx Tx, k string) (bool, error)
 		return false, err
 	}
 	codec := key.NewCodec[K](t.keyPrefix)
-	_, closer, err := tx.Get(ctx, codec.Encode(pk))
-	if errors.Is(err, query.ErrNotFound) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if err = closer.Close(); err != nil {
-		return false, err
-	}
-	return true, nil
+	return keyExists(ctx, tx, codec.Encode(pk))
 }
 
 // deleteKeys implements registeredTable.

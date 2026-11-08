@@ -54,9 +54,11 @@ type detachOp struct {
 // registry holds the tables of a DB that take part in references, by name, and the
 // open tables that have indexes, by key prefix.
 type registry struct {
-	// mu guards tables, referencing, and indexed.
+	// mu guards tables, names, referencing, and indexed.
 	mu     sync.RWMutex
 	tables map[string]registeredTable
+	// names maps a key prefix to the name of the registered table that stores under it.
+	names map[string]string
 	// referencing maps a table name to the references that may point at it.
 	referencing map[string][]registeredReference
 	// indexed maps a key prefix to the open tables with indexes that store under it.
@@ -66,6 +68,7 @@ type registry struct {
 func newRegistry() *registry {
 	return &registry{
 		tables:      make(map[string]registeredTable),
+		names:       make(map[string]string),
 		referencing: make(map[string][]registeredReference),
 		indexed:     make(map[string][]any),
 	}
@@ -101,14 +104,32 @@ func (r *registry) indexedTables(prefix []byte) []any {
 	return slices.Clone(r.indexed[string(prefix)])
 }
 
-func (r *registry) register(name string, table registeredTable) error {
+// register adds table, named name, which stores under prefix. Two registered tables
+// cannot share a name or a prefix.
+func (r *registry) register(name string, prefix []byte, table registeredTable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.tables[name]; ok {
 		return errors.Newf("[gorp] - table %q is already open", name)
 	}
+	if other, ok := r.names[string(prefix)]; ok {
+		return errors.Newf(
+			"[gorp] - table %q stores under the key prefix of open table %q",
+			name,
+			other,
+		)
+	}
 	r.tables[name] = table
+	r.names[string(prefix)] = name
 	return nil
+}
+
+// tableName returns the name of the registered table that stores under prefix.
+func (r *registry) tableName(prefix []byte) (string, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	name, ok := r.names[string(prefix)]
+	return name, ok
 }
 
 // addReferences adds refs to the references that deletes of their target tables
@@ -123,10 +144,11 @@ func (r *registry) addReferences(refs []registeredReference) {
 	}
 }
 
-func (r *registry) unregister(name string) {
+func (r *registry) unregister(name string, prefix []byte) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.tables, name)
+	delete(r.names, string(prefix))
 	for target, refs := range r.referencing {
 		kept := refs[:0]
 		for _, ref := range refs {

@@ -1057,6 +1057,19 @@ var _ = Describe("Reference", func() {
 			},
 		)
 
+		It(
+			"Should refuse a second open table that stores under the same key prefix",
+			func(ctx SpecContext) {
+				Expect(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+					DB:   db,
+					Name: "other_rack",
+				})).Error().To(MatchError(
+					`[gorp] - table "other_rack" stores under the key prefix of open ` +
+						`table "rack"`,
+				))
+			},
+		)
+
 		DescribeTable(
 			"Should reject an invalid reference",
 			func(
