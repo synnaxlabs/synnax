@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -50,14 +51,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		node,
 		service.LayerConfig{RootCredentials: creds},
 	))
-	root, _ = MustSucceed2(user.ProvisionRoot(ctx, svc.User, svc.Password, creds))
+	root, _ = MustSucceed2(user.ProvisionRoot(
+		ctx,
+		svc.User,
+		svc.Password,
+		creds,
+		svc.RBAC.Builtin.OwnerKey,
+	))
 	apiSvc = MustSucceed(apipolicy.NewService(apipolicy.ServiceConfig{RBAC: svc.RBAC}))
 })
 
-// createUser creates a user with no role assignments.
+// createUser creates a user that can do nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
@@ -70,8 +77,8 @@ func createRole(ctx SpecContext) role.Role {
 	return r
 }
 
-// grantOn grants the action on the objects to the subject through a new role, and
-// returns the policy that holds the grant.
+// grantOn grants the action on the objects to the subject through a new policy on its
+// own role, and returns the policy.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
@@ -79,15 +86,9 @@ func grantOn(
 	objects ...resource.ID,
 ) policy.Policy {
 	GinkgoHelper()
-	r := createRole(ctx)
-	p := policy.Policy{
-		Role:    r.Key,
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(svc.RBAC.Policy.NewWriter(nil, true).Create(ctx, &p)).To(Succeed())
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	Expect(svc.User.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
-	return p
+	actions := []access.Action{action}
+	return MustSucceed(
+		rbactestutil.Grant(ctx, svc.RBAC, svc.User, key, actions, objects...),
+	)
 }

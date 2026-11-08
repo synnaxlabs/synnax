@@ -744,10 +744,9 @@ func processStruct(
 				}
 			}
 
-			// Check if any child field would create a type incompatibility
-			// (overriding a required parent field as optional). If so, we
-			// inline all fields instead of using inheritance to avoid
-			// type: ignore comments.
+			// A child that makes a required parent field optional, or omits one, cannot
+			// override it through inheritance without a type: ignore comment, so its
+			// fields are inlined instead.
 			hasTypeConflict := false
 			for _, field := range form.Fields {
 				if field.Optional {
@@ -762,6 +761,13 @@ func processStruct(
 					break
 				}
 			}
+			for _, pf := range parentFields {
+				if lo.Contains(form.OmittedFields, pf.Name) &&
+					requiredInPython(pf, table) {
+					hasTypeConflict = true
+					break
+				}
+			}
 
 			if hasTypeConflict {
 				// Inline all fields from parents and child into a standalone class
@@ -771,19 +777,12 @@ func processStruct(
 				for _, f := range form.Fields {
 					childFieldsByName[f.Name] = f
 				}
-				omittedSet := make(set.Set[string])
-				for _, name := range form.OmittedFields {
-					omittedSet.Add(name)
-				}
-
 				sd.Fields = make([]fieldData, 0, len(parentFields)+len(form.Fields))
 				addedFields := make(set.Set[string])
 
-				// Add parent fields, using child overrides where they exist
+				// Add parent fields, using child overrides where they exist. An
+				// omitted field stays so that it parses, but it is never sent.
 				for _, pf := range parentFields {
-					if omittedSet.Contains(pf.Name) {
-						continue
-					}
 					if childField, ok := childFieldsByName[pf.Name]; ok {
 						fd := processField(
 							childField,
@@ -1009,6 +1008,8 @@ func processField(
 	if isExcluded {
 		fieldConstraints = append(fieldConstraints, "exclude=True")
 	}
+	// A type never sends an excluded field, so it cannot require one.
+	excludedRequired := isExcluded && requiredInPython(field, table)
 
 	if fd.IsArray {
 		fd.PyType = fmt.Sprintf("list[%s]", baseType)
@@ -1026,7 +1027,8 @@ func processField(
 	// defaulted too.
 	isOptionalTypeParam := field.Type.IsTypeParam() &&
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
-	if field.Optional || isOptionalTypeParam {
+	optional := field.Optional || isOptionalTypeParam || excludedRequired
+	if optional {
 		fd.PyType = fd.PyType + " | None"
 	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
 		if kind == "Array" {
@@ -1036,15 +1038,23 @@ func processField(
 		}
 	}
 
-	fd.Default = buildDefault(
-		field,
-		fieldConstraints,
-		fd.Alias,
-		data,
-		isOptionalTypeParam,
-	)
+	fd.Default = buildDefault(fieldConstraints, fd.Alias, data, optional)
 
 	return fd
+}
+
+// requiredInPython reports whether a Python model must be given field: it is not
+// optional and has no default.
+func requiredInPython(field resolution.Field, table *resolution.Table) bool {
+	if field.Optional || field.Default != nil {
+		return false
+	}
+	if field.Type.IsTypeParam() && field.Type.TypeParam != nil &&
+		field.Type.TypeParam.Optional {
+		return false
+	}
+	_, isCollection := resolution.CollectionKind(field.Type, table)
+	return !isCollection
 }
 
 // orderBounds moves ge and le to the end of constraints, so the output does not depend
@@ -1078,17 +1088,14 @@ func ensureDefaultFactory(constraints []string, factory string) []string {
 }
 
 func buildDefault(
-	field resolution.Field,
 	constraints []string,
 	alias string,
 	data *templateData,
-	optionalTypeParam bool,
+	optional bool,
 ) string {
-	isAnyOptional := field.Optional || optionalTypeParam
-
 	// When field is optional, filter out any default= constraints from validation
 	// since we'll be using default=None for the optional field
-	if isAnyOptional {
+	if optional {
 		constraints = lo.Filter(constraints, func(c string, _ int) bool {
 			return !strings.HasPrefix(c, "default=")
 		})
@@ -1100,7 +1107,7 @@ func buildDefault(
 
 	hasConstraints := len(constraints) > 0
 
-	if isAnyOptional {
+	if optional {
 		if hasConstraints {
 			return fmt.Sprintf(
 				" = %s(default=None, %s)",

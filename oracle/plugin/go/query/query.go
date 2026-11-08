@@ -109,13 +109,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		addDeclared(typ, req.Resolutions, "search", searched)
 		addDeclared(typ, req.Resolutions, "ref", referenced)
-		if _, ok := typ.Form.(resolution.StructForm); ok {
-			w := newRefWalker(req.Resolutions)
-			if _, err := w.walk(typ); err != nil {
-				return nil, err
-			}
-			referenced.Add(w.declared.Slice()...)
+		w := newRefWalker(req.Resolutions)
+		if _, err := w.walk(typ); err != nil {
+			return nil, err
 		}
+		referenced.Add(w.declared.Slice()...)
 		e.structs = append(e.structs, typ)
 	}
 
@@ -582,6 +580,24 @@ func extractRetrieveInfo(
 		}
 	}
 
+	walked, err := newRefWalker(table).walk(typ)
+	if err != nil {
+		return nil, err
+	}
+	// The loop above declares the references of a struct's own fields. A union's own
+	// fields hold none, so every reference it holds is in a variant.
+	if _, ok := typ.Form.(resolution.StructForm); ok {
+		walked = lo.Filter(walked, func(ref *walkedRef, _ int) bool {
+			return strings.Contains(ref.path, ".")
+		})
+	}
+	nested, err := renderNestedRefs(
+		typ, walked, ownTable, keyType, name+anyArgs, rt, table, r, ctx,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(search) > 0 {
 		for _, idx := range indexes {
 			if idx.StructField == "search" {
@@ -592,7 +608,11 @@ func extractRetrieveInfo(
 				)
 			}
 		}
-		for _, ref := range refs {
+		// A union's variant references have no dotted path, so one can be named search.
+		nestedRefs := lo.Map(nested, func(n nestedRef, _ int) refInfo {
+			return n.refInfo
+		})
+		for _, ref := range slices.Concat(refs, nestedRefs) {
 			if ref.StructField == "search" {
 				return nil, errors.Newf(
 					"%s: @ref field %s collides with the search index",
@@ -600,22 +620,6 @@ func extractRetrieveInfo(
 					ref.FieldName,
 				)
 			}
-		}
-	}
-
-	var nested []nestedRef
-	if _, ok := typ.Form.(resolution.StructForm); ok {
-		walked, err := newRefWalker(table).walk(typ)
-		if err != nil {
-			return nil, err
-		}
-		walked = lo.Filter(walked, func(ref *walkedRef, _ int) bool {
-			return strings.Contains(ref.path, ".")
-		})
-		if nested, err = renderNestedRefs(
-			typ, walked, ownTable, keyType, name+anyArgs, rt, table, r, ctx,
-		); err != nil {
-			return nil, err
 		}
 	}
 

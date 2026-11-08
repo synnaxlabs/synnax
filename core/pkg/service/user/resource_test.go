@@ -24,7 +24,10 @@ import (
 var _ = Describe("Resources", func() {
 	It("Should name each user by its name", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		u := MustSucceed(svc.NewWriter(tx).Create(ctx, user.User{Name: "Patrick Star"}))
+		u := MustSucceed(
+			svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "Patrick Star", Role: member}),
+		)
 		Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{u.ResourceID()})).
 			To(Equal([]resource.Resource{{ID: u.ResourceID(), Name: "Patrick Star"}}))
 	})
@@ -42,7 +45,10 @@ var _ = Describe("Resources", func() {
 
 	It("Should leave out an ID that names no user", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		u := MustSucceed(svc.NewWriter(tx).Create(ctx, user.User{Name: "Sandy Cheeks"}))
+		u := MustSucceed(
+			svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "Sandy Cheeks", Role: member}),
+		)
 		missing := resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
 		Expect(svc.Resources().Retrieve(
 			ctx,
@@ -53,7 +59,10 @@ var _ = Describe("Resources", func() {
 
 	It("Should list each user by its name", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		u := MustSucceed(svc.NewWriter(tx).Create(ctx, user.User{Name: "Sandy Cheeks"}))
+		u := MustSucceed(
+			svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "Sandy Cheeks", Role: member}),
+		)
 		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
 			resource.Resource{ID: u.ResourceID(), Name: u.Name},
 		))
@@ -121,6 +130,7 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext, term string) {
 				created := MustSucceed(writer.Create(ctx, user.User{
 					Name: "Persephone Quintarelli",
+					Role: member,
 				}))
 				DeferCleanup(func(ctx SpecContext) {
 					Expect(writer.Delete(ctx, created.Key)).To(Succeed())

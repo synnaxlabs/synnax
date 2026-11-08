@@ -90,7 +90,7 @@ public:
         std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr,
         Api api = Api{}
     ):
-        config_(config), rt_handle_(std::move(rt_handle)), api_(std::move(api)) {}
+        config(config), rt_handle(std::move(rt_handle)), api(std::move(api)) {}
 
     ~Linux() override { this->close_fds(); }
 
@@ -99,11 +99,11 @@ public:
         x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0),
         x::telem::TimeSpan span = x::telem::TimeSpan::max()
     ) override {
-        if (this->epoll_fd_ == -1) return WakeReason::Shutdown;
+        if (this->epoll_fd == -1) return WakeReason::Shutdown;
 
-        switch (this->config_.mode) {
+        switch (this->config.mode) {
             case ExecutionMode::BUSY_WAIT:
-                if (this->spins_) return this->busy_wait(breaker, max_timeout);
+                if (this->spins) return this->busy_wait(breaker, max_timeout);
                 return this->hybrid_wait(breaker, max_timeout, span);
             case ExecutionMode::HIGH_RATE:
                 return this->high_rate_wait(breaker, max_timeout);
@@ -118,10 +118,10 @@ public:
     }
 
     x::errors::Error start() override {
-        if (this->epoll_fd_ != -1) return x::errors::NIL;
+        if (this->epoll_fd != -1) return x::errors::NIL;
 
-        this->epoll_fd_ = epoll_create1(0);
-        if (this->epoll_fd_ == -1)
+        this->epoll_fd = epoll_create1(0);
+        if (this->epoll_fd == -1)
             return this->fail_start(
                 x::errors::Error(
                     x::errors::INTERNAL,
@@ -129,8 +129,8 @@ public:
                 )
             );
 
-        this->event_fd_ = eventfd(0, EFD_NONBLOCK);
-        if (this->event_fd_ == -1)
+        this->event_fd = eventfd(0, EFD_NONBLOCK);
+        if (this->event_fd == -1)
             return this->fail_start(
                 x::errors::Error(
                     x::errors::INTERNAL,
@@ -140,8 +140,8 @@ public:
 
         struct epoll_event ev{};
         ev.events = EPOLLIN;
-        ev.data.fd = this->event_fd_;
-        if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->event_fd_, &ev) == -1)
+        ev.data.fd = this->event_fd;
+        if (epoll_ctl(this->epoll_fd, EPOLL_CTL_ADD, this->event_fd, &ev) == -1)
             return this->fail_start(
                 x::errors::Error(
                     x::errors::INTERNAL,
@@ -149,24 +149,24 @@ public:
                 )
             );
 
-        if (!this->rt_handle_) {
-            auto rt_cfg = this->config_.rt();
+        if (!this->rt_handle) {
+            auto rt_cfg = this->config.rt();
             x::thread::rt::apply_config(rt_cfg);
         } else {
-            this->rt_handle_->apply();
+            this->rt_handle->apply();
         }
 
-        const bool realtime = this->api_.realtime();
-        const bool busy = this->config_.mode == ExecutionMode::BUSY_WAIT;
-        this->spins_ = busy && !realtime;
+        const bool realtime = this->api.realtime();
+        const bool busy = this->config.mode == ExecutionMode::BUSY_WAIT;
+        this->spins = busy && !realtime;
         // HIGH_RATE and a spinning BUSY_WAIT check the deadline against the clock.
-        if (this->config_.mode == ExecutionMode::HIGH_RATE || this->spins_)
+        if (this->config.mode == ExecutionMode::HIGH_RATE || this->spins)
             return x::errors::NIL;
         if (busy) this->hold_latency();
-        this->direct_ = realtime && this->direct_waits();
-        if (this->direct_) return x::errors::NIL;
-        this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
-        if (this->timer_fd_ == -1)
+        this->direct = realtime && this->direct_waits();
+        if (this->direct) return x::errors::NIL;
+        this->timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+        if (this->timer_fd == -1)
             return this->fail_start(
                 x::errors::Error(
                     x::errors::INTERNAL,
@@ -174,8 +174,8 @@ public:
                 )
             );
         ev.events = EPOLLIN;
-        ev.data.fd = this->timer_fd_;
-        if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->timer_fd_, &ev) == -1)
+        ev.data.fd = this->timer_fd;
+        if (epoll_ctl(this->epoll_fd, EPOLL_CTL_ADD, this->timer_fd, &ev) == -1)
             return this->fail_start(
                 x::errors::Error(
                     x::errors::INTERNAL,
@@ -186,24 +186,24 @@ public:
     }
 
     void wake() override {
-        if (this->event_fd_ == -1) return;
+        if (this->event_fd == -1) return;
         const uint64_t val = 1;
-        [[maybe_unused]] auto _ = write(this->event_fd_, &val, sizeof(val));
+        [[maybe_unused]] auto _ = write(this->event_fd, &val, sizeof(val));
     }
 
     bool watch(x::notify::Notifier &notifier) override {
         const int fd = notifier.fd();
-        if (fd == -1 || this->epoll_fd_ == -1) return false;
+        if (fd == -1 || this->epoll_fd == -1) return false;
 
         struct epoll_event ev{};
         ev.events = EPOLLIN;
         ev.data.fd = fd;
 
-        if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, fd, &ev) == -1) {
+        if (epoll_ctl(this->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
             if (errno == EEXIST) {
                 // fd already registered (e.g., from a previous run after restart).
                 // Update the registration instead - this makes watch() idempotent.
-                if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_MOD, fd, &ev) == -1) {
+                if (epoll_ctl(this->epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1) {
                     LOG(ERROR) << "[arc.loop] Failed to modify watched fd " << fd
                                << ": " << strerror(errno);
                     return false;
@@ -223,7 +223,7 @@ private:
     /// epoll_pwait2, and some seccomp filters block it.
     bool direct_waits() {
         epoll_event event{};
-        if (this->api_.wait(this->epoll_fd_, &event, 1, timespec{}) != -1) return true;
+        if (this->api.wait(this->epoll_fd, &event, 1, timespec{}) != -1) return true;
         return errno != ENOSYS && errno != EPERM;
     }
 
@@ -235,7 +235,7 @@ private:
         timespec ts{};
         ts.tv_sec = ns / second;
         ts.tv_nsec = ns % second;
-        return this->api_.wait(this->epoll_fd_, events, 2, ts);
+        return this->api.wait(this->epoll_fd, events, 2, ts);
     }
 
     /// @brief closes and clears the descriptors that start opened, so a later start
@@ -249,34 +249,34 @@ private:
     /// that blocks before a deadline wakes in time. Logs a warning on failure, as an
     /// unprivileged process cannot hold the latency.
     void hold_latency() {
-        this->latency_fd_ = this->api_.hold_latency();
-        if (this->latency_fd_ == -1)
+        this->latency_fd = this->api.hold_latency();
+        if (this->latency_fd == -1)
             LOG(WARNING) << "[arc.loop] failed to keep cores out of deep idle states, "
                          << "so their wake-up can delay deadlines: " << strerror(errno);
     }
 
     void close_fds() {
-        if (this->latency_fd_ != -1) {
-            close(this->latency_fd_);
-            this->latency_fd_ = -1;
+        if (this->latency_fd != -1) {
+            close(this->latency_fd);
+            this->latency_fd = -1;
         }
 
-        if (this->timer_fd_ != -1) {
-            close(this->timer_fd_);
-            this->timer_fd_ = -1;
+        if (this->timer_fd != -1) {
+            close(this->timer_fd);
+            this->timer_fd = -1;
         }
 
-        if (this->event_fd_ != -1) {
-            close(this->event_fd_);
-            this->event_fd_ = -1;
+        if (this->event_fd != -1) {
+            close(this->event_fd);
+            this->event_fd = -1;
         }
 
-        if (this->epoll_fd_ != -1) {
-            close(this->epoll_fd_);
-            this->epoll_fd_ = -1;
+        if (this->epoll_fd != -1) {
+            close(this->epoll_fd);
+            this->epoll_fd = -1;
         }
 
-        this->direct_ = false;
+        this->direct = false;
     }
 
     WakeReason
@@ -285,7 +285,7 @@ private:
         struct epoll_event events[2];
 
         while (breaker.running()) {
-            const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
+            const int n = epoll_wait(this->epoll_fd, events, 2, 0);
             if (n > 0) return this->consume_events(events, n);
             if (n == -1 && errno != EINTR) {
                 LOG(ERROR) << "[arc.loop] epoll_wait error: " << strerror(errno);
@@ -306,10 +306,10 @@ private:
         const x::breaker::Breaker &breaker,
         const x::telem::TimeSpan max_timeout
     ) {
-        const auto span = high_rate_span(this->config_, max_timeout);
-        if (!this->sleeper_.precise_sleep(span, breaker)) return WakeReason::Shutdown;
+        const auto span = high_rate_span(this->config, max_timeout);
+        if (!this->sleeper.precise_sleep(span, breaker)) return WakeReason::Shutdown;
         struct epoll_event events[2];
-        const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
+        const int n = epoll_wait(this->epoll_fd, events, 2, 0);
         if (n > 0) this->drain_events(events, n);
         return WakeReason::Timer;
     }
@@ -318,14 +318,14 @@ private:
     /// deadline, it disarms the timer, which also clears a fire from an earlier
     /// deadline.
     bool arm_deadline(const x::telem::TimeSpan max_timeout) {
-        if (this->timer_fd_ == -1) return false;
+        if (this->timer_fd == -1) return false;
         const int64_t deadline = std::max<int64_t>(max_timeout.nanoseconds(), 0);
         const int64_t second = x::telem::SECOND.nanoseconds();
         struct itimerspec ts{};
         ts.it_value.tv_sec = deadline / second;
         ts.it_value.tv_nsec = deadline % second;
-        if (this->api_.set(this->timer_fd_, ts) == -1) {
-            report_arm_failure(this->arm_failed_, strerror(errno));
+        if (this->api.set(this->timer_fd, ts) == -1) {
+            report_arm_failure(this->arm_failed, strerror(errno));
             return false;
         }
         return deadline > 0;
@@ -337,18 +337,18 @@ private:
     ) {
         const bool deadline = max_timeout.nanoseconds() > 0;
         const bool armed = this->arm_deadline(max_timeout);
-        if (!this->direct_ && !armed && deadline)
+        if (!this->direct && !armed && deadline)
             return this->busy_wait(breaker, max_timeout);
         struct epoll_event events[2];
         int n = 0;
-        if (this->direct_)
+        if (this->direct)
             n = this->timed_wait(
                 events,
                 deadline ? max_timeout : timing::EVENT_DRIVEN_TIMEOUT
             );
         else
             n = epoll_wait(
-                this->epoll_fd_,
+                this->epoll_fd,
                 events,
                 2,
                 armed ? -1 : timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
@@ -356,7 +356,7 @@ private:
 
         if (n > 0) return this->consume_events(events, n);
         if (n == 0)
-            return this->direct_ && deadline ? WakeReason::Timer : WakeReason::Timeout;
+            return this->direct && deadline ? WakeReason::Timer : WakeReason::Timeout;
         if (errno != EINTR)
             LOG(ERROR) << "[arc.loop] epoll_wait error: " << strerror(errno);
         return WakeReason::Shutdown;
@@ -379,17 +379,17 @@ private:
         // A block of zero or less disarms the timer, so no stale fire ends the spin.
         const bool armed = this->arm_deadline(block);
         if (!deadline || block.nanoseconds() > 0) {
-            if (!this->direct_ && !armed && deadline)
+            if (!this->direct && !armed && deadline)
                 return this->busy_wait(breaker, max_timeout);
             int n = 0;
-            if (this->direct_)
+            if (this->direct)
                 n = this->timed_wait(
                     events,
                     deadline ? block : timing::HYBRID_BLOCK_TIMEOUT
                 );
             else
                 n = epoll_wait(
-                    this->epoll_fd_,
+                    this->epoll_fd,
                     events,
                     2,
                     armed ? -1 : timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
@@ -406,7 +406,7 @@ private:
         }
         while (sw.elapsed() < max_timeout) {
             if (!breaker.running()) return WakeReason::Shutdown;
-            const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
+            const int n = epoll_wait(this->epoll_fd, events, 2, 0);
             if (n > 0) return this->consume_events(events, n);
         }
         return WakeReason::Timer;
@@ -420,10 +420,10 @@ private:
             uint64_t val = 0;
             const ssize_t ret = read(events[i].data.fd, &val, sizeof(val));
             if (ret == sizeof(val)) {
-                if (events[i].data.fd == this->timer_fd_)
+                if (events[i].data.fd == this->timer_fd)
                     timer_fired = true;
-                else if (events[i].data.fd != this->event_fd_) { input_fired = true; }
-                // event_fd_ fires when wake() is called - falls through to Shutdown
+                else if (events[i].data.fd != this->event_fd) { input_fired = true; }
+                // event_fd fires when wake() is called - falls through to Shutdown
             }
         }
         if (timer_fired) return WakeReason::Timer;
@@ -443,21 +443,21 @@ private:
         }
     }
 
-    Config config_;
-    std::shared_ptr<x::thread::rt::Handle> rt_handle_;
-    Api api_;
-    int epoll_fd_ = -1;
-    int event_fd_ = -1;
-    int timer_fd_ = -1;
+    Config config;
+    std::shared_ptr<x::thread::rt::Handle> rt_handle;
+    Api api;
+    int epoll_fd = -1;
+    int event_fd = -1;
+    int timer_fd = -1;
     /// @brief holds all cores out of deep idle states while open.
-    int latency_fd_ = -1;
+    int latency_fd = -1;
     /// @brief true when waits block to their deadline on an epoll_pwait2 timeout
     /// instead of a timerfd.
-    bool direct_ = false;
+    bool direct = false;
     /// @brief true when BUSY_WAIT spins through each wait, which only a thread that is
     /// not real-time does.
-    bool spins_ = false;
-    bool arm_failed_ = false;
-    ::x::loop::Timer sleeper_;
+    bool spins = false;
+    bool arm_failed = false;
+    ::x::loop::Timer sleeper;
 };
 }

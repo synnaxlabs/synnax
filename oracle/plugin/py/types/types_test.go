@@ -1314,12 +1314,13 @@ var _ = Describe("Python Types Plugin", func() {
 
 			resp := MustSucceed(typesPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			// C should inherit from both A and B
-			Expect(content).To(ContainSubstring(`class C(A, B):`))
-			Expect(content).To(ContainSubstring(`c: bool`))
-			// shared field should not be present in C (omitted) Note: Python
-			// inheritance doesn't explicitly omit, but the field shouldn't be redefined
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`class C(BaseModel):`,
+				`a: str`,
+				`shared: str | None = Field(default=None, exclude=True)`,
+				`b: int = Field(ge=-2147483648, le=2147483647)`,
+				`c: bool`,
+			)
 		})
 
 		It(
@@ -1595,13 +1596,40 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
-				content := string(resp.Files[0].Content)
-				// Parent should have all fields
-				Expect(content).To(ContainSubstring(`class Parent(BaseModel):`))
-				// Child inherits from Parent but should set age to None
-				Expect(content).To(ContainSubstring(`class Child(Parent):`))
-				Expect(content).To(ContainSubstring(`email: str`))
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`class Child(BaseModel):`,
+						`age: int | None = Field(default=None, ge=-2147483648, le=2147483647, exclude=True)`,
+						`email: str`,
+					).
+					ToNotContain(`class Child(Parent):`)
 			})
+
+			It(
+				"Should keep inheritance when every omitted field has a default",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Parent struct {
+						name string
+						embedded bool = false
+						tags string[]
+					}
+
+					Child struct extends Parent {
+						-embedded
+						-tags
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").ToContain(
+						`class Child(Parent):`,
+						`embedded: bool = Field(default=False, exclude=True)`,
+						`tags: list[str] = Field(exclude=True, default_factory=list)`,
+					)
+				},
+			)
 
 			It("Should handle multiple field omissions", func(ctx SpecContext) {
 				source := `
@@ -1621,9 +1649,14 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
-				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`class Child(Parent):`))
-				Expect(content).To(ContainSubstring(`e: str`))
+				ExpectContent(resp, "types_gen.py").ToContain(
+					`class Child(BaseModel):`,
+					`a: str | None = Field(default=None, exclude=True)`,
+					`b: str`,
+					`c: str | None = Field(default=None, exclude=True)`,
+					`d: str`,
+					`e: str`,
+				)
 			})
 		})
 

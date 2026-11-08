@@ -19,8 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -51,7 +50,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
 		Name: "icd-" + uuid.New().String(),
 	}))
 }
@@ -73,8 +72,8 @@ func retrieveICD(ctx SpecContext, key icd.Key) icd.ICD {
 	return ic
 }
 
-// grantOn grants the action on the given objects to the subject through a fresh role.
-// Writes commit directly so the enforcers, which read committed state, observe them.
+// grantOn grants the action on the given objects to the subject. Writes commit directly
+// so the enforcers, which read committed state, observe them.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
@@ -82,15 +81,7 @@ func grantOn(
 	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	r := role.Role{Name: string(action) + "-" + uuid.New().String()}
-	Expect(svc.RBAC.Role.NewWriter(nil, false).Create(ctx, &r)).To(Succeed())
-	p := policy.Policy{
-		Role:    r.Key,
-		Name:    string(action) + "-policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(svc.RBAC.Policy.NewWriter(nil, true).Create(ctx, &p)).To(Succeed())
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	Expect(svc.User.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
+	actions := []access.Action{action}
+	MustSucceed(rbactestutil.Grant(ctx, svc.RBAC, svc.User, key, actions, objects...))
 }

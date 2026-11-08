@@ -36,7 +36,7 @@ func keyProof(key string) auth.Proof {
 	}}
 }
 
-func assignBuiltin(ctx context.Context, subject user.Key, name string) {
+func setBuiltinRole(ctx context.Context, subject user.Key, name string) {
 	GinkgoHelper()
 	var r role.Role
 	Expect(rbacSvc.Role.NewRetrieve().
@@ -45,10 +45,10 @@ func assignBuiltin(ctx context.Context, subject user.Key, name string) {
 		})).
 		Entry(&r).
 		Exec(ctx, nil)).To(Succeed())
-	Expect(userSvc.NewWriter(nil).AssignRole(ctx, r.Key, subject)).To(Succeed())
+	Expect(userSvc.NewWriter(nil).SetRole(ctx, r.Key, nil, subject)).To(Succeed())
 }
 
-// grant grants the action on the object to the subject through a new role.
+// grant grants the action on the object to the subject.
 func grant(
 	ctx context.Context,
 	subject user.Key,
@@ -88,7 +88,7 @@ var _ = Describe("API keys", func() {
 	BeforeEach(func(ctx SpecContext) {
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
 		eng = createUser(ctx, "eng-"+uuid.New().String(), "p")
-		assignBuiltin(ctx, eng.Key, "Engineer")
+		setBuiltinRole(ctx, eng.Key, "Engineer")
 		bobToken = login(ctx, passwordProof(bob.Name, "p"))
 		engToken = login(ctx, passwordProof(eng.Name, "p"))
 		rootToken = login(ctx, passwordProof(creds.Username, creds.Password))

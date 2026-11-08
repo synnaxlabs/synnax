@@ -72,8 +72,8 @@ const Body = ({ selected, onSelect }: BodyProps): ReactElement => {
 };
 
 /**
- * Edits one ICD. Each edit reaches the Core at once, and edits from other clients show as
- * they arrive. A check marks each problem shortly after an edit.
+ * Edits one ICD. Each edit reaches the Core at once, and edits from other clients show
+ * as they arrive. A check marks each problem shortly after an edit.
  */
 export const Editor = (): ReactElement => {
   const { key } = Panel.useTabResource();

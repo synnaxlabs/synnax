@@ -58,10 +58,10 @@ export const getIcon = (make: Make | null) =>
   make ? MAKE_ICONS[make] : <Icon.Device />;
 
 /**
- * useConfigureModal returns an opener that launches the configure/connect modal for a device
- * of the given make. Every integration's modal hook is called unconditionally so the
- * returned opener can dispatch to any make at call time without violating the rules of
- * hooks.
+ * useConfigureModal returns an opener that launches the configure/connect modal for a
+ * device of the given make. Every integration's modal hook is called unconditionally so
+ * the returned opener can dispatch to any make at call time without violating the rules
+ * of hooks.
  */
 export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => void) => {
   const configure = useConfigureHardwareModal();
