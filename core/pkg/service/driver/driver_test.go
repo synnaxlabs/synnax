@@ -1202,7 +1202,9 @@ var _ = Describe("Driver", func() {
 				// Runs before Close, which waits for the blocked stop.
 				DeferCleanup(release)
 				recreated := newTask(embeddedRackKey(ctx))
-				Expect(taskWriter.Create(ctx, &recreated)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &recreated)
+				})).To(Succeed())
 				writeCommand(ctx, task.Command{
 					Task: recreated.Key,
 					Type: "start",
@@ -1215,10 +1217,14 @@ var _ = Describe("Driver", func() {
 				}
 				Eventually(configured).Should(Equal(1))
 				armed.Store(true)
-				Expect(taskWriter.Delete(ctx, recreated.Key, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, recreated.Key, false)
+				})).To(Succeed())
 				Eventually(blocking).Should(BeClosed())
 				again := recreated
-				Expect(taskWriter.Create(ctx, &again)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &again)
+				})).To(Succeed())
 				writeCommand(ctx, task.Command{
 					Task: recreated.Key,
 					Type: "start",
