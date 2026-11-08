@@ -101,25 +101,30 @@ func WritePrepared[RQ, RS freighter.Payload, P any](
 func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) error {
 	needs := make(map[access.Action][]resource.ID, len(access.AllActions))
 	needs[access.ActionRetrieve] = slices.Clone(sources)
+	subject := auth.GetSubject(ctx)
+	// self is true while checking a credential that the subject holds. The subject
+	// writes it, and links it to itself, with no check.
+	var self bool
 	need := func(action access.Action, target gorp.Target) error {
 		id, err := resourceOf(target)
 		if err != nil {
 			return err
 		}
-		needs[action] = append(needs[action], id)
+		if !self || id != subject {
+			needs[action] = append(needs[action], id)
+		}
 		return nil
 	}
-	subject := auth.GetSubject(ctx)
 	for _, c := range gorp.ChangesOf(tx) {
 		owner, owned, err := s.ownerOf(ctx, c)
 		if err != nil {
 			return err
 		}
-		if owned && owner == subject {
-			continue
-		}
+		self = owned && owner == subject
 		if owned {
-			needs[access.ActionUpdate] = append(needs[access.ActionUpdate], owner)
+			if !self {
+				needs[access.ActionUpdate] = append(needs[access.ActionUpdate], owner)
+			}
 		} else if err = need(actionOf(c.Kind), c.Record); err != nil {
 			return err
 		}

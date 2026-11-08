@@ -495,6 +495,25 @@ var _ = Describe("Write", func() {
 		})).To(Succeed())
 	})
 
+	It(
+		"Should require update on the user that loses an API key to the subject",
+		func(ctx SpecContext) {
+			u, other := newUser(ctx), newUser(ctx)
+			k, _ := MustSucceed2(
+				svc.APIKey.NewWriter(nil).Create(ctx, other.ResourceID(), "key"),
+			)
+			Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
+				return gorp.NewUpdate[apikey.Key, apikey.APIKey]().
+					Where(gorp.MatchKeys[apikey.Key, apikey.APIKey](k.Key)).
+					Change(func(_ gorp.Context, k apikey.APIKey) apikey.APIKey {
+						k.Subject = u.ResourceID()
+						return k
+					}).
+					Exec(ctx, tx)
+			})).To(denied(u, access.ActionUpdate, other.ResourceID()))
+		},
+	)
+
 	It("Should roll back every write when access is denied", func(ctx SpecContext) {
 		u := newUser(ctx)
 		allowed := label.Label{Key: uuid.New(), Name: "allowed"}
