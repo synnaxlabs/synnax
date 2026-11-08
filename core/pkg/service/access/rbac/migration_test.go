@@ -76,7 +76,7 @@ func parentOf(from, to resource.ID) ontologyv0.Relationship {
 }
 
 var _ = Describe("Migration chain", func() {
-	It("Should move every role edge into a field in the open order of a Core", func(
+	It("Should move every role edge into a reference in the open order of a Core", func(
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
@@ -105,7 +105,6 @@ var _ = Describe("Migration chain", func() {
 		Expect(gorp.WrapWriter[string, ontologyv0.Relationship](db).Set(
 			ctx,
 			parentOf(roleID(a), u.ResourceID()),
-			parentOf(roleID(a), rck.ResourceID()),
 			parentOf(roleID(a), policy.ResourceID(shared.Key)),
 			parentOf(roleID(b), policy.ResourceID(shared.Key)),
 		)).To(Succeed())
@@ -118,25 +117,12 @@ var _ = Describe("Migration chain", func() {
 			"v61_add_role",
 			"v61_policy_role",
 		)
-		markApplied(
-			ctx,
-			db,
-			types.Name[user.User](),
-			userversions.Migrations,
-			"v61_user_roles",
-		)
+		markApplied(ctx, db, types.Name[user.User](), userversions.Migrations)
 		markApplied(
 			ctx,
 			db,
 			types.Name[rack.Rack](),
 			rackversions.NewMigrations(rackversions.MigrationsConfig{}),
-			"v61_rack_roles",
-		)
-		markApplied(
-			ctx,
-			db,
-			"rack.roles",
-			[]gorp.Migration{migrate.New("v0.driver_role", nil)},
 		)
 		markApplied(
 			ctx,
@@ -168,7 +154,8 @@ var _ = Describe("Migration chain", func() {
 		}))
 
 		Expect(svc.RolesOf(ctx, nil, u.ResourceID())).To(Equal([]role.Key{a.Key}))
-		Expect(svc.RolesOf(ctx, nil, rck.ResourceID())).To(Equal([]role.Key{a.Key}))
+		Expect(svc.RolesOf(ctx, nil, rck.ResourceID())).
+			To(Equal([]role.Key{svc.Builtin.DriverKey}))
 		var policies []policy.Policy
 		Expect(svc.Policy.NewRetrieve().
 			Where(policy.MatchNames("shared", "orphan")).

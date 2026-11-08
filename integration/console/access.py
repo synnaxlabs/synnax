@@ -185,7 +185,7 @@ class AccessClient(ResourceClient):
         if badge.count() == 0 or not badge.is_visible():
             return None
         badge.click()
-        role = self.layout.page.locator(".console-user-info__roles")
+        role = self.layout.page.locator(".console-user-info__role")
         try:
             role.wait_for(state="visible", timeout=5000)
             return role.inner_text().strip()

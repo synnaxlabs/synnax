@@ -298,7 +298,7 @@ describe("connection guard permissions", () => {
     const { key } = await client.users.create({
       username,
       password: PASSWORD,
-      roles: [await roleKey(client, roleName)],
+      role: await roleKey(client, roleName),
     });
     return { username, key };
   };
@@ -332,10 +332,7 @@ describe("connection guard permissions", () => {
     // The denial renders the calm surface, not the crash fallback.
     expect(screen.queryByText("Stack trace")).toBeNull();
     expect(screen.queryByText("authenticated content")).toBeNull();
-    await client.users.setRoles(key, {
-      add: [await roleKey(client, "Operator")],
-      remove: [await roleKey(client, "Driver")],
-    });
+    await client.users.setRole(key, await roleKey(client, "Operator"));
     await act(async () => fireEvent.click(findButton("Retry")));
     expect(
       await screen.findByText("authenticated content", {}, { timeout: 10000 }),
