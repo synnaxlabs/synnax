@@ -57,7 +57,7 @@ func openDevices(
 		DB:         db,
 		HostKey:    1,
 		Status:     statusSvc,
-		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 	}))
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     db,
@@ -109,7 +109,9 @@ func openDevices(
 			Properties: msgpack.EncodedJSON{"pdos": "garbage"},
 		},
 	}
-	Expect(devices.NewWriter(nil).CreateMany(ctx, &slaves)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return devices.NewWriter(tx).CreateMany(ctx, &slaves)
+	})).To(Succeed())
 	return devices, tasktestutil.TasksConfig{
 		DB:     db,
 		Status: statusSvc,
@@ -124,9 +126,11 @@ var _ = Describe("Service", func() {
 		devices    *device.Service
 		channelSvc *channel.Service
 		tasks      *tasktestutil.Tasks
+		db         *gorp.DB
 	)
 	BeforeEach(func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
+		db = node.DB
 		var tasksCfg tasktestutil.TasksConfig
 		devices, tasksCfg = openDevices(ctx, node.DB)
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
@@ -317,7 +321,7 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
-			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 1))[0]
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"sample_rate": 25,
 				"channels": []any{map[string]any{

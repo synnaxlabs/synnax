@@ -31,19 +31,6 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// inTx calls f with w, or with a copy of w on a transaction of its own when w has no
-// transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	db, ok := w.tx.(*gorp.DB)
-	if !ok {
-		return f(w)
-	}
-	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		w.tx = tx
-		return f(w)
-	})
-}
-
 // Create creates a new label, assigning it a unique key if one is not provided. If a
 // label with the same key already exists, it will be overwritten. The commit carries a
 // create action that holds the stored label.
@@ -54,17 +41,15 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 	if err := l.Validate(); err != nil {
 		return err
 	}
-	return w.inTx(ctx, func(w Writer) error {
-		if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		w.dispatcher.Attach(
-			w.tx,
-			l.Key,
-			NewCreateAction(CreatePayload{Label: *l}),
-		)
-		return nil
-	})
+	if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(
+		w.tx,
+		l.Key,
+		NewCreateAction(CreatePayload{Label: *l}),
+	)
+	return nil
 }
 
 // Apply applies the actions to the label with the given key and attaches them to the
@@ -73,13 +58,11 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 // result fails to decode or validate, and an error wrapping query.ErrNotFound when no
 // label has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	return w.inTx(ctx, func(w Writer) error {
-		if err := w.apply(ctx, key, acts); err != nil {
-			return err
-		}
-		w.dispatcher.Attach(w.tx, key, acts...)
-		return nil
-	})
+	if err := w.apply(ctx, key, acts); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }
 
 // apply applies the actions to the label with the given key and stores the result.

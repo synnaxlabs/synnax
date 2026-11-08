@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -29,11 +30,10 @@ import (
 )
 
 type benchEnv struct {
-	ctx           context.Context
-	node          testutil.Node
-	closer        io.MultiCloser
-	channelSvc    *channel.Service
-	channelWriter channel.Writer
+	ctx        context.Context
+	node       testutil.Node
+	closer     io.MultiCloser
+	channelSvc *channel.Service
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
@@ -59,10 +59,9 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		Status:  statusSvc,
 	}))
 	return &benchEnv{
-		ctx:           b.Context(),
-		node:          node,
-		channelSvc:    channelSvc,
-		channelWriter: channelSvc.NewWriter(nil),
+		ctx:        b.Context(),
+		node:       node,
+		channelSvc: channelSvc,
 		closer: io.MultiCloser{
 			node, groupSvc, channelSvc, statusSvc, labelSvc,
 		},
@@ -81,7 +80,9 @@ func (e *benchEnv) openCalculator(
 	calc *channel.Channel,
 ) *calculator.Calculator {
 	if len(indexes) > 0 {
-		if err := e.channelWriter.CreateMany(e.ctx, &indexes); err != nil {
+		if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+			return e.channelSvc.NewWriter(tx).CreateMany(e.ctx, &indexes)
+		}); err != nil {
 			b.Fatalf("failed to create index channels: %v", err)
 		}
 	}
@@ -97,11 +98,15 @@ func (e *benchEnv) openCalculator(
 			ch.LocalIndex = indexes[toGet].LocalKey
 			bases[i] = ch
 		}
-		if err := e.channelWriter.CreateMany(e.ctx, &bases); err != nil {
+		if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+			return e.channelSvc.NewWriter(tx).CreateMany(e.ctx, &bases)
+		}); err != nil {
 			b.Fatalf("failed to create base channels: %v", err)
 		}
 	}
-	if err := e.channelWriter.Create(e.ctx, calc); err != nil {
+	if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+		return e.channelSvc.NewWriter(tx).Create(e.ctx, calc)
+	}); err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, compiler.Config{

@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
@@ -25,13 +26,14 @@ import (
 )
 
 var (
-	channelSvc    *channel.Service
-	channelWriter channel.Writer
+	db         *gorp.DB
+	channelSvc *channel.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: node.DB,
 	}))
@@ -44,20 +46,23 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
-	channelWriter = channelSvc.NewWriter(nil)
 })
 
 var _ = Describe("Compile", func() {
 	It("Should compile simple expression", func(ctx SpecContext) {
 		base := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
-		Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &base)
+		})).To(Succeed())
 		calc := channel.Channel{
 			Name:       "calc",
 			DataType:   telem.Int64T,
 			Virtual:    true,
 			Expression: "return base * 2",
 		}
-		Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &calc)
+		})).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
@@ -69,7 +74,9 @@ var _ = Describe("Compile", func() {
 
 	It("Should compile expression with operations", func(ctx SpecContext) {
 		base := channel.Channel{Name: "base2", DataType: telem.Int64T, Virtual: true}
-		Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &base)
+		})).To(Succeed())
 		calc := channel.Channel{
 			Name:       "calc2",
 			DataType:   telem.Int64T,
@@ -77,7 +84,9 @@ var _ = Describe("Compile", func() {
 			Expression: "return base2 + 1",
 			Operations: []channel.Operation{{Type: "avg", Duration: 5 * telem.Second}},
 		}
-		Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &calc)
+		})).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
@@ -91,14 +100,18 @@ var _ = Describe("Compile", func() {
 			{Name: "base3", DataType: telem.Int64T, Virtual: true},
 			{Name: "base4", DataType: telem.Int64T, Virtual: true},
 		}
-		Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).CreateMany(ctx, &channels)
+		})).To(Succeed())
 		calc := channel.Channel{
 			Name:       "calc3",
 			DataType:   telem.Int64T,
 			Virtual:    true,
 			Expression: "return base3 + base4",
 		}
-		Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &calc)
+		})).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
@@ -115,7 +128,9 @@ var _ = Describe("Compile", func() {
 			DataType: telem.Float64T,
 			Virtual:  true,
 		}
-		Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &base)
+		})).To(Succeed())
 		calc := channel.Channel{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float64T,
@@ -123,7 +138,9 @@ var _ = Describe("Compile", func() {
 			Expression: fmt.Sprintf("return %s", base.Name),
 			Operations: []channel.Operation{{Type: "derivative"}},
 		}
-		Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &calc)
+		})).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
@@ -139,7 +156,9 @@ var _ = Describe("Compile", func() {
 			Virtual:    true,
 			Expression: "return 1",
 		}
-		Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &calc)
+		})).To(Succeed())
 		calc.Expression = "return invalid_syntax {{"
 		Expect(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,

@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -26,18 +27,18 @@ import (
 
 var _ = Describe("Group", Ordered, func() {
 	var (
+		db       *gorp.DB
 		groupSvc *group.Service
 		svc      *channel.Service
-		w        channel.Writer
 		g        group.Group
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
+		db = node.DB
 		cfg, gs := serviceConfig(ctx, node, node.DB)
 		groupSvc = gs
 		svc = MustOpen(channel.OpenService(ctx, cfg))
-		w = svc.NewWriter(nil)
 		g = MustSucceed(groupSvc.CreateOrRetrieve(ctx, "Sensors", resource.TypeChannel))
 	})
 	create := func(ctx context.Context, grp *group.Key) channel.Channel {
@@ -48,7 +49,9 @@ var _ = Describe("Group", Ordered, func() {
 			IsIndex:  true,
 			Group:    grp,
 		}
-		Expect(w.Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		return ch
 	}
 	retrieve := func(ctx context.Context, key channel.Key) channel.Channel {
@@ -73,16 +76,22 @@ var _ = Describe("Group", Ordered, func() {
 			IsIndex:  true,
 			Group:    new(uuid.New()),
 		}
-		Expect(w.Create(ctx, &ch)).To(MatchError(ContainSubstring("does not exist")))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &ch)
+		})).To(MatchError(ContainSubstring("does not exist")))
 	})
 
 	Describe("SetGroup", func() {
 		It("Should move channels into a group and back out", func(ctx SpecContext) {
 			a, b := create(ctx, nil), create(ctx, nil)
-			Expect(w.SetGroup(ctx, &g.Key, a.Key(), b.Key())).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).SetGroup(ctx, &g.Key, a.Key(), b.Key())
+			})).To(Succeed())
 			Expect(retrieve(ctx, a.Key()).Group).To(Equal(&g.Key))
 			Expect(retrieve(ctx, b.Key()).Group).To(Equal(&g.Key))
-			Expect(w.SetGroup(ctx, nil, a.Key())).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).SetGroup(ctx, nil, a.Key())
+			})).To(Succeed())
 			Expect(retrieve(ctx, a.Key()).Group).To(BeNil())
 		})
 	})
@@ -96,7 +105,10 @@ var _ = Describe("Group", Ordered, func() {
 				DataType: ch.DataType,
 				IsIndex:  true,
 			}
-			Expect(w.Create(ctx, &again, channel.RetrieveIfNameExists())).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).
+					Create(ctx, &again, channel.RetrieveIfNameExists())
+			})).To(Succeed())
 			Expect(retrieve(ctx, ch.Key()).Group).To(Equal(&g.Key))
 		},
 	)
@@ -123,7 +135,9 @@ var _ = Describe("Group", Ordered, func() {
 			groupSvc.CreateOrRetrieve(ctx, "Full", resource.TypeChannel),
 		)
 		create(ctx, &full.Key)
-		Expect(groupSvc.NewWriter(nil).Delete(ctx, full.Key)).To(MatchError(
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return groupSvc.NewWriter(tx).Delete(ctx, full.Key)
+		})).To(MatchError(
 			ContainSubstring("cannot delete group Full because it is not empty"),
 		))
 	})

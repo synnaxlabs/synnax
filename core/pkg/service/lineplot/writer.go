@@ -24,7 +24,6 @@ import (
 )
 
 type Writer struct {
-	svc        *Service
 	tx         gorp.Tx
 	table      *gorp.Table[Key, LinePlot]
 	dispatcher actions.Dispatcher[Key, Action]
@@ -37,29 +36,11 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
-// dispatch key of w when w has no transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	db, ok := w.tx.(*gorp.DB)
-	if !ok {
-		return f(w)
-	}
-	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		bound := w.svc.NewWriter(tx)
-		bound.dispatcher = w.dispatcher
-		return f(bound)
-	})
-}
-
 // Create creates the given line plot, assigning a new key when lp.Key is zero. The line
 // plot must belong to exactly one of a project and a range. An existing line plot keeps
 // its group, project, and range. A new line plot in a group belongs to the project that
 // holds the group.
 func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, lp) })
-}
-
-func (w Writer) create(ctx context.Context, lp *LinePlot) error {
 	var (
 		exists bool
 		err    error
@@ -110,32 +91,28 @@ func (w Writer) create(ctx context.Context, lp *LinePlot) error {
 // SetGroup moves the line plots with keys into g, or out of their group when g is nil.
 // A line plot in a group belongs to the project that holds the group.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		p, err := project.GroupProject(ctx, w.tx, g, resource.TypeLineplot)
-		if err != nil {
-			return err
-		}
-		if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		w.attachGroup(g, keys)
-		if p == nil {
-			return nil
-		}
-		return w.setProject(ctx, *p, keys...)
-	})
+	p, err := project.GroupProject(ctx, w.tx, g, resource.TypeLineplot)
+	if err != nil {
+		return err
+	}
+	if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.attachGroup(g, keys)
+	if p == nil {
+		return nil
+	}
+	return w.setProject(ctx, *p, keys...)
 }
 
 // SetProject moves the line plots with keys out of their group and into the project p.
 // It returns a validation error when a line plot belongs to a range.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		w.attachGroup(nil, keys)
-		return w.setProject(ctx, p, keys...)
-	})
+	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.attachGroup(nil, keys)
+	return w.setProject(ctx, p, keys...)
 }
 
 // setProject moves the line plots with keys that are not in the project p into p, and
@@ -198,21 +175,19 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 // w. Returns a validation error, and stores nothing, if the actions leave the line plot
 // invalid.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	return w.inTx(ctx, func(w Writer) error {
-		if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
-			ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
-				reduced, err := Reduce(p, acts...)
-				if err != nil {
-					return LinePlot{}, err
-				}
-				if err = reduced.Validate(); err != nil {
-					return LinePlot{}, err
-				}
-				return reduced, nil
-			}).Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		w.dispatcher.Attach(w.tx, key, acts...)
-		return nil
-	})
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
+		ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
+			reduced, err := Reduce(p, acts...)
+			if err != nil {
+				return LinePlot{}, err
+			}
+			if err = reduced.Validate(); err != nil {
+				return LinePlot{}, err
+			}
+			return reduced, nil
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }

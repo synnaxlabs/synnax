@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	apipolicy "github.com/synnaxlabs/synnax/pkg/api/access/policy"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -33,7 +34,9 @@ var policyType = resource.ID{Type: resource.TypePolicy}
 func createPolicy(ctx SpecContext, r role.Key) policy.Policy {
 	GinkgoHelper()
 	p := newPolicy(r)
-	Expect(svc.RBAC.Policy.NewWriter(nil, false).Create(ctx, &p)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.RBAC.Policy.NewWriter(tx, false).Create(ctx, &p)
+	})).To(Succeed())
 	return p
 }
 

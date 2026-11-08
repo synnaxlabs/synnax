@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	freightertestutil "github.com/synnaxlabs/freighter/testutil"
+	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -42,13 +43,17 @@ var _ = Describe("Framer", func() {
 				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
-			Expect(channelWriter.Create(ctx, &index)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &index)
+			})).To(Succeed())
 			data := channel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				LocalIndex: index.LocalKey,
 			}
-			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &data)
+			})).To(Succeed())
 			keys := channel.Keys{index.Key(), data.Key()}
 			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
 				Start: telem.SecondTS,
@@ -64,7 +69,9 @@ var _ = Describe("Framer", func() {
 				DataType:   telem.Float32T,
 				Expression: fmt.Sprintf("return %s * 2", data.Name),
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			client, server := freightertestutil.NewStreams[
 				apiframer.IteratorRequest,
 				apiframer.IteratorResponse,
@@ -104,13 +111,17 @@ var _ = Describe("Framer", func() {
 				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
-			Expect(channelWriter.Create(ctx, &index)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &index)
+			})).To(Succeed())
 			data = channel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				LocalIndex: index.LocalKey,
 			}
-			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &data)
+			})).To(Succeed())
 		})
 
 		It("Should open iterators over the requested channels", func(
@@ -327,7 +338,9 @@ var _ = Describe("Framer", func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, &c)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &c)
+			})).To(Succeed())
 			client, server := newStreams(ctx)
 			done := make(chan error, 1)
 			go func() { done <- apiSvc.Write(rootCtx(ctx), server) }()
@@ -350,13 +363,17 @@ var _ = Describe("Framer", func() {
 				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
-			Expect(channelWriter.Create(ctx, &index)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &index)
+			})).To(Succeed())
 			data := channel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				LocalIndex: index.LocalKey,
 			}
-			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &data)
+			})).To(Succeed())
 			keys := channel.Keys{index.Key(), data.Key()}
 			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
 				Start: telem.SecondTS,
@@ -430,13 +447,17 @@ var _ = Describe("Framer", func() {
 				DataType: telem.JSONT,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, &records)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &records)
+			})).To(Succeed())
 			other = channel.Channel{
 				Name:     UniqueChannelName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, &other)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
 			keys := channel.Keys{records.Key(), other.Key()}
 			svc := MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
 				Framer:  framerSvc,

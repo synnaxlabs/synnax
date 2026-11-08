@@ -25,7 +25,7 @@ var _ = Describe("CreateDriverRole", func() {
 		roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB: db,
 		}))
-		k := MustSucceed(racktestutil.CreateDriverRole(ctx, roles))
+		k := MustSucceed(racktestutil.CreateDriverRole(ctx, db, roles))
 		var r role.Role
 		Expect(roles.NewRetrieve().
 			Where(role.MatchKeys(k)).

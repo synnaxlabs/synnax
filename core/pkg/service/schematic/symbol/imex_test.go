@@ -54,11 +54,13 @@ var _ = Describe("ImEx", func() {
 			}
 			// Export reads committed data, so the symbol must be deleted to keep the
 			// shared DB's counts intact.
-			Expect(
-				svc.NewWriter(nil).Create(ctx, &sym),
-			).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &sym)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, sym.Key)
+				})).To(Succeed())
 			})
 			env := MustSucceed(svc.Export(ctx, symbol.ResourceID(sym.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
@@ -226,10 +228,14 @@ var _ = Describe("ImEx", func() {
 						StrokeScaled: true,
 					},
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, &original)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &original)
+				})).
 					To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
-					Expect(svc.NewWriter(nil).Delete(ctx, original.Key)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, original.Key)
+					})).To(Succeed())
 				})
 				env := MustSucceed(svc.Export(ctx, symbol.ResourceID(original.Key)))
 				tx := DeferClose(db.OpenTx())

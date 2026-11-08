@@ -25,6 +25,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/gorp"
 	arcranges "github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -413,7 +414,9 @@ var _ = Describe("createNode.Next", func() {
 				Name:      "parent_" + uuid.New().String(),
 				TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
 			}
-			Expect(rangeSvc.NewWriter(nil).Create(ctx, &parent)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangeSvc.NewWriter(tx).Create(ctx, &parent)
+			})).To(Succeed())
 
 			n, state := build("child_"+uuid.New().String(), parent.Key.String(), "")
 			n.Next(nodeCtx(ctx))
@@ -485,7 +488,9 @@ var _ = Describe("endNode.Next", func() {
 			Name:      "end_target_" + uuid.New().String(),
 			TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
 		}
-		Expect(rangeSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rangeSvc.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		return r
 	}
 
@@ -689,7 +694,9 @@ var _ = Describe("WASM host functions", func() {
 						End:   telem.TimeStampMax,
 					},
 				}
-				Expect(rangeSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangeSvc.NewWriter(tx).Create(ctx, &r)
+				})).To(Succeed())
 				keyH := strs.Create(r.Key.String())
 				before := telem.Now()
 

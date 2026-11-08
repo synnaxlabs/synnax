@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
@@ -42,9 +43,13 @@ var _ = Describe("Dispatch", func() {
 	var hotFire ranger.Range
 	BeforeEach(func(ctx SpecContext) {
 		hotFire = ranger.Range{Name: "Hot fire", TimeRange: telem.NewRangeSeconds(1, 5)}
-		Expect(svc.NewWriter(db).Create(ctx, &hotFire)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &hotFire)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(db).Delete(ctx, hotFire.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, hotFire.Key)
+			})).To(Succeed())
 		})
 	})
 
@@ -73,23 +78,6 @@ var _ = Describe("Dispatch", func() {
 		Expect(f.Seq).To(BeNumerically(">", 0))
 		Expect(f.Actions).To(Equal(acts))
 	})
-
-	It(
-		"Should apply and broadcast through a writer with no transaction",
-		func(ctx SpecContext) {
-			rec := &Recorder[ranger.Key, ranger.Action]{}
-			DeferCleanup(svc.OnAction(rec.Record))
-			Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
-				ctx,
-				hotFire.Key,
-				set([]string{"name"}, "Cold flow"),
-			)).To(Succeed())
-			Expect(retrieve(ctx, hotFire.Key).Name).To(Equal("Cold flow"))
-			frames := rec.Snapshot()
-			Expect(frames).To(HaveLen(1))
-			Expect(frames[0].DispatchKey).To(Equal("dk"))
-		},
-	)
 
 	It("Should apply none of the actions when one fails", func(ctx SpecContext) {
 		rec := &Recorder[ranger.Key, ranger.Action]{}

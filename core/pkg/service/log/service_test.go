@@ -12,6 +12,7 @@ package log_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -85,7 +86,9 @@ var _ = Describe("OpenService", func() {
 		"Should register itself with the configured ImEx registry on open",
 		func(ctx SpecContext) {
 			l := log.Log{Project: &proj.Key, Name: "auto-registered"}
-			Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &l)
+			})).To(Succeed())
 			env := MustSucceed(imexSvc.Export(ctx, l.ResourceID()))
 			Expect(env.Type).To(Equal("log"))
 		},

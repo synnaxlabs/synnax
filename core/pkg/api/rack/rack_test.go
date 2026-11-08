@@ -18,6 +18,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
+	"github.com/synnaxlabs/gorp"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -104,13 +106,17 @@ func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
 func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 	GinkgoHelper()
 	r := rack.Rack{Name: name}
-	Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-	Expect(svc.Status.NewWriter(nil).Set(ctx, &rack.Status{
-		Owner:   new(r.ResourceID()),
-		Name:    r.Name,
-		Time:    telem.Now(),
-		Variant: status.VariantSuccess,
-		Message: "Rack is running",
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Rack.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Status.NewWriter(tx).Set(ctx, &rack.Status{
+			Owner:   new(r.ResourceID()),
+			Name:    r.Name,
+			Time:    telem.Now(),
+			Variant: status.VariantSuccess,
+			Message: "Rack is running",
+		})
 	})).To(Succeed())
 	return r
 }
@@ -217,7 +223,9 @@ var _ = Describe("Create", func() {
 	})
 	It("Should let a rack with the Driver role save itself", func(ctx SpecContext) {
 		r := rack.Rack{Name: "Self"}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		r.Integrations = []string{"ni"}
 		MustSucceed(create(
 			SubjectCtx(ctx, r.ResourceID()),
@@ -229,7 +237,9 @@ var _ = Describe("Create", func() {
 		"Should let a rack with the Driver role save itself twice",
 		func(ctx SpecContext) {
 			r := rack.Rack{Name: "Self"}
-			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Rack.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
 			MustSucceed(create(
 				SubjectCtx(ctx, r.ResourceID()),
 				apirack.CreateRequest{Racks: []rack.Rack{r, r}},
@@ -240,7 +250,9 @@ var _ = Describe("Create", func() {
 		"Should not let a rack with the Driver role create a rack",
 		func(ctx SpecContext) {
 			r := rack.Rack{Name: "Self"}
-			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Rack.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
 			Expect(create(
 				SubjectCtx(ctx, r.ResourceID()),
 				apirack.CreateRequest{Racks: []rack.Rack{{Name: "Other"}}},
@@ -254,7 +266,9 @@ var _ = Describe("Create", func() {
 		u := createUser(ctx)
 		grant(ctx, access.ActionCreate, u.ResourceID(), rackType)
 		r := rack.Rack{Name: "Existing"}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		Expect(create(
 			AuthedCtx(ctx, u),
 			apirack.CreateRequest{Racks: []rack.Rack{r}},
@@ -268,7 +282,9 @@ var _ = Describe("Rename", func() {
 	) {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Before", Integrations: []string{"ni"}}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		grant(
 			ctx,
 			access.ActionUpdate,
@@ -305,7 +321,9 @@ var _ = Describe("Rename", func() {
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Before"}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		grant(
 			ctx,
 			access.ActionUpdate,
@@ -338,7 +356,9 @@ var _ = Describe("Rename", func() {
 		) {
 			u := createUser(ctx)
 			r := rack.Rack{Name: "Before"}
-			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Rack.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
 			grant(ctx, access.ActionUpdate, u.ResourceID(), granted(ctx, r))
 			Expect(rename(
 				AuthedCtx(ctx, u),
@@ -356,10 +376,15 @@ var _ = Describe("Retrieve", func() {
 		u := createUser(ctx)
 		withStatus := rack.Rack{Name: "With Status"}
 		withoutStatus := rack.Rack{Name: "Without Status"}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &withStatus)).To(Succeed())
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &withoutStatus)).To(Succeed())
-		w := svc.Status.NewWriter(nil)
-		Expect(w.DeleteOwned(ctx, withoutStatus.ResourceID())).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &withStatus)
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &withoutStatus)
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Status.NewWriter(tx).DeleteOwned(ctx, withoutStatus.ResourceID())
+		})).To(Succeed())
 		grant(
 			ctx, access.ActionRetrieve, u.ResourceID(),
 			withStatus.ResourceID(), withoutStatus.ResourceID(),
@@ -380,7 +405,9 @@ var _ = Describe("Retrieve", func() {
 	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Present"}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
 			Where: &rack.Where{Key: &filter.Set[rack.Key]{
@@ -412,8 +439,8 @@ var _ = Describe("Retrieve", func() {
 			grant(ctx, access.ActionCreate, u.ResourceID(), statusType)
 			grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
 			grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
-			Expect(statusAPI.Set(
-				AuthedCtx(ctx, u), nil,
+			Expect(fgorp.CreateWriteUnaryHandler(db, statusAPI.Set)(
+				AuthedCtx(ctx, u),
 				apistatus.SetRequest{Statuses: []status.Status[any]{{
 					Owner:   new(r.ResourceID()),
 					Time:    telem.Now(),
@@ -471,10 +498,14 @@ var _ = Describe("Delete", func() {
 	createLoggedIn := func(ctx SpecContext) (rack.Rack, string) {
 		GinkgoHelper()
 		r := rack.Rack{Name: "Doomed"}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		_, key := MustSucceed2(
-			svc.APIKey.NewWriter(nil).Create(ctx, r.ResourceID(), "driver"),
-		)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
+		var key string
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			_, key, err = svc.APIKey.NewWriter(tx).Create(ctx, r.ResourceID(), "driver")
+			return err
+		})).To(Succeed())
 		_, token := MustSucceed2(svc.Auth.Login(ctx, auth.Proof{
 			Variant: auth.APIKeyProof{
 				APIKeyCredentials: auth.APIKeyCredentials{Key: key},
@@ -517,7 +548,9 @@ var _ = Describe("Delete", func() {
 
 	It("Should refuse to delete a rack that holds a device", func(ctx SpecContext) {
 		r := rack.Rack{Name: "With Device"}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		d := device.Device{
 			Key:      "api-rack-device",
 			Rack:     r.Key,
@@ -526,7 +559,9 @@ var _ = Describe("Delete", func() {
 			Make:     "make",
 			Model:    "model",
 		}
-		Expect(svc.Device.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Device.NewWriter(tx).Create(ctx, &d)
+		})).To(Succeed())
 		Expect(del(
 			deleterOf(ctx, r),
 			apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
@@ -545,13 +580,17 @@ var _ = Describe("Delete", func() {
 		"Should refuse to delete a rack that holds a task that is not internal",
 		func(ctx SpecContext) {
 			r := rack.Rack{Name: "With Task"}
-			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Rack.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
 			t := task.Task{
 				Rack: r.Key,
 				Name: "User Task",
 				Type: pagerduty.AlertTaskType,
 			}
-			Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Task.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 			Expect(del(
 				deleterOf(ctx, r),
 				apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
@@ -564,14 +603,18 @@ var _ = Describe("Delete", func() {
 
 	It("Should delete the internal tasks of a deleted rack", func(ctx SpecContext) {
 		r := rack.Rack{Name: "With Internal Task"}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		t := task.Task{
 			Rack:     r.Key,
 			Name:     "Scanner",
 			Type:     pagerduty.AlertTaskType,
 			Internal: true,
 		}
-		Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Task.NewWriter(tx).Create(ctx, &t)
+		})).To(Succeed())
 		var st status.Status[struct{}]
 		Expect(svc.Status.NewRetrieve[struct{}]().
 			Where(status.MatchOwners[struct{}](t.ResourceID())).
@@ -598,7 +641,9 @@ var _ = Describe("Delete", func() {
 func createDeviceGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Scope: resource.TypeDevice}
-	Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Group.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 
@@ -628,7 +673,9 @@ var _ = Describe("SetGroup", func() {
 	createRack := func(ctx SpecContext, name string) rack.Rack {
 		GinkgoHelper()
 		r := rack.Rack{Name: name}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		return r
 	}
 	It(
@@ -649,7 +696,9 @@ var _ = Describe("SetGroup", func() {
 			u := createUser(ctx)
 			r := createRack(ctx, "Set group source denied")
 			from := createDeviceGroup(ctx, "Set group source denied")
-			Expect(svc.Rack.NewWriter(nil).SetGroup(ctx, &from.Key, r.Key)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Rack.NewWriter(tx).SetGroup(ctx, &from.Key, r.Key)
+			})).
 				To(Succeed())
 			to := createDeviceGroup(ctx, "Set group destination granted")
 			grant(
@@ -680,7 +729,9 @@ var _ = Describe("SetGroup", func() {
 			u := createUser(ctx)
 			r := createRack(ctx, "Set group granted")
 			from := createDeviceGroup(ctx, "Set group source granted")
-			Expect(svc.Rack.NewWriter(nil).SetGroup(ctx, &from.Key, r.Key)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Rack.NewWriter(tx).SetGroup(ctx, &from.Key, r.Key)
+			})).
 				To(Succeed())
 			to := createDeviceGroup(ctx, "Set group granted")
 			grant(

@@ -86,7 +86,7 @@ type apply func(ctx context.Context, tx gorp.Tx) error
 // newUser creates a user that can do nothing until a spec grants it access.
 func newUser(ctx context.Context) user.User {
 	GinkgoHelper()
-	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
@@ -101,6 +101,7 @@ func grant(
 	GinkgoHelper()
 	MustSucceed(rbactestutil.Grant(
 		ctx,
+		db,
 		svc.RBAC,
 		svc.User,
 		u.Key,
@@ -136,7 +137,9 @@ func denied(u user.User, action access.Action, object resource.ID) types.GomegaM
 func createLabel(ctx context.Context) label.Label {
 	GinkgoHelper()
 	l := label.Label{Name: "label"}
-	Expect(svc.Label.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Label.NewWriter(tx).Create(ctx, &l)
+	})).To(Succeed())
 	return l
 }
 
@@ -160,7 +163,9 @@ func createRange(
 ) ranger.Range {
 	GinkgoHelper()
 	r := newRange(parent, labels...)
-	Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
 	return r
 }
 
@@ -171,7 +176,9 @@ func createTask(ctx context.Context) task.Task {
 		Rack: svc.Rack.EmbeddedKey,
 		Name: "task",
 	}
-	Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Task.NewWriter(tx).Create(ctx, &t)
+	})).To(Succeed())
 	return t
 }
 
@@ -182,7 +189,9 @@ func createChannel(ctx context.Context) channel.Channel {
 		DataType: telem.Float64T,
 		Virtual:  true,
 	}
-	Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+	})).To(Succeed())
 	return ch
 }
 
@@ -414,7 +423,9 @@ var _ = Describe("Write", func() {
 			"update on the range of a changed range key-value pair",
 			func(ctx context.Context) rule {
 				r := createRange(ctx, nil)
-				Expect(setPair(ctx, nil, r.Key, "stored")).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return setPair(ctx, tx, r.Key, "stored")
+				})).To(Succeed())
 				return rule{
 					write: func(ctx context.Context, tx gorp.Tx) error {
 						return setPair(ctx, tx, r.Key, "changed")
@@ -427,7 +438,9 @@ var _ = Describe("Write", func() {
 			"update on the range of a deleted range key-value pair",
 			func(ctx context.Context) rule {
 				r := createRange(ctx, nil)
-				Expect(setPair(ctx, nil, r.Key, "stored")).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return setPair(ctx, tx, r.Key, "stored")
+				})).To(Succeed())
 				return rule{
 					write: func(ctx context.Context, tx gorp.Tx) error {
 						return svc.KV.NewWriter(tx).Delete(ctx, r.Key, "k")
@@ -451,9 +464,12 @@ var _ = Describe("Write", func() {
 			"update on the user of a deleted API key",
 			func(ctx context.Context) rule {
 				other := newUser(ctx)
-				k, _ := MustSucceed2(
-					svc.APIKey.NewWriter(nil).Create(ctx, other.ResourceID(), "key"),
-				)
+				var k apikey.APIKey
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					k, _, err = svc.APIKey.NewWriter(tx).
+						Create(ctx, other.ResourceID(), "key")
+					return err
+				})).To(Succeed())
 				return rule{
 					write: func(ctx context.Context, tx gorp.Tx) error {
 						return svc.APIKey.NewWriter(tx).Delete(ctx, k.Key)
@@ -535,9 +551,12 @@ var _ = Describe("Write", func() {
 		"Should require update on the user that loses an API key to the subject",
 		func(ctx SpecContext) {
 			u, other := newUser(ctx), newUser(ctx)
-			k, _ := MustSucceed2(
-				svc.APIKey.NewWriter(nil).Create(ctx, other.ResourceID(), "key"),
-			)
+			var k apikey.APIKey
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				k, _, err = svc.APIKey.NewWriter(tx).
+					Create(ctx, other.ResourceID(), "key")
+				return err
+			})).To(Succeed())
 			Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
 				return gorp.NewUpdate[apikey.Key, apikey.APIKey]().
 					Where(gorp.MatchKeys[apikey.Key, apikey.APIKey](k.Key)).

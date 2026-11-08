@@ -152,13 +152,10 @@ func (s *Service) OnAction(
 // and Retrieve(s)).
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a new Writer to create, update, and delete ranges. If tx is not nil,
-// the writer will use it to execute all operations. If tx is nil, the writer will
-// execute all operations directly against the underlying gorp.DB.
+// NewWriter opens a new Writer to create, update, and delete ranges in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:        s,
-		tx:         gorp.OverrideTx(s.cfg.DB, tx),
+		tx:         tx,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}

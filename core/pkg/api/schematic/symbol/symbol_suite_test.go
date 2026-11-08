@@ -42,6 +42,7 @@ func TestAPISchematicSymbol(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db        *gorp.DB
 	rbacSvc   *rbac.Service
 	groupSvc  *group.Service
 	symbolSvc *symbol.Service
@@ -54,7 +55,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db := DeferClose(gorp.Wrap(memkv.New()))
+	db = DeferClose(gorp.Wrap(memkv.New()))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
@@ -91,17 +92,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
-	author = MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))
 })
 
-// createGroup creates a top-level symbol group. It writes outside a transaction so the
-// api enforcers, which read committed state, observe the new resource.
+// createGroup creates a top-level symbol group. The write commits at once so the api
+// enforcers, which read committed state, observe the new resource.
 func createGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Scope: resource.TypeSchematicSymbol}
-	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return groupSvc.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 
@@ -116,7 +119,9 @@ func createSymbol(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 	GinkgoHelper()
 	sym := newSymbol(name)
 	sym.Group = &g.Key
-	Expect(symbolSvc.NewWriter(nil).Create(ctx, &sym)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return symbolSvc.NewWriter(tx).Create(ctx, &sym)
+	})).To(Succeed())
 	return sym
 }
 
@@ -125,7 +130,7 @@ func createSymbol(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 // reach another spec.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test-" + uuid.New().String(),
 	}))
 }
@@ -140,7 +145,7 @@ func grantOn(
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }
 
 func grantCreateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {

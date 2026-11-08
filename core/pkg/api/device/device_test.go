@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -100,7 +101,9 @@ func newDevice(key string) device.Device {
 func createDevice(ctx SpecContext, key string) device.Device {
 	GinkgoHelper()
 	d := newDevice(key)
-	Expect(svc.Device.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Device.NewWriter(tx).Create(ctx, &d)
+	})).To(Succeed())
 	return d
 }
 
@@ -116,13 +119,15 @@ func retrieveDevice(ctx SpecContext, key string) device.Device {
 
 func setLiveStatus(ctx SpecContext, d device.Device) {
 	GinkgoHelper()
-	Expect(svc.Status.NewWriter(nil).Set(ctx, &device.Status{
-		Owner:   new(d.ResourceID()),
-		Name:    d.Name,
-		Time:    telem.Now(),
-		Variant: status.VariantSuccess,
-		Message: "Device is running",
-		Details: device.StatusDetails{Rack: d.Rack},
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Status.NewWriter(tx).Set(ctx, &device.Status{
+			Owner:   new(d.ResourceID()),
+			Name:    d.Name,
+			Time:    telem.Now(),
+			Variant: status.VariantSuccess,
+			Message: "Device is running",
+			Details: device.StatusDetails{Rack: d.Rack},
+		})
 	})).To(Succeed())
 }
 
@@ -389,8 +394,9 @@ var _ = Describe("Retrieve", func() {
 		u := createUser(ctx)
 		withStatus := createDevice(ctx, "retrieve-with-status")
 		withoutStatus := createDevice(ctx, "retrieve-without-status")
-		w := svc.Status.NewWriter(nil)
-		Expect(w.DeleteOwned(ctx, withoutStatus.ResourceID())).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Status.NewWriter(tx).DeleteOwned(ctx, withoutStatus.ResourceID())
+		})).To(Succeed())
 		grant(
 			ctx, access.ActionRetrieve, u.ResourceID(),
 			withStatus.ResourceID(), withoutStatus.ResourceID(),
@@ -428,7 +434,9 @@ var _ = Describe("Retrieve", func() {
 			Model:    "Test Model",
 			Parent:   &chassis.Key,
 		}
-		Expect(svc.Device.NewWriter(nil).Create(ctx, &module)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Device.NewWriter(tx).Create(ctx, &module)
+		})).To(Succeed())
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
 			apidevice.RetrieveRequest{
@@ -494,7 +502,9 @@ var _ = Describe("RetrieveRequest", func() {
 func createRackGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: new(svc.Rack.EmbeddedKey.ResourceID())}
-	Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Group.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 
@@ -539,7 +549,9 @@ var _ = Describe("SetGroup", func() {
 			u := createUser(ctx)
 			d := createDevice(ctx, "set-group-source-denied")
 			from := createRackGroup(ctx, "Set group source denied")
-			Expect(svc.Device.NewWriter(nil).SetGroup(ctx, &from.Key, d.Key)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Device.NewWriter(tx).SetGroup(ctx, &from.Key, d.Key)
+			})).
 				To(Succeed())
 			to := createRackGroup(ctx, "Set group destination granted")
 			grant(
@@ -570,7 +582,9 @@ var _ = Describe("SetGroup", func() {
 			u := createUser(ctx)
 			d := createDevice(ctx, "set-group-granted")
 			from := createRackGroup(ctx, "Set group source granted")
-			Expect(svc.Device.NewWriter(nil).SetGroup(ctx, &from.Key, d.Key)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Device.NewWriter(tx).SetGroup(ctx, &from.Key, d.Key)
+			})).
 				To(Succeed())
 			to := createRackGroup(ctx, "Set group granted")
 			grant(
@@ -633,9 +647,13 @@ var _ = Describe("Create on another rack", func() {
 		u = createUser(ctx)
 		g = createRackGroup(ctx, "Rack move")
 		d = createDevice(ctx, "rack-move-"+uuid.New().String())
-		Expect(svc.Device.NewWriter(nil).SetGroup(ctx, &g.Key, d.Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Device.NewWriter(tx).SetGroup(ctx, &g.Key, d.Key)
+		})).To(Succeed())
 		other = rack.Rack{Name: "Rack move"}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &other)
+		})).To(Succeed())
 		grant(
 			ctx,
 			access.ActionUpdate,

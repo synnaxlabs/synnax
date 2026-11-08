@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	apicontrol "github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -40,6 +41,7 @@ func TestAPIControl(t *testing.T) {
 }
 
 var (
+	db         *gorp.DB
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	rbacSvc    *rbac.Service
@@ -50,6 +52,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	dist := testutil.NewNode(ctx)
+	db = dist.DB
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
 		DB: dist.DB,
 	}))
@@ -114,6 +117,7 @@ func newUser(ctx SpecContext) user.User {
 	return MustSucceed(
 		rbactestutil.CreateUser(
 			ctx,
+			db,
 			rbacSvc,
 			userSvc,
 			user.User{Name: "user-" + uuid.New().String()},
@@ -130,5 +134,5 @@ func grantOn(
 ) {
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }

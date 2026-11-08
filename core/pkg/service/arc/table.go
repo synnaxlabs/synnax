@@ -78,7 +78,7 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 	}); err != nil {
 		return nil, err
 	}
-	if t.root, err = openRoot(ctx, t.directories); err != nil {
+	if t.root, err = openRoot(ctx, cfg.DB, t.directories); err != nil {
 		return nil, errors.Combine(err, t.directories.Close())
 	}
 	if t.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
@@ -96,7 +96,11 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 
 // openRoot returns the key of the directory that no directory holds, creating it when
 // it does not exist.
-func openRoot(ctx context.Context, dirs *directory.Table) (directory.Key, error) {
+func openRoot(
+	ctx context.Context,
+	db *gorp.DB,
+	dirs *directory.Table,
+) (directory.Key, error) {
 	var roots []directory.Directory
 	if err := dirs.NewRetrieve().
 		Where(directory.MatchNested(false)).
@@ -108,7 +112,9 @@ func openRoot(ctx context.Context, dirs *directory.Table) (directory.Key, error)
 		return roots[0].Key, nil
 	}
 	root := directory.Directory{Name: rootName}
-	if err := dirs.NewWriter(nil).Create(ctx, &root); err != nil {
+	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
+		return dirs.NewWriter(tx).Create(ctx, &root)
+	}); err != nil {
 		return uuid.Nil(), err
 	}
 	return root.Key, nil

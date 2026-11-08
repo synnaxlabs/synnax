@@ -237,10 +237,14 @@ var _ = Describe("Legacy Permission Migration", func() {
 		// Cores up to v0.53 converted permissions to roles and set this flag.
 		Expect(db.Set(ctx, []byte("sy_rbac_migration_performed"), []byte{1})).
 			To(Succeed())
-		viewer := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Name: "viewer",
-			Role: builtinRoles.ViewerKey,
-		}))
+		var viewer user.User
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			viewer, err = userSvc.NewWriter(tx).Create(ctx, user.User{
+				Name: "viewer",
+				Role: builtinRoles.ViewerKey,
+			})
+			return err
+		})).To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "RBAC",

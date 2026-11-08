@@ -93,7 +93,9 @@ var _ = Describe("Migration", func() {
 			}
 			// The task table is not open during its own migration, so the status skips
 			// reference checks.
-			Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, existing.ToAny())).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewMigrationWriter(tx).Set(ctx, existing.ToAny())
+			})).
 				To(Succeed())
 
 			runMigration(ctx)
@@ -147,7 +149,9 @@ var _ = Describe("Status backfill", func() {
 					"cmd":     "start",
 				},
 			}
-			Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, legacyStatus)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewMigrationWriter(tx).Set(ctx, legacyStatus)
+			})).
 				To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would

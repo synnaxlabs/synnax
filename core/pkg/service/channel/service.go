@@ -247,10 +247,8 @@ func (s *Service) FreeIndexResolver() writer.FreeIndexResolver {
 	return freeIndexResolver{svc: s}
 }
 
-// NewWriter returns a Writer scoped to the provided transaction (nil writes directly to
-// the service DB).
+// NewWriter returns a Writer scoped to tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = s.db.OverrideTx(tx)
 	return Writer{
 		svc: s,
 		tx:  tx,

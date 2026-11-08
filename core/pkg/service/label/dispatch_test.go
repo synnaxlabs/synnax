@@ -42,7 +42,9 @@ var _ = Describe("Dispatch", func() {
 			Name:  "Nominal",
 			Color: MustSucceed(color.FromHex("#00ff00")),
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &nominal)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &nominal)
+		})).To(Succeed())
 	})
 	dispatch := func(
 		ctx context.Context,
@@ -98,22 +100,6 @@ var _ = Describe("Dispatch", func() {
 		Expect(f.Seq).To(BeNumerically(">", 0))
 		Expect(f.Actions).To(Equal(acts))
 	})
-
-	It(
-		"Should apply and broadcast through a writer with no transaction",
-		func(ctx SpecContext) {
-			rec := record()
-			Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
-				ctx,
-				nominal.Key,
-				set([]string{"name"}, "Anomaly"),
-			)).To(Succeed())
-			Expect(retrieve(ctx).Name).To(Equal("Anomaly"))
-			frames := rec.Snapshot()
-			Expect(frames).To(HaveLen(1))
-			Expect(frames[0].DispatchKey).To(Equal("dk"))
-		},
-	)
 
 	It("Should apply none of the actions when one fails", func(ctx SpecContext) {
 		rec := record()

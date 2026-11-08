@@ -82,9 +82,13 @@ var _ = Describe("Driver", func() {
 
 	renameRack := func(ctx context.Context, key rack.Key, name string) {
 		GinkgoHelper()
-		Expect(rackService.NewWriter(nil).Rename(ctx, key, name)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rackService.NewWriter(tx).Rename(ctx, key, name)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(rackService.NewWriter(nil).Rename(ctx, key, "Node 1")).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackService.NewWriter(tx).Rename(ctx, key, "Node 1")
+			})).To(Succeed())
 		})
 	}
 
@@ -241,7 +245,9 @@ var _ = Describe("Driver", func() {
 				}
 				Expect(MustSucceed(driver.Open(ctx, cfg)).Close()).To(Succeed())
 				t := newTask(embeddedRackKey(ctx))
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				cCtx, cancel := context.WithCancel(ctx)
 				cfg.Factories = []driver.Factory{&mockFactory{
 					name: "test",
@@ -273,7 +279,9 @@ var _ = Describe("Driver", func() {
 		It("should create and configure a task once per rack", func(ctx SpecContext) {
 			d := openDriver(ctx, &mockFactory{name: "test"})
 			for _, t := range retrieveAlertTasks(ctx) {
-				Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, t.Key, true)
+				})).To(Succeed())
 			}
 			Expect(d.Close()).To(Succeed())
 
@@ -345,7 +353,9 @@ var _ = Describe("Driver", func() {
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
-			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 			Consistently(
 				func() bool { return configuredTask.Load() != nil },
 			).Should(BeFalse())
@@ -384,7 +394,9 @@ var _ = Describe("Driver", func() {
 				// Commands process in order: once this start configures, the
 				// ghost start was handled.
 				t := newTask(embeddedRackKey(ctx))
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
@@ -434,7 +446,9 @@ var _ = Describe("Driver", func() {
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{"routing_key": "rk-1"}
 				taskKey.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 
 				writeCommand(
 					ctx,
@@ -455,7 +469,9 @@ var _ = Describe("Driver", func() {
 				Expect(stopCount.Load()).To(BeZero())
 
 				t.Config = map[string]any{"routing_key": "rk-2"}
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 
 				writeCommand(
 					ctx,
@@ -489,12 +505,13 @@ var _ = Describe("Driver", func() {
 						return &mockTask{key: t.Key}, nil
 					},
 				})
-				sw := statusSvc.NewWriter(nil)
-				Expect(sw.Set(ctx, &status.Status[any]{
-					Key:     "st-detach",
-					Name:    "st-detach",
-					Variant: status.VariantInfo,
-					Time:    telem.Now(),
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+						Key:     "st-detach",
+						Name:    "st-detach",
+						Variant: status.VariantInfo,
+						Time:    telem.Now(),
+					})
 				})).To(Succeed())
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{
@@ -504,14 +521,18 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				taskKey.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
 				)
 				Eventually(configCount.Load).Should(Equal(int32(1)))
 
-				Expect(sw.Delete(ctx, "st-detach")).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Delete(ctx, "st-detach")
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-2"},
@@ -555,7 +576,9 @@ var _ = Describe("Driver", func() {
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{"routing_key": "rk-1"}
 				taskKey.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 
 				writeCommand(
 					ctx,
@@ -566,7 +589,9 @@ var _ = Describe("Driver", func() {
 				).Should(Equal(int32(1)))
 
 				t.Name = "Renamed Task"
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 
 				writeCommand(
 					ctx,
@@ -597,10 +622,14 @@ var _ = Describe("Driver", func() {
 				countAfterOpen := configuredCount.Load()
 
 				otherRack := rack.Rack{Name: "Other Rack"}
-				Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rackService.NewWriter(tx).Create(ctx, &otherRack)
+				})).To(Succeed())
 
 				t := newTask(otherRack.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 
 				writeCommand(
 					ctx,
@@ -647,7 +676,9 @@ var _ = Describe("Driver", func() {
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
@@ -657,9 +688,13 @@ var _ = Describe("Driver", func() {
 				).Should(Equal(int32(1)))
 
 				otherRack := rack.Rack{Name: "Move Target Rack"}
-				Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rackService.NewWriter(tx).Create(ctx, &otherRack)
+				})).To(Succeed())
 				t.Rack = otherRack.Key
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 
 				// The redeploy start lands on the new rack; for this driver it is the
 				// teardown signal for the instance it still holds.
@@ -694,7 +729,9 @@ var _ = Describe("Driver", func() {
 				})
 				t = newTask(embeddedRackKey(ctx))
 				key.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 			})
 			retrieveStatus := func(ctx context.Context, g Gomega) task.Status {
 				GinkgoHelper()
@@ -747,13 +784,15 @@ var _ = Describe("Driver", func() {
 			) {
 				details := task.NewStatusDetails(t, true)
 				details.ConfigHash = "deployed"
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
-					Owner:   new(t.ResourceID()),
-					Name:    t.Name,
-					Time:    telem.Now(),
-					Variant: status.VariantSuccess,
-					Message: "Task running",
-					Details: details,
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
+						Owner:   new(t.ResourceID()),
+						Name:    t.Name,
+						Time:    telem.Now(),
+						Variant: status.VariantSuccess,
+						Message: "Task running",
+						Details: details,
+					})
 				})).To(Succeed())
 				writeCommand(ctx, task.Command{
 					Task:       t.Key,
@@ -776,8 +815,9 @@ var _ = Describe("Driver", func() {
 				func(
 					ctx SpecContext,
 				) {
-					sw := statusSvc.NewWriter(nil)
-					Expect(sw.DeleteOwned(ctx, t.ResourceID())).
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return statusSvc.NewWriter(tx).DeleteOwned(ctx, t.ResourceID())
+					})).
 						To(Succeed())
 					writeCommand(ctx, task.Command{
 						Task:       t.Key,
@@ -826,7 +866,9 @@ var _ = Describe("Driver", func() {
 
 			t := newTask(embeddedRackKey(ctx))
 			t.Snapshot = true
-			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
 			Consistently(
@@ -864,13 +906,17 @@ var _ = Describe("Driver", func() {
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
-			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
 
 			Eventually(func() bool { return configured.Load() }).Should(BeTrue())
 			Expect(stopped.Load()).To(BeFalse())
 
-			Expect(taskWriter.Delete(ctx, t.Key, false)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Delete(ctx, t.Key, false)
+			})).To(Succeed())
 			Eventually(func() bool { return stopped.Load() }).Should(BeTrue())
 		})
 
@@ -914,7 +960,9 @@ var _ = Describe("Driver", func() {
 				tasks := make([]task.Task, 3)
 				for i := range tasks {
 					tasks[i] = newTask(embeddedRackKey(ctx))
-					Expect(taskWriter.Create(ctx, &tasks[i])).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return taskService.NewWriter(tx).Create(ctx, &tasks[i])
+					})).To(Succeed())
 					writeCommand(ctx, task.Command{
 						Task: tasks[i].Key,
 						Type: "start",
@@ -932,7 +980,9 @@ var _ = Describe("Driver", func() {
 				}).Should(Succeed())
 				blocked.Store(tasks[0].Key)
 				for _, t := range tasks {
-					Expect(taskWriter.Delete(ctx, t.Key, false)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return taskService.NewWriter(tx).Delete(ctx, t.Key, false)
+					})).To(Succeed())
 				}
 				release()
 				Eventually(func() set.Set[task.Key] {
@@ -985,7 +1035,9 @@ var _ = Describe("Driver", func() {
 				blocker := newTask(embeddedRackKey(ctx))
 				recreated := newTask(embeddedRackKey(ctx))
 				for i, t := range []*task.Task{&blocker, &recreated} {
-					Expect(taskWriter.Create(ctx, t)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return taskService.NewWriter(tx).Create(ctx, t)
+					})).To(Succeed())
 					writeCommand(ctx, task.Command{
 						Task: t.Key,
 						Type: "start",
@@ -999,11 +1051,17 @@ var _ = Describe("Driver", func() {
 					g.Expect(configured.Contains(recreated.Key)).To(BeTrue())
 				}).Should(Succeed())
 				blocked.Store(blocker.Key)
-				Expect(taskWriter.Delete(ctx, blocker.Key, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, blocker.Key, false)
+				})).To(Succeed())
 				Eventually(blocking).Should(BeClosed())
-				Expect(taskWriter.Delete(ctx, recreated.Key, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, recreated.Key, false)
+				})).To(Succeed())
 				again := recreated
-				Expect(taskWriter.Create(ctx, &again)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &again)
+				})).To(Succeed())
 				release()
 				Eventually(func() set.Set[task.Key] {
 					mu.Lock()
@@ -1056,7 +1114,9 @@ var _ = Describe("Driver", func() {
 				blocker := newTask(embeddedRackKey(ctx))
 				recreated := newTask(embeddedRackKey(ctx))
 				for i, t := range []*task.Task{&blocker, &recreated} {
-					Expect(taskWriter.Create(ctx, t)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return taskService.NewWriter(tx).Create(ctx, t)
+					})).To(Succeed())
 					writeCommand(ctx, task.Command{
 						Task: t.Key,
 						Type: "start",
@@ -1070,11 +1130,17 @@ var _ = Describe("Driver", func() {
 					g.Expect(configures[recreated.Key]).To(Equal(1))
 				}).Should(Succeed())
 				blocked.Store(blocker.Key)
-				Expect(taskWriter.Delete(ctx, blocker.Key, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, blocker.Key, false)
+				})).To(Succeed())
 				Eventually(blocking).Should(BeClosed())
-				Expect(taskWriter.Delete(ctx, recreated.Key, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, recreated.Key, false)
+				})).To(Succeed())
 				again := recreated
-				Expect(taskWriter.Create(ctx, &again)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &again)
+				})).To(Succeed())
 				writeCommand(ctx, task.Command{
 					Task: recreated.Key,
 					Type: "start",
@@ -1136,7 +1202,9 @@ var _ = Describe("Driver", func() {
 				// Runs before Close, which waits for the blocked stop.
 				DeferCleanup(release)
 				recreated := newTask(embeddedRackKey(ctx))
-				Expect(taskWriter.Create(ctx, &recreated)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &recreated)
+				})).To(Succeed())
 				writeCommand(ctx, task.Command{
 					Task: recreated.Key,
 					Type: "start",
@@ -1149,10 +1217,14 @@ var _ = Describe("Driver", func() {
 				}
 				Eventually(configured).Should(Equal(1))
 				armed.Store(true)
-				Expect(taskWriter.Delete(ctx, recreated.Key, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, recreated.Key, false)
+				})).To(Succeed())
 				Eventually(blocking).Should(BeClosed())
 				again := recreated
-				Expect(taskWriter.Create(ctx, &again)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &again)
+				})).To(Succeed())
 				writeCommand(ctx, task.Command{
 					Task: recreated.Key,
 					Type: "start",
@@ -1212,7 +1284,9 @@ var _ = Describe("Driver", func() {
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
@@ -1221,7 +1295,9 @@ var _ = Describe("Driver", func() {
 
 				// Deleting the task deletes its status too, so nothing should be
 				// left behind once the driver tears the instance down.
-				Expect(taskWriter.Delete(ctx, t.Key, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, t.Key, false)
+				})).To(Succeed())
 				Eventually(func() bool { return stopped.Load() }).Should(BeTrue())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
@@ -1265,14 +1341,18 @@ var _ = Describe("Driver", func() {
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
 				)
 				Eventually(func() bool { return configured.Load() }).Should(BeTrue())
 
-				Expect(taskWriter.Delete(ctx, t.Key, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, t.Key, false)
+				})).To(Succeed())
 				Eventually(func() bool { return stopCalled.Load() }).Should(BeTrue())
 			},
 		)
@@ -1308,7 +1388,9 @@ var _ = Describe("Driver", func() {
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
@@ -1352,7 +1434,9 @@ var _ = Describe("Driver", func() {
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
@@ -1383,7 +1467,9 @@ var _ = Describe("Driver", func() {
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-ack"},
@@ -1414,7 +1500,9 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-unhandled"},
@@ -1475,7 +1563,9 @@ var _ = Describe("Driver", func() {
 				// First task: configuration fails.
 				t1 := newTask(embeddedRackKey(ctx))
 				knownKeys.Store(t1.Key, true)
-				Expect(taskWriter.Create(ctx, &t1)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t1)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t1.Key, Type: "start", Key: "cmd-1"},
@@ -1488,7 +1578,9 @@ var _ = Describe("Driver", func() {
 				// functional after the first error.
 				t2 := newTask(embeddedRackKey(ctx))
 				knownKeys.Store(t2.Key, true)
-				Expect(taskWriter.Create(ctx, &t2)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t2)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t2.Key, Type: "start", Key: "cmd-2"},
@@ -1528,7 +1620,9 @@ var _ = Describe("Driver", func() {
 
 				t1 := newTask(embeddedRackKey(ctx))
 				knownKeys.Store(t1.Key, true)
-				Expect(taskWriter.Create(ctx, &t1)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t1)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t1.Key, Type: "start", Key: "cmd-1"},
@@ -1539,7 +1633,9 @@ var _ = Describe("Driver", func() {
 
 				t2 := newTask(embeddedRackKey(ctx))
 				knownKeys.Store(t2.Key, true)
-				Expect(taskWriter.Create(ctx, &t2)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t2)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t2.Key, Type: "start", Key: "cmd-2"},
@@ -1582,7 +1678,9 @@ var _ = Describe("Driver", func() {
 				t.Config = map[string]any{"routing_key": "rk-1"}
 				taskKey.Store(t.Key)
 				countBeforeCreate := configCount.Load()
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
@@ -1593,7 +1691,9 @@ var _ = Describe("Driver", func() {
 				).Should(BeNumerically(">", countBeforeCreate))
 
 				t.Config = map[string]any{"routing_key": "rk-2"}
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-2"},
@@ -1639,8 +1739,12 @@ var _ = Describe("Driver", func() {
 				Name: "Pre-existing Task 2",
 				Type: pagerduty.AlertTaskType,
 			}
-			Expect(taskWriter.Create(ctx, &t1)).To(Succeed())
-			Expect(taskWriter.Create(ctx, &t2)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Create(ctx, &t1)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Create(ctx, &t2)
+			})).To(Succeed())
 
 			// Sets don't deploy: nothing configures until the next boot.
 			Consistently(func() bool {
@@ -1685,7 +1789,9 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
@@ -1719,7 +1825,9 @@ var _ = Describe("Driver", func() {
 			}))
 			rackKey := embeddedRackKey(ctx)
 			t := newTask(rackKey)
-			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 			Expect(d1.Close()).To(Succeed())
 
 			MustOpen(driver.Open(ctx, driver.Config{
@@ -1788,7 +1896,9 @@ var _ = Describe("Driver", func() {
 			for i := range expectedTasks {
 				t := newTask(embeddedRackKey(ctx))
 				testTaskKeys.Store(t.Key, true)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(ctx, task.Command{
 					Task: t.Key,
 					Type: "start",
@@ -1844,7 +1954,9 @@ var _ = Describe("Driver", func() {
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
-			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
 
 			Eventually(func() bool { return configured.Load() }).Should(BeTrue())
@@ -1883,8 +1995,9 @@ var _ = Describe("Driver", func() {
 				openDriverWithInterval(ctx, 25*time.Millisecond)
 				key := embeddedRackKey(ctx)
 				renameRack(ctx, key, "Renamed Driver")
-				sw := statusSvc.NewWriter(nil)
-				Expect(sw.DeleteOwned(ctx, key.ResourceID())).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).DeleteOwned(ctx, key.ResourceID())
+				})).
 					To(Succeed())
 				deletedAt := telem.Now()
 				Eventually(func(g Gomega) {
@@ -2081,7 +2194,9 @@ var _ = Describe("Driver", func() {
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 
 				cmd := task.Command{
 					Task: t.Key,
@@ -2128,7 +2243,9 @@ var _ = Describe("Driver", func() {
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
@@ -2156,20 +2273,28 @@ var _ = Describe("Driver", func() {
 					},
 				})
 				otherRack := rack.Rack{Name: "Other Rack"}
-				Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rackService.NewWriter(tx).Create(ctx, &otherRack)
+				})).To(Succeed())
 				t := newTask(otherRack.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				details := task.NewStatusDetails(t, true)
 				details.Cmd = "cmd-0"
 				t.Rack = embeddedRackKey(ctx)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
-					Owner:   new(t.ResourceID()),
-					Name:    t.Name,
-					Time:    telem.Now(),
-					Variant: status.VariantSuccess,
-					Message: "Started task",
-					Details: details,
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
+						Owner:   new(t.ResourceID()),
+						Name:    t.Name,
+						Time:    telem.Now(),
+						Variant: status.VariantSuccess,
+						Message: "Started task",
+						Details: details,
+					})
 				})).To(Succeed())
 
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
@@ -2194,7 +2319,9 @@ var _ = Describe("Driver", func() {
 					},
 				})
 				t := newTask(embeddedRackKey(ctx))
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
 				Eventually(func(g Gomega) {
@@ -2225,7 +2352,9 @@ var _ = Describe("Driver", func() {
 					},
 				})
 				t := newTask(embeddedRackKey(ctx))
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
@@ -2236,9 +2365,13 @@ var _ = Describe("Driver", func() {
 					).Details.Cmd
 				}).Should(Equal("cmd-1"))
 				otherRack := rack.Rack{Name: "Other Rack"}
-				Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rackService.NewWriter(tx).Create(ctx, &otherRack)
+				})).To(Succeed())
 				t.Rack = otherRack.Key
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-2"})
 				Consistently(func() string {
@@ -2263,17 +2396,21 @@ var _ = Describe("Driver", func() {
 					HostKey:   1,
 				}))
 				t := newTask(embeddedRackKey(ctx))
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				details := task.NewStatusDetails(t, false)
 				details.Cmd = "cmd-0"
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
-					Owner:       new(t.ResourceID()),
-					Name:        t.Name,
-					Time:        telem.Now(),
-					Variant:     status.VariantError,
-					Message:     "Failed to execute command",
-					Description: "The task does not accept the 'scan' command.",
-					Details:     details,
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
+						Owner:       new(t.ResourceID()),
+						Name:        t.Name,
+						Time:        telem.Now(),
+						Variant:     status.VariantError,
+						Message:     "Failed to execute command",
+						Description: "The task does not accept the 'scan' command.",
+						Details:     details,
+					})
 				})).To(Succeed())
 				Expect(d1.Close()).To(Succeed())
 				// No factory handles the task, so the configure at boot fails and
@@ -2311,7 +2448,9 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
@@ -2390,9 +2529,13 @@ var _ = Describe("Driver", func() {
 			openDriver(ctx, factory)
 
 			otherRack := rack.Rack{Name: "Other Rack for Commands"}
-			Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackService.NewWriter(tx).Create(ctx, &otherRack)
+			})).To(Succeed())
 			otherTask := newTask(otherRack.Key)
-			Expect(taskWriter.Create(ctx, &otherTask)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Create(ctx, &otherTask)
+			})).To(Succeed())
 
 			cmd := task.Command{
 				Task: otherTask.Key,
@@ -2426,7 +2569,9 @@ var _ = Describe("Driver", func() {
 			openDriver(ctx, factory)
 
 			t := newTask(embeddedRackKey(ctx))
-			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-fail"})
 
@@ -2459,7 +2604,10 @@ var _ = Describe("Driver", func() {
 							if cmd.Type == "start" || t.Key != taskKey.Load() {
 								return nil
 							}
-							if err := taskWriter.Delete(ctx, t.Key, false); err != nil {
+							if err := db.WithTx(ctx, func(tx gorp.Tx) error {
+								return taskService.NewWriter(tx).
+									Delete(ctx, t.Key, false)
+							}); err != nil {
 								return err
 							}
 							close(deleting)
@@ -2472,7 +2620,9 @@ var _ = Describe("Driver", func() {
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
-			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "tare", Key: "cmd-2"})
 			Eventually(deleting).Should(BeClosed())
@@ -2518,7 +2668,9 @@ var _ = Describe("Driver", func() {
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 
 				// Deploy the task, then trigger the panic via a non-start command.
 				writeCommand(
@@ -2595,7 +2747,9 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
@@ -2665,8 +2819,12 @@ var _ = Describe("Driver", func() {
 				scanTask := newTask(embeddedRackKey(ctx))
 				other := newTask(embeddedRackKey(ctx))
 				scanKey.Store(scanTask.Key)
-				Expect(taskWriter.Create(ctx, &scanTask)).To(Succeed())
-				Expect(taskWriter.Create(ctx, &other)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &scanTask)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
 				writeCommand(ctx, task.Command{Task: scanTask.Key, Type: "start"})
 				Eventually(func() bool {
 					return retrieveStatus[task.StatusDetails](
@@ -2726,7 +2884,9 @@ var _ = Describe("Driver", func() {
 			time.Sleep(50 * time.Millisecond)
 
 			t := newTask(embeddedRackKey(ctx))
-			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
 
 			Eventually(configureStarted, time.Second).Should(BeClosed())
@@ -2790,7 +2950,9 @@ var _ = Describe("Driver", func() {
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
-			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskService.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
 			Eventually(execStarted).Should(Receive())
@@ -2835,7 +2997,9 @@ var _ = Describe("Driver", func() {
 						Name: "Parallel Task",
 						Type: pagerduty.AlertTaskType,
 					}
-					Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return taskService.NewWriter(tx).Create(ctx, &t)
+					})).To(Succeed())
 				}
 				Expect(d1.Close()).To(Succeed())
 

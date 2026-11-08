@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -189,7 +190,9 @@ var _ = Describe("Writer", func() {
 					Channels: lineplot.Channels{X1: ch10},
 					Ranges:   refs(rk1, rk2),
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				Expect(
 					dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
@@ -219,7 +222,9 @@ var _ = Describe("Writer", func() {
 					Channels: lineplot.Channels{X1: ch10},
 					Ranges:   refs(rk1),
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				Expect(
 					dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
@@ -251,7 +256,9 @@ var _ = Describe("Writer", func() {
 					Channels: lineplot.Channels{X1: ch10, Y1: []channel.Key{ch5, ch6}},
 					Ranges:   refs(rk1),
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				Expect(
 					dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewRemoveChannelAction(lineplot.RemoveChannelPayload{
@@ -280,7 +287,9 @@ var _ = Describe("Writer", func() {
 					Channels: lineplot.Channels{X1: ch10, Y1: []channel.Key{ch5}},
 					Ranges:   refs(rk1),
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				Expect(
 					dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
@@ -331,9 +340,13 @@ var _ = Describe("Writer", func() {
 			"Should reject a create without changing the line plot it names",
 			func(ctx SpecContext) {
 				target := lineplot.LinePlot{Project: &proj.Key, Name: "target"}
-				Expect(svc.NewWriter(nil).Create(ctx, &target)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &target)
+				})).To(Succeed())
 				other := lineplot.LinePlot{Project: &proj.Key, Name: "other"}
-				Expect(svc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
 				Expect(dispatch(ctx, target.Key, "d1", []lineplot.Action{
 					lineplot.NewCreateAction(lineplot.CreatePayload{
 						LinePlot: lineplot.LinePlot{
@@ -361,7 +374,9 @@ var _ = Describe("Writer", func() {
 				"Should reject an action that leaves the line plot invalid",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-					Expect(svc.NewWriter(nil).Create(ctx, &plot)).
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).
 						To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
@@ -382,7 +397,9 @@ var _ = Describe("Writer", func() {
 
 			It("Should apply Rename", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Project: &proj.Key, Name: "original"}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				Expect(
 					dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewRenameAction(
@@ -403,7 +420,9 @@ var _ = Describe("Writer", func() {
 
 			It("Should apply SetTitleLevel", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				Expect(
 					dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewSetTitleLevelAction(lineplot.SetTitleLevelPayload{
@@ -424,7 +443,9 @@ var _ = Describe("Writer", func() {
 
 			It("Should apply SetTitleVisible", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				Expect(
 					dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewSetTitleVisibleAction(
@@ -447,7 +468,9 @@ var _ = Describe("Writer", func() {
 
 			It("Should apply SetLegendPosition", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				pos := spatial.StickyXY{X: 10, Y: 20}
 				pos.ApplyDefaults()
 				Expect(
@@ -470,7 +493,9 @@ var _ = Describe("Writer", func() {
 
 			It("Should apply SetLegendHidden", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				Expect(
 					dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewSetLegendHiddenAction(
@@ -495,9 +520,9 @@ var _ = Describe("Writer", func() {
 				"Should append a channel to a y-axis via AddChannel",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
@@ -524,7 +549,9 @@ var _ = Describe("Writer", func() {
 
 			It("Should treat a duplicate AddChannel as a no-op", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				Expect(
 					dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
@@ -550,9 +577,9 @@ var _ = Describe("Writer", func() {
 				"Should reject AddChannel targeting an x-axis with validate.ErrValidation",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
@@ -566,7 +593,9 @@ var _ = Describe("Writer", func() {
 
 			It("Should drop a channel via RemoveChannel", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				Expect(
 					dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
@@ -599,9 +628,9 @@ var _ = Describe("Writer", func() {
 						Name:     "test",
 						Channels: lineplot.Channels{Y1: []channel.Key{ch1, ch2, ch3}},
 					}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetChannelsAction(
@@ -633,9 +662,9 @@ var _ = Describe("Writer", func() {
 						Channels: lineplot.Channels{X1: ch10, Y1: []channel.Key{ch5}},
 						Ranges:   refs(rk1),
 					}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetChannelsAction(
@@ -670,9 +699,9 @@ var _ = Describe("Writer", func() {
 						},
 						Ranges: refs(rk1),
 					}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					keep := lineplot.NewSetLineColorAction(lineplot.SetLineColorPayload{
 						Key:   lk(plot.Key, ch10, ch5),
 						Color: new(MustSucceed(color.FromHex("#ff0000"))),
@@ -710,9 +739,9 @@ var _ = Describe("Writer", func() {
 				"Should reject SetChannels targeting an x-axis with validate.ErrValidation",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetChannelsAction(
@@ -731,9 +760,9 @@ var _ = Describe("Writer", func() {
 				"Should replace the single channel bound to an x-axis via SetXChannel",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetXChannelAction(
@@ -759,9 +788,9 @@ var _ = Describe("Writer", func() {
 				"Should reject SetXChannel targeting a y-axis with validate.ErrValidation",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetXChannelAction(
@@ -777,7 +806,9 @@ var _ = Describe("Writer", func() {
 
 			It("Should append and remove ranges on an x-axis", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				r1 := uuid.New().String()
 				r2 := uuid.New().String()
 				Expect(
@@ -815,9 +846,9 @@ var _ = Describe("Writer", func() {
 						Name:    "test",
 						Ranges:  refs(r1, r2),
 					}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetRangesAction(
@@ -846,9 +877,9 @@ var _ = Describe("Writer", func() {
 						Channels: lineplot.Channels{X1: ch10, Y1: []channel.Key{ch5}},
 						Ranges:   refs(rk1),
 					}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetRangesAction(
@@ -884,9 +915,9 @@ var _ = Describe("Writer", func() {
 						Channels: lineplot.Channels{X1: ch10, Y1: []channel.Key{ch5}},
 						Ranges:   []ranger.Ref{window(telem.Minute)},
 					}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
@@ -914,9 +945,9 @@ var _ = Describe("Writer", func() {
 						Name:    "test",
 						Ranges:  refs(rk1),
 					}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewAddRangeAction(
@@ -939,9 +970,9 @@ var _ = Describe("Writer", func() {
 				"Should reject a RemoveRange action with no payload",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							{Type: lineplot.ActionTypeRemoveRange},
@@ -954,9 +985,9 @@ var _ = Describe("Writer", func() {
 				"Should set axis fields via the fine-grained actions",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					priorDirection := plot.Axes.Y1.LabelDirection
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
@@ -990,9 +1021,9 @@ var _ = Describe("Writer", func() {
 				"Should reject a fine-grained axis action with an unknown key",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetAxisLabelAction(
@@ -1010,9 +1041,9 @@ var _ = Describe("Writer", func() {
 				"Should set and clear line fields via the fine-grained actions",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d0", []lineplot.Action{
 							lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
@@ -1100,9 +1131,9 @@ var _ = Describe("Writer", func() {
 				"Should replace a line's full configuration via SetLine",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d0", []lineplot.Action{
 							lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
@@ -1162,7 +1193,9 @@ var _ = Describe("Writer", func() {
 
 			It("Should insert, update, and remove rules", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				rule := lineplot.Rule{
 					Key:       rk1,
 					Label:     "ceiling",
@@ -1216,9 +1249,9 @@ var _ = Describe("Writer", func() {
 				"Should set rule fields via the fine-grained actions",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetRuleAction(
@@ -1268,7 +1301,9 @@ var _ = Describe("Writer", func() {
 		Describe("atomicity and broadcast", func() {
 			It("Should apply a multi-action batch atomically", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &plot)
+				})).To(Succeed())
 				r := uuid.New().String()
 				Expect(
 					dispatch(ctx, plot.Key, "d1", []lineplot.Action{
@@ -1300,9 +1335,9 @@ var _ = Describe("Writer", func() {
 				"Should notify subscribers with the dispatched ScopedAction on success",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "observed"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					rec := &Recorder[lineplot.Key, lineplot.Action]{}
 					DeferCleanup(svc.OnAction(rec.Record))
 					actions := []lineplot.Action{
@@ -1330,36 +1365,12 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
-				"Should apply and broadcast through a writer with no transaction",
-				func(ctx SpecContext) {
-					plot := lineplot.LinePlot{Project: &proj.Key, Name: "before"}
-					Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
-					rec := &Recorder[lineplot.Key, lineplot.Action]{}
-					DeferCleanup(svc.OnAction(rec.Record))
-					Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
-						ctx,
-						plot.Key,
-						lineplot.NewRenameAction(lineplot.RenamePayload{Name: "after"}),
-					)).To(Succeed())
-					var res lineplot.LinePlot
-					Expect(svc.NewRetrieve().
-						Where(lineplot.MatchKeys(plot.Key)).
-						Entry(&res).
-						Exec(ctx, nil)).To(Succeed())
-					Expect(res.Name).To(Equal("after"))
-					seen := rec.Snapshot()
-					Expect(seen).To(HaveLen(1))
-					Expect(seen[0].DispatchKey).To(Equal("dk"))
-				},
-			)
-
-			It(
 				"Should assign strictly monotonic Seq across successive dispatches",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "seq"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					rec := &Recorder[lineplot.Key, lineplot.Action]{}
 					DeferCleanup(svc.OnAction(rec.Record))
 					for _, name := range []string{"a", "b", "c"} {
@@ -1382,9 +1393,9 @@ var _ = Describe("Writer", func() {
 				"Should not notify subscribers when Reduce rejects the action",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "rejected"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &plot),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &plot)
+					})).To(Succeed())
 					rec := &Recorder[lineplot.Key, lineplot.Action]{}
 					DeferCleanup(svc.OnAction(rec.Record))
 					Expect(

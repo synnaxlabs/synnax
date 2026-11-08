@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -637,7 +638,9 @@ var _ = Describe("CSV", func() {
 				DataType:   telem.Float32T,
 				Expression: "return " + channels[0].Name + " * 2",
 			}
-			Expect(channelWriter.Create(ctx, &calculated)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calculated)
+			})).To(Succeed())
 			var calculatedIndex svcchannel.Channel
 			Expect(channelSvc.NewRetrieve().
 				Entry(&calculatedIndex).

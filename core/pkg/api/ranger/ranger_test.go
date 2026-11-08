@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -49,7 +50,9 @@ var _ = Describe("Retrieve", func() {
 			Name:      "present",
 			TimeRange: telem.TimeRange{Start: 1, End: 2},
 		}
-		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
@@ -67,7 +70,9 @@ var _ = Describe("Retrieve", func() {
 			Name:      "limited",
 			TimeRange: telem.TimeRange{Start: 1, End: 2},
 		}
-		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
@@ -136,7 +141,9 @@ var _ = Describe("RetrieveRequest", func() {
 func createRange(ctx SpecContext) ranger.Range {
 	GinkgoHelper()
 	r := ranger.Range{Name: "Hot fire", TimeRange: telem.NewRangeSeconds(1, 5)}
-	Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
 	return r
 }
 
@@ -215,7 +222,9 @@ var _ = Describe("Dispatch", func() {
 				TimeRange: telem.NewRangeSeconds(1, 5),
 				Parent:    &oldParent.Key,
 			}
-			Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Ranger.NewWriter(tx).Create(ctx, &child)
+			})).To(Succeed())
 			grant(
 				ctx,
 				access.ActionUpdate,
@@ -245,7 +254,9 @@ var _ = Describe("Dispatch", func() {
 			TimeRange: telem.NewRangeSeconds(1, 5),
 			Parent:    &oldParent.Key,
 		}
-		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &child)
+		})).To(Succeed())
 		grant(
 			ctx,
 			access.ActionUpdate,
@@ -428,7 +439,9 @@ var _ = Describe("Create", func() {
 		BeforeEach(func(ctx SpecContext) {
 			u = createUser(ctx)
 			l = label.Label{Name: "Labeled"}
-			Expect(svc.Label.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Label.NewWriter(tx).Create(ctx, &l)
+			})).To(Succeed())
 			r = ranger.Range{
 				Key:       uuid.New(),
 				Name:      "Labeled",
@@ -473,7 +486,9 @@ var _ = Describe("Delete", func() {
 			TimeRange: telem.NewRangeSeconds(1, 5),
 			Parent:    &parent.Key,
 		}
-		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &child)
+		})).To(Succeed())
 	})
 	deleteChild := func(ctx SpecContext) (struct{}, error) {
 		return del(AuthedCtx(ctx, u), apiranger.DeleteRequest{
@@ -522,8 +537,10 @@ var _ = Describe("Delete", func() {
 	It(
 		"Should need update on the range to delete its key-value pairs with it",
 		func(ctx SpecContext) {
-			Expect(svc.KV.NewWriter(nil).SetMany(ctx, []kv.Pair{
-				{Range: child.Key, Key: "k", Value: "v"},
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.KV.NewWriter(tx).SetMany(ctx, []kv.Pair{
+					{Range: child.Key, Key: "k", Value: "v"},
+				})
 			})).To(Succeed())
 			grant(ctx, access.ActionDelete, u.ResourceID(), childID())
 			grant(ctx, access.ActionUpdate, u.ResourceID(), parentID())
@@ -562,7 +579,9 @@ var _ = Describe("Delete cascades", func() {
 			TimeRange: telem.NewRangeSeconds(1, 5),
 			Parent:    &r.Key,
 		}
-		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &child)
+		})).To(Succeed())
 		return held{
 			id: child.ResourceID(),
 			exists: func(ctx SpecContext) bool {
@@ -578,9 +597,12 @@ var _ = Describe("Delete cascades", func() {
 			DataType: telem.Float64T,
 			Virtual:  true,
 		}
-		Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-		Expect(svc.Alias.NewWriter(nil).Set(ctx, r.Key, ch.Key(), "alias")).
-			To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "alias")
+		})).To(Succeed())
 		return held{
 			id: alias.ResourceID(r.Key, ch.Key()),
 			exists: func(ctx SpecContext) bool {
@@ -594,7 +616,9 @@ var _ = Describe("Delete cascades", func() {
 	createLinePlot := func(ctx SpecContext) held {
 		GinkgoHelper()
 		lp := lineplot.LinePlot{Name: "Plot", Range: &r.Key}
-		Expect(svc.LinePlot.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.LinePlot.NewWriter(tx).Create(ctx, &lp)
+		})).To(Succeed())
 		return held{
 			id: lineplot.ResourceID(lp.Key),
 			exists: func(ctx SpecContext) bool {
@@ -614,7 +638,9 @@ var _ = Describe("Delete cascades", func() {
 			Snapshot: true,
 			Range:    &r.Key,
 		}
-		Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Task.NewWriter(tx).Create(ctx, &t)
+		})).To(Succeed())
 		grant(
 			ctx,
 			access.ActionUpdate,
@@ -684,7 +710,9 @@ var _ = Describe("Retrieve", func() {
 			TimeRange: telem.NewRangeSeconds(1, 2),
 			Parent:    &parent.Key,
 		}
-		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &child)
+		})).To(Succeed())
 		createRange(ctx)
 		res := MustSucceed(apiSvc.Retrieve(authed(ctx), apiranger.RetrieveRequest{
 			Where: &ranger.Where{Parents: []ranger.Key{parent.Key}},
@@ -695,19 +723,23 @@ var _ = Describe("Retrieve", func() {
 
 	It("Should retrieve the ranges that hold any of the labels", func(ctx SpecContext) {
 		a, b := label.Label{Name: "A"}, label.Label{Name: "B"}
-		Expect(svc.Label.NewWriter(nil).Create(ctx, &a)).To(Succeed())
-		Expect(svc.Label.NewWriter(nil).Create(ctx, &b)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Label.NewWriter(tx).Create(ctx, &a)
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Label.NewWriter(tx).Create(ctx, &b)
+		})).To(Succeed())
 		withA, withB := createRange(ctx), createRange(ctx)
 		createRange(ctx)
-		Expect(
-			svc.Ranger.NewWriter(nil).
-				AddLabels(ctx, withA.Key, []label.Key{a.Key}),
-		).
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).
+				AddLabels(ctx, withA.Key, []label.Key{a.Key})
+		})).
 			To(Succeed())
-		Expect(
-			svc.Ranger.NewWriter(nil).
-				AddLabels(ctx, withB.Key, []label.Key{b.Key}),
-		).
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).
+				AddLabels(ctx, withB.Key, []label.Key{b.Key})
+		})).
 			To(Succeed())
 		res := MustSucceed(apiSvc.Retrieve(authed(ctx), apiranger.RetrieveRequest{
 			Where: &ranger.Where{Labels: []label.Key{a.Key, b.Key}},

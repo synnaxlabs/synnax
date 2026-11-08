@@ -94,7 +94,9 @@ var _ = Describe("Provision", func() {
 
 	It("Should leave a custom role named Driver alone", func(ctx SpecContext) {
 		custom := role.Role{Name: "Driver", Description: "custom"}
-		Expect(roleSvc.NewWriter(nil, false).Create(ctx, &custom)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return roleSvc.NewWriter(tx, false).Create(ctx, &custom)
+		})).To(Succeed())
 		result := provision(ctx)
 		Expect(result.DriverKey).ToNot(Equal(custom.Key))
 		Expect(retrieveRole(ctx, custom.Key).Description).To(Equal("custom"))

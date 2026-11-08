@@ -77,13 +77,13 @@ func rackID(key string) resource.ID {
 
 var _ = Describe("Member", func() {
 	var (
-		db *gorp.DB
-		w  group.Writer
+		db  *gorp.DB
+		svc *group.Service
 	)
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		svc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, rack]{
@@ -115,7 +115,6 @@ var _ = Describe("Member", func() {
 		Expect(gorp.NewCreate[string, project]().
 			Entry(&project{Key: "p1"}).
 			Exec(ctx, db)).To(Succeed())
-		w = svc.NewWriter(nil)
 	})
 
 	create := func(
@@ -125,7 +124,9 @@ var _ = Describe("Member", func() {
 	) group.Group {
 		GinkgoHelper()
 		g := group.Group{Name: uuid.New().String(), Scope: scope, Parent: parent}
-		Expect(w.Create(ctx, &g)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
 		return g
 	}
 
@@ -223,7 +224,9 @@ var _ = Describe("Member", func() {
 	Describe("Create", func() {
 		It("Should give a group under a rack the device scope", func(ctx SpecContext) {
 			g := group.Group{Name: "under rack", Parent: new(rackID("r1"))}
-			Expect(w.Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 			Expect(g.Scope).To(Equal(resource.TypeDevice))
 		})
 
@@ -234,7 +237,9 @@ var _ = Describe("Member", func() {
 					Name:   "under project",
 					Parent: &resource.ID{Type: resource.TypeProject, Key: "p1"},
 				}
-				Expect(w.Create(ctx, &g)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &g)
+				})).To(Succeed())
 				Expect(g.Scope).To(Equal(resource.TypeProject))
 			},
 		)
@@ -245,7 +250,9 @@ var _ = Describe("Member", func() {
 				g := create(ctx, resource.TypeDevice, nil)
 				place(ctx, "r3", g)
 				g.Parent = new(rackID("r1"))
-				Expect(w.Create(ctx, &g)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &g)
+				})).To(Succeed())
 				Expect(g.Parent).To(BeNil())
 			},
 		)
@@ -258,7 +265,9 @@ var _ = Describe("Member", func() {
 				g := create(ctx, resource.TypeDevice, nil)
 				nested := create(ctx, resource.TypeDevice, new(g.ResourceID()))
 				place(ctx, "r3", nested)
-				Expect(w.SetParent(ctx, new(rackID("r1")), g.Key)).To(MatchError(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).SetParent(ctx, new(rackID("r1")), g.Key)
+				})).To(MatchError(
 					"parent: cannot move group " + g.Name + " under a new top " +
 						"parent because it holds rack r3: validation error",
 				))
@@ -271,7 +280,10 @@ var _ = Describe("Member", func() {
 				g := create(ctx, resource.TypeDevice, nil)
 				dest := create(ctx, resource.TypeDevice, nil)
 				place(ctx, "r3", g)
-				Expect(w.SetParent(ctx, new(dest.ResourceID()), g.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).
+						SetParent(ctx, new(dest.ResourceID()), g.Key)
+				})).To(Succeed())
 			},
 		)
 
@@ -279,7 +291,9 @@ var _ = Describe("Member", func() {
 			"Should move a group that holds no rack under a new top parent",
 			func(ctx SpecContext) {
 				g := create(ctx, resource.TypeDevice, nil)
-				Expect(w.SetParent(ctx, new(rackID("r1")), g.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).SetParent(ctx, new(rackID("r1")), g.Key)
+				})).To(Succeed())
 			},
 		)
 	})

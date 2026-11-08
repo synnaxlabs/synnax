@@ -140,8 +140,7 @@ func (s *Service) Changes(
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:    s,
-		tx:     gorp.OverrideTx(s.cfg.DB, tx),
+		tx:     tx,
 		table:  s.table,
 		onMove: s.cfg.MoveMembers,
 	}
@@ -220,20 +219,9 @@ func (s *Service) Close() error {
 }
 
 type Writer struct {
-	svc    *Service
 	tx     gorp.Tx
 	table  *gorp.Table[Key, Group]
 	onMove MoveMembers
-}
-
-// inTx calls f with w, or with a Writer on a transaction of its own when w has no
-// transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	db, ok := w.tx.(*gorp.DB)
-	if !ok {
-		return f(w)
-	}
-	return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
 }
 
 // Create creates g, assigning a new key when g.Key is zero. A group with a parent takes
@@ -241,10 +229,6 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 // An existing group with g.Key keeps its stored parent and scope; only SetParent moves
 // a group.
 func (w Writer) Create(ctx context.Context, g *Group) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, g) })
-}
-
-func (w Writer) create(ctx context.Context, g *Group) error {
 	if g.Key == uuid.Nil() {
 		g.Key = uuid.New()
 	}
@@ -284,12 +268,6 @@ func (w Writer) create(ctx context.Context, g *Group) error {
 // device, or project cannot move under a new top parent. A move under a new top parent
 // runs the MoveMembers hook.
 func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		return w.setParent(ctx, parent, keys...)
-	})
-}
-
-func (w Writer) setParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
 	var scope resource.Type
 	if parent != nil {
 		var err error

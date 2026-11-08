@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -29,13 +30,14 @@ import (
 
 var _ = Describe("Dependencies", Ordered, func() {
 	var (
-		channelSvc    *channel.Service
-		channelWriter channel.Writer
+		db         *gorp.DB
+		channelSvc *channel.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
+		db = node.DB
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: node.DB,
 		}))
@@ -48,7 +50,6 @@ var _ = Describe("Dependencies", Ordered, func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		channelWriter = channelSvc.NewWriter(nil)
 	})
 
 	Describe("NewDependencies", func() {
@@ -58,7 +59,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 
 			prog := arc.Program{
 				Nodes: []ir.Node{
@@ -86,7 +89,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float64T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 
 			prog := arc.Program{
 				Nodes: []ir.Node{
@@ -113,7 +118,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Int32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 
 			prog := arc.Program{
 				Nodes: []ir.Node{
@@ -139,7 +146,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 				IsIndex:  true,
 				Virtual:  false,
 			}
-			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, indexCh)
+			})).To(Succeed())
 
 			dataCh := &channel.Channel{
 				Name:       "data_with_index",
@@ -147,7 +156,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, dataCh)
+			})).To(Succeed())
 
 			prog := arc.Program{
 				Nodes: []ir.Node{
@@ -176,7 +187,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 				IsIndex:  true,
 				Virtual:  false,
 			}
-			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, indexCh)
+			})).To(Succeed())
 
 			dataCh := &channel.Channel{
 				Name:       "write_data_with_index",
@@ -184,7 +197,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, dataCh)
+			})).To(Succeed())
 
 			prog := arc.Program{
 				Nodes: []ir.Node{
@@ -213,14 +228,18 @@ var _ = Describe("Dependencies", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, readCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, readCh)
+				})).To(Succeed())
 
 				writeCh := &channel.Channel{
 					Name:     "output_actuator",
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, writeCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, writeCh)
+				})).To(Succeed())
 
 				prog := arc.Program{
 					Nodes: []ir.Node{
@@ -254,7 +273,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, sharedCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, sharedCh)
+				})).To(Succeed())
 
 				prog := arc.Program{
 					Nodes: []ir.Node{
@@ -341,7 +362,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 					DataType:   telem.Float32T,
 					LocalIndex: 0,
 				}
-				Expect(channelWriter.Create(ctx, virtualCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, virtualCh)
+				})).To(Succeed())
 
 				prog := arc.Program{
 					Nodes: []ir.Node{
@@ -371,7 +394,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, virtCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, virtCh)
+				})).To(Succeed())
 
 				prog := arc.Text{
 					Raw: fmt.Sprintf(`
@@ -407,14 +432,18 @@ var _ = Describe("Dependencies", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Uint8T,
 				}
-				Expect(channelWriter.Create(ctx, triggerCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, triggerCh)
+				})).To(Succeed())
 
 				valveCh := &channel.Channel{
 					Name:     "dyn_auth_valve",
 					Virtual:  true,
 					DataType: telem.Uint8T,
 				}
-				Expect(channelWriter.Create(ctx, valveCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, valveCh)
+				})).To(Succeed())
 
 				prog := arc.Text{
 					Raw: fmt.Sprintf(`
@@ -446,7 +475,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float64T,
 				}
-				Expect(channelWriter.Create(ctx, authOnlyCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, authOnlyCh)
+				})).To(Succeed())
 
 				prog := arc.Program{
 					Authorities: ir.Authorities{
@@ -473,7 +504,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 					IsIndex:  true,
 					Virtual:  false,
 				}
-				Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, indexCh)
+				})).To(Succeed())
 
 				readCh1 := &channel.Channel{
 					Name:       "complex_read_1",
@@ -481,14 +514,18 @@ var _ = Describe("Dependencies", Ordered, func() {
 					DataType:   telem.Float32T,
 					LocalIndex: indexCh.LocalKey,
 				}
-				Expect(channelWriter.Create(ctx, readCh1)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, readCh1)
+				})).To(Succeed())
 
 				readCh2 := &channel.Channel{
 					Name:     "complex_read_2",
 					Virtual:  true,
 					DataType: telem.Float64T,
 				}
-				Expect(channelWriter.Create(ctx, readCh2)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, readCh2)
+				})).To(Succeed())
 
 				writeCh := &channel.Channel{
 					Name:       "complex_write",
@@ -496,7 +533,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 					DataType:   telem.Int32T,
 					LocalIndex: indexCh.LocalKey,
 				}
-				Expect(channelWriter.Create(ctx, writeCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, writeCh)
+				})).To(Succeed())
 
 				prog := arc.Program{
 					Nodes: []ir.Node{

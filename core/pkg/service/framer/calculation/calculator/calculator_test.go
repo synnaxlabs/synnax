@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -33,13 +34,14 @@ func saveReport(context.Context, channel.Key, calculator.Status) bool { return t
 
 var _ = Describe("Calculator", Ordered, func() {
 	var (
-		channelSvc    *channel.Service
-		channelWriter channel.Writer
+		db         *gorp.DB
+		channelSvc *channel.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
+		db = node.DB
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: node.DB,
 		}))
@@ -52,7 +54,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		channelWriter = channelSvc.NewWriter(nil)
 	})
 
 	open := func(
@@ -63,7 +64,9 @@ var _ = Describe("Calculator", Ordered, func() {
 	) *calculator.Calculator {
 		GinkgoHelper()
 		if indexes != nil {
-			Expect(channelWriter.CreateMany(ctx, indexes)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, indexes)
+			})).To(Succeed())
 		}
 		if bases != nil {
 			for i, channel := range *bases {
@@ -77,9 +80,13 @@ var _ = Describe("Calculator", Ordered, func() {
 				channel.LocalIndex = (*indexes)[toGet].LocalKey
 				(*bases)[i] = channel
 			}
-			Expect(channelWriter.CreateMany(ctx, bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
+			})).To(Succeed())
 		}
-		Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, calc)
+		})).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        *calc,
@@ -961,13 +968,17 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType: telem.Uint8T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &reset)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &reset)
+				})).To(Succeed())
 				base := []channel.Channel{{
 					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}}
-				Expect(channelWriter.CreateMany(ctx, &base)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &base)
+				})).To(Succeed())
 				calc := channel.Channel{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
@@ -977,7 +988,9 @@ var _ = Describe("Calculator", Ordered, func() {
 						{Type: "max", ResetChannel: reset.Key()},
 					},
 				}
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
 				Expect(compiler.Compile(ctx, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,
@@ -1403,13 +1416,17 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc *channel.Channel,
 		) *calculator.Calculator {
 			GinkgoHelper()
-			Expect(channelWriter.CreateMany(ctx, bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
+			})).To(Succeed())
 			res := MustSucceed(
 				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(nil)).
 					Analyze(ctx, *calc),
 			)
 			calc.DataType = res.ChanDataType
-			Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, calc)
+			})).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 				ChannelService: channelSvc,
 				Channel:        *calc,
@@ -1512,8 +1529,12 @@ var _ = Describe("Calculator", Ordered, func() {
 					Virtual:    true,
 					Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
 				}
-				Expect(channelWriter.CreateMany(ctx, &base)).To(Succeed())
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &base)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
 				mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,

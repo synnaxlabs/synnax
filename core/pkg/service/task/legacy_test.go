@@ -43,6 +43,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -362,6 +363,7 @@ func rekeyed(raw []byte, keys map[float64]float64) []byte {
 // returns the key of the channel created for each channel key in the fixtures.
 func createFixtureTargets(
 	ctx context.Context,
+	db *gorp.DB,
 	channels *channel.Service,
 	targets *tasktestutil.Targets,
 ) map[float64]float64 {
@@ -407,7 +409,7 @@ func createFixtureTargets(
 	}
 	fixtureKeys := slices.Sorted(maps.Keys(fixtureChannels))
 	created := MustSucceed(
-		channeltestutil.CreateVirtual(ctx, channels, len(fixtureKeys)),
+		channeltestutil.CreateVirtual(ctx, db, channels, len(fixtureKeys)),
 	)
 	keys := make(map[float64]float64, len(fixtureKeys))
 	for i, key := range fixtureKeys {
@@ -424,6 +426,7 @@ func createFixtureTargets(
 
 var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	var (
+		db      *gorp.DB
 		svc     *task.Service
 		imexSvc *imex.Service
 		configs config.Registry
@@ -434,7 +437,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
-		db := node.DB
+		db = node.DB
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
@@ -450,7 +453,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			DriverRole: MustSucceed(
-				racktestutil.CreateDriverRole(ctx, roleSvc),
+				racktestutil.CreateDriverRole(ctx, db, roleSvc),
 			),
 		}))
 		deviceSvc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
@@ -480,8 +483,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		}))
 		toCreated = createFixtureTargets(
 			ctx,
+			db,
 			channelSvc,
 			tasktestutil.NewTargets(tasktestutil.TargetsConfig{
+				DB:     db,
 				Device: deviceSvc,
 				Status: statusSvc,
 				Rack:   rackSvc.EmbeddedKey,
@@ -600,9 +605,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		GinkgoHelper()
 		var env imex.Envelope
 		Expect(json.Unmarshal(raw, &env)).To(Succeed())
-		id := MustSucceed(imexSvc.Import(ctx, nil, env, imex.ImportOptions{
-			FileName: name + ".json",
-		}))
+		var id resource.ID
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			id, err = imexSvc.Import(ctx, tx, env, imex.ImportOptions{
+				FileName: name + ".json",
+			})
+			return err
+		})).To(Succeed())
 		var imported task.Task
 		Expect(svc.NewRetrieve().
 			Where(task.MatchKeys(uuid.MustParse(id.Key))).

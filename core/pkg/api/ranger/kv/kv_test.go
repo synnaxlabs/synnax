@@ -12,6 +12,7 @@ package kv_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -25,7 +26,9 @@ import (
 func createRange(ctx SpecContext) ranger.Range {
 	GinkgoHelper()
 	r := ranger.Range{Name: "Hot fire", TimeRange: telem.NewRangeSeconds(1, 5)}
-	Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
 	return r
 }
 
@@ -77,8 +80,10 @@ var _ = Describe("Delete", func() {
 	BeforeEach(func(ctx SpecContext) {
 		u = createUser(ctx)
 		r = createRange(ctx)
-		Expect(svc.KV.NewWriter(nil).SetMany(ctx, []kv.Pair{
-			{Range: r.Key, Key: "k", Value: "v"},
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.KV.NewWriter(tx).SetMany(ctx, []kv.Pair{
+				{Range: r.Key, Key: "k", Value: "v"},
+			})
 		})).To(Succeed())
 	})
 	deleteAs := func(ctx SpecContext, keys ...string) (struct{}, error) {

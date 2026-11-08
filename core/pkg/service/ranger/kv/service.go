@@ -98,7 +98,7 @@ func rangeOf(key string) resource.ID {
 
 // NewWriter opens a new Writer to create and delete key-value pairs.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx), table: s.table}
+	return Writer{tx: tx, table: s.table}
 }
 
 // NewReader opens a new Reader to retrieve key-value pairs.

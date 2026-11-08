@@ -29,7 +29,6 @@ import (
 )
 
 type Writer struct {
-	svc        *Service
 	tx         gorp.Tx
 	status     status.Writer
 	statuses   *status.Service
@@ -45,20 +44,6 @@ type Writer struct {
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
-}
-
-// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
-// dispatch key of w when w has no transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	db, ok := w.tx.(*gorp.DB)
-	if !ok {
-		return f(w)
-	}
-	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		bound := w.svc.NewWriter(tx)
-		bound.dispatcher = w.dispatcher
-		return f(bound)
-	})
 }
 
 // resolveStatus returns the status to persist for t. Without a provided status, a task
@@ -124,10 +109,6 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 // unknown" if the row is missing). After the transaction commits, Create broadcasts a
 // create action that carries the stored task.
 func (w Writer) Create(ctx context.Context, t *Task) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, t) })
-}
-
-func (w Writer) create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
 	}
@@ -248,16 +229,11 @@ func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 // set of the name targets a snapshot, or the result fails to decode or validate, and an
 // error wrapping query.ErrNotFound when no task has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
-	var added []Action
-	if err := w.inTx(ctx, func(w Writer) (err error) {
-		if added, err = w.apply(ctx, key, acts); err != nil {
-			return err
-		}
-		w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
-		return nil
-	}); err != nil {
+	added, err := w.apply(ctx, key, acts)
+	if err != nil {
 		return nil, err
 	}
+	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
 	return added, nil
 }
 
@@ -403,23 +379,6 @@ func (w Writer) DeleteRacks(ctx context.Context, keys ...rack.Key) error {
 // returns query.ErrNotFound if no task with the key exists, and a validation error when
 // rng is set for a copy that is not a snapshot.
 func (w Writer) Copy(
-	ctx context.Context,
-	key Key,
-	name string,
-	snapshot bool,
-	rng *ranger.Key,
-) (Task, error) {
-	var res Task
-	if err := w.inTx(ctx, func(w Writer) (err error) {
-		res, err = w.copy(ctx, key, name, snapshot, rng)
-		return err
-	}); err != nil {
-		return Task{}, err
-	}
-	return res, nil
-}
-
-func (w Writer) copy(
 	ctx context.Context,
 	key Key,
 	name string,

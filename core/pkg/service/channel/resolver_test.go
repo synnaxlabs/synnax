@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -30,7 +31,9 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			Virtual:  true,
 			DataType: telem.Float32T,
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, ch)
+		})).To(Succeed())
 
 		sym := MustSucceed(
 			svc.NewArcSymbolResolver(nil).Resolve(ctx, "resolver_test_ch"),
@@ -49,7 +52,9 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			Internal: true,
 			DataType: telem.Float32T,
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, ch)
+		})).To(Succeed())
 
 		sym := MustSucceed(
 			svc.NewArcSymbolResolver(nil).Resolve(ctx, "resolver_internal_ch"),
@@ -63,7 +68,9 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			Virtual:  true,
 			DataType: telem.Int64T,
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, ch)
+		})).To(Succeed())
 
 		sym := MustSucceed(
 			svc.NewArcSymbolResolver(nil).Resolve(ctx, strconv.Itoa(int(ch.Key()))),
@@ -87,9 +94,13 @@ var _ = Describe("NewConsistentResolver", func() {
 			Virtual:  true,
 			DataType: telem.Float32T,
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, ch)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, ch.Key(), false)
+			})).To(Succeed())
 		})
 	})
 
@@ -99,9 +110,11 @@ var _ = Describe("NewConsistentResolver", func() {
 			r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(nil))
 			Expect(r.Resolve(ctx, "consistent_resolver_ch")).
 				To(HaveField("ID", int(ch.Key())))
-			Expect(svc.NewWriter(nil).Rename(
-				ctx, ch.Key(), "consistent_resolver_ch_renamed", false,
-			)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Rename(
+					ctx, ch.Key(), "consistent_resolver_ch_renamed", false,
+				)
+			})).To(Succeed())
 			Expect(r.Resolve(ctx, "consistent_resolver_ch")).
 				To(HaveField("ID", int(ch.Key())))
 		},
@@ -118,9 +131,13 @@ var _ = Describe("NewConsistentResolver", func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, later)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, later)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, later.Key(), false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, later.Key(), false)
+				})).To(Succeed())
 			})
 			Expect(r.Resolve(ctx, "consistent_resolver_later")).Error().
 				To(MatchError(query.ErrNotFound))

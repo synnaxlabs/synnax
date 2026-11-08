@@ -300,7 +300,9 @@ var _ = Describe("Writer", func() {
 		create := func(ctx context.Context, root panel.Node) panel.Key {
 			GinkgoHelper()
 			p := panel.Panel{Name: "test", Root: root, Project: &proj.Key}
-			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &p)
+			})).To(Succeed())
 			return p.Key
 		}
 
@@ -447,24 +449,6 @@ var _ = Describe("Writer", func() {
 				Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
 				Expect(seen[0].Actions).To(HaveLen(1))
 				Expect(seen[0].Actions[0].Type).To(Equal(panel.ActionTypeRename))
-			},
-		)
-
-		It(
-			"Should apply and broadcast through a writer with no transaction",
-			func(ctx SpecContext) {
-				key := create(ctx, leafNode())
-				rec := &Recorder[panel.Key, panel.Action]{}
-				DeferCleanup(svc.OnAction(rec.Record))
-				Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
-					ctx,
-					key,
-					panel.NewRenameAction(panel.RenamePayload{Name: "after"}),
-				)).To(Succeed())
-				Expect(retrieve(ctx, db, key).Name).To(Equal("after"))
-				seen := rec.Snapshot()
-				Expect(seen).To(HaveLen(1))
-				Expect(seen[0].DispatchKey).To(Equal("dk"))
 			},
 		)
 

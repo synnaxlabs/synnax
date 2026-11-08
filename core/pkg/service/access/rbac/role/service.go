@@ -91,7 +91,7 @@ func OpenService(
 
 func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 	return Writer{
-		tx:            gorp.OverrideTx(s.cfg.DB, tx),
+		tx:            tx,
 		allowInternal: allowInternal,
 		table:         s.table,
 	}

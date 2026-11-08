@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apilabel "github.com/synnaxlabs/synnax/pkg/api/label"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -32,7 +33,9 @@ import (
 func createLabel(ctx SpecContext) label.Label {
 	GinkgoHelper()
 	l := label.Label{Name: "Nominal"}
-	Expect(svc.Label.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Label.NewWriter(tx).Create(ctx, &l)
+	})).To(Succeed())
 	return l
 }
 
@@ -60,9 +63,13 @@ func createRange(ctx SpecContext, labels ...label.Key) ranger.Range {
 		TimeRange: telem.NewRangeSeconds(1, 2),
 		Labels:    labels,
 	}
-	Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(svc.Ranger.NewWriter(nil).Delete(ctx, r.Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Delete(ctx, r.Key)
+		})).To(Succeed())
 	})
 	return r
 }
@@ -85,9 +92,13 @@ func createStatus(ctx SpecContext, labels ...label.Key) status.Status[any] {
 		Time:    telem.Now(),
 		Labels:  labels,
 	}
-	Expect(svc.Status.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Status.NewWriter(tx).Set(ctx, &s)
+	})).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(svc.Status.NewWriter(nil).Delete(ctx, s.Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Status.NewWriter(tx).Delete(ctx, s.Key)
+		})).To(Succeed())
 	})
 	return s
 }

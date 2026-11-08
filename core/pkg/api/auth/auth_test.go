@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
@@ -57,14 +58,16 @@ func authed(ctx context.Context, token string) freighter.Context {
 func createUser(ctx context.Context, username, pwd string) user.User {
 	GinkgoHelper()
 	u := MustSucceed(
-		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: username}),
+		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: username}),
 	)
-	Expect(passwordSvc.NewWriter(nil).Set(
-		ctx,
-		u.ResourceID(),
-		username,
-		MustSucceed(passwordSvc.Hash(pwd)),
-	)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return passwordSvc.NewWriter(tx).Set(
+			ctx,
+			u.ResourceID(),
+			username,
+			MustSucceed(passwordSvc.Hash(pwd)),
+		)
+	})).To(Succeed())
 	return u
 }
 
@@ -299,7 +302,7 @@ var _ = Describe("SetPassword", func() {
 		})).Error().To(MatchError(validate.ErrValidation))
 	})
 	It("Should report a user with no password as not found", func(ctx SpecContext) {
-		u := MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+		u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 			Name: "nopass-" + uuid.New().String(),
 		}))
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{

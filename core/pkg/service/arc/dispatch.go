@@ -31,52 +31,50 @@ import (
 // When the transaction of w commits, the Arc's task config gets a debounced rewrite, so
 // a burst of edits produces one rewrite instead of one per edit.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	return w.inTx(ctx, func(w Writer) error {
-		var sweep []Action
-		if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
-			ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
-				sweep = nil
-				var dead []crdt.ID
-				src, isText := a.Base().Source.Variant.(TextSource)
-				if isText && w.sweeper.quiet(key) {
-					dead = w.sweeper.forgettable(src.Text.Doc)
+	var sweep []Action
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
+		ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
+			sweep = nil
+			var dead []crdt.ID
+			src, isText := a.Base().Source.Variant.(TextSource)
+			if isText && w.sweeper.quiet(key) {
+				dead = w.sweeper.forgettable(src.Text.Doc)
+			}
+			name := a.Base().Name
+			a, err := Reduce(a, acts...)
+			if err != nil {
+				return a, err
+			}
+			if renamed := a.Base().Name; renamed != name {
+				if err = w.validateName(
+					ctx, ResourceID(key), renamed, a.Type() == TypeModule,
+				); err != nil {
+					return Arc{}, err
 				}
-				name := a.Base().Name
-				a, err := Reduce(a, acts...)
-				if err != nil {
+			}
+			if len(dead) > 0 {
+				sweep = []Action{
+					NewForgetCharsAction(ForgetCharsPayload{IDs: dead}),
+				}
+				if a, err = Reduce(a, sweep...); err != nil {
 					return a, err
 				}
-				if renamed := a.Base().Name; renamed != name {
-					if err = w.validateName(
-						ctx, ResourceID(key), renamed, a.Type() == TypeModule,
-					); err != nil {
-						return Arc{}, err
-					}
-				}
-				if len(dead) > 0 {
-					sweep = []Action{
-						NewForgetCharsAction(ForgetCharsPayload{IDs: dead}),
-					}
-					if a, err = Reduce(a, sweep...); err != nil {
-						return a, err
-					}
-				}
-				// A rolled back edit stays recorded. That only delays a sweep, and the
-				// next dispatch must not sweep before the edit that this one commits.
-				if containsTextEdit(acts) {
-					w.sweeper.recordEdit(key)
-				}
-				return a, nil
-			}).Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		w.dispatcher.Attach(w.tx, key, acts...)
-		if len(sweep) > 0 {
-			w.dispatcher.WithDispatchKey("").Attach(w.tx, key, sweep...)
-		}
-		w.resyncs.Add(w.tx, key)
-		return nil
-	})
+			}
+			// A rolled back edit stays recorded. That only delays a sweep, and the
+			// next dispatch must not sweep before the edit that this one commits.
+			if containsTextEdit(acts) {
+				w.sweeper.recordEdit(key)
+			}
+			return a, nil
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	if len(sweep) > 0 {
+		w.dispatcher.WithDispatchKey("").Attach(w.tx, key, sweep...)
+	}
+	w.resyncs.Add(w.tx, key)
+	return nil
 }
 
 // followCommit schedules a task resync for each Arc that c dispatched to, then drops

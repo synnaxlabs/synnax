@@ -106,7 +106,9 @@ var _ = Describe("Change channels", func() {
 				End:   telem.SecondTS * 2,
 			},
 		}
-		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		return r
 	}
 	newChannel := func(ctx SpecContext) channel.Channel {
@@ -116,7 +118,9 @@ var _ = Describe("Change channels", func() {
 			DataType: telem.Float32T,
 			Virtual:  true,
 		}
-		Expect(channelWriter.Create(ctx, &c)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Create(ctx, &c)
+		})).To(Succeed())
 		return c
 	}
 	// setAliases aliases c on each range in one commit.
@@ -185,11 +189,13 @@ var _ = Describe("Change channels", func() {
 				createLabels(ctx, readable, denied)
 				return label.ResourceID(readable.Key), func(ctx SpecContext) {
 					GinkgoHelper()
-					Expect(svc.Label.NewWriter(nil).Delete(
-						ctx,
-						readable.Key,
-						denied.Key,
-					)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.Label.NewWriter(tx).Delete(
+							ctx,
+							readable.Key,
+							denied.Key,
+						)
+					})).To(Succeed())
 				}
 			},
 		),
@@ -201,10 +207,12 @@ var _ = Describe("Change channels", func() {
 				readable, denied := newRange(ctx), newRange(ctx)
 				return ranger.ResourceID(readable.Key), func(ctx SpecContext) {
 					GinkgoHelper()
-					Expect(svc.KV.NewWriter(nil).SetMany(
-						ctx,
-						pairs(readable, denied),
-					)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.KV.NewWriter(tx).SetMany(
+							ctx,
+							pairs(readable, denied),
+						)
+					})).To(Succeed())
 				}
 			},
 		),
@@ -214,10 +222,12 @@ var _ = Describe("Change channels", func() {
 			func(ctx SpecContext) (resource.ID, change) {
 				GinkgoHelper()
 				readable, denied := newRange(ctx), newRange(ctx)
-				Expect(svc.KV.NewWriter(nil).SetMany(
-					ctx,
-					pairs(readable, denied),
-				)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.KV.NewWriter(tx).SetMany(
+						ctx,
+						pairs(readable, denied),
+					)
+				})).To(Succeed())
 				return ranger.ResourceID(readable.Key), func(ctx SpecContext) {
 					GinkgoHelper()
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -273,6 +283,7 @@ var _ = Describe("Change channels", func() {
 		u := stream(ctx, "sy_label_set")
 		p := MustSucceed(rbactestutil.Grant(
 			ctx,
+			db,
 			rbacSvc,
 			userSvc,
 			u.Key,
@@ -282,10 +293,13 @@ var _ = Describe("Change channels", func() {
 		first := newLabel()
 		createLabels(ctx, first)
 		Expect(received()).To(Equal([]resource.ID{label.ResourceID(first.Key)}))
-		Expect(rbacSvc.Policy.NewWriter(nil, false).Delete(ctx, p.Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Policy.NewWriter(tx, false).Delete(ctx, p.Key)
+		})).To(Succeed())
 		removed, granted := newLabel(), newLabel()
 		MustSucceed(rbactestutil.Grant(
 			ctx,
+			db,
 			rbacSvc,
 			userSvc,
 			u.Key,

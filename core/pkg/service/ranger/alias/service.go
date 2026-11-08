@@ -113,7 +113,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 // NewWriter opens a new Writer to create and delete aliases.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:      gorp.OverrideTx(s.cfg.DB, tx),
+		tx:      tx,
 		channel: s.cfg.Channel,
 		table:   s.table,
 	}

@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -31,7 +32,9 @@ import (
 func createRange(ctx SpecContext) ranger.Range {
 	GinkgoHelper()
 	r := ranger.Range{Name: "Hot fire", TimeRange: telem.NewRangeSeconds(1, 5)}
-	Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
 	return r
 }
 
@@ -42,7 +45,9 @@ func createChannel(ctx SpecContext) channel.Channel {
 		DataType: telem.Float64T,
 		Virtual:  true,
 	}
-	Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+	})).To(Succeed())
 	return ch
 }
 
@@ -112,7 +117,9 @@ var _ = Describe("Set", func() {
 		},
 	)
 	It("Should refuse to change an alias without update on it", func(ctx SpecContext) {
-		Expect(svc.Alias.NewWriter(nil).Set(ctx, r.Key, ch.Key(), "stored")).
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "stored")
+		})).
 			To(Succeed())
 		grant(ctx, u, access.ActionCreate, aliasID())
 		Expect(setAs(ctx, "changed")).Error().
@@ -131,7 +138,9 @@ var _ = Describe("Delete", func() {
 		u = createUser(ctx)
 		r = createRange(ctx)
 		ch = createChannel(ctx)
-		Expect(svc.Alias.NewWriter(nil).Set(ctx, r.Key, ch.Key(), "alias")).
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "alias")
+		})).
 			To(Succeed())
 	})
 	deleteAs := func(ctx SpecContext) (struct{}, error) {

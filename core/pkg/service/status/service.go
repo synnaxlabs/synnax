@@ -220,18 +220,14 @@ func (s *Service) SetMissing[D any](
 
 // NewMigrationWriter returns a writer that skips reference checks, for the migrations
 // of the tables that status owners live in. Those migrations run before their tables
-// open, so no other caller may use it. Pass a nil tx to write directly against the
-// service's DB.
+// open, so no other caller may use it.
 func (s *Service) NewMigrationWriter(tx gorp.Tx) *gorp.Writer[Key, Status[any]] {
-	return s.table.NewUncheckedWriter(gorp.OverrideTx(s.cfg.DB, tx))
+	return s.table.NewUncheckedWriter(tx)
 }
 
-// NewWriter opens a Writer for statuses. Pass a nil tx to run each call in a
-// transaction of its own on the service's DB.
+// NewWriter opens a Writer for statuses that runs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		svc:     s,
 		tx:      tx,
 		table:   s.table,
 		indexes: s.indexes,

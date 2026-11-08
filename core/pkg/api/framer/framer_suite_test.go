@@ -48,15 +48,14 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 const rootUsername = "api-framer-suite-root"
 
 var (
-	apiSvc        *apiframer.Service
-	framerSvc     *svcframer.Service
-	channelWriter channel.Writer
-	channelSvc    *channel.Service
-	rbacSvc       *rbac.Service
-	userSvc       *user.Service
-	svc           *service.Layer
-	db            *gorp.DB
-	root          user.User
+	apiSvc     *apiframer.Service
+	framerSvc  *svcframer.Service
+	channelSvc *channel.Service
+	rbacSvc    *rbac.Service
+	userSvc    *user.Service
+	svc        *service.Layer
+	db         *gorp.DB
+	root       user.User
 	// faultyFS holds the Core's time-series data and fails the operations a spec sets.
 	faultyFS *FaultyFS
 )
@@ -83,7 +82,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}))
 	framerSvc = svc.Framer
-	channelWriter = svc.Channel.NewWriter(nil)
 	channelSvc = svc.Channel
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
@@ -120,10 +118,12 @@ func createUserGranted(
 	objects ...resource.ID,
 ) user.User {
 	GinkgoHelper()
-	u := MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+	u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "api-framer-" + uuid.New().String(),
 	}))
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, u.Key, actions, objects...))
+	MustSucceed(
+		rbactestutil.Grant(ctx, db, rbacSvc, userSvc, u.Key, actions, objects...),
+	)
 	return u
 }

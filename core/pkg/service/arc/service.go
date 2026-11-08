@@ -198,8 +198,10 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 			if sym.Kind != symbol.KindChannel {
 				return nil
 			}
-			return s.cfg.Channel.NewWriter(nil).
-				Rename(ctx, channel.Key(sym.ID), newName, false)
+			return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return s.cfg.Channel.NewWriter(tx).
+					Rename(ctx, channel.Key(sym.ID), newName, false)
+			})
 		},
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.Observe(),
@@ -347,12 +349,10 @@ func (s *Service) OnAction(
 	return s.state.OnChange(handler)
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting Arcs in Synnax. If
-// tx is provided, the writer will use that transaction. If tx is nil, the Writer will
-// execute the operations directly against the underlying gorp.DB.
+// NewWriter opens a new writer for creating, updating, and deleting Arcs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:          gorp.OverrideTx(s.cfg.DB, tx),
+		tx:          tx,
 		root:        s.root,
 		directories: s.directories,
 		reserved:    s.reserved,

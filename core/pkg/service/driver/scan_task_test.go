@@ -153,7 +153,9 @@ var _ = Describe("ScanTask", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		r := rack.Rack{Name: "scan-task-rack"}
-		Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rackService.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		rackKey = r.Key
 		deviceMake = "make-" + uuid.New().String()
 		t = task.Task{
@@ -336,7 +338,9 @@ var _ = Describe("ScanTask", func() {
 				stale := deviceStatus(ctx, dev)
 				stale.Variant = status.VariantWarning
 				stale.Message = "Broker state unknown"
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &stale)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &stale)
+				})).To(Succeed())
 				Eventually(func(g Gomega) {
 					stat := deviceStatus(ctx, dev)
 					g.Expect(stat.Variant).To(Equal(status.VariantSuccess))

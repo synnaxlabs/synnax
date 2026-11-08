@@ -61,11 +61,15 @@ var _ = Describe("User role migration", func() {
 	createRole := func(ctx SpecContext, key role.Key, grants ...policy.Policy) role.Key {
 		GinkgoHelper()
 		r := role.Role{Key: key, Name: "role"}
-		Expect(roles.NewWriter(nil, false).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return roles.NewWriter(tx, false).Create(ctx, &r)
+		})).To(Succeed())
 		for _, p := range grants {
 			p.Role = r.Key
 			p.Name = "policy"
-			Expect(policies.NewWriter(nil, false).Create(ctx, &p)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return policies.NewWriter(tx, false).Create(ctx, &p)
+			})).To(Succeed())
 		}
 		return r.Key
 	}
@@ -220,10 +224,14 @@ var _ = Describe("User role migration", func() {
 	)
 
 	It("Should keep the role of a user that already holds one", func(ctx SpecContext) {
-		u := MustSucceed(users.NewWriter(nil).Create(ctx, user.User{
-			Name: "u",
-			Role: builtins.OperatorKey,
-		}))
+		var u user.User
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			u, err = users.NewWriter(tx).Create(ctx, user.User{
+				Name: "u",
+				Role: builtins.OperatorKey,
+			})
+			return err
+		})).To(Succeed())
 		storeEdges(ctx, u, builtins.OwnerKey)
 		migrate(ctx)
 		Expect(roleOf(ctx, u)).To(Equal(builtins.OperatorKey))

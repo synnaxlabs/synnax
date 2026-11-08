@@ -241,9 +241,7 @@ func (s *Service) RetrieveOrCreateEmbedded(
 func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		svc:        s,
 		tx:         tx,
 		newKey:     s.newKey,
 		status:     s.Status.NewWriter(tx),
