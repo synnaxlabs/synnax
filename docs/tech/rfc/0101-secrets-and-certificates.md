@@ -251,11 +251,11 @@ certificate with no details, such as a typed path, gets no status. Each health c
 gives a device that uses the certificate the same status, so RFC 0092 toasts it only
 when the device is in use.
 
-The CA and node certificates in the Core's certs folder (RFC 0045) get the same
-statuses, so a site learns before its Core stops taking connections. `synnax cert ca`
-makes a CA that is valid for one year (`core/pkg/security/cert/x509.go:29`). These
-certificates stay out of the store, because the Core needs them before it opens its
-database.
+The Core's CA (RFC 0045) and the certificate that each listener presents, from any
+source, get the same statuses, so a site learns before its Core stops taking
+connections. `synnax cert ca` makes a CA that is valid for one year
+(`core/pkg/security/cert/x509.go:29`). These certificates stay out of the store, because
+the Core needs them before it opens its database.
 
 ### 3.9 Migration and clients
 
