@@ -196,9 +196,11 @@ func CreatePanels(
 	if err := imex.Codec.Decode(ctx, layoutData, &t); err != nil {
 		return nil
 	}
-	var slice layoutSlice
 	// The slice only names panels, so a failed decode falls back to window keys.
-	_ = imex.Codec.Decode(ctx, layoutData, &slice)
+	var slice layoutSlice
+	if err := imex.Codec.Decode(ctx, layoutData, &slice); err != nil {
+		slice = layoutSlice{}
+	}
 	writer := svc.NewWriter(tx)
 	for _, windowKey := range sortedWindowKeys(t.Mosaics) {
 		root := convertNode(t.Mosaics[windowKey].Root, refs)
@@ -281,25 +283,6 @@ func convertNode(n *mosaicNode, refs map[string]resource.ID) *panel.Node {
 		return nil
 	}
 	return &panel.Node{Variant: panel.LeafNode{Tabs: tabs}}
-}
-
-// HasPanels reports whether layoutData's tiling would convert to at least one panel, so
-// callers can enforce access before any import work.
-func HasPanels(ctx context.Context, layoutData []byte, members []Member) bool {
-	var t tiling
-	if err := imex.Codec.Decode(ctx, layoutData, &t); err != nil {
-		return false
-	}
-	refs := make(map[string]resource.ID, len(members))
-	for _, m := range members {
-		refs[m.LayoutKey] = resource.ID{}
-	}
-	for _, m := range t.Mosaics {
-		if convertNode(m.Root, refs) != nil {
-			return true
-		}
-	}
-	return false
 }
 
 func convertDirection(d string) spatial.Direction {

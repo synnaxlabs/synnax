@@ -9,6 +9,7 @@
 
 import { rack, user } from "@synnaxlabs/client";
 import {
+  createEmptyRole,
   createTestClient,
   createTestClientAs,
   createTestClientWithRole,
@@ -51,9 +52,11 @@ const expectPassword = async (username: string, password: string): Promise<void>
 describe("useModal", () => {
   it("should create a key, show it once, list it, and delete it", async () => {
     const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({
       username: uniqueName("user"),
       password: "password123",
+      role,
     });
     const id = user.resourceID(subject.key);
     await openModal(useModal, { client, params: { subject: id } });
@@ -73,9 +76,11 @@ describe("useModal", () => {
 
   it("should delete a key whose creation ends after the dialog closes", async () => {
     const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({
       username: uniqueName("user"),
       password: "password123",
+      role,
     });
     const id = user.resourceID(subject.key);
     const create = client.auth.createKey.bind(client.auth);
@@ -104,9 +109,11 @@ describe("useModal", () => {
 
   it("should show an error when deleting an unused key fails", async () => {
     const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({
       username: uniqueName("user"),
       password: "password123",
+      role,
     });
     const id = user.resourceID(subject.key);
     const create = client.auth.createKey.bind(client.auth);
@@ -191,7 +198,12 @@ describe("useModal", () => {
   it("should let an owner set another user's password", async () => {
     const client = createTestClient();
     const username = uniqueName("user");
-    const subject = await client.users.create({ username, password: "password123" });
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({
+      username,
+      password: "password123",
+      role,
+    });
     await openModal(useModal, {
       client,
       params: { subject: user.resourceID(subject.key) },

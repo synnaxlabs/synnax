@@ -23,13 +23,13 @@ import (
 // when the name matches no entry, or entries at more than one address.
 func ResolveReadConfig(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	slaves v2.Slaves,
 	cfg *ReadConfig,
 ) error {
 	found, err := v2.ReadSlaves(
 		ctx,
-		tx,
+		snap,
 		slaves,
 		lo.FilterMap(cfg.Channels, func(ch ReadChannel, _ int) (string, bool) {
 			u, ok := ch.Variant.(UnresolvedReadChannel)
@@ -62,13 +62,13 @@ func ResolveReadConfig(
 // matches no entry, or entries at more than one address.
 func ResolveWriteConfig(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	slaves v2.Slaves,
 	cfg *WriteConfig,
 ) error {
 	found, err := v2.ReadSlaves(
 		ctx,
-		tx,
+		snap,
 		slaves,
 		lo.FilterMap(cfg.Channels, func(ch WriteChannel, _ int) (string, bool) {
 			u, ok := ch.Variant.(UnresolvedWriteChannel)

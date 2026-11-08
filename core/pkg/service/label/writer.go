@@ -31,9 +31,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates a new label, assigning it a unique key if one is not provided. If
-// a label with the same key already exists, it will be overwritten. After the
-// transaction commits, Create broadcasts a create action that carries the stored label.
+// Create creates a new label, assigning it a unique key if one is not provided. If a
+// label with the same key already exists, it will be overwritten. The commit carries a
+// create action that holds the stored label.
 func (w Writer) Create(ctx context.Context, l *Label) error {
 	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
@@ -44,12 +44,24 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 	if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		l.Key,
 		NewCreateAction(CreatePayload{Label: *l}),
 	)
+	return nil
+}
+
+// Apply applies the actions to the label with the given key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create or the
+// result fails to decode or validate, and an error wrapping query.ErrNotFound when no
+// label has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.apply(ctx, key, acts); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
 	return nil
 }
 

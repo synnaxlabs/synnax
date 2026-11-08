@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, filter, type observe, unique } from "@synnaxlabs/x";
+import { array, filter, type observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { role } from "@/access/role";
@@ -68,33 +68,13 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
-const setRolesReqZ = z.object({
-  keys: keyZ.array(),
-  add: role.keyZ.array(),
-  remove: role.keyZ.array(),
-});
-const setRolesResZ = z.object({});
-
-/** The roles that {@link Client.setRoles} adds to and removes from users. */
-export interface RoleChange {
-  /** The roles to add. Each one goes ahead of the roles a user keeps. */
-  add?: role.Key[];
-  /** The roles to remove. */
-  remove?: role.Key[];
-}
-
-const mergeRoles = (
-  held: role.Key[],
-  { add = [], remove = [] }: RoleChange,
-): role.Key[] => {
-  const kept = held.filter((r) => !remove.includes(r));
-  return [...unique.unique(add).filter((r) => !kept.includes(r)), ...kept];
-};
+const setRoleReqZ = z.object({ keys: keyZ.array(), role: role.keyZ });
+const setRoleResZ = z.object({});
 
 // The username lives on the user's password, so only the Core can match it.
 const LINES: Lines = {
   usernames: null,
-  roles: (u, roles) => u.roles.some((r) => roles.includes(r)),
+  roles: (u, roles) => roles.includes(u.role),
 };
 
 export const SET_CHANNEL_NAME = "sy_user_set";
@@ -217,30 +197,27 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Removes the roles in `change.remove` from the users with the given keys, then adds
-   * the roles in `change.add` that each user does not hold. The Core applies both in
-   * one transaction, and a role in both lists is held after the call.
+   * Gives the role to the users with the given keys in one transaction.
+   * @throws {ValidationError} if a user is a root user or the role does not exist.
+   * @throws {NotFoundError} if a user does not exist.
+   * @throws {AccessDeniedError} if the caller cannot update the users, the role, or the
+   * roles the users hold now.
    */
-  async setRoles(
+  async setRole(
     keys: Key | Key[],
-    change: RoleChange,
+    role: role.Key,
     opts: query.WriteOptions = {},
   ): Promise<void> {
     const keysArr = array.toArray(keys);
-    const { add = [], remove = [] } = change;
     await query.optimistic({
-      rollbacks: keysArr.map((key) =>
-        this.store.set(key, (u) =>
-          u == null ? undefined : { ...u, roles: mergeRoles(u.roles, change) },
-        ),
-      ),
+      rollbacks: keysArr.map((key) => query.partialUpdate(this.store, key, { role })),
       onOptimistic: opts.onOptimistic,
       commit: async () =>
         await this.cfg.unary.send(
-          "/user/set-roles",
-          { keys: keysArr, add, remove },
-          setRolesReqZ,
-          setRolesResZ,
+          "/user/set-role",
+          { keys: keysArr, role },
+          setRoleReqZ,
+          setRoleResZ,
         ),
     });
   }

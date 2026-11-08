@@ -14,8 +14,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api"
+	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -26,6 +29,8 @@ var (
 	apiLayer *api.Layer
 	svc      *service.Layer
 	db       *gorp.DB
+	// exec runs a batch as the API layer binds it.
+	exec freighter.UnaryHandler[batch.ExecRequest, batch.ExecResponse]
 )
 
 func TestAPI(t *testing.T) {
@@ -42,6 +47,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Service:      svc,
 		Distribution: node.Layer,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: svc.RBAC}))
+	exec = bind.Write(binder, apiLayer.Batch.Exec)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

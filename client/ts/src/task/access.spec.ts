@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { AccessDeniedError, NotFoundError } from "@/index";
 import { rack } from "@/rack";
+import { status } from "@/status";
 import { task } from "@/task";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -57,11 +58,14 @@ describe("task", () => {
     });
 
     it("should allow the caller to create tasks with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [task.resourceID(""), rack.resourceID(0)],
-        actions: ["create", "retrieve"],
-      });
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [task.resourceID(""), rack.resourceID(0)],
+          actions: ["create", "retrieve", "update"],
+        },
+        { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["create"] },
+      ]);
       const rck = await client.racks.create({
         name: "test",
       });

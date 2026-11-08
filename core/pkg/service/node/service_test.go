@@ -18,24 +18,24 @@ import (
 var _ = Describe("Service", func() {
 	Describe("ServiceConfig.Validate", func() {
 		It("Should return nil when all required fields are set", func() {
-			cfg := node.ServiceConfig{Cluster: testCluster.Nodes[1].Cluster}
+			cfg := node.ServiceConfig{Host: host}
 			Expect(cfg.Validate()).To(Succeed())
 		})
 
 		DescribeTable(
 			"Should reject configurations missing a required field",
 			func(field string, mutate func(*node.ServiceConfig)) {
-				cfg := node.ServiceConfig{Cluster: testCluster.Nodes[1].Cluster}
+				cfg := node.ServiceConfig{Host: host}
 				mutate(&cfg)
 				Expect(cfg.Validate()).To(SatisfyAll(
 					MatchError(ContainSubstring(field)),
-					MatchError(ContainSubstring("must be non-nil")),
+					MatchError(ContainSubstring("must be non-zero")),
 				))
 			},
 			Entry(
-				"cluster",
-				"cluster",
-				func(c *node.ServiceConfig) { c.Cluster = nil },
+				"host",
+				"host.key",
+				func(c *node.ServiceConfig) { c.Host = node.Node{} },
 			),
 		)
 	})
@@ -43,7 +43,7 @@ var _ = Describe("Service", func() {
 	Describe("NewService", func() {
 		It("Should reject a config that fails validation", func() {
 			Expect(node.NewService(node.ServiceConfig{})).
-				Error().To(MatchError(ContainSubstring("must be non-nil")))
+				Error().To(MatchError(ContainSubstring("host.key: must be non-zero")))
 		})
 	})
 })

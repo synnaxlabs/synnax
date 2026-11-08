@@ -26,6 +26,7 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 			Name:     "channels.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *AnalogReadConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
@@ -315,6 +316,7 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 			Name:     "channels.device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *AnalogReadConfig) []device.Key {
 				var targets []device.Key
 				for _, v1 := range e.Channels {
@@ -610,6 +612,7 @@ func counterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig
 			Name:     "channels.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *CounterReadConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
@@ -728,6 +731,7 @@ func counterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig
 			Name:     "channels.device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *CounterReadConfig) []device.Key {
 				var targets []device.Key
 				for _, v1 := range e.Channels {
@@ -852,6 +856,7 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *AnalogWriteConfig) []device.Key {
 				var targets []device.Key
 				if e.Device != "" {
@@ -869,6 +874,7 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 			Name:     "channels.cmd_channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *AnalogWriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
@@ -915,6 +921,7 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 			Name:     "channels.state_channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *AnalogWriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
@@ -967,6 +974,7 @@ func digitalReadConfigReferences() []gorp.Reference[uuid.UUID, DigitalReadConfig
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *DigitalReadConfig) []device.Key {
 				var targets []device.Key
 				if e.Device != "" {
@@ -984,6 +992,7 @@ func digitalReadConfigReferences() []gorp.Reference[uuid.UUID, DigitalReadConfig
 			Name:     "channels.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *DigitalReadConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
@@ -1011,6 +1020,7 @@ func digitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConf
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *DigitalWriteConfig) []device.Key {
 				var targets []device.Key
 				if e.Device != "" {
@@ -1028,6 +1038,7 @@ func digitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConf
 			Name:     "channels.cmd_channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *DigitalWriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
@@ -1049,6 +1060,7 @@ func digitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConf
 			Name:     "channels.state_channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *DigitalWriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {

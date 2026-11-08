@@ -621,7 +621,7 @@ describe("queries", () => {
         const firstSnapshotName = `${originalName1} (Snapshot)`;
         const secondSnapshotName = `${originalName2} (Snapshot)`;
         const snapshots = await client.tasks.retrieve({
-          where: { name: { in: [firstSnapshotName, secondSnapshotName] } },
+          name: [firstSnapshotName, secondSnapshotName],
         });
         const snapshot1 = snapshots.find((s) => s.name === firstSnapshotName);
         const snapshot2 = snapshots.find((s) => s.name === secondSnapshotName);
@@ -654,7 +654,7 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const inRange = await client.tasks.retrieve({ where: { ranges: [rng.key] } });
+      const inRange = await client.tasks.retrieve({ ranges: [rng.key] });
       expect(inRange.map(({ name }) => name)).toEqual([
         `${originalTask.name} (Snapshot)`,
       ]);

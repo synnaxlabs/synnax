@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = Table{}
 // GorpKey implements gorp.Entry.
 func (t Table) GorpKey() Key { return t.Key }
 
-// SetOptions implements gorp.Entry.
-func (Table) SetOptions() []any { return nil }
-
 // ResourceID returns the unique resource identifier for the table.
 func (t Table) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeTable, Key: t.Key.String()}
