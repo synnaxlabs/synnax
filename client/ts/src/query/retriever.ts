@@ -563,6 +563,7 @@ export abstract class Retriever<
    * its reads return.
    * @throws {Error} if the domain has no lists.
    * @throws {zod.ParseError} if the request schema rejects the params.
+   * @throws {ValidationError} if the params set a limit that is not positive.
    */
   list(params: RequestInput<Z>): List<D, CursorOf<z.output<Z>>> {
     if (this.lists == null) throw new Error(`${this.name} has no lists`);
