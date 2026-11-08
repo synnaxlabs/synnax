@@ -24,6 +24,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
@@ -524,6 +525,21 @@ var _ = Describe("Delete", func() {
 			grant(ctx, access.ActionUpdate, u.ResourceID(), parentID())
 			MustSucceed(deleteChild(ctx))
 			Expect(rangeExists(ctx, child.Key)).To(BeFalse())
+		},
+	)
+	It(
+		"Should need update on the range to delete its key-value pairs with it",
+		func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.KV.NewWriter(tx).SetMany(ctx, []kv.Pair{
+					{Range: child.Key, Key: "k", Value: "v"},
+				})
+			})).To(Succeed())
+			grant(ctx, access.ActionDelete, u.ResourceID(), childID())
+			grant(ctx, access.ActionUpdate, u.ResourceID(), parentID())
+			Expect(deleteChild(ctx)).Error().
+				To(denied(u, access.ActionUpdate, childID()))
+			Expect(rangeExists(ctx, child.Key)).To(BeTrue())
 		},
 	)
 })

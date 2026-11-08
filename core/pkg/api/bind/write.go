@@ -207,7 +207,10 @@ func subjectOf[E any](
 	for _, l := range c.Removed {
 		if l.Kind == gorp.Place {
 			id, err := resourceOf(l.Target)
-			return id, true, err
+			if err != nil {
+				return resource.ID{}, false, err
+			}
+			return id, true, nil
 		}
 	}
 	return resource.ID{}, false, errors.Newf(

@@ -12,8 +12,7 @@
 import time
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Locator, Page
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 from console.context_menu import ContextMenu
 

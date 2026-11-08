@@ -118,8 +118,17 @@ var _ = Describe("User role migration", func() {
 	noAccessExists := func(ctx SpecContext) bool {
 		GinkgoHelper()
 		return MustSucceed(roles.NewRetrieve().
-			Where(role.MatchKeys(v1.NoAccessKey)).
+			Where(role.MatchNames("No access")).
 			Exists(ctx, nil))
+	}
+	noAccess := func(ctx SpecContext) role.Role {
+		GinkgoHelper()
+		var r role.Role
+		Expect(roles.NewRetrieve().
+			Where(role.MatchNames("No access")).
+			Entry(&r).
+			Exec(ctx, nil)).To(Succeed())
+		return r
 	}
 
 	It("Should give each root user the Owner role", func(ctx SpecContext) {
@@ -186,16 +195,11 @@ var _ = Describe("User role migration", func() {
 		func(ctx SpecContext) {
 			u := storeUser(ctx, user.User{Name: "u"})
 			migrate(ctx)
-			Expect(roleOf(ctx, u)).To(Equal(v1.NoAccessKey))
-			var noAccess role.Role
-			Expect(roles.NewRetrieve().
-				Where(role.MatchKeys(v1.NoAccessKey)).
-				Entry(&noAccess).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(noAccess.Name).To(Equal("No access"))
-			Expect(noAccess.Internal).To(BeFalse())
+			r := noAccess(ctx)
+			Expect(roleOf(ctx, u)).To(Equal(r.Key))
+			Expect(r.Internal).To(BeFalse())
 			Expect(policies.NewRetrieve().
-				Where(policy.MatchRoles(v1.NoAccessKey)).
+				Where(policy.MatchRoles(r.Key)).
 				Exists(ctx, nil)).To(BeFalse())
 		},
 	)
@@ -215,7 +219,7 @@ var _ = Describe("User role migration", func() {
 			u := storeUser(ctx, user.User{Name: "u"})
 			storeEdges(ctx, u, uuid.New())
 			migrate(ctx)
-			Expect(roleOf(ctx, u)).To(Equal(v1.NoAccessKey))
+			Expect(roleOf(ctx, u)).To(Equal(noAccess(ctx).Key))
 		},
 	)
 

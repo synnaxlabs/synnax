@@ -526,8 +526,8 @@ func (s *Service) touch(
 	})
 }
 
-// Writer removes credentials, and ends and opens sessions, in one transaction. It makes
-// no identity check: the caller authorizes the change.
+// Writer ends and opens sessions in one transaction. It makes no identity check: the
+// caller authorizes the change.
 type Writer struct {
 	svc *Service
 	tx  gorp.Tx

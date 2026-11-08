@@ -182,7 +182,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.task.NewRetrieve().Entries(&res.Tasks))
+	q, err := ApplyRetrieve(req, s.task.NewRetrieve().Entries(&res.Tasks))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}

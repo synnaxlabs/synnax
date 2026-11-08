@@ -127,9 +127,9 @@ type SetResponse struct {
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
-// Set creates or updates the statuses in order, and checks each one against the state
-// that its write sees. It returns a validation error if a status carries details that
-// its resolved owner cannot decode. On error, tx keeps the writes of earlier statuses.
+// Set creates or updates the statuses in order. It returns a validation error if a
+// status carries details that its resolved owner cannot decode. On error, tx keeps the
+// writes of earlier statuses.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -202,7 +202,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	res := RetrieveResponse{Statuses: []status.Status[any]{}}
-	q, err := req.Apply(s.internal.NewRetrieve[any]().Entries(&res.Statuses))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve[any]().Entries(&res.Statuses))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}

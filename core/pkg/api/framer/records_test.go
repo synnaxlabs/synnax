@@ -160,8 +160,10 @@ var _ = Describe("Change channels", func() {
 			"a label set",
 			"sy_label_set",
 			func(SpecContext) (resource.ID, change) {
+				GinkgoHelper()
 				readable, denied := newLabel(), newLabel()
 				return label.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
 					createLabels(ctx, readable, denied)
 				}
 			},
@@ -170,8 +172,10 @@ var _ = Describe("Change channels", func() {
 			"a label action",
 			"sy_label_action_set",
 			func(SpecContext) (resource.ID, change) {
+				GinkgoHelper()
 				readable, denied := newLabel(), newLabel()
 				return label.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
 					createLabels(ctx, readable, denied)
 				}
 			},
@@ -180,9 +184,11 @@ var _ = Describe("Change channels", func() {
 			"a label delete",
 			"sy_label_delete",
 			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
 				readable, denied := newLabel(), newLabel()
 				createLabels(ctx, readable, denied)
 				return label.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.Label.NewWriter(tx).Delete(
 							ctx,
@@ -197,8 +203,10 @@ var _ = Describe("Change channels", func() {
 			"a range KV set",
 			"sy_range_kv_set",
 			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
 				readable, denied := newRange(ctx), newRange(ctx)
 				return ranger.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.KV.NewWriter(tx).SetMany(
 							ctx,
@@ -212,6 +220,7 @@ var _ = Describe("Change channels", func() {
 			"a range KV delete",
 			"sy_range_kv_delete",
 			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
 				readable, denied := newRange(ctx), newRange(ctx)
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.KV.NewWriter(tx).SetMany(
@@ -220,6 +229,7 @@ var _ = Describe("Change channels", func() {
 					)
 				})).To(Succeed())
 				return ranger.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						w := svc.KV.NewWriter(tx)
 						for _, p := range pairs(readable, denied) {
@@ -236,8 +246,10 @@ var _ = Describe("Change channels", func() {
 			"a range alias set",
 			"sy_range_alias_set",
 			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
 				readable, denied, c := newRange(ctx), newRange(ctx), newChannel(ctx)
 				return alias.ResourceID(readable.Key, c.Key()), func(ctx SpecContext) {
+					GinkgoHelper()
 					setAliases(ctx, c, readable, denied)
 				}
 			},
@@ -246,9 +258,11 @@ var _ = Describe("Change channels", func() {
 			"a range alias delete",
 			"sy_range_alias_delete",
 			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
 				readable, denied, c := newRange(ctx), newRange(ctx), newChannel(ctx)
 				setAliases(ctx, c, readable, denied)
 				return alias.ResourceID(readable.Key, c.Key()), func(ctx SpecContext) {
+					GinkgoHelper()
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						w := svc.Alias.NewWriter(tx)
 						for _, r := range []ranger.Range{readable, denied} {

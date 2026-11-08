@@ -14,6 +14,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -42,11 +43,12 @@ type PasswordSetResponse struct {
 	Session *auth.Session `json:"session,omitempty" msgpack:"session,omitempty"`
 }
 
-// PrepareSetPassword hashes the new password of req. When the caller sets its own
-// password, it first checks the current password that req carries. It returns
-// [auth.ErrInvalidCredentials] for a wrong current password, a validation error when
-// the subject is not a user, and an error wrapping query.ErrNotFound when the caller
-// has no password.
+// PrepareSetPassword hashes the new password of req. It first checks the current
+// password that req carries when the caller sets its own, and update on the user when
+// the caller sets another's. It returns [auth.ErrInvalidCredentials] for a wrong
+// current password, access.ErrDenied when the caller cannot update the user, a
+// validation error when the subject is not a user, and an error wrapping
+// query.ErrNotFound when the caller has no password.
 func (s *Service) PrepareSetPassword(
 	ctx context.Context,
 	req PasswordSetRequest,
@@ -61,6 +63,15 @@ func (s *Service) PrepareSetPassword(
 		)
 	}
 	if subject != caller {
+		// Each hash is slow, so a caller that cannot update the user costs none.
+		if err := s.enforceOthers(
+			ctx,
+			caller,
+			access.ActionUpdate,
+			[]resource.ID{subject},
+		); err != nil {
+			return password.Hash{}, err
+		}
 		return s.password.Hash(req.Password)
 	}
 	var current password.Password
