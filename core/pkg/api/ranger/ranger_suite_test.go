@@ -40,6 +40,9 @@ var (
 	apiSvc *apiranger.Service
 	// dispatch runs the Dispatch route in one transaction, as the API layer binds it.
 	dispatch freighter.UnaryHandler[apiranger.DispatchRequest, struct{}]
+	// renameRange and setRangeEnd run the Rename and SetEnd routes the same way.
+	renameRange freighter.UnaryHandler[apiranger.RenameRequest, struct{}]
+	setRangeEnd freighter.UnaryHandler[apiranger.SetEndRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -51,6 +54,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ranger: svc.Ranger,
 	}))
 	dispatch = fgorp.CreateWriteUnaryHandler(node.DB, apiSvc.Dispatch)
+	renameRange = fgorp.CreateWriteUnaryHandler(node.DB, apiSvc.Rename)
+	setRangeEnd = fgorp.CreateWriteUnaryHandler(node.DB, apiSvc.SetEnd)
 })
 
 // createUser creates a user that can do nothing.
