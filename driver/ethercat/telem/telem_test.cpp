@@ -174,6 +174,7 @@ TEST(Decoder, ReportsTheTypeItWrites) {
     EXPECT_EQ(Decoder(0, 4, x::telem::UINT8_T).type(), x::telem::UINT8_T);
     EXPECT_EQ(Decoder(0, 16, x::telem::INT16_T).type(), x::telem::INT16_T);
     EXPECT_EQ(Decoder(0, 32, x::telem::FLOAT32_T).type(), x::telem::FLOAT32_T);
+    EXPECT_EQ(Decoder(4, 16, x::telem::INT16_T).type(), x::telem::INT16_T);
     EXPECT_EQ(Decoder(0, 24, x::telem::INT32_T).type(), x::telem::INT64_T);
     EXPECT_EQ(Decoder(0, 24, x::telem::UINT32_T).type(), x::telem::UINT64_T);
 }

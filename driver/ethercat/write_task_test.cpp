@@ -491,8 +491,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,
-        "device " + this->slave_device.key +
-            " at position 0: expected vendor_id 0x00000001, found 0x00000099"
+        "slave 0 (Test Slave): expected vendor_id 0x00000001, found 0x00000099"
     );
 }
 
