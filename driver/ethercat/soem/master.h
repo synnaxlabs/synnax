@@ -96,11 +96,6 @@ class Master final : public master::Master {
         bool has_dc = false;
         /// @brief the DC setup of each enabled slave in a DC mode.
         std::vector<DCSetup> dc_setups;
-        /// @brief why each slave refused a state, keyed by position.
-        std::map<uint16_t, slave::Refusal> refusals;
-        /// @brief whether a slave that failed a state reports "Invalid DC SYNC
-        /// configuration".
-        bool dc_sync_refused = false;
         /// @brief why each slave rejected a startup parameter at its latest move to
         /// SAFE-OP, keyed by position.
         std::map<uint16_t, std::string> startup_failures;
@@ -179,8 +174,8 @@ private:
     /// @brief returns the settings that the session plan gives the slave at pos.
     [[nodiscard]] slave::Config config(uint16_t pos) const;
 
-    /// @brief runs activate() in the new session and returns its error.
-    x::errors::Error
+    /// @brief runs activate() in the new session.
+    master::Activation
     start(const std::function<void(const master::Image &)> &start_cycle);
 
     /// @brief returns the process data of the mapped enabled slaves.
@@ -282,7 +277,7 @@ private:
 
     /// @brief requests the state from all enabled slaves, then waits until they reach
     /// it, one of them refuses it, or the timeout in microseconds passes.
-    x::errors::Error request_state(uint16_t state, int timeout);
+    master::Activation request_state(uint16_t state, int timeout);
 
     /// @brief waits until a frame that the cycle sent after the call comes back.
     /// @returns false when the deadline passes or stopped returns true first.
@@ -315,10 +310,10 @@ private:
     /// clock of a DC slave ends once breaker stops.
     void recover(uint16_t pos, const x::breaker::Breaker &breaker);
 
-    /// @brief builds the error for enabled slaves that did not reach a state. It is a
+    /// @brief builds the outcome for enabled slaves that did not reach a state. It is a
     /// refusal when a slave refuses the state with an AL status code that a new start
-    /// cannot clear. Records the refusals in the session.
-    x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
+    /// cannot clear.
+    master::Activation state_error(const std::vector<uint16_t> &failed, uint16_t state);
 };
 
 /// @brief SOEM-based implementation of master::Manager.

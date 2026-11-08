@@ -368,17 +368,12 @@ public:
                 refused.insert(*it);
         }
         if (!refused.empty()) {
-            const bool dc_sync_refused = std::ranges::any_of(
-                refused | std::views::values,
-                &slave::Refusal::dc_sync_invalid
-            );
             return {
                 .err = x::errors::Error(
                     errors::STATE_CHANGE_REFUSED,
                     "failed to reach SAFE-OP: " + refused.begin()->second.reason
                 ),
                 .refusals = std::move(refused),
-                .dc_sync_refused = dc_sync_refused,
             };
         }
         if (this->inject_state_change_err)
