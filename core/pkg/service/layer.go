@@ -74,7 +74,6 @@ import (
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -392,11 +391,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if closer, err := channelsignals.Publish(
+	if err = l.Signals.PublishTable(
 		ctx,
-		l.Signals,
-		l.Channel.Observe(),
-	); !ok(err, closer) {
+		channelsignals.TableConfig(l.Channel),
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if closer, err := history.Publish(ctx, history.Config{
@@ -415,31 +413,31 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
-	if closer, err := l.Signals.PublishFromGorp(
+	if err = l.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigUUID(l.Group.Observe()),
-	); !ok(err, closer) {
+		signals.TableConfig[group.Key, group.Group]{Changes: l.Group.Changes},
+	); !ok(err, nil) {
 		return nil, err
 	}
-	if closer, err := l.Signals.PublishFromGorp(
+	if err = l.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigUUID(l.Label.Observe()),
-	); !ok(err, closer) {
+		signals.TableConfig[label.Key, label.Label]{Changes: l.Label.Changes},
+	); !ok(err, nil) {
 		return nil, err
 	}
-	if closer, err := l.Signals.PublishActions(
+	if err = l.Signals.PublishActions(
 		ctx,
-		signals.ActionPublisherConfig[label.Key, label.Action]{
-			Observable: l.Label.ObserveActions(),
-			Name:       "label_action",
+		signals.ActionConfig[label.Key, label.Action]{
+			Name:    "sy_label_action_set",
+			Actions: l.Label.Actions(),
 		},
-	); !ok(err, closer) {
+	); !ok(err, nil) {
 		return nil, err
 	}
-	if closer, err := l.Signals.PublishFromGorp(
+	if err = l.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigString(l.Status.Observe()),
-	); !ok(err, closer) {
+		signals.TableConfig[status.Key, status.Status[any]]{Changes: l.Status.Changes},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
@@ -496,10 +494,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}
-	if closer, err := l.Signals.PublishFromGorp(
+	if err = l.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigNumeric(l.Rack.Observe(), telem.Uint32T),
-	); !ok(err, closer) {
+		signals.TableConfig[rack.Key, rack.Rack]{Changes: l.Rack.Changes},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if l.RBAC, err = rbac.NewService(ctx, rbac.ServiceConfig{
@@ -840,6 +838,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		cfg.Distribution.DB,
 		l.Channel,
 	); !ok(err, nil) {
+		return nil, err
+	}
+	// The change channels send no commit before Start, so the migrations above send
+	// nothing.
+	signalsCloser, err := l.Signals.Start(ctx)
+	if !ok(err, signalsCloser) {
 		return nil, err
 	}
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{

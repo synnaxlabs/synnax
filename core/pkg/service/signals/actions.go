@@ -11,53 +11,115 @@ package signals
 
 import (
 	"context"
-	"fmt"
-	"io"
+	"encoding/json/v2"
 
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
-// ActionPublisherConfig configures PublishActions.
-type ActionPublisherConfig[K comparable, A any] struct {
-	// Observable emits the action sequences to publish, such as an actions.State.
-	//
-	// [REQUIRED]
-	Observable observe.Observable[actions.Scoped[K, A]]
-	// Name is the service name segment of the channel name ("sy_<name>_set") and the
-	// pipeline name ("<name>_actions").
+// ActionConfig configures an action channel. Each sample is the JSON of one
+// actions.Scoped batch, with Seq set to the number of its commit.
+type ActionConfig[K gorp.Key, A any] struct {
+	// Name is the name of the channel.
 	//
 	// [REQUIRED]
 	Name string
+	// Actions holds the batches that the transactions of the service attach.
+	//
+	// [REQUIRED]
+	Actions *actions.State[K, A]
+	// Table names a table that only the channel describes. Each create or update of one
+	// of its records needs a batch for its key in the same commit, and the Provider
+	// reports a change without one with DPanic.
+	//
+	// [OPTIONAL] - Defaults to no table.
+	Table string
 }
 
-// Validate implements config.Config.
-func (c ActionPublisherConfig[K, A]) Validate() error {
-	v := validate.New("signals.action_publisher_config")
-	v.NotNil("observable", c.Observable)
+// Validate checks that the required fields of c are set.
+func (c ActionConfig[K, A]) Validate() error {
+	v := validate.New("signals.action_config")
 	v.NotEmptyString("name", c.Name)
+	v.NotNil("actions", c.Actions)
 	return v.Error()
 }
 
-// PublishActions opens a pipeline that broadcasts each action sequence the observable
-// emits on the sy_<name>_set free channel as a JSON sample. The returned io.Closer
-// shuts the pipeline down.
-func (p *Provider) PublishActions[K comparable, A any](
+// PublishActions creates an action channel and adds it to the channels that Start
+// writes. Call it before Start.
+func (p *Provider) PublishActions[K gorp.Key, A any](
 	ctx context.Context,
-	cfg ActionPublisherConfig[K, A],
-) (io.Closer, error) {
+	cfg ActionConfig[K, A],
+) error {
 	if err := cfg.Validate(); err != nil {
-		return nil, err
+		return err
 	}
-	closer, err := p.PublishJSON(ctx, JSONPublisherConfig[actions.Scoped[K, A]]{
-		Name:       fmt.Sprintf("%s_actions", cfg.Name),
-		Observable: cfg.Observable,
-		SetName:    fmt.Sprintf("sy_%s_set", cfg.Name),
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "open action publisher for %s", cfg.Name)
+	f := &actionFeed[K, A]{
+		cfg: cfg,
+		L:   p.cfg.L,
+		ch:  channel.Channel{Name: cfg.Name, DataType: telem.JSONT},
 	}
-	return closer, nil
+	return p.add(ctx, f, &f.ch)
+}
+
+// actionFeed writes the samples of one action channel.
+type actionFeed[K gorp.Key, A any] struct {
+	cfg ActionConfig[K, A]
+	L   *alamos.Logger
+	ch  channel.Channel
+}
+
+func (f *actionFeed[K, A]) append(
+	_ context.Context,
+	c gorp.Commit,
+	fr framer.Frame,
+) framer.Frame {
+	batches := f.cfg.Actions.Of(c)
+	if f.cfg.Table != "" {
+		f.check(c, batches)
+	}
+	samples := telem.Series{DataType: telem.JSONT}
+	for _, batch := range batches {
+		b, err := json.Marshal(batch)
+		if err != nil {
+			f.L.Error(
+				"failed to marshal an action batch",
+				zap.String("channel", f.ch.Name),
+				zap.Error(err),
+			)
+			continue
+		}
+		samples.Data = append(samples.Data, telem.MarshalVariableSample(b)...)
+	}
+	if len(samples.Data) == 0 {
+		return fr
+	}
+	return fr.Append(f.ch.Key(), samples)
+}
+
+// check reports each create or update in c of a record of the table of f that has no
+// batch for its key.
+func (f *actionFeed[K, A]) check(c gorp.Commit, batches []actions.Scoped[K, A]) {
+	covered := make(set.Set[string], len(batches))
+	for _, b := range batches {
+		covered.Add(gorp.FormatKey(b.Key))
+	}
+	for _, ch := range c.Changes {
+		if ch.Record.Table != f.cfg.Table || ch.Kind == gorp.ChangeDelete ||
+			covered.Contains(ch.Record.Key) {
+			continue
+		}
+		f.L.DPanic(
+			"a change has no action batch",
+			zap.String("channel", f.ch.Name),
+			zap.String("table", ch.Record.Table),
+			zap.String("key", ch.Record.Key),
+		)
+	}
 }

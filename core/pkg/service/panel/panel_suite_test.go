@@ -89,6 +89,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:      node.DB,
 		Signals: sigs,
 	}))
+	MustOpen(sigs.Start(ctx))
 	writer = svc.NewWriter(nil)
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: node.DB,

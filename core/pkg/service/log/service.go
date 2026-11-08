@@ -11,7 +11,6 @@ package log
 
 import (
 	"context"
-	"io"
 	"slices"
 
 	"github.com/samber/lo"
@@ -25,14 +24,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for opening a log service.
@@ -108,32 +104,32 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			slices.Clone(versions.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
+		// A channel delete detaches the channel from the log, which no log write does,
+		// so the service sends the log as a create.
+		OnDetach: func(_ context.Context, tx gorp.Tx, l Log) error {
+			s.state.Dispatcher().
+				Attach(tx, l.Key, NewCreateAction(CreatePayload{Log: l}))
+			return nil
+		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	// A delete that detaches a target rewrites the log outside the writer. The service
-	// publishes the stored log as a create, in order with the dispatches on it.
-	ok(nil, xio.NoFailCloserFunc(s.table.ObserveDetaches().OnChange(
-		func(ctx context.Context, l Log) { s.publishDetached(ctx, l.Key) },
-	)))
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishActions(
-			ctx,
-			signals.ActionPublisherConfig[Key, Action]{
-				Observable: s.state,
-				Name:       "log",
-			},
-		); !ok(err, sig) {
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:    "sy_log_set",
+			Actions: s.state,
+			Table:   tableName,
+		}); !ok(err, nil) {
 			return nil, err
 		}
-		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-		deleteCfg.DisableSet = true
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Log]{
+			Changes:     s.table.Changes,
+			SetDisabled: new(true),
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -142,27 +138,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 
 // Close closes the log service and releases any resources.
 func (s *Service) Close() error { return s.closer.Close() }
-
-func (s *Service) publishDetached(ctx context.Context, key Key) {
-	err := s.state.Dispatch(ctx, key, "", nil, func(tx gorp.Tx) ([]Action, error) {
-		var l Log
-		if err := s.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Log](key)).
-			Entry(&l).
-			Exec(ctx, tx); err != nil {
-			return nil, err
-		}
-		return []Action{NewCreateAction(CreatePayload{Log: l})}, nil
-	})
-	// A later delete can remove the log before the broadcast.
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		s.cfg.L.Error(
-			"failed to publish a detached log",
-			zap.Stringer("log", key),
-			zap.Error(err),
-		)
-	}
-}
 
 // OnAction subscribes the given handler to the action stream emitted by Dispatch. The
 // handler runs synchronously inside Dispatch after the underlying transaction commits.

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
@@ -655,31 +656,79 @@ var _ = Describe("With a detach reference", func() {
 		})
 	})
 
-	Describe("ObserveDetaches", func() {
+	Describe("OnDetach", func() {
+		var (
+			svc   *config.Service[arctask.Config]
+			tasks *tasktestutil.Tasks
+			t     target
+			key   uuid.UUID
+		)
+		BeforeEach(func(ctx SpecContext) {
+			svc = openService(ctx)
+			tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+				DB:     ldb,
+				Stores: []config.Store{svc},
+			}))
+			t = createTarget(ctx)
+			key = MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
+				"arc_key": t.Key.String(),
+			}))
+		})
+		deleteTarget := func(ctx SpecContext, tx gorp.Tx) error {
+			return targets.NewDelete().
+				Where(gorp.MatchKeys[uuid.UUID, target](t.Key)).
+				Exec(ctx, tx)
+		}
+		configHash := func(ctx SpecContext, tx gorp.Tx) string {
+			GinkgoHelper()
+			var res task.Task
+			Expect(tasks.NewRetrieve().
+				Where(task.MatchKeys(key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			return res.ConfigHash
+		}
+
 		It(
-			"Should notify the key of a record whose target a delete detached",
+			"Should run the hook in the delete's transaction after the detach",
 			func(ctx SpecContext) {
-				svc := openService(ctx)
-				tasks := MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
-					DB:     ldb,
-					Stores: []config.Store{svc},
-				}))
-				t := createTarget(ctx)
-				key := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
-					"arc_key": t.Key.String(),
-				}))
-				var detached []uuid.UUID
-				DeferCleanup(svc.ObserveDetaches().OnChange(
-					func(_ context.Context, k uuid.UUID) {
-						detached = append(detached, k)
-					},
-				))
-				Expect(targets.NewDelete().
-					Where(gorp.MatchKeys[uuid.UUID, target](t.Key)).
-					Exec(ctx, ldb)).To(Succeed())
+				var (
+					detached []uuid.UUID
+					arcKeys  []any
+				)
+				svc.OnDetach(func(ctx context.Context, tx gorp.Tx, k uuid.UUID) error {
+					detached = append(detached, k)
+					arcKeys = append(
+						arcKeys,
+						MustSucceed(svc.Read(ctx, tx, k))["arc_key"],
+					)
+					return nil
+				})
+				Expect(deleteTarget(ctx, ldb)).To(Succeed())
 				Expect(detached).To(Equal([]uuid.UUID{key}))
-				Expect(MustSucceed(svc.Read(ctx, ldb, key))["arc_key"]).
-					To(Equal(uuid.Nil().String()))
+				Expect(arcKeys).To(Equal([]any{uuid.Nil().String()}))
+			},
+		)
+
+		It("Should fail the delete when the hook fails", func(ctx SpecContext) {
+			svc.OnDetach(func(context.Context, gorp.Tx, uuid.UUID) error {
+				return errors.New("hook failed")
+			})
+			Expect(deleteTarget(ctx, ldb)).To(MatchError("hook failed"))
+			Expect(targets.NewRetrieve().
+				Where(gorp.MatchKeys[uuid.UUID, target](t.Key)).
+				Exists(ctx, ldb)).To(BeTrue())
+		})
+
+		It(
+			"Should let the task service store the new config hash in the delete's "+
+				"transaction",
+			func(ctx SpecContext) {
+				before := configHash(ctx, ldb)
+				tx := DeferClose(ldb.OpenTx())
+				Expect(deleteTarget(ctx, tx)).To(Succeed())
+				Expect(configHash(ctx, tx)).ToNot(Equal(before))
+				Expect(configHash(ctx, ldb)).To(Equal(before))
 			},
 		)
 	})

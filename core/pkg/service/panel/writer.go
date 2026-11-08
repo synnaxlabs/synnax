@@ -141,16 +141,19 @@ func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) erro
 	})
 }
 
-// setProject moves the panels with keys into the project p, and notifies a project
-// change for each one that was not in p.
+// setProject moves the panels with keys that are not in the project p into p, and
+// attaches a set project action for each one.
 func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) error {
 	var moved []Key
 	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Panel](keys...)).
+		Where(gorp.And(
+			gorp.MatchKeys[Key, Panel](keys...),
+			gorp.Match(func(_ gorp.Context, e *Panel) (bool, error) {
+				return e.Project == nil || *e.Project != p, nil
+			}),
+		)).
 		ChangeErr(func(_ gorp.Context, e Panel) (Panel, error) {
-			if e.Project == nil || *e.Project != p {
-				moved = append(moved, e.Key)
-			}
+			moved = append(moved, e.Key)
 			e.Project = &p
 			return e, project.ValidateOwner(e.Project, e.Range)
 		}).

@@ -310,34 +310,37 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 	return computed, nil
 }
 
-// syncConfig stores the hash of the config stored for the task with the given key. It
-// returns a set of the stored config, then a set of the hash.
-func (w Writer) syncConfig(ctx context.Context, key Key) ([]Action, error) {
+// syncConfig stores the hash of the config stored for the task with the given key, and
+// attaches a set of the stored config, then a set of the hash.
+func (w Writer) syncConfig(ctx context.Context, key Key) error {
 	var t Task
 	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Task](key)).
 		Entry(&t).
 		Exec(ctx, w.tx); err != nil {
-		return nil, err
+		return err
 	}
 	store, ok := w.configs.Store(t.Type)
 	if !ok {
-		return nil, errors.Wrapf(validate.ErrValidation, "unknown task type %q", t.Type)
+		return errors.Wrapf(validate.ErrValidation, "unknown task type %q", t.Type)
 	}
 	stored, err := store.Read(ctx, w.tx, key)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if t.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
-		return nil, err
+		return err
 	}
 	if err = w.table.NewCreate().Entry(&t).Exec(ctx, w.tx); err != nil {
-		return nil, err
+		return err
 	}
-	return []Action{
+	w.dispatcher.Attach(
+		w.tx,
+		key,
 		NewSetAction(SetPayload{Path: []string{"config"}, Value: stored}),
 		NewSetAction(SetPayload{Path: []string{"config_hash"}, Value: t.ConfigHash}),
-	}, nil
+	)
+	return nil
 }
 
 func renamesOnly(acts []Action) bool {

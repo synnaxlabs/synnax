@@ -11,7 +11,6 @@ package view
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -80,11 +79,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.cfg.Signals == nil {
 		return s, nil
 	}
-	var sig io.Closer
-	if sig, err = s.cfg.Signals.PublishFromGorp(
+	if err = s.cfg.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigUUID(s.table.Observe()),
-	); !ok(err, sig) {
+		signals.TableConfig[Key, View]{Changes: s.table.Changes},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil

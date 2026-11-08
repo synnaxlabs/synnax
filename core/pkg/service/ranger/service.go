@@ -14,7 +14,6 @@ package ranger
 
 import (
 	"context"
-	"io"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -120,20 +119,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	var sig io.Closer
-	if sig, err = cfg.Signals.PublishFromGorp(
+	if err = cfg.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigUUID(s.table.Observe()),
-	); !ok(err, sig) {
+		signals.TableConfig[Key, Range]{Changes: s.table.Changes},
+	); !ok(err, nil) {
 		return nil, err
 	}
-	if sig, err = cfg.Signals.PublishActions(
-		ctx,
-		signals.ActionPublisherConfig[Key, Action]{
-			Observable: s.state,
-			Name:       "range_action",
-		},
-	); !ok(err, sig) {
+	if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+		Name:    "sy_range_action_set",
+		Actions: s.state,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil

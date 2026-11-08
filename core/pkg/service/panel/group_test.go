@@ -145,12 +145,14 @@ var _ = Describe("SetGroup", func() {
 		func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).SetGroup(ctx, &g.Key, target.Key)).To(Succeed())
 			dest := createProject(ctx)
-			Expect(svc.MoveGroups(
-				ctx,
-				db,
-				[]group.Key{g.Key},
-				new(project.ResourceID(dest.Key)),
-			)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.MoveGroups(
+					ctx,
+					tx,
+					[]group.Key{g.Key},
+					new(project.ResourceID(dest.Key)),
+				)
+			})).To(Succeed())
 			res := retrieve(ctx, target.Key)
 			Expect(res.Group).To(Equal(&g.Key))
 			Expect(res.Project).To(Equal(&dest.Key))

@@ -11,7 +11,6 @@ package alias
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -95,11 +94,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigString(s.table.Observe())
-		signalsCfg.SetName = "sy_range_alias_set"
-		signalsCfg.DeleteName = "sy_range_alias_delete"
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, signalsCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[string, Alias]{
+			Changes:    s.table.Changes,
+			SetName:    "sy_range_alias_set",
+			DeleteName: "sy_range_alias_delete",
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}

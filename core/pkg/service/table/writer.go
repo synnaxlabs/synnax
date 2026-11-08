@@ -142,16 +142,19 @@ func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) erro
 	})
 }
 
-// setProject moves the tables with keys into the project p, and notifies a project
-// change for each one that was not in p.
+// setProject moves the tables with keys that are not in the project p into p, and
+// attaches a set project action for each one.
 func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) error {
 	var moved []Key
 	if err := w.tbl.NewUpdate().
-		Where(gorp.MatchKeys[Key, Table](keys...)).
+		Where(gorp.And(
+			gorp.MatchKeys[Key, Table](keys...),
+			gorp.Match(func(_ gorp.Context, e *Table) (bool, error) {
+				return e.Project == nil || *e.Project != p, nil
+			}),
+		)).
 		ChangeErr(func(_ gorp.Context, e Table) (Table, error) {
-			if e.Project == nil || *e.Project != p {
-				moved = append(moved, e.Key)
-			}
+			moved = append(moved, e.Key)
 			e.Project = &p
 			return e, project.ValidateOwner(e.Project, e.Range)
 		}).

@@ -12,7 +12,6 @@ package kv
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -75,11 +74,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigString(s.table.Observe())
-		signalsCfg.SetName = "sy_range_kv_set"
-		signalsCfg.DeleteName = "sy_range_kv_delete"
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, signalsCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[string, Pair]{
+			Changes:    s.table.Changes,
+			SetName:    "sy_range_kv_set",
+			DeleteName: "sy_range_kv_delete",
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}

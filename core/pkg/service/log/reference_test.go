@@ -47,7 +47,7 @@ var _ = Describe("Channel references", func() {
 	}
 
 	It(
-		"Should broadcast an edit that commits between a detach and its broadcast",
+		"Should attach the log as written to the delete that detaches a channel",
 		func(ctx SpecContext) {
 			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 2))
 			gone, kept := keys[0], keys[1]
@@ -62,21 +62,13 @@ var _ = Describe("Channel references", func() {
 			})
 			rec := &Recorder[log.Key, log.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
-			tx := DeferClose(db.OpenTx())
-			gorp.OnCommit(tx, func() {
-				Expect(svc.Dispatch(ctx, l.Key, "", []log.Action{
-					log.NewRenameAction(log.RenamePayload{Name: "renamed"}),
-				})).To(Succeed())
-			})
-			Expect(channelSvc.NewWriter(tx).Delete(ctx, gone, false)).To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Delete(ctx, gone, false)).To(Succeed())
 			seen := rec.Snapshot()
-			Expect(seen).ToNot(BeEmpty())
-			last := seen[len(seen)-1]
-			Expect(last.Actions).To(HaveLen(1))
-			Expect(last.Actions[0].Create).ToNot(BeNil())
-			Expect(last.Actions[0].Create.Log.Name).To(Equal("renamed"))
-			Expect(channelsOf(last.Actions[0].Create.Log)).
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Key).To(Equal(l.Key))
+			Expect(seen[0].Actions).To(HaveLen(1))
+			Expect(seen[0].Actions[0].Create).ToNot(BeNil())
+			Expect(channelsOf(seen[0].Actions[0].Create.Log)).
 				To(Equal([]channel.Key{kept}))
 		},
 	)
