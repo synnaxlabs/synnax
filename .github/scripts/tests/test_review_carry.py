@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from review import Target, carry
+from review.__main__ import main
 
 REPO = "synnaxlabs/synnax"
 OLD = "a" * 40
@@ -174,3 +175,47 @@ class TestCarry:
     def test_should_not_carry_the_review_of_the_head_itself(self, gh: FakeGH) -> None:
         gh.edits = [summary_edit(HEAD)]
         assert not carry(TARGET, gh, key=KEY)
+
+
+class TestCommand:
+    """Tests the `carry` command of the review CLI."""
+
+    @pytest.fixture(autouse=True)
+    def env(self, gh: FakeGH, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("review.__main__.gh", gh)
+        env = {
+            "GITHUB_REPOSITORY": REPO,
+            "PR": "7",
+            "HEAD_SHA": HEAD,
+            "BASE_SHA": "base",
+            "CHECK_RUN": "55",
+            "RUN_URL": TARGET.run_url,
+            "BOT": "sedosaur",
+            "KEY": KEY,
+        }
+        for k, v in env.items():
+            monkeypatch.setenv(k, v)
+
+    def test_should_print_true_when_it_carries(
+        self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        main(["carry"])
+        assert capsys.readouterr().out == "true\n"
+        assert [w[:2] for w in gh.writes] == [("PATCH", f"repos/{REPO}/check-runs/55")]
+
+    def test_should_print_false_when_it_does_not(
+        self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        gh.edits = []
+        main(["carry"])
+        assert capsys.readouterr().out == "false\n"
+
+    @pytest.mark.parametrize(
+        "argv", [[], ["carry", "review.json"], ["run"], ["review", "review.json"]]
+    )
+    def test_should_exit_with_the_usage_on_wrong_arguments(
+        self, argv: list[str]
+    ) -> None:
+        with pytest.raises(SystemExit) as raised:
+            main(argv)
+        assert str(raised.value.code).startswith("Reviews a pull request")
