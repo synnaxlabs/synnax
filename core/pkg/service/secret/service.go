@@ -41,7 +41,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED] when Signals is set.
 	Channel *channel.Service
-	// Grant stores the grants that let a rack read secrets that nothing on it uses.
+	// Grant stores the grants that let a rack read secrets.
 	//
 	// [REQUIRED]
 	Grant *grant.Service
