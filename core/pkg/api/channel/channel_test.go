@@ -23,8 +23,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
@@ -51,7 +52,134 @@ func createNamedChannel(
 	return ch
 }
 
+func createChannelGroup(ctx SpecContext, name string) group.Group {
+	GinkgoHelper()
+	g := group.Group{Name: name, Scope: resource.TypeChannel}
+	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	return g
+}
+
+func retrieveChannel(ctx SpecContext, key channel.Key) channel.Channel {
+	GinkgoHelper()
+	var ch channel.Channel
+	Expect(channelSvc.NewRetrieve().
+		Where(channel.MatchKeys(key)).
+		Entry(&ch).
+		Exec(ctx, nil)).To(Succeed())
+	return ch
+}
+
 var _ = Describe("Service", func() {
+	Describe("Group", func() {
+		It(
+			"Should create a channel in a group and return the group on retrieve",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionCreate, access.ActionRetrieve},
+					resource.ID{Type: resource.TypeChannel},
+				)
+				g := group.Group{Name: "API Channels", Scope: resource.TypeChannel}
+				Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					group.ResourceID(g.Key),
+				)
+				created := MustSucceed(apiSvc.Create(
+					AuthedCtx(ctx, author),
+					nil,
+					apichannel.CreateRequest{Channels: []apichannel.Channel{{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+						Group:    &g.Key,
+					}}},
+				)).Channels
+				Expect(created[0].Group).To(Equal(&g.Key))
+				retrieved := MustSucceed(apiSvc.Retrieve(
+					AuthedCtx(ctx, author),
+					apichannel.AliasedRetrieveRequest{
+						Request: apichannel.RetrieveRequest{
+							Where: &channel.Where{
+								Key: &filter.Set[channel.Key]{Eq: &created[0].Key},
+							},
+						},
+					},
+				)).Channels
+				Expect(retrieved[0].Group).To(Equal(&g.Key))
+			},
+		)
+		It(
+			"Should refuse a created channel without update on its group",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionCreate},
+					resource.ID{Type: resource.TypeChannel},
+				)
+				g := createChannelGroup(ctx, "Create denied")
+				Expect(apiSvc.Create(
+					AuthedCtx(ctx, author),
+					nil,
+					apichannel.CreateRequest{Channels: []apichannel.Channel{{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+						Group:    &g.Key,
+					}}},
+				)).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+		It(
+			"Should refuse a move without update on the destination group",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx, telem.Float32T)
+				g := createChannelGroup(ctx, "Set group denied")
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+				)
+				Expect(apiSvc.SetGroup(
+					AuthedCtx(ctx, author),
+					nil,
+					apichannel.SetGroupRequest{
+						Group: &g.Key,
+						Keys:  []channel.Key{ch.Key()},
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveChannel(ctx, ch.Key()).Group).To(BeNil())
+			},
+		)
+		It(
+			"Should move a channel with update on the destination group",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx, telem.Float32T)
+				g := createChannelGroup(ctx, "Set group granted")
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+					group.ResourceID(g.Key),
+				)
+				Expect(apiSvc.SetGroup(
+					AuthedCtx(ctx, author),
+					nil,
+					apichannel.SetGroupRequest{
+						Group: &g.Key,
+						Keys:  []channel.Key{ch.Key()},
+					},
+				)).Error().ToNot(HaveOccurred())
+				Expect(retrieveChannel(ctx, ch.Key()).Group).To(Equal(&g.Key))
+			},
+		)
+	})
 	Describe("RetrieveDataTypes", func() {
 		It(
 			"Should resolve the data types of the channels in key order",
@@ -121,16 +249,16 @@ var _ = Describe("Service", func() {
 			BeforeEach(func(ctx SpecContext) {
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					[]access.Action{access.ActionRetrieve},
-					ontology.ID{Type: ontology.ResourceTypeChannel},
+					resource.ID{Type: resource.TypeChannel},
 				)
 			})
 
 			setStatus := func(ctx SpecContext, ch channel.Channel) {
 				GinkgoHelper()
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &apichannel.Status{
-					Key:     channel.OntologyID(ch.Key()).String(),
+					Owner:   new(channel.ResourceID(ch.Key())),
 					Name:    ch.Name,
 					Variant: status.VariantSuccess,
 					Message: "ok",
@@ -190,10 +318,10 @@ var _ = Describe("Service", func() {
 			BeforeEach(func(ctx SpecContext) {
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					[]access.Action{access.ActionRetrieve},
-					ontology.ID{Type: ontology.ResourceTypeChannel},
-					ontology.ID{Type: ontology.ResourceTypeRangeAlias},
+					resource.ID{Type: resource.TypeChannel},
+					resource.ID{Type: resource.TypeRangeAlias},
 				)
 				rng = ranger.Range{
 					Name: "range",
@@ -309,9 +437,9 @@ var _ = Describe("Service", func() {
 				))
 				grantOn(
 					ctx,
-					reader.OntologyID(),
+					reader.ResourceID(),
 					[]access.Action{access.ActionRetrieve},
-					ontology.ID{Type: ontology.ResourceTypeChannel},
+					resource.ID{Type: resource.TypeChannel},
 				)
 				Expect(apiSvc.Retrieve(
 					AuthedCtx(ctx, reader),
@@ -326,9 +454,9 @@ var _ = Describe("Service", func() {
 		It("Should treat a missing key as a non-match", func(ctx SpecContext) {
 			grantOn(
 				ctx,
-				author.OntologyID(),
+				author.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
-				ontology.ID{Type: ontology.ResourceTypeChannel},
+				resource.ID{Type: resource.TypeChannel},
 			)
 			ch := createChannel(ctx, telem.Float32T)
 			res := MustSucceed(apiSvc.Retrieve(

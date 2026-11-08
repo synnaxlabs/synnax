@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Protocol
 
@@ -109,6 +109,7 @@ class Test:
     bundle_dir: str | None = None
     # Address of the Core the test ran on.
     core: str | None = None
+    metrics: dict[str, float] = field(default_factory=dict)
 
     def __str__(self) -> str:
         """Return display name for test result."""

@@ -69,6 +69,9 @@ class Master final : public master::Master {
     /// @brief why the bus starts without each slave that leave_out() names, keyed by
     /// position.
     std::map<uint16_t, slave::Refusal> left_out;
+    /// @brief CoE objects written to each slave before SAFE-OP, keyed by position.
+    std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
+        startup_parameters;
     /// @brief protects slave state queries and configuration.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -141,6 +144,14 @@ private:
     /// @brief returns or creates the configuration of the slave at a position,
     /// registering every PDO entry the slave maps.
     ec_slave_config_t *get_or_create_slave_config(uint16_t position);
+
+    /// @brief writes a slave's startup parameters and adds them to its config, so the
+    /// master writes them again at each move to SAFE-OP.
+    x::errors::Error add_startup_parameters(
+        const slave::Properties &slave,
+        ec_slave_config_t *sc,
+        const std::vector<slave::StartupParameter> &parameters
+    );
 
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
     void discover_slave_pdos(slave::DiscoveryResult &slave);

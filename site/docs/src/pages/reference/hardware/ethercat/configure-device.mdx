@@ -133,8 +133,10 @@ yet.
   the rate does not change until every task on the port stops. See
   ["cycles at ... Hz while a slave runs DC sync"](#the-bus-on--cycles-at--hz-while-a-slave-runs-dc-sync).
 - **Outputs** -> Each output holds the last value a write task commanded. When a write
-  task stops, its outputs go to zero. An output that another running write task
-  commanded keeps the last value of that task instead.
+  task stops, its outputs go to their stop values and hold them while the network runs.
+  When the network stops, or the Driver loses contact with a module, the module sets its
+  outputs to its own safe value. When the network starts, each output is 0 until a write
+  task commands it.
 - **Lost modules** -> When a module stops responding, the network continues to cycle,
   and the Driver returns the module to operation when it responds again. Until then,
   every read task on the port pauses with the warning "Failed to read data", and its
@@ -236,8 +238,22 @@ start them again.
 
 <Edition.Enterprise>
 
-The IgH master does not run DC sync. With IgH, a DC sync mode selected under **Sync
-mode** fails the start.
+The IgH master does not run DC sync and reads no sync modes, so **Sync mode** lists
+none. A module that needs DC sync, such as a Dewesoft module set to DC sync, cannot
+reach OP with IgH. A DC sync mode selected during an earlier scan with the built-in
+master fails the start.
+
+The Driver uses IgH whenever the IgH kernel module is loaded. To use the built-in master
+instead:
+
+1. Stop IgH with `sudo systemctl stop ethercat`, or with
+   `sudo /etc/init.d/ethercat stop` on a computer without systemd.
+2. To keep IgH off after a reboot, run `sudo systemctl disable ethercat`.
+3. Check that the port shows in `ip link`. If IgH used a native device module, the port
+   can need its standard Linux driver again first.
+4. [Restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+5. A module with no serial number shows as a new device, because its key comes from the
+   port and the position. Configure it, then select it again in each task that used it.
 
 </Edition.Enterprise>
 
@@ -282,17 +298,93 @@ await client.devices.create(module);
 
 <Divider.Divider x />
 
+## Startup parameters
+
+Many modules keep settings such as filters, measurement ranges, and sensor types in CoE
+objects. Add these settings to the `startup_parameters` property, and the Driver writes
+them to the module each time the network starts, before the module exchanges data. The
+Driver also writes them again when a module returns after a power loss.
+
+| Parameter   | Type   | Required | Default | Description                                                                                                        |
+| ----------- | ------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| `index`     | number | Yes      | -       | CoE object index (`0x0000` to `0xFFFF`)                                                                            |
+| `sub_index` | number | Yes      | -       | CoE object subindex (`0` to `255`)                                                                                 |
+| `data_type` | string | Yes      | -       | `int8` to `int64`, `uint8` to `uint64`, `float32`, or `float64`                                                    |
+| `value`     | number | Yes      | -       | The value to write. It must fit in `data_type`. An integer must be between -9007199254740991 and 9007199254740991. |
+| `name`      | string | No       | `""`    | A label that error messages show                                                                                   |
+
+- **When changes apply** -> If the network is running, a change applies the next time
+  the network starts. Stop every task on the port, then start them again.
+- **Rejected values** -> If a module rejects a value, the task does not start. The error
+  names the parameter and the reason that the module gave, for example
+  `rejected startup parameter 0x8000:15 (Filter settings): Value of parameter written too high`.
+  If a module rejects a value when it reconnects, it stays out of operation until the
+  network starts again.
+- **Invalid properties** -> If a parameter is not valid, the status of the module shows
+  **Invalid device properties** and says which field is wrong. The network starts every
+  module on it, so no task on that network starts until you correct the parameter.
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the module and select **Configure**.
+2. Under **Startup parameters**, click **Add parameter**.
+3. Enter the **Index** and **Subindex** in hexadecimal, such as `8000` and `15`. Select
+   the **Data type**, and enter the **Value** and an optional **Name**.
+4. Click **Save**. If the data type cannot hold the value, the Console marks the value
+   and does not save.
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+module = client.devices.retrieve(key="<module key>")
+module.properties["startup_parameters"] = [
+    {
+        "index": 0x8000,
+        "sub_index": 0x15,
+        "data_type": "uint16",
+        "value": 1,
+        "name": "Filter settings",
+    },
+]
+client.devices.create(module)
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+const module = await client.devices.retrieve({ key: "<module key>" });
+module.properties.startupParameters = [
+  {
+    index: 0x8000,
+    subIndex: 0x15,
+    dataType: "uint16",
+    value: 1,
+    name: "Filter settings",
+  },
+];
+await client.devices.create(module);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
 ## Device properties
 
-| Property                      | Meaning                                                     |
-| ----------------------------- | ----------------------------------------------------------- |
-| `name`                        | The name stored in the module.                              |
-| `vendor_id`, `product_code`   | The vendor and model of the module, as numbers.             |
-| `revision`, `serial`          | The revision and serial number of the module, as numbers.   |
-| `network`                     | The port of the module, such as `en5`. With IgH, `igh:0`.   |
-| `position`                    | The position on the network. Starts at 1, or at 0 with IgH. |
-| `enabled`                     | `false` when the module is [disabled](#disable-a-device).   |
-| `pdos.inputs`, `pdos.outputs` | The PDO entries of the module. See below.                   |
+| Property                      | Meaning                                                                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `name`                        | The name stored in the module.                                                                                          |
+| `vendor_id`, `product_code`   | The vendor and model of the module, as numbers.                                                                         |
+| `revision`, `serial`          | The revision and serial number of the module, as numbers.                                                               |
+| `network`                     | The port of the module, such as `en5`. With IgH, `igh:0`.                                                               |
+| `position`                    | The position on the network. Starts at 1, or at 0 with IgH.                                                             |
+| `enabled`                     | `false` when the module is [disabled](#disable-a-device).                                                               |
+| `startup_parameters`          | CoE values that the Driver writes to the module when the network starts. See [startup parameters](#startup-parameters). |
+| `pdos.inputs`, `pdos.outputs` | The PDO entries of the module. See below.                                                                               |
 
 Each entry has a `name`, an `index` and a `sub_index` (its CoE address), a `bit_length`,
 and a `data_type`. When the module names its PDOs, an entry also has a `pdo_name`, the
@@ -401,8 +493,9 @@ The error gives the reason, for example:
 
 - The module does not list the mode, such as after a firmware update. The error lists
   the modes of the module, and the Configure dialog marks the mode. Select a mode again.
-- A SYNC0 or SYNC1 cycle is set on a mode that does not run SYNC0. Clear the cycles, or
-  select a DC sync mode that runs SYNC0.
+- A SYNC0 or SYNC1 cycle is set on a mode that does not run SYNC0, or on a mode in which
+  the module sets its own clock ticks. Clear the cycles, or select a mode that takes
+  them.
 
 ### "the clock of slave ... is ... off the reference clock"
 

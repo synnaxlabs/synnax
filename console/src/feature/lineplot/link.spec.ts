@@ -23,7 +23,8 @@ const client = createTestClient();
 describe("LinePlot.useLink", () => {
   it("should open the retrieved line plot as a tab", async () => {
     const project = await client.projects.create({ name: id.create() });
-    const linePlot = await client.lineplots.create(project.key, {
+    const linePlot = await client.lineplots.create({
+      project: project.key,
       name: "Tank Pressure",
     });
     const { wrapper, store } = await createConsoleWrapper({
@@ -38,7 +39,7 @@ describe("LinePlot.useLink", () => {
       const panelKey = Session.Panel.selectSelected(store.getState());
       expect(panelKey).toBeDefined();
       const doc = await client.panels.retrieve(panelKey as string);
-      const tab = panel.findTabByResource(doc.root, lineplot.ontologyID(linePlot.key));
+      const tab = panel.findTabByResource(doc.root, lineplot.resourceID(linePlot.key));
       expect(tab).not.toBeNull();
     });
   });
