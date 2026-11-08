@@ -23,7 +23,6 @@
 namespace fs = std::filesystem;
 
 namespace driver::daemon {
-const std::string BINARY_PATH = "/usr/local/bin/synnax-driver";
 const std::string ENV_FILE = "/etc/synnax/driver.env";
 
 x::errors::Error load_env() {
@@ -39,42 +38,41 @@ x::errors::Error create_system_user() {
     return x::errors::NIL;
 }
 
-x::errors::Error install_binary() {
-    LOG(INFO) << "moving binary to " << BINARY_PATH;
+x::errors::Error
+install_binary(const fs::path &path, const uid_t uid, const gid_t gid) {
+    LOG(INFO) << "moving binary to " << path;
     std::error_code ec;
     const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
     if (ec)
         return x::errors::Error(
             "failed to get current executable path: " + ec.message()
         );
-    const fs::path target_path = BINARY_PATH;
-    fs::create_directories(target_path.parent_path(), ec);
+    fs::create_directories(path.parent_path(), ec);
     if (ec)
         return x::errors::Error("failed to create binary directory: " + ec.message());
+    constexpr auto mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
     // An install run from the installed binary would copy the file onto itself, which
     // copy_file rejects. Skip the copy: the binary is already in place.
-    const bool already_installed = fs::exists(target_path, ec) &&
-                                   fs::equivalent(curr_bin_path, target_path, ec);
-    constexpr auto mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
-    if (already_installed) {
-        if (chmod(target_path.c_str(), mode) != 0)
+    if (fs::exists(path, ec) && fs::equivalent(curr_bin_path, path, ec)) {
+        if (chown(path.c_str(), uid, gid) != 0 || chmod(path.c_str(), mode) != 0)
             return x::errors::Error("failed to set binary permissions");
         return x::errors::NIL;
     }
     // Renaming a complete copy over the old binary keeps it in place if the copy fails,
     // and avoids ETXTBSY when a process still runs the old binary.
-    const fs::path tmp_path = BINARY_PATH + "." + std::to_string(getpid()) + ".tmp";
+    fs::path tmp_path = path;
+    tmp_path += "." + std::to_string(getpid()) + ".tmp";
     fs::copy_file(curr_bin_path, tmp_path, fs::copy_options::overwrite_existing, ec);
     if (ec) {
         const auto msg = ec.message();
         fs::remove(tmp_path, ec);
         return x::errors::Error("failed to copy binary: " + msg);
     }
-    if (chmod(tmp_path.c_str(), mode) != 0) {
+    if (chown(tmp_path.c_str(), uid, gid) != 0 || chmod(tmp_path.c_str(), mode) != 0) {
         fs::remove(tmp_path, ec);
         return x::errors::Error("failed to set binary permissions");
     }
-    fs::rename(tmp_path, target_path, ec);
+    fs::rename(tmp_path, path, ec);
     if (ec) {
         const auto msg = ec.message();
         fs::remove(tmp_path, ec);

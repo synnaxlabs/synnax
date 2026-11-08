@@ -50,7 +50,8 @@ int start(x::args::Parser &args) {
 
     // Register a signal handler to stop the driver when the process receives a signal.
     x::shutdown::listen(sig_stop_enabled, stdin_stop_enabled);
-    if (!early_shutdown->load())
+    const bool early = early_shutdown->load();
+    if (!early)
         LOG(INFO) << x::log::BLUE()
                   << "received shutdown signal. Gracefully stopping driver. "
                      "This can take up to 5 seconds. Please be patient"
@@ -61,6 +62,7 @@ int start(x::args::Parser &args) {
         LOG(ERROR) << "stopped with error: " << err;
     else
         LOG(INFO) << x::log::BLUE() << "stopped" << x::log::RESET();
-    return 0;
+    // A nonzero code makes the service manager restart the Driver.
+    return early ? 1 : 0;
 }
 }

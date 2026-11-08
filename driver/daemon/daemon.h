@@ -14,7 +14,8 @@
 #include "x/cpp/errors/errors.h"
 
 namespace driver::daemon {
-using ApplicationCallback = std::function<void()>;
+/// @brief the application's main logic. Returns the process exit code.
+using ApplicationCallback = std::function<int()>;
 
 /// @brief status codes reported to the system service manager.
 enum class Status {
@@ -51,6 +52,7 @@ x::errors::Error status();
 /// the environment is kept. Does nothing where no service environment file exists.
 x::errors::Error load_env();
 
-/// @brief runs the application as a daemon with the given configuration.
-void run(const Config &config);
+/// @brief runs the application as a daemon with the given configuration. Returns the
+/// exit code of the callback, or 1 when it throws.
+int run(const Config &config);
 }

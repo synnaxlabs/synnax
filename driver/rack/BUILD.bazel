@@ -40,6 +40,10 @@ cc_library(
         ":nilinuxrt": ["SYNNAX_NILINUXRT"],
         "//conditions:default": [],
     }),
+    linkopts = select({
+        "@platforms//os:windows": ["/DEFAULTLIB:advapi32.lib"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/auth",

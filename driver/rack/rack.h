@@ -269,8 +269,14 @@ struct Config {
 
     /// @brief applies the persisted state ownership and modes without opening the
     /// state. Run as root once the Linux service user exists, it gives that user the
-    /// state that an earlier login left to root. Skips state that does not exist.
+    /// state that an earlier login left to root. On Windows, it gives the state of the
+    /// computer to LocalSystem and the administrators. Skips state that does not exist.
     static x::errors::Error secure_persisted_state(x::args::Parser &args);
+
+    /// @brief moves the state that the user saved without admin rights to the state of
+    /// the computer, which the service reads, unless that state exists. Does nothing on
+    /// Linux or with a --state-file argument. Requires admin rights.
+    static x::errors::Error move_user_state(x::args::Parser &args);
 
     /// @brief loads the configuration from the provided command line arguments.
     /// Looks for a "--config" flag followed by a configuration file path.
