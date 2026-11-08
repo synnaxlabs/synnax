@@ -15,7 +15,8 @@ Project struct {
         @key
     }
     name string {
-        @doc value "is a human-readable name for the project."
+        @doc value         "is a human-readable name for the project."
+        @validate required
     }
 
     @doc value  """

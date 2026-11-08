@@ -12,9 +12,9 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import ontology, resource
+from synnax import project as project_
+from synnax import ranger
 from synnax.panel.types_gen import (
-    TYPE_RESOURCE_ID,
     Key,
     Panel,
     RetrieveRequest,
@@ -56,19 +56,16 @@ class _DispatchRequest(BaseModel):
 
 class Client:
     """Client for creating, retrieving, renaming, and deleting panels on a Synnax
-    Core. A panel is a tree of visualization tabs owned by a parent resource, such as
-    a project.
+    Core. A panel is a tree of visualization tabs owned by a project or a range.
     """
 
     _client: UnaryClient
-    _ontology: ontology.Client
 
-    def __init__(self, client: UnaryClient, ontology: ontology.Client) -> None:
+    def __init__(self, client: UnaryClient) -> None:
         self._client = client
-        self._ontology = ontology
 
     @overload
-    def create(self, *, name: str, parent: resource.ID) -> Panel: ...
+    def create(self, *, name: str, project: project_.Key) -> Panel: ...
 
     @overload
     def create(self, panels: Panel) -> Panel: ...
@@ -81,22 +78,23 @@ class Client:
         panels: Panel | list[Panel] | None = None,
         *,
         name: str = "",
-        parent: resource.ID | None = None,
+        project: project_.Key | None = None,
     ) -> Panel | list[Panel]:
         """Create one or more panels.
 
         :param panels: A single panel or a list of them. When omitted, a panel is
-            created from the ``name`` and ``parent`` keyword arguments.
+            created from the ``name`` and ``project`` keyword arguments.
         :param name: The name of the panel to create when ``panels`` is omitted.
-        :param parent: The resource ID of the resource that owns the panel, such as a
-            project, when ``panels`` is omitted.
+        :param project: The key of the project that owns the panel when ``panels`` is
+            omitted.
         :returns: The created panel, or a list of created panels when ``panels`` is a
             list.
-        :raises ValidationError: If a panel has no parent.
+        :raises ValidationError: If a panel does not belong to exactly one of a project
+            and a range.
         """
         is_single = not isinstance(panels, list)
         if panels is None:
-            panels = [Panel(name=name, parent=parent)]
+            panels = [Panel(name=name, project=project)]
         req = _CreateRequest(panels=normalize(panels))
         res = self._client.send("/panel/create", req, _CreateResponse)
         return res.panels[0] if is_single else res.panels
@@ -124,11 +122,12 @@ class Client:
         self,
         *,
         key: Key,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        parent: resource.ID | None = ...,
         search_term: str = ...,
         one: bool = ...,
     ) -> Panel: ...
@@ -138,12 +137,13 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
         keys: list[Key] | None = ...,
-        parent: resource.ID | None = ...,
         search_term: str = ...,
         one: Literal[True],
     ) -> Panel: ...
@@ -153,12 +153,13 @@ class Client:
         self,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
         keys: list[Key] | None = ...,
-        parent: resource.ID | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
         offset: int = ...,
@@ -170,7 +171,6 @@ class Client:
         *,
         keys: list[Key] | None = None,
         where: Where | None = None,
-        parent: resource.ID | None = None,
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
@@ -188,8 +188,8 @@ class Client:
         :param not_: Keeps panels that do not match the filter.
         :param where: A filter tree that the panels must also match.
         :param keys: Keeps panels with one of these keys.
-        :param parent: Keeps the panels that are children of the resource with this
-            resource ID, such as a project. Replaces ``keys``.
+        :param projects: Keeps the panels owned by any of these projects.
+        :param ranges: Keeps the panels owned by any of these ranges.
         :param search_term: A fuzzy search term matched against panel names.
         :param limit: The maximum number of panels to retrieve.
         :param offset: The number of panels to skip.
@@ -202,14 +202,6 @@ class Client:
             beside a limit or an offset.
         """
         single = returns_one(fields, one, limit, offset)
-        if parent is not None:
-            keys = []
-            for child in self._ontology.retrieve_children(parent):
-                if child.type != TYPE_RESOURCE_ID.type:
-                    continue
-                if child.key is None:
-                    raise ValueError(f"panel child of {parent} has no key")
-                keys.append(Key(child.key))
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),

@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.resource.client import Client, Resource
 from synnax.resource.payload import ID, CrudeID
 from synnax.resource.types_gen import Type
 
-__all__ = ["ID", "CrudeID", "Type"]
+__all__ = ["ID", "Client", "CrudeID", "Resource", "Type"]

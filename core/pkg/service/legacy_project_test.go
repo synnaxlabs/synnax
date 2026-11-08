@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -38,7 +37,7 @@ var _ = Describe("Legacy project bundles", func() {
 	}
 
 	// importBundle imports the bundle directory at path and returns the layer it landed
-	// in, so a spec can walk the ontology it produced.
+	// in, so a spec can read the records it produced.
 	importBundle := func(
 		ctx SpecContext, path, fileName string,
 	) (*service.Layer, project.Project) {
@@ -46,25 +45,20 @@ var _ = Describe("Legacy project bundles", func() {
 		l, db := openLayer(ctx)
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
-		p := MustSucceed(l.Project.Import(ctx, tx, LoadBundle(path), fileName))
+		p := MustSucceed(l.Bundle.Import(ctx, tx, LoadBundle(path), fileName))
 		Expect(tx.Commit(ctx)).To(Succeed())
 		return l, p
 	}
 
 	childrenOf := func(
-		ctx SpecContext, l *service.Layer, id resource.ID,
-	) []ontology.Resource {
+		ctx SpecContext, l *service.Layer, key project.Key,
+	) []resource.Resource {
 		GinkgoHelper()
-		var children []ontology.Resource
-		Expect(l.Ontology.NewRetrieve().
-			WhereIDs(id).
-			TraverseTo(ontology.ChildrenTraverser).
-			Entries(&children).
-			Exec(ctx, nil)).To(Succeed())
-		return children
+		ids := MustSucceed(l.Project.Children(ctx, nil, key))
+		return MustSucceed(l.Resource.Retrieve(ctx, nil, ids...))
 	}
 
-	typesOf := func(children []ontology.Resource) []resource.Type {
+	typesOf := func(children []resource.Resource) []resource.Type {
 		types := make([]resource.Type, len(children))
 		for i, c := range children {
 			types[i] = c.ID.Type
@@ -82,7 +76,7 @@ var _ = Describe("Legacy project bundles", func() {
 
 		It("Should recreate both schematics and the table", func(ctx SpecContext) {
 			l, p := importBundle(ctx, path, "Test Stand.zip")
-			children := childrenOf(ctx, l, project.ResourceID(p.Key))
+			children := childrenOf(ctx, l, p.Key)
 			Expect(typesOf(children)).To(ContainElements(
 				resource.TypeSchematic,
 				resource.TypeSchematic,
@@ -94,8 +88,8 @@ var _ = Describe("Legacy project bundles", func() {
 			ctx SpecContext,
 		) {
 			l, p := importBundle(ctx, path, "Test Stand.zip")
-			children := childrenOf(ctx, l, project.ResourceID(p.Key))
-			var panels []ontology.Resource
+			children := childrenOf(ctx, l, p.Key)
+			var panels []resource.Resource
 			for _, c := range children {
 				if c.ID.Type == resource.TypePanel {
 					panels = append(panels, c)
@@ -121,13 +115,13 @@ var _ = Describe("Legacy project bundles", func() {
 			ctx SpecContext,
 		) {
 			l, p := importBundle(ctx, path, "Hardware.zip")
-			children := childrenOf(ctx, l, project.ResourceID(p.Key))
+			children := childrenOf(ctx, l, p.Key)
 			Expect(typesOf(children)).To(ContainElements(
 				resource.TypeSchematic,
 				resource.TypeLineplot,
 			))
 			Expect(typesOf(children)).ToNot(ContainElement(resource.TypeLog))
-			Expect(lo.Map(children, func(c ontology.Resource, _ int) string {
+			Expect(lo.Map(children, func(c resource.Resource, _ int) string {
 				return c.Name
 			})).To(ContainElements("Line Plot", "Schematic"))
 			// A task parents under its rack's task group, never the project.
@@ -156,7 +150,7 @@ var _ = Describe("Legacy project bundles", func() {
 			// import fails rather than dropping it quietly.
 			l, db := openLayer(ctx)
 			tx := DeferClose(db.OpenTx())
-			Expect(l.Project.Import(
+			Expect(l.Bundle.Import(
 				ctx, tx, LoadBundle(path), "Dropped.zip",
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("98dbf43a")),
@@ -172,7 +166,7 @@ var _ = Describe("Legacy project bundles", func() {
 			ctx SpecContext,
 		) {
 			l, p := importBundle(ctx, path, "Arc Workspace.zip")
-			children := childrenOf(ctx, l, project.ResourceID(p.Key))
+			children := childrenOf(ctx, l, p.Key)
 			Expect(typesOf(children)).To(ContainElement(
 				resource.TypeSchematic,
 			))

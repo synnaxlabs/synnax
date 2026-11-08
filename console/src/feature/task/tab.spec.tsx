@@ -140,7 +140,7 @@ describe("task tab", () => {
     });
     await client.tasks.create({
       ...created.payload,
-      status: createTaskStatus({ details: { task: created.key, running: true } }),
+      status: createTaskStatus({ details: { running: true } }),
     });
     // Restore rebuilds from the corpse the cache holds, which exists only once
     // the client has seen the task live. The tab reads statuses, so the corpse

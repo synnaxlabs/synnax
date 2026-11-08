@@ -110,7 +110,8 @@ Symbol struct {
         @key
     }
     name string {
-        @doc value "is a human-readable name for the symbol."
+        @doc value           "is a human-readable name for the symbol."
+        @validate min_length 1
     }
     data Spec   {
         @doc value "is the complete symbol specification."

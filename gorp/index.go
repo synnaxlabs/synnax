@@ -63,12 +63,6 @@ type Index[K Key, E Entry[K]] interface {
 	// When tx has no per-tx identity, the deletion applies to committed
 	// state immediately.
 	stageDelete(tx Tx, key K)
-	// announce shows entry to index filters while a write outside a transaction is in
-	// progress. Committed index state does not change. Pass the returned handle to
-	// withdraw when the write ends.
-	announce(entry *E) uint64
-	// withdraw ends the announce that returned handle.
-	withdraw(handle uint64)
 }
 
 // indexStore is the read side of the engine behind an index.
@@ -96,38 +90,60 @@ func scopeOf(tx Tx) *txState {
 	return tx.txIdentity()
 }
 
-// indexFilter returns a Filter matching entries whose field, read by extract, is any of
-// values. The filter resolves its keys through store at Exec time. When store failed to
-// populate, it leaves its keys unbounded, so its eval predicate scans every entry.
+// probe returns the keys that store maps to any of values, with the changes staged
+// against tx applied. A read outside a transaction can run after a commit writes and
+// before its index changes apply, so probe also includes the keys of each commit in
+// flight. Such a commit can fail, so a caller checks each key against storage.
+//
+// probe waits for store to populate, or for ctx to end.
+func probe[K Key, V comparable](
+	ctx context.Context,
+	store indexStore[K, V],
+	tx Tx,
+	values []V,
+) ([]K, error) {
+	if err := store.Wait(ctx); err != nil {
+		return nil, err
+	}
+	committing := store.Committing(values...)
+	keys, err := store.Get(scopeOf(tx), values...)
+	if err != nil || len(committing) == 0 {
+		return keys, err
+	}
+	return lo.Uniq(append(keys, committing...)), nil
+}
+
+// indexFilter returns a Filter matching entries that hold any of values. The filter
+// resolves its keys through store at Exec time. When store failed to populate, it
+// leaves its keys unbounded, so holds checks every entry.
 func indexFilter[K Key, E Entry[K], V comparable](
 	store indexStore[K, V],
-	extract func(e *E) V,
+	holds func(e *E, values []V) bool,
 	values []V,
 ) Filter[K, E] {
 	captured := lo.Uniq(values)
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
-			if err := store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+			// eval drops the keys of a commit in flight that fails.
+			keys, err := probe(ctx, store, tx, captured)
+			if errors.Is(err, ErrIndexInvalid) {
 				return resolved[K, E]{}, nil
-			} else if err != nil {
-				return resolved[K, E]{}, err
 			}
-			// Observers run before a commit returns, so Get alone misses the entries
-			// that notified them. eval drops the keys of a commit that fails.
-			committing := store.Committing(captured...)
-			keys, err := store.Get(scopeOf(tx), captured...)
 			if err != nil {
 				return resolved[K, E]{}, err
-			}
-			if len(committing) > 0 {
-				keys = lo.Uniq(append(keys, committing...))
 			}
 			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
 		},
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
-			return slices.Contains(captured, extract(e)), nil
+			return holds(e, captured), nil
 		},
 	}
+}
+
+// holdsValue returns a predicate reporting whether the field that extract reads is any
+// of values.
+func holdsValue[E any, V comparable](extract func(e *E) V) func(*E, []V) bool {
+	return func(e *E, values []V) bool { return slices.Contains(values, extract(e)) }
 }
 
 // LookupIndex is an in-memory exact-match secondary index on a field of type V
@@ -183,25 +199,19 @@ func (l *LookupIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	l.store.StageDelete(tx.txIdentity(), key)
 }
 
-//nolint:unused
-func (l *LookupIndex[K, E, V]) announce(entry *E) uint64 {
-	return l.store.Announce((*entry).GorpKey(), l.extract(entry))
-}
-
-//nolint:unused
-func (l *LookupIndex[K, E, V]) withdraw(handle uint64) { l.store.Withdraw(handle) }
-
 // Get returns the primary keys of entries whose indexed field matches any of the
 // provided values, merging committed index state with any per-tx delta staged against
-// tx. Pass a nil tx to read committed state only.
+// tx. Pass a nil tx to read committed state only. Get includes the keys of a commit in
+// flight, which can fail, so check each key against storage.
 //
-// Get blocks until the index has finished populating. After populate settles, Get
-// returns ErrIndexInvalid if population failed; callers should fall back to a
-// sequential scan or surface the error.
-//
-// Returned slices are owned by the caller and may be freely retained.
-func (l *LookupIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
-	return l.store.Get(scopeOf(tx), values...)
+// Get waits for the index to populate, or for ctx to end. It returns ErrIndexInvalid
+// if population failed. The caller owns the returned slice.
+func (l *LookupIndex[K, E, V]) Get(
+	ctx context.Context,
+	tx Tx,
+	values ...V,
+) ([]K, error) {
+	return probe(ctx, l.store, tx, values)
 }
 
 // Filter returns a Filter[K, E] matching entries whose indexed field is any of values.
@@ -214,7 +224,7 @@ func (l *LookupIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
 // fails, the Filter falls back to a sequential scan, so queries continue to return
 // correct results at scan cost.
 func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
-	return indexFilter[K, E](l.store, l.extract, values)
+	return indexFilter[K, E](l.store, holdsValue(l.extract), values)
 }
 
 // SortedIndex is an ordered in-memory index on a field of type V extracted from entries
@@ -275,20 +285,14 @@ func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	s.store.StageDelete(tx.txIdentity(), key)
 }
 
-//nolint:unused
-func (s *SortedIndex[K, E, V]) announce(entry *E) uint64 {
-	return s.store.Announce((*entry).GorpKey(), s.extract(entry))
-}
-
-//nolint:unused
-func (s *SortedIndex[K, E, V]) withdraw(handle uint64) { s.store.Withdraw(handle) }
-
 // Get returns the primary keys of entries whose indexed field matches any of the
-// provided values, merging committed index state with any per-tx delta staged against
-// tx. Pass a nil tx to read committed state only. See LookupIndex.Get for the
-// populate-failure contract.
-func (s *SortedIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
-	return s.store.Get(scopeOf(tx), values...)
+// provided values. See LookupIndex.Get for its contract.
+func (s *SortedIndex[K, E, V]) Get(
+	ctx context.Context,
+	tx Tx,
+	values ...V,
+) ([]K, error) {
+	return probe(ctx, s.store, tx, values)
 }
 
 // Filter returns an exact-match Filter[K, E] matching entries whose indexed field is
@@ -300,5 +304,5 @@ func (s *SortedIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
 // a sequential scan when populate fails. See LookupIndex.Filter for the
 // populate-failure contract.
 func (s *SortedIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
-	return indexFilter[K, E](s.store, s.extract, values)
+	return indexFilter[K, E](s.store, holdsValue(s.extract), values)
 }

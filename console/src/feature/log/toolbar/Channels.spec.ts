@@ -202,12 +202,12 @@ describe("log/toolbar/Channels", () => {
     expect(search).toHaveProperty("value", prefix);
   });
 
-  it("removes the row of a deleted channel with the clear button", async () => {
+  it("removes the row of a deleted channel", async () => {
     const deleted = await createChannel();
-    await client.channels.delete(deleted);
     await renderChannels([entry(deleted)]);
     await waitFor(() => expect(channelRows()).toHaveLength(1));
-    fireEvent.click(await screen.findByLabelText("Clear selection"));
+    // The Core removes the channel from the log, so its row goes.
+    await client.channels.delete(deleted);
     await waitFor(() => expect(channelRows()).toHaveLength(0));
   });
 });

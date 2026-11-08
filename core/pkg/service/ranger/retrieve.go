@@ -10,9 +10,7 @@
 package ranger
 
 import (
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -21,7 +19,6 @@ type Retrieve struct {
 	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Range]
 	indexes indexes
-	label   *label.Service
 }
 
 // MatchOverlaps returns a filter that matches ranges whose TimeRange overlaps tr.
@@ -31,22 +28,4 @@ func MatchOverlaps(tr telem.TimeRange) Filter {
 			return rng.TimeRange.OverlapsWith(tr), nil
 		})
 	}
-}
-
-// MatchLabels returns a filter that matches ranges that have any of the
-// provided labels.
-func MatchLabels(matchLabels ...label.Key) Filter {
-	return Match(func(ctx gorp.Context, r Retrieve, rng *Range) (bool, error) {
-		labels, err := r.label.RetrieveFor(ctx, rng.ResourceID(), ctx.Tx)
-		if err != nil {
-			return false, err
-		}
-		labelKeys := lo.Map(
-			labels,
-			func(l label.Label, _ int) label.Key { return l.Key },
-		)
-		return lo.ContainsBy(labelKeys, func(l label.Key) bool {
-			return lo.Contains(matchLabels, l)
-		}), nil
-	})
 }

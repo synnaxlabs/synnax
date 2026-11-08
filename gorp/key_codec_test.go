@@ -401,10 +401,7 @@ var _ = Describe("KeyCodec", func() {
 
 	Describe("Observe with non-int32 keys", func() {
 		var notifyDB *gorp.DB
-		BeforeEach(func() {
-			notifyDB = DeferClose(OpenGorpMsgpackDB())
-			tx = DeferClose(notifyDB.OpenTx())
-		})
+		BeforeEach(func() { notifyDB = DeferClose(OpenGorpMsgpackDB()) })
 
 		It("Should decode uint64 keys on delete notifications", func(ctx SpecContext) {
 			uint64Table := MustSucceed(
@@ -419,6 +416,7 @@ var _ = Describe("KeyCodec", func() {
 				Entry(&uint64Entry{ID: math.MaxUint64, Data: "data"}).
 				Exec(ctx, notifyDB)).To(Succeed())
 
+			tx := DeferClose(notifyDB.OpenTx())
 			Expect(gorp.NewDelete[uint64, uint64Entry]().
 				Where(gorp.MatchKeys[uint64, uint64Entry](math.MaxUint64)).
 				Exec(ctx, tx)).To(Succeed())
@@ -442,6 +440,7 @@ var _ = Describe("KeyCodec", func() {
 			)
 			defer func() { Expect(int16Table.Close()).To(Succeed()) }()
 
+			tx := DeferClose(notifyDB.OpenTx())
 			Expect(gorp.NewCreate[int16, int16Entry]().
 				Entry(&int16Entry{ID: -500, Data: "data"}).
 				Exec(ctx, tx)).To(Succeed())

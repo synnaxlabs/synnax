@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -85,7 +84,7 @@ describe("Panel Commands", () => {
       const proj = await client.projects.create({ name: uniqueName("project") });
       const pan = await client.panels.create({
         name: uniqueName("panel"),
-        parent: project.resourceID(proj.key),
+        project: proj.key,
       });
       const { openCommandPalette, selectCommand, store } = await renderPalette({
         client,

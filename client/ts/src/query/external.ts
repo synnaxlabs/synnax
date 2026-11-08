@@ -23,6 +23,7 @@ export {
   isLive,
   requireCorpse,
   type Retrieves,
+  type Space,
   type SpaceConfig,
   type Watch,
   watch,

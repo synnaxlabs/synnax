@@ -15,7 +15,12 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 )
+
+// tableName names the Symbol table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "schematic_symbol"
 
 // Retrieve is used to retrieve Symbol records from the database using a
 // builder pattern for constructing queries.
@@ -30,6 +35,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	group  *gorp.KeyReference[Key, Symbol, group.Key]
 	search *gorp.SearchIndex[Key, Symbol]
 }
 
@@ -38,6 +44,18 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Symbol, group.Key]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: gorp.Detach,
+			Targets: func(e *Symbol) []group.Key {
+				if e.Group == nil {
+					return nil
+				}
+				return []group.Key{*e.Group}
+			},
+			Detach: func(e *Symbol, _ group.Key) { e.Group = nil },
+		}),
 		search: gorp.NewSearchIndex[Key, Symbol](
 			"search",
 			func(e *Symbol) []string {
@@ -52,6 +70,14 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Symbol] {
 	return []gorp.Index[Key, Symbol]{
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Symbol] {
+	return []gorp.Reference[Key, Symbol]{
+		i.group,
 	}
 }
 
@@ -113,6 +139,38 @@ func MatchKeys(keys ...Key) Filter {
 	return func(Retrieve) gorp.Filter[Key, Symbol] {
 		return gorp.MatchKeys[Key, Symbol](keys...)
 	}
+}
+
+// MatchGroups returns a filter for symbols
+// whose Group matches any of the provided
+// values.
+func MatchGroups(vals ...group.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Symbol] {
+		return r.indexes.group.Filter(vals...)
+	}
+}
+
+// MatchHasGroup returns a filter for symbols whose
+// Group holds a target when has is true, and holds none when has is false.
+func MatchHasGroup(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Symbol] {
+		return r.indexes.group.FilterHolding(has)
+	}
+}
+
+// setGroup returns an update that sets the Group of the
+// symbols with keys to v.
+func setGroup(
+	table *gorp.Table[Key, Symbol],
+	v *group.Key,
+	keys ...Key,
+) gorp.Update[Key, Symbol] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Symbol](keys...)).
+		Change(func(_ gorp.Context, e Symbol) Symbol {
+			e.Group = v
+			return e
+		})
 }
 
 // Where applies the provided filter to the query, binding it to the Retrieve

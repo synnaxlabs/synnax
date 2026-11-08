@@ -12,6 +12,7 @@
 import { color, filter, spatial, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 /**
@@ -66,6 +67,8 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -82,6 +85,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** groups matches the symbols in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the symbols in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
 });
 
 /**
@@ -132,6 +139,8 @@ export const symbolZ = z.object({
   name: z.string().min(1),
   /** data is the complete symbol specification. */
   data: specZ,
+  /** group is the group the symbol sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Symbol extends z.infer<typeof symbolZ> {}
 export interface New extends z.input<typeof symbolZ> {}

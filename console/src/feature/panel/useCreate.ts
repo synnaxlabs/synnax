@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel, project } from "@synnaxlabs/client";
+import { type panel } from "@synnaxlabs/client";
 import { type Flux, Panel } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
@@ -22,6 +22,6 @@ export const useCreate = (): (() => void) => {
     },
   });
   return () => {
-    create({ name: "New panel", parent: project.resourceID(getProjectKey()) });
+    create({ name: "New panel", project: getProjectKey() });
   };
 };

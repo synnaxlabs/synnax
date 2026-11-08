@@ -28,7 +28,8 @@ Panel struct {
         @key
     }
     name   string       {
-        @doc value "is a human-readable name for the panel."
+        @doc value         "is a human-readable name for the panel."
+        @validate required
     }
     root   Node = { variant = "leaf", tabs = [] } {
         @doc value "is the root of the panel tree."

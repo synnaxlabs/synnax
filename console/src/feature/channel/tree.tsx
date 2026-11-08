@@ -12,10 +12,10 @@ import "@/feature/channel/tree.css";
 import {
   channel,
   isCalculated,
-  type ontology,
   ranger,
   resource,
   status,
+  type Synnax,
 } from "@synnaxlabs/client";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -44,15 +44,15 @@ import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
-const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {
+const haulItems = ({ name, id: { key }, data }: Tree.Resource): Haul.Item[] => {
   const items = [
     PSchematic.createHaulItem({
       key: id.create(),
-      config: { variant: "value", label: { label: name }, channel: Number(otgID.key) },
+      config: { variant: "value", label: { label: name }, channel: Number(key) },
     }),
   ];
   if (data?.internal === true) return items;
-  return [PChannel.createHaulItem(Number(otgID.key))];
+  return [PChannel.createHaulItem(Number(key))];
 };
 
 const allowRename: Tree.AllowRename = ({ data }) => data?.internal !== true;
@@ -251,10 +251,33 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   );
 };
 
+const toResource = (ch: channel.Channel): Tree.Resource =>
+  Tree.toResource("channel")(ch.payload);
+
+/** Lists the channels that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "channel",
+  children: (client, key) =>
+    Tree.createSource(client.channels, { where: { groups: [key] } }, toResource),
+};
+
+/** Lists the top level of the channel tree: its groups and the channels in no group. */
+export const listTreeRoot = (client: Synnax): Tree.Source[] => [
+  Tree.createSource(
+    client.groups,
+    { scope: "channel", nested: false },
+    Tree.toResource("group"),
+  ),
+  Tree.createSource(
+    client.channels,
+    { where: { grouped: false, internal: { eq: false } } },
+    toResource,
+  ),
+];
+
 const TreeItem = Tree.createItem({
   type: "channel",
   icon: <Icon.Channel />,
-  hasChildren: false,
   useOnSelect: useOpen,
   haulItems,
   Content,

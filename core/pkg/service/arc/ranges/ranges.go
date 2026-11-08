@@ -278,7 +278,7 @@ func dispatchCreate(
 			)
 			return ""
 		}
-		r.Parent = &ranger.Range{Key: uid}
+		r.Parent = &uid
 	}
 	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
 		return rng.NewWriter(tx).Create(ctx, &r)

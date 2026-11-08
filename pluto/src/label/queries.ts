@@ -18,39 +18,6 @@ const PLURAL_RESOURCE_NAME = "labels";
 
 export type RetrieveQuery = label.RetrieveSingleParams;
 
-export type LabelsOfQuery = {
-  id: resource.ID;
-};
-
-interface SetLabelsForParams {
-  client: Client;
-  data: {
-    id: resource.ID;
-    labels: label.Key[];
-  };
-}
-
-export const setLabelsFor = async ({
-  client,
-  data: { id, labels },
-}: SetLabelsForParams): Promise<label.Label[]> => {
-  await client.labels.label(id, labels, { replace: true });
-  if (labels.length === 0) return [];
-  return await client.labels.retrieve(labels);
-};
-
-export const { useResult: useResultLabelsOf } = Flux.createRetrieve<
-  LabelsOfQuery,
-  label.Label[]
->({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { id } }) =>
-    await client.labels.retrieve({ for: id }),
-  onChange: ({ client, query: { id } }, handler) =>
-    client.labels.onChange({ for: id }, handler),
-  getCached: ({ client, query: { id } }) => client.labels.getCached({ for: id }),
-});
-
 export interface EditForParams {
   id: resource.ID;
   added: label.Key[];
@@ -58,16 +25,24 @@ export interface EditForParams {
 }
 
 /**
- * Adds and removes labels on a resource. Other labels on the resource stay in place, so
- * edits from other clients at the same time are kept.
+ * Adds and removes labels on a range or a status. The labels it holds that the edit
+ * does not name stay in place.
+ * @throws {ValidationError} if the resource is not a range or a status.
  */
+export const editFor = async (
+  client: Client,
+  { id, added, removed }: EditForParams,
+): Promise<void> => {
+  if (added.length > 0) await client.labels.label(id, added);
+  if (removed.length > 0) await client.labels.remove(id, removed);
+};
+
+/** A hook form of {@link editFor}. */
 export const { useUpdate: useEditFor } = Flux.createUpdate<EditForParams>({
   name: PLURAL_RESOURCE_NAME,
   verbs: verbs.UPDATE,
   update: async ({ client, data }) => {
-    const { id, added, removed } = data;
-    if (added.length > 0) await client.labels.label(id, added);
-    if (removed.length > 0) await client.labels.remove(id, removed);
+    await editFor(client, data);
     return data;
   },
 });

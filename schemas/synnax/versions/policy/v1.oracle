@@ -18,7 +18,8 @@ Policy struct {
         @key
     }
     name     string          {
-        @doc value "is a human-readable name for the policy."
+        @doc value         "is a human-readable name for the policy."
+        @validate required
     }
     objects  resource.ID[]   {
         @doc value "is the list of ontology resources this policy applies to."

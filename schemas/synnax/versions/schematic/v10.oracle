@@ -127,4 +127,9 @@ NodeConfig union on variant extends v9.NodeConfig {
 
 ElementConfig union on variant extends v9.ElementConfig {}
 
-Schematic struct extends v9.Schematic {}
+Schematic struct extends v9.Schematic {
+    name string {
+        @doc value         "is a human-readable name for the schematic."
+        @validate required
+    }
+}

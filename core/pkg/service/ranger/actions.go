@@ -10,19 +10,16 @@
 package ranger
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // range.
 func (CreatePayload) Handle(Range) (Range, error) {
-	return Range{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a range create",
-	)
+	return Range{}, actions.CoreOnlyError("a range create")
 }
 
 // Handle applies the set to the range's name, time range, or color.
@@ -50,18 +47,24 @@ type document struct {
 	Name      string          `json:"name"`
 	TimeRange telem.TimeRange `json:"time_range"`
 	Color     *color.Color    `json:"color,omitzero"`
+	Parent    *Key            `json:"parent,omitzero"`
 }
 
 // edit applies a path action to a copy of the range's document. A document that gains a
 // member it does not declare, such as a path to the range's labels, is rejected.
 func edit(r Range, apply func(map[string]any) error) (Range, error) {
 	d, err := patch.Edit(
-		document{Name: r.Name, TimeRange: r.TimeRange, Color: r.Color},
+		document{
+			Name:      r.Name,
+			TimeRange: r.TimeRange,
+			Color:     r.Color,
+			Parent:    r.Parent,
+		},
 		apply,
 	)
 	if err != nil {
 		return Range{}, err
 	}
-	r.Name, r.TimeRange, r.Color = d.Name, d.TimeRange, d.Color
+	r.Name, r.TimeRange, r.Color, r.Parent = d.Name, d.TimeRange, d.Color, d.Parent
 	return r, nil
 }

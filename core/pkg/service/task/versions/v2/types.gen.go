@@ -30,8 +30,6 @@ type Key = uuid.UUID
 
 // StatusDetails contains task-specific status details including execution state.
 type StatusDetails struct {
-	// Task is the key of the task this status pertains to.
-	Task Key `json:"task" msgpack:"task"`
 	// Running is true if the task is currently executing.
 	Running bool `json:"running" msgpack:"running"`
 	// Cmd is the last command executed on this task.
@@ -76,14 +74,6 @@ type Task struct {
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t Task) Validate() error {
-	v := validate.New("Task")
-	v.NotEmptyString("name", t.Name)
-	return v.Error()
 }
 
 // KeyedConfig is the base for every stored task configuration record.
