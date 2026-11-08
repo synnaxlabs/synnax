@@ -204,18 +204,17 @@ void check_stop_value(
 std::unique_ptr<Input> make_input(
     const ::synnax::ethercat::ReadChannel &cfg,
     const slave::Properties &slave,
-    const x::json::Parser &parser,
-    const std::string &path
+    const x::json::Parser &parser
 ) {
     if (::synnax::ethercat::base(cfg).disabled) return nullptr;
     if (const auto *c = std::get_if<::synnax::ethercat::UnresolvedReadChannel>(&cfg))
         return std::make_unique<Input>(Input{
-            .entry = reject_unresolved(true, c->pdo, slave, parser, path),
+            .entry = reject_unresolved(true, c->pdo, slave, parser, ""),
             .synnax_key = c->channel,
         });
     const auto &c = std::get<::synnax::ethercat::EntryReadChannel>(cfg);
     return std::make_unique<Input>(Input{
-        .entry = bind(true, c.index, c.sub_index, c.data_type, slave, parser, path),
+        .entry = bind(true, c.index, c.sub_index, c.data_type, slave, parser, ""),
         .synnax_key = c.channel,
         .scale = c.scale,
     });

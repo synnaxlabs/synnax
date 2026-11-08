@@ -190,6 +190,8 @@ class Decoder {
         BITS,
         /// @brief the full width of the data type, copied as is.
         WHOLE,
+        /// @brief the full width of the data type, starting partway into a byte.
+        SHIFTED,
         /// @brief narrower than the data type, such as 24 bits, read as int64 or
         /// uint64.
         NARROW,
@@ -215,7 +217,7 @@ public:
             this->layout = Layout::BITS;
             this->decoded = x::telem::UINT8_T;
         } else if (bit_length >= data_type.density() * 8) {
-            this->layout = Layout::WHOLE;
+            this->layout = bit_offset == 0 ? Layout::WHOLE : Layout::SHIFTED;
             this->decoded = data_type;
         } else {
             this->layout = Layout::NARROW;
@@ -236,6 +238,14 @@ public:
     void decode(const uint8_t *src, uint8_t *dst) const {
         if (this->layout == Layout::WHOLE) {
             std::memcpy(dst, src, this->decoded.density());
+            return;
+        }
+        if (this->layout == Layout::SHIFTED) {
+            for (size_t i = 0; i < this->decoded.density(); ++i)
+                dst[i] = static_cast<uint8_t>(
+                    (src[i] >> this->bit_offset) |
+                    (src[i + 1] << (8 - this->bit_offset))
+                );
             return;
         }
         if (this->layout == Layout::BITS) {

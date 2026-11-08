@@ -125,17 +125,21 @@ bool serves(
 
 /// @brief returns err, the error of the last pass of a failed start, with a sentence
 /// for each slave that the start left out. The error ends with master::DC_SYNC_ADVICE
-/// once when dc_sync_refused is true or a left-out slave needs the advice.
+/// once when a slave that refused in the last pass or a left-out slave needs it.
 x::errors::Error start_error(
     x::errors::Error err,
-    const std::map<uint16_t, slave::Refusal> &left_out,
-    bool dc_sync_refused
+    const std::map<uint16_t, slave::Refusal> &refused,
+    const std::map<uint16_t, slave::Refusal> &left_out
 ) {
+    const auto needs_advice = [](const auto &entry) {
+        return entry.second.dc_sync_invalid;
+    };
+    const bool dc_sync_refused = std::ranges::any_of(refused, needs_advice) ||
+                                 std::ranges::any_of(left_out, needs_advice);
     for (const auto &[pos, refusal]: left_out) {
         if (!err.data.ends_with('.')) err.data += '.';
         err.data += " The Driver left out slave " + std::to_string(pos) +
                     " because it " + refusal.reason + ".";
-        dc_sync_refused |= refusal.dc_sync_invalid;
     }
     if (!dc_sync_refused) return err;
     if (!err.data.ends_with('.')) err.data += '.';
@@ -162,22 +166,23 @@ x::errors::Error left_out_error(
 }
 
 Engine::Input::Input(
-    std::vector<pdo::Entry> entries,
-    std::vector<pdo::Offset> offsets,
+    const std::vector<pdo::Entry> &entries,
+    const std::vector<pdo::Offset> &offsets,
     const x::telem::Rate rate,
     const size_t samples_per_read
 ):
-    entries(std::move(entries)),
-    rate(rate),
-    samples_per_read(samples_per_read),
-    offsets(std::move(offsets)) {
-    for (size_t i = 0; i < this->entries.size(); ++i) {
-        const auto length = telem::pdo_required_bytes(
-            this->offsets[i].bit,
-            this->entries[i].bit_length
-        );
-        this->sample_offsets.push_back(this->sample_size);
-        this->lengths.push_back(length);
+    rate(rate), samples_per_read(samples_per_read) {
+    this->entries.reserve(entries.size());
+    for (size_t i = 0; i < entries.size(); ++i) {
+        const auto &entry = entries[i];
+        const auto &offset = offsets[i];
+        const auto length = telem::pdo_required_bytes(offset.bit, entry.bit_length);
+        this->entries.push_back({
+            .image_byte = offset.byte,
+            .sample_offset = this->sample_size,
+            .length = length,
+            .decoder = telem::Decoder(offset.bit, entry.bit_length, entry.data_type),
+        });
         this->sample_size += length;
     }
     this->capacity = std::max(
@@ -197,11 +202,11 @@ void Engine::Input::push(const uint8_t *image, const x::telem::TimeStamp time) {
     }
     const size_t slot = h % this->capacity;
     uint8_t *sample = this->samples.get() + slot * this->sample_size;
-    for (size_t i = 0; i < this->entries.size(); ++i)
+    for (const auto &entry: this->entries)
         std::memcpy(
-            sample + this->sample_offsets[i],
-            image + this->offsets[i].byte,
-            this->lengths[i]
+            sample + entry.sample_offset,
+            image + entry.image_byte,
+            entry.length
         );
     this->times[slot] = time;
     // Pairs with the reader's store of waiting, so one of the two sees the other.
@@ -408,14 +413,13 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
     while (true) {
         const auto try_started = clock.steady();
         auto [slaves, err] = this->master->scan();
-        bool dc_sync_refused = false;
+        std::map<uint16_t, slave::Refusal> refused;
         if (!err) {
             this->slaves = std::move(slaves);
-            const auto activation = this->master->activate(plan, start_cycle);
+            auto activation = this->master->activate(plan, start_cycle);
             err = activation.err;
             if (!err) break;
-            dc_sync_refused = activation.dc_sync_refused;
-            const auto &refused = activation.refusals;
+            refused = std::move(activation.refusals);
             // A slave with no process data, such as a coupler, gives a task nothing to
             // run.
             const bool io_left = std::ranges::any_of(
@@ -449,7 +453,7 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
             err.matches(errors::SLAVE_CONFIG_ERROR) ||
             next_try_end > this->config.start_timeout || !retry.wait(err)) {
             retry.stop();
-            return start_error(err, this->left_out, dc_sync_refused);
+            return start_error(err, refused, this->left_out);
         }
     }
     retry.stop();
@@ -645,7 +649,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     if (err) return {nullptr, err};
     auto input = std::make_shared<Input>(
         entries,
-        std::move(joined.offsets),
+        joined.offsets,
         sample_rate,
         samples_per_read
     );

@@ -22,6 +22,7 @@ on_bus(const uint16_t position, const uint32_t vendor_id, const uint32_t product
     result.properties.position = position;
     result.properties.vendor_id = vendor_id;
     result.properties.product_code = product_code;
+    result.properties.name = "Slave " + std::to_string(position);
     return result;
 }
 
@@ -51,7 +52,7 @@ TEST(SlavesValidateTest, AcceptsTheSavedSlaves) {
 TEST(SlavesValidateTest, RejectsAMissingSlave) {
     const auto err = saved({on_bus(2, 2, 0xABCDEF00)}).validate({on_bus(1, 2, 1)});
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "device dev2 expected at position 2 not found on bus");
+    EXPECT_EQ(err.data, "slave 2 (Slave 2) is not on the bus");
 }
 
 /// @brief it should reject a slave of another vendor at a saved position.
@@ -61,7 +62,7 @@ TEST(SlavesValidateTest, RejectsAnotherVendor) {
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,
-        "device dev1 at position 1: expected vendor_id 0x00000099, found 0x00000002"
+        "slave 1 (Slave 1): expected vendor_id 0x00000099, found 0x00000002"
     );
 }
 
@@ -72,8 +73,24 @@ TEST(SlavesValidateTest, RejectsAnotherProduct) {
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,
-        "device dev1 at position 1: expected product_code 0x87654321, found "
-        "0x12345678"
+        "slave 1 (Slave 1): expected product_code 0x87654321, found 0x12345678"
+    );
+}
+
+/// @brief it should report the mismatch at the lowest position when several slaves
+/// mismatch.
+TEST(SlavesValidateTest, ReportsTheLowestMismatchedPosition) {
+    std::vector<slave::DiscoveryResult> bus;
+    for (uint16_t pos = 1; pos <= 8; ++pos)
+        bus.push_back(on_bus(pos, 2, pos));
+    auto slaves = saved(bus);
+    for (auto &[_, s]: slaves.by_key)
+        if (s.position > 2) s.vendor_id = 0x99;
+    const auto err = slaves.validate(bus);
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "slave 3 (Slave 3): expected vendor_id 0x00000099, found 0x00000002"
     );
 }
 }

@@ -39,7 +39,7 @@ enum class State : uint8_t {
 };
 
 /// @brief converts a slave::State enum value to its string representation.
-inline std::string slave_state_to_string(const State state) {
+inline std::string to_string(const State state) {
     switch (state) {
         case State::INIT:
             return "INIT";
@@ -361,7 +361,7 @@ struct Health {
     /// watchdog".
     [[nodiscard]] std::string to_string() const {
         if (this->lost) return "not responding";
-        std::string desc = slave_state_to_string(this->state);
+        std::string desc = slave::to_string(this->state);
         if (this->faulted) desc += " + ERROR";
         if (!this->al_status.empty()) desc += ": " + this->al_status;
         if (!this->dc_restore_error.empty())

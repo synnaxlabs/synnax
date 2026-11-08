@@ -73,7 +73,7 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
                              "of the device.";
         return;
     }
-    const auto state = slave::slave_state_to_string(health.state);
+    const auto state = slave::to_string(health.state);
     if (health.faulted) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Error in " + state;
@@ -169,9 +169,13 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         const auto health = this->pool->health(key);
         bool rediscovery_needed = false;
         for (const auto &slave: slaves) {
-            auto dev = this->create_slave_device(slave, health, key, scan_ctx);
-            rediscovery_needed |= !slave.status.pdo_discovery_error.empty() &&
-                                  dev.properties.at("enabled").get<bool>();
+            auto [dev, enabled] = this->create_slave_device(
+                slave,
+                health,
+                key,
+                scan_ctx
+            );
+            rediscovery_needed |= enabled && !slave.status.pdo_discovery_error.empty();
             devices.push_back(std::move(dev));
         }
         if (!rediscovery_needed)
@@ -199,7 +203,7 @@ bool Scanner::exec(
     return false;
 }
 
-synnax::device::Device Scanner::create_slave_device(
+std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     const slave::DiscoveryResult &slave,
     const std::vector<slave::Health> &health,
     const std::string &master_key,
@@ -260,7 +264,7 @@ synnax::device::Device Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_WARNING;
     }
     dev.status = std::move(status);
-    return dev;
+    return {std::move(dev), is_enabled};
 }
 
 nlohmann::json Scanner::get_existing_properties(

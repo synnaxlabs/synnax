@@ -226,13 +226,7 @@ master::Activation Master::activate(
             )
         };
     this->session.emplace().plan = plan;
-    auto err = this->start(start_cycle);
-    std::lock_guard lock(this->mu);
-    return {
-        .err = err,
-        .refusals = this->session.value().refusals,
-        .dc_sync_refused = this->session.value().dc_sync_refused,
-    };
+    return this->start(start_cycle);
 }
 
 slave::Config Master::config(const uint16_t pos) const {
@@ -241,11 +235,11 @@ slave::Config Master::config(const uint16_t pos) const {
     return it == slaves.end() ? slave::Config{} : it->second;
 }
 
-x::errors::Error
+master::Activation
 Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     auto &session = this->session.value();
     auto [dc_setups, dc_err] = this->resolve_dc();
-    if (dc_err) return dc_err;
+    if (dc_err) return {.err = dc_err};
     session.dc_setups = std::move(dc_setups);
 
     std::vector<uint16_t> parameterized;
@@ -266,7 +260,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
         );
     }
 
-    if (const auto err = this->clear_dc_activation()) return err;
+    if (const auto err = this->clear_dc_activation()) return {.err = err};
 
     // The master requests SAFE-OP itself, once the bus cycles and SYNC0 runs.
     this->api->context.manualstatechange = 1;
@@ -284,10 +278,12 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     this->api->context.manualstatechange = 0;
 
     if (iomap_size <= 0)
-        return x::errors::Error(
-            errors::ACTIVATION_ERROR,
-            "failed to configure PDO mapping"
-        );
+        return {
+            .err = x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                "failed to configure PDO mapping"
+            )
+        };
 
     {
         std::lock_guard lock(this->mu);
@@ -295,7 +291,8 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
         for (const auto &[pos, failure]: session.startup_failures)
             msg += (msg.empty() ? "" : "; ") + std::string("slave ") +
                    std::to_string(pos) + " (" + this->slave(pos).name + ") " + failure;
-        if (!msg.empty()) return x::errors::Error(errors::STARTUP_PARAMETER_ERROR, msg);
+        if (!msg.empty())
+            return {.err = x::errors::Error(errors::STARTUP_PARAMETER_ERROR, msg)};
     }
 
     // A startup parameter can change the slave's PDO assignment.
@@ -318,10 +315,11 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     // while it moves to SAFE-OP.
     session.process_data_held.store(true, std::memory_order_release);
     start_cycle(this->image());
-    if (auto err = this->start_dc()) return err;
+    if (auto err = this->start_dc()) return {.err = err};
 
     const int timeout = micros(this->cfg.state_change_timeout);
-    if (auto err = this->request_state(EC_STATE_SAFE_OP, timeout)) return err;
+    if (auto safe_op = this->request_state(EC_STATE_SAFE_OP, timeout); safe_op.err)
+        return safe_op;
     session.process_data_held.store(false, std::memory_order_release);
     // A slave with outputs refuses OP with a sync manager watchdog error until a frame
     // passes it in SAFE-OP.
@@ -329,10 +327,12 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
             this->cfg.clock.steady() + std::chrono::microseconds(timeout),
             [] { return false; }
         ))
-        return x::errors::Error(
-            errors::STATE_CHANGE_ERROR,
-            "failed to reach OP: no process data passed the slaves in SAFE-OP"
-        );
+        return {
+            .err = x::errors::Error(
+                errors::STATE_CHANGE_ERROR,
+                "failed to reach OP: no process data passed the slaves in SAFE-OP"
+            )
+        };
     return this->request_state(EC_STATE_OPERATIONAL, timeout);
 }
 
@@ -1049,7 +1049,7 @@ Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
     return this->start_sync(*setup);
 }
 
-x::errors::Error Master::request_state(const uint16_t state, const int timeout) {
+master::Activation Master::request_state(const uint16_t state, const int timeout) {
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         if (this->slave(i).group != ENABLED_GROUP) continue;
         this->slave(i).state = state;
@@ -1065,7 +1065,7 @@ x::errors::Error Master::request_state(const uint16_t state, const int timeout) 
             if (this->slave(i).group == ENABLED_GROUP &&
                 (this->slave(i).state & ~EC_STATE_ERROR) != state)
                 pending.push_back(i);
-        if (pending.empty()) return x::errors::NIL;
+        if (pending.empty()) return {};
         std::vector<uint16_t> refused;
         std::ranges::copy_if(pending, std::back_inserter(refused), [&](auto pos) {
             return this->refuses(pos, state);
@@ -1104,19 +1104,16 @@ bool Master::refuses(const uint16_t pos, const uint16_t state) const {
     return this->al_error(pos) && (this->slave(pos).state & ~EC_STATE_ERROR) < state;
 }
 
-x::errors::Error
+master::Activation
 Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
-    const auto target = slave::slave_state_to_string(slave::from_al_state(state));
+    const auto target = slave::to_string(slave::from_al_state(state));
     std::string msg;
     std::map<uint16_t, slave::Refusal> refusing;
-    bool dc_sync_refused = false;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
         msg += "slave " + std::to_string(pos) + " (" + this->slave(pos).name +
                ") is in " +
-               slave::slave_state_to_string(
-                   slave::from_al_state(this->slave(pos).state)
-               );
+               slave::to_string(slave::from_al_state(this->slave(pos).state));
         if (!this->al_error(pos)) continue;
         const auto code = this->slave(pos).ALstatuscode;
         const std::string text = ec_ALstatuscode2string(code);
@@ -1126,18 +1123,13 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
                 .reason = "refused " + target + ": " + text,
                 .dc_sync_invalid = code == AL_INVALID_DC_SYNC,
             };
-        dc_sync_refused |= code == AL_INVALID_DC_SYNC;
         msg += ": " + text;
     }
-    {
-        std::lock_guard lock(this->mu);
-        this->session.value().refusals = refusing;
-        this->session.value().dc_sync_refused = dc_sync_refused;
-    }
-    return x::errors::Error(
+    auto err = x::errors::Error(
         refusing.empty() ? errors::STATE_CHANGE_ERROR : errors::STATE_CHANGE_REFUSED,
         "failed to reach " + target + ": " + msg
     );
+    return {.err = std::move(err), .refusals = std::move(refusing)};
 }
 
 std::vector<master::Info> Manager::enumerate() {

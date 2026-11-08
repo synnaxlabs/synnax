@@ -84,14 +84,17 @@ class Engine {
 
     /// @brief the entries of one reader and the samples the cycle thread hands it.
     struct Input {
-        std::vector<pdo::Entry> entries;
+        /// @brief where one entry sits in the input image and in a sample.
+        struct Entry {
+            size_t image_byte;
+            size_t sample_offset;
+            /// @brief the number of image bytes the entry spans.
+            size_t length;
+            telem::Decoder decoder;
+        };
+        std::vector<Entry> entries;
         x::telem::Rate rate;
         size_t samples_per_read;
-        std::vector<pdo::Offset> offsets;
-        /// @brief the byte offset of each entry in a sample.
-        std::vector<size_t> sample_offsets;
-        /// @brief the number of image bytes each entry spans.
-        std::vector<size_t> lengths;
         size_t sample_size = 0;
         size_t capacity = 0;
         std::unique_ptr<uint8_t[]> samples;
@@ -109,8 +112,8 @@ class Engine {
         size_t countdown = 0;
 
         Input(
-            std::vector<pdo::Entry> entries,
-            std::vector<pdo::Offset> offsets,
+            const std::vector<pdo::Entry> &entries,
+            const std::vector<pdo::Offset> &offsets,
             x::telem::Rate rate,
             size_t samples_per_read
         );
@@ -233,8 +236,6 @@ public:
     class Reader {
         Engine &engine;
         std::shared_ptr<Input> input;
-        /// @brief the decoder of each entry of input.
-        std::vector<telem::Decoder> decoders;
         /// @brief the decoded values of one entry in a read.
         std::vector<uint8_t> values;
 
