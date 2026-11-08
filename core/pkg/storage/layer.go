@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -103,6 +104,11 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to CesiumTS
 	TSEngine TSEngine
+	// Version is the semantic version of the Core, without a "v" prefix. Open checks it
+	// against the version recorded in the data directory, unless it is a 0.0 version.
+	//
+	// [REQUIRED] - Unless InMemory is true.
+	Version string
 }
 
 var (
@@ -124,6 +130,7 @@ func (cfg LayerConfig) Override(other LayerConfig) LayerConfig {
 	cfg.InMemory = override.Nil(cfg.InMemory, other.InMemory)
 	cfg.KVEngine = override.Numeric(cfg.KVEngine, other.KVEngine)
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
+	cfg.Version = override.String(cfg.Version, other.Version)
 	if cfg.InMemory != nil && *cfg.InMemory {
 		cfg.Dirname = ""
 	}
@@ -147,6 +154,12 @@ func (cfg LayerConfig) Validate() error {
 		cfg.TSEngine,
 	)
 	v.Ternary("permissions", cfg.Perm == 0, "insufficient permission bits on directory")
+	v.Ternaryf(
+		"version",
+		!*cfg.InMemory && !version.IsDev(cfg.Version) && !version.Valid(cfg.Version),
+		"invalid version %q",
+		cfg.Version,
+	)
 	return v.Error()
 }
 
@@ -158,6 +171,7 @@ func (cfg LayerConfig) Report() alamos.Report {
 		"in_memory":   cfg.InMemory,
 		"kv_engine":   cfg.KVEngine.String(),
 		"ts_engine":   cfg.TSEngine.String(),
+		"version":     cfg.Version,
 	}
 }
 
@@ -183,7 +197,10 @@ type Layer struct {
 // When LayerConfig.InMemory is false, Open acquires an exclusive lock on the directory
 // specified in LayerConfig.Dirname. If the lock cannot be acquired (commonly due to
 // another storage layer or unrelated process accessing it), then Open will return a nil
-// Layer and an error.
+// Layer and an error. Open then checks the version recorded in the directory against
+// LayerConfig.Version, backing up the metadata before a newer Core opens it. It returns
+// an error when a newer Core last opened the directory, or when a Restore on it did not
+// finish.
 //
 // If the returned error is nil, then the Layer must be closed after use. None of the
 // services in the Layer should be used after Close is called. It is the caller's
@@ -220,8 +237,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	// same directory, we return an error to the client. We'll also add it to the
 	// list of closers to release the lock when the storage layer shuts down.
 	var lock io.Closer
-	if lock, err = acquireLock(cfg, kvFS); !ok(err, lock) {
+	if lock, err = acquireLock(cfg.Dirname, kvFS); !ok(err, lock) {
 		return nil, err
+	}
+
+	if !*cfg.InMemory {
+		if err = checkData(cfg, kvFS, tsFS); !ok(err, nil) {
+			return nil, err
+		}
 	}
 
 	cache, cacheCloser, err := openPebbleCache(cfg)
@@ -316,13 +339,31 @@ Failed to acquire lock on storage directory
 Is there another Synnax node using the same directory?
 `
 
-func acquireLock(cfg LayerConfig, fs vfs.FS) (io.Closer, error) {
-	fName := filepath.Join(cfg.Dirname, "LOCK")
+// checkData refuses data that a Restore did not finish or that a newer Core opened, and
+// backs up data that an older Core opened.
+func checkData(cfg LayerConfig, lockFS vfs.FS, fs xfs.FS) error {
+	backups, err := NewBackups(BackupsConfig{
+		Instrumentation: cfg.Child("backups"),
+		Dirname:         cfg.Dirname,
+		FS:              fs,
+		LockFS:          lockFS,
+	})
+	if err != nil {
+		return err
+	}
+	if err = backups.checkRestore(); err != nil {
+		return err
+	}
+	return backups.checkVersion(cfg.Version)
+}
+
+func acquireLock(dirname string, fs vfs.FS) (io.Closer, error) {
+	fName := filepath.Join(dirname, "LOCK")
 	release, err := fs.Lock(fName)
 	if err == nil {
 		return release, nil
 	}
-	return release, errors.Wrapf(err, failedToAcquireLockMsg, cfg.Dirname)
+	return release, errors.Wrapf(err, failedToAcquireLockMsg, dirname)
 }
 
 func openPebbleCache(cfg LayerConfig) (*pebble.Cache, io.Closer, error) {
@@ -353,7 +394,7 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 		)
 	}
 	ins := cfg.Child("kv")
-	dirname := filepath.Join(cfg.Dirname, "kv")
+	dirname := filepath.Join(cfg.Dirname, kvDir)
 	requiresMigration, err := pebblekv.RequiresMigration(dirname, fs)
 	if err != nil {
 		return nil, err
@@ -426,7 +467,7 @@ func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {
 	}
 	return ts.Open(ctx, ts.Config{
 		Instrumentation: cfg.Child("ts"),
-		Dirname:         filepath.Join(cfg.Dirname, "cesium"),
+		Dirname:         filepath.Join(cfg.Dirname, cesiumDir),
 		FS:              fs,
 	})
 }

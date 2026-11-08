@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -82,17 +83,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ethercat_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ReadConfigLadder,
-			Legacy:             &legacy.Read,
-			Migrations:         []gorp.Migration{v2.NewReadMigration(slaves)},
+			DB:              cfg.DB,
+			References:      readConfigReferences(),
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ethercat_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ReadConfigLadder,
+			Legacy:          &legacy.Read,
+			Migrations: []gorp.Migration{
+				v2.NewReadMigration(slaves),
+				v3.ReadMigration,
+			},
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *ReadConfig) error {
-				return v2.ResolveReadConfig(ctx, tx, slaves, c)
+				return v3.ResolveReadConfig(ctx, tx, slaves, c)
 			},
 		},
 	); !ok(err, s.Read) {
@@ -100,17 +105,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ethercat_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.WriteConfigLadder,
-			Legacy:             &legacy.Write,
-			Migrations:         []gorp.Migration{v2.NewWriteMigration(slaves)},
+			DB:              cfg.DB,
+			References:      writeConfigReferences(),
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ethercat_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.WriteConfigLadder,
+			Legacy:          &legacy.Write,
+			Migrations: []gorp.Migration{
+				v2.NewWriteMigration(slaves),
+				v3.WriteMigration,
+			},
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *WriteConfig) error {
-				return v2.ResolveWriteConfig(ctx, tx, slaves, c)
+				return v3.ResolveWriteConfig(ctx, tx, slaves, c)
 			},
 		},
 	); !ok(err, s.Write) {

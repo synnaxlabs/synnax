@@ -14,17 +14,14 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // expiryWarning is how long before a certificate expires that its status becomes a
 // warning.
 const expiryWarning = 30 * telem.Day
-
-func statusKey(key Key) status.Key { return OntologyID(key).String() }
 
 const dateLayout = "January 2, 2006"
 
@@ -38,7 +35,7 @@ func expiryStatus(c Certificate, now telem.TimeStamp) (status.Status[any], bool)
 	base := c.Base()
 	date := details.NotAfter.Time().UTC().Format(dateLayout)
 	s := status.Status[any]{
-		Key:         statusKey(base.Key),
+		Owner:       new(c.ResourceID()),
 		Name:        base.Name,
 		Time:        now,
 		Variant:     status.VariantSuccess,
@@ -72,10 +69,10 @@ func (s *Service) writeExpiry(ctx context.Context) error {
 			return err
 		}
 		now := s.cfg.Now()
-		next := make(map[status.Key]status.Status[any], len(certs))
+		next := make(map[resource.ID]status.Status[any], len(certs))
 		for _, c := range certs {
 			if st, ok := expiryStatus(c, now); ok {
-				next[st.Key] = st
+				next[*st.Owner] = st
 			}
 		}
 		if len(next) == 0 {
@@ -83,22 +80,22 @@ func (s *Service) writeExpiry(ctx context.Context) error {
 		}
 		var prev []status.Status[any]
 		if err := s.cfg.Status.NewRetrieve[any]().
-			Where(status.MatchKeys[any](lo.Keys(next)...)).
+			Where(status.MatchOwners[any](lo.Keys(next)...)).
 			Entries(&prev).
-			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			Exec(ctx, tx); err != nil {
 			return err
 		}
 		for _, p := range prev {
-			n := next[p.Key]
+			n := next[*p.Owner]
 			if n.Variant == p.Variant && n.Message == p.Message &&
 				n.Description == p.Description && n.Name == p.Name {
-				delete(next, p.Key)
+				delete(next, *p.Owner)
 			}
 		}
 		w := s.cfg.Status.NewWriter(tx)
 		for _, c := range certs {
-			if st, ok := next[statusKey(c.Base().Key)]; ok {
-				if err := w.SetWithParent(ctx, &st, c.OntologyID()); err != nil {
+			if st, ok := next[c.ResourceID()]; ok {
+				if err := w.Set(ctx, &st); err != nil {
 					return err
 				}
 			}

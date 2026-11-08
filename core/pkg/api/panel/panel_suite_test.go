@@ -19,13 +19,14 @@ import (
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -37,29 +38,26 @@ func TestAPIPanel(t *testing.T) {
 }
 
 var (
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	rbacSvc  *rbac.Service
-	panelSvc *panel.Service
-	userSvc  *user.Service
-	apiSvc   *apipanel.Service
-	author   user.User
-	parentID ontology.ID
+	db         *gorp.DB
+	groupSvc   *group.Service
+	rbacSvc    *rbac.Service
+	panelSvc   *panel.Service
+	userSvc    *user.Service
+	apiSvc     *apipanel.Service
+	author     user.User
+	proj       project.Project
+	projectSvc *project.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB: db,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
 		Password: passwordSvc,
 	}))
 	MustSucceed2(
@@ -70,15 +68,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			auth.Credentials{Username: "suite-root", Password: "p"},
 		),
 	)
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		User:     userSvc,
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB: db,
 	}))
+	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+		DB:     db,
+		User:   userSvc,
+		Status: statusSvc,
+	})).RBAC
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	apiSvc = MustSucceed(apipanel.NewService(apipanel.ServiceConfig{
 		RBAC:  rbacSvc,
@@ -87,10 +86,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	author = MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
 	)
-	parentID = MustSucceed(
-		groupSvc.CreateOrRetrieve(ctx, "panel-parent", ontology.RootID),
-	).
-		OntologyID()
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
+		DB: db,
+	}))
+	proj = project.Project{Name: "panel-project"}
+	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
 
 // newUser creates a fresh user. RBAC state is committed and shared across specs, so
@@ -104,32 +104,24 @@ func newUser(ctx SpecContext) user.User {
 	}))
 }
 
-// grant creates a policy permitting action on the given objects, binds it to a
-// fresh role, and assigns the role to subject. Writes commit directly to the
-// database (nil tx) so the api enforcer - which reads committed state - observes
-// them.
+// grant grants the action on the objects to the subject through a new role.
 func grant(
 	ctx SpecContext,
-	subject ontology.ID,
+	subject resource.ID,
 	action access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{
-		Name:        string(action) + "-" + uuid.New().String(),
-		Description: "test",
-	}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    string(action) + "-policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	actions := []access.Action{action}
+	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+}
+
+// grantCreate lets subject create panels in the suite project.
+func grantCreate(ctx SpecContext, subject resource.ID) {
+	GinkgoHelper()
+	grant(ctx, subject, access.ActionCreate, resource.ID{Type: resource.TypePanel})
+	grant(ctx, subject, access.ActionUpdate, proj.ResourceID())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

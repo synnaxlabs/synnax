@@ -26,7 +26,7 @@ const newChannel = async (): Promise<channel.Key> =>
   ).key;
 
 const newLog = async (project: string): Promise<log.Key> =>
-  (await client.logs.create(project, { name: uniqueName("log") })).key;
+  (await client.logs.create({ project, name: uniqueName("log") })).key;
 
 const channelsOf = async (key: log.Key): Promise<channel.Key[]> =>
   (await client.logs.retrieve(key)).channels.map((e) => e.channel);

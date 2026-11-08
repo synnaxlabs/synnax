@@ -22,8 +22,9 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
@@ -33,28 +34,37 @@ import (
 	"go.uber.org/zap"
 )
 
+// Create stores a panel converted from a legacy layout of the project with the given
+// resource ID.
+type Create func(ctx context.Context, tx gorp.Tx, project resource.ID, p Panel) error
+
 // CompositionMigrations adopts other services' staged legacy data (project layouts,
-// task re-key mapping) into panels. The service layer runs them after every table is
-// open, since the producing services open after the panel table. Like the chain, they
-// are frozen at this version: they read frozen staging and write v0-shape panels, and
-// later versions must order their migrations after these.
-var CompositionMigrations = []gorp.Migration{
-	projectLayoutsMigration,
-	taskTabKeysMigration,
-	resourceTabTypesMigration,
+// task re-key mapping) into panels, passing each new panel to create. The service layer
+// runs them after every table is open, since the producing services open after the
+// panel table.
+func CompositionMigrations(create Create) []gorp.Migration {
+	return []gorp.Migration{
+		migrate.New(
+			"v56_migrate_project_layouts_to_panels",
+			func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
+				return migrateProjectLayouts(ctx, tx, ins, create)
+			},
+		),
+		taskKeysMigration,
+	}
 }
 
 // migratableLayoutTypes maps the Console layout types whose layout key is the key of a
 // backing core document to that document's ontology resource type. Consoles up to v0.50
 // stored Arc editors as arc_editor.
-var migratableLayoutTypes = map[string]ontology.ResourceType{
-	"arc":        ontology.ResourceTypeArc,
-	"arc_editor": ontology.ResourceTypeArc,
-	"lineplot":   ontology.ResourceTypeLineplot,
-	"log":        ontology.ResourceTypeLog,
-	"overview":   ontology.ResourceTypeRange,
-	"schematic":  ontology.ResourceTypeSchematic,
-	"table":      ontology.ResourceTypeTable,
+var migratableLayoutTypes = map[string]resource.Type{
+	"arc":        resource.TypeArc,
+	"arc_editor": resource.TypeArc,
+	"lineplot":   resource.TypeLineplot,
+	"log":        resource.TypeLog,
+	"overview":   resource.TypeRange,
+	"schematic":  resource.TypeSchematic,
+	"table":      resource.TypeTable,
 }
 
 // viewLayoutTypes maps the legacy Console layout types that render inline app views
@@ -116,20 +126,20 @@ type legacySlice struct {
 const mainWindowKey = "main"
 
 // stagedLayout is a project layout gathered from the staging prefix for conversion: the
-// KV key it was read from, the owning project's ontology ID, and the parsed mosaic
+// KV key it was read from, the owning project's resource ID, and the parsed mosaic
 // state.
 type stagedLayout struct {
 	key       []byte
-	projectID ontology.ID
+	projectID resource.ID
 	slice     legacySlice
 }
 
 // migrateProjectLayouts converts the legacy layout blobs the project migration stages
 // under projectv1.LegacyLayoutKVPrefix into panels, deleting each staged entry as it is
 // consumed, so this migration never reads the project layout field directly. Every
-// window mosaic that retains at least one convertible tab becomes a panel parented
-// under the project: document-backed tabs become resource tabs, and app views with a
-// current equivalent become view tabs. Tabs whose layout entry is missing, whose type
+// window mosaic that retains at least one convertible tab becomes a panel of the
+// project: document-backed tabs become resource tabs, and app views with a current
+// equivalent become view tabs. Tabs whose layout entry is missing, whose type
 // has no conversion, or whose document no longer exists are dropped; splits that lose a
 // side collapse into the surviving child. Blobs that cannot be parsed are skipped,
 // since the Console wrote them best-effort and an unreadable layout must not block the
@@ -138,13 +148,14 @@ func migrateProjectLayouts(
 	ctx context.Context,
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
+	create Create,
 ) error {
 	staged, err := scanStagedLayouts(tx, ins)
 	if err != nil {
 		return err
 	}
 	for _, s := range staged {
-		if err = createPanels(ctx, tx, s.projectID, s.slice); err != nil {
+		if err = createPanels(ctx, tx, s.projectID, s.slice, create); err != nil {
 			return err
 		}
 		if err = tx.Delete(ctx, s.key); err != nil {
@@ -179,8 +190,8 @@ func scanStagedLayouts(
 		}
 		out = append(out, stagedLayout{
 			key: key,
-			projectID: ontology.ID{
-				Type: ontology.ResourceTypeProject,
+			projectID: resource.ID{
+				Type: resource.TypeProject,
 				Key:  strings.TrimPrefix(string(key), project.LegacyLayoutKVPrefix),
 			},
 			slice: slice,
@@ -189,17 +200,15 @@ func scanStagedLayouts(
 	return out, iter.Error()
 }
 
-// createPanels converts every migratable window mosaic in slice into a panel owned by
-// the project with the given ontology ID.
+// createPanels converts every migratable window mosaic in slice into a panel of the
+// project with the given resource ID.
 func createPanels(
 	ctx context.Context,
 	tx gorp.Tx,
-	projectID ontology.ID,
+	projectID resource.ID,
 	slice legacySlice,
+	create Create,
 ) error {
-	panelWriter := gorp.WrapWriter[Key, Panel](tx)
-	resourceWriter := gorp.WrapWriter[string, ontology.Resource](tx)
-	relWriter := gorp.WrapWriter[string, ontology.Relationship](tx)
 	for _, windowKey := range sortedWindowKeys(slice.Mosaics) {
 		root, err := convertNode(ctx, tx, slice.Mosaics[windowKey].Root, slice)
 		if err != nil {
@@ -208,22 +217,10 @@ func createPanels(
 		if root == nil {
 			continue
 		}
-		pan := Panel{
+		if err := create(ctx, tx, projectID, Panel{
 			Key:  uuid.New(),
 			Name: panelName(slice.Layouts, windowKey),
 			Root: *root,
-		}
-		if err := panelWriter.Set(ctx, pan); err != nil {
-			return err
-		}
-		panelID := pan.OntologyID()
-		if err := resourceWriter.Set(ctx, ontology.Resource{ID: panelID}); err != nil {
-			return err
-		}
-		if err := relWriter.Set(ctx, ontology.Relationship{
-			From: projectID,
-			Type: ontology.RelationshipTypeParentOf,
-			To:   panelID,
 		}); err != nil {
 			return err
 		}
@@ -320,7 +317,7 @@ func convertNode(
 			}
 			continue
 		}
-		id := ontology.ID{Type: resourceType, Key: t.TabKey}
+		id := resource.ID{Type: resourceType, Key: t.TabKey}
 		exists, err := gorp.NewRetrieve[string, ontology.Resource]().
 			Where(gorp.MatchKeys[string, ontology.Resource](id.String())).
 			Exists(ctx, tx)
@@ -381,52 +378,25 @@ func convertTaskTab(
 		}
 		return &Tab{Variant: ResourceTab{
 			Key:      uuid.New(),
-			Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
+			Resource: resource.ID{Type: resource.TypeTask, Key: key},
 		}}, nil
 	}
 	return nil, nil
 }
 
-// migrateTaskTabKeys converts every panel view tab holding a legacy uint64 task key
-// into a resource tab pointing at the UUID minted by the task re-key migration, then
-// drains the staging map.
-func migrateTaskTabKeys(
-	ctx context.Context,
-	tx gorp.Tx,
-	_ alamos.Instrumentation,
-) error {
-	mapping := make(map[string]string)
+// drainTaskKeys deletes the legacy-to-UUID task key mapping the task re-key migration
+// stages, once the project layouts migration has read it.
+func drainTaskKeys(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 	var stagedKeys [][]byte
 	iter, err := tx.OpenIterator(kv.IterPrefix([]byte(task.LegacyKeyKVPrefix)))
 	if err != nil {
 		return err
 	}
 	for iter.First(); iter.Valid(); iter.Next() {
-		key := bytes.Clone(iter.Key())
-		stagedKeys = append(stagedKeys, key)
-		legacy := strings.TrimPrefix(string(key), task.LegacyKeyKVPrefix)
-		mapping[legacy] = string(iter.Value())
+		stagedKeys = append(stagedKeys, bytes.Clone(iter.Key()))
 	}
 	if err := errors.Combine(iter.Error(), iter.Close()); err != nil {
 		return err
-	}
-	if len(mapping) == 0 {
-		return nil
-	}
-	var panels []Panel
-	if err := gorp.NewRetrieve[Key, Panel]().
-		Entries(&panels).
-		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	w := gorp.WrapWriter[Key, Panel](tx)
-	for _, p := range panels {
-		if !convertNodeTaskTabs(&p.Root, mapping) {
-			continue
-		}
-		if err := w.Set(ctx, p); err != nil {
-			return err
-		}
 	}
 	for _, key := range stagedKeys {
 		if err := tx.Delete(ctx, key); err != nil {
@@ -436,59 +406,16 @@ func migrateTaskTabKeys(
 	return nil
 }
 
-// convertNodeTaskTabs converts legacy-keyed task view tabs under n into resource
-// tabs, reporting whether anything changed.
-func convertNodeTaskTabs(n *Node, mapping map[string]string) bool {
-	switch v := n.Variant.(type) {
-	case SplitNode:
-		first := convertNodeTaskTabs(&v.First, mapping)
-		last := convertNodeTaskTabs(&v.Last, mapping)
-		if !first && !last {
-			return false
-		}
-		n.Variant = v
-		return true
-	case LeafNode:
-		changed := false
-		for i := range v.Tabs {
-			tab := &v.Tabs[i]
-			view, ok := tab.Variant.(ViewTab)
-			if !ok {
-				continue
-			}
-			legacy, ok := view.Args["taskKey"].(string)
-			if !ok {
-				continue
-			}
-			key, ok := mapping[legacy]
-			if !ok {
-				continue
-			}
-			tab.Variant = ResourceTab{
-				TabBase:  view.TabBase,
-				Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
-			}
-			changed = true
-		}
-		if !changed {
-			return false
-		}
-		n.Variant = v
-		return true
-	}
-	return false
-}
-
 // resourceTabTypes is the set of resource types a tab can display, as the panel schema
 // currently enforces.
 var resourceTabTypes = set.New(
-	ontology.ResourceTypeSchematic,
-	ontology.ResourceTypeLineplot,
-	ontology.ResourceTypeLog,
-	ontology.ResourceTypeTable,
-	ontology.ResourceTypeArc,
-	ontology.ResourceTypeTask,
-	ontology.ResourceTypeRange,
+	resource.TypeSchematic,
+	resource.TypeLineplot,
+	resource.TypeLog,
+	resource.TypeTable,
+	resource.TypeArc,
+	resource.TypeTask,
+	resource.TypeRange,
 )
 
 // stripInvalidResourceTabs removes every resource tab whose type is outside
@@ -568,22 +495,11 @@ func convertSize(s float64) float64 {
 	return 0.5
 }
 
-// projectLayoutsMigration adopts the project service's staged legacy layouts as panels.
-// It runs in the composition pass, after the project chain has staged every layout and
-// the task chain has staged its re-key mapping.
-var projectLayoutsMigration = migrate.New(
-	"v56_migrate_project_layouts_to_panels", migrateProjectLayouts,
-)
+// taskKeysMigration drains the staged task key mapping. Panels and task UUID keys
+// shipped in the same release, so no stored panel holds a legacy task key.
+var taskKeysMigration = migrate.New("v56_task_tab_uuid_keys", drainTaskKeys)
 
-// taskTabKeysMigration re-keys task view tabs from the legacy-to-UUID mapping staged
-// by the task re-key migration. It runs after the project-layouts migration so
-// converted tabs are re-keyed in the same pass.
-var taskTabKeysMigration = migrate.New(
-	"v56_task_tab_uuid_keys", migrateTaskTabKeys,
-)
-
-// resourceTabTypesMigration strips resource tabs the type whitelist rejects. It runs
-// last so converted and re-keyed tabs are filtered in the same pass.
-var resourceTabTypesMigration = migrate.New(
+// ResourceTabTypesMigration strips the resource tabs the type whitelist rejects.
+var ResourceTabTypesMigration = migrate.New(
 	"v56_strip_invalid_resource_tabs", stripInvalidResourceTabs,
 )

@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
@@ -40,30 +39,20 @@ type benchEnv struct {
 func newBenchEnv(b *testing.B, count int) *benchEnv {
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
-	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
-	if err != nil {
-		b.Fatalf("failed to open ontology: %v", err)
-	}
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open group service: %v", err)
 	}
 	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open label service: %v", err)
 	}
 	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
-		DB:       node.DB,
-		Group:    groupSvc,
-		Ontology: otg,
-		Label:    labelSvc,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
@@ -72,8 +61,6 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	})
 	if err != nil {
@@ -115,7 +102,7 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 		svc:     svc,
 		indexes: indexes,
 		closer: io.MultiCloser{
-			node, otg, groupSvc, svc, statusSvc, labelSvc,
+			node, groupSvc, svc, statusSvc, labelSvc,
 		},
 	}
 }
@@ -131,7 +118,7 @@ func (e *benchEnv) owners(b *testing.B, key channel.Key) []channel.Channel {
 	var owners []channel.Channel
 	if err := e.svc.NewRetrieve().
 		Where(channel.MatchCalculated()).
-		Where(channel.MatchIndexes(key)).
+		Where(e.svc.MatchIndexes(key)).
 		Entries(&owners).
 		Exec(b.Context(), nil); err != nil {
 		b.Fatalf("failed to resolve owner: %v", err)

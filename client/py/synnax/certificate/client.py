@@ -189,7 +189,5 @@ class Client:
         )
         res = self._client.send("/certificate/retrieve", req, RetrieveResponse)
         return (
-            sole("Certificate", fields, res.certificates)
-            if single
-            else res.certificates
+            sole("certificate", req, res.certificates) if single else res.certificates
         )

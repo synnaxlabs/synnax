@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax.access import role
 from synnax.access.policy.payload import Policy
 from synnax.access.policy.types_gen import (
     Key,
@@ -22,7 +23,7 @@ from synnax.access.policy.types_gen import (
     Where,
     WhereInput,
 )
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -39,7 +40,7 @@ class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 
-_ONTOLOGY_TYPE = ID(type="policy")
+_RESOURCE_TYPE = ID(type="policy")
 
 
 class Client:
@@ -83,6 +84,7 @@ class Client:
         key: Key,
         internal: filter.BoolInput = ...,
         subjects: ID | list[ID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -98,6 +100,7 @@ class Client:
         key: filter.SetInput[Key] = ...,
         internal: filter.BoolInput = ...,
         subjects: ID | list[ID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -114,6 +117,7 @@ class Client:
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         internal: filter.BoolInput = ...,
         subjects: ID | list[ID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -145,6 +149,7 @@ class Client:
         :param internal: Keeps policies with this internal flag.
         :param subjects: Keeps the policies of the roles that any of these subjects
             hold.
+        :param roles: Keeps the policies of any of these roles.
         :param and_: Keeps policies that match every filter in the list.
         :param or_: Keeps policies that match any filter in the list.
         :param not_: Keeps policies that do not match the filter.
@@ -170,7 +175,7 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/access/policy/retrieve", req, RetrieveResponse)
-        return sole("Policy", fields, res.policies) if single else res.policies
+        return sole("policy", req, res.policies) if single else res.policies
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))

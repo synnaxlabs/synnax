@@ -103,7 +103,7 @@ describe("denied change stream", () => {
     const root = createTestClient();
     const restricted = await createTestClientWithPolicy(root, {
       name: "test",
-      objects: [label.ontologyID("")],
+      objects: [label.resourceID("")],
       actions: ["retrieve"],
     });
     const status = await restricted.connect();

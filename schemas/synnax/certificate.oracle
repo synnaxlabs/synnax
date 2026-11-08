@@ -64,7 +64,10 @@ Certificate union on source secret.Source extends Base {
             @doc value "is the certificate chain as PEM, leaf first."
         }
         private_key secret.Key? {
-            @doc value "is the secret that holds the private key, when there is one."
+            @doc value     """
+                is the secret that holds the private key, when there is one.
+            """
+            @ref on_delete restrict
         }
         details     Details     {
             @doc value "describes the leaf, as the Core read it from the PEM."
@@ -92,7 +95,7 @@ Certificate union on source secret.Source extends Base {
     """
     @go marshal
     @go migrate
-    @ontology type "certificate"
+    @resource type "certificate"
     @retrieve
 }
 

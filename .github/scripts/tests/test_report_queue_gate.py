@@ -21,7 +21,7 @@ SHA = "fedcba9876543210fedcba9876543210fedcba98"
 
 
 class Harness:
-    """A fake gh serving a Greptile review and the status endpoint."""
+    """A fake gh serving a Sedosaur review and the status endpoint."""
 
     def __init__(self, path: Path) -> None:
         self.gh = FakeGH(path)
@@ -35,10 +35,6 @@ class Harness:
         }
         self.gh.serve("api */statuses/*")
         self.gh.serve("api */git/ref/heads/*", {"object": {"sha": SHA}})
-        self.gh.serve(
-            "api */commits/head/check-runs*",
-            {"check_runs": [{"name": "Greptile Review", "conclusion": "success"}]},
-        )
         self.score(5)
 
     def labels(self, *labels: str) -> None:
@@ -47,21 +43,22 @@ class Harness:
             "api */pulls/42",
             {
                 "head": {"sha": "head"},
+                "base": {"ref": "main"},
                 "user": {"login": "someone"},
                 "labels": [{"name": n} for n in labels],
             },
         )
 
     def score(self, score: int) -> None:
-        """Serves the description revision that gives the head a Greptile score."""
-        link = "https://github.com/synnaxlabs/synnax/commit/head)"
-        diff = (
-            f"<!-- greptile_comment -->\n<!-- greptile_confidence_score:{score} -->\n"
-            f"{link}\n<!-- /greptile_comment -->"
-        )
-        edit = {"editor": {"__typename": "Bot", "login": "greptile-apps"}, "diff": diff}
-        pull = {"userContentEdits": {"nodes": [edit]}}
-        self.gh.serve("api graphql", {"data": {"repository": {"pullRequest": pull}}})
+        """Serves the Sedosaur review that gives the head a score."""
+        run = {
+            "app": {"slug": "sedosaur"},
+            "external_id": "42:main",
+            "started_at": "2026-11-07T20:07:30Z",
+            "conclusion": "success",
+            "output": {"title": f"Confidence Score: {score}/5"},
+        }
+        self.gh.serve("api */commits/head/check-runs*", {"check_runs": [run]})
 
     def run(self, ref: str = QUEUE_REF) -> subprocess.CompletedProcess[str]:
         """Runs the script for a queue ref."""
@@ -89,7 +86,7 @@ class TestReport:
         post = harness.statuses()[0]
         assert "state=success" in post
         assert "context=Review gate" in post
-        assert "description=Greptile scored the head 5/5" in post
+        assert "description=Sedosaur scored the head 5/5" in post
         assert "target_url=https://github.com/synnaxlabs/synnax/actions/runs/7" in post
 
     def test_fails_a_pending_verdict(self, harness: Harness) -> None:
@@ -104,7 +101,7 @@ class TestReport:
         assert harness.run().returncode == 0
         post = harness.statuses()[0]
         assert "state=failure" in post
-        assert "description=Greptile scored the head 4/5, not 5/5" in post
+        assert "description=Sedosaur scored the head 4/5, not 5/5" in post
 
     def test_judges_a_pull_request_with_a_slash_in_its_base(
         self, harness: Harness
