@@ -112,8 +112,13 @@ var _ = Describe("Discover", func() {
 
 		It("Should not trust a certificate that the roots do not sign",
 			func(ctx SpecContext) {
+				// Roots other than the system pool keep the platform verifier out.
+				cfg := &tls.Config{
+					MinVersion: tls.VersionTLS12,
+					RootCAs:    x509.NewCertPool(),
+				}
 				expectFailure(
-					handshake(ctx, server, nil),
+					handshake(ctx, server, cfg),
 					"Certificate not trusted",
 					"Set the CA certificate that signed the certificate of the server.",
 				)
