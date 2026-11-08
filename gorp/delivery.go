@@ -37,8 +37,10 @@ type Commit struct {
 //
 // A reader must not commit a change to the DB on its own goroutine: that commit waits
 // for the delivery that runs the reader. The same is true for a key-value observer that
-// runs on the committing goroutine. Readers run under the read lock of the observable,
-// so a reader must not connect or disconnect a reader.
+// runs on the committing goroutine, as the default pebblekv observer does. An observer
+// that runs on its own goroutine, such as observe.NewAsync, may commit. Readers run
+// under the read lock of the observable, so a reader must not connect or disconnect a
+// reader.
 func (db *DB) Observe() observe.Observable[Commit] { return &db.delivery }
 
 // delivery numbers the commits of a DB and delivers them to readers in commit order.
