@@ -11,6 +11,7 @@ package rbac
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -198,51 +199,51 @@ func (s *Service) RolesOf(
 	subjects ...resource.ID,
 ) ([]role.Key, error) {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
-	var roles []role.Key
+	roles := make([]role.Key, 0, len(subjects))
 	for _, subject := range subjects {
-		held, err := s.rolesOf(ctx, tx, subject)
+		r, err := s.roleOf(ctx, tx, subject)
 		if err != nil {
 			return nil, err
 		}
-		roles = append(roles, held...)
+		roles = append(roles, r)
 	}
 	return lo.Uniq(roles), nil
 }
 
-func (s *Service) rolesOf(
+func (s *Service) roleOf(
 	ctx context.Context,
 	tx gorp.Tx,
 	subject resource.ID,
-) ([]role.Key, error) {
+) (role.Key, error) {
 	switch subject.Type {
 	case resource.TypeUser:
 		key, err := user.KeyFromResourceID(subject)
 		if err != nil {
-			return nil, err
+			return uuid.Nil(), err
 		}
 		var u user.User
 		if err = s.cfg.User.NewRetrieve().
 			Where(user.MatchKeys(key)).
 			Entry(&u).
 			Exec(ctx, tx); err != nil {
-			return nil, err
+			return uuid.Nil(), err
 		}
-		return []role.Key{u.Role}, nil
+		return u.Role, nil
 	case resource.TypeRack:
 		key, err := rack.KeyFromResourceID(subject)
 		if err != nil {
-			return nil, err
+			return uuid.Nil(), err
 		}
 		var r rack.Rack
 		if err = s.cfg.Rack.NewRetrieve().
 			Where(rack.MatchKeys(key)).
 			Entry(&r).
 			Exec(ctx, tx); err != nil {
-			return nil, err
+			return uuid.Nil(), err
 		}
-		return []role.Key{r.Role}, nil
+		return r.Role, nil
 	default:
-		return nil, errors.Wrapf(
+		return uuid.Nil(), errors.Wrapf(
 			validate.ErrValidation,
 			"%s cannot hold roles",
 			subject,
@@ -265,7 +266,7 @@ func (e *Enforcer) retrievePolicies(
 	if errors.Is(err, query.ErrNotFound) {
 		return nil, nil
 	}
-	if err != nil || len(roles) == 0 {
+	if err != nil {
 		return nil, err
 	}
 	var policies []policy.Policy
