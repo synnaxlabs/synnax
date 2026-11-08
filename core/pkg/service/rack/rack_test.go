@@ -775,6 +775,19 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(res.Name).To(Equal("renamed-integ-rack"))
 			Expect(res.Integrations).To(Equal([]string{"ni"}))
 		})
+		It("Should write the default status when the rack has none", func(
+			ctx SpecContext,
+		) {
+			openTx()
+			r := &rack.Rack{Name: "rename-no-status-rack"}
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			Expect(stat.NewWriter(tx).DeleteOwned(ctx, r.ResourceID())).To(Succeed())
+			Expect(writer.Rename(ctx, r.Key, "renamed-no-status-rack")).To(Succeed())
+			s := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
+			Expect(s.Name).To(Equal("renamed-no-status-rack"))
+			Expect(s.Variant).To(Equal(status.VariantWarning))
+			Expect(s.Message).To(Equal("Rack status unknown"))
+		})
 		It("Should return a validation error for an empty name", func(ctx SpecContext) {
 			openTx()
 			r := &rack.Rack{Name: "rename-empty-rack"}

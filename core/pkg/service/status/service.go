@@ -90,6 +90,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			References:      s.indexes.references(),
 			Instrumentation: cfg.Instrumentation,
 			Migrations:      versions.Migrations,
+			// A label delete detaches the label from each status that holds it, which
+			// no status write does, so the service sets the status that remains.
+			OnDetach: func(_ context.Context, tx gorp.Tx, st Status[any]) error {
+				s.state.Dispatcher().
+					Attach(tx, st.Key, NewSetAction(SetPayload{Status: st}))
+				return nil
+			},
 		},
 	); !ok(err, s.table) {
 		return nil, err

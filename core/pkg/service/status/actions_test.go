@@ -69,6 +69,25 @@ var _ = Describe("Actions", func() {
 		Expect(sets()).To(Equal([]status.Status[any]{stored}))
 	})
 
+	It("Should attach a set of the status a label delete leaves", func(
+		ctx SpecContext,
+	) {
+		l := label.Label{Name: "Critical"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := labels.NewWriter(tx).Create(ctx, &l); err != nil {
+				return err
+			}
+			return svc.NewWriter(tx).AddLabels(ctx, stored.Key, []label.Key{l.Key})
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return labels.NewWriter(tx).Delete(ctx, l.Key)
+		})).To(Succeed())
+		expected := stored
+		expected.Labels = []label.Key{}
+		got := sets()
+		Expect(got[len(got)-1]).To(Equal(expected))
+	})
+
 	It("Should attach a set that holds the renamed status", func(ctx SpecContext) {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Rename(ctx, stored.Key, "Valve")
