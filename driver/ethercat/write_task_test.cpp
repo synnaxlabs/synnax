@@ -148,6 +148,19 @@ protected:
         return cfg;
     }
 
+    x::json::json create_unresolved_output_channel_config(
+        const synnax::channel::Key &command_key,
+        const std::string &pdo_name
+    ) {
+        return {
+            {"type", "unresolved"},
+            {"device", slave_device.key},
+            {"pdo", pdo_name},
+            {"cmd_channel", command_key},
+            {"disabled", false}
+        };
+    }
+
     synnax::channel::Channel create_command_channel(
         const std::string &name,
         const x::telem::DataType &data_type
@@ -226,6 +239,33 @@ TEST_F(EtherCATWriteTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
     EXPECT_EQ(
         errors[0]["message"],
         "another channel already uses entry 0x7000:01 on slave Test Slave"
+    );
+}
+
+/// @brief it should report only the entry error of each write channel whose entry it
+/// cannot find.
+TEST_F(EtherCATWriteTest, ParseConfigReportsEachChannelWithNoEntry) {
+    const auto ch1 = create_command_channel("ch1", x::telem::INT16_T);
+    const auto ch2 = create_command_channel("ch2", x::telem::INT16_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_unresolved_output_channel_config(ch1.key, "Missing")
+    );
+    cfg["channels"].push_back(
+        create_unresolved_output_channel_config(ch2.key, "Missing")
+    );
+
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 2);
+    EXPECT_EQ(errors[0]["path"], "channels.0.pdo");
+    EXPECT_EQ(errors[1]["path"], "channels.1.pdo");
+    EXPECT_EQ(
+        errors[1]["message"],
+        "'Missing' matches no output entry on slave Test Slave. Pick an entry."
     );
 }
 

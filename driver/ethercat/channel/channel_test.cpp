@@ -222,7 +222,7 @@ TEST(Input, ReportsADataTypeWiderThanTheEntry) {
         "data type float64 is 8 bytes but entry 0x6000:11 on slave EL3102 holds 2 "
         "bytes. Pick a 2 byte type."
     );
-    ASSERT_EQ(ch->entry.index, 0);
+    ASSERT_EQ(ch, nullptr);
 }
 
 /// @brief it should report a data type that is narrower than the entry.
@@ -253,18 +253,17 @@ TEST(Input, ReportsADataTypeTheCyclicExchangeCannotCarry) {
         "data type timestamp cannot be exchanged with entry 0x6000:11 on slave "
         "EL3102. Pick a 2 byte number type."
     );
-    ASSERT_EQ(ch->entry.index, 0);
+    ASSERT_EQ(ch, nullptr);
 }
 
-/// @brief it should bind no entry when the slave has no entry at the address.
+/// @brief it should give no channel when the slave has no entry at the address.
 TEST(Input, BindsNoEntryAtAnAddressTheSlaveDoesNotHave) {
     const auto slave = padded_slave();
     const auto j = read_entry(0x6010, 1);
     auto parser = x::json::Parser(j);
     const auto ch = input(slave, parser);
     ASSERT_FALSE(parser.ok());
-    ASSERT_EQ(ch->entry.index, 0);
-    ASSERT_EQ(ch->entry.bit_length, 0);
+    ASSERT_EQ(ch, nullptr);
 }
 
 /// @brief it should bind each entry of a slave whose entries all have the same name.
@@ -433,7 +432,7 @@ TEST(Output, ReportsADataTypeWiderThanTheEntry) {
         "data type float32 is 4 bytes but entry 0x7000:01 on slave EL1008 holds 1 "
         "byte. Pick a 1 byte type."
     );
-    ASSERT_EQ(ch->entry.index, 0);
+    ASSERT_EQ(ch, nullptr);
 }
 
 /// @brief it should reject an int64 stop value of 2^53 or more, which a double may have
@@ -546,7 +545,7 @@ TEST(Output, ReportsAFloatTypeOnANarrowerEntryThatIsNot24Bits) {
         "data type float32 needs a 32 bit entry, but entry 0x7000:04 on slave EL2252 "
         "holds 20 bits. Pick an integer type."
     );
-    ASSERT_EQ(ch->entry.index, 0);
+    ASSERT_EQ(ch, nullptr);
 }
 
 /// @brief it should reject a stop value that a 24-bit entry cannot hold for a float32
@@ -686,18 +685,6 @@ TEST(Claims, SeparatesInputAndOutputEntriesAtOneAddress) {
     claims.claim(output(slave, write_parser)->entry, slave, write_parser);
     ASSERT_TRUE(read_parser.ok()) << read_parser.error_json().dump();
     ASSERT_TRUE(write_parser.ok()) << write_parser.error_json().dump();
-}
-
-/// @brief it should not claim an entry for a channel that bound no entry.
-TEST(Claims, IgnoresChannelsThatBoundNoEntry) {
-    const auto slave = repeated_name_slave();
-    Claims claims;
-    const auto j = read_unresolved("Input");
-    auto first = x::json::Parser(j);
-    claims.claim(input(slave, first)->entry, slave, first);
-    auto second = x::json::Parser(j);
-    claims.claim(input(slave, second)->entry, slave, second);
-    ASSERT_EQ(only_error(second).first, "pdo");
 }
 
 /// @brief it should sort channels by slave position, then by entry index.

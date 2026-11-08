@@ -59,8 +59,8 @@ struct Output {
 };
 
 /// @brief returns the input channel that cfg configures on slave. Accumulates a field
-/// error on parser when cfg does not address one entry on slave, or its data type does
-/// not fit the entry.
+/// error on parser and returns nullptr when cfg does not address one entry on slave, or
+/// its data type does not fit the entry.
 std::unique_ptr<Input> make_input(
     const ::synnax::ethercat::ReadChannel &cfg,
     const slave::Properties &slave,
@@ -68,8 +68,9 @@ std::unique_ptr<Input> make_input(
 );
 
 /// @brief returns the output channel that cfg configures on slave. Accumulates a field
-/// error under path when cfg does not address one entry on slave, or its data type or
-/// stop value does not fit the entry.
+/// error under path and returns nullptr when cfg does not address one entry on slave,
+/// or its data type does not fit the entry. Accumulates a field error when its stop
+/// value does not fit the entry.
 std::unique_ptr<Output> make_output(
     const ::synnax::ethercat::WriteChannel &cfg,
     const slave::Properties &slave,
@@ -83,7 +84,7 @@ class Claims {
 
 public:
     /// @brief claims entry, accumulating a field error under path when another channel
-    /// holds it. An entry with index 0 claims nothing.
+    /// holds it.
     void claim(
         const pdo::Entry &entry,
         const slave::Properties &slave,
