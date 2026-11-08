@@ -15,9 +15,13 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -86,10 +90,23 @@ type Log struct {
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
 	// TimestampsHidden is true when entry timestamps are hidden.
 	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
+	// TimeZone is the time zone of the line times and day rows of the log.
+	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
+	// Group is the group the log sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Project is the project that owns the log, if any. Exactly one of project and
+	// range is set.
+	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
+	// Range is the range that owns the log, if any. Exactly one of project and range is
+	// set.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *Log) ApplyDefaults() {
+	if l.TimeZone == "" {
+		l.TimeZone = "local"
+	}
 	for i := range l.Channels {
 		l.Channels[i].ApplyDefaults()
 	}
@@ -99,6 +116,7 @@ func (l *Log) ApplyDefaults() {
 // schema constraints.
 func (l Log) Validate() error {
 	v := validate.New("Log")
+	v.Ternaryf("time_zone", !l.TimeZone.IsValid(), "invalid time_zone: %v", l.TimeZone)
 	v.NotEmptyString("name", l.Name)
 	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {

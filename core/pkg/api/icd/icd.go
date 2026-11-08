@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -90,13 +90,12 @@ type CreateResponse struct {
 // Create creates the given ICDs, or replaces whole those whose keys exist.
 func (s *Service) Create(
 	ctx context.Context,
-	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeICD}},
+		Objects: []resource.ID{{Type: resource.TypeICD}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -115,13 +114,12 @@ type DispatchRequest = actions.DispatchRequest[icd.Key, icd.Action]
 // ICD action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
-	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{icd.OntologyID(req.Key)},
+		Objects: []resource.ID{icd.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -144,7 +142,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: icd.OntologyIDsFromICDs(res.ICDs),
+		Objects: icd.ResourceIDsFromICDs(res.ICDs),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -164,7 +162,7 @@ func (s *Service) Check(ctx context.Context, req CheckRequest) (CheckResponse, e
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeICD}},
+		Objects: []resource.ID{{Type: resource.TypeICD}},
 	}); err != nil {
 		return CheckResponse{}, err
 	}
@@ -187,13 +185,12 @@ type ImportResponse struct {
 // table.
 func (s *Service) Import(
 	ctx context.Context,
-	tx gorp.Tx,
 	req ImportRequest,
 ) (ImportResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{icd.OntologyID(req.Key)},
+		Objects: []resource.ID{icd.ResourceID(req.Key)},
 	}); err != nil {
 		return ImportResponse{}, err
 	}
@@ -223,7 +220,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: icd.OntologyIDs(req.Keys),
+		Objects: icd.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}

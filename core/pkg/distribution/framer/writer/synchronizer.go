@@ -70,6 +70,10 @@ func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, er
 	if s.cycle.res.Err == nil {
 		s.cycle.res.Err = res.Err
 	}
+	// A commit that fails on one node has no end, even if another node applied it.
+	if s.cycle.res.Err != nil {
+		s.cycle.res.End = 0
+	}
 	fulfilled := s.cycle.counter == s.nodeCount
 	if fulfilled {
 		s.cycle.counter = 0

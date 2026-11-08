@@ -105,7 +105,7 @@ describe("Panel tab", () => {
       const { key: project } = await client.projects.create({
         name: uniqueName("project"),
       });
-      const schem = await client.schematics.create(project, { name: "Guarded" });
+      const schem = await client.schematics.create({ project, name: "Guarded" });
       const tabKey = uuid.create();
       const existing = await createServerPanel(client, {
         variant: "leaf",
@@ -113,7 +113,7 @@ describe("Panel tab", () => {
           {
             variant: "resource",
             key: tabKey,
-            resource: schematic.ontologyID(schem.key),
+            resource: schematic.resourceID(schem.key),
           },
         ],
       });
@@ -127,7 +127,7 @@ describe("Panel tab", () => {
       await client.schematics.retrieve(schem.key);
 
       const renderers: Panel.Tabs = {
-        [schematic.TYPE_ONTOLOGY_ID.type]: {
+        [schematic.TYPE_RESOURCE_ID.type]: {
           Content: () => <>content</>,
           Name: () => <>name</>,
           Icon: () => <>icon</>,
@@ -159,7 +159,7 @@ describe("Panel tab", () => {
       // re-reads its own query: no boundary reset and no refetch.
       const corpse = query.requireCorpse(client.schematics.getCached(schem.key));
       await act(async () => {
-        await client.schematics.create(project, corpse);
+        await client.schematics.create({ ...corpse, project });
       });
       expect(await screen.findByText("live content")).toBeTruthy();
     });
@@ -181,7 +181,11 @@ describe("Panel tab", () => {
       mount: (Name: Panel.TabName) => ReactElement = (Name) => <Name />,
       as: Client = client,
     ) => {
-      const resourceKey = uuid.create();
+      const project = (await client.projects.create({ name: uniqueName("proj") })).key;
+      const { key: resourceKey } = await client.schematics.create({
+        name: uniqueName("schematic"),
+        project,
+      });
       const tabKey = uuid.create();
       const existing = await createServerPanel(client, {
         variant: "leaf",
@@ -189,7 +193,7 @@ describe("Panel tab", () => {
           {
             variant: "resource",
             key: tabKey,
-            resource: schematic.ontologyID(resourceKey),
+            resource: schematic.resourceID(resourceKey),
           },
         ],
       });
@@ -197,7 +201,7 @@ describe("Panel tab", () => {
         client: as,
         panelKey: existing.key,
         tabKey,
-        project: (await client.projects.create({ name: uniqueName("proj") })).key,
+        project,
       });
       await primePanel(Base, existing.key);
       const ensureRetrieved = vi.fn();
@@ -245,9 +249,9 @@ describe("Panel tab", () => {
         (Name) => <Name />,
         await createTestClientWithGrants(client, {
           retrieve: [
-            panel.TYPE_ONTOLOGY_ID,
-            project.TYPE_ONTOLOGY_ID,
-            schematic.TYPE_ONTOLOGY_ID,
+            panel.TYPE_RESOURCE_ID,
+            project.TYPE_RESOURCE_ID,
+            schematic.TYPE_RESOURCE_ID,
           ],
         }),
       );

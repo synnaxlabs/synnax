@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -77,24 +77,20 @@ func retrieveICD(ctx SpecContext, key icd.Key) icd.ICD {
 // Writes commit directly so the enforcers, which read committed state, observe them.
 func grantOn(
 	ctx SpecContext,
-	subject ontology.ID,
+	subject resource.ID,
 	action access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	r := &role.Role{
-		Name:        string(action) + "-" + uuid.New().String(),
-		Description: "test",
-	}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
+	r := role.Role{Name: string(action) + "-" + uuid.New().String()}
+	Expect(svc.RBAC.Role.NewWriter(nil, false).Create(ctx, &r)).To(Succeed())
+	p := policy.Policy{
+		Role:    r.Key,
 		Name:    string(action) + "-policy-" + uuid.New().String(),
 		Objects: objects,
 		Actions: []access.Action{action},
 	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	Expect(svc.RBAC.Policy.NewWriter(nil, true).Create(ctx, &p)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	Expect(svc.User.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
 }

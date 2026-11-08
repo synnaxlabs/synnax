@@ -274,4 +274,4 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/icd/retrieve", req, RetrieveResponse)
-        return sole("ICD", fields, res.icds) if single else res.icds
+        return sole("ICD", req, res.icds) if single else res.icds

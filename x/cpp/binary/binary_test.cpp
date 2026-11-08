@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <array>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -390,5 +391,35 @@ TEST(BinaryStressTest, testVariousBytePatterns) {
 
         ASSERT_EQ(decoded, value) << "Failed for value 0x" << std::hex << value;
     }
+}
+
+/// @brief it should put the least significant byte of a value first.
+TEST(LittleEndian, PutsTheLeastSignificantByteFirst) {
+    EXPECT_EQ(to_little_endian<uint8_t>(0x12), (std::array<uint8_t, 1>{0x12}));
+    EXPECT_EQ(
+        to_little_endian<uint32_t>(0x12345678),
+        (std::array<uint8_t, 4>{0x78, 0x56, 0x34, 0x12})
+    );
+    EXPECT_EQ(
+        to_little_endian<int64_t>(-2),
+        (std::array<uint8_t, 8>{0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF})
+    );
+}
+
+/// @brief it should decode the value that to_little_endian encodes.
+TEST(LittleEndian, DecodesTheEncodedValue) {
+    EXPECT_EQ(
+        from_little_endian<uint32_t>(to_little_endian<uint32_t>(0x12345678)),
+        0x12345678
+    );
+    EXPECT_EQ(from_little_endian<int32_t>(to_little_endian<int32_t>(-300)), -300);
+    EXPECT_EQ(
+        from_little_endian<int64_t>(to_little_endian<int64_t>(-9'000'000'000)),
+        -9'000'000'000
+    );
+    EXPECT_EQ(
+        from_little_endian<uint64_t>(to_little_endian<uint64_t>(0xFFFFFFFFFFFFFFFF)),
+        0xFFFFFFFFFFFFFFFF
+    );
 }
 }

@@ -46,7 +46,7 @@ export const YAxisChannelSelect = ({
     <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest}>
       <Channel.SelectMultiple
         value={value}
-        initialQuery={{ ...SEARCH_QUERY, rangeKey }}
+        query={{ ...SEARCH_QUERY, rangeKey }}
         onChange={handleChange}
         full="x"
         location="top"
@@ -62,7 +62,7 @@ export interface XAxisChannelSelectProps extends Omit<
   axisKey: lineplot.XAxisKey;
 }
 
-const CHIP_CLASS = CSS.BE("line-plot", "x-time-chip");
+const BADGE_CLASS = CSS.BE("line-plot", "x-time-badge");
 
 // Key 0 means no X channel: each Y channel plots against its own index channel.
 const TIME_OPTION = (
@@ -73,14 +73,14 @@ const TIME_OPTION = (
       label={
         <>
           Time
-          <Input.AutoChip className={CHIP_CLASS} />
+          <Input.AutoBadge className={BADGE_CLASS} />
         </>
       }
     >
       <Icon.Time />
       <Text.Text>
         Time
-        <Input.AutoChip className={CHIP_CLASS} />
+        <Input.AutoBadge className={BADGE_CLASS} />
       </Text.Text>
       <Select.ItemDescription>
         Automatically uses each channel's time. Best for most needs.
@@ -104,7 +104,7 @@ export const XAxisChannelSelect = ({
         value={value}
         onChange={handleChange}
         allowNone
-        initialQuery={{ ...SEARCH_QUERY, rangeKey }}
+        query={{ ...SEARCH_QUERY, rangeKey }}
         variant="floating"
         location="top"
         icon={<Icon.Time />}

@@ -12,7 +12,7 @@ package v1
 import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Version is the portable schema version of the Panel shape this package defines. A
@@ -28,7 +28,7 @@ func (p Panel) GorpKey() Key { return p.Key }
 // SetOptions implements gorp.Entry.
 func (Panel) SetOptions() []any { return nil }
 
-// OntologyID returns the ontology.ID of the resource.
-func (p Panel) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypePanel, Key: p.Key.String()}
+// ResourceID returns the resource.ID of the resource.
+func (p Panel) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypePanel, Key: p.Key.String()}
 }

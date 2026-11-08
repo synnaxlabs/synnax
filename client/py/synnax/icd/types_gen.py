@@ -17,7 +17,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter
 
 BYTE_ORDER_LITTLE_ENDIAN: Literal["little_endian"] = "little_endian"
@@ -315,8 +315,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="icd")
+TYPE_RESOURCE_ID = ID(type="icd")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="icd", key=str(key))

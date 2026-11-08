@@ -14,7 +14,9 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { channel } from "@/channel";
+import { group } from "@/group";
 import { channelEntryZ, keyZ, type Log, logZ } from "@/log/types.gen";
+import { project } from "@/project";
 
 /**
  * Create replaces the document with the given created state. Emitted by the Core on
@@ -32,6 +34,26 @@ export const renamePayloadZ = z.object({
 });
 
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
+
+/**
+ * SetGroup moves the log into a group, or out of its group when group is empty. Emitted
+ * by the Core when it moves the log; clients never dispatch it.
+ */
+export const setGroupPayloadZ = z.object({
+  group: group.keyZ.optional(),
+});
+
+export type SetGroupPayload = z.infer<typeof setGroupPayloadZ>;
+
+/**
+ * SetProject moves the log into a project. Emitted by the Core when it moves the log;
+ * clients never dispatch it.
+ */
+export const setProjectPayloadZ = z.object({
+  project: project.keyZ,
+});
+
+export type SetProjectPayload = z.infer<typeof setProjectPayloadZ>;
 
 /**
  * AddChannel appends a default channel entry for the given channel. No-op when the
@@ -185,9 +207,18 @@ export const setTimestampsHiddenPayloadZ = z.object({
 
 export type SetTimestampsHiddenPayload = z.infer<typeof setTimestampsHiddenPayloadZ>;
 
+/** SetTimeZone sets the time zone of the line times and day rows of the log. */
+export const setTimeZonePayloadZ = z.object({
+  timeZone: telem.timeZoneZ,
+});
+
+export type SetTimeZonePayload = z.infer<typeof setTimeZonePayloadZ>;
+
 export type Action =
   | { type: "create"; create: CreatePayload }
   | { type: "rename"; rename: RenamePayload }
+  | { type: "set_group"; setGroup: SetGroupPayload }
+  | { type: "set_project"; setProject: SetProjectPayload }
   | { type: "add_channel"; addChannel: AddChannelPayload }
   | { type: "remove_channel"; removeChannel: RemoveChannelPayload }
   | { type: "set_channel_entry"; setChannelEntry: SetChannelEntryPayload }
@@ -213,11 +244,14 @@ export type Action =
       type: "set_channel_names_hidden";
       setChannelNamesHidden: SetChannelNamesHiddenPayload;
     }
-  | { type: "set_timestamps_hidden"; setTimestampsHidden: SetTimestampsHiddenPayload };
+  | { type: "set_timestamps_hidden"; setTimestampsHidden: SetTimestampsHiddenPayload }
+  | { type: "set_time_zone"; setTimeZone: SetTimeZonePayload };
 
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
+  z.object({ type: z.literal("set_group"), setGroup: setGroupPayloadZ }),
+  z.object({ type: z.literal("set_project"), setProject: setProjectPayloadZ }),
   z.object({ type: z.literal("add_channel"), addChannel: addChannelPayloadZ }),
   z.object({ type: z.literal("remove_channel"), removeChannel: removeChannelPayloadZ }),
   z.object({
@@ -262,6 +296,7 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
     type: z.literal("set_timestamps_hidden"),
     setTimestampsHidden: setTimestampsHiddenPayloadZ,
   }),
+  z.object({ type: z.literal("set_time_zone"), setTimeZone: setTimeZonePayloadZ }),
 ]);
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
@@ -275,6 +310,20 @@ export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
   rename: zod.parse(renamePayloadZ, payload, {
     label: "log rename action payload",
+  }),
+});
+
+export const setGroup = (payload: z.input<typeof setGroupPayloadZ>): Action => ({
+  type: "set_group",
+  setGroup: zod.parse(setGroupPayloadZ, payload, {
+    label: "log set_group action payload",
+  }),
+});
+
+export const setProject = (payload: z.input<typeof setProjectPayloadZ>): Action => ({
+  type: "set_project",
+  setProject: zod.parse(setProjectPayloadZ, payload, {
+    label: "log set_project action payload",
   }),
 });
 
@@ -398,6 +447,13 @@ export const setTimestampsHidden = (
   }),
 });
 
+export const setTimeZone = (payload: z.input<typeof setTimeZonePayloadZ>): Action => ({
+  type: "set_time_zone",
+  setTimeZone: zod.parse(setTimeZonePayloadZ, payload, {
+    label: "log set_time_zone action payload",
+  }),
+});
+
 export type HandlerResult = actions.HandlerResult<Action>;
 
 export type ReduceAllResult = actions.ReduceAllResult<Log, Action>;
@@ -405,6 +461,8 @@ export type ReduceAllResult = actions.ReduceAllResult<Log, Action>;
 export interface Handlers {
   create: (state: Draft<Log>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<Log>, payload: RenamePayload) => HandlerResult;
+  setGroup: (state: Draft<Log>, payload: SetGroupPayload) => HandlerResult;
+  setProject: (state: Draft<Log>, payload: SetProjectPayload) => HandlerResult;
   addChannel: (state: Draft<Log>, payload: AddChannelPayload) => HandlerResult;
   removeChannel: (state: Draft<Log>, payload: RemoveChannelPayload) => HandlerResult;
   setChannelEntry: (
@@ -449,6 +507,7 @@ export interface Handlers {
     state: Draft<Log>,
     payload: SetTimestampsHiddenPayload,
   ) => HandlerResult;
+  setTimeZone: (state: Draft<Log>, payload: SetTimeZonePayload) => HandlerResult;
 }
 
 export const createReduceAll = (handlers: Handlers) =>
@@ -458,6 +517,10 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
+      case "set_group":
+        return handlers.setGroup(state, action.setGroup);
+      case "set_project":
+        return handlers.setProject(state, action.setProject);
       case "add_channel":
         return handlers.addChannel(state, action.addChannel);
       case "remove_channel":
@@ -489,6 +552,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setChannelNamesHidden(state, action.setChannelNamesHidden);
       case "set_timestamps_hidden":
         return handlers.setTimestampsHidden(state, action.setTimestampsHidden);
+      case "set_time_zone":
+        return handlers.setTimeZone(state, action.setTimeZone);
     }
   });
 

@@ -355,6 +355,18 @@ describe("Editor", () => {
       expect(options.value).toBeUndefined();
       expect(options.language).toBeUndefined();
     });
+
+    it("should create a module model with a custom arc:// uri when isModule is set", () => {
+      renderEditor({ initialValue: "z", isModule: true });
+      expect(monaco.Uri.parse).toHaveBeenCalledTimes(1);
+      const uri = monaco.Uri.parse.mock.calls[0][0];
+      expect(uri).toMatch(/^arc:\/\/module\//);
+      expect(monaco.editor.createModel).toHaveBeenCalledWith(
+        "z",
+        "arc",
+        expect.anything(),
+      );
+    });
   });
 
   describe("change propagation", () => {

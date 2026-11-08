@@ -138,7 +138,7 @@ Nothing is reported that has not been confirmed real. The gate between "I notice
   nothing.
 - **Read CI, never wave at it.** A non-zero CI exit is never dismissed as flaky or
   environmental without reading the actual failed assertion.
-- **Bots and humans get the same gate, in both directions.** Greptile has been wrong
+- **Bots and humans get the same gate, in both directions.** Review bots have been wrong
   (flagged accepted designs) and right (caught a real caseconv break). Verify per
   finding; never blanket-dismiss, never blanket-trust.
 - **Unverified findings are dropped.** The Question tier (Rule 7) is for verified

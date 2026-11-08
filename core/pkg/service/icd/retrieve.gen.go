@@ -17,6 +17,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the ICD table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "icd"
+
 // Retrieve is used to retrieve ICD records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {

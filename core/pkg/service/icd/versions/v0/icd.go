@@ -11,7 +11,7 @@ package v0
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = ICD{}
@@ -22,7 +22,7 @@ func (ic ICD) GorpKey() Key { return ic.Key }
 // SetOptions implements gorp.Entry.
 func (ICD) SetOptions() []any { return nil }
 
-// OntologyID returns the unique ontology identifier for the ICD.
-func (ic ICD) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeICD, Key: ic.Key.String()}
+// ResourceID returns the unique resource identifier for the ICD.
+func (ic ICD) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeICD, Key: ic.Key.String()}
 }

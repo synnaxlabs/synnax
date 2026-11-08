@@ -35,7 +35,7 @@ interface ContextMenuProps extends Menu.ContextMenuMenuProps {
 }
 
 const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement => {
-  const ids = icd.ontologyID(keys);
+  const ids = icd.resourceID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const openResource = Panel.useOpenResource();
@@ -62,7 +62,7 @@ const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement => {
           itemKey="open"
           onClick={() =>
             openResource({
-              id: icd.ontologyID(first),
+              id: icd.resourceID(first),
               key: first,
               name: firstItem.name,
             })
@@ -85,7 +85,7 @@ const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement => {
       {firstItem != null && (
         <Link.CopyContextMenuItem
           onClick={() =>
-            handleLink({ name: firstItem.name, ontologyID: icd.ontologyID(first) })
+            handleLink({ name: firstItem.name, resourceID: icd.resourceID(first) })
           }
         />
       )}
@@ -106,7 +106,7 @@ interface ItemProps extends List.ItemProps<icd.Key> {
 const Item = ({ onOpen, ...rest }: ItemProps): ReactElement | null => {
   const { itemKey } = rest;
   const item = List.useItem<icd.Key, icd.ICD>(itemKey);
-  const canRename = Access.useUpdateGranted(icd.ontologyID(itemKey));
+  const canRename = Access.useUpdateGranted(icd.resourceID(itemKey));
   const { update: rename } = ICD.useRename();
   if (item == null) return null;
   return (
@@ -128,11 +128,11 @@ const Content = (): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
   const create = useCreate();
-  const canCreate = Access.useCreateGranted(icd.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(icd.TYPE_RESOURCE_ID);
   const { data, getItem, subscribe, retrieve, answered } = ICD.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
   const handleOpen = (key: icd.Key) =>
-    openTab({ variant: "resource", resource: icd.ontologyID(key) });
+    openTab({ variant: "resource", resource: icd.resourceID(key) });
   const menu: NonNullable<Menu.ContextMenuProps["menu"]> = (props) => (
     <ContextMenu {...props} getItem={getItem} />
   );
@@ -191,5 +191,5 @@ export const TOOLBAR: Nav.Toolbar = {
   tooltip: "ICDs",
   sizeBounds: { lower: 225, upper: 400 },
   initialSize: 300,
-  useVisible: () => Access.useRetrieveGranted(icd.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(icd.TYPE_RESOURCE_ID),
 };

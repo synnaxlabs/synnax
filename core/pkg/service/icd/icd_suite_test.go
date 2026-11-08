@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -30,23 +29,18 @@ func TestICD(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	svc     *icd.Service
-	imexSvc *imex.Service
-	tx      gorp.Tx
+	db  *gorp.DB
+	svc *icd.Service
+	tx  gorp.Tx
 )
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		imexSvc = imex.NewService()
 		svc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			ImEx:     imexSvc,
+			DB:   db,
+			ImEx: imex.NewService(),
 		}))
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

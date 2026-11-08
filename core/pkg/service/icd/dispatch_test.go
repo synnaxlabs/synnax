@@ -24,7 +24,6 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -48,11 +47,9 @@ var _ = Describe("Dispatch", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		editDB = DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: editDB}))
 		editSvc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
-			DB:       editDB,
-			Ontology: otg,
-			ImEx:     imex.NewService(),
+			DB:   editDB,
+			ImEx: imex.NewService(),
 		}))
 		bus = icd.ICD{Name: "Bus", Messages: []icd.Message{
 			canMessage("Engine", 0x100, field("rpm", 0), field("temp", 8)),

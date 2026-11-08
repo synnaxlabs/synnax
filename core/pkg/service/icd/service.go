@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -35,10 +34,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology defines ICDs as resources.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// ImEx is the import/export registry the service registers itself with.
 	//
 	// [REQUIRED]
@@ -57,7 +52,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
@@ -67,7 +61,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("icd")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("imex", c.ImEx)
 	return v.Error()
 }
@@ -97,13 +90,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, ICD]{
 		DB:              s.cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s.cfg.Ontology.RegisterService(s)
 	if err = s.cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -206,7 +199,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		tx:         tx,
-		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}

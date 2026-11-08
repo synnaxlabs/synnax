@@ -18,7 +18,7 @@ const CreateCommand = Command.create({
   key: "create_icd",
   name: "Create ICD",
   icon: <ICD.CreateIcon />,
-  useVisible: () => Access.useCreateGranted(icd.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(icd.TYPE_RESOURCE_ID),
   useOnSelect: useCreate,
 });
 

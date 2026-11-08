@@ -26,13 +26,11 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/icd/types.gen";
 import { matches, retrieveInputZ, serverComputed } from "@/icd/where.gen";
-import { type ontology } from "@/ontology";
 import { query } from "@/query";
 
 export const ACTION_CHANNEL_NAME = "sy_icd_action_set";
@@ -91,7 +89,6 @@ const encodeBase64 = (data: Uint8Array): string => {
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, ICD> {
@@ -218,10 +215,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
       query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
       return () => {
         query.partialUpdate(this.store, key, { name: prev });
-        resource();
       };
     };
     const rollback = rename();
@@ -257,10 +252,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
   /** Deletes the ICDs with the given keys. */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

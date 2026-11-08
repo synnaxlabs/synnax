@@ -78,7 +78,7 @@ const Body = ({ selected, onSelect }: BodyProps): ReactElement => {
 export const Editor = (): ReactElement => {
   const { key } = Panel.useTabResource();
   const [selected, setSelected] = useState<string[]>([]);
-  const canEdit = Access.useUpdateGranted(icd.ontologyID(key));
+  const canEdit = Access.useUpdateGranted(icd.resourceID(key));
   const { form } = ICD.useForm({
     query: { key },
     mode: canEdit ? "normal" : "preview",

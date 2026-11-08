@@ -18,6 +18,7 @@ import {
   notation,
   text,
   TimeStamp,
+  type TimeZone,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -40,6 +41,7 @@ export const logStateZ = log.logZ
     timestampPrecision: true,
     channelNamesHidden: true,
     timestampsHidden: true,
+    timeZone: true,
   })
   .extend({
     region: box.box,
@@ -190,16 +192,17 @@ const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
   ]);
 };
 
-const dayText = ({ timestamp }: LogEntry): string =>
+const dayText = ({ timestamp }: LogEntry, timeZone: TimeZone): string =>
   new Date(new TimeStamp(timestamp).milliseconds).toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: timeZone === "UTC" ? "UTC" : undefined,
   });
 
-const sameDay = (a: LogEntry, b: LogEntry): boolean =>
-  new TimeStamp(a.timestamp).isSameDay(new TimeStamp(b.timestamp), "local");
+const sameDay = (a: LogEntry, b: LogEntry, timeZone: TimeZone): boolean =>
+  new TimeStamp(a.timestamp).isSameDay(new TimeStamp(b.timestamp), timeZone);
 
 // East Asian characters take two columns of a monospace font. An emoji takes two already,
 // as a surrogate pair.
@@ -586,11 +589,14 @@ export class Log
   // Returns whether a day row sits above the entry. Times with no date need no day.
   private startsDay(entry: number): boolean {
     if (this.state.timestampsHidden) return false;
-    return entry === 0 || !sameDay(this.entries[entry], this.entries[entry - 1]);
+    return (
+      entry === 0 ||
+      !sameDay(this.entries[entry], this.entries[entry - 1], this.state.timeZone)
+    );
   }
 
   private dayRow(entry: number): Row {
-    const prefix = dayText(this.entries[entry]);
+    const prefix = dayText(this.entries[entry], this.state.timeZone);
     return { entry, prefix, value: "", channelKey: "", first: false, day: true };
   }
 
@@ -853,12 +859,13 @@ export class Log
     line: string;
     channelKey: string;
   } {
-    const { channelNamesHidden, timestampsHidden, channelDataTypes } = this.state;
+    const { channelNamesHidden, timestampsHidden, channelDataTypes, timeZone } =
+      this.state;
     const { tsLen, configs } = this.internal;
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
     const ts = !timestampsHidden
-      ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
+      ? new TimeStamp(entry.timestamp).toString("preciseTime", timeZone).slice(0, tsLen)
       : "";
     let value = entry.value;
     const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
@@ -880,7 +887,7 @@ export class Log
     else if (!channelNamesHidden) prefix = `${name}${pad}   `;
     else prefix = "";
     if (dated && ts !== "") {
-      const date = new TimeStamp(entry.timestamp).toString("ISODate", "local");
+      const date = new TimeStamp(entry.timestamp).toString("ISODate", timeZone);
       prefix = `${date} ${prefix}`;
     }
     // Continuation lines (\n) keep the prefix's alignment width as whitespace.

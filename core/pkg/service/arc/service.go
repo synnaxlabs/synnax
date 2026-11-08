@@ -17,8 +17,10 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
@@ -27,7 +29,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -50,11 +51,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between Arcs and other entities in the
-	// Synnax resource graph.
+	// Table stores the Arcs. The caller opens it, and closes it after the Service.
 	//
 	// [REQUIRED]
-	Ontology *ontology.Ontology
+	Table *Table
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
@@ -63,6 +63,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Task *task.Service
+	// MatchTasks returns a filter for the tasks that run any of the Arcs with keys.
+	//
+	// [REQUIRED]
+	MatchTasks func(arcs ...Key) task.Filter
 	// Status is used to check whether an Arc's task is running before undeploying it.
 	//
 	// [REQUIRED]
@@ -107,10 +111,11 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Table = override.Nil(c.Table, other.Table)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
+	c.MatchTasks = override.Nil(c.MatchTasks, other.MatchTasks)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
@@ -131,9 +136,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("arc")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
+	v.NotNil("table", c.Table)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("task", c.Task)
+	v.NotNil("match_tasks", c.MatchTasks)
 	v.NotNil("status", c.Status)
 	v.NotNil("imex", c.ImEx)
 	v.Positive("task_sync_debounce", c.TaskSyncDebounce)
@@ -146,9 +152,8 @@ type Service struct {
 	indexes indexes
 	closer  xio.MultiCloser
 	cfg     ServiceConfig
-	owner   *ontology.Owner
 	// directories stores the directories below root.
-	directories directories
+	directories *directory.Table
 	// root is the directory that holds every Arc.
 	root directory.Key
 	// reserved holds the standard module names, which no entry of root may take.
@@ -159,15 +164,19 @@ type Service struct {
 	taskSync *debounce.Keyed[Key]
 }
 
-// NewRoot builds the production analysis root: the STL, status, and ranges modules
-// plus the Core channel resolver. tx is consulted for channel lookups; nil uses the DB.
-// A root resolves each channel name the same way for its lifetime, so build one per
-// analysis or compile.
+// NewRoot builds the production analysis root: the STL, status, and ranges modules,
+// the Core channel resolver, and the user modules below Arcs. tx is consulted for
+// lookups; nil uses the DB. A root resolves each channel name and module the same
+// way for its lifetime, so build one per analysis or compile.
 func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
-	return symbol.NewRoot(
-		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(tx)),
-		standardSymbols(),
-	)
+	channels := channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(tx))
+	modules := arctext.NewLoader(arctext.LoaderConfig{
+		Source:   s.moduleSource(tx),
+		Channels: channels,
+		Ambient:  standardSymbols,
+		Config:   parser.Config{AllowDashedNames: s.AllowDashedNames()},
+	})
+	return symbol.NewRoot(channels, standardSymbols(), symbol.WithModules(modules))
 }
 
 func standardSymbols() []*symbol.Symbol {
@@ -204,6 +213,11 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
+
+// NewDirectoryRetrieve opens a query for Arc directories.
+func (s *Service) NewDirectoryRetrieve() directory.Retrieve {
+	return s.directories.NewRetrieve()
+}
 
 // AllowDashedNames reports whether Arc may treat '-' as an identifier character, which
 // is permitted exactly when channel-name validation is disabled.
@@ -259,10 +273,13 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:      cfg,
-		reserved: reservedNames(),
-		state:    actions.NewState[Key, Action](cfg.DB),
-		indexes:  newIndexes(),
+		cfg:         cfg,
+		reserved:    reservedNames(),
+		state:       actions.NewState[Key, Action](cfg.DB),
+		table:       cfg.Table.table,
+		indexes:     cfg.Table.indexes,
+		directories: cfg.Table.directories,
+		root:        cfg.Table.root,
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -271,31 +288,6 @@ func OpenService(
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	s.owner = cfg.Ontology.Own(ontology.Ownership{
-		Children: []ontology.ResourceType{
-			ontology.ResourceTypeArc,
-			ontology.ResourceTypeArcDirectory,
-		},
-		Parents: []ontology.ResourceType{ontology.ResourceTypeArcDirectory},
-	})
-	if s.directories, err = openDirectories(ctx, cfg); !ok(err, s.directories.table) {
-		return nil, err
-	}
-	if s.root, err = s.openRoot(ctx); !ok(err, nil) {
-		return nil, err
-	}
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
-		DB:      cfg.DB,
-		Indexes: s.indexes.all(),
-		Migrations: versions.NewMigrations(versions.MigrationsConfig{
-			Ontology: cfg.Ontology,
-			Owner:    s.owner,
-			Root:     directory.OntologyID(s.root),
-		}),
-		Instrumentation: cfg.Instrumentation,
-	}); !ok(err, s.table) {
-		return nil, err
-	}
 	if s.taskSync, err = debounce.NewKeyed(debounce.KeyedConfig[Key]{
 		Delay:    cfg.TaskSyncDebounce.Duration(),
 		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
@@ -303,8 +295,6 @@ func OpenService(
 	}); !ok(err, s.taskSync) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
-	cfg.Ontology.RegisterService(s.directories)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -329,6 +319,12 @@ func OpenService(
 		if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
 			return nil, err
 		}
+		dirCfg := signals.GorpPublisherConfigUUID(s.directories.Observe())
+		dirCfg.SetName = directory.SetChannelName
+		dirCfg.DeleteName = directory.DeleteChannelName
+		if sig, err = cfg.Signals.PublishFromGorp(ctx, dirCfg); !ok(err, sig) {
+			return nil, err
+		}
 	}
 	return s, nil
 }
@@ -348,15 +344,15 @@ func (s *Service) OnAction(
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:          gorp.OverrideTx(s.cfg.DB, tx),
-		otgWriter:   s.owner.NewWriter(tx),
-		otg:         s.cfg.Ontology,
 		root:        s.root,
-		directories: s.directories.table,
+		directories: s.directories,
 		reserved:    s.reserved,
 		tasks:       s.cfg.Task,
+		matchTasks:  s.cfg.MatchTasks,
 		status:      s.cfg.Status,
 		table:       s.table,
 		dispatcher:  s.state.Dispatcher(),
+		publish:     s.publish,
 		sweeper:     s.sweeper,
 		taskSync:    s.taskSync,
 	}

@@ -562,7 +562,7 @@ jobs:
       directories: driver
       macos: *full
       rust: true
-      targets: //driver/...
+      targets: //driver/... //vendor/open62541:patch_test
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
       windows: *full

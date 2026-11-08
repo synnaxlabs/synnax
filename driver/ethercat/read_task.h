@@ -24,6 +24,7 @@
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/telem/telem.h"
 #include "driver/ethercat/topology/topology.h"
+#include "driver/transform/transform.h"
 
 namespace driver::ethercat {
 /// @brief configuration for EtherCAT read tasks.
@@ -40,6 +41,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     size_t samples_per_chan = 0;
     /// @brief cached device properties for topology validation.
     std::unordered_map<std::string, slave::Properties> device_cache;
+    /// @brief scales the raw samples of scaled channels into engineering units.
+    transform::Scale scales;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         BaseReadTaskConfig(std::move(other)),
@@ -47,7 +50,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
         samples_per_chan(other.samples_per_chan),
-        device_cache(std::move(other.device_cache)) {}
+        device_cache(std::move(other.device_cache)),
+        scales(std::move(other.scales)) {}
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
     const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
@@ -104,6 +108,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             const auto &slave = slave_cache.at(slave_key);
             auto channel_ptr = channel::make_input(parsed, slave, ch);
             if (!channel_ptr->enabled) return;
+            transform::validate_scale(ch, "scale", channel_ptr->scale);
             claims.claim(*channel_ptr, slave, ch);
             this->channels.push_back(std::move(channel_ptr));
         });
@@ -131,10 +136,26 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
+        static const std::vector FLOAT_TYPES = {
+            x::telem::FLOAT32_T,
+            x::telem::FLOAT64_T
+        };
         for (size_t i = 0; i < this->channels.size(); i++) {
-            this->channels[i]->bind_remote_info(synnax_channels[i]);
+            auto &ch = *this->channels[i];
+            ch.bind_remote_info(synnax_channels[i]);
             if (synnax_channels[i].index != 0)
                 this->indexes.insert(synnax_channels[i].index);
+            if (!ch.scaled()) continue;
+            if (!ch.ch.data_type.matches(FLOAT_TYPES)) {
+                cfg.field_err(
+                    "channels",
+                    "channel " + ch.ch.name + " is " + ch.ch.data_type.name() +
+                        ", but a scaled channel must be float32 or float64. Pick a "
+                        "float channel."
+                );
+                continue;
+            }
+            this->scales.add(ch.ch.key, ch.ch.data_type, ch.scale);
         }
     }
 
@@ -227,6 +248,7 @@ public:
             fr.clear();
             return res;
         }
+        if (res.error = this->cfg.scales.transform(fr); res.error) return res;
         if (auto description = this->reader->warning(); !description.empty())
             res.warning = {
                 .message = "Dropped samples",

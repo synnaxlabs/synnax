@@ -12,16 +12,29 @@ import { filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { rack } from "@/rack";
+import { ranger } from "@/ranger";
 import { keyZ, type Payload, type Where } from "@/task/types.gen";
 
 /**
- * @returns whether the record matches where. An absent where matches every record.
+ * Lines checks the typed lines of a Where against a record. A null entry marks a line
+ * that only the Core can check.
  */
-export const matches = (record: Payload, where?: Where): boolean => {
+export interface Lines {
+  ranges: ((record: Payload, value: NonNullable<Where["ranges"]>) => boolean) | null;
+  arcs: ((record: Payload, value: NonNullable<Where["arcs"]>) => boolean) | null;
+}
+
+/**
+ * @returns whether the record matches where. An absent where matches every record.
+ * @throws {Error} if where is server-computed, since only the Core can check it.
+ */
+export const matches = (lines: Lines, record: Payload, where?: Where): boolean => {
   if (where == null) return true;
-  if (where.and != null && !where.and.every((w) => matches(record, w))) return false;
-  if (where.or != null && !where.or.some((w) => matches(record, w))) return false;
-  if (where.not != null && matches(record, where.not)) return false;
+  if (where.and != null && !where.and.every((w) => matches(lines, record, w)))
+    return false;
+  if (where.or != null && !where.or.some((w) => matches(lines, record, w)))
+    return false;
+  if (where.not != null && matches(lines, record, where.not)) return false;
   if (where.key != null && !filter.matchesSet(where.key, record.key)) return false;
   if (where.name != null && !filter.matchesString(where.name, record.name))
     return false;
@@ -32,20 +45,30 @@ export const matches = (record: Payload, where?: Where): boolean => {
     return false;
   if (where.snapshot != null && !filter.matchesSet(where.snapshot, record.snapshot))
     return false;
+  if (where.ranges != null) {
+    if (lines.ranges == null) throw new Error("only the Core can check ranges");
+    if (!lines.ranges(record, where.ranges)) return false;
+  }
+  if (where.arcs != null) {
+    if (lines.arcs == null) throw new Error("only the Core can check arcs");
+    if (!lines.arcs(record, where.arcs)) return false;
+  }
   return true;
 };
 
 /**
- * @returns whether only the Core can check where, because it holds a regex. An absent
- * where is not server-computed.
+ * @returns whether only the Core can check where, because it holds a regex or a line
+ * whose entry in lines is null. An absent where is not server-computed.
  */
-export const serverComputed = (where?: Where): boolean =>
+export const serverComputed = (lines: Lines, where?: Where): boolean =>
   where != null &&
-  (where.and?.some((w) => serverComputed(w)) === true ||
-    where.or?.some((w) => serverComputed(w)) === true ||
-    (where.not != null && serverComputed(where.not)) ||
+  (where.and?.some((w) => serverComputed(lines, w)) === true ||
+    where.or?.some((w) => serverComputed(lines, w)) === true ||
+    (where.not != null && serverComputed(lines, where.not)) ||
     where.name?.regex != null ||
-    where.type?.regex != null);
+    where.type?.regex != null ||
+    (where.ranges != null && lines.ranges == null) ||
+    (where.arcs != null && lines.arcs == null));
 
 const inputs = {
   /** key selects by key. */
@@ -60,6 +83,10 @@ const inputs = {
   internal: filter.boolInputZ.exactOptional(),
   /** snapshot selects by snapshot. */
   snapshot: filter.boolInputZ.exactOptional(),
+  /** ranges matches the tasks that are snapshots in any of the given ranges. */
+  ranges: filter.listInputZ(ranger.keyZ).exactOptional(),
+  /** arcs matches the tasks that run any of the Arcs with the given keys. */
+  arcs: filter.listInputZ(z.uuid()).exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -107,6 +134,8 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "rack",
         "internal",
         "snapshot",
+        "ranges",
+        "arcs",
       ]),
     );
 

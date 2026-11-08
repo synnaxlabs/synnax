@@ -59,9 +59,8 @@ TEST(ScanTask, testConnection) {
     ASSERT_EQ(ctx->statuses.size(), 1);
     auto first = ctx->statuses[0];
     EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first.key, synnax::task::status_key(t));
+    EXPECT_EQ(first.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(first.details.cmd, cmd.key);
-    EXPECT_EQ(first.details.task, t.key);
     EXPECT_EQ(first.message, "Connected to device");
 }
 
@@ -127,6 +126,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(devices[0].status.value().message, "Device connected");
+    EXPECT_TRUE(devices[0].status.value().details.connected);
 }
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
@@ -161,6 +161,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(devices[0].status.value().message, "Failed to reach device");
+    EXPECT_FALSE(devices[0].status.value().details.connected);
 }
 
 namespace {
@@ -193,9 +194,7 @@ scan(Scanner &scanner, const synnax::device::Device &dev) {
     std::unordered_map<std::string, synnax::device::Device> devices{{dev.key, dev}};
     common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices;
-    auto [out, err] = scanner.scan(scan_ctx);
-    EXPECT_FALSE(err) << err;
-    return out;
+    return ASSERT_NIL_P(scanner.scan(scan_ctx));
 }
 }
 

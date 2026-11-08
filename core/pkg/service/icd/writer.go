@@ -15,13 +15,11 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 // Writer creates, updates, and deletes ICDs within a transaction.
 type Writer struct {
 	tx         gorp.Tx
-	otgWriter  ontology.Writer
 	table      *gorp.Table[Key, ICD]
 	dispatcher actions.Dispatcher[Key, Action]
 }
@@ -40,28 +38,15 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // create action that carries the stored ICD. Create does not wait for dispatches to the
 // ICD: Service.Create does.
 func (w Writer) Create(ctx context.Context, ic *ICD) error {
-	var (
-		exists bool
-		err    error
-	)
 	if ic.Key == uuid.Nil() {
 		ic.Key = uuid.New()
-	} else if exists, err = w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, ICD](ic.Key)).
-		Exists(ctx, w.tx); err != nil {
-		return err
 	}
 	assignKeys(ic)
-	if err = ic.Validate(); err != nil {
+	if err := ic.Validate(); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(ic).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Entry(ic).Exec(ctx, w.tx); err != nil {
 		return err
-	}
-	if !exists {
-		if err = w.otgWriter.DefineResources(ctx, ic.OntologyID()); err != nil {
-			return err
-		}
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,
@@ -115,12 +100,9 @@ func (w Writer) Import(
 
 // Delete deletes the ICDs with the given keys. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, ICD](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+		Exec(ctx, w.tx)
 }
 
 // apply applies the actions to the ICD with the given key and stores the result.

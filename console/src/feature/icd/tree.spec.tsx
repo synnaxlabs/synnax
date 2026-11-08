@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd, NotFoundError, ontology } from "@synnaxlabs/client";
+import { icd, NotFoundError, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -35,7 +35,7 @@ import {
 } from "@/testutil";
 
 const renderMenu = async (icds: icd.ICD[]) => {
-  const ids = icds.map(({ key }) => icd.ontologyID(key));
+  const ids = icds.map(({ key }) => icd.resourceID(key));
   const store = await createTestStore();
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
@@ -45,7 +45,7 @@ const renderMenu = async (icds: icd.ICD[]) => {
   const { wrapper } = await createConsoleWrapper({ client, store });
   const Menu = ICD.TREE_ITEMS.icd?.ContextMenu;
   if (Menu == null) throw new Error("ICD tree item has no context menu");
-  const itemID = List.itemNameID(ontology.idToString(ids[0]));
+  const itemID = List.itemNameID(resource.idToString(ids[0]));
   render(
     <>
       <Menu {...props} />

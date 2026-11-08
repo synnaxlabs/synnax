@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -119,15 +118,9 @@ func fuzzImport(f *testing.F, format icd.Format) func(*testing.T, []byte) {
 	}
 	db := gorp.Wrap(memkv.New())
 	closeOnCleanup(db)
-	otg, err := ontology.Open(f.Context(), ontology.Config{DB: db})
-	if err != nil {
-		f.Fatal(err)
-	}
-	closeOnCleanup(otg)
 	s, err := icd.OpenService(f.Context(), icd.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		ImEx:     imex.NewService(),
+		DB:   db,
+		ImEx: imex.NewService(),
 	})
 	if err != nil {
 		f.Fatal(err)

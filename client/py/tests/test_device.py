@@ -7,8 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from collections.abc import Callable
-from typing import assert_type, cast
+from typing import assert_type
 from uuid import uuid4
 
 import pytest
@@ -104,10 +103,9 @@ class TestDevice:
         d1, _ = new_devices
         d1.model = str(uuid4())
         client.devices.create(d1)
-        device = client.devices.retrieve(model=d1.model)
-        assert device.key == d1.key
-        assert device.name.startswith("My Device 1")
-        assert device.model == d1.model
+        devices = client.devices.retrieve(model=d1.model)
+        assert_type(devices, list[sy.Device])
+        assert [d.key for d in devices] == [d1.key]
 
     def test_delete(self, client: sy.Synnax, new_devices: BasicDevices) -> None:
         d1, _ = new_devices
@@ -255,8 +253,8 @@ class TestDevice:
         assert_type(res, list[sy.Device])
         assert [d.key for d in res] == [dev.key]
 
-    def test_retrieve_single_by_each_filter(self, client: sy.Synnax) -> None:
-        """Should return one device for each singular filter."""
+    def test_retrieve_single(self, client: sy.Synnax) -> None:
+        """Should return one device for a plain name, or for any filter with one."""
         rack = client.racks.create(name=str(uuid4()))
         dev = basic_device(rack.key, 1)
         dev.model = str(uuid4())
@@ -264,10 +262,12 @@ class TestDevice:
         by_name = client.devices.retrieve(name=dev.name, include_status=True)
         assert_type(by_name, sy.Device)
         assert by_name.key == dev.key
-        by_model = client.devices.retrieve(model=dev.model)
+        by_model = client.devices.retrieve(model=dev.model, one=True)
         assert_type(by_model, sy.Device)
         assert by_model.model == dev.model
-        missing = client.devices.retrieve(location=str(uuid4()), ignore_not_found=True)
+        missing = client.devices.retrieve(
+            location=str(uuid4()), one=True, ignore_not_found=True
+        )
         assert_type(missing, sy.Device | None)
         assert missing is None
 
@@ -282,9 +282,9 @@ class TestDevice:
             client.devices.create(dev)
         with pytest.raises(
             sy.MultipleFoundError,
-            match=f"Expected one Device matching {make}, but found 2",
+            match=rf"Expected one device where .*{make}.*, but found 2",
         ):
-            client.devices.retrieve(make=make, ignore_not_found=True)
+            client.devices.retrieve(make=make, one=True, ignore_not_found=True)
 
     def test_retrieve_no_filters(self, client: sy.Synnax) -> None:
         """Should return a list of every device when no filter is given."""
@@ -294,13 +294,34 @@ class TestDevice:
         assert_type(res, list[sy.Device])
         assert dev.key in {d.key for d in res}
 
-    def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
-        """Should raise a ValueError when singular selectors are mixed with others."""
-        retrieve = cast(Callable[..., object], client.devices.retrieve)
-        with pytest.raises(ValueError, match="cannot be combined"):
-            retrieve(model="test", racks=[1])
-        with pytest.raises(ValueError, match="only one of"):
-            retrieve(make="LabJack", model="T7")
+    def test_retrieve_fields(self, client: sy.Synnax) -> None:
+        """Should keep the devices that match every field."""
+        rack = client.racks.create(name=str(uuid4()))
+        devs = [basic_device(rack.key, n) for n in range(3)]
+        devs[0].model = devs[1].model = str(uuid4())
+        client.devices.create(devs)
+        res = client.devices.retrieve(rack=rack.key, model=devs[0].model)
+        assert {d.key for d in res} == {devs[0].key, devs[1].key}
+        res = client.devices.retrieve(rack=rack.key, location={"in": ["dev0", "dev2"]})
+        assert {d.key for d in res} == {devs[0].key, devs[2].key}
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one device for a plain key beside other fields."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        assert client.devices.retrieve(key=dev.key, rack=rack.key).key == dev.key
+        with pytest.raises(sy.NotFoundError):
+            client.devices.retrieve(key=dev.key, make="other")
+
+    def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
+        """Should reject one beside a limit, since a page could hide a match."""
+        with pytest.raises(sy.ValidationError, match="limit or offset"):
+            client.devices.retrieve(model="T7", one=True, limit=1)  # type: ignore[call-overload]
+
+    def test_retrieve_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every device."""
+        with pytest.raises(sy.ValidationError, match="model is None"):
+            client.devices.retrieve(model=None)  # type: ignore[call-overload]
 
     def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
         """Should page through the devices on a rack."""
@@ -320,20 +341,105 @@ class TestDevice:
 
         assert_eventually(check)
 
-    def test_retrieve_with_status_and_parent(self, client: sy.Synnax) -> None:
-        """Should attach the status and parent only when asked for them."""
+    def test_retrieve_with_status(self, client: sy.Synnax) -> None:
+        """Should attach the status only when asked for it."""
         rack = client.racks.create(name=str(uuid4()))
         dev = client.devices.create(basic_device(rack.key, 1))
-        plain = client.devices.retrieve(key=dev.key)
-        assert plain.status is None
-        assert plain.parent is None
-        res = client.devices.retrieve(
-            key=dev.key, include_status=True, include_parent=True
-        )
+        assert client.devices.retrieve(key=dev.key).status is None
+        res = client.devices.retrieve(key=dev.key, include_status=True)
         assert res.status is not None
         assert res.status.details is not None
-        assert res.status.details.device == dev.key
-        assert res.parent == sy.rack.ontology_id(rack.key)
+        assert res.status.owner == sy.device.resource_id(dev.key)
+
+
+@pytest.mark.device
+class TestDeviceParent:
+    def test_create_under_parent(self, client: sy.Synnax) -> None:
+        """Should create a device under another device and retrieve it by parent."""
+        rack = client.racks.create(name=str(uuid4()))
+        chassis = client.devices.create(basic_device(rack.key, 1))
+        module = basic_device(rack.key, 2)
+        module.parent = chassis.key
+        module = client.devices.create(module)
+        assert module.parent == chassis.key
+        assert client.devices.retrieve(key=chassis.key).parent is None
+        held = client.devices.retrieve(parents=[chassis.key])
+        assert [d.key for d in held] == [module.key]
+
+    def test_retrieve_nested(self, client: sy.Synnax) -> None:
+        """Should keep only the devices that another device holds, or none holds."""
+        rack = client.racks.create(name=str(uuid4()))
+        chassis = client.devices.create(basic_device(rack.key, 1))
+        module = basic_device(rack.key, 2)
+        module.parent = chassis.key
+        client.devices.create(module)
+        nested = client.devices.retrieve(racks=[rack.key], nested=True)
+        assert [d.key for d in nested] == [module.key]
+        top = client.devices.retrieve(racks=[rack.key], nested=False)
+        assert [d.key for d in top] == [chassis.key]
+
+    def test_delete_parent(self, client: sy.Synnax) -> None:
+        """Should delete the devices that a deleted device holds."""
+        rack = client.racks.create(name=str(uuid4()))
+        chassis = client.devices.create(basic_device(rack.key, 1))
+        module = basic_device(rack.key, 2)
+        module.parent = chassis.key
+        client.devices.create(module)
+        client.devices.delete([chassis.key])
+        assert client.devices.retrieve(key=module.key, ignore_not_found=True) is None
+
+    def test_create_under_missing_parent(self, client: sy.Synnax) -> None:
+        """Should refuse a parent that does not exist."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = basic_device(rack.key, 1)
+        dev.parent = str(uuid4())
+        with pytest.raises(sy.ValidationError, match="does not exist"):
+            client.devices.create(dev)
+
+
+@pytest.mark.device
+class TestDeviceGroup:
+    def test_create_in_group(self, client: sy.Synnax) -> None:
+        """Should create a device in a group under its rack and retrieve it by that
+        group."""
+        rack = client.racks.create(name=str(uuid4()))
+        g = client.groups.create(str(uuid4()), parent=sy.rack.resource_id(rack.key))
+        dev = client.devices.create(
+            key=str(uuid4()),
+            rack=rack.key,
+            name=str(uuid4()),
+            location="dev1",
+            make="test_make",
+            model="test_model",
+            group=g.key,
+        )
+        assert dev.group == g.key
+        assert [d.key for d in client.devices.retrieve(groups=[g.key])] == [dev.key]
+        ungrouped = client.devices.retrieve(racks=[rack.key], grouped=False)
+        assert dev.key not in {d.key for d in ungrouped}
+
+    def test_set_group(self, client: sy.Synnax) -> None:
+        """Should move a device into a group and back out of it."""
+        rack = client.racks.create(name=str(uuid4()))
+        g = client.groups.create(str(uuid4()), parent=sy.rack.resource_id(rack.key))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        assert dev.group is None
+        client.devices.set_group([dev.key], g.key)
+        assert client.devices.retrieve(key=dev.key).group == g.key
+        client.devices.set_group([dev.key])
+        assert client.devices.retrieve(key=dev.key).group is None
+
+    def test_set_group_under_other_rack(self, client: sy.Synnax) -> None:
+        """Should refuse a group that sits under another rack."""
+        rack = client.racks.create(name=str(uuid4()))
+        other = client.racks.create(name=str(uuid4()))
+        g = client.groups.create(str(uuid4()), parent=sy.rack.resource_id(other.key))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        with pytest.raises(
+            sy.ValidationError,
+            match=f"group {g.name} does not sit under rack {rack.key}",
+        ):
+            client.devices.set_group([dev.key], g.key)
 
 
 @pytest.mark.device

@@ -1463,9 +1463,9 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
-		Context("ontology with @py hand", func() {
+		Context("resource with @py hand", func() {
 			It(
-				"Should generate ontology_id even when the struct is omitted",
+				"Should generate resource_id even when the struct is omitted",
 				func(ctx SpecContext) {
 					source := `
 					@py output "out"
@@ -1476,22 +1476,23 @@ var _ = Describe("Python Types Plugin", func() {
 						key Key @key
 						name string
 						@py hand
-						@ontology type "policy"
+						@resource type "policy"
 					}
 				`
 					resp := MustGenerate(ctx, source, "policy", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`ONTOLOGY_TYPE = ID(type="policy")`,
-							`def ontology_id(key: Key) -> ID:`,
+							`from synnax.resource import ID`,
+							`TYPE_RESOURCE_ID = ID(type="policy")`,
+							`def resource_id(key: Key) -> ID:`,
 						).
 						ToNotContain(`class Policy`)
 				},
 			)
 		})
 
-		Context("ontology on a union", func() {
-			It("Should generate ontology_id for a union", func(ctx SpecContext) {
+		Context("resource on a union", func() {
+			It("Should generate resource_id for a union", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1508,21 +1509,21 @@ var _ = Describe("Python Types Plugin", func() {
 						second {
 							size int32
 						}
-						@ontology type "view"
+						@resource type "view"
 					}
 				`
 				resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
-						`ONTOLOGY_TYPE = ID(type="view")`,
-						`def ontology_id(key: Key) -> ID:`,
+						`TYPE_RESOURCE_ID = ID(type="view")`,
+						`def resource_id(key: Key) -> ID:`,
 					)
 			})
 		})
 
-		Context("ontology on a union with a split base", func() {
+		Context("resource on a union with a split base", func() {
 			It(
-				"Should generate ontology_id when the base has another output",
+				"Should generate resource_id when the base has another output",
 				func(ctx SpecContext) {
 					source := `
 					@py output "out"
@@ -1538,12 +1539,12 @@ var _ = Describe("Python Types Plugin", func() {
 						first {
 							name string
 						}
-						@ontology type "view"
+						@resource type "view"
 					}
 				`
 					resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
 					ExpectContent(resp, "out/types_gen.py").
-						ToContain(`ONTOLOGY_TYPE = ID(type="view")`)
+						ToContain(`TYPE_RESOURCE_ID = ID(type="view")`)
 				},
 			)
 		})
@@ -2016,6 +2017,108 @@ var _ = Describe("Python Types Plugin", func() {
 						`info: status.Info`,
 						`label: status_`,
 					)
+				})
+
+			It("Should read an ancestor package through its generated module",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key = uuid
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					ExpectContent(resp, "arc/task/types_gen.py").ToContain(
+						`from synnax.arc import types_gen`,
+						`arc_key: types_gen.Key`,
+					)
+				})
+
+			It("Should alias a hand-written ancestor type that a declaration shadows",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key struct {
+							value uuid
+							@py hand
+							@py include "client/py/synnax/arc/key"
+						}
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Key = string
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					ExpectContent(resp, "arc/task/types_gen.py").ToContain(
+						`from synnax.arc.key import Key as Key_`,
+						`arc_key: Key_`,
+					)
+				})
+
+			It("Should read an ancestor package through the configured module name",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key = uuid
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					custom := types.New(types.Options{FileNamePattern: "models.py"})
+					resp := MustGenerate(ctx, source, "arc_task", loader, custom)
+					ExpectContent(resp, "arc/task/models.py").ToContain(
+						`from synnax.arc import models`,
+						`arc_key: models.Key`,
+					)
+				})
+
+			It("Should read a hand-written ancestor type from its include module",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key struct {
+							value uuid
+							@py hand
+							@py include "client/py/synnax/arc/key"
+						}
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					ExpectContent(resp, "arc/task/types_gen.py").
+						ToContain(`from synnax.arc.key import Key`, `arc_key: Key`).
+						ToNotContain("from synnax import arc\n")
 				})
 
 			DescribeTable(

@@ -22,7 +22,7 @@ import { Tree } from "@/platform/tree";
 
 const useRename = Tree.createUseRename({
   useUpdate: ICD.useRename,
-  ontologyID: icd.ontologyID,
+  resourceID: icd.resourceID,
   convertKey: String,
 });
 
@@ -61,7 +61,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {single && (
         <Link.CopyContextMenuItem
           onClick={() =>
-            handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+            handleLink({ name: getResource(firstID).name, resourceID: firstID })
           }
         />
       )}
@@ -76,7 +76,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 const TreeItem = Tree.createItem({
   type: "icd",
   icon: <Icon.Library />,
-  hasChildren: false,
   useOnSelect: Panel.useOpenResource,
   ContextMenu: TreeContextMenu,
 });

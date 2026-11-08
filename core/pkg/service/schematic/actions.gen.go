@@ -12,6 +12,8 @@
 package schematic
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
@@ -22,6 +24,10 @@ const (
 	ActionTypeCreate = "create"
 	// ActionTypeRename is the Type of an Action that carries RenamePayload.
 	ActionTypeRename = "rename"
+	// ActionTypeSetGroup is the Type of an Action that carries SetGroupPayload.
+	ActionTypeSetGroup = "set_group"
+	// ActionTypeSetProject is the Type of an Action that carries SetProjectPayload.
+	ActionTypeSetProject = "set_project"
 	// ActionTypeSetNodePosition is the Type of an Action that carries
 	// SetNodePositionPayload.
 	ActionTypeSetNodePosition = "set_node_position"
@@ -54,6 +60,18 @@ type CreatePayload struct {
 // RenamePayload renames the schematic.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
+}
+
+// SetGroupPayload moves the schematic into a group, or out of its group when group is
+// empty. Emitted by the Core when it moves the schematic; clients never dispatch it.
+type SetGroupPayload struct {
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+}
+
+// SetProjectPayload moves the schematic into a project. Emitted by the Core when it
+// moves the schematic; clients never dispatch it.
+type SetProjectPayload struct {
+	Project project.Key `json:"project" msgpack:"project"`
 }
 
 // SetNodePositionPayload moves a node to a new position.
@@ -129,6 +147,8 @@ type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
 	Create          *CreatePayload          `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename          *RenamePayload          `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetGroup        *SetGroupPayload        `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
+	SetProject      *SetProjectPayload      `json:"set_project,omitzero" msgpack:"set_project,omitempty"`
 	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitzero" msgpack:"set_node_position,omitempty"`
 	SetNode         *SetNodePayload         `json:"set_node,omitzero" msgpack:"set_node,omitempty"`
 	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitzero" msgpack:"remove_node,omitempty"`
@@ -159,6 +179,16 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
+		case ActionTypeSetGroup:
+			if a.SetGroup == nil {
+				return Schematic{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetGroup.Handle(state)
+		case ActionTypeSetProject:
+			if a.SetProject == nil {
+				return Schematic{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetProject.Handle(state)
 		case ActionTypeSetNodePosition:
 			if a.SetNodePosition == nil {
 				return Schematic{}, union.MissingPayload(a.Type)
@@ -227,6 +257,16 @@ func NewCreateAction(p CreatePayload) Action {
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
+}
+
+// NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
+func NewSetGroupAction(p SetGroupPayload) Action {
+	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
+}
+
+// NewSetProjectAction wraps a SetProjectPayload in an Action envelope.
+func NewSetProjectAction(p SetProjectPayload) Action {
+	return Action{Type: ActionTypeSetProject, SetProject: &p}
 }
 
 // NewSetNodePositionAction wraps a SetNodePositionPayload in an Action envelope.

@@ -20,23 +20,22 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-var icdType = ontology.ID{Type: ontology.ResourceTypeICD}
+var icdType = resource.ID{Type: resource.TypeICD}
 
 var _ = Describe("ICD", func() {
 	Describe("Create", func() {
 		It("Should create an ICD when create is granted", func(ctx SpecContext) {
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionCreate, icdType)
+			grantOn(ctx, u.ResourceID(), access.ActionCreate, icdType)
 			res := MustSucceed(apiSvc.Create(
 				AuthedCtx(ctx, u),
-				nil,
 				apiicd.CreateRequest{ICDs: []icd.ICD{{Name: "Bus"}}},
 			))
 			Expect(res.ICDs).To(HaveLen(1))
@@ -47,12 +46,11 @@ var _ = Describe("ICD", func() {
 			ctx SpecContext,
 		) {
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionCreate, icdType)
+			grantOn(ctx, u.ResourceID(), access.ActionCreate, icdType)
 			rec := &Recorder[icd.Key, icd.Action]{}
 			DeferCleanup(svc.ICD.ObserveActions().OnChange(rec.Record))
 			MustSucceed(apiSvc.Create(
 				AuthedCtx(ctx, u),
-				nil,
 				apiicd.CreateRequest{
 					ICDs:        []icd.ICD{{Name: "Bus"}},
 					DispatchKey: "dk-create",
@@ -66,7 +64,6 @@ var _ = Describe("ICD", func() {
 		It("Should reject a create that is not granted", func(ctx SpecContext) {
 			Expect(apiSvc.Create(
 				AuthedCtx(ctx, createUser(ctx)),
-				nil,
 				apiicd.CreateRequest{ICDs: []icd.ICD{{Name: "Bus"}}},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
@@ -78,7 +75,7 @@ var _ = Describe("ICD", func() {
 		) {
 			ic := createICD(ctx, "Engine")
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionRetrieve, ic.OntologyID())
+			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, ic.ResourceID())
 			res := MustSucceed(apiSvc.Retrieve(
 				AuthedCtx(ctx, u),
 				apiicd.RetrieveRequest{
@@ -102,7 +99,7 @@ var _ = Describe("ICD", func() {
 	Describe("Check", func() {
 		It("Should return every problem in an ICD", func(ctx SpecContext) {
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionRetrieve, icdType)
+			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, icdType)
 			res := MustSucceed(apiSvc.Check(
 				AuthedCtx(ctx, u),
 				apiicd.CheckRequest{ICD: icd.ICD{}},
@@ -114,7 +111,7 @@ var _ = Describe("ICD", func() {
 
 		It("Should return no problems for a valid ICD", func(ctx SpecContext) {
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionRetrieve, icdType)
+			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, icdType)
 			res := MustSucceed(apiSvc.Check(
 				AuthedCtx(ctx, u),
 				apiicd.CheckRequest{ICD: icd.ICD{Name: "Bus"}},
@@ -139,10 +136,9 @@ var _ = Describe("ICD", func() {
 		It("Should apply the actions when update is granted", func(ctx SpecContext) {
 			ic := createICD(ctx, "Old")
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionUpdate, ic.OntologyID())
+			grantOn(ctx, u.ResourceID(), access.ActionUpdate, ic.ResourceID())
 			MustSucceed(apiSvc.Dispatch(
 				AuthedCtx(ctx, u),
-				nil,
 				apiicd.DispatchRequest{Key: ic.Key, DispatchKey: "dk", Actions: rename},
 			))
 			Expect(retrieveICD(ctx, ic.Key).Name).To(Equal("New"))
@@ -152,7 +148,6 @@ var _ = Describe("ICD", func() {
 			ic := createICD(ctx, "Fixed")
 			Expect(apiSvc.Dispatch(
 				AuthedCtx(ctx, createUser(ctx)),
-				nil,
 				apiicd.DispatchRequest{Key: ic.Key, DispatchKey: "dk", Actions: rename},
 			)).Error().To(MatchError(access.ErrDenied))
 			Expect(retrieveICD(ctx, ic.Key).Name).To(Equal("Fixed"))
@@ -161,10 +156,9 @@ var _ = Describe("ICD", func() {
 		It("Should return the dispatch error", func(ctx SpecContext) {
 			u := createUser(ctx)
 			key := uuid.New()
-			grantOn(ctx, u.OntologyID(), access.ActionUpdate, icd.OntologyID(key))
+			grantOn(ctx, u.ResourceID(), access.ActionUpdate, icd.ResourceID(key))
 			Expect(apiSvc.Dispatch(
 				AuthedCtx(ctx, u),
-				nil,
 				apiicd.DispatchRequest{Key: key, DispatchKey: "dk", Actions: rename},
 			)).Error().To(MatchError(query.ErrNotFound))
 		})
@@ -174,11 +168,10 @@ var _ = Describe("ICD", func() {
 		It("Should import a DBC file when update is granted", func(ctx SpecContext) {
 			ic := createICD(ctx, "Vehicle")
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionUpdate, ic.OntologyID())
+			grantOn(ctx, u.ResourceID(), access.ActionUpdate, ic.ResourceID())
 			data := MustSucceed(os.ReadFile("../../service/icd/testdata/basic.dbc"))
 			res := MustSucceed(apiSvc.Import(
 				AuthedCtx(ctx, u),
-				nil,
 				apiicd.ImportRequest{Key: ic.Key, Format: icd.FormatDBC, Data: data},
 			))
 			Expect(res.ICD.Key).To(Equal(ic.Key))
@@ -190,13 +183,12 @@ var _ = Describe("ICD", func() {
 		) {
 			ic := createICD(ctx, "Echo")
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionUpdate, ic.OntologyID())
+			grantOn(ctx, u.ResourceID(), access.ActionUpdate, ic.ResourceID())
 			rec := &Recorder[icd.Key, icd.Action]{}
 			DeferCleanup(svc.ICD.ObserveActions().OnChange(rec.Record))
 			data := MustSucceed(os.ReadFile("../../service/icd/testdata/basic.dbc"))
 			res := MustSucceed(apiSvc.Import(
 				AuthedCtx(ctx, u),
-				nil,
 				apiicd.ImportRequest{
 					Key:         ic.Key,
 					Format:      icd.FormatDBC,
@@ -216,7 +208,6 @@ var _ = Describe("ICD", func() {
 			ic := createICD(ctx, "Locked")
 			Expect(apiSvc.Import(
 				AuthedCtx(ctx, createUser(ctx)),
-				nil,
 				apiicd.ImportRequest{Key: ic.Key, Format: icd.FormatDBC},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
@@ -226,7 +217,7 @@ var _ = Describe("ICD", func() {
 		It("Should delete an ICD when delete is granted", func(ctx SpecContext) {
 			ic := createICD(ctx, "Doomed")
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionDelete, ic.OntologyID())
+			grantOn(ctx, u.ResourceID(), access.ActionDelete, ic.ResourceID())
 			MustSucceed(apiSvc.Delete(
 				AuthedCtx(ctx, u),
 				nil,

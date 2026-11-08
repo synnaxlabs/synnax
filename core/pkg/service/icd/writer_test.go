@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -139,18 +138,6 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
-		It("Should define the ICD in the ontology", func(ctx SpecContext) {
-			ic := icd.ICD{Name: "Ontology"}
-			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(ic.OntologyID()).
-				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res.Name).To(Equal("Ontology"))
-			Expect(res.ID.Type).To(Equal(ontology.ResourceTypeICD))
-		})
-
 		It(
 			"Should keep message and field keys when replacing an ICD",
 			func(ctx SpecContext) {
@@ -198,16 +185,13 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should delete an ICD and its ontology resource", func(ctx SpecContext) {
+		It("Should delete an ICD", func(ctx SpecContext) {
 			ic := icd.ICD{Name: "Doomed"}
 			w := svc.NewWriter(tx)
 			Expect(w.Create(ctx, &ic)).To(Succeed())
 			Expect(w.Delete(ctx, ic.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(icd.MatchKeys(ic.Key)).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-			Expect(otg.NewRetrieve().
-				WhereIDs(ic.OntologyID()).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 

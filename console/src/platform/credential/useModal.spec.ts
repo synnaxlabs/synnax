@@ -55,7 +55,7 @@ describe("useModal", () => {
       username: uniqueName("user"),
       password: "password123",
     });
-    const id = user.ontologyID(subject.key);
+    const id = user.resourceID(subject.key);
     await openModal(useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     const name = uniqueName("key");
@@ -77,7 +77,7 @@ describe("useModal", () => {
       username: uniqueName("user"),
       password: "password123",
     });
-    const id = user.ontologyID(subject.key);
+    const id = user.resourceID(subject.key);
     const create = client.auth.createKey.bind(client.auth);
     let release = (): void => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
@@ -108,7 +108,7 @@ describe("useModal", () => {
       username: uniqueName("user"),
       password: "password123",
     });
-    const id = user.ontologyID(subject.key);
+    const id = user.resourceID(subject.key);
     const create = client.auth.createKey.bind(client.auth);
     let release = (): void => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
@@ -138,7 +138,7 @@ describe("useModal", () => {
   it("should manage a rack's keys and offer no password", async () => {
     const client = createTestClient();
     const r = await client.racks.create({ name: uniqueName("rack") });
-    const id = rack.ontologyID(r.key);
+    const id = rack.resourceID(r.key);
     await openModal(useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     expect(screen.queryByPlaceholderText("New password")).toBeNull();
@@ -152,7 +152,7 @@ describe("useModal", () => {
   it("should hide key actions the caller has no permission for", async () => {
     const owner = createTestClient();
     const r = await owner.racks.create({ name: uniqueName("rack") });
-    const id = rack.ontologyID(r.key);
+    const id = rack.resourceID(r.key);
     const name = uniqueName("key");
     await owner.auth.createKey({ subject: id, name });
     const viewer = await createTestClientWithRole(owner, "Viewer");
@@ -166,10 +166,10 @@ describe("useModal", () => {
   it("should offer a rack key to a caller who may change the rack", async () => {
     const owner = createTestClient();
     const r = await owner.racks.create({ name: uniqueName("rack") });
-    const id = rack.ontologyID(r.key);
+    const id = rack.resourceID(r.key);
     const changer = await createTestClientWithGrants(owner, {
-      retrieve: [rack.TYPE_ONTOLOGY_ID],
-      update: [rack.TYPE_ONTOLOGY_ID],
+      retrieve: [rack.TYPE_RESOURCE_ID],
+      update: [rack.TYPE_RESOURCE_ID],
     });
     await openModal(useModal, { client: changer, params: { subject: id } });
     expect(await screen.findByText("Create key")).toBeTruthy();
@@ -194,7 +194,7 @@ describe("useModal", () => {
     const subject = await client.users.create({ username, password: "password123" });
     await openModal(useModal, {
       client,
-      params: { subject: user.ontologyID(subject.key) },
+      params: { subject: user.resourceID(subject.key) },
     });
     expect(screen.queryByPlaceholderText("Current password")).toBeNull();
     await type("New password", "changed123");

@@ -307,7 +307,7 @@ describe("queries", () => {
       });
       const { result, rerender } = renderHook(
         ({ key }: { key?: channel.Key }) => {
-          const list = Channel.useList({ initialQuery: { rangeKey: range.key } });
+          const list = Channel.useList({ query: { rangeKey: range.key } });
           const item = Flux.useListItem({
             subscribe: list.subscribe,
             getItem: list.getItem,
@@ -351,7 +351,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Channel.useList({
-            initialQuery: { rangeKey: range.key },
+            query: { rangeKey: range.key },
             useCachedList: false,
           }),
         { wrapper },
@@ -379,7 +379,7 @@ describe("queries", () => {
         unmount();
 
         const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialQuery: {} }),
+          () => Channel.useList({ query: {} }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -403,7 +403,7 @@ describe("queries", () => {
         await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
 
         const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialQuery: { searchTerm: "cached" } }),
+          () => Channel.useList({ query: { searchTerm: "cached" } }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -890,7 +890,7 @@ describe("queries", () => {
       // let that settle so it does not race the status set below.
       await sleep.sleep(TimeSpan.milliseconds(500));
       await client.statuses.set({
-        key: channel.statusKey(calc.key),
+        owner: channel.resourceID(calc.key),
         name: calc.name,
         variant: "error",
         message: "invalid expression",
@@ -958,7 +958,7 @@ describe("queries", () => {
       await sleep.sleep(TimeSpan.milliseconds(500));
       await act(async () => {
         await client.statuses.set({
-          key: channel.statusKey(calc.key),
+          owner: channel.resourceID(calc.key),
           name: calc.name,
           variant: "error",
           message: "broken expression",
@@ -993,12 +993,11 @@ describe("queries", () => {
       const createCalculatedWithStatus = async () => {
         const calc = await createCalculated();
         await client.statuses.set({
-          key: channel.statusKey(calc.key),
+          owner: channel.resourceID(calc.key),
           name: calc.name,
           variant: "error",
           message: "invalid expression",
           time: TimeStamp.now(),
-          details: { channel: calc.key },
         });
         return calc;
       };
@@ -1052,7 +1051,10 @@ describe("queries", () => {
 
       it("should fetch once when the channel has no status row", async () => {
         const calc = await createCalculated();
-        await client.statuses.delete(channel.statusKey(calc.key));
+        const held = await client.statuses.retrieve({
+          where: { owners: [channel.resourceID(calc.key)] },
+        });
+        await client.statuses.delete(held.map((s) => s.key));
         const local = createTestClient();
         await local.channels.retrieve([calc.key]);
         const localWrapper = await createAsyncSynnaxWrapper({ client: local });
@@ -1541,36 +1543,6 @@ describe("queries", () => {
       });
 
       expect(order).toEqual([`optimistic:${ch.key}`, "success"]);
-    });
-  });
-
-  describe("useGroup", () => {
-    it("should retrieve the channel group", async () => {
-      const { result } = await renderHookSuspended(() => Channel.useGroup({}), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current).not.toBeNull());
-      expect(result.current?.key).toBeDefined();
-      expect(result.current?.name).toEqual("Channels");
-    });
-
-    it("should serve the same group to a second caller", async () => {
-      const { result: result1 } = await renderHookSuspended(
-        () => Channel.useGroup({}),
-        {
-          wrapper,
-        },
-      );
-      await waitFor(() => expect(result1.current).not.toBeNull());
-      const firstGroup = result1.current;
-
-      const { result: result2 } = await renderHookSuspended(
-        () => Channel.useGroup({}),
-        {
-          wrapper,
-        },
-      );
-      await waitFor(() => expect(result2.current?.key).toEqual(firstGroup?.key));
     });
   });
 

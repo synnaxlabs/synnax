@@ -433,4 +433,18 @@ describe("icd", () => {
       await expect(client.icds.retrieve(keys)).rejects.toThrow(NotFoundError);
     });
   });
+
+  describe("resources", () => {
+    it("should find an ICD by its name in a resource search", async () => {
+      const name = id.create();
+      const ic = await client.icds.create(createNew(name));
+      await expect
+        .poll(async () =>
+          (await client.resources.search({ searchTerm: name, types: ["icd"] })).map(
+            (r) => r.id,
+          ),
+        )
+        .toContainEqual(icd.resourceID(ic.key));
+    });
+  });
 });

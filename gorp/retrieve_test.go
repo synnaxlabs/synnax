@@ -162,6 +162,18 @@ var _ = Describe("Retrieve", func() {
 					Expect(res).To(Equal(entries[:2]))
 				},
 			)
+			It("Should retrieve a repeated key once", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](
+						entries[1].GorpKey(),
+						entries[0].GorpKey(),
+						entries[1].GorpKey(),
+					)).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{entries[1], entries[0]}))
+			})
 			Describe("Exists", func() {
 				It(
 					"Should return true if ALL keys have matching entries",
@@ -184,12 +196,8 @@ var _ = Describe("Retrieve", func() {
 
 		Context("Composed with another filter", func() {
 			// When MatchKeys is layered with another filter (Match, MatchRaw,
-			// WherePrefix, etc.), Exec must treat missing keys as empty slots
-			// rather than fail with ErrNotFound. The ontology Retrieve
-			// pipeline depends on this: between clauses it injects
-			// MatchKeys(nextIDs) on top of WhereTypes / WherePrefix, and a
-			// transient miss (orphaned relationship, freshly-deleted
-			// resource) must not blow up the whole traversal.
+			// WherePrefix, etc.), Exec treats missing keys as empty slots rather than
+			// failing with ErrNotFound.
 			DescribeTable(
 				"Should NOT return ErrNotFound when MatchKeys is combined with a filter and some keys are missing",
 				func(ctx SpecContext, build func() gorp.Retrieve[int32, entry], wantIndices []int) {
@@ -844,7 +852,9 @@ var _ = Describe("Retrieve", func() {
 			})
 		})
 	})
+})
 
+var _ = Describe("Retrieve", func() {
 	Describe("Validate", func() {
 		var (
 			entries []entry

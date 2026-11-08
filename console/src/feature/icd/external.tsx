@@ -43,4 +43,4 @@ const TAB: Panel.Tab = {
   Guard: Panel.createGuard({ useTombstone: ICD.useTombstone }),
 };
 
-export const TABS: Panel.Tabs = FLAGS.icd ? { [icd.TYPE_ONTOLOGY_ID.type]: TAB } : {};
+export const TABS: Panel.Tabs = FLAGS.icd ? { [icd.TYPE_RESOURCE_ID.type]: TAB } : {};

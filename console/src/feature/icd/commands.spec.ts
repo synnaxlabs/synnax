@@ -32,7 +32,7 @@ describe("ICD commands", () => {
     });
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(icd.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(icd.TYPE_RESOURCE_ID.type);
     const created = await client.icds.retrieve({ key: tab.resource.key });
     expect(created).toMatchObject({ name: "ICD", messages: [] });
   });

@@ -10,7 +10,7 @@
 from synnax.icd.client import Client, ImportFormat, Problem
 from synnax.icd.types_gen import (
     ICD,
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     BaseField,
     BinaryField,
     BinaryPayload,
@@ -37,12 +37,12 @@ from synnax.icd.types_gen import (
     TimestampJSONField,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
     "ICD",
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "BaseField",
     "BinaryField",
     "BinaryPayload",
@@ -72,5 +72,5 @@ __all__ = [
     "TimestampJSONField",
     "Where",
     "WhereInput",
-    "ontology_id",
+    "resource_id",
 ]

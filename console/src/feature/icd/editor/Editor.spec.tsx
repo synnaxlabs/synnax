@@ -31,7 +31,7 @@ import {
 
 const renderEditor = async (ic: icd.ICD, as: Synnax = client): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client: as });
-  const { panelKey, tabKey } = await createResourceTab(client, icd.ontologyID(ic.key));
+  const { panelKey, tabKey } = await createResourceTab(client, icd.resourceID(ic.key));
   await primePanel(wrapper, panelKey);
   await renderSuspended(
     <PlutoPanel.Scope.Provider value={panelKey}>

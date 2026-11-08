@@ -11,11 +11,13 @@ package task
 
 import (
 	"context"
+	"slices"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -24,18 +26,18 @@ import (
 // Retrieve is used to retrieve Task records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX  gorp.Tx
-	gorp    gorp.Retrieve[Key, Task]
-	indexes indexes
-	otg     *ontology.Ontology
-	configs config.Registry
-	entry   *Task
-	entries *[]Task
+	baseTX    gorp.Tx
+	gorp      gorp.Retrieve[Key, Task]
+	indexes   indexes
+	configs   config.Registry
+	matchArcs func(arcs ...uuid.UUID) Filter
+	entry     *Task
+	entries   *[]Task
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to Where.
 // Pure filters ignore the Retrieve argument; service-bound filters read from it (e.g.
-// r.otg, r.configs) to evaluate. Use Match to construct one from a closure.
+// r.indexes, r.configs) to evaluate. Use Match to construct one from a closure.
 //
 // Filter is a type alias for gorp.BoundFilter[Retrieve, K, E] so the composition
 // helpers (Match / And / Or / Not) can be one-line wrappers around their gorp.*Bound
@@ -68,11 +70,37 @@ func MatchKeys(keys ...Key) Filter {
 }
 
 // MatchRacks returns a filter for tasks whose Rack matches any of the provided values.
+// A draft on no rack matches the value 0.
 func MatchRacks(vals ...rack.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
-		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
-			return lo.Contains(vals, e.Rack), nil
-		})
+		if !slices.Contains(vals, 0) {
+			return r.indexes.rack.Filter(vals...)
+		}
+		return gorp.Or(
+			r.indexes.rack.Filter(vals...),
+			r.indexes.rack.FilterHolding(false),
+		)
+	}
+}
+
+// MatchRanges returns a filter for tasks whose Range matches any of the provided
+// values.
+func MatchRanges(vals ...ranger.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		return r.indexes.rangeVal.Filter(vals...)
+	}
+}
+
+// MatchArcs returns a filter for the tasks that run any of the Arcs with the given
+// keys.
+func MatchArcs(arcs ...uuid.UUID) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		if r.matchArcs == nil {
+			return gorp.MatchKeysFunc[Key, Task](func(gorp.Context) ([]Key, error) {
+				return nil, errors.New("this task service cannot filter tasks by Arc")
+			})
+		}
+		return r.matchArcs(arcs...)(r)
 	}
 }
 
@@ -113,7 +141,7 @@ func MatchSnapshot(v bool) Filter {
 }
 
 // Where applies the provided filter to the query, binding it to the Retrieve so
-// service-bound filters can read from r.otg, r.configs, etc. To compose multiple
+// service-bound filters can read from r.indexes, r.configs, etc. To compose multiple
 // filters, chain Where calls or pass a combined filter via And / Or.
 func (r Retrieve) Where(filter Filter) Retrieve {
 	r.gorp = r.gorp.Where(filter(r))

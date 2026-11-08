@@ -262,7 +262,7 @@ def run_and_expect_rejection(
                         status = sy.task.Status.model_validate(raw)
                     except ValidationError:
                         continue
-                    if status.details is None or status.details.task != task.key:
+                    if status.owner != sy.task.resource_id(task.key):
                         continue
                     if status.variant in ("warning", "error"):
                         return _status_text(status)
@@ -283,6 +283,17 @@ def assert_configure_rejected(
         return str(e)
     cleanup_task(client, task)
     raise AssertionError(f"Configure did not reject {label}")
+
+
+def assert_create_refused(client: sy.Synnax, task: sy.task.Protocol, label: str) -> str:
+    """Save a task and assert the Core refuses it with a validation error. Returns the
+    refusal message."""
+    try:
+        client.tasks.configure(task)
+    except sy.ValidationError as e:
+        return str(e)
+    cleanup_task(client, task)
+    raise AssertionError(f"Core did not refuse {label}")
 
 
 def assert_start_rejected(
@@ -318,7 +329,7 @@ def _buffered_task_errors(statuses: sy.Streamer, task_key: sy.task.Key) -> list[
                 status = sy.task.Status.model_validate(raw)
             except ValidationError:
                 continue
-            if status.details is None or status.details.task != task_key:
+            if status.owner != sy.task.resource_id(task_key):
                 continue
             if status.variant in ("warning", "error"):
                 errors.append(f"{status.variant}: {_status_text(status)}")

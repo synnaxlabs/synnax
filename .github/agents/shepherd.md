@@ -31,13 +31,13 @@ When CI failed on the head:
 
 ## 3. Address every review finding
 
-A Greptile score of 5/5 does not mean the work is done. Every open Greptile finding, P2
+A Sedosaur score of 5/5 does not mean the work is done. Every open Sedosaur finding, P2
 and style findings included, gets a fix or a reply that gives the reason.
 
 - `.github/scripts/review_threads.sh <number>` prints each review thread that needs
   action as one JSON line.
-- `.github/scripts/greptile_outside_diff.sh <number>` prints Greptile's "Comments
-  Outside Diff" comment when it lists findings nobody answered yet.
+- `.github/scripts/outside_diff.sh <number>` prints Sedosaur's "Comments Outside Diff"
+  comment when it lists findings nobody answered yet.
 
 Take each finding one at a time. Reviewers and bots are each sometimes wrong. Read the
 code around it in the current tree and confirm the claim at file and line. When the
@@ -57,12 +57,13 @@ You deliver the work yourself, as your GitHub App.
 
 1. Commit with subjects under 72 characters. Run the format checks, then push once,
    after all the steps: `git push origin HEAD`.
-2. Resolve each Greptile thread your pushed code fixed. Never resolve a person's thread:
+2. Resolve each Sedosaur thread your pushed code fixed. Never resolve a person's thread:
    reply with the commit that fixed it and leave it open.
 3. Reply to every other thread that needs action with `addPullRequestReviewThreadReply`.
    Open each reply with `*Agent reply.*` Keep it to a few sentences, with no em dashes.
-4. When you pushed or answered review findings, comment `@greptileai review` on the pull
-   request.
+4. When you pushed, or when the `Review gate` says the Sedosaur review of the head ended
+   without a score, comment `@sedosaur review` on the pull request. A reply alone gets
+   no new review of the head.
 5. Comment on the pull request with `gh pr comment`. Start the comment with the line
    `<!-- agent:outside-diff -->`, since it answers the findings outside the diff: name
    each one with its fix or the reason you left it. Keep it short: what you merged,

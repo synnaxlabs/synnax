@@ -15,10 +15,9 @@ import (
 	"encoding/json/jsontext"
 	"io"
 	"slices"
-	"sort"
-	"sync"
 	"time"
 	"unicode/utf8"
+	"uuid"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/synnaxlabs/alamos"
@@ -28,14 +27,19 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 const (
-	// testConnectionCommand connects to the broker that its arguments describe.
+	// testConnectionCommand tests a connection to the broker that its arguments
+	// describe, one stage at a time.
 	testConnectionCommand = "test_connection"
 	// browseCommand lists the topics that a broker device delivers for a time.
 	browseCommand = "browse"
+	// sampleCommand reads messages from topics of a broker device and infers their
+	// shapes.
+	sampleCommand = "sample"
 
 	defaultBrowseFilter   = "#"
 	defaultBrowseDuration = 3 * time.Second
@@ -52,27 +56,6 @@ const (
 
 var errReconnecting = errors.New("the connection is down and tries again on its own")
 
-// testConnectionArgs describes a broker that may not be a stored device yet, so that
-// the Console can test a connection before it saves the device.
-type testConnectionArgs struct {
-	Properties msgpack.EncodedJSON `json:"properties"`
-	Location   string              `json:"location"`
-	// Device is the key of the broker device that the test edits. Empty for a broker
-	// that is not a device yet.
-	Device device.Key `json:"device"`
-}
-
-type browseArgs struct {
-	// Device is the key of the broker device to browse.
-	Device device.Key `json:"device"`
-	// Filter is the topic filter to subscribe to. Empty selects every topic.
-	Filter string `json:"filter"`
-	// Duration is the time to listen for, in milliseconds. Zero selects 3 s.
-	Duration int `json:"duration"`
-	// Limit is the largest count of topics to return. Zero selects 500.
-	Limit int `json:"limit"`
-}
-
 // browsedField is one scalar of a browsed JSON payload.
 type browsedField struct {
 	Pointer string `json:"pointer"`
@@ -82,11 +65,19 @@ type browsedField struct {
 	Sample string `json:"sample"`
 }
 
-// browsedTopic is one topic that a browse saw, with its last payload.
+// browsedTopic is one topic that a browse heard, with its last payload.
 type browsedTopic struct {
 	Topic string `json:"topic"`
+	// Count is the number of messages heard, with a retained message.
+	Count int `json:"count"`
+	// Rate is the number of messages per second heard, without a retained message.
+	Rate float64 `json:"rate"`
+	// LastSeen is the time that the last message arrived.
+	LastSeen telem.TimeStamp `json:"last_seen"`
 	// Payload is the start of the last payload. Empty when the payload is not text.
 	Payload string `json:"payload"`
+	// Format is the format of the whole last payload.
+	Format driver.Format `json:"format"`
 	// Fields are the scalars of the whole last payload. Empty when it is not JSON.
 	Fields   []browsedField `json:"fields"`
 	Retained bool           `json:"retained"`
@@ -94,7 +85,8 @@ type browsedTopic struct {
 
 type browseResult struct {
 	Topics []browsedTopic `json:"topics"`
-	// Truncated is true when the broker delivered more topics than the limit.
+	// Truncated is true when the broker delivered more topics than the limit, or when
+	// the topics do not all fit in the answer.
 	Truncated bool `json:"truncated"`
 }
 
@@ -135,9 +127,27 @@ func (s *scanner) Exec(
 ) (msgpack.EncodedJSON, error) {
 	switch cmd.Type {
 	case testConnectionCommand:
-		return nil, s.testConnection(ctx, cmd)
+		var args testConnectionArgs
+		if err := unmarshalArgs(cmd, &args); err != nil {
+			return nil, err
+		}
+		return nil, s.test(ctx, args)
 	case browseCommand:
-		res, err := s.browse(ctx, cmd)
+		var args browseArgs
+		if err := unmarshalArgs(cmd, &args); err != nil {
+			return nil, err
+		}
+		res, err := s.browse(ctx, args)
+		if err != nil {
+			return nil, err
+		}
+		return msgpack.NewEncodedJSON(res)
+	case sampleCommand:
+		var args sampleArgs
+		if err := unmarshalArgs(cmd, &args); err != nil {
+			return nil, err
+		}
+		res, err := s.sample(ctx, args)
 		if err != nil {
 			return nil, err
 		}
@@ -152,32 +162,12 @@ func (s *scanner) Exec(
 	return nil, driver.ErrUnsupportedCommand
 }
 
-func (s *scanner) testConnection(ctx context.Context, cmd task.Command) error {
-	var args testConnectionArgs
-	if err := cmd.Args.Unmarshal(&args); err != nil {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"invalid arguments: %s",
-			err.Error(),
-		)
+// unmarshalArgs decodes the arguments of cmd into args.
+func unmarshalArgs(cmd task.Command, args any) error {
+	if err := cmd.Args.Unmarshal(args); err != nil {
+		return errors.Wrapf(validate.ErrValidation, "invalid arguments: %s", err)
 	}
-	cfg, err := newClientConfig(device.Device{
-		Key:        cmd.Key,
-		Location:   args.Location,
-		Properties: args.Properties,
-	})
-	if err != nil {
-		return err
-	}
-	// A broker drops the older of two sessions with one client ID, so a probe with the
-	// settings of the connection that tasks share would drop that connection.
-	if live, connected := s.pool.live(args.Device, cfg); live {
-		if !connected {
-			return errReconnecting
-		}
-		return nil
-	}
-	return probe(ctx, s.ins, cfg)
+	return nil
 }
 
 // probe reports whether a client can connect to the broker of cfg.
@@ -190,73 +180,24 @@ func probe(ctx context.Context, ins alamos.Instrumentation, cfg clientConfig) er
 	return nil
 }
 
-func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, error) {
-	var (
-		args browseArgs
-		res  = browseResult{Topics: []browsedTopic{}}
-	)
-	if err := cmd.Args.Unmarshal(&args); err != nil {
-		return browseResult{}, errors.Wrapf(
-			validate.ErrValidation, "invalid arguments: %s", err.Error(),
-		)
-	}
-	if args.Filter == "" {
-		args.Filter = defaultBrowseFilter
-	}
-	duration := browseDuration(args.Duration)
-	if args.Limit <= 0 {
-		args.Limit = defaultBrowseLimit
-	}
-	args.Limit = min(args.Limit, maxBrowseLimit)
-	_, _, cfg, err := s.browseConfig(ctx, args.Device)
+func (s *scanner) browse(ctx context.Context, args browseArgs) (browseResult, error) {
+	heard, err := s.hear(ctx, args)
 	if err != nil {
 		return browseResult{}, err
 	}
-	var (
-		mu     sync.Mutex
-		topics = make(map[string]browsedTopic)
-	)
-	opts := newClientOptions(cfg)
-	opts.SetDefaultPublishHandler(func(_ paho.Client, m paho.Message) {
-		mu.Lock()
-		defer mu.Unlock()
-		if _, seen := topics[m.Topic()]; !seen && len(topics) >= args.Limit {
-			res.Truncated = true
-			return
-		}
-		topics[m.Topic()] = browsedTopic{
-			Topic:    m.Topic(),
-			Payload:  payloadSample(m.Payload()),
-			Fields:   payloadFields(m.Payload()),
-			Retained: m.Retained(),
-		}
-	})
-	client, disconnect, err := open(ctx, s.ins, paho.NewClient, opts)
+	topics := make([]browsedTopic, len(heard.topics))
+	for i, t := range heard.topics {
+		t.Rate = float64(t.Count-t.retained) / heard.duration.Seconds()
+		topics[i] = t.browsedTopic
+	}
+	kept, truncated, err := driver.Fit(browseResult{}, [][]browsedTopic{topics})
 	if err != nil {
 		return browseResult{}, err
 	}
-	defer disconnect()
-	// The handler writes to res until the deferred disconnect, so an error path must
-	// not read it.
-	if err = waitSubscribe(ctx, client.Subscribe(args.Filter, 0, nil)); err != nil {
-		return browseResult{}, err
-	}
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return browseResult{}, ctx.Err()
-	case <-timer.C:
-	}
-	mu.Lock()
-	defer mu.Unlock()
-	for _, t := range topics {
-		res.Topics = append(res.Topics, t)
-	}
-	sort.Slice(res.Topics, func(i, j int) bool {
-		return res.Topics[i].Topic < res.Topics[j].Topic
-	})
-	return res, nil
+	return browseResult{
+		Topics:    kept[0],
+		Truncated: heard.truncated || truncated,
+	}, nil
 }
 
 // browseDuration returns the time that a browse listens for, from its argument in
@@ -291,7 +232,9 @@ func (s *scanner) browseConfig(
 	if err != nil {
 		return device.Device{}, properties{}, clientConfig{}, err
 	}
-	cfg.clientID = deriveClientID(dev.Key + "/browse")
+	// A broker drops the older of two sessions with one client ID, so each browse and
+	// sample derives an ID of its own.
+	cfg.clientID = deriveClientID(uuid.New().String())
 	// A browse is never the host application, so it sets no STATE last will.
 	cfg.hostID = ""
 	return dev, props, cfg, nil
@@ -302,18 +245,7 @@ func payloadSample(payload []byte) string {
 	if !utf8.Valid(payload) {
 		return ""
 	}
-	return cutText(payload, browsePayloadLimit)
-}
-
-// cutText returns at most limit bytes from the start of text, cut at a rune boundary.
-func cutText(text []byte, limit int) string {
-	if len(text) <= limit {
-		return string(text)
-	}
-	for limit > 0 && !utf8.RuneStart(text[limit]) {
-		limit--
-	}
-	return string(text[:limit])
+	return driver.CutText(payload, browsePayloadLimit)
 }
 
 // payloadFields returns the scalars of a JSON payload in document order, at most
@@ -371,7 +303,7 @@ func appendFields(
 	*fields = append(*fields, browsedField{
 		Pointer: pointer.String(),
 		Type:    t.String(),
-		Sample:  cutText(value, browseSampleLimit),
+		Sample:  driver.CutText(value, browseSampleLimit),
 	})
 	return nil
 }
