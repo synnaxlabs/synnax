@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import subprocess
 from typing import Any
 
 import pytest
@@ -61,23 +62,59 @@ def file(**kw: Any) -> dict[str, Any]:
     return base | kw
 
 
+def thread(*replies: dict[str, Any]) -> dict[str, Any]:
+    first = {
+        "databaseId": 1,
+        "author": {"__typename": "Bot", "login": "sedosaur"},
+        "authorAssociation": "NONE",
+        "body": "<picture></picture> **Samples**\n\nText.",
+    }
+    return {
+        "id": "T1",
+        "path": "a.go",
+        "resolved": False,
+        "comments": [first, *replies],
+    }
+
+
+DISMISSAL = {
+    "databaseId": 2,
+    "author": {"__typename": "User", "login": "someone"},
+    "authorAssociation": "MEMBER",
+    "body": "@sedosaur dismiss",
+}
+
+
 class FakeGH:
-    """Serves pull request 7, whose bot reviewed OLD, and records each write."""
+    """Serves pull request 7, whose bot reviewed OLD, and records each write. A write
+    to check run 55 makes it the newest run of HEAD."""
 
     def __init__(self) -> None:
         self.edits = [summary_edit(OLD)]
-        self.runs = {OLD: [check_run()]}
+        self.threads: list[dict[str, Any]] = []
+        self.runs = {OLD: [check_run()], HEAD: []}
         self.files = {OLD: [file()], HEAD: [file()]}
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
         if args[:2] == ("api", "-X"):
             assert stdin is not None
-            self.writes.append((args[2], args[3], json.loads(stdin)))
+            payload = json.loads(stdin)
+            self.writes.append((args[2], args[3], payload))
+            if args[3] == f"repos/{REPO}/check-runs/55":
+                output = {"text": None} | payload["output"]
+                late = "2026-11-08T07:00:00Z"
+                self.runs[HEAD].append(
+                    check_run(name="Sedosaur Review", started_at=late, output=output)
+                )
             return ""
         path = args[2] if args[1] == "--paginate" else args[1]
         if path == "graphql":
+            if any("reviewThreads" in a for a in args):
+                return lines(self.threads)
             return lines(self.edits)
+        if path == f"repos/{REPO}/check-runs/55":
+            return KEY + "\n"
         for commit, runs in self.runs.items():
             if path.startswith(f"repos/{REPO}/commits/{commit}/check-runs?"):
                 return lines(runs)
@@ -114,6 +151,32 @@ class TestCarry:
         gh.runs[OLD] = [check_run(output=check_run()["output"] | {"text": listing})]
         assert carry(TARGET, gh, key=KEY)
         assert gh.writes[0][2]["output"]["text"] == listing
+
+    def test_should_score_the_head_5_when_its_findings_are_dismissed(
+        self, gh: FakeGH
+    ) -> None:
+        listing = render.LISTING_START + '[["a.go", "Samples"]]' + render.LISTING_END
+        gh.runs[OLD] = [check_run(output=check_run()["output"] | {"text": listing})]
+        gh.threads = [thread(DISMISSAL)]
+        assert carry(TARGET, gh, key=KEY)
+        [carried, scored] = gh.writes
+        assert carried[2]["output"]["title"] == "Confidence Score: 4/5"
+        assert scored[:2] == ("POST", f"repos/{REPO}/check-runs")
+        assert scored[2]["head_sha"] == HEAD
+        assert scored[2]["external_id"] == KEY
+        assert scored[2]["output"]["title"] == "Confidence Score: 5/5"
+
+    def test_should_keep_the_review_when_dismissals_cannot_be_read(
+        self, gh: FakeGH
+    ) -> None:
+        def fail(*args: str, stdin: str | None = None) -> str:
+            if any("reviewThreads" in a for a in args):
+                raise subprocess.CalledProcessError(1, "gh")
+            return gh(*args, stdin=stdin)
+
+        assert carry(TARGET, fail, key=KEY)
+        [done] = gh.writes
+        assert done[2]["output"]["title"] == "Confidence Score: 4/5"
 
     def test_should_carry_a_diff_whose_lines_moved(self, gh: FakeGH) -> None:
         moved = PATCH.replace("@@ -1,3 +1,4 @@", "@@ -11,3 +12,4 @@")
