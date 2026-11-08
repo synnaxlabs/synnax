@@ -663,6 +663,29 @@ var _ = Describe("Reference", func() {
 		})
 	})
 
+	Describe("Targets", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should list the targets of every reference in order", func() {
+			Expect(devices.Targets(&refDevice{
+				Key:    "a",
+				Rack:   1,
+				Parent: "b",
+				Labels: []string{"x", "y"},
+			})).To(Equal([]gorp.Target{
+				{Table: "rack", Key: "1"},
+				{Table: "device", Key: "b"},
+				{Table: "label", Key: "x"},
+				{Table: "label", Key: "y"},
+			}))
+		})
+
+		It("Should leave out a reference that holds no target", func() {
+			Expect(devices.Targets(&refDevice{Key: "a", Rack: 1})).
+				To(Equal([]gorp.Target{{Table: "rack", Key: "1"}}))
+		})
+	})
+
 	Describe("Delete", func() {
 		BeforeEach(func(ctx SpecContext) { open(ctx) })
 
