@@ -55,7 +55,7 @@ protected:
 
     void initialize_with_slave() {
         this->add_default_slave();
-        ASSERT_NIL(this->master_instance->scan().second);
+        ASSERT_NIL_P(this->master_instance->scan());
     }
 
     /// @brief activates the master with configs, and keeps the image it gives.
@@ -112,7 +112,7 @@ const slave::StartupParameter ASSIGN_INPUTS{
 
 TEST_F(IGHMasterTest, ScanHappyPath) {
     this->add_default_slave();
-    ASSERT_NIL(this->master_instance->scan().second);
+    ASSERT_NIL_P(this->master_instance->scan());
     auto slaves = this->master_instance->scan().first;
     EXPECT_EQ(slaves.size(), 1u);
 }
@@ -127,43 +127,43 @@ TEST_F(IGHMasterTest, ScanDeviceCheckFails) {
             "permission denied opening /dev/EtherCAT0"
         )
     );
-    ASSERT_OCCURRED_AS(this->master_instance->scan().second, errors::PERMISSION_DENIED);
+    ASSERT_OCCURRED_AS_P(this->master_instance->scan(), errors::PERMISSION_DENIED);
 }
 
 TEST_F(IGHMasterTest, ScanRequestMasterFails) {
     this->mock_api->set_request_master_result(nullptr);
-    ASSERT_OCCURRED_AS(this->master_instance->scan().second, errors::MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(this->master_instance->scan(), errors::MASTER_INIT_ERROR);
 }
 
 TEST_F(IGHMasterTest, ScanMasterInfoFails) {
     this->mock_api->set_master_info_result(-1);
-    ASSERT_OCCURRED_AS(this->master_instance->scan().second, errors::MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(this->master_instance->scan(), errors::MASTER_INIT_ERROR);
     EXPECT_TRUE(this->mock_api->release_master_called());
 }
 
 TEST_F(IGHMasterTest, ScanOutputDomainFails) {
     this->add_default_slave();
     this->mock_api->set_create_domain_fails_output(true);
-    ASSERT_OCCURRED_AS(this->master_instance->scan().second, errors::MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(this->master_instance->scan(), errors::MASTER_INIT_ERROR);
     EXPECT_TRUE(this->mock_api->release_master_called());
 }
 
 TEST_F(IGHMasterTest, ScanInputDomainFails) {
     this->add_default_slave();
     this->mock_api->set_create_domain_fails_input(true);
-    ASSERT_OCCURRED_AS(this->master_instance->scan().second, errors::MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(this->master_instance->scan(), errors::MASTER_INIT_ERROR);
     EXPECT_TRUE(this->mock_api->release_master_called());
 }
 
 TEST_F(IGHMasterTest, ScanIdempotent) {
     this->add_default_slave();
-    ASSERT_NIL(this->master_instance->scan().second);
-    ASSERT_NIL(this->master_instance->scan().second);
+    ASSERT_NIL_P(this->master_instance->scan());
+    ASSERT_NIL_P(this->master_instance->scan());
 }
 
 TEST_F(IGHMasterTest, ScanPopulatesSlaveInfo) {
     this->mock_api->add_slave(0, 0x1234, 0x5678, 3, 42, "EL2008");
-    ASSERT_NIL(this->master_instance->scan().second);
+    ASSERT_NIL_P(this->master_instance->scan());
     auto slaves = this->master_instance->scan().first;
     ASSERT_EQ(slaves.size(), 1u);
     EXPECT_EQ(slaves[0].properties.vendor_id, 0x1234u);
@@ -177,7 +177,7 @@ TEST_F(IGHMasterTest, ScanPopulatesSlaveInfo) {
 TEST_F(IGHMasterTest, ScanMultipleSlaves) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 10, "Slave0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 2, 20, "Slave1");
-    ASSERT_NIL(this->master_instance->scan().second);
+    ASSERT_NIL_P(this->master_instance->scan());
     auto slaves = this->master_instance->scan().first;
     ASSERT_EQ(slaves.size(), 2u);
     EXPECT_EQ(slaves[0].properties.name, "Slave0");
@@ -216,7 +216,7 @@ TEST_F(IGHMasterTest, CountSlavesFailsBeforeInitialize) {
 TEST_F(IGHMasterTest, ActivateConfiguresEveryEnabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
-    ASSERT_NIL(this->master_instance->scan().second);
+    ASSERT_NIL_P(this->master_instance->scan());
     this->activate_with_domains();
     EXPECT_EQ(this->mock_api->slave_config_count(), 2u);
 }
@@ -225,7 +225,7 @@ TEST_F(IGHMasterTest, ActivateConfiguresEveryEnabledSlave) {
 TEST_F(IGHMasterTest, ActivateSkipsDisabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
-    ASSERT_NIL(this->master_instance->scan().second);
+    ASSERT_NIL_P(this->master_instance->scan());
     this->configs = {{1, {.enabled = false}}};
     this->activate_with_domains();
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
@@ -512,7 +512,7 @@ TEST_F(IGHMasterTest, ActivateReadsTheLayoutOfEachSlaveFromItsOwnDictionary) {
     this->create_assignable_layout(1);
     this->add_default_slave(0);
     this->add_default_slave(1);
-    ASSERT_NIL(this->master_instance->scan().second);
+    ASSERT_NIL_P(this->master_instance->scan());
     this->configs = {
         {0, {.startup_parameters = {ASSIGN_INPUTS}}},
         {1, {.startup_parameters = {FILTER}}}
@@ -732,7 +732,7 @@ TEST_F(IGHMasterTest, CheckReportsErrorFlagAsFaulted) {
 TEST_F(IGHMasterTest, CheckSkipsDisabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
-    ASSERT_NIL(this->master_instance->scan().second);
+    ASSERT_NIL_P(this->master_instance->scan());
     this->configs = {{1, {.enabled = false}}};
     this->activate_with_domains();
     const auto health = this->master_instance->check(this->brk);
@@ -804,7 +804,7 @@ TEST_F(IGHMasterTest, RegistryFillsNamesAndDataTypesOfLiveEntries) {
         {EC_DIR_INPUT, {{0x1A00, {{known->index, known->sub_index, 16}}}}},
     };
     this->add_default_slave(0, beckhoff, el3102);
-    ASSERT_NIL(this->master_instance->scan().second);
+    ASSERT_NIL_P(this->master_instance->scan());
 
     const auto inputs = this->master_instance->scan().first[0].properties.input_pdos;
     ASSERT_EQ(inputs.size(), 1);

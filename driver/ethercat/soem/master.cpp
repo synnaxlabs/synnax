@@ -204,9 +204,9 @@ bool Master::write_startup_parameters(
     }
     std::lock_guard lock(this->mu);
     if (failure.empty())
-        this->session->startup_failures.erase(pos);
+        this->session.value().startup_failures.erase(pos);
     else
-        this->session->startup_failures[pos] = failure;
+        this->session.value().startup_failures[pos] = failure;
     return failure.empty();
 }
 
@@ -229,21 +229,21 @@ master::Activation Master::activate(
     auto err = this->start(start_cycle);
     std::lock_guard lock(this->mu);
     return {
-        .err = std::move(err),
-        .refusals = this->session->refusals,
-        .dc_sync_refused = this->session->dc_sync_refused,
+        .err = err,
+        .refusals = this->session.value().refusals,
+        .dc_sync_refused = this->session.value().dc_sync_refused,
     };
 }
 
 slave::Config Master::config(const uint16_t pos) const {
-    const auto &slaves = this->session->plan.slaves;
+    const auto &slaves = this->session.value().plan.slaves;
     const auto it = slaves.find(pos);
     return it == slaves.end() ? slave::Config{} : it->second;
 }
 
 x::errors::Error
 Master::start(const std::function<void(const master::Image &)> &start_cycle) {
-    auto &session = *this->session;
+    auto &session = this->session.value();
     auto [dc_setups, dc_err] = this->resolve_dc();
     if (dc_err) return dc_err;
     session.dc_setups = std::move(dc_setups);
@@ -417,7 +417,7 @@ x::errors::Error Master::send() {
 }
 
 std::optional<x::telem::TimeStamp> Master::dc_time() const {
-    if (!this->session || !this->session->has_dc) return std::nullopt;
+    if (!this->session || !this->session.value().has_dc) return std::nullopt;
     return master::DC_EPOCH + x::telem::TimeSpan(this->api->context.DCtime);
 }
 
@@ -440,13 +440,13 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
             h.al_status = ec_ALstatuscode2string(this->slave(i).ALstatuscode);
         {
             std::lock_guard lock(this->mu);
-            if (const auto it = this->session->dc_restore_errors.find(i);
-                it != this->session->dc_restore_errors.end()) {
+            if (const auto it = this->session.value().dc_restore_errors.find(i);
+                it != this->session.value().dc_restore_errors.end()) {
                 h.faulted = true;
                 h.dc_restore_error = it->second;
             }
-            if (const auto it = this->session->startup_failures.find(i);
-                it != this->session->startup_failures.end()) {
+            if (const auto it = this->session.value().startup_failures.find(i);
+                it != this->session.value().startup_failures.end()) {
                 h.faulted = true;
                 h.startup_error = it->second;
             }
@@ -465,7 +465,7 @@ void Master::update_lost(const uint16_t pos) {
 void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
     {
         std::lock_guard lock(this->mu);
-        if (this->session->startup_failures.contains(pos)) return;
+        if (this->session.value().startup_failures.contains(pos)) return;
     }
     const uint16_t state = this->slave(pos).state;
     if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
@@ -487,15 +487,15 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
                     const auto err = this->restore_dc(pos, breaker);
                     std::lock_guard lock(this->mu);
                     if (err)
-                        this->session->dc_restore_errors[pos] = err.data;
+                        this->session.value().dc_restore_errors[pos] = err.data;
                     else
-                        this->session->dc_restore_errors.erase(pos);
+                        this->session.value().dc_restore_errors.erase(pos);
                 }
             );
         this->api->reconfig_slave(pos, RECOVERY_TIMEOUT);
         this->api->set_PO2SOconfig(pos, nullptr);
         std::lock_guard lock(this->mu);
-        if (this->session->startup_failures.contains(pos)) {
+        if (this->session.value().startup_failures.contains(pos)) {
             this->slave(pos).state = EC_STATE_PRE_OP;
             this->api->writestate(pos);
         }
@@ -528,7 +528,7 @@ slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
 }
 
 master::Image Master::image() {
-    const auto &session = *this->session;
+    const auto &session = this->session.value();
     master::Image image{
         .inputs = {this->iomap.data() + session.output_sz, session.input_sz},
         .outputs = {this->iomap.data(), session.output_sz},
@@ -800,7 +800,7 @@ x::errors::Error Master::clear_dc_activation() {
 }
 
 std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() const {
-    const auto period = this->session->plan.period;
+    const auto period = this->session.value().plan.period;
     std::vector<DCSetup> setups;
     std::vector<x::telem::TimeSpan> cycles;
     std::string events;
@@ -931,7 +931,7 @@ x::errors::Error Master::wait_for_dc_settle(
 }
 
 x::errors::Error Master::start_dc() {
-    const auto &setups = this->session->dc_setups;
+    const auto &setups = this->session.value().dc_setups;
     if (setups.empty()) return x::errors::NIL;
     std::vector<uint16_t> positions;
     positions.reserve(setups.size());
@@ -1015,7 +1015,7 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
                                this->slave(other).pdelay;
         return this->write_dc_register(pos, ECT_REG_DCSYSOFFSET, system - local);
     }
-    const int64_t offset = this->session->host_dc_offset.load(
+    const int64_t offset = this->session.value().host_dc_offset.load(
         std::memory_order_relaxed
     );
     if (offset == NO_DC_FRAME)
@@ -1044,7 +1044,7 @@ Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
             return !breaker.running();
         }))
         return err;
-    const auto &setups = this->session->dc_setups;
+    const auto &setups = this->session.value().dc_setups;
     const auto setup = std::ranges::find(setups, pos, &DCSetup::position);
     if (setup == setups.end()) return x::errors::NIL;
     return this->start_sync(*setup);
@@ -1085,7 +1085,7 @@ bool Master::al_error(const uint16_t pos) const {
 
 bool Master::restore_failed(const uint16_t pos) const {
     std::lock_guard lock(this->mu);
-    return this->session->dc_restore_errors.contains(pos);
+    return this->session.value().dc_restore_errors.contains(pos);
 }
 
 bool Master::wait_for_frame(
@@ -1132,8 +1132,8 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     }
     {
         std::lock_guard lock(this->mu);
-        this->session->refusals = refusing;
-        this->session->dc_sync_refused = dc_sync_refused;
+        this->session.value().refusals = refusing;
+        this->session.value().dc_sync_refused = dc_sync_refused;
     }
     return x::errors::Error(
         refusing.empty() ? errors::STATE_CHANGE_ERROR : errors::STATE_CHANGE_REFUSED,
