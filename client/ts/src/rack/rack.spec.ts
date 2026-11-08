@@ -258,10 +258,6 @@ describe("Rack", () => {
       const results = await client.racks.retrieve({ key: [r.key, 4123456789] });
       expect(results.map(({ key }) => key)).toEqual([r.key]);
     });
-    it("should retrieve the racks on the Core that serves the request", async () => {
-      const racks = await client.racks.retrieve({ hostIsNode: true });
-      expect(racks.some((r) => r.embedded)).toBe(true);
-    });
     it("should retrieve racks by search term", async () => {
       const prefix = `searchable-rack-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];

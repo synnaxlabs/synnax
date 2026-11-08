@@ -16,7 +16,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -63,6 +62,7 @@ type TasksConfig struct {
 // Tasks creates tasks through a task service, and the targets their configs reference.
 type Tasks struct {
 	*Targets
+	db     *gorp.DB
 	svc    *task.Service
 	closer xio.MultiCloser
 }
@@ -78,6 +78,7 @@ func OpenTasks(ctx context.Context, cfg TasksConfig) (*Tasks, error) {
 }
 
 func (t *Tasks) open(ctx context.Context, cfg TasksConfig) (err error) {
+	t.db = cfg.DB
 	if cfg.Status == nil {
 		if cfg.Status, err = status.OpenService(ctx, status.ServiceConfig{
 			DB: cfg.DB,
@@ -97,6 +98,7 @@ func (t *Tasks) open(ctx context.Context, cfg TasksConfig) (err error) {
 		}
 	}
 	t.Targets = NewTargets(TargetsConfig{
+		DB:     cfg.DB,
 		Device: cfg.Device,
 		Status: cfg.Status,
 		Rack:   cfg.Rack.EmbeddedKey,
@@ -127,15 +129,15 @@ func (t *Tasks) openRack(ctx context.Context, cfg *TasksConfig) (err error) {
 		return err
 	}
 	t.closer = append(t.closer, roles)
-	driverRole, err := racktestutil.CreateDriverRole(ctx, roles)
+	driverRole, err := racktestutil.CreateDriverRole(ctx, cfg.DB, roles)
 	if err != nil {
 		return err
 	}
 	if cfg.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           cfg.DB,
-		HostProvider: testutil.NewStaticHostProvider(1),
-		Status:       cfg.Status,
-		DriverRole:   driverRole,
+		DB:         cfg.DB,
+		HostKey:    1,
+		Status:     cfg.Status,
+		DriverRole: driverRole,
 	}); err != nil {
 		return err
 	}
@@ -157,6 +159,10 @@ func (t *Tasks) openDevice(ctx context.Context, cfg *TasksConfig) (err error) {
 
 // TargetsConfig is the configuration for Targets.
 type TargetsConfig struct {
+	// DB is the database that Targets creates devices and statuses in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Device and Status store the devices and statuses that Targets creates.
 	//
 	// [REQUIRED]
@@ -178,23 +184,27 @@ func NewTargets(cfg TargetsConfig) *Targets { return &Targets{cfg: cfg} }
 // CreateDevice creates a device with key on the configured rack for configs to
 // reference.
 func (t *Targets) CreateDevice(ctx context.Context, key device.Key) error {
-	return t.cfg.Device.NewWriter(nil).Create(ctx, &device.Device{
-		Key:      key,
-		Rack:     t.cfg.Rack,
-		Name:     string(key),
-		Make:     "test",
-		Model:    "test",
-		Location: "test",
+	return t.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return t.cfg.Device.NewWriter(tx).Create(ctx, &device.Device{
+			Key:      key,
+			Rack:     t.cfg.Rack,
+			Name:     string(key),
+			Make:     "test",
+			Model:    "test",
+			Location: "test",
+		})
 	})
 }
 
 // CreateStatus creates a status with key for configs to reference.
 func (t *Targets) CreateStatus(ctx context.Context, key status.Key) error {
-	return t.cfg.Status.NewWriter(nil).Set(ctx, &status.Status[any]{
-		Key:     key,
-		Name:    string(key),
-		Variant: status.VariantInfo,
-		Time:    telem.Now(),
+	return t.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return t.cfg.Status.NewWriter(tx).Set(ctx, &status.Status[any]{
+			Key:     key,
+			Name:    string(key),
+			Variant: status.VariantInfo,
+			Time:    telem.Now(),
+		})
 	})
 }
 
@@ -206,7 +216,9 @@ func (t *Tasks) Create(
 	data msgpack.EncodedJSON,
 ) (task.Key, error) {
 	tsk := task.Task{Name: store.Type(), Type: store.Type(), Config: data}
-	if err := t.svc.NewWriter(nil).Create(ctx, &tsk); err != nil {
+	if err := t.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return t.svc.NewWriter(tx).Create(ctx, &tsk)
+	}); err != nil {
 		return uuid.Nil(), err
 	}
 	return tsk.Key, nil

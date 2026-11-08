@@ -204,8 +204,8 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(roleSvc.NewRetrieve().
 			Where(role.MatchNames("Owner")).
 			Entry(&owner).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(roleOf(ctx, nil, userSvc, root.Key)).To(Equal(owner.Key))
+			Exec(ctx, db)).To(Succeed())
+		Expect(roleOf(ctx, db, userSvc, root.Key)).To(Equal(owner.Key))
 	})
 
 	It("Should keep the roles of a store that already converted to roles", func(
@@ -237,10 +237,14 @@ var _ = Describe("Legacy Permission Migration", func() {
 		// Cores up to v0.53 converted permissions to roles and set this flag.
 		Expect(db.Set(ctx, []byte("sy_rbac_migration_performed"), []byte{1})).
 			To(Succeed())
-		viewer := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Name: "viewer",
-			Role: builtinRoles.ViewerKey,
-		}))
+		var viewer user.User
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			viewer, err = userSvc.NewWriter(tx).Create(ctx, user.User{
+				Name: "viewer",
+				Role: builtinRoles.ViewerKey,
+			})
+			return err
+		})).To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "RBAC",
@@ -249,6 +253,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 				Roles: builtinRoles,
 			})},
 		})).To(Succeed())
-		Expect(roleOf(ctx, nil, userSvc, viewer.Key)).To(Equal(builtinRoles.ViewerKey))
+		Expect(roleOf(ctx, db, userSvc, viewer.Key)).To(Equal(builtinRoles.ViewerKey))
 	})
 })

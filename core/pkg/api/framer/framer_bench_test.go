@@ -18,6 +18,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	freightertestutil "github.com/synnaxlabs/freighter/testutil"
+	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -33,8 +34,9 @@ import (
 	xtestutil "github.com/synnaxlabs/x/testutil"
 )
 
-// openServiceLayer opens a single-node Core service layer that closes with b.
-func openServiceLayer(b *testing.B) *service.Layer {
+// openServiceLayer opens a single-node Core service layer that closes with b, and
+// returns it with the node's Gorp DB.
+func openServiceLayer(b *testing.B) (*service.Layer, *gorp.DB) {
 	b.Helper()
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
@@ -57,20 +59,20 @@ func openServiceLayer(b *testing.B) *service.Layer {
 			b.Error(err)
 		}
 	})
-	return layer
+	return layer, node.DB
 }
 
 // BenchmarkStreamKeyChange measures a streamer request that resends the same keys and
 // waits for its ack. The keys are one virtual channel and the calculated channels that
 // read it.
 func BenchmarkStreamKeyChange(b *testing.B) {
-	layer := openServiceLayer(b)
+	layer, db := openServiceLayer(b)
 	api := xtestutil.MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
+		DB:      db,
 		Framer:  layer.Framer,
 		Channel: layer.Channel,
 		RBAC:    layer.RBAC,
 	}))
-	w := layer.Channel.NewWriter(nil)
 	for _, calculated := range []int{0, 1, 10, 100} {
 		b.Run(fmt.Sprintf("calculated=%d", calculated), func(b *testing.B) {
 			ctx := b.Context()
@@ -79,26 +81,32 @@ func BenchmarkStreamKeyChange(b *testing.B) {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			gomega.Expect(w.Create(ctx, &base)).To(gomega.Succeed())
-			channels := []channel.Channel{base}
-			for range calculated {
-				calc := channel.Channel{
+			calcs := make([]channel.Channel, calculated)
+			for i := range calcs {
+				calcs[i] = channel.Channel{
 					Name:       channeltestutil.UniqueChannelName(),
 					DataType:   telem.Float32T,
 					Expression: "return " + base.Name + " * 2",
 				}
-				gomega.Expect(w.Create(ctx, &calc)).To(gomega.Succeed())
-				channels = append(channels, calc)
 			}
-			keys := channel.KeysFromChannels(channels)
+			gomega.Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := layer.Channel.NewWriter(tx)
+				if err := w.Create(ctx, &base); err != nil {
+					return err
+				}
+				return w.CreateMany(ctx, &calcs)
+			})).To(gomega.Succeed())
+			keys := channel.KeysFromChannels(append([]channel.Channel{base}, calcs...))
 			u := xtestutil.MustSucceed(rbactestutil.CreateUser(
 				ctx,
+				db,
 				layer.RBAC,
 				layer.User,
 				user.User{Name: "bench-" + uuid.New().String()},
 			))
 			xtestutil.MustSucceed(rbactestutil.Grant(
 				ctx,
+				db,
 				layer.RBAC,
 				layer.User,
 				u.Key,

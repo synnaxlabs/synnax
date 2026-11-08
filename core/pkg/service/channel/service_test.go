@@ -54,8 +54,10 @@ var _ = Describe("Service", func() {
 					DataType: telem.Float32T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
-				sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, ch.Name))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				sym := MustSucceed(svc.NewArcSymbolResolver(db).Resolve(ctx, ch.Name))
 				Expect(sym.Name).To(Equal(ch.Name))
 				Expect(sym.ID).To(Equal(int(ch.Key())))
 			},
@@ -66,13 +68,22 @@ var _ = Describe("Service", func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
-			Expect(svc.NewArcSymbolResolver(nil).Search(ctx, ch.Name)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			Expect(svc.NewArcSymbolResolver(db).Search(ctx, ch.Name)).
 				To(ContainElement(HaveField("Name", ch.Name)))
 		})
 	})
 
 	Describe("CalculationInputs", func() {
+		// write runs f with a writer in a transaction of its own.
+		write := func(ctx SpecContext, f func(channel.Writer) error) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return f(svc.NewWriter(tx))
+			})).To(Succeed())
+		}
 		create := func(ctx SpecContext, expression string) channel.Channel {
 			GinkgoHelper()
 			ch := channel.Channel{
@@ -81,12 +92,12 @@ var _ = Describe("Service", func() {
 				Virtual:    true,
 				Expression: expression,
 			}
-			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+			write(ctx, func(w channel.Writer) error { return w.Create(ctx, &ch) })
 			return ch
 		}
 		inputs := func(ctx SpecContext, channels ...channel.Channel) channel.Keys {
 			GinkgoHelper()
-			return MustSucceed(svc.CalculationInputs(ctx, nil, channels))
+			return MustSucceed(svc.CalculationInputs(ctx, db, channels))
 		}
 		It(
 			"Should return the channels a calculation reads through other calculations",
@@ -111,7 +122,7 @@ var _ = Describe("Service", func() {
 					ResetChannel: reset.Key(),
 				}},
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			write(ctx, func(w channel.Writer) error { return w.Create(ctx, &calc) })
 			Expect(inputs(ctx, calc)).To(ConsistOf(base.Key(), reset.Key()))
 		})
 		It("Should return the inputs of a calculation that is not stored", func(
@@ -126,7 +137,7 @@ var _ = Describe("Service", func() {
 			}
 			Expect(inputs(ctx, calc)).To(ConsistOf(base.Key()))
 		})
-		It("Should read through the given transaction", func(ctx SpecContext) {
+		It("Should read through the given snapshot", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			base := channel.Channel{
 				Name:     UniqueChannelName(),
@@ -152,7 +163,8 @@ var _ = Describe("Service", func() {
 				errLimit = errors.New("channel limit exceeded")
 				limited  atomic.Bool
 			)
-			limitSvc := openService(ctx, testutil.NewNode(ctx), channel.ServiceConfig{
+			node := testutil.NewNode(ctx)
+			limitSvc := openService(ctx, node, channel.ServiceConfig{
 				Limit: func(types.Uint20) error {
 					if limited.Load() {
 						return errLimit
@@ -160,31 +172,37 @@ var _ = Describe("Service", func() {
 					return nil
 				},
 			})
-			w := limitSvc.NewWriter(nil)
 			idx := channel.Channel{
 				Name:        UniqueChannelName(),
 				DataType:    telem.TimestampT,
 				IsIndex:     true,
 				Leaseholder: 1,
 			}
-			Expect(w.Create(ctx, &idx)).To(Succeed())
 			data := channel.Channel{
 				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
-				LocalIndex:  idx.LocalKey,
 				Leaseholder: 1,
 			}
-			Expect(w.Create(ctx, &data)).To(Succeed())
 			calc := channel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return " + data.Name + " * 2",
 			}
-			Expect(w.Create(ctx, &calc)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				w := limitSvc.NewWriter(tx)
+				if err := w.Create(ctx, &idx); err != nil {
+					return err
+				}
+				data.LocalIndex = idx.LocalKey
+				if err := w.Create(ctx, &data); err != nil {
+					return err
+				}
+				return w.Create(ctx, &calc)
+			})).To(Succeed())
 			limited.Store(true)
 			channels := []channel.Channel{calc}
-			Expect(limitSvc.CalculationInputs(ctx, nil, channels)).
+			Expect(limitSvc.CalculationInputs(ctx, node.DB, channels)).
 				Error().To(MatchError(errLimit))
 		})
 		DescribeTable(
@@ -209,7 +227,9 @@ var _ = Describe("Service", func() {
 				GinkgoHelper()
 				base := create(ctx, "")
 				calc := create(ctx, "return "+base.Name+" * 2")
-				Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
+				write(ctx, func(w channel.Writer) error {
+					return w.Delete(ctx, base.Key(), false)
+				})
 				return []channel.Channel{calc}
 			}),
 		)
@@ -224,11 +244,13 @@ var _ = Describe("Service", func() {
 					DataType: telem.Float64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
 				var retrieved channel.Channel
 				Expect(svc.NewRetrieve().Where(
 					channel.MatchKeys(ch.Key()),
-				).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
+				).Entry(&retrieved).Exec(ctx, db)).To(Succeed())
 				Expect(retrieved.Name).To(Equal(ch.Name))
 			},
 		)
@@ -253,8 +275,33 @@ var _ = Describe("Service", func() {
 				IsIndex:     true,
 				Leaseholder: 1,
 			}
-			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			Eventually(called.Load).Should(BeTrue())
+		})
+	})
+
+	Describe("Changes", func() {
+		It("Should return the channel that a commit creates", func(ctx SpecContext) {
+			var names []string
+			DeferCleanup(
+				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+					for ch := range svc.Changes(ctx, c) {
+						names = append(names, ch.Value.Name)
+					}
+				}),
+			)
+			ch := channel.Channel{
+				Name:        UniqueChannelName(),
+				DataType:    telem.TimestampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			Expect(names).To(Equal([]string{ch.Name}))
 		})
 	})
 
@@ -262,13 +309,14 @@ var _ = Describe("Service", func() {
 		It(
 			"Should create a writer that infers types for calculated channels",
 			func(ctx SpecContext) {
-				w := svc.NewWriter(nil)
 				ch := channel.Channel{
 					Name:       UniqueChannelName(),
 					Expression: "return 1 + 1",
 					Virtual:    true,
 				}
-				Expect(w.Create(ctx, &ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
 				Expect(ch.DataType).To(Equal(telem.Int64T))
 			},
 		)

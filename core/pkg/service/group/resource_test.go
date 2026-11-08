@@ -36,7 +36,9 @@ var _ = Describe("Resources", func() {
 
 	It("Should name each group by its name", func(ctx SpecContext) {
 		g := group.Group{Name: "Sensors", Scope: resource.TypeChannel}
-		Expect(svc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
 		Expect(svc.Resources().Retrieve(ctx, db, []resource.ID{g.ResourceID()})).
 			To(Equal([]resource.Resource{{ID: g.ResourceID(), Name: g.Name}}))
 	})
@@ -44,7 +46,7 @@ var _ = Describe("Resources", func() {
 	It("Should return a validation error for a malformed key", func(ctx SpecContext) {
 		Expect(svc.Resources().Retrieve(
 			ctx,
-			nil,
+			db,
 			[]resource.ID{{Type: resource.TypeGroup, Key: "pump"}},
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
@@ -54,7 +56,9 @@ var _ = Describe("Resources", func() {
 
 	It("Should leave out an ID that names no group", func(ctx SpecContext) {
 		g := group.Group{Name: "Sensors", Scope: resource.TypeChannel}
-		Expect(svc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
 		missing := resource.ID{Type: resource.TypeGroup, Key: uuid.New().String()}
 		Expect(svc.Resources().Retrieve(
 			ctx,
@@ -65,7 +69,9 @@ var _ = Describe("Resources", func() {
 
 	It("Should list each group by its name", func(ctx SpecContext) {
 		g := group.Group{Name: "Sensors", Scope: resource.TypeChannel}
-		Expect(svc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
 		Expect(svc.Resources().List(ctx, db, 10, nil)).
 			To(Equal([]resource.Resource{{ID: g.ResourceID(), Name: g.Name}}))
 	})

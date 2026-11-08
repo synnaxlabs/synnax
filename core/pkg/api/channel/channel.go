@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -41,7 +42,11 @@ type Key = channel.Key
 
 // ServiceConfig is the configuration for the channel API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// DB opens the snapshots that codec lookups read.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
+	// RBAC checks the access of every request except set group.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -67,6 +72,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
@@ -77,6 +83,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.channel")
+	v.NotNil("db", c.DB)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("status", c.Status)
@@ -86,6 +93,7 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the central service for all things Channel related.
 type Service struct {
+	db       *gorp.DB
 	access   *rbac.Service
 	internal *channel.Service
 	status   *status.Service
@@ -98,6 +106,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:       cfg.DB,
 		access:   cfg.RBAC,
 		internal: cfg.Channel,
 		status:   cfg.Status,
@@ -116,10 +125,12 @@ func (s *Service) RetrieveDataTypes(
 	keys channel.Keys,
 ) ([]telem.DataType, error) {
 	var channels []channel.Channel
-	if err := s.internal.NewRetrieve().
-		Where(channel.MatchKeys(keys...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.internal.NewRetrieve().
+			Where(channel.MatchKeys(keys...)).
+			Entries(&channels).
+			Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
 	dataTypes := make(map[channel.Key]telem.DataType, len(channels))
@@ -135,10 +146,12 @@ func (s *Service) RetrieveDataTypes(
 // the given key, returning an empty string if no channel with the key exists.
 func (s *Service) RetrieveName(ctx context.Context, key channel.Key) string {
 	var ch channel.Channel
-	if err := s.internal.NewRetrieve().
-		Where(channel.MatchKeys(key)).
-		Entry(&ch).
-		Exec(ctx, nil); err != nil {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.internal.NewRetrieve().
+			Where(channel.MatchKeys(key)).
+			Entry(&ch).
+			Exec(ctx, snap)
+	}); err != nil {
 		return ""
 	}
 	return ch.Name
@@ -267,28 +280,41 @@ func (r *AliasedRetrieveRequest) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
-// Retrieve retrieves the channels that the request selects. It requires retrieve access
-// on every channel and on every alias it fills.
+var _ bind.Named = AliasedRetrieveRequest{}
+
+// Named implements bind.Named. It returns the channels that the top level of Where
+// selects by key.
+func (r AliasedRetrieveRequest) Named() []resource.ID {
+	if r.Request.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Request.Where.Key, channel.ResourceID)
+}
+
+// Retrieve retrieves the channels that the request selects and that the subject can
+// retrieve. A channel that the top level of Where names by exact name needs retrieve,
+// as a named key does. It fills only the aliases that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req AliasedRetrieveRequest,
 ) (RetrieveResponse, error) {
-	resChannels, err := s.retrieve(ctx, req)
+	resChannels, err := s.retrieve(ctx, snap, req)
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
 	res := RetrieveResponse{Channels: translateChannelsForward(resChannels)}
-	ids := channel.ResourceIDsFromChannels(resChannels)
-	objects := ids
 	if req.RangeKey != nil {
-		aliased, err := s.fillAliases(ctx, *req.RangeKey, res.Channels)
-		if err != nil {
+		if err = s.fillAliases(ctx, snap, *req.RangeKey, res.Channels); err != nil {
 			return RetrieveResponse{}, err
 		}
-		objects = append(objects, alias.ResourceIDs(*req.RangeKey, aliased)...)
 	}
 	if req.Request.IncludeStatus {
-		statuses, err := s.status.Join[struct{}](ctx, nil, ids)
+		statuses, err := s.status.Join[struct{}](
+			ctx,
+			snap,
+			channel.ResourceIDsFromChannels(resChannels),
+		)
 		if err != nil {
 			return RetrieveResponse{}, err
 		}
@@ -296,36 +322,57 @@ func (s *Service) Retrieve(
 			res.Channels[i].Status = st
 		}
 	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: objects,
-	}); err != nil {
-		return RetrieveResponse{}, err
-	}
 	return res, nil
 }
 
 func (s *Service) retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req AliasedRetrieveRequest,
+) ([]channel.Channel, error) {
+	if !namesByName(req.Request.Where) {
+		return s.match(ctx, snap, req, bind.Filter(snap, channel.Match))
+	}
+	res, err := s.match(ctx, snap, req, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err = snap.Enforce(channel.ResourceIDsFromChannels(res)...); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// match returns the channels that req selects and that filter keeps. A nil filter keeps
+// every channel.
+func (s *Service) match(
+	ctx context.Context,
+	snap bind.Snapshot,
+	req AliasedRetrieveRequest,
+	filter channel.Filter,
 ) ([]channel.Channel, error) {
 	r := req.Request
 	if req.RangeKey == nil || r.SearchTerm == "" {
 		var res []channel.Channel
-		q, err := r.Apply(s.internal.NewRetrieve().Entries(&res))
+		q, err := ApplyRetrieve(r, s.internal.NewRetrieve().Entries(&res))
 		if err != nil {
 			return nil, err
 		}
-		if err := q.Exec(ctx, nil); err != nil {
+		if filter != nil {
+			q = q.Where(filter)
+		}
+		if err = q.Exec(ctx, snap); err != nil {
 			return nil, err
 		}
 		return res, nil
 	}
 	// The alias search pages the merged list, so the query carries only the where.
-	q, err := RetrieveRequest{Where: r.Where}.Apply(s.internal.NewRetrieve())
+	q, err := ApplyRetrieve(RetrieveRequest{Where: r.Where}, s.internal.NewRetrieve())
 	if err != nil {
 		return nil, err
+	}
+	if filter != nil {
+		q = q.Where(filter)
 	}
 	var limit int
 	if r.Limit != nil {
@@ -335,32 +382,48 @@ func (s *Service) retrieve(
 		}
 		limit = int(*r.Limit)
 	}
-	return s.alias.NewReader(nil).SearchChannels(
-		ctx, q, *req.RangeKey, r.SearchTerm, limit, int(r.Offset),
+	rng := *req.RangeKey
+	return s.alias.NewReader(snap).SearchChannels(
+		ctx,
+		q,
+		rng,
+		r.SearchTerm,
+		func(ch channel.Key) bool { return snap.Allowed(alias.ResourceID(rng, ch)) },
+		limit,
+		int(r.Offset),
 	)
 }
 
-// fillAliases sets the alias on the range of each channel that has one, and returns the
-// keys of those channels.
+// namesByName reports whether the top level of where names channels by exact name.
+// Clients name channels by name as they do by key, so each match needs retrieve.
+func namesByName(where *channel.Where) bool {
+	return where != nil && where.Name != nil &&
+		(where.Name.Eq != nil || len(where.Name.In) > 0)
+}
+
+// fillAliases sets the alias on the range of each channel that has one the subject can
+// retrieve.
 func (s *Service) fillAliases(
 	ctx context.Context,
+	snap bind.Snapshot,
 	rng ranger.Key,
 	channels []Channel,
-) ([]channel.Key, error) {
-	reader := s.alias.NewReader(nil)
-	var aliased []channel.Key
+) error {
+	reader := s.alias.NewReader(snap)
 	for i, ch := range channels {
+		if !snap.Allowed(alias.ResourceID(rng, ch.Key)) {
+			continue
+		}
 		al, err := reader.Retrieve(ctx, rng, ch.Key)
 		if errors.Is(err, query.ErrNotFound) {
 			continue
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 		channels[i].Alias = &al
-		aliased = append(aliased, ch.Key)
 	}
-	return aliased, nil
+	return nil
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {
@@ -489,26 +552,5 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
-	var channels []channel.Channel
-	if err := s.internal.NewRetrieve().
-		Where(channel.MatchKeys(req.Keys...)).
-		Entries(&channels).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			channel.ResourceIDsFromKeys(req.Keys),
-			lo.Map(
-				channels,
-				func(e channel.Channel, _ int) *group.Key { return e.Group },
-			),
-			req.Group,
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

@@ -30,11 +30,6 @@ func ResourceID(k Key) resource.ID {
 	return resource.ID{Type: resource.TypeStatus, Key: k}
 }
 
-// ResourceIDs converts a slice of keys to a slice of resource IDs.
-func ResourceIDs(keys []Key) []resource.ID {
-	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
-}
-
 // KeysFromResourceIDs converts a slice of resource IDs to a slice of keys.
 func KeysFromResourceIDs(ids []resource.ID) []Key {
 	return lo.Map(ids, func(id resource.ID, _ int) Key { return id.Key })

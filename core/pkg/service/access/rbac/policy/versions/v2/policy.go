@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = Policy{}
 // GorpKey implements the gorp.Entry interface.
 func (p Policy) GorpKey() Key { return p.Key }
 
-// SetOptions implements the gorp.Entry interface.
-func (Policy) SetOptions() []any { return nil }
-
 // ResourceID returns the unique resource identifier for the policy.
 func (p Policy) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypePolicy, Key: p.Key.String()}

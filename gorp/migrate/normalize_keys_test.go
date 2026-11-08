@@ -34,8 +34,6 @@ type reKeyedEntry struct {
 
 func (r reKeyedEntry) GorpKey() string { return r.ID }
 
-func (reKeyedEntry) SetOptions() []any { return nil }
-
 func (reKeyedEntry) CustomTypeName() string { return "reKeyedEntry" }
 
 // legacyReKeyedEntry is the frozen shape that wrote reKeyedEntry's legacy rows.
@@ -46,8 +44,6 @@ type legacyReKeyedEntry struct {
 
 func (l legacyReKeyedEntry) GorpKey() int32 { return l.ID }
 
-func (legacyReKeyedEntry) SetOptions() []any { return nil }
-
 func (legacyReKeyedEntry) CustomTypeName() string { return "reKeyedEntry" }
 
 // renamedEntry is the head shape of a table renamed from oldNameEntry.
@@ -57,8 +53,6 @@ type renamedEntry struct {
 }
 
 func (r renamedEntry) GorpKey() int32 { return r.ID }
-
-func (renamedEntry) SetOptions() []any { return nil }
 
 func (renamedEntry) CustomTypeName() string { return "renamedEntry" }
 
@@ -71,8 +65,6 @@ type oldNameEntry struct {
 
 func (o oldNameEntry) GorpKey() int32 { return o.ID }
 
-func (oldNameEntry) SetOptions() []any { return nil }
-
 func (oldNameEntry) CustomTypeName() string { return "oldNameEntry" }
 
 // retypedNameEntry keeps its fields and its key, but reports a type name its legacy
@@ -83,8 +75,6 @@ type retypedNameEntry struct {
 }
 
 func (r retypedNameEntry) GorpKey() int32 { return r.ID }
-
-func (retypedNameEntry) SetOptions() []any { return nil }
 
 func (retypedNameEntry) CustomTypeName() string { return "retypedName" }
 

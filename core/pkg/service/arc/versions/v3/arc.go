@@ -21,9 +21,6 @@ var _ gorp.Entry[Key] = Arc{}
 // GorpKey implements gorp.Entry.
 func (a Arc) GorpKey() Key { return a.Key }
 
-// SetOptions implements gorp.Entry.
-func (Arc) SetOptions() []any { return nil }
-
 // ResourceID returns the unique resource identifier for the Arc.
 func (a Arc) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeArc, Key: a.Key.String()}
