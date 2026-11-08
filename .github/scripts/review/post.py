@@ -129,9 +129,8 @@ def _commentable(patch: str) -> set[int]:
     return lines
 
 
-def write(gh: GH, method: str, path: str, payload: dict[str, Any]) -> str:
-    """Sends a payload to the GitHub API, and returns the response."""
-    return gh("api", "-X", method, path, "--input", "-", stdin=json.dumps(payload))
+def write(gh: GH, method: str, path: str, payload: dict[str, Any]) -> None:
+    gh("api", "-X", method, path, "--input", "-", stdin=json.dumps(payload))
 
 
 def _diff_lines(t: Target, gh: GH) -> dict[str, set[int]]:

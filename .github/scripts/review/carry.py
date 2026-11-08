@@ -23,10 +23,10 @@ _HUNK = re.compile(r"(?m)^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@")
 
 
 def carry(t: Target, gh: GH, *, key: str) -> bool:
-    """Gives the head the review of the newest commit that the bot reviewed, when that
-    review succeeded for the key and the diff from the base to that commit is the diff
-    to the head. The line numbers of the two diffs can differ. Returns whether the head
-    got the review.
+    """Completes the check run of the target with the review of the newest commit that
+    the bot reviewed, when that review succeeded for the key and the diff from the base
+    to that commit is the diff to the head. The line numbers of the two diffs can
+    differ. Returns whether the head got the review.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """
@@ -47,22 +47,8 @@ def carry(t: Target, gh: GH, *, key: str) -> bool:
     }
     if run["output"]["text"]:
         output["text"] = run["output"]["text"]
-    # The gate runs when a check run completes, so the run starts in progress first, as
-    # the run of a review does.
-    started = write(
-        gh,
-        "POST",
-        f"repos/{t.repo}/check-runs",
-        {
-            "name": "Sedosaur Review",
-            "head_sha": t.head,
-            "external_id": key,
-            "status": "in_progress",
-            "details_url": t.run_url,
-        },
-    )
     done = {"status": "completed", "conclusion": "success", "output": output}
-    write(gh, "PATCH", f"repos/{t.repo}/check-runs/{json.loads(started)['id']}", done)
+    write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
     return True
 
 
