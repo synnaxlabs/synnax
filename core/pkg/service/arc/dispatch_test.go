@@ -423,7 +423,7 @@ var _ = Describe("Collaborative text", func() {
 			Expect(seen[1].Actions).To(HaveExactElements(
 				HaveField("Type", arc.ActionTypeForgetChars),
 			))
-			Expect(seen[1].Seq).To(Equal(seen[0].Seq))
+			Expect(seen[1].Seq).To(Equal(seen[0].Seq + 1))
 		},
 	)
 
