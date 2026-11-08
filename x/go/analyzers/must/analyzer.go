@@ -180,16 +180,19 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
 		}
 		if errName, ok := matchExpectErrSucceeds(expectStmt.X); ok {
 			assignStmt, assignIdx, rhsCall := findBinding(stmts, i, errName)
-			if assignStmt != nil &&
-				bindingDroppable(pass, stmts, assignStmt, i, errName) &&
-				reportDiagnostic(
-					pass,
-					assignStmt,
-					expectStmt,
-					rhsCall,
-					errName,
-					assignIdx == i-1,
-				) {
+			if assignStmt == nil {
+				continue
+			}
+			replaceable, fixable := dropBinding(pass, stmts, assignStmt, i, errName)
+			if replaceable && reportDiagnostic(
+				pass,
+				assignStmt,
+				expectStmt,
+				rhsCall,
+				errName,
+				assignIdx == i-1,
+				fixable,
+			) {
 				found = true
 			}
 			continue
@@ -201,8 +204,11 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
 		assignStmt, assignIdx, rhsCall := findBinding(stmts, i, m.errName)
 		if assignStmt == nil ||
 			!bindsOnlyError(pass, assignStmt, m.errName) ||
-			usesIdentIn(stmts[i+1:], m.errName) ||
-			!bindingDroppable(pass, stmts, assignStmt, i, m.errName) {
+			usesIdentIn(stmts[i+1:], m.errName) {
+			continue
+		}
+		replaceable, fixable := dropBinding(pass, stmts, assignStmt, i, m.errName)
+		if !replaceable {
 			continue
 		}
 		reportInlineDiagnostic(
@@ -212,6 +218,7 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
 			rhsCall,
 			m,
 			assignIdx == i-1,
+			fixable,
 		)
 	}
 	return found
@@ -253,43 +260,45 @@ func usesIdentIn(stmts []ast.Stmt, name string) bool {
 	return false
 }
 
-// bindingDroppable reports whether a fix can drop assign's binding of name when
-// stmts[i] asserts it: no later statement reads the value, and each later write still
-// compiles.
-func bindingDroppable(
+// dropBinding reports whether an assertion on the call can replace assign's binding of
+// name, which stmts[i] asserts: no later code reads the bound value. fixable reports
+// whether deleting the binding also keeps the code compiling. It holds only when the
+// binding declares name, since a declaration left behind may have no reads.
+func dropBinding(
 	pass *analysis.Pass,
 	stmts []ast.Stmt,
 	assign *ast.AssignStmt,
 	i int,
 	name string,
-) bool {
-	var obj types.Object
+) (replaceable, fixable bool) {
+	var ident *ast.Ident
 	for _, lhs := range assign.Lhs {
-		if ident, ok := lhs.(*ast.Ident); ok && ident.Name == name {
-			obj = pass.TypesInfo.ObjectOf(ident)
+		if id, ok := lhs.(*ast.Ident); ok && id.Name == name {
+			ident = id
 		}
 	}
+	declares := pass.TypesInfo.Defs[ident] != nil
 	// A variable declared in this block is out of scope after it.
-	local := obj.Pos() >= stmts[0].Pos()
+	local := pass.TypesInfo.ObjectOf(ident).Pos() >= stmts[0].Pos()
 	for _, s := range stmts[i+1:] {
 		if !usesIdent(s, name) {
 			continue
 		}
 		next, ok := s.(*ast.AssignStmt)
 		if !ok || !assignsToName(next, name) {
-			return false
+			return false, false
 		}
 		for _, rhs := range next.Rhs {
 			if usesIdent(rhs, name) {
-				return false
+				return false, false
 			}
 		}
 		if next.Tok == token.ASSIGN {
-			return obj.Pos() < assign.Pos()
+			return true, false
 		}
-		return local
+		return local, declares
 	}
-	return local
+	return local, declares
 }
 
 // findBinding walks backwards from stmts[i] to the assignment that binds name from a
@@ -457,6 +466,7 @@ func reportInlineDiagnostic(
 	rhsCall *ast.CallExpr,
 	m errMatch,
 	adjacent bool,
+	fixable bool,
 ) {
 	callStr := nodeString(pass.Fset, rhsCall)
 	errorCall := ""
@@ -470,7 +480,7 @@ func reportInlineDiagnostic(
 		m.verb,
 		nodeString(pass.Fset, m.matcher),
 	)
-	pass.Report(analysis.Diagnostic{
+	d := analysis.Diagnostic{
 		Pos: assign.Pos(),
 		End: expectStmt.End(),
 		Message: fmt.Sprintf(
@@ -479,19 +489,20 @@ func reportInlineDiagnostic(
 			errorCall,
 			m.verb,
 		),
-		SuggestedFixes: []analysis.SuggestedFix{
-			{
-				Message: "Assert the error inline",
-				TextEdits: replacementEdits(
-					pass.Fset,
-					assign,
-					expectStmt,
-					fixText,
-					adjacent,
-				),
-			},
-		},
-	})
+	}
+	if fixable {
+		d.SuggestedFixes = []analysis.SuggestedFix{{
+			Message: "Assert the error inline",
+			TextEdits: replacementEdits(
+				pass.Fset,
+				assign,
+				expectStmt,
+				fixText,
+				adjacent,
+			),
+		}}
+	}
+	pass.Report(d)
 }
 
 // assertionString prints an assertion that matchExpectErrSucceeds matched on one line,
@@ -572,9 +583,9 @@ func assignsToName(assign *ast.AssignStmt, name string) bool {
 // reportDiagnostic reports a single code replacement diagnostic. The adjacent flag
 // indicates whether the assignment and Expect statements are directly adjacent in the
 // source — when they are, a single text edit can rewrite both at once; otherwise the
-// fix needs two edits (rewrite the assignment, delete the Expect line). Returns true if
-// the replacement uses MustSucceed/MustSucceed2 (meaning the testutil import is
-// needed).
+// fix needs two edits (rewrite the assignment, delete the Expect line). The diagnostic
+// carries a fix only when fixable. Returns true if the fix uses MustSucceed or
+// MustSucceed2, which need the testutil import.
 func reportDiagnostic(
 	pass *analysis.Pass,
 	assign *ast.AssignStmt,
@@ -582,6 +593,7 @@ func reportDiagnostic(
 	rhsCall *ast.CallExpr,
 	errName string,
 	adjacent bool,
+	fixable bool,
 ) bool {
 	callStr := nodeString(pass.Fset, rhsCall)
 	assertion := assertionString(pass.Fset, expectStmt.X)
@@ -612,10 +624,7 @@ func reportDiagnostic(
 			fixText = fmt.Sprintf("MustSucceed(%s)", callStr)
 		} else {
 			resultName := nodeString(pass.Fset, assign.Lhs[0])
-			tok := ":="
-			if assign.Tok == token.ASSIGN {
-				tok = "="
-			}
+			tok := resultTok(pass, assign)
 			msg = fmt.Sprintf("%s can be replaced with MustSucceed", assertion)
 			fixText = fmt.Sprintf("%s %s MustSucceed(%s)", resultName, tok, callStr)
 		}
@@ -627,10 +636,7 @@ func reportDiagnostic(
 		} else {
 			r1 := nodeString(pass.Fset, assign.Lhs[0])
 			r2 := nodeString(pass.Fset, assign.Lhs[1])
-			tok := ":="
-			if assign.Tok == token.ASSIGN {
-				tok = "="
-			}
+			tok := resultTok(pass, assign)
 			msg = fmt.Sprintf("%s can be replaced with MustSucceed2", assertion)
 			fixText = fmt.Sprintf("%s, %s %s MustSucceed2(%s)", r1, r2, tok, callStr)
 		}
@@ -638,24 +644,36 @@ func reportDiagnostic(
 		return false
 	}
 
-	pass.Report(analysis.Diagnostic{
-		Pos:     assign.Pos(),
-		End:     expectStmt.End(),
-		Message: msg,
-		SuggestedFixes: []analysis.SuggestedFix{
-			{
-				Message: "Replace with MustSucceed",
-				TextEdits: replacementEdits(
-					pass.Fset,
-					assign,
-					expectStmt,
-					fixText,
-					adjacent,
-				),
-			},
-		},
-	})
-	return needsImport
+	d := analysis.Diagnostic{Pos: assign.Pos(), End: expectStmt.End(), Message: msg}
+	if fixable {
+		d.SuggestedFixes = []analysis.SuggestedFix{{
+			Message: "Replace with MustSucceed",
+			TextEdits: replacementEdits(
+				pass.Fset,
+				assign,
+				expectStmt,
+				fixText,
+				adjacent,
+			),
+		}}
+	}
+	pass.Report(d)
+	return needsImport && fixable
+}
+
+// resultTok returns the token that assigns the results once the error leaves assign.
+// := needs at least one new variable among them.
+func resultTok(pass *analysis.Pass, assign *ast.AssignStmt) string {
+	if assign.Tok != token.DEFINE {
+		return "="
+	}
+	for _, lhs := range assign.Lhs[:len(assign.Lhs)-1] {
+		if ident, ok := lhs.(*ast.Ident); ok && !isBlank(ident) &&
+			pass.TypesInfo.Defs[ident] != nil {
+			return ":="
+		}
+	}
+	return "="
 }
 
 // replacementEdits replaces an assignment and its Expect statement with fixText. When

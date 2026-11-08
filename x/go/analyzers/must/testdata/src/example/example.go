@@ -75,12 +75,12 @@ func example() {
 	_, _ = a, b
 
 	// Pattern D: _, err := f() → MustSucceed(f()) with no LHS
-	_, err = returnsValErr() // want "can be replaced with MustSucceed"
-	Expect(err).ToNot(HaveOccurred())
+	_, dErr := returnsValErr() // want "can be replaced with MustSucceed"
+	Expect(dErr).ToNot(HaveOccurred())
 
 	// Pattern E: _, _, err := f() → MustSucceed2(f()) with no LHS
-	_, _, err = returnsTwoValErr() // want "can be replaced with MustSucceed2"
-	Expect(err).ToNot(HaveOccurred())
+	_, _, eErr := returnsTwoValErr() // want "can be replaced with MustSucceed2"
+	Expect(eErr).ToNot(HaveOccurred())
 
 	// Pattern F: assignment and Expect(err) separated by an intervening statement
 	// that does not reference err.
@@ -130,8 +130,8 @@ func example() {
 	})
 
 	// Pattern I: err := f(); Expect(err).To(Succeed()) → Expect(f()).To(Succeed())
-	err = returnsErr() // want `^Expect\(err\)\.To\(Succeed\(\)\) can be replaced with Expect\(returnsErr\(\)\)\.To\(Succeed\(\)\)$`
-	Expect(err).To(Succeed())
+	iErr := returnsErr() // want `^Expect\(iErr\)\.To\(Succeed\(\)\) can be replaced with Expect\(returnsErr\(\)\)\.To\(Succeed\(\)\)$`
+	Expect(iErr).To(Succeed())
 
 	// Pattern J: _, err := f(); Expect(err).To(MatchError(e)) →
 	// Expect(f()).Error().To(MatchError(e))
@@ -185,14 +185,6 @@ func laterDeclaration() {
 	_, _ = a, b
 }
 
-func laterAssignment() {
-	// Should NOT match: dropping the declaration breaks the later assignment.
-	err := returnsErr()
-	Expect(err).To(Succeed())
-	err = returnsErr() // want "assert the error inline"
-	Expect(err).To(MatchError(errSentinel))
-}
-
 func laterRead() {
 	// Should NOT match: a later statement reads the error.
 	err := returnsErr()
@@ -213,4 +205,11 @@ func outerVariable() {
 		Expect(err).To(MatchError(errSentinel))
 	}()
 	_ = err
+}
+
+func reusedResult() {
+	r := 0
+	r, rErr := returnsValErr() // want "can be replaced with MustSucceed"
+	Expect(rErr).To(Succeed())
+	_ = r
 }

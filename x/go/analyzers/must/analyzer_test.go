@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/analyzers/must"
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
@@ -206,5 +207,33 @@ var _ = Describe("Analyzer", func() {
 			}
 		}
 		Expect(foundBlankFix).To(BeTrue())
+	})
+
+	It("Should assign a result that is already declared with =", func() {
+		results := analysistest.Run(
+			GinkgoT(), analysistest.TestData(), must.Analyzer, "example",
+		)
+		var texts []string
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				for _, fix := range d.SuggestedFixes {
+					for _, edit := range fix.TextEdits {
+						texts = append(texts, string(edit.NewText))
+					}
+				}
+			}
+		}
+		Expect(texts).To(ContainElement("r = MustSucceed(returnsValErr())"))
+	})
+
+	It("Should report without a fix when deleting the binding breaks the code", func() {
+		results := analysistest.Run(
+			GinkgoT(), analysistest.TestData(), must.Analyzer, "kept",
+		)
+		var diagnostics []analysis.Diagnostic
+		for _, r := range results {
+			diagnostics = append(diagnostics, r.Diagnostics...)
+		}
+		Expect(diagnostics).To(HaveEach(HaveField("SuggestedFixes", BeEmpty())))
 	})
 })
