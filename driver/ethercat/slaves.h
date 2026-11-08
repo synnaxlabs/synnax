@@ -73,6 +73,7 @@ struct Slaves {
     [[nodiscard]] x::errors::Error
     validate(const std::vector<slave::DiscoveryResult> &bus) const {
         std::vector<const slave::Properties *> by_position;
+        by_position.reserve(this->by_key.size());
         for (const auto &[_, saved]: this->by_key)
             by_position.push_back(&saved);
         std::ranges::sort(by_position, {}, [](const slave::Properties *s) {
