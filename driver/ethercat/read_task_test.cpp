@@ -283,6 +283,36 @@ TEST_F(EtherCATReadTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     EXPECT_EQ(task_cfg.channels.size(), 1);
 }
 
+/// @brief it should start when a disabled channel names a slave that is not on the
+/// bus, and enable a channel whose config has no disabled field.
+TEST_F(EtherCATReadTest, StartIgnoresTheSlaveOfADisabledChannel) {
+    const auto enabled_ch = create_data_channel("enabled", x::telem::INT16_T);
+    const auto disabled_ch = create_data_channel("disabled", x::telem::INT16_T);
+    const auto absent = create_slave_device(
+        SLAVE_SERIAL + 1,
+        x::json::json::array(),
+        x::json::json::array(),
+        5
+    );
+
+    auto cfg = this->create_base_config();
+    auto enabled = create_input_channel_config(enabled_ch, 0x6000, 1, "int16");
+    enabled.erase("disabled");
+    cfg["channels"].push_back(enabled);
+    auto disabled = create_input_channel_config(disabled_ch, 0x6000, 1, "int16", true);
+    disabled["device"] = absent.key;
+    cfg["channels"].push_back(disabled);
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(task_cfg.channels.size(), 1);
+    EXPECT_EQ(task_cfg.channels[0]->synnax_key, enabled_ch.key);
+    ReadTaskSource source(engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.stop());
+}
+
 /// @brief it should reject a scaled read channel whose Synnax channel is not a float
 /// type.
 TEST_F(EtherCATReadTest, ParseConfigRejectsAScaledIntegerChannel) {

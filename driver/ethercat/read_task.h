@@ -74,14 +74,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         cfg.iter("channels", [&](x::json::Parser &ch) {
             const auto parsed = ::synnax::ethercat::parse_read_channel(ch);
             if (ch.error()) return;
-            const auto *slave = this->slaves.resolve(
-                *client,
-                ::synnax::ethercat::base(parsed).device,
-                ch
-            );
+            const auto &base = ::synnax::ethercat::base(parsed);
+            if (base.disabled) return;
+            const auto *slave = this->slaves.resolve(*client, base.device, ch);
             if (slave == nullptr) return;
             auto input = channel::make_input(parsed, *slave, ch);
-            if (input == nullptr) return;
             transform::validate_scale(ch, "scale", input->scale);
             claims.claim(input->entry, *slave, ch);
             this->channels.push_back(std::move(input));

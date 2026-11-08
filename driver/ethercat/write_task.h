@@ -46,16 +46,12 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
         if (cfg.error()) return;
         channel::Claims claims;
         for (std::size_t i = 0; i < this->channels.size(); ++i) {
+            const auto &base = ::synnax::ethercat::base(this->channels[i]);
+            if (base.disabled) continue;
             const auto path = "channels." + std::to_string(i) + ".";
-            const auto *slave = this->slaves.resolve(
-                *client,
-                ::synnax::ethercat::base(this->channels[i]).device,
-                cfg,
-                path
-            );
+            const auto *slave = this->slaves.resolve(*client, base.device, cfg, path);
             if (slave == nullptr) continue;
             auto output = channel::make_output(this->channels[i], *slave, cfg, path);
-            if (output == nullptr) continue;
             claims.claim(output->entry, *slave, cfg, path);
             this->outputs.push_back(std::move(output));
         }

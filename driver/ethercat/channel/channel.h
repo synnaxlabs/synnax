@@ -58,18 +58,18 @@ struct Output {
     double stop_value = 0;
 };
 
-/// @brief returns the input channel that cfg configures on slave, or nullptr when cfg
-/// is disabled. Accumulates a field error on parser when cfg does not address one entry
-/// on slave, or its data type does not fit the entry.
+/// @brief returns the input channel that cfg configures on slave. Accumulates a field
+/// error on parser when cfg does not address one entry on slave, or its data type does
+/// not fit the entry.
 std::unique_ptr<Input> make_input(
     const ::synnax::ethercat::ReadChannel &cfg,
     const slave::Properties &slave,
     const x::json::Parser &parser
 );
 
-/// @brief returns the output channel that cfg configures on slave, or nullptr when cfg
-/// is disabled. Accumulates a field error under path when cfg does not address one
-/// entry on slave, or its data type or stop value does not fit the entry.
+/// @brief returns the output channel that cfg configures on slave. Accumulates a field
+/// error under path when cfg does not address one entry on slave, or its data type or
+/// stop value does not fit the entry.
 std::unique_ptr<Output> make_output(
     const ::synnax::ethercat::WriteChannel &cfg,
     const slave::Properties &slave,
