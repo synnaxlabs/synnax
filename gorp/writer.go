@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/internal/key"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -209,7 +210,8 @@ func (w *Writer[K, E]) find(
 
 // storedLinks returns the links that the record with key k holds at its first write in
 // tx. It reads them from the index of each reference that has loaded, and else from
-// stored, the encoded record.
+// stored, the encoded record. A record that cannot be decoded fails the write, so that
+// no change misses a removed link.
 func (w *Writer[K, E]) storedLinks(
 	ctx context.Context,
 	k K,
@@ -227,7 +229,12 @@ func (w *Writer[K, E]) storedLinks(
 		if e == nil {
 			e = new(E)
 			if err := w.tx.Decode(ctx, stored, e); err != nil {
-				return nil, err
+				return nil, errors.Wrapf(
+					err,
+					"[gorp] - read the links of %s %s",
+					w.tableName,
+					FormatKey(k),
+				)
 			}
 		}
 		links = r.links(links, e)
