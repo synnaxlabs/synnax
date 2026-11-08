@@ -19,26 +19,26 @@ import (
 )
 
 // RetrieveGroupSymbols returns the resource ID of every symbol in the group identified
-// by key, reading through tx. It returns query.ErrNotFound when no group has key.
+// by key, reading through snap. It returns query.ErrNotFound when no group has key.
 //
-// Callers that go on to write must pass the same tx they write under, so the IDs they
-// act on and the IDs the write touches come from one snapshot.
+// Callers that go on to write must pass the transaction they write under, so the IDs
+// they act on and the IDs the write touches come from one snapshot.
 func (s *Service) RetrieveGroupSymbols(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	key group.Key,
 ) ([]resource.ID, error) {
 	if err := s.cfg.Group.NewRetrieve().
 		Where(group.MatchKeys(key)).
 		Entry(&group.Group{}).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	var symbols []Symbol
 	if err := s.NewRetrieve().
 		Where(MatchGroups(key)).
 		Entries(&symbols).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	return lo.Map(symbols, func(sym Symbol, _ int) resource.ID {

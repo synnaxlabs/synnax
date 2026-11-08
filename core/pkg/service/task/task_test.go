@@ -1034,6 +1034,24 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
+	It("Should retrieve a task and its config through a snapshot", func(
+		ctx SpecContext,
+	) {
+		t := &task.Task{
+			Type:   testType,
+			Rack:   testRack.Key,
+			Name:   "Snapshot Task",
+			Config: msgpack.EncodedJSON{"routing_key": "rk-snapshot"},
+		}
+		Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+		var res task.Task
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return svc.NewRetrieve().Where(task.MatchKeys(t.Key)).Entry(&res).
+				Exec(ctx, snap)
+		})).To(Succeed())
+		Expect(res.Config).To(HaveKeyWithValue("routing_key", "rk-snapshot"))
+	})
+
 	Describe("Retrieve", func() {
 		BeforeEach(openTx)
 		It("Should correctly retrieve a task", func(ctx SpecContext) {

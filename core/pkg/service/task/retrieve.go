@@ -199,7 +199,7 @@ func (r Retrieve) results() []*Task {
 // registered store or no stored record keep a nil Config.
 func (r Retrieve) composeConfigs(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	tasks []*Task,
 ) error {
 	for _, t := range tasks {
@@ -207,7 +207,7 @@ func (r Retrieve) composeConfigs(
 		if !ok {
 			continue
 		}
-		data, err := store.Read(ctx, tx, t.Key)
+		data, err := store.Read(ctx, snap, t.Key)
 		if err != nil {
 			if errors.Is(err, query.ErrNotFound) {
 				continue
@@ -219,21 +219,21 @@ func (r Retrieve) composeConfigs(
 	return nil
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	tx = gorp.OverrideTx(r.baseTX, tx)
-	if err := r.gorp.Exec(ctx, tx); err != nil {
+// Exec executes the query against snap, or against the DB when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	snap = gorp.OverrideSnapshot(r.baseTX, snap)
+	if err := r.gorp.Exec(ctx, snap); err != nil {
 		return err
 	}
-	return r.composeConfigs(ctx, tx, r.results())
+	return r.composeConfigs(ctx, snap, r.results())
 }
 
 // Count returns the number of tasks matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, gorp.OverrideSnapshot(r.baseTX, snap))
 }
 
 // Exists checks whether any tasks match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, gorp.OverrideSnapshot(r.baseTX, snap))
 }

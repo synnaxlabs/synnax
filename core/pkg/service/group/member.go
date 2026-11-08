@@ -219,24 +219,24 @@ func (w Writer) moveMembers(ctx context.Context, keys []Key, top *resource.ID) e
 }
 
 // TopParent returns the parent of the group at the top of the chain that holds the
-// group with key, as seen by tx, or nil when that group has no parent. It returns a
+// group with key, as seen by snap, or nil when that group has no parent. It returns a
 // validation error when no group has key.
-func TopParent(ctx context.Context, tx gorp.Tx, key Key) (*resource.ID, error) {
-	g, err := retrieveGroup(ctx, tx, key)
+func TopParent(ctx context.Context, snap gorp.Snapshot, key Key) (*resource.ID, error) {
+	g, err := retrieveGroup(ctx, snap, key)
 	if err != nil {
 		return nil, err
 	}
-	return topParent(ctx, tx, g)
+	return topParent(ctx, snap, g)
 }
 
 // retrieveGroup returns the group with key, or a validation error when it does not
 // exist.
-func retrieveGroup(ctx context.Context, tx gorp.Tx, key Key) (Group, error) {
+func retrieveGroup(ctx context.Context, snap gorp.Snapshot, key Key) (Group, error) {
 	var g Group
 	err := gorp.NewRetrieve[Key, Group]().
 		Where(gorp.MatchKeys[Key, Group](key)).
 		Entry(&g).
-		Exec(ctx, tx)
+		Exec(ctx, snap)
 	if errors.Is(err, query.ErrNotFound) {
 		return Group{}, errors.Wrapf(
 			validate.ErrValidation,
@@ -249,13 +249,13 @@ func retrieveGroup(ctx context.Context, tx gorp.Tx, key Key) (Group, error) {
 
 // topParent returns the parent of the group at the top of g's chain, or nil when that
 // group has no parent.
-func topParent(ctx context.Context, tx gorp.Tx, g Group) (*resource.ID, error) {
+func topParent(ctx context.Context, snap gorp.Snapshot, g Group) (*resource.ID, error) {
 	for g.Parent != nil && g.Parent.Type == resource.TypeGroup {
 		key, err := KeyFromResourceID(*g.Parent)
 		if err != nil {
 			return nil, err
 		}
-		if g, err = retrieveGroup(ctx, tx, key); err != nil {
+		if g, err = retrieveGroup(ctx, snap, key); err != nil {
 			return nil, err
 		}
 	}

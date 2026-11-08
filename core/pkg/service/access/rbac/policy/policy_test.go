@@ -652,7 +652,7 @@ var _ = Describe("ResolveRolesWith", func() {
 		subject = resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
 		rolesOf = func(
 			_ context.Context,
-			_ gorp.Tx,
+			_ gorp.Snapshot,
 			subjects ...resource.ID,
 		) ([]role.Key, error) {
 			if subjects[0] != subject {
@@ -684,11 +684,44 @@ var _ = Describe("ResolveRolesWith", func() {
 	})
 
 	It("Should return any other error of the role lookup", func(ctx SpecContext) {
-		rolesOf = func(context.Context, gorp.Tx, ...resource.ID) ([]role.Key, error) {
+		rolesOf = func(
+			context.Context,
+			gorp.Snapshot,
+			...resource.ID,
+		) ([]role.Key, error) {
 			return nil, errors.New("lookup failed")
 		}
 		Expect(retrieve(ctx, policy.MatchSubjects(subject))).Error().
 			To(MatchError(ContainSubstring("lookup failed")))
+	})
+
+	It("Should look up roles through the snapshot of the query", func(
+		ctx SpecContext,
+	) {
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var (
+			looked gorp.Snapshot
+			lookup = rolesOf
+			ps     []policy.Policy
+		)
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return svc.NewRetrieve().
+				ResolveRolesWith(func(
+					ctx context.Context,
+					snap gorp.Snapshot,
+					subjects ...resource.ID,
+				) ([]role.Key, error) {
+					looked = snap
+					return lookup(ctx, snap, subjects...)
+				}).
+				Where(policy.MatchSubjects(subject)).
+				Entries(&ps).
+				Exec(ctx, snap)
+		})).To(Succeed())
+		Expect(looked).ToNot(BeNil())
+		_, isTx := looked.(gorp.Tx)
+		Expect(isTx).To(BeFalse())
+		Expect(ps).To(ConsistOf(heldPolicy))
 	})
 
 	It("Should fail to filter by subject without a role lookup", func(ctx SpecContext) {
