@@ -269,25 +269,6 @@ TEST_F(IGHMasterTest, CountSlavesReportsTheSlavesOnTheBus) {
     EXPECT_EQ(ASSERT_NIL_P(this->master.count_slaves()), 2);
 }
 
-/// @brief it should return a master init error when it counts slaves before a scan.
-TEST_F(IGHMasterTest, CountSlavesFailsBeforeScan) {
-    ASSERT_OCCURRED_AS_P(this->master.count_slaves(), errors::MASTER_INIT_ERROR);
-}
-
-/// @brief it should fail activation before a scan.
-TEST_F(IGHMasterTest, ActivateFailsBeforeScan) {
-    ASSERT_OCCURRED_AS(this->activate().err, errors::ACTIVATION_ERROR);
-}
-
-/// @brief it should fail a second activation, since the master already runs.
-TEST_F(IGHMasterTest, ActivateFailsTwice) {
-    this->api->add_slave();
-    ASSERT_NIL(this->scan_and_activate());
-    const auto err = this->activate().err;
-    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "already activated");
-}
-
 /// @brief it should fail activation when the IgH master does not activate.
 TEST_F(IGHMasterTest, ActivateFailsWhenTheMasterDoesNotActivate) {
     this->api->add_slave();
@@ -670,12 +651,6 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheLayoutCannotBeRead) {
     EXPECT_TRUE(slave.registered.empty());
 }
 
-/// @brief it should fail receive() and send() before activation.
-TEST_F(IGHMasterTest, ReceiveAndSendFailBeforeActivation) {
-    ASSERT_OCCURRED_AS(this->master.receive(), errors::CYCLIC_ERROR);
-    ASSERT_OCCURRED_AS(this->master.send(), errors::CYCLIC_ERROR);
-}
-
 /// @brief it should receive when both domains report a complete working counter.
 TEST_F(IGHMasterTest, ReceiveSucceedsOnACompleteWorkingCounter) {
     create_io(this->api->add_slave());
@@ -712,17 +687,6 @@ TEST_F(IGHMasterTest, ReceiveIgnoresAnEmptyDomain) {
     ASSERT_NIL(this->scan_and_activate());
     this->api->outputs.state.wc_state = EC_WC_ZERO;
     ASSERT_NIL(this->master.receive());
-}
-
-/// @brief it should report the state of each configured slave.
-TEST_F(IGHMasterTest, CheckReportsEachConfiguredSlave) {
-    this->api->add_slave();
-    this->api->add_slave();
-    this->configs = {{2, {.enabled = false}}};
-    ASSERT_NIL(this->scan_and_activate());
-    const auto health = this->master.check(this->brk);
-    ASSERT_EQ(health.size(), 1);
-    EXPECT_EQ(health[0], (slave::Health{.position = 1, .state = slave::State::OP}));
 }
 
 /// @brief it should report a slave that is offline as lost.

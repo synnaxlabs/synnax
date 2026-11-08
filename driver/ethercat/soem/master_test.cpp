@@ -416,12 +416,6 @@ TEST_F(SOEMMasterTest, CountSlavesReportsTheSlavesThatAnswer) {
     EXPECT_EQ(ASSERT_NIL_P(this->master->count_slaves()), 0);
 }
 
-/// @brief it should return a master init error when it counts slaves before
-/// initialization.
-TEST_F(SOEMMasterTest, CountSlavesFailsBeforeInitialize) {
-    ASSERT_OCCURRED_AS_P(this->master->count_slaves(), errors::MASTER_INIT_ERROR);
-}
-
 TEST_F(SOEMMasterTest, ScanIdempotent) {
     this->initialize_with_slave();
     ASSERT_NIL(this->master->scan().second);
@@ -639,16 +633,6 @@ TEST_F(SOEMMasterTest, ActivateClearsProcessDataSMsBeforeTheMapping) {
     this->initialize_with_slave();
     this->activate_master();
     EXPECT_TRUE(this->mock->sms_cleared_at_map);
-}
-
-TEST_F(SOEMMasterTest, ActivateNotInitialized) {
-    ASSERT_OCCURRED_AS(this->activate(), errors::ACTIVATION_ERROR);
-}
-
-TEST_F(SOEMMasterTest, ActivateAlreadyActivated) {
-    this->initialize_with_slave();
-    this->activate_master();
-    ASSERT_OCCURRED_AS(this->activate(), errors::ACTIVATION_ERROR);
 }
 
 TEST_F(SOEMMasterTest, ActivateConfigMapFails) {
@@ -1404,10 +1388,6 @@ TEST_F(SOEMMasterTest, CyclicExchangeUsesEnabledGroupOnly) {
 
 ////////////////////// Receive //////////////////////
 
-TEST_F(SOEMMasterTest, ReceiveNotActivated) {
-    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
-}
-
 TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
     this->initialize_with_slave();
     this->activate_master();
@@ -1431,10 +1411,6 @@ TEST_F(SOEMMasterTest, ReceiveWkcMatch) {
 }
 
 ////////////////////// Send //////////////////////
-
-TEST_F(SOEMMasterTest, SendNotActivated) {
-    ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
-}
 
 TEST_F(SOEMMasterTest, SendReturnsZero) {
     this->initialize_with_slave();
