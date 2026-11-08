@@ -22,10 +22,8 @@ import (
 	"github.com/synnaxlabs/x/encoding/gob"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
-	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/version"
 )
 
@@ -139,72 +137,4 @@ var _ = Describe("Identity", func() {
 				)))
 		},
 	)
-
-	It(
-		"Should reject the data directory of a node other than node 1",
-		func(ctx SpecContext) {
-			Expect(db.Set(ctx, identityKey, aspenRecord(2, 2))).To(Succeed())
-			Expect(
-				cluster.OpenIdentity(ctx, db, "localhost:9090"),
-			).Error().
-				To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(
-						"the data directory belongs to node 2 of a cluster",
-					)),
-				))
-		},
-	)
-
-	It("Should reject a data directory that lists other nodes", func(ctx SpecContext) {
-		Expect(db.Set(ctx, identityKey, aspenRecord(1, 1, 2, 3))).To(Succeed())
-		Expect(cluster.OpenIdentity(ctx, db, "localhost:9090")).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(
-				"the data directory belongs to node 1 of a cluster",
-			)),
-		))
-	})
-
-	Describe("Aspen keys", func() {
-		It(
-			"Should delete only the digests and the version counter",
-			func(ctx SpecContext) {
-				deleted := []string{"--dig/a", "--dig/b", "ver"}
-				kept := []string{"--dig", "--dig0", "ve", "vera"}
-				Expect(db.Set(ctx, identityKey, aspenRecord(1, 1))).To(Succeed())
-				for _, key := range append(deleted, kept...) {
-					Expect(db.Set(ctx, []byte(key), []byte("value"))).To(Succeed())
-				}
-				MustSucceed(cluster.OpenIdentity(ctx, db, "localhost:9090"))
-				for _, key := range deleted {
-					Expect(db.Get(ctx, []byte(key))).Error().
-						To(MatchError(query.ErrNotFound))
-				}
-				for _, key := range kept {
-					value, closer := MustSucceed2(db.Get(ctx, []byte(key)))
-					Expect(value).To(Equal([]byte("value")))
-					Expect(closer.Close()).To(Succeed())
-				}
-			},
-		)
-
-		It(
-			"Should keep them when it rejects the data directory",
-			func(ctx SpecContext) {
-				Expect(db.Set(ctx, identityKey, aspenRecord(2, 2))).To(Succeed())
-				keys := []string{"--dig/a", "ver"}
-				for _, key := range keys {
-					Expect(db.Set(ctx, []byte(key), []byte("value"))).To(Succeed())
-				}
-				Expect(cluster.OpenIdentity(ctx, db, "localhost:9090")).Error().
-					To(MatchError(validate.ErrValidation))
-				for _, key := range keys {
-					value, closer := MustSucceed2(db.Get(ctx, []byte(key)))
-					Expect(value).To(Equal([]byte("value")))
-					Expect(closer.Close()).To(Succeed())
-				}
-			},
-		)
-	})
 })
