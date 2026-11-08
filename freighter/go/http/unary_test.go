@@ -955,12 +955,11 @@ var _ = Describe("Unary", func() {
 		It(
 			"should fail with an unresolved-decoder error when the server response Content-Type has no registered client decoder",
 			func(ctx context.Context) {
-				_, err := unaryClient.Send(
+				Expect(unaryClient.Send(
 					ctx,
 					unaryAddr+"/text-plain",
 					testutil.Request{ID: 1, Message: "x"},
-				)
-				Expect(err).To(MatchError(ContainSubstring("text/plain")))
+				)).Error().To(MatchError(ContainSubstring("text/plain")))
 			},
 		)
 	})

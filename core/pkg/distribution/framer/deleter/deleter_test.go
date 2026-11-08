@@ -58,7 +58,7 @@ var _ = Describe("Deleter", Ordered, func() {
 					// Use context.Background() because the iterator must survive
 					// beyond BeforeEach into It/AfterEach. SpecContext is cancelled
 					// when BeforeEach exits, which kills peer streams and deadlocks.
-					i = MustSucceed(
+					i = MustOpen(
 						s.dist.Framer.OpenIterator(
 							context.Background(),
 							iterator.Config{
@@ -72,7 +72,6 @@ var _ = Describe("Deleter", Ordered, func() {
 					Expect(
 						s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax),
 					).To(Succeed())
-					Expect(i.Close()).To(Succeed())
 				})
 
 				It("Should delete one channel by key", func(ctx SpecContext) {

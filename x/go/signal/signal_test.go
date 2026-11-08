@@ -239,7 +239,7 @@ var _ = Describe("Signal", func() {
 	Describe("SendUnderContext", func() {
 		It("Should send a value to the channel", func() {
 			v := make(chan int, 1)
-			_ = signal.SendUnderContext(context.Background(), v, 1)
+			Expect(signal.SendUnderContext(context.Background(), v, 1)).To(Succeed())
 			Expect(<-v).To(Equal(1))
 		})
 
@@ -248,7 +248,8 @@ var _ = Describe("Signal", func() {
 			func(specCtx SpecContext) {
 				ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
 				v := make(chan int)
-				_ = signal.SendUnderContext(ctx, v, 1)
+				Expect(signal.SendUnderContext(ctx, v, 1)).
+					To(MatchError(context.DeadlineExceeded))
 				cancel()
 				Expect(v).ToNot(Receive())
 			},
