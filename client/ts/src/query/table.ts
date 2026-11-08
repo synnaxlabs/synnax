@@ -301,6 +301,15 @@ export class Table<
     for (const index of this.indexes) index.delete(key);
   }
 
+  /** Returns the keys whose records a holder or a keyed subscriber needs. */
+  held(): Set<Key> {
+    const held = new Set<Key>(this.keyedSubscribers.keys());
+    this.holders.forEach((holder) => {
+      for (const key of holder.held()) held.add(key);
+    });
+    return held;
+  }
+
   /**
    * Keeps the records the holder needs from {@link trim}.
    * @returns A destructor that releases them.
@@ -325,10 +334,7 @@ export class Table<
   trim(size: number): Key[] {
     const over = this.entries.size - size;
     if (over <= 0) return [];
-    const held = new Set<Key>(this.keyedSubscribers.keys());
-    this.holders.forEach((holder) => {
-      for (const key of holder.held()) held.add(key);
-    });
+    const held = this.held();
     const dropped = Array.from(this.entries.keys())
       .filter((key) => !held.has(key))
       .sort((a, b) => (this.touches.get(a) ?? 0) - (this.touches.get(b) ?? 0))
