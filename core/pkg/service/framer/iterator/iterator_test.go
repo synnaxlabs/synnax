@@ -12,9 +12,7 @@ package iterator_test
 import (
 	"context"
 	"encoding/json/v2"
-	"runtime"
 	"strconv"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,9 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -44,29 +40,17 @@ func openServices(
 	ctx context.Context, node testutil.Node,
 ) (*iterator.Service, *channel.Service) {
 	GinkgoHelper()
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: node.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: node.DB,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	iteratorSvc := MustSucceed(iterator.NewService(iterator.ServiceConfig{
 		Framer:  node.Framer,
@@ -2600,7 +2584,6 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				cluster := testutil.OpenCluster(ctx, 0)
 				store := &storage.Layer{
 					KV: DeferClose(memkv.New()),
 					TS: DeferClose(MustSucceed(cesium.Open(
@@ -2610,8 +2593,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						cesium.WithChunkSize(14),
 					))),
 				}
-				node = cluster.Provision(ctx, distribution.LayerConfig{Storage: store})
-				DeferCleanup(func() { Expect(cluster.Close()).To(Succeed()) })
+				node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 				var channelSvc *channel.Service
 				iteratorSvc, channelSvc = openServices(ctx, node)
 				channelWriter = channelSvc.NewWriter(nil)
@@ -2855,14 +2837,12 @@ var _ = Describe("Read failure", func() {
 		node        testutil.Node
 	)
 	BeforeEach(func(ctx SpecContext) {
-		cluster := testutil.OpenCluster(ctx, 0)
 		faulty = WrapFaultyFS(xfs.NewMem())
 		store := &storage.Layer{
 			KV: DeferClose(memkv.New()),
 			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
 		}
-		node = cluster.Provision(ctx, distribution.LayerConfig{Storage: store})
-		DeferCleanup(func() { Expect(cluster.Close()).To(Succeed()) })
+		node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 		iteratorSvc, channelSvc = openServices(ctx, node)
 	})
 
@@ -2937,141 +2917,5 @@ var _ = Describe("Read failure", func() {
 		})).Error().To(MatchError(ContainSubstring(ErrFault.Error())))
 		faulty.SetOptions()
 		Expect(writer.DeleteMany(ctx, keys, false)).To(Succeed())
-	})
-})
-
-var _ = Describe("Calculations across Cores", func() {
-	It("Should calculate the inputs of one read from two Cores together", func(
-		ctx SpecContext,
-	) {
-		cluster := testutil.NewCluster(ctx, 0)
-		nodes := []testutil.Node{cluster.Provision(ctx), cluster.Provision(ctx)}
-		iteratorSvc, channelSvc := openServices(ctx, nodes[0])
-		writer := channelSvc.NewWriter(nil)
-		for k, n := range nodes {
-			idx := &channel.Channel{
-				Name:        "cross_time_" + strconv.Itoa(k),
-				DataType:    telem.TimestampT,
-				IsIndex:     true,
-				Leaseholder: n.Cluster.HostKey(),
-			}
-			Expect(writer.Create(ctx, idx)).To(Succeed())
-			data := &channel.Channel{
-				Name:        "cross_" + strconv.Itoa(k),
-				DataType:    telem.Float32T,
-				LocalIndex:  idx.LocalKey,
-				Leaseholder: n.Cluster.HostKey(),
-			}
-			Expect(writer.Create(ctx, data)).To(Succeed())
-			// A channel leased by the second Core reaches the first by gossip.
-			Eventually(func(g Gomega) {
-				var res channel.Channel
-				g.Expect(channelSvc.NewRetrieve().
-					Where(channel.MatchKeys(data.Key())).
-					Entry(&res).
-					Exec(ctx, nil)).To(Succeed())
-			}).Should(Succeed())
-			stamps := make([]telem.TimeStamp, 20)
-			values := make([]float32, 20)
-			for j := range values {
-				stamps[j] = telem.TimeStamp(j + 1)
-				values[j] = float32((j + 1) * (1 + 99*k))
-			}
-			keys := []channel.Key{idx.Key(), data.Key()}
-			w := MustSucceed(nodes[0].Framer.OpenWriter(ctx, framer.WriterConfig{
-				Start:            telem.SecondTS,
-				Keys:             keys,
-				EnableAutoCommit: new(true),
-			}))
-			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
-				telem.NewSeriesSecondsTSV(stamps...),
-				telem.NewSeries(values),
-			}))).To(BeTrue())
-			Expect(w.Close()).To(Succeed())
-		}
-		sum := &channel.Channel{
-			Name:       "cross_sum",
-			DataType:   telem.Float32T,
-			Expression: "return cross_0 + cross_1",
-		}
-		Expect(writer.Create(ctx, sum)).To(Succeed())
-		iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
-			Keys:   []channel.Key{sum.Key()},
-			Bounds: telem.TimeRangeMax,
-		}))
-		Expect(iter.SeekFirst()).To(BeTrue())
-		var got []float32
-		for range 2 {
-			Expect(iter.Next(10 * telem.Second)).To(BeTrue())
-			for _, s := range iter.Value().Get(sum.Key()).Series {
-				got = append(got, s.Unmarshal[float32]()...)
-			}
-		}
-		expected := make([]float32, 20)
-		for j := range expected {
-			expected[j] = float32((j + 1) * 101)
-		}
-		Expect(got).To(Equal(expected))
-		Expect(iter.Close()).To(Succeed())
-	})
-})
-
-var _ = Describe("Canceled peer", func() {
-	// expectReturns fails the spec with every goroutine's stack if f stalls.
-	expectReturns := func(f func()) {
-		GinkgoHelper()
-		done := make(chan struct{})
-		go func() {
-			defer GinkgoRecover()
-			defer close(done)
-			f()
-		}()
-		Eventually(done).WithTimeout(30*time.Second).Should(BeClosed(), func() string {
-			stacks := make([]byte, 1<<20)
-			return string(stacks[:runtime.Stack(stacks, true)])
-		})
-	}
-
-	It("Should stop every call and report the cancellation", func(ctx SpecContext) {
-		cluster := testutil.NewCluster(ctx, 0)
-		nodes := []testutil.Node{cluster.Provision(ctx), cluster.Provision(ctx)}
-		iteratorSvc, channelSvc := openServices(ctx, nodes[0])
-		ch := &channel.Channel{
-			Name:        "Nansen",
-			DataType:    telem.TimestampT,
-			IsIndex:     true,
-			Leaseholder: nodes[1].Cluster.HostKey(),
-		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
-		// A channel leased by the second Core reaches the first by gossip.
-		Eventually(func(g Gomega) {
-			var res channel.Channel
-			g.Expect(channelSvc.NewRetrieve().
-				Where(channel.MatchKeys(ch.Key())).
-				Entry(&res).
-				Exec(ctx, nil)).To(Succeed())
-		}).Should(Succeed())
-		iterCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
-		iter := MustSucceed(iteratorSvc.Open(iterCtx, iterator.Config{
-			Keys:   []channel.Key{ch.Key()},
-			Bounds: telem.TimeRangeMax,
-		}))
-		// An ack proves the peer flows, so the cancel reaches its pipeline.
-		Expect(iter.Valid()).To(BeFalse())
-		Expect(iter.Error()).To(Succeed())
-		cancel()
-		expectReturns(func() {
-			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
-			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
-			Expect(iter.Error()).To(MatchError(context.Canceled))
-			Expect(iter.Close()).To(MatchError(context.Canceled))
-			Expect(iter.Close()).To(Succeed())
-		})
-		// The peer releases its storage iterator after the gateway closes.
-		writer := channelSvc.NewWriter(nil)
-		Eventually(func() error {
-			return writer.DeleteMany(ctx, []channel.Key{ch.Key()}, false)
-		}).WithTimeout(10 * time.Second).Should(Succeed())
 	})
 })

@@ -18,8 +18,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -30,6 +33,14 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Label *label.Service
+	// Ranger stores the labels of ranges.
+	//
+	// [REQUIRED]
+	Ranger *ranger.Service
+	// Status stores the labels of statuses.
+	//
+	// [REQUIRED]
+	Status *status.Service
 	// RBAC enforces access control on every request.
 	//
 	// [REQUIRED]
@@ -45,6 +56,8 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Label = override.Nil(c.Label, other.Label)
+	c.Ranger = override.Nil(c.Ranger, other.Ranger)
+	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
@@ -53,6 +66,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.label")
 	v.NotNil("label", c.Label)
+	v.NotNil("ranger", c.Ranger)
+	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
@@ -60,6 +75,8 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *label.Service
+	ranger   *ranger.Service
+	status   *status.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -69,6 +86,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Label,
+		ranger:   cfg.Ranger,
+		status:   cfg.Status,
 		access:   cfg.RBAC,
 	}, nil
 }
@@ -98,7 +117,7 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeLabel}},
+		Objects: []resource.ID{{Type: resource.TypeLabel}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -119,13 +138,12 @@ type DispatchRequest = actions.DispatchRequest[label.Key, label.Action]
 // the label action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
-	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{label.OntologyID(req.Key)},
+		Objects: []resource.ID{label.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -137,17 +155,16 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Labels))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Labels))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	objects := label.OntologyIDsFromLabels(res.Labels)
-	// The labels of a resource describe it, so a for line needs access to the resource.
-	if req.Where != nil {
-		objects = append(objects, req.Where.ForIDs()...)
+	objects := make([]resource.ID, len(res.Labels))
+	for i, l := range res.Labels {
+		objects[i] = l.ResourceID()
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
@@ -171,15 +188,16 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: label.OntologyIDs(req.Keys),
+		Objects: label.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
+// AddRequest adds labels to the range or status that ID names.
 type AddRequest struct {
-	ID      ontology.ID `json:"id"      msgpack:"id"`
+	ID      resource.ID `json:"id"      msgpack:"id"`
 	Labels  []label.Key `json:"labels"  msgpack:"labels"`
 	Replace bool        `json:"replace" msgpack:"replace"`
 }
@@ -192,19 +210,34 @@ func (s *Service) Add(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: append(label.OntologyIDs(req.Labels), req.ID),
+		Objects: append(label.ResourceIDs(req.Labels), req.ID),
 	}); err != nil {
 		return struct{}{}, err
 	}
-	w := s.internal.NewWriter(tx)
-	if req.Replace {
-		return struct{}{}, w.Replace(ctx, req.ID, req.Labels)
+	switch req.ID.Type {
+	case resource.TypeRange:
+		key, err := ranger.KeyFromResourceID(req.ID)
+		if err != nil {
+			return struct{}{}, err
+		}
+		w := s.ranger.NewWriter(tx)
+		if req.Replace {
+			return struct{}{}, w.ReplaceLabels(ctx, key, req.Labels)
+		}
+		return struct{}{}, w.AddLabels(ctx, key, req.Labels)
+	case resource.TypeStatus:
+		w := s.status.NewWriter(tx)
+		if req.Replace {
+			return struct{}{}, w.ReplaceLabels(ctx, req.ID.Key, req.Labels)
+		}
+		return struct{}{}, w.AddLabels(ctx, req.ID.Key, req.Labels)
 	}
-	return struct{}{}, w.Label(ctx, req.ID, req.Labels)
+	return struct{}{}, unlabeled(req.ID)
 }
 
+// RemoveRequest removes labels from the range or status that ID names.
 type RemoveRequest struct {
-	ID     ontology.ID `json:"id"     msgpack:"id"`
+	ID     resource.ID `json:"id"     msgpack:"id"`
 	Labels []label.Key `json:"labels" msgpack:"labels"`
 }
 
@@ -216,9 +249,27 @@ func (s *Service) Remove(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: append(label.OntologyIDs(req.Labels), req.ID),
+		Objects: append(label.ResourceIDs(req.Labels), req.ID),
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.NewWriter(tx).RemoveLabel(ctx, req.ID, req.Labels)
+	switch req.ID.Type {
+	case resource.TypeRange:
+		key, err := ranger.KeyFromResourceID(req.ID)
+		if err != nil {
+			return struct{}{}, err
+		}
+		return struct{}{}, s.ranger.NewWriter(tx).RemoveLabels(ctx, key, req.Labels)
+	case resource.TypeStatus:
+		return struct{}{}, s.status.NewWriter(tx).
+			RemoveLabels(ctx, req.ID.Key, req.Labels)
+	}
+	return struct{}{}, unlabeled(req.ID)
+}
+
+func unlabeled(id resource.ID) error {
+	return validate.PathedError(
+		errors.Wrapf(validate.ErrValidation, "a %s cannot have labels", id.Type),
+		"id",
+	)
 }

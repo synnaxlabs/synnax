@@ -10,15 +10,29 @@
 package project_test
 
 import (
+	"context"
+	"fmt"
+	"sync"
+	"sync/atomic"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	Describe("Create", func() {
 		It("Should create a project", func(ctx SpecContext) {
 			proj := project.Project{Name: "test"}
@@ -71,7 +85,7 @@ var _ = Describe("Writer", func() {
 				To(MatchError(ContainSubstring("name: required")))
 		})
 	})
-	Describe("DeleteChannel", func() {
+	Describe("Delete", func() {
 		It("Should delete a project", func(ctx SpecContext) {
 			proj := project.Project{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
@@ -84,5 +98,243 @@ var _ = Describe("Writer", func() {
 					Exec(ctx, tx),
 			).To(MatchError(query.ErrNotFound))
 		})
+
+		It(
+			"Should delete the project's visualizations and groups",
+			func(ctx SpecContext) {
+				proj := project.Project{Name: "doomed"}
+				Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+				g := group.Group{Name: "folder", Parent: new(proj.ResourceID())}
+				Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+				s := schematic.Schematic{Name: "s", Project: &proj.Key}
+				Expect(schematicSvc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+				Expect(schematicSvc.NewWriter(tx).SetGroup(ctx, &g.Key, s.Key)).
+					To(Succeed())
+				lp := defaults.Fill(lineplot.LinePlot{Name: "lp", Project: &proj.Key})
+				Expect(lineplotSvc.NewWriter(tx).Create(ctx, &lp)).To(Succeed())
+				l := defaults.Fill(log.Log{Name: "l", Project: &proj.Key})
+				Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+				t := table.Table{Name: "t", Project: &proj.Key}
+				Expect(tableSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
+				p := panel.Panel{Name: "p", Project: &proj.Key}
+				Expect(panelSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+				Expect(svc.NewWriter(tx).Delete(ctx, proj.Key)).To(Succeed())
+				Expect(groupSvc.NewRetrieve().
+					Where(group.MatchKeys(g.Key)).
+					Entry(&group.Group{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				Expect(schematicSvc.NewRetrieve().
+					Where(schematic.MatchKeys(s.Key)).
+					Entry(&schematic.Schematic{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				Expect(lineplotSvc.NewRetrieve().
+					Where(lineplot.MatchKeys(lp.Key)).
+					Entry(&lineplot.LinePlot{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				Expect(logSvc.NewRetrieve().
+					Where(log.MatchKeys(l.Key)).
+					Entry(&log.Log{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				Expect(tableSvc.NewRetrieve().
+					Where(table.MatchKeys(t.Key)).
+					Entry(&table.Table{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				Expect(panelSvc.NewRetrieve().
+					Where(panel.MatchKeys(p.Key)).
+					Entry(&panel.Panel{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		It("Should keep the visualizations of other projects", func(ctx SpecContext) {
+			doomed := project.Project{Name: "doomed"}
+			kept := project.Project{Name: "kept"}
+			Expect(svc.NewWriter(tx).Create(ctx, &doomed)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &kept)).To(Succeed())
+			l := defaults.Fill(log.Log{Name: "l", Project: &kept.Key})
+			Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, doomed.Key)).To(Succeed())
+			Expect(logSvc.NewRetrieve().
+				Where(log.MatchKeys(l.Key)).
+				Entry(&log.Log{}).
+				Exec(ctx, tx)).To(Succeed())
+		})
 	})
+
+	Describe("Children", func() {
+		It(
+			"Should return the project's groups and visualizations",
+			func(ctx SpecContext) {
+				proj := project.Project{Name: "parent"}
+				Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+				g := group.Group{Name: "folder", Parent: new(proj.ResourceID())}
+				Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+				l := defaults.Fill(log.Log{Name: "l", Project: &proj.Key})
+				Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+				p := panel.Panel{Name: "p", Project: &proj.Key}
+				Expect(panelSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+				Expect(svc.Children(ctx, tx, proj.Key)).To(ConsistOf(
+					g.ResourceID(), l.ResourceID(), p.ResourceID(),
+				))
+			},
+		)
+	})
+	Describe("Group", func() {
+		createGroup := func(ctx context.Context, g group.Group) group.Group {
+			GinkgoHelper()
+			Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+			return g
+		}
+		retrieveGroup := func(ctx context.Context, key project.Key) *group.Key {
+			GinkgoHelper()
+			var res project.Project
+			Expect(svc.NewRetrieve().
+				Where(project.MatchKeys(key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			return res.Group
+		}
+
+		It(
+			"Should move a project into a top-level group and back out",
+			func(ctx SpecContext) {
+				g := createGroup(ctx, group.Group{
+					Name:  "Top",
+					Scope: resource.TypeProject,
+				})
+				proj := project.Project{Name: "grouped"}
+				Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+				Expect(svc.NewWriter(tx).SetGroup(ctx, &g.Key, proj.Key)).
+					To(Succeed())
+				Expect(retrieveGroup(ctx, proj.Key)).To(Equal(&g.Key))
+				Expect(svc.NewWriter(tx).SetGroup(ctx, nil, proj.Key)).To(Succeed())
+				Expect(retrieveGroup(ctx, proj.Key)).To(BeNil())
+			},
+		)
+
+		It("Should reject a group under a project", func(ctx SpecContext) {
+			owner := project.Project{Name: "owner"}
+			Expect(svc.NewWriter(tx).Create(ctx, &owner)).To(Succeed())
+			g := createGroup(ctx, group.Group{
+				Name:   "Under project",
+				Parent: new(owner.ResourceID()),
+			})
+			proj := project.Project{Name: "nested"}
+			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+			Expect(svc.NewWriter(tx).SetGroup(ctx, &g.Key, proj.Key)).To(MatchError(
+				"group: a project cannot sit in a group under project " +
+					owner.Key.String() + ": validation error",
+			))
+			Expect(retrieveGroup(ctx, proj.Key)).To(BeNil())
+		})
+
+		It(
+			"Should keep the stored group when a project is created again",
+			func(ctx SpecContext) {
+				g := createGroup(ctx, group.Group{
+					Name:  "Kept",
+					Scope: resource.TypeProject,
+				})
+				proj := project.Project{Name: "kept", Group: &g.Key}
+				Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+				again := project.Project{Key: proj.Key, Name: "kept again"}
+				Expect(svc.NewWriter(tx).Create(ctx, &again)).To(Succeed())
+				Expect(retrieveGroup(ctx, proj.Key)).To(Equal(&g.Key))
+			},
+		)
+	})
+})
+
+var _ = Describe("Writer with no transaction", func() {
+	retrieveGroup := func(ctx context.Context, key project.Key) *group.Key {
+		GinkgoHelper()
+		var res project.Project
+		Expect(svc.NewRetrieve().
+			Where(project.MatchKeys(key)).
+			Entry(&res).
+			Exec(ctx, db)).To(Succeed())
+		return res.Group
+	}
+	createGroup := func(ctx context.Context, g group.Group) group.Group {
+		GinkgoHelper()
+		Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
+		})
+		return g
+	}
+	createProject := func(ctx context.Context, name string) project.Project {
+		GinkgoHelper()
+		p := project.Project{Name: name}
+		Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed())
+		})
+		return p
+	}
+
+	It(
+		"Should keep the group that a move writes during concurrent creates",
+		func(ctx SpecContext) {
+			groups := make([]group.Group, 50)
+			for i := range groups {
+				groups[i] = createGroup(ctx, group.Group{
+					Name:  fmt.Sprintf("Concurrent %d", i),
+					Scope: resource.TypeProject,
+				})
+			}
+			proj := createProject(ctx, "concurrent")
+			var (
+				wg    sync.WaitGroup
+				moved atomic.Bool
+			)
+			for range 4 {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					for !moved.Load() {
+						again := project.Project{Key: proj.Key, Name: proj.Name}
+						Expect(svc.NewWriter(nil).Create(ctx, &again)).To(Succeed())
+					}
+				})
+			}
+			wg.Go(func() {
+				defer GinkgoRecover()
+				defer moved.Store(true)
+				for _, g := range groups {
+					Expect(svc.NewWriter(nil).SetGroup(ctx, &g.Key, proj.Key)).
+						To(Succeed())
+					Expect(retrieveGroup(ctx, proj.Key)).To(Equal(&g.Key))
+				}
+			})
+			wg.Wait()
+			Expect(retrieveGroup(ctx, proj.Key)).To(Equal(&groups[len(groups)-1].Key))
+		},
+	)
+
+	It(
+		"Should not put a project in a group that moves under a project at once",
+		func(ctx SpecContext) {
+			owner := createProject(ctx, "owner")
+			for range 30 {
+				g := createGroup(ctx, group.Group{
+					Name:  "Moving",
+					Scope: resource.TypeProject,
+				})
+				proj := createProject(ctx, "joining")
+				var (
+					wg               sync.WaitGroup
+					joinErr, moveErr error
+				)
+				wg.Go(func() {
+					joinErr = svc.NewWriter(nil).SetGroup(ctx, &g.Key, proj.Key)
+				})
+				wg.Go(func() {
+					moveErr = groupSvc.NewWriter(nil).
+						SetParent(ctx, new(owner.ResourceID()), g.Key)
+				})
+				wg.Wait()
+				Expect([]error{joinErr, moveErr}).To(ContainElement(HaveOccurred()))
+			}
+		},
+	)
 })

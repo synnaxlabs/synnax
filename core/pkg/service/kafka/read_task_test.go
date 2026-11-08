@@ -21,7 +21,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -32,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kerr"
@@ -68,7 +68,7 @@ var _ = Describe("Read task", func() {
 		if cfg.StartOffset == "" {
 			cfg.StartOffset = kafka.StartOffsetEarliest
 		}
-		t := newTask(kafka.ReadTaskType, cfg)
+		t := newTask(ctx, kafka.ReadTaskType, cfg)
 		dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		return dt, t
@@ -467,12 +467,6 @@ var _ = Describe("Read task", func() {
 
 	DescribeTable("Should restart a consumer that fails while start is called",
 		func(ctx SpecContext, fail func(context.Context, string)) {
-			gated := &gatedDB{
-				DB:      db.KV(),
-				held:    make(chan struct{}),
-				release: make(chan struct{}),
-			}
-			f = newFactory(kafka.FactoryConfig{DB: gorp.Wrap(gated)})
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
@@ -483,12 +477,16 @@ var _ = Describe("Read task", func() {
 			})
 			// Cleanup runs in reverse, so a failed spec opens the gate before the stop
 			// waits on the consumer that holds it.
-			release := sync.OnceFunc(func() { close(gated.release) })
+			held, gate := make(chan struct{}), make(chan struct{})
+			release := sync.OnceFunc(func() { close(gate) })
 			DeferCleanup(release)
 			start(ctx, dt, t)
-			gated.gated.Store(true)
+			DeferCleanup(hookedKV.HookKey(
+				[]byte(taskStatus(ctx, t).Key),
+				hookkv.Hold(held, gate),
+			))
 			fail(ctx, topic)
-			Eventually(gated.held).WithTimeout(15 * time.Second).Should(BeClosed())
+			Eventually(held).WithTimeout(15 * time.Second).Should(BeClosed())
 			Expect(taskStatus(ctx, t).Message).To(Equal("Started task"))
 			dropRecords(ctx, topic)
 			started := make(chan error, 1)
@@ -723,7 +721,7 @@ var _ = Describe("Read task", func() {
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
-			t := newTask(kafka.ReadTaskType, kafka.ReadConfig{
+			t := newTask(ctx, kafka.ReadTaskType, kafka.ReadConfig{
 				Device:      dev.Key,
 				Topic:       newTopic(),
 				StartOffset: kafka.StartOffsetNone,
@@ -733,10 +731,57 @@ var _ = Describe("Read task", func() {
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 			Expect(dt.Exec(ctx, task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",
-			})).To(MatchError(ContainSubstring("no committed offset")))
+			})).To(Succeed())
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Description).To(ContainSubstring("no committed offset"))
 			Expect(stat.Details.Running).To(BeFalse())
+		},
+	)
+
+	It("Should return the error from Exec for a start it could not answer",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			t := newTask(ctx, kafka.ReadTaskType, kafka.ReadConfig{
+				Device:      dev.Key,
+				Topic:       newTopic(),
+				StartOffset: kafka.StartOffsetEarliest,
+				Records:     single(stampedFields(index, data)),
+			})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(dt.Exec(hookkv.WithHook(ctx, refuse), task.Command{
+				Task: t.Key, Type: "start", Key: "cmd-2",
+			})).To(MatchError(errCommit))
+		},
+	)
+
+	It("Should return no error from Exec for a start answered before ctx ended",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			t := newTask(ctx, kafka.ReadTaskType, kafka.ReadConfig{
+				Device:      dev.Key,
+				Topic:       newTopic(),
+				StartOffset: kafka.StartOffsetNone,
+				Records:     single(stampedFields(index, data)),
+			})
+			cmdCtx, cancel := context.WithCancel(ctx)
+			cmdCtx = hookkv.WithHook(cmdCtx, func(commit func() error) error {
+				err := commit()
+				cancel()
+				return err
+			})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(dt.Exec(cmdCtx, task.Command{
+				Task: t.Key, Type: "start", Key: "cmd-2",
+			})).To(Succeed())
+			Expect(cmdCtx.Err()).To(MatchError(context.Canceled))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Message).To(Equal("Failed to start task"))
+			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 		},
 	)
 
@@ -1413,8 +1458,11 @@ var _ = Describe("Read task", func() {
 				}),
 			})
 			cfg["start_offset"] = ""
-			Expect(f.ConfigureTask(ctx, newTask(kafka.ReadTaskType, cfg), "cmd-1")).
-				Error().To(MatchError(ContainSubstring("invalid start_offset")))
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.ReadTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(MatchError(ContainSubstring("invalid start_offset")))
 		},
 	)
 
@@ -1434,11 +1482,14 @@ var _ = Describe("Read task", func() {
 				Topic:   "t",
 				Records: single(build(ctx, index, data)),
 			}
-			Expect(f.ConfigureTask(ctx, newTask(kafka.ReadTaskType, cfg), "cmd-1")).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(msg)),
-			))
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.ReadTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
 		},
 		Entry("no enabled field",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
@@ -1562,13 +1613,16 @@ var _ = Describe("Read task", func() {
 					{Key: "r2", RecordKey: "b", Fields: field("w", other)},
 				},
 			}
-			Expect(f.ConfigureTask(ctx, newTask(kafka.ReadTaskType, cfg), "cmd-1")).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(
-					ContainSubstring("channels on one index belong in one record"),
-				),
-			))
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.ReadTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("channels on one index belong in one record"),
+					),
+				))
 		},
 	)
 
@@ -1587,7 +1641,7 @@ var _ = Describe("Read task", func() {
 			Topic:   "t",
 			Records: []kafka.ReadRecord{first, second},
 		}
-		Expect(f.ConfigureTask(ctx, newTask(kafka.ReadTaskType, cfg), "cmd-1")).
+		Expect(f.ConfigureTask(ctx, newTask(ctx, kafka.ReadTaskType, cfg), "cmd-1")).
 			Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`record key "a": claimed by more than one`)),

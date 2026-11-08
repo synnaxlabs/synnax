@@ -16,7 +16,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Retrieve is used to retrieve Session records from the database using a
@@ -32,7 +32,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	subject    *gorp.LookupIndex[SessionKey, Session, ontology.ID]
+	subject    *gorp.LookupIndex[SessionKey, Session, resource.ID]
 	credential *gorp.LookupIndex[SessionKey, Session, uuid.UUID]
 }
 
@@ -41,9 +41,9 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		subject: gorp.NewLookupIndex[SessionKey, Session, ontology.ID](
+		subject: gorp.NewLookupIndex[SessionKey, Session, resource.ID](
 			"subject",
-			func(e *Session) ontology.ID { return e.Subject },
+			func(e *Session) resource.ID { return e.Subject },
 		),
 		credential: gorp.NewLookupIndex[SessionKey, Session, uuid.UUID](
 			"credential",
@@ -107,7 +107,7 @@ func MatchKeys(keys ...SessionKey) Filter {
 // MatchSubjects returns a filter for
 // sessions whose Subject matches any of the
 // provided values.
-func MatchSubjects(vals ...ontology.ID) Filter {
+func MatchSubjects(vals ...resource.ID) Filter {
 	return func(r Retrieve) gorp.Filter[SessionKey, Session] {
 		return r.indexes.subject.Filter(vals...)
 	}

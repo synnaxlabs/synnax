@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -28,8 +28,6 @@ var _ = Describe("ServiceConfig", func() {
 	BeforeEach(func() {
 		cfg = user.ServiceConfig{
 			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
 			Password: passwordSvc,
 		}
 	})
@@ -39,8 +37,6 @@ var _ = Describe("ServiceConfig", func() {
 			func() {
 				result := user.ServiceConfig{}.Override(cfg)
 				Expect(result.DB).To(Equal(db))
-				Expect(result.Ontology).To(Equal(otg))
-				Expect(result.Group).To(Equal(groupSvc))
 				Expect(result.Password).To(Equal(passwordSvc))
 			},
 		)
@@ -49,8 +45,6 @@ var _ = Describe("ServiceConfig", func() {
 			func() {
 				result := cfg.Override(user.ServiceConfig{})
 				Expect(result.DB).To(Equal(db))
-				Expect(result.Ontology).To(Equal(otg))
-				Expect(result.Group).To(Equal(groupSvc))
 				Expect(result.Password).To(Equal(passwordSvc))
 			},
 		)
@@ -69,16 +63,6 @@ var _ = Describe("ServiceConfig", func() {
 				"db",
 				func(c *user.ServiceConfig) { c.DB = nil },
 				"db: must be non-nil",
-			),
-			Entry(
-				"ontology",
-				func(c *user.ServiceConfig) { c.Ontology = nil },
-				"ontology: must be non-nil",
-			),
-			Entry(
-				"group",
-				func(c *user.ServiceConfig) { c.Group = nil },
-				"group: must be non-nil",
 			),
 			Entry(
 				"password",
@@ -107,7 +91,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should retrieve a user by its key", func(ctx SpecContext) {
 			created := MustSucceed(
-				w.Create(ctx, user.User{Name: uuid.New().String()}),
+				w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
 			)
 			var u user.User
 			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&u).
@@ -115,8 +99,12 @@ var _ = Describe("Service", func() {
 			Expect(u).To(Equal(created))
 		})
 		It("Should retrieve multiple users by keys", func(ctx SpecContext) {
-			a := MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
-			b := MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
+			a := MustSucceed(
+				w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
+			)
+			b := MustSucceed(
+				w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
+			)
 			var ret []user.User
 			Expect(svc.NewRetrieve().Where(user.MatchKeys(a.Key, b.Key)).Entries(&ret).
 				Exec(ctx, tx)).To(Succeed())
@@ -129,9 +117,11 @@ var _ = Describe("Service", func() {
 			)
 			BeforeEach(func(ctx SpecContext) {
 				username = uuid.New().String()
-				u = MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
+				u = MustSucceed(
+					w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
+				)
 				Expect(
-					passwordSvc.NewWriter(tx).Set(ctx, u.OntologyID(), auth.Credentials{
+					passwordSvc.NewWriter(tx).Set(ctx, u.ResourceID(), auth.Credentials{
 						Username: username,
 						Password: "p",
 					}),
@@ -168,7 +158,7 @@ var _ = Describe("Service", func() {
 			})
 			It("Should exclude the matched users under Not", func(ctx SpecContext) {
 				other := MustSucceed(
-					w.Create(ctx, user.User{Name: uuid.New().String()}),
+					w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
 				)
 				var ret []user.User
 				Expect(svc.NewRetrieve().
@@ -184,7 +174,7 @@ var _ = Describe("Service", func() {
 				rackName := uuid.New().String()
 				Expect(passwordSvc.NewWriter(tx).Set(
 					ctx,
-					ontology.ID{Type: ontology.ResourceTypeRack, Key: rackName},
+					resource.ID{Type: resource.TypeRack, Key: rackName},
 					auth.Credentials{Username: rackName, Password: "p"},
 				)).To(Succeed())
 				var ret []user.User

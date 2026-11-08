@@ -19,9 +19,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -46,10 +46,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc = MustSucceed(apirole.NewService(apirole.ServiceConfig{RBAC: svc.RBAC}))
 })
 
-// createUser creates a user with no role assignments.
+// createUser creates a user that can do nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
@@ -62,25 +62,24 @@ func createRole(ctx SpecContext) role.Role {
 	return r
 }
 
-// grantOn grants the action on the objects to the subject through a fresh role, and
-// returns the role.
+// grantOn grants the action on the objects to the subject through a policy on its own
+// role, and returns that role.
 func grantOn(
 	ctx SpecContext,
-	subject ontology.ID,
+	subject resource.ID,
 	action access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) role.Role {
 	GinkgoHelper()
-	r := createRole(ctx)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	p := &policy.Policy{
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(svc.RBAC.Role.NewWriter(nil, true).AssignRole(ctx, subject, r.Key)).
-		To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	actions := []access.Action{action}
+	p := MustSucceed(
+		rbactestutil.Grant(ctx, svc.RBAC, svc.User, key, actions, objects...),
+	)
+	var r role.Role
+	Expect(svc.RBAC.Role.NewRetrieve().
+		Where(role.MatchKeys(p.Role)).
+		Entry(&r).
+		Exec(ctx, nil)).To(Succeed())
 	return r
 }

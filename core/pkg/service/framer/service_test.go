@@ -151,7 +151,7 @@ var _ = Describe("Service", func() {
 				Expect(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Start: telem.SecondTS,
 					Keys: []channel.Key{
-						distchannel.NewKey(node.Cluster.HostKey(), 9999),
+						distchannel.NewKey(node.Identity.HostKey, 9999),
 					},
 				})).Error().To(MatchError(query.ErrNotFound))
 			},
@@ -201,7 +201,7 @@ var _ = Describe("Service", func() {
 				Expect(framerSvc.NewStreamWriter(ctx, framer.WriterConfig{
 					Start: telem.SecondTS,
 					Keys: []channel.Key{
-						distchannel.NewKey(node.Cluster.HostKey(), 9999),
+						distchannel.NewKey(node.Identity.HostKey, 9999),
 					},
 				})).Error().To(MatchError(query.ErrNotFound))
 			},

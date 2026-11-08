@@ -12,7 +12,6 @@ package v1_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
 )
 
@@ -26,14 +25,9 @@ var _ = Describe("Rack", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should lease the rack to its node", func() {
-			Expect(v1.Rack{Key: key}.SetOptions()).To(Equal([]any{node.Key(3)}))
-		})
-	})
-	Describe("OntologyID", func() {
-		It("Should return the rack ontology identifier", func() {
-			Expect(v1.Rack{Key: key}.OntologyID()).To(Equal(key.OntologyID()))
+	Describe("ResourceID", func() {
+		It("Should return the rack resource identifier", func() {
+			Expect(v1.Rack{Key: key}.ResourceID()).To(Equal(key.ResourceID()))
 		})
 	})
 })

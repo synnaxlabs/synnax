@@ -11,7 +11,6 @@ package v8
 
 import (
 	"context"
-	"crypto/sha1"
 	"slices"
 	"strconv"
 	"strings"
@@ -19,11 +18,15 @@ import (
 
 	"github.com/synnaxlabs/gorp/migrate"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	xuuid "github.com/synnaxlabs/x/uuid"
 )
 
 // lineNamespace is the UUID namespace that line keys are derived in.
@@ -35,14 +38,7 @@ var lineNamespace = uuid.MustParse("a708aa30-81f8-4cf6-82fd-146c35663a6b")
 func LineKey(plot Key, yAxis YAxisKey, yChannel, xChannel channel.Key) string {
 	name := plot.String() + "---" + string(yAxis) + "---" + yChannel.String() + "---" +
 		xChannel.String()
-	h := sha1.New()
-	h.Write(lineNamespace[:])
-	h.Write([]byte(name))
-	var id uuid.UUID
-	copy(id[:], h.Sum(nil))
-	id[6] = (id[6] & 0x0f) | 0x50
-	id[8] = (id[8] & 0x3f) | 0x80
-	return id.String()
+	return xuuid.NewV5(lineNamespace, name).String()
 }
 
 var yAxisKeys = []YAxisKey{YAxisKeyY1, YAxisKeyY2, YAxisKeyY3, YAxisKeyY4}
@@ -262,4 +258,25 @@ func RaiseStrokeWidths(_ context.Context, lp LinePlot) (LinePlot, error) {
 var StrokeWidthMigration = migrate.NewEntry(
 	"v61_min_line_stroke_width",
 	RaiseStrokeWidths,
+)
+
+// MembersMigration sets the group of each stored lineplot from the ontology edge that
+// placed it in a group.
+var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, LinePlot]{
+	Name:         "v61_lineplot_group_membership",
+	Type:         resource.TypeLineplot,
+	SetGroup:     func(e *LinePlot, g groupv1.Key) { e.Group = &g },
+	ProjectOwned: true,
+})
+
+// OwnersMigration sets the project or range of each stored line plot from the ontology
+// edge that owned it, and deletes each line plot with no owner.
+var OwnersMigration = projectv3.NewOwnersMigration(
+	projectv3.OwnersConfig[Key, LinePlot]{
+		Name:     "v61_lineplot_owner",
+		Type:     resource.TypeLineplot,
+		Owned:    func(e LinePlot) bool { return e.Project != nil || e.Range != nil },
+		NameOf:   func(e LinePlot) string { return e.Name },
+		SetOwner: func(e *LinePlot, p, r *uuid.UUID) { e.Project, e.Range = p, r },
+	},
 )

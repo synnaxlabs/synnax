@@ -23,7 +23,6 @@ import { type z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
-  createEntryReadChannel,
   createIdentifier,
   createPDOs,
   createRepeatedNamePDOs,
@@ -91,6 +90,14 @@ const awaitStatus = async (
   });
 };
 
+const THREE_INPUTS: ethercat.PDOEntry[] = [
+  { name: "Status", index: 0x6000, subIndex: 1, bitLength: 16, dataType: "uint16" },
+  { name: "Value", index: 0x6000, subIndex: 2, bitLength: 16, dataType: "int16" },
+  { name: "Overrange", index: 0x6000, subIndex: 3, bitLength: 8, dataType: "uint8" },
+];
+
+const LINEAR = { type: "linear", slope: 2, offset: 0 } as const;
+
 describe("Read", () => {
   it("should render channels from the task row's config with their port labels", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
@@ -101,7 +108,7 @@ describe("Read", () => {
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
-        createEntryReadChannel(slave.key, STATUS_ENTRY),
+        EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
         createUnresolvedReadChannel(slave.key, "Input"),
       ],
     });
@@ -114,7 +121,7 @@ describe("Read", () => {
     const { inputs } = createRepeatedNamePDOs();
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, inputs[1])],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, inputs[1])],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6010:01/ }));
     await waitFor(() => expect(screen.getByText("Slave device")).toBeTruthy());
@@ -129,7 +136,7 @@ describe("Read", () => {
     const { inputs } = createRepeatedNamePDOs();
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, inputs[0])],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, inputs[0])],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6000:01/ }));
     fireEvent.click(await screen.findByRole("button", { name: /^Entry/ }));
@@ -151,7 +158,7 @@ describe("Read", () => {
     });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, value)],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, value)],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6000:01/ }));
     fireEvent.click(await screen.findByRole("button", { name: /^Entry/ }));
@@ -168,7 +175,12 @@ describe("Read", () => {
     const { inputs } = createRepeatedNamePDOs();
     const { draft } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, inputs[0], { dataType: "uint16" })],
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, inputs[0]),
+          dataType: "uint16",
+        },
+      ],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6000:01/ }));
     fireEvent.click(await screen.findByRole("button", { name: /^Entry/ }));
@@ -183,6 +195,32 @@ describe("Read", () => {
         index: 0x6020,
         subIndex: 1,
         dataType: "uint8",
+      });
+    });
+  });
+
+  it("should save the scale picked for a selected channel", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6000:01/ }));
+    expect(await screen.findByText("Scale", { selector: "label" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /None/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Linear/ }));
+    expect(await screen.findByText("Slope")).toBeTruthy();
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0]).toMatchObject({
+        scale: { type: "linear", slope: 1, offset: 0 },
       });
     });
   });
@@ -236,7 +274,12 @@ describe("Read", () => {
     });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, { ...STATUS_ENTRY, subIndex: 2 })],
+      channels: [
+        EtherCAT.Task.createEntryReadChannel(slave.key, {
+          ...STATUS_ENTRY,
+          subIndex: 2,
+        }),
+      ],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6000:02/ }));
     await waitFor(() => expect(screen.getAllByText("0x6000:02")).toHaveLength(2));
@@ -272,6 +315,74 @@ describe("Read", () => {
     ).toBeTruthy();
   });
 
+  it("should add a channel for every unused input of a slave from the context menu", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: THREE_INPUTS, outputs: [] },
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, THREE_INPUTS[0])],
+    });
+    fireEvent.contextMenu(await screen.findByRole("option", { name: /0x6000:01/ }));
+    fireEvent.click(await screen.findByText(`Add every input of ${slave.name}`));
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /0x6000:02/ })).toBeTruthy(),
+    );
+    expect(screen.getByRole("option", { name: /0x6000:03/ })).toBeTruthy();
+    expect(screen.getAllByRole("option", { name: /0x6000:01/ })).toHaveLength(1);
+    fireEvent.contextMenu(screen.getByRole("option", { name: /0x6000:01/ }));
+    await screen.findByText("Duplicate");
+    expect(screen.queryByText(/Add every input/)).toBeNull();
+  });
+
+  it("should not offer every input of a slave when more than one channel is selected", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: THREE_INPUTS, outputs: [] },
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: THREE_INPUTS.slice(0, 2).map((e) =>
+        EtherCAT.Task.createEntryReadChannel(slave.key, e),
+      ),
+    });
+    const first = await screen.findByRole("option", { name: /0x6000:01/ });
+    const second = screen.getByRole("option", { name: /0x6000:02/ });
+    fireEvent.contextMenu(first);
+    expect(await screen.findByText(`Add every input of ${slave.name}`)).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
+    fireEvent.keyUp(window, { key: "Escape", code: "Escape" });
+    await waitFor(() => expect(screen.queryByText("Duplicate")).toBeNull());
+    fireEvent.click(first);
+    fireEvent.keyDown(window, { key: "Control", code: "ControlLeft" });
+    fireEvent.click(second);
+    fireEvent.keyUp(window, { key: "Control", code: "ControlLeft" });
+    await waitFor(() => {
+      expect(first.getAttribute("aria-selected")).toBe("true");
+      expect(second.getAttribute("aria-selected")).toBe("true");
+    });
+    fireEvent.contextMenu(second);
+    await screen.findByText("Duplicate");
+    expect(screen.queryByText(/Add every input/)).toBeNull();
+  });
+
+  it("should add every input of an unresolved channel's slave from the context menu", async () => {
+    const slave = await createRepeatedNameSlave(client, testRack.key);
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createUnresolvedReadChannel(slave.key, "Input")],
+    });
+    fireEvent.contextMenu(await screen.findByRole("option", { name: /Input/ }));
+    fireEvent.click(await screen.findByText(`Add every input of ${slave.name}`));
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /0x6000:01/ })).toBeTruthy(),
+    );
+    expect(screen.getByRole("option", { name: /0x6070:01/ })).toBeTruthy();
+  });
+
   it("should create the index and data channels, update the slave, and save the task", async () => {
     const identifier = createIdentifier();
     const namedChannel = uniqueName("ecat_named");
@@ -284,8 +395,11 @@ describe("Read", () => {
     const { container, draft } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
-        createEntryReadChannel(slave.key, STATUS_ENTRY),
-        createEntryReadChannel(slave.key, second, { name: namedChannel }),
+        EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, second),
+          name: namedChannel,
+        },
       ],
     });
     const created = await deployAndAwaitTask(
@@ -324,7 +438,7 @@ describe("Read", () => {
     const { inputs } = createRepeatedNamePDOs();
     const { container, draft } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: inputs.map((e) => createEntryReadChannel(slave.key, e)),
+      channels: inputs.map((e) => EtherCAT.Task.createEntryReadChannel(slave.key, e)),
     });
     const created = await deployAndAwaitTask(
       client,
@@ -353,8 +467,8 @@ describe("Read", () => {
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
-        createEntryReadChannel(slave.key, inputs[3]),
-        createEntryReadChannel(slave.key, inputs[3]),
+        EtherCAT.Task.createEntryReadChannel(slave.key, inputs[3]),
+        EtherCAT.Task.createEntryReadChannel(slave.key, inputs[3]),
       ],
     });
     await clickDeploy(container);
@@ -377,7 +491,7 @@ describe("Read", () => {
     const { inputs } = createRepeatedNamePDOs();
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, inputs[3])],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, inputs[3])],
     });
     await clickDeploy(container);
     await awaitStatus(
@@ -399,7 +513,7 @@ describe("Read", () => {
     const { container, draft } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
-        createEntryReadChannel(slave.key, inputs[0]),
+        EtherCAT.Task.createEntryReadChannel(slave.key, inputs[0]),
         createUnresolvedReadChannel(slave.key, "Input", { disabled: true }),
       ],
     });
@@ -448,7 +562,7 @@ describe("Read", () => {
     });
     const config = {
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
     };
     const first = await renderRead(config);
     const firstTask = await deployAndAwaitTask(
@@ -482,7 +596,7 @@ describe("Read", () => {
     });
     const first = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
     });
     await deployAndAwaitTask(
       client,
@@ -494,7 +608,10 @@ describe("Read", () => {
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
-        createEntryReadChannel(slave.key, second, { name: `${identifier}_Status` }),
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, second),
+          name: `${identifier}_Status`,
+        },
       ],
     });
     await clickDeploy(container);
@@ -531,7 +648,7 @@ describe("Read", () => {
     });
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
     });
     await clickDeploy(container);
     await awaitStatus(
@@ -553,7 +670,10 @@ describe("Read", () => {
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
-        createEntryReadChannel(slave.key, STATUS_ENTRY, { name: `${identifier}_time` }),
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+          name: `${identifier}_time`,
+        },
       ],
     });
     await clickDeploy(container);
@@ -596,7 +716,7 @@ describe("Read", () => {
     });
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
     });
     await clickDeploy(container);
     await awaitStatus(
@@ -618,7 +738,7 @@ describe("Read", () => {
     });
     const first = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(renamed.key, STATUS_ENTRY)],
+      channels: [EtherCAT.Task.createEntryReadChannel(renamed.key, STATUS_ENTRY)],
     });
     await deployAndAwaitTask(
       client,
@@ -645,7 +765,7 @@ describe("Read", () => {
     });
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
     });
     await clickDeploy(container);
     await awaitStatus(
@@ -665,7 +785,7 @@ describe("Read", () => {
     });
     const config = {
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
     };
     const first = await renderRead(config);
     const firstTask = await deployAndAwaitTask(
@@ -688,6 +808,256 @@ describe("Read", () => {
     );
   });
 
+  it("should give a scaled entry a float64 channel apart from its raw channel", async () => {
+    const identifier = createIdentifier();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const raw = EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY);
+    const first = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [raw],
+    });
+    const rawTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+
+    const second = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [{ ...raw, scale: { type: "linear", slope: 2, offset: 0 } }],
+    });
+    const scaledTask = await deployAndAwaitTask(
+      client,
+      second.container,
+      second.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    const rawKey = rawTask.config.channels[0].channel;
+    const scaledKey = scaledTask.config.channels[0].channel;
+    expect(scaledKey).not.toBe(rawKey);
+    const scaled = await client.channels.retrieve(scaledKey);
+    expect(scaled.name).toBe(`${identifier}_Status_scaled`);
+    expect(scaled.dataType.toString()).toBe("float64");
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(updated.properties.read.channels[`${0x6000}_1`]).toBe(rawKey);
+    expect(updated.properties.read.channels[`scaled_${0x6000}_1`]).toBe(scaledKey);
+  });
+
+  describe("a typed name that the other channel of the entry holds", () => {
+    type Overrides = Partial<ethercat.EntryReadChannel>;
+
+    const expectSecondDeployRejected = async (first: Overrides, second: Overrides) => {
+      const name = uniqueName("ecat_typed");
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      const render = async (overrides: Overrides) =>
+        await renderRead({
+          ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+          channels: [
+            {
+              ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+              name,
+              ...overrides,
+            },
+          ],
+        });
+      const initial = await render(first);
+      await deployAndAwaitTask(
+        client,
+        initial.container,
+        initial.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
+      initial.unmount();
+      const { container, statuses } = await render(second);
+      await clickDeploy(container);
+      await awaitStatus(
+        statuses,
+        new RegExp(
+          `A channel named ${name} already exists\\. Give the channel another name\\.`,
+        ),
+      );
+    };
+
+    it("should reject it for a scaled channel when the raw channel holds it", async () => {
+      await expectSecondDeployRejected({}, { scale: LINEAR });
+    });
+
+    it("should reject it for a raw channel when the scaled channel holds it", async () => {
+      await expectSecondDeployRejected({ scale: LINEAR }, {});
+    });
+  });
+
+  it("should reject two new channels that share a typed name", async () => {
+    const name = uniqueName("ecat_typed");
+    const pdos = createRepeatedNamePDOs();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos,
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: pdos.inputs.slice(0, 2).map((entry) => ({
+        ...EtherCAT.Task.createEntryReadChannel(slave.key, entry),
+        name,
+      })),
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `Two channels of the task use the name ${name}\\. Choose another name for ` +
+          "one of them\\.",
+      ),
+    );
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(updated.properties.read.channels).toEqual({});
+  });
+
+  it("should reject a typed name that new channels of two slaves share", async () => {
+    const name = uniqueName("ecat_typed");
+    const slaves = await Promise.all(
+      [0, 1].map(
+        async () =>
+          await createSlaveDevice(client, testRack.key, {
+            identifier: createIdentifier(),
+            network: "eth0",
+            pdos: createPDOs(),
+          }),
+      ),
+    );
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: slaves.map((slave) => ({
+        ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+        name,
+      })),
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(`Two channels of the task use the name ${name}\\.`),
+    );
+    for (const slave of slaves) {
+      const updated = await client.devices.retrieve({
+        key: slave.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(updated.properties.readIndex).toBe(0);
+      expect(updated.properties.read.channels).toEqual({});
+    }
+    expect(await client.channels.retrieve({ name: [name] })).toEqual([]);
+  });
+
+  it("should deploy once the user fixes a rejected name", async () => {
+    const name = uniqueName("ecat_typed");
+    const pdos = createRepeatedNamePDOs();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos,
+    });
+    const render = async (second: string) =>
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [
+          { ...EtherCAT.Task.createEntryReadChannel(slave.key, pdos.inputs[0]), name },
+          {
+            ...EtherCAT.Task.createEntryReadChannel(slave.key, pdos.inputs[1]),
+            name: second,
+          },
+        ],
+      });
+    const rejected = await render(name);
+    await clickDeploy(rejected.container);
+    await awaitStatus(rejected.statuses, /Two channels of the task use the name/);
+    rejected.unmount();
+    const fixed = await render(`${name}_2`);
+    const deployed = await deployAndAwaitTask(
+      client,
+      fixed.container,
+      fixed.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    const created = await client.channels.retrieve(
+      deployed.config.channels.map(({ channel }) => channel),
+    );
+    expect(created.map((c) => c.name).toSorted()).toEqual([name, `${name}_2`]);
+  });
+
+  it("should keep a typed name for a scaled channel when no raw channel holds it", async () => {
+    const name = uniqueName("ecat_typed");
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+          name,
+          scale: LINEAR,
+        },
+      ],
+    });
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    const scaled = await client.channels.retrieve(deployed.config.channels[0].channel);
+    expect(scaled.name).toBe(name);
+  });
+
+  it("should reuse a scaled entry's float64 channel when redeployed", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const config = {
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+          scale: LINEAR,
+        },
+      ],
+    };
+    const deploy = async () => {
+      const rendered = await renderRead(config);
+      const deployed = await deployAndAwaitTask(
+        client,
+        rendered.container,
+        rendered.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
+      rendered.unmount();
+      return deployed.config.channels[0].channel;
+    };
+    const first = await deploy();
+    expect(await deploy()).toBe(first);
+  });
+
   it("should reject a data type that differs from the mapped channel's", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
@@ -697,7 +1067,12 @@ describe("Read", () => {
     const render = async (dataType: string) =>
       await renderRead({
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [createEntryReadChannel(slave.key, STATUS_ENTRY, { dataType })],
+        channels: [
+          EtherCAT.Task.createEntryReadChannel(slave.key, {
+            ...STATUS_ENTRY,
+            dataType,
+          }),
+        ],
       });
     const first = await render("uint16");
     await deployAndAwaitTask(
@@ -724,7 +1099,12 @@ describe("Read", () => {
       });
       const { container, draft, unmount } = await renderRead({
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [createEntryReadChannel(slave.key, STATUS_ENTRY, { dataType })],
+        channels: [
+          {
+            ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+            dataType,
+          },
+        ],
       });
       const deployed = await deployAndAwaitTask(
         client,
@@ -737,7 +1117,17 @@ describe("Read", () => {
         key: slave.key,
         schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
-      return { slave: updated, channel: deployed.config.channels[0].channel };
+      return {
+        slave: updated,
+        channel: deployed.config.channels[0].channel,
+        task: deployed.key,
+      };
+    };
+
+    // The Core refuses to delete a slave that a task uses.
+    const deleteSlave = async (slave: string, task: string) => {
+      await client.tasks.delete(task);
+      await client.devices.delete(slave);
     };
 
     const renderSlave = async (
@@ -751,7 +1141,12 @@ describe("Read", () => {
       });
       const rendered = await renderRead({
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [createEntryReadChannel(slave.key, STATUS_ENTRY, { dataType })],
+        channels: [
+          {
+            ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+            dataType,
+          },
+        ],
       });
       return { slave, ...rendered };
     };
@@ -759,7 +1154,7 @@ describe("Read", () => {
     it("should reuse the index and data channels of the deleted slave", async () => {
       const identifier = createIdentifier();
       const first = await deploySlave(identifier);
-      await client.devices.delete(first.slave.key);
+      await deleteSlave(first.slave.key, first.task);
       const second = await deploySlave(identifier);
       expect(second.channel).toBe(first.channel);
       expect(second.slave.properties.readIndex).toBe(first.slave.properties.readIndex);
@@ -779,24 +1174,27 @@ describe("Read", () => {
         });
         const rendered = await renderRead({
           ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-          channels: entries.map((e) => createEntryReadChannel(slave.key, e, { name })),
+          channels: entries.map((e) => ({
+            ...EtherCAT.Task.createEntryReadChannel(slave.key, e),
+            name,
+          })),
         });
         return { slave, ...rendered };
       };
       const first = await render([STATUS_ENTRY]);
-      await deployAndAwaitTask(
+      const deployed = await deployAndAwaitTask(
         client,
         first.container,
         first.draft.key,
         EtherCAT.Task.READ_SCHEMAS,
       );
       first.unmount();
-      await client.devices.delete(first.slave.key);
+      await deleteSlave(first.slave.key, deployed.key);
       const { container, statuses } = await render([STATUS_ENTRY, second]);
       await clickDeploy(container);
       await awaitStatus(
         statuses,
-        new RegExp(`A channel named ${name} already exists\\.`),
+        new RegExp(`Two channels of the task use the name ${name}\\.`),
       );
     });
 
@@ -840,7 +1238,7 @@ describe("Read", () => {
     it("should reject a data type that differs from the deleted slave's channel", async () => {
       const identifier = createIdentifier();
       const first = await deploySlave(identifier, "uint16");
-      await client.devices.delete(first.slave.key);
+      await deleteSlave(first.slave.key, first.task);
       const { container, statuses } = await renderSlave(identifier, "int16");
       await clickDeploy(container);
       await awaitStatus(statuses, /holds uint16 data, not int16/);
@@ -856,7 +1254,10 @@ describe("Read", () => {
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
-        createEntryReadChannel(slave.key, STATUS_ENTRY, { dataType: "float64" }),
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+          dataType: "float64",
+        },
       ],
     });
     await clickDeploy(container);
@@ -891,35 +1292,11 @@ describe("Read", () => {
     );
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
     });
     await clickDeploy(container);
     await awaitStatus(statuses, /Failed to/);
     await awaitStatus(statuses, /is not configured/);
-  });
-
-  it("should surface an error when a slave no longer exists", async () => {
-    const createSlave = async () =>
-      await createSlaveDevice(client, testRack.key, {
-        identifier: createIdentifier(),
-        network: "eth0",
-        pdos: createPDOs(),
-      });
-    const slave = await createSlave();
-    const deleted = await createSlave();
-    await client.devices.delete(deleted.key);
-    const { container, statuses } = await renderRead({
-      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [
-        createEntryReadChannel(slave.key, STATUS_ENTRY),
-        createEntryReadChannel(deleted.key, STATUS_ENTRY),
-      ],
-    });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      new RegExp(`^Found no device with key ${deleted.key}$`),
-    );
   });
 
   it("should create the task with one channel", async () => {
@@ -928,6 +1305,46 @@ describe("Read", () => {
       EtherCAT.Task.READ_SCHEMAS,
     );
     expect(tsk.config.channels).toHaveLength(1);
+  });
+
+  it("should create the task from a slave with a channel for each input", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createRepeatedNamePDOs(),
+    });
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateRead,
+      EtherCAT.Task.READ_SCHEMAS,
+      { deviceKey: slave.key },
+    );
+    const addresses = tsk.config.channels.map((ch) =>
+      ch.type === "entry"
+        ? { device: ch.device, index: ch.index, subIndex: ch.subIndex }
+        : ch.type,
+    );
+    expect(addresses).toEqual(
+      slave.properties.pdos.inputs.map(({ index, subIndex }) => ({
+        device: slave.key,
+        index,
+        subIndex,
+      })),
+    );
+  });
+
+  it("should create the task from a slave without inputs with one channel on it", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [], outputs: createPDOs().outputs },
+    });
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateRead,
+      EtherCAT.Task.READ_SCHEMAS,
+      { deviceKey: slave.key },
+    );
+    expect(tsk.config.channels).toHaveLength(1);
+    expect(tsk.config.channels[0].device).toEqual(slave.key);
   });
 });
 
@@ -941,7 +1358,12 @@ describe("Read channel names", () => {
     });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY, overrides)],
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+          ...overrides,
+        },
+      ],
     });
     return await findChannelListItem(channel.escapeInvalidName(`${identifier}_Status`));
   };

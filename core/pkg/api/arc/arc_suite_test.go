@@ -11,7 +11,6 @@ package arc_test
 
 import (
 	"testing"
-	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,19 +21,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -52,9 +48,8 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db       *gorp.DB
-	otg      *ontology.Ontology
 	rbacSvc  *rbac.Service
-	groupSvc *group.Service
+	userSvc  *user.Service
 	arcSvc   *arc.Service
 	apiSvc   *apiarc.Service
 	author   user.User
@@ -66,66 +61,30 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	db = node.DB
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
-	}))
-	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:                  db,
-		Ontology:            otg,
-		Group:               groupSvc,
-		HostProvider:        testutil.NewStaticHostProvider(1),
-		Status:              statusSvc,
-		HealthCheckInterval: 10 * telem.Millisecond,
-		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
-	}))
-	imexSvc := imex.NewService()
-	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
-	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:           db,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Rack:         rackSvc,
-		Status:       statusSvc,
-		ImEx:         imexSvc,
-		Configs:      configs,
-		ImExExcluded: []string{arctask.Type},
-	}))
-	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           db,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
-	}))
-	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Channel:  channelSvc,
-		Task:     taskSvc,
-		Status:   statusSvc,
-		ImEx:     imexSvc,
+		DB: db,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
 		Password: passwordSvc,
+	}))
+	roles := MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db}))
+	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:                  db,
+		HostKey:             1,
+		Status:              statusSvc,
+		HealthCheckInterval: 10 * telem.Millisecond,
+		DriverRole:          roles.Builtin.DriverKey,
+	}))
+	rbacSvc = MustSucceed(rbac.NewService(ctx, rbac.ServiceConfig{
+		DB:    db,
+		Roles: roles,
+		User:  userSvc,
+		Rack:  rackSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -133,13 +92,35 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			userSvc,
 			passwordSvc,
 			auth.Credentials{Username: "suite-root", Password: "p"},
+			roles.Builtin.OwnerKey,
 		),
 	)
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		User:     userSvc,
+	imexSvc := imex.NewService()
+	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
+	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
+	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
+	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:           db,
+		Rack:         rackSvc,
+		Status:       statusSvc,
+		ImEx:         imexSvc,
+		Configs:      configs,
+		ImExExcluded: []string{arctask.Type},
+	}))
+	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
+	}))
+	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
+		DB:         db,
+		Table:      arcTable,
+		Channel:    channelSvc,
+		Task:       taskSvc,
+		MatchTasks: arcTaskSvc.MatchArcs,
+		Status:     statusSvc,
+		ImEx:       imexSvc,
 	}))
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
 		RBAC:   rbacSvc,
@@ -147,45 +128,32 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status: statusSvc,
 	}))
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
+		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
 	testRack = &rack.Rack{Name: "API Test Rack"}
 	Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 })
 
-// grantOn creates a policy granting the given action on the given objects to a
-// fresh role and assigns the role to the given subject. Writes commit directly
-// to the database so the api enforcers (which read committed state with no
-// transaction) can observe them. The assignment is unassigned on spec cleanup so
-// a grant cannot leak into later randomized specs.
+// grantOn grants the action on the objects to the subject through a new policy, which
+// is deleted on spec cleanup so a grant cannot leak into later specs.
 func grantOn(
 	ctx SpecContext,
-	subject ontology.ID,
+	subject resource.ID,
 	action access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{
-		Name:        string(action) + "-" + uuid.New().String(),
-		Description: "test",
-	}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    string(action) + "-policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	actions := []access.Action{action}
+	p := MustSucceed(
+		rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...),
+	)
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(roleWriter.UnassignRole(ctx, subject, r.Key)).To(Succeed())
+		Expect(rbacSvc.Policy.NewWriter(nil, false).Delete(ctx, p.Key)).To(Succeed())
 	})
 }
 
-func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
 }

@@ -70,20 +70,23 @@ def retrieve_present_device(client: sy.Synnax, location: str) -> sy.Device:
     :raises TimeoutError: If the location does not hold exactly one present device
         within 30 seconds.
     """
-    timer = sy.Timer()
-    while True:
+    found = ""
+
+    def present() -> sy.Device | None:
+        nonlocal found
         devices = client.devices.retrieve(location=location, include_status=True)
-        present = [
+        matches = [
             d for d in devices if d.status is not None and d.status.variant == "success"
         ]
-        if len(present) == 1:
-            return present[0]
-        if timer.elapsed() > _PRESENT_TIMEOUT:
-            raise TimeoutError(
-                f"Expected one present device at {location}, but found "
-                f"{len(present)} of {len(devices)}"
-            )
-        sy.sleep(0.5)
+        found = f"{len(matches)} of {len(devices)}"
+        return matches[0] if len(matches) == 1 else None
+
+    device = sy.poll(present, timeout=_PRESENT_TIMEOUT, interval=0.5)
+    if device is None:
+        raise TimeoutError(
+            f"Expected one present device at {location}, but found {found}"
+        )
+    return device
 
 
 class _NITaskMixin(TaskCase[TaskT]):
@@ -97,6 +100,8 @@ class _NITaskMixin(TaskCase[TaskT]):
     """
 
     device_locations: list[str] = []
+    # False for real devices, whose machine must keep its NI MAX configuration.
+    simulated: bool = True
     devices: dict[str, sy.Device]
 
     @classmethod
@@ -114,7 +119,8 @@ class _NITaskMixin(TaskCase[TaskT]):
     def setup(self) -> None:
         if platform.system().lower() != "windows":
             self.skip("Windows DAQmx drivers required")
-        _ensure_ni_max_config(self.log)
+        if self.simulated:
+            _ensure_ni_max_config(self.log)
         # The NI scanner registers devices with location = NI MAX alias.
         # Resolve all locations upfront so concrete tests can use
         # devices[location] in create_channels without additional retrieves.

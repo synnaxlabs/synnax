@@ -9,7 +9,7 @@
 
 import synnax as sy
 from console.case import ConsoleCase
-from framework.utils import create_indexed_channels, create_time_index
+from framework.utils import create_time_index
 from x import random_name
 
 
@@ -30,16 +30,18 @@ class ToolbarSearch(ConsoleCase):
         self.names = [f"{self.token}_flow_{i}" for i in range(3)]
         self.other = f"plain_{random_name().lower()}"
         self.index = create_time_index(self.client, f"search_time_{random_name()}")
-        created = create_indexed_channels(
-            self.client, [*self.names, self.other], index_key=self.index.key
-        )
-        channels_group = sy.group.ontology_id(self.client.channels.retrieve_group().key)
-        grp = self.client.groups.create(channels_group, self.group_name)
+        grp = self.client.groups.create(self.group_name, scope="channel")
         self.group_key = grp.key
-        self.client.ontology.move_children(
-            channels_group,
-            sy.group.ontology_id(grp.key),
-            *[ch.ontology_id for ch in created],
+        self.client.channels.create(
+            [
+                sy.Channel(
+                    name=name,
+                    data_type=sy.DataType.FLOAT32,
+                    index=self.index.key,
+                    group=grp.key,
+                )
+                for name in [*self.names, self.other]
+            ]
         )
 
     def run(self) -> None:

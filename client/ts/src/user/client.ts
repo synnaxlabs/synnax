@@ -11,10 +11,11 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, filter, type observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { role } from "@/access/role";
 import { type connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
 import { Current } from "@/user/current";
 import {
   type Key,
@@ -67,8 +68,14 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
+const setRoleReqZ = z.object({ keys: keyZ.array(), role: role.keyZ });
+const setRoleResZ = z.object({});
 
-const LINES: Lines = { usernames: null };
+// The username lives on the user's password, so only the Core can match it.
+const LINES: Lines = {
+  usernames: null,
+  roles: (u, roles) => roles.includes(u.role),
+};
 
 export const SET_CHANNEL_NAME = "sy_user_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
@@ -87,7 +94,6 @@ const singleIdentifier = (params: SingleParams): string =>
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
   connection: connection.Client;
   /** Carries the user after each login, and undefined when the credentials change. */
   identity: observe.Observable<User | undefined>;
@@ -103,8 +109,9 @@ export class Client extends query.Retriever<
 > {
   /** The signed-in user. */
   readonly current: Current;
+  /** The users that the client holds, by key. */
+  readonly store: query.Table<Key, User>;
   private readonly cfg: ClientConfig;
-  private readonly store: query.Table<Key, User>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -177,10 +184,7 @@ export class Client extends query.Retriever<
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     await query.optimistic({
-      rollbacks: [
-        query.partialUpdate(this.store, key, { name }),
-        this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-      ],
+      rollbacks: [query.partialUpdate(this.store, key, { name })],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
         await this.cfg.unary.send(
@@ -192,12 +196,35 @@ export class Client extends query.Retriever<
     });
   }
 
+  /**
+   * Gives the role to the users with the given keys in one transaction.
+   * @throws {ValidationError} if a user is a root user or the role does not exist.
+   * @throws {NotFoundError} if a user does not exist.
+   * @throws {AccessDeniedError} if the caller cannot update the users, the role, or the
+   * roles the users hold now.
+   */
+  async setRole(
+    keys: Key | Key[],
+    role: role.Key,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const keysArr = array.toArray(keys);
+    await query.optimistic({
+      rollbacks: keysArr.map((key) => query.partialUpdate(this.store, key, { role })),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/user/set-role",
+          { keys: keysArr, role },
+          setRoleReqZ,
+          setRoleResZ,
+        ),
+    });
+  }
+
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -232,5 +259,5 @@ const checkSingle = (params: SingleParams, users: User[]): void => {
     );
 };
 
-export const ontologyID = ontology.createIDFactory<Key>("user");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("user");
+export const TYPE_RESOURCE_ID = resourceID("");

@@ -133,8 +133,9 @@ func (v *Validator) LessThanEq[T types.Numeric](
 }
 
 // NonZero returns true and attaches an error to v if the value is zero.
-func (v *Validator) NonZero[T types.Numeric](field string, value T) bool {
-	return v.Ternary(field, value == 0, "must be non-zero")
+func (v *Validator) NonZero[T comparable](field string, value T) bool {
+	var zero T
+	return v.Ternary(field, value == zero, "must be non-zero")
 }
 
 // NonZeroable returns true and attaches an error to v if the value reports itself as

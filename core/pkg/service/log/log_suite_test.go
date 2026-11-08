@@ -15,14 +15,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestLog(t *testing.T) {
@@ -33,44 +34,46 @@ func TestLog(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	proj    project.Project
-	svc     *log.Service
-	imexSvc *imex.Service
-	tx      gorp.Tx
+	db         *gorp.DB
+	channelSvc *channel.Service
+	groupSvc   *group.Service
+	proj       project.Project
+	projectSvc *project.Service
+	svc        *log.Service
+	imexSvc    *imex.Service
+	// ch1 through ch99 are channels that the specs log.
+	ch1, ch2, ch3, ch4, ch5, ch10, ch42, ch99 channel.Key
 )
 
-var (
-	_ = BeforeSuite(func(ctx SpecContext) {
-		ShouldNotLeakGoroutines()
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		var (
-			g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-		)
-		imexSvc = imex.NewService()
-		projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			ImEx:     imexSvc,
-			Panel:    panelSvc,
-		}))
-		svc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			ImEx:     imexSvc,
-		}))
-		proj.Name = "test-project"
-		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
-	})
-	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-)
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB: db,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB: db,
+	}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
+	}))
+	chs := []*channel.Key{&ch1, &ch2, &ch3, &ch4, &ch5, &ch10, &ch42, &ch99}
+	keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, len(chs)))
+	for i, ch := range chs {
+		*ch = keys[i]
+	}
+	imexSvc = imex.NewService()
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
+		DB: db,
+	}))
+	svc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
+		DB:   db,
+		ImEx: imexSvc,
+	}))
+	proj.Name = "test-project"
+	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+})

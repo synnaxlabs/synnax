@@ -206,8 +206,7 @@ class TaskPage(ConsolePage):
     def verify_config(self, expected_channels: list[str]) -> None:
         """Verify the task config page is visible and contains expected channels.
 
-        Args:
-            expected_channels: Channel identifiers expected in the channel list.
+        :param expected_channels: Channel identifiers expected in the channel list.
         """
         if self.pane_locator is None:
             raise RuntimeError("No pane locator available for config verification")

@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
@@ -41,45 +40,32 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
 
-	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
-	if err != nil {
-		b.Fatalf("failed to open ontology: %v", err)
-	}
-
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open group service: %v", err)
 	}
 
 	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open label service: %v", err)
 	}
 
 	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 
 	channelSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
@@ -97,7 +83,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		ctx:  b.Context(),
 		node: node,
 		closer: io.MultiCloser{
-			node, otg, groupSvc, channelSvc, statusSvc, labelSvc,
+			node, groupSvc, channelSvc, statusSvc, labelSvc,
 		},
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),

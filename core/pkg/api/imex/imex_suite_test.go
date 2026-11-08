@@ -17,12 +17,11 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -46,31 +45,28 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg,
-	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
 		Password: passwordSvc,
 	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB: db,
+	}))
+	rbacSvc := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+		DB:     db,
+		User:   userSvc,
+		Status: statusSvc,
+	})).RBAC
 	MustSucceed2(
 		user.ProvisionRoot(
 			ctx,
 			userSvc,
 			passwordSvc,
 			auth.Credentials{Username: "api-imex-suite-root", Password: "p"},
+			rbacSvc.Builtin.OwnerKey,
 		),
 	)
-	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		User:     userSvc,
-	}))
 	imexSvc = imex.NewService()
 	importer = &recordingImporter{}
 	Expect(imexSvc.RegisterImporter(string(importer.Type()), importer)).To(Succeed())
@@ -88,6 +84,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // passes.
 func rootCtx(ctx SpecContext) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", root.OntologyID())
+	fctx.Set("Subject", root.ResourceID())
 	return fctx
 }

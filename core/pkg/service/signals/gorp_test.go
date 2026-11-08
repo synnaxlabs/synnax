@@ -28,8 +28,6 @@ type testUUIDEntry struct {
 
 func (t testUUIDEntry) GorpKey() uuid.UUID { return t.Key }
 
-func (testUUIDEntry) SetOptions() []any { return nil }
-
 type testNumericEntry struct {
 	Value string `json:"value"`
 	Key   uint32 `json:"key"`
@@ -37,16 +35,12 @@ type testNumericEntry struct {
 
 func (t testNumericEntry) GorpKey() uint32 { return t.Key }
 
-func (testNumericEntry) SetOptions() []any { return nil }
-
 type testStringEntry struct {
 	Key   string `json:"key"`
 	Value int    `json:"value"`
 }
 
 func (t testStringEntry) GorpKey() string { return t.Key }
-
-func (testStringEntry) SetOptions() []any { return nil }
 
 var _ = Describe("GorpPublisherConfig", func() {
 	var (
@@ -57,23 +51,16 @@ var _ = Describe("GorpPublisherConfig", func() {
 	)
 
 	BeforeEach(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		uuidTable = MustSucceed(
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		uuidTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, testUUIDEntry]{DB: db}),
 		)
-		numTable = MustSucceed(
+		numTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[uint32, testNumericEntry]{DB: db}),
 		)
-		stringTable = MustSucceed(
+		stringTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[string, testStringEntry]{DB: db}),
 		)
-	})
-
-	AfterEach(func() {
-		Expect(uuidTable.Close()).To(Succeed())
-		Expect(numTable.Close()).To(Succeed())
-		Expect(stringTable.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
 	})
 
 	Describe("MarshalJSON", func() {
