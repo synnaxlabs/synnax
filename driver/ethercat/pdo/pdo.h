@@ -170,16 +170,17 @@ find_offset(const Offsets &offsets, const Entry &entry) {
 }
 
 /// @brief computes bit-granularity offsets for a slave's PDO properties list,
-/// accumulating from a base byte offset. Padding counts toward later offsets and gets
-/// no offset of its own.
+/// accumulating from start_bit of the byte at base_byte_offset. Padding counts toward
+/// later offsets and gets no offset of its own.
 inline void compute_offsets(
     Offsets &offsets,
     const uint16_t slave_position,
     const std::vector<Properties> &pdos,
     const bool is_input,
-    const size_t base_byte_offset
+    const size_t base_byte_offset,
+    const uint8_t start_bit = 0
 ) {
-    size_t bit_offset = 0;
+    size_t bit_offset = start_bit;
     for (const auto &pdo: pdos) {
         if (!pdo.is_padding())
             offsets[Key{slave_position, pdo.index, pdo.sub_index, is_input}] = {

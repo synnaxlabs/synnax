@@ -575,14 +575,16 @@ master::Image Master::image() {
             props.position,
             props.input_pdos,
             true,
-            input_offset
+            input_offset,
+            this->record(props.position).Istartbit
         );
         pdo::compute_offsets(
             image.offsets,
             props.position,
             props.output_pdos,
             false,
-            output_offset
+            output_offset,
+            this->record(props.position).Ostartbit
         );
     }
     return image;

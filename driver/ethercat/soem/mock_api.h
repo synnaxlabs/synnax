@@ -50,6 +50,10 @@ struct MockSlaveInfo {
     /// IOmap.
     size_t output_offset = 0;
     size_t input_offset = 0;
+    /// @brief the bit of its first byte where config_map_group starts the outputs and
+    /// inputs of a slave that maps fewer than 8 bits.
+    uint8_t output_start_bit = 0;
+    uint8_t input_start_bit = 0;
     uint16_t mbx_proto = 0;
     uint16_t ALstatuscode = 0;
     /// @brief whether the slave has a distributed clock.
@@ -293,6 +297,8 @@ public:
             slave.Obits = info.Obits;
             slave.outputs = base + info.output_offset;
             slave.inputs = base + info.input_offset;
+            slave.Ostartbit = info.output_start_bit;
+            slave.Istartbit = info.input_start_bit;
         }
         auto &mapped = this->context.grouplist[group];
         mapped.Ibytes = this->ibytes;
