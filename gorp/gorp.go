@@ -35,8 +35,9 @@ func Wrap(
 // the transaction (Tx) interface. A query that writes through a DB used as a Tx runs in
 // a transaction of its own, and a read through it sees committed state only.
 //
-// Transactions of one DB run one at a time: each holds the write lock of the DB from
-// OpenTx until it commits or closes.
+// Transactions of one DB run one at a time: each holds the lock of the DB alone from
+// OpenTx until it commits or closes. WithSnapshot holds the lock shared, so snapshots
+// run at the same time as each other but never during a transaction.
 type DB struct {
 	// DB is the underlying key-value store.
 	kv.DB
@@ -45,18 +46,19 @@ type DB struct {
 	options
 	// registry holds the tables that take part in references.
 	registry *registry
-	// lock is the write lock that each open transaction holds.
-	lock sync.Mutex
+	// lock is held alone by each open transaction and shared by each snapshot.
+	lock sync.RWMutex
 }
 
 var _ Tx = (*DB)(nil)
 
-// lockWaitWarning is the wait for the write lock past which OpenTx logs a warning.
+// lockWaitWarning is the wait for the lock past which OpenTx and WithSnapshot log a
+// warning.
 const lockWaitWarning = 500 * time.Millisecond
 
-// OpenTx begins a new Tx against the DB. It blocks until no other Tx of the DB is open.
-// A goroutine that opens a second Tx, or writes through the DB, while its first Tx is
-// open deadlocks.
+// OpenTx begins a new Tx against the DB. It blocks until no other Tx and no snapshot of
+// the DB is open. A goroutine that opens a second Tx, or writes through the DB, while
+// its first Tx is open deadlocks.
 func (db *DB) OpenTx() Tx {
 	start := time.Now()
 	db.lock.Lock()
@@ -92,6 +94,16 @@ func inTx(ctx context.Context, tx Tx, f func(tx Tx) error) error {
 // it commit directly.
 func (db *DB) txIdentity() *txState { return nil }
 
+// snapshot is the Snapshot that WithSnapshot passes to its callback. It has only read
+// methods, so the callback cannot write through it.
+type snapshot struct {
+	kv.Reader
+	encoding.Decoder
+}
+
+// txIdentity returns nil, because a snapshot stages no writes.
+func (snapshot) txIdentity() *txState { return nil }
+
 // WithTx executes the callback within the provided transaction Tx. If the callback
 // returns an error, the transaction is aborted, no writes are committed, and the
 // error is returned. If the callback returns nil, the transaction is committed.
@@ -104,6 +116,23 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 		err = txn.Commit(ctx)
 	}
 	return err
+}
+
+// WithSnapshot runs f with a Snapshot of the DB and returns the error of f. No
+// transaction of the DB opens while f runs, so the entries and indexes that f reads
+// agree. Snapshots run at the same time as each other. f must not open a transaction,
+// write through the DB, or call WithSnapshot, since each can deadlock.
+func (db *DB) WithSnapshot(_ context.Context, f func(Snapshot) error) error {
+	start := time.Now()
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+	if wait := time.Since(start); wait > lockWaitWarning {
+		db.Instrumentation.L.Warn(
+			"gorp snapshot waited long for the read lock",
+			zap.Duration("wait", wait),
+		)
+	}
+	return f(snapshot{Reader: db.DB, Decoder: db.Codec})
 }
 
 // OnCommit runs fn after tx commits and releases the write lock, and never when tx
@@ -149,16 +178,26 @@ func OverrideTx(
 // ideal for allowing a caller to execute operations within an atomic transaction
 // if they desire to do so, or simply use the DB directly otherwise.
 //
-// Tx is sealed: the unexported txIdentity method prevents external packages
-// from providing their own implementations.
+// A Tx is a Snapshot that also sees its own writes. Tx is sealed through Snapshot.
 type Tx interface {
+	Snapshot
 	kv.Tx
 	encoding.Codec
-	// txIdentity returns a state handle scoped to this transaction's
-	// lifetime. The handle is stable from open through Commit or Close,
-	// so callers may use the pointer as a map key. A nil return means
-	// the receiver is not a real transaction (e.g. a DB used directly),
-	// and callers should treat the operation as already committed.
+}
+
+// Snapshot is the read interface of a DB. DB.WithSnapshot passes a Snapshot of
+// committed state.
+//
+// Snapshot is sealed: the unexported txIdentity method prevents external packages from
+// providing their own implementations.
+type Snapshot interface {
+	kv.Reader
+	encoding.Decoder
+	// txIdentity returns a state handle scoped to this transaction's lifetime. The
+	// handle is stable from open through Commit or Close, so callers may use the
+	// pointer as a map key. A nil return means the receiver is not a real transaction
+	// (e.g. a DB used directly or a snapshot), and callers should treat the operation
+	// as already committed.
 	txIdentity() *txState
 }
 
@@ -167,8 +206,15 @@ type Tx interface {
 type Context struct {
 	// Context is the underlying request-scoped context.
 	context.Context
-	// Tx is the transaction the query is operating under.
+	// Tx is the transaction the query is operating under. It is nil when the query
+	// reads through a Snapshot that is not a Tx.
 	Tx Tx
+}
+
+// newContext returns the Context of a query that reads through snap.
+func newContext(ctx context.Context, snap Snapshot) Context {
+	tx, _ := snap.(Tx)
+	return Context{Context: ctx, Tx: tx}
 }
 
 // txState owns per-tx ephemeral state and runs cleanups when the owning
@@ -304,8 +350,8 @@ func (t *tx) end(committed bool) {
 	t.unlock = nil
 }
 
-func checkForNilTx(method string, tx Tx) {
-	if tx == nil {
+func checkForNilTx(method string, snap Snapshot) {
+	if snap == nil {
 		panic("[gorp] - nil transaction - please provide transaction to " + method)
 	}
 }

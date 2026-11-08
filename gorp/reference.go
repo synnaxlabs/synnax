@@ -358,15 +358,15 @@ func (r *reference[K, E, T]) detachTarget(e *E, target Target) bool {
 	return true
 }
 
-// Get returns the keys of the entries that hold any of targets, with the changes
-// staged against tx applied. Pass a nil tx to skip staged changes. See LookupIndex.Get
-// for its contract.
+// Get returns the keys of the entries that hold any of targets, with the changes staged
+// against snap applied. Pass a nil snap to skip staged changes. See LookupIndex.Get for
+// its contract.
 func (r *reference[K, E, T]) Get(
 	ctx context.Context,
-	tx Tx,
+	snap Snapshot,
 	targets ...T,
 ) ([]K, error) {
-	return probe(ctx, r.store, tx, targets)
+	return probe(ctx, r.store, snap, targets)
 }
 
 // Filter returns a Filter matching entries that hold any of targets. It sees the
@@ -385,7 +385,7 @@ func (r *reference[K, E, T]) Filter(targets ...T) Filter[K, E] {
 // index failed to populate.
 func (r *reference[K, E, T]) FilterHolding(holding bool) Filter[K, E] {
 	return Filter[K, E]{
-		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
 			if err := r.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
 				return resolved[K, E]{}, nil
 			} else if err != nil {
@@ -393,7 +393,7 @@ func (r *reference[K, E, T]) FilterHolding(holding bool) Filter[K, E] {
 			}
 			// eval drops the keys of a commit in flight that fails.
 			committing := r.store.CommittingHolding(holding)
-			keys, err := r.store.Holding(scopeOf(tx), holding)
+			keys, err := r.store.Holding(scopeOf(snap), holding)
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
@@ -416,11 +416,11 @@ func (r *reference[K, E, T]) FilterHolding(holding bool) Filter[K, E] {
 func (r *reference[K, E, T]) FilterAs[F Entry[K]](targets ...T) Filter[K, F] {
 	captured := slices.Clone(targets)
 	return Filter[K, F]{
-		resolve: func(ctx context.Context, tx Tx) (resolved[K, F], error) {
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, F], error) {
 			if err := r.store.Wait(ctx); err != nil {
 				return resolved[K, F]{}, err
 			}
-			keys, err := r.store.Get(scopeOf(tx), captured...)
+			keys, err := r.store.Get(scopeOf(snap), captured...)
 			if err != nil {
 				return resolved[K, F]{}, err
 			}
@@ -437,14 +437,14 @@ func (r *reference[K, E, T]) FilterAs[F Entry[K]](targets ...T) Filter[K, F] {
 // dependents implements registeredReference.
 func (r *reference[K, E, T]) dependents(
 	ctx context.Context,
-	tx Tx,
+	snap Snapshot,
 	target Target,
 ) ([]string, error) {
 	t, ok := r.parse(target)
 	if !ok {
 		return nil, nil
 	}
-	keys, err := probe(ctx, r.store, tx, []T{t})
+	keys, err := probe(ctx, r.store, snap, []T{t})
 	if err != nil {
 		return nil, err
 	}

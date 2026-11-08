@@ -11,6 +11,7 @@ package gorp_test
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -123,7 +124,7 @@ var _ = Describe("DB", func() {
 		)
 	})
 
-	Describe("Write lock", func() {
+	Describe("Lock", func() {
 		var (
 			lockDB *gorp.DB
 			logs   *observer.ObservedLogs
@@ -227,6 +228,190 @@ var _ = Describe("DB", func() {
 		It("Should not warn when a transaction gets the lock at once", func() {
 			Expect(lockDB.OpenTx().Close()).To(Succeed())
 			Expect(logs.Len()).To(BeZero())
+		})
+
+		Describe("WithSnapshot", func() {
+			var (
+				table   *gorp.Table[int32, indexedEntry]
+				nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
+			)
+			BeforeEach(func(ctx SpecContext) {
+				nameIdx = gorp.NewLookupIndex(
+					"name", func(e *indexedEntry) string { return e.Name },
+				)
+				table = DeferClose(openIndexedTable(ctx, lockDB, nameIdx))
+				Expect(table.NewCreate().
+					Entries(&[]indexedEntry{
+						{ID: 1, Name: "alpha"},
+						{ID: 2, Name: "beta"},
+					}).
+					Exec(ctx, lockDB)).To(Succeed())
+			})
+			readAsync := func(ctx context.Context) <-chan []int32 {
+				read := make(chan []int32, 1)
+				go func() {
+					defer GinkgoRecover()
+					Expect(lockDB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+						var res []indexedEntry
+						if err := table.NewRetrieve().
+							Entries(&res).
+							Exec(ctx, snap); err != nil {
+							return err
+						}
+						read <- idsOf(res)
+						return nil
+					})).To(Succeed())
+				}()
+				return read
+			}
+			// holdSnapshot holds a snapshot on another goroutine until the returned
+			// release runs, or until the spec ends.
+			holdSnapshot := func(ctx context.Context) (func(), <-chan error) {
+				GinkgoHelper()
+				held, released := make(chan struct{}), make(chan struct{})
+				done := make(chan error, 1)
+				go func() {
+					done <- lockDB.WithSnapshot(ctx, func(gorp.Snapshot) error {
+						close(held)
+						<-released
+						return nil
+					})
+				}()
+				release := sync.OnceFunc(func() { close(released) })
+				DeferCleanup(release)
+				Eventually(held).Should(BeClosed())
+				return release, done
+			}
+
+			DescribeTable(
+				"Should retrieve entries through a snapshot",
+				func(
+					ctx SpecContext,
+					filter func() gorp.Filter[int32, indexedEntry],
+				) {
+					var res []indexedEntry
+					Expect(lockDB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+						return table.NewRetrieve().
+							Where(filter()).
+							Entries(&res).
+							Exec(ctx, snap)
+					})).To(Succeed())
+					Expect(idsOf(res)).To(Equal([]int32{2}))
+				},
+				Entry("by key", func() gorp.Filter[int32, indexedEntry] {
+					return gorp.MatchKeys[int32, indexedEntry](2)
+				}),
+				Entry("by an index filter", func() gorp.Filter[int32, indexedEntry] {
+					return nameIdx.Filter("beta")
+				}),
+				Entry("by a scan", func() gorp.Filter[int32, indexedEntry] {
+					return gorp.Match(
+						func(_ gorp.Context, e *indexedEntry) (bool, error) {
+							return e.Name == "beta", nil
+						},
+					)
+				}),
+			)
+
+			It("Should return the error of the callback", func(ctx SpecContext) {
+				Expect(lockDB.WithSnapshot(ctx, func(gorp.Snapshot) error {
+					return query.ErrNotFound
+				})).To(MatchError(query.ErrNotFound))
+			})
+
+			It(
+				"Should pass a snapshot that is not a transaction",
+				func(ctx SpecContext) {
+					Expect(lockDB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+						_, isTx := snap.(gorp.Tx)
+						Expect(isTx).To(BeFalse())
+						return nil
+					})).To(Succeed())
+				},
+			)
+
+			It(
+				"Should give a filter no transaction when it reads through a snapshot",
+				func(ctx SpecContext) {
+					var tx gorp.Tx = lockDB
+					Expect(lockDB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+						return table.NewRetrieve().
+							Where(gorp.Match(
+								func(qCtx gorp.Context, _ *indexedEntry) (bool, error) {
+									tx = qCtx.Tx
+									return true, nil
+								},
+							)).
+							Exec(ctx, snap)
+					})).To(Succeed())
+					Expect(tx).To(BeNil())
+				},
+			)
+
+			It("Should run two snapshots at the same time", func(ctx SpecContext) {
+				release, first := holdSnapshot(ctx)
+				Eventually(readAsync(ctx)).Should(Receive(Equal([]int32{1, 2})))
+				release()
+				Eventually(first).Should(Receive(Succeed()))
+			})
+
+			It(
+				"Should make a transaction wait for an open snapshot",
+				func(ctx SpecContext) {
+					release, snapshot := holdSnapshot(ctx)
+					opened := openAsync()
+					Consistently(opened, 50*time.Millisecond).ShouldNot(Receive())
+					release()
+					Eventually(snapshot).Should(Receive(Succeed()))
+					var tx gorp.Tx
+					Eventually(opened).Should(Receive(&tx))
+					Expect(tx.Close()).To(Succeed())
+				},
+			)
+
+			It(
+				"Should make a snapshot wait for an open transaction",
+				func(ctx SpecContext) {
+					tx := lockDB.OpenTx()
+					Expect(table.NewCreate().
+						Entry(&indexedEntry{ID: 3, Name: "gamma"}).
+						Exec(ctx, tx)).To(Succeed())
+					read := readAsync(ctx)
+					Consistently(read, 50*time.Millisecond).ShouldNot(Receive())
+					Expect(tx.Commit(ctx)).To(Succeed())
+					Expect(tx.Close()).To(Succeed())
+					Eventually(read).Should(Receive(Equal([]int32{1, 2, 3})))
+				},
+			)
+
+			It(
+				"Should warn when a snapshot waits long for the lock",
+				func(ctx SpecContext) {
+					tx := lockDB.OpenTx()
+					done := make(chan error, 1)
+					go func() {
+						done <- lockDB.WithSnapshot(ctx, func(gorp.Snapshot) error {
+							return nil
+						})
+					}()
+					Consistently(done, 600*time.Millisecond).ShouldNot(Receive())
+					Expect(tx.Close()).To(Succeed())
+					Eventually(done).Should(Receive(Succeed()))
+					Expect(logs.FilterMessage(
+						"gorp snapshot waited long for the read lock",
+					).Len()).To(Equal(1))
+				},
+			)
+
+			It(
+				"Should not warn when a snapshot gets the lock at once",
+				func(ctx SpecContext) {
+					Expect(lockDB.WithSnapshot(ctx, func(gorp.Snapshot) error {
+						return nil
+					})).To(Succeed())
+					Expect(logs.Len()).To(BeZero())
+				},
+			)
 		})
 	})
 
