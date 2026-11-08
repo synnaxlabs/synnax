@@ -9,10 +9,10 @@
 
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from synnax import resource
-from synnax.access import role
+from synnax.access import role as role_
 from synnax.user.types_gen import Key
 
 
@@ -21,13 +21,13 @@ class New(BaseModel):
     password: str
     name: str = ""
     key: UUID | None = None
-    roles: list[role.Key] = Field(default_factory=list)
+    role: role_.Key
 
 
 class User(BaseModel):
     key: UUID
     name: str
-    roles: list[role.Key] = Field(default_factory=list)
+    role: role_.Key
 
     @property
     def resource_id(self) -> resource.ID:

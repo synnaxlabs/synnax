@@ -115,6 +115,6 @@ private:
     };
 
     std::unique_ptr<x::lib::Shared> lib;
-    FunctionPointers function_pointers_{};
+    FunctionPointers function_pointers{};
 };
 }

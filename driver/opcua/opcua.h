@@ -31,8 +31,7 @@ const std::string READ_TASK_TYPE = "opc_read";
 struct Factory final : task::Factory {
     /// @param store keeps the certificate that the Driver presents to servers.
     explicit Factory(std::shared_ptr<certificate::Store> store):
-        store_(store),
-        conn_pool_(std::make_shared<connection::Pool>(std::move(store))) {}
+        store(store), pool(std::make_shared<connection::Pool>(std::move(store))) {}
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
@@ -49,11 +48,11 @@ struct Factory final : task::Factory {
     std::string name() override { return INTEGRATION_NAME; }
 
     [[nodiscard]] std::shared_ptr<connection::Pool> conn_pool() const {
-        return conn_pool_;
+        return this->pool;
     }
 
 private:
-    std::shared_ptr<certificate::Store> store_;
-    std::shared_ptr<connection::Pool> conn_pool_;
+    std::shared_ptr<certificate::Store> store;
+    std::shared_ptr<connection::Pool> pool;
 };
 }

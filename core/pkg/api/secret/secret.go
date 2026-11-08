@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -187,8 +186,9 @@ func (s *Service) retrieveReplaced(
 	var replaced []Secret
 	if err := s.internal.NewRetrieve().
 		Where(secret.MatchKeys(keys...)).
+		SkipMissingKeys().
 		Entries(&replaced).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
 	return replaced, nil

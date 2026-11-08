@@ -1323,6 +1323,37 @@ TEST(TestSeries, testSetSampleValueAllNumericTypes) {
     ASSERT_DOUBLE_EQ(s_float64.at<double>(0), 3.14159);
 }
 
+/// @brief it should set a vector of samples starting at an index.
+TEST(TestSeries, testSetVector) {
+    Series s(std::vector<int32_t>{1, 2, 3, 4, 5});
+    s.set(std::vector<int32_t>{8, 9}, 1);
+    ASSERT_EQ(s.values<int32_t>(), (std::vector<int32_t>{1, 8, 9, 4, 5}));
+}
+
+/// @brief it should treat a negative index as an offset from the end of the series.
+TEST(TestSeries, testSetVectorNegativeIndex) {
+    Series s(std::vector<int32_t>{1, 2, 3, 4, 5});
+    s.set(std::vector<int32_t>{8, 9}, -2);
+    ASSERT_EQ(s.values<int32_t>(), (std::vector<int32_t>{1, 2, 3, 8, 9}));
+}
+
+/// @brief it should throw and leave the series unchanged when a vector write runs
+/// past the last sample or starts before the first one.
+TEST(TestSeries, testSetVectorOutOfBounds) {
+    Series s(std::vector<int32_t>{1, 2, 3});
+    const auto expect_throw = [&s](const int index, const std::string &message) {
+        try {
+            s.set(std::vector<int32_t>{8, 9}, index);
+            FAIL() << "expected std::runtime_error for index " << index;
+        } catch (const std::runtime_error &e) {
+            ASSERT_EQ(std::string(e.what()), message);
+        }
+    };
+    expect_throw(2, "index 2 out of bounds for series of size 3");
+    expect_throw(-4, "index -4 out of bounds for series of size 3");
+    ASSERT_EQ(s.values<int32_t>(), (std::vector<int32_t>{1, 2, 3}));
+}
+
 /// @brief Tests Series + Series addition operator.
 TEST(SeriesOperators, AdditionSameLength) {
     auto a = Series(std::vector<double>{1.0, 2.0, 3.0});

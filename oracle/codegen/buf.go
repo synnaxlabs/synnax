@@ -126,7 +126,10 @@ func bufOutputStamp(ctx context.Context, repoRoot string) (string, error) {
 				return errors.Wrapf(err, "read %s", p)
 			}
 			h := sha256.Sum256(b)
-			rel, _ := filepath.Rel(repoRoot, p)
+			rel, err := filepath.Rel(repoRoot, p)
+			if err != nil {
+				return err
+			}
 			hashes[i] = rel + ":" + hex.EncodeToString(h[:])
 			return nil
 		})
@@ -174,7 +177,10 @@ func bufInputStamp(ctx context.Context, repoRoot string) (string, error) {
 				return errors.Wrapf(err, "read %s", p)
 			}
 			h := sha256.Sum256(b)
-			rel, _ := filepath.Rel(repoRoot, p)
+			rel, err := filepath.Rel(repoRoot, p)
+			if err != nil {
+				return err
+			}
 			hashes[i] = rel + ":" + hex.EncodeToString(h[:])
 			return nil
 		})

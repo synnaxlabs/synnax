@@ -35,7 +35,7 @@ import (
 // newUser creates a user that may take every action on resources of types.
 func newUser(ctx context.Context, types ...resource.Type) user.User {
 	GinkgoHelper()
-	u := MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	u := MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 	objects := make([]resource.ID, len(types))

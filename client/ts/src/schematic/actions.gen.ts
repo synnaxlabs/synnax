@@ -81,7 +81,10 @@ export const setNodePayloadZ = z.object({
 
 export type SetNodePayload = z.infer<typeof setNodePayloadZ>;
 
-/** RemoveNode removes a node and any config stored under its key. */
+/**
+ * RemoveNode removes the node, its config, and the edges that connect to it and their
+ * configs. No-op when no node has the key.
+ */
 export const removeNodePayloadZ = z.object({
   key: z.string(),
 });
@@ -90,7 +93,7 @@ export type RemoveNodePayload = z.infer<typeof removeNodePayloadZ>;
 
 /**
  * AddEdge appends the edge to the schematic. No-op when an edge with the same key
- * already exists.
+ * already exists, or when the source or target node does not exist.
  */
 export const addEdgePayloadZ = z.object({
   edge: edgeZ,
@@ -98,14 +101,17 @@ export const addEdgePayloadZ = z.object({
 
 export type AddEdgePayload = z.infer<typeof addEdgePayloadZ>;
 
-/** RemoveEdge removes the edge with the given key, if present. */
+/** RemoveEdge removes the edge with the given key and its config, if present. */
 export const removeEdgePayloadZ = z.object({
   key: z.string(),
 });
 
 export type RemoveEdgePayload = z.infer<typeof removeEdgePayloadZ>;
 
-/** SetConfig replaces the config entry stored under the given node or edge key. */
+/**
+ * SetConfig replaces the config entry stored under the given node or edge key. No-op
+ * when no node or edge has the key.
+ */
 export const setConfigPayloadZ = z.object({
   key: z.string(),
   config: elementConfigZ,
@@ -113,7 +119,10 @@ export const setConfigPayloadZ = z.object({
 
 export type SetConfigPayload = z.infer<typeof setConfigPayloadZ>;
 
-/** Set replaces the value at a path in the schematic's element configs. */
+/**
+ * Set replaces the value at a path in the schematic's element configs. No-op when no
+ * node or edge has the config's key.
+ */
 export const setPayloadZ = z.object({
   path: z
     .string()
@@ -127,7 +136,7 @@ export type SetPayload = z.infer<typeof setPayloadZ>;
 
 /**
  * Remove removes an entry from a list or a field from an object in the schematic's
- * element configs.
+ * element configs. No-op when no node or edge has the config's key.
  */
 export const removePayloadZ = z.object({
   path: z
@@ -140,7 +149,10 @@ export const removePayloadZ = z.object({
 
 export type RemovePayload = z.infer<typeof removePayloadZ>;
 
-/** Insert adds an entry to a list in the schematic's element configs. */
+/**
+ * Insert adds an entry to a list in the schematic's element configs. No-op when no node
+ * or edge has the config's key.
+ */
 export const insertPayloadZ = z.object({
   path: z
     .string()
@@ -153,7 +165,10 @@ export const insertPayloadZ = z.object({
 
 export type InsertPayload = z.infer<typeof insertPayloadZ>;
 
-/** Move moves an entry in a list in the schematic's element configs. */
+/**
+ * Move moves an entry in a list in the schematic's element configs. No-op when no node
+ * or edge has the config's key.
+ */
 export const movePayloadZ = z.object({
   path: z
     .string()
