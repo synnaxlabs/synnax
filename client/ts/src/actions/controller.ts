@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import { type z } from "zod";
 
-import { isConnectionError, NotFoundError } from "@/errors";
+import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
 import { type query } from "@/query";
 import { Table } from "@/query/table";
 
@@ -1028,9 +1028,14 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         this.listing.set(key, false);
       }
     } catch (exc) {
-      // A deleted doc joins no list, and the reconcile after a reconnect fetches lists
-      // again.
-      if (NotFoundError.matches(exc) || isConnectionError(exc)) return;
+      // A deleted or denied doc joins no list, and the reconcile after a reconnect
+      // fetches lists again.
+      if (
+        NotFoundError.matches(exc) ||
+        AccessDeniedError.matches(exc) ||
+        isConnectionError(exc)
+      )
+        return;
       this.params.onError(
         new Error("failed to fetch a listed document", { cause: exc }),
       );
