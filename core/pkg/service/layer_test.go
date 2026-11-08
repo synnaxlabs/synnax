@@ -10,6 +10,7 @@
 package service_test
 
 import (
+	"fmt"
 	"strconv"
 	"uuid"
 
@@ -23,6 +24,7 @@ import (
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
@@ -95,6 +97,22 @@ var _ = Describe("Layer", func() {
 			MatchError(license.ErrTooMany),
 			MatchError(ContainSubstring("limit is 50 channels")),
 		))
+	})
+
+	It("Should refuse a framer writer on a change channel", func(ctx SpecContext) {
+		layer := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+		var ch channel.Channel
+		Expect(layer.Channel.NewRetrieve().
+			Where(channel.MatchNames("sy_range_set")).
+			Entry(&ch).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(layer.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+			Keys:  channel.Keys{ch.Key()},
+			Start: telem.SecondTS,
+		})).Error().To(MatchError(fmt.Sprintf(
+			"channel %d holds changes that only the Core writes: validation error",
+			ch.Key(),
+		)))
 	})
 
 	It("Should put a stored snapshot in its stored range", func(ctx SpecContext) {

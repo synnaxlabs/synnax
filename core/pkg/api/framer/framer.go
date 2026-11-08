@@ -70,7 +70,7 @@ type ServiceConfig struct {
 	RBAC *rbac.Service
 	// Records maps each channel whose samples describe records to the function that
 	// finds the record of a sample. A streamer sends such a sample only to a subject
-	// that can retrieve its record, and a client cannot open a writer on the channel.
+	// that can retrieve its record.
 	//
 	// [OPTIONAL]
 	Records map[channel.Key]signals.RecordOf
@@ -702,15 +702,6 @@ func (s *Service) openWriter(
 		})
 	}); err != nil {
 		return nil, err
-	}
-	for _, key := range req.Config.Keys {
-		if _, ok := s.records[key]; ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"channel %d holds changes of the Core, so a client cannot write it",
-				key,
-			)
-		}
 	}
 
 	authorities := make([]control.Authority, len(req.Config.Authorities))

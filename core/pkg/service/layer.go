@@ -374,6 +374,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, channelGraph) {
 		return nil, err
 	}
+	if l.Signals, err = signals.New(signals.Config{
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		Framer:          cfg.Distribution.Framer,
+		Instrumentation: cfg.Child("signals"),
+	}); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.ServiceConfig{
@@ -382,16 +390,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			ChannelGraph:    channelGraph,
+			Reserved:        l.Signals.Publishes,
 		},
 	); !ok(err, l.Framer) {
-		return nil, err
-	}
-	if l.Signals, err = signals.New(signals.Config{
-		DB:              cfg.Distribution.DB,
-		Channel:         l.Channel,
-		Framer:          l.Framer,
-		Instrumentation: cfg.Child("signals"),
-	}); !ok(err, nil) {
 		return nil, err
 	}
 	if err = l.Signals.PublishTable(

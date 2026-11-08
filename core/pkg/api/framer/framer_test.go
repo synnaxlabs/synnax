@@ -325,8 +325,7 @@ var _ = Describe("Framer", func() {
 				Config: apiframer.WriterConfig{Keys: channel.Keys{ch.Key()}},
 			})).To(Succeed())
 			Expect(apiSvc.Write(rootCtx(ctx), server)).To(MatchError(fmt.Sprintf(
-				"channel %d holds changes of the Core, so a client cannot write it: "+
-					"validation error",
+				"channel %d holds changes that only the Core writes: validation error",
 				ch.Key(),
 			)))
 		})

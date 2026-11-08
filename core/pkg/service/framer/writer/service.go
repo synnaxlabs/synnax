@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
@@ -49,6 +50,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
+	// Reserved reports whether only the Core writes a channel. NewStream and Open
+	// refuse a reserved channel.
+	//
+	// [OPTIONAL] - no channel is reserved.
+	Reserved func(channel.Key) bool
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - defaults to noop instrumentation.
@@ -63,6 +69,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Framer = override.Nil(cfg.Framer, other.Framer)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
 	cfg.DB = override.Nil(cfg.DB, other.DB)
+	cfg.Reserved = override.Nil(cfg.Reserved, other.Reserved)
 	return cfg
 }
 
@@ -99,10 +106,21 @@ const (
 )
 
 // NewStream opens a StreamWriter for the channels in cfg, driven through confluence
-// inlet requests and outlet responses. It returns an error if cfg is invalid or any
-// channel in cfg.Keys cannot be resolved.
+// inlet requests and outlet responses. It returns an error if cfg is invalid, any
+// channel in cfg.Keys cannot be resolved, or any channel in cfg.Keys is reserved.
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, error) {
 	keys := cfg.Keys.Unique()
+	if s.cfg.Reserved != nil {
+		for _, key := range keys {
+			if s.cfg.Reserved(key) {
+				return nil, errors.Wrapf(
+					validate.ErrValidation,
+					"channel %d holds changes that only the Core writes",
+					key,
+				)
+			}
+		}
+	}
 	var channels []channel.Channel
 	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		return s.cfg.Channel.NewRetrieve().
