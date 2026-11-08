@@ -568,7 +568,14 @@ BO_ x
 		Entry("a multiplexor range past int32", `SG_MUL_VAL_ 256 A S 0-4294967296;
 `, `line 9: multiplexor range "0-4294967296" of signal A exceeds the int32 range`),
 		Entry("multiplexor ranges that are too large", `SG_MUL_VAL_ 256 A S 0-70000;
-`, "line 9: multiplexor ranges hold more than 65536 values"),
+`, "line 9: the multiplexor ranges of the file hold more than 65536 values"),
+		Entry(
+			"multiplexor ranges across lines that are too large",
+			`SG_MUL_VAL_ 256 A S 0-40000;
+SG_MUL_VAL_ 256 B S 0-40000;
+`,
+			"line 10: the multiplexor ranges of the file hold more than 65536 values",
+		),
 		Entry("a repeated SG_MUL_VAL_ line", `SG_MUL_VAL_ 256 A S 0-0;
 SG_MUL_VAL_ 256 A S 1-1;
 `, "line 10: duplicate SG_MUL_VAL_ for signal A"),

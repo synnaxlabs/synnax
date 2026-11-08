@@ -365,14 +365,16 @@ func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField
 // one frame.
 func (c *checker) checkOverlaps(path []string, fields []BinaryField) {
 	bits := make([]set.Set[int], len(fields))
+	muxValues := make([]set.Set[int32], len(fields))
 	for i, f := range fields {
 		if validBitLength(f.BitLength) {
 			bits[i] = coveredBits(f)
 		}
+		muxValues[i] = set.New(f.MultiplexValues...)
 	}
 	for j, b := range fields {
 		for i, a := range fields[:j] {
-			if coexist(a, b) && overlap(bits[i], bits[j]) {
+			if coexist(a, b, muxValues[i], muxValues[j]) && overlap(bits[i], bits[j]) {
 				c.Addf(
 					pathOf(path, strconv.Itoa(j), "start_bit"),
 					"field overlaps the bits of field %q",
@@ -402,27 +404,29 @@ func coveredBits(f BinaryField) set.Set[int] {
 	return bits
 }
 
-func overlap(a, b set.Set[int]) bool {
-	for bit := range a {
-		if b.Contains(bit) {
+func overlap[T comparable](a, b set.Set[T]) bool {
+	if len(b) < len(a) {
+		a, b = b, a
+	}
+	for v := range a {
+		if b.Contains(v) {
 			return true
 		}
 	}
 	return false
 }
 
-// coexist reports whether fields a and b can both be present in one frame. Fields under
-// different multiplexors may be nested, so they count as exclusive.
-func coexist(a, b BinaryField) bool {
+// coexist reports whether fields a and b, with the multiplex values aValues and
+// bValues, can both be present in one frame. Fields under different multiplexors may be
+// nested, so they count as exclusive.
+func coexist(a, b BinaryField, aValues, bValues set.Set[int32]) bool {
 	switch {
 	case a.Multiplexor == nil || b.Multiplexor == nil:
 		return true
 	case *a.Multiplexor != *b.Multiplexor:
 		return false
 	}
-	return slices.ContainsFunc(a.MultiplexValues, func(v int32) bool {
-		return slices.Contains(b.MultiplexValues, v)
-	})
+	return overlap(aValues, bValues)
 }
 
 func validBitLength(n uint8) bool { return n >= 1 && n <= maxBitLength }

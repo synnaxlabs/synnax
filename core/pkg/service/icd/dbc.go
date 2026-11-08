@@ -34,7 +34,7 @@ const (
 	attrSignalLongName  = "SystemSignalLongSymbol"
 	// independentSignals names the pseudo-message that holds unassigned signals.
 	independentSignals = "VECTOR__INDEPENDENT_SIG_MSG"
-	// maxMultiplexValues bounds the values the ranges of one SG_MUL_VAL_ line hold.
+	// maxMultiplexValues bounds the switch values the SG_MUL_VAL_ lines of a file hold.
 	maxMultiplexValues = 1 << 16
 	// minPDU2Format is the smallest PDU format of a J1939 group whose PDU specific
 	// byte is a group extension, not a destination address.
@@ -86,7 +86,8 @@ type muxSpec struct {
 	values []int32
 }
 
-func newMuxSpec(d *dbc.MultiplexedValuesDef) (muxSpec, error) {
+// newMuxSpec parses d. used counts the switch values of the earlier SG_MUL_VAL_ lines.
+func newMuxSpec(d *dbc.MultiplexedValuesDef, used int) (muxSpec, error) {
 	line := d.Pos.Line
 	var values []int32
 	for _, r := range d.Ranges {
@@ -108,9 +109,9 @@ func newMuxSpec(d *dbc.MultiplexedValuesDef) (muxSpec, error) {
 				d.SignalName,
 			)
 		}
-		if r.To-r.From >= uint64(maxMultiplexValues-len(values)) {
+		if r.To-r.From >= uint64(maxMultiplexValues-used-len(values)) {
 			return muxSpec{}, dataErrorf(
-				"line %d: multiplexor ranges hold more than %d values",
+				"line %d: the multiplexor ranges of the file hold more than %d values",
 				line,
 				maxMultiplexValues,
 			)
@@ -160,6 +161,7 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 		messageNames:  make(map[dbc.MessageID]string),
 		signalNames:   make(map[signalRef]string),
 	}
+	var muxValues int
 	for _, def := range defs {
 		switch d := def.(type) {
 		case *dbc.MessageDef:
@@ -201,10 +203,11 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 					ref.signal,
 				)
 			}
-			spec, err := newMuxSpec(d)
+			spec, err := newMuxSpec(d, muxValues)
 			if err != nil {
 				return dbcFile{}, err
 			}
+			muxValues += len(spec.values)
 			f.mux[ref] = spec
 		}
 	}
