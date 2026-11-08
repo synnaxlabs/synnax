@@ -409,6 +409,52 @@ var _ = Describe("Service", func() {
 			})
 		})
 
+		Describe("Policies of the subject's roles", func() {
+			var held, other *policy.Policy
+			BeforeEach(func(ctx SpecContext) {
+				r := &role.Role{Name: "held"}
+				Expect(roleWriter.Create(ctx, r)).To(Succeed())
+				held = &policy.Policy{
+					Role:    r.Key,
+					Name:    "held",
+					Objects: []resource.ID{obj1},
+					Actions: []access.Action{access.ActionUpdate},
+				}
+				Expect(policyWriter.Create(ctx, held)).To(Succeed())
+				setRole(ctx, tx, subject, r.Key)
+				otherRole := &role.Role{Name: "other"}
+				Expect(roleWriter.Create(ctx, otherRole)).To(Succeed())
+				other = &policy.Policy{
+					Role:    otherRole.Key,
+					Name:    "other",
+					Objects: []resource.ID{obj1},
+					Actions: []access.Action{access.ActionUpdate},
+				}
+				Expect(policyWriter.Create(ctx, other)).To(Succeed())
+			})
+			It("Should let the subject retrieve them alone", func(ctx SpecContext) {
+				allowed := MustSucceed(rbacSvc.NewEnforcer(tx).Allowed(
+					ctx,
+					subject,
+					access.ActionRetrieve,
+				))
+				Expect(allowed(held.ResourceID())).To(BeTrue())
+				Expect(allowed(other.ResourceID())).To(BeFalse())
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  access.ActionRetrieve,
+					Objects: []resource.ID{held.ResourceID()},
+				})).To(Succeed())
+			})
+			It("Should not let the subject delete them", func(ctx SpecContext) {
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  access.ActionDelete,
+					Objects: []resource.ID{held.ResourceID()},
+				})).To(MatchError(access.ErrDenied))
+			})
+		})
+
 		Describe("Enforce after a role change", func() {
 			It("Should allow access through the new role", func(ctx SpecContext) {
 				r := &role.Role{

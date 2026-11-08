@@ -278,6 +278,8 @@ func (e *Enforcer) retrievePolicies(
 	return policies, nil
 }
 
+// Enforcer decides access from the policies of a subject's roles. A subject can always
+// retrieve the policies of its roles.
 type Enforcer struct {
 	svc  *Service
 	snap gorp.Snapshot
@@ -328,9 +330,13 @@ func firstDenied(req access.Request, policies []policy.Policy) (resource.ID, boo
 	return resource.ID{}, false
 }
 
-// covers returns whether a policy allows the action on obj, by its ID or by its type.
+// covers returns whether a policy allows the action on obj, by its ID or by its type,
+// or whether obj is one of the policies to retrieve.
 func covers(policies []policy.Policy, action access.Action, obj resource.ID) bool {
 	for _, p := range policies {
+		if action == access.ActionRetrieve && obj == p.ResourceID() {
+			return true
+		}
 		if !lo.Contains(p.Actions, action) {
 			continue
 		}

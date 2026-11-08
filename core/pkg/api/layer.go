@@ -595,11 +595,11 @@ func (l *Layer) BindTo(t Transport) {
 	t.UserSetRole.BindHandler(bind.Write(l.binder, l.User.SetRole))
 
 	// CHANNEL
-	t.ChannelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Create))
+	t.ChannelCreate.BindHandler(bind.Write(l.binder, l.Channel.Create))
 	t.ChannelRetrieve.BindHandler(bind.Read(l.binder, l.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
-	t.ChannelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Delete))
-	t.ChannelRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Rename))
+	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
+	t.ChannelRename.BindHandler(bind.Write(l.binder, l.Channel.Rename))
 
 	// FRAME
 	t.FrameWriter.BindHandler(l.Framer.Write)
@@ -738,7 +738,9 @@ func (l *Layer) BindTo(t Transport) {
 	// TASK
 	t.TaskCreate.BindHandler(bind.Write(l.binder, l.Task.Create))
 	t.TaskRetrieve.BindHandler(bind.Read(l.binder, l.Task.Retrieve))
-	t.TaskDelete.BindHandler(l.Task.Delete)
+	t.TaskDelete.BindHandler(
+		bind.WritePrepared(l.binder, l.Task.PrepareDelete, l.Task.Delete),
+	)
 	t.TaskCopy.BindHandler(bind.Write(l.binder, l.Task.Copy))
 	t.TaskRename.BindHandler(bind.Write(l.binder, l.Task.Rename))
 	t.TaskDispatch.BindHandler(bind.Write(l.binder, l.Task.Dispatch))
@@ -844,7 +846,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Channel, err = channel.NewService(channel.ServiceConfig{
 		DB:      cfg.Distribution.DB,
-		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
 		Status:  cfg.Service.Status,
 		Alias:   cfg.Service.Alias,
