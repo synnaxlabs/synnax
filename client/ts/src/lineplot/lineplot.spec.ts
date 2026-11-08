@@ -138,6 +138,23 @@ const cachedName = (key: lineplot.LinePlot["key"]): string | undefined => {
 };
 
 describe("store", () => {
+  it("reduces a group move from the Core into the cached document", async () => {
+    await client.connect();
+    const proj = await client.projects.create({ name: "Line Plot" });
+    const plot = await client.lineplots.create({
+      project: proj.key,
+      name: "Line Plot",
+    });
+    const g = await client.groups.create({
+      parent: project.resourceID(proj.key),
+      name: "Line Plot",
+    });
+    await client.batch.send([client.lineplots.setGroupRequest(plot.key, g.key)]);
+    await expect
+      .poll(() => expectLive(client.lineplots.getCached(plot.key)).group)
+      .toBe(g.key);
+  });
+
   it("tombstones deletes from live delete signals", async () => {
     await client.connect();
     const plot = await seedPlot();

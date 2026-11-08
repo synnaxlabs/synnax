@@ -44,11 +44,6 @@ describe("log reducer", () => {
     it("should target the name", () => {
       expect(log.reduceAll(createEmpty(), [setName("x")]).targets).toEqual(["name"]);
     });
-    it("should throw on a path to a field outside the patchable fields", () => {
-      expect(() =>
-        apply(createEmpty(), log.set({ path: ["time_zone"], value: "UTC" })),
-      ).toThrow("time_zone is not inside a field of name, group, project");
-    });
   });
 
   describe("addChannel", () => {

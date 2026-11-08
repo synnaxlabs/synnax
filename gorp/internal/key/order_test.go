@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp/internal/key"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
 )
 
 var _ = Describe("Order", func() {
@@ -52,35 +53,41 @@ var _ = Describe("Order", func() {
 		Expect(shuffled).To(Equal(vectors.Ordered))
 	})
 
-	It("Should order signed integers by value", func() {
-		order := key.Order[int32]()
-		Expect(order(-5, 3)).To(Equal(-1))
-		Expect(order(3, -5)).To(Equal(1))
-		Expect(order(7, 7)).To(Equal(0))
-	})
-
-	It("Should order unsigned integers by value", func() {
-		order := key.Order[uint32]()
-		Expect(order(256, 1)).To(Equal(1))
-		Expect(order(1, 256)).To(Equal(-1))
-	})
-
-	It("Should order named strings byte by byte", func() {
-		order := key.Order[name]()
-		Expect(order("a", "b")).To(Equal(-1))
-		Expect(order("B", "a")).To(Equal(-1))
-		Expect(order("ab", "ab")).To(Equal(0))
-	})
-
-	It("Should order false before true", func() {
-		order := key.Order[bool]()
-		Expect(order(false, true)).To(Equal(-1))
-		Expect(order(true, false)).To(Equal(1))
-		Expect(order(true, true)).To(Equal(0))
-	})
-
-	It("Should order floats by value", func() {
-		order := key.Order[float64]()
-		Expect(order(-1.5, 0.25)).To(Equal(-1))
-	})
+	DescribeTable(
+		"Should order keys as Gorp stores them",
+		func(order, encoded func() int) {
+			Expect(order()).To(Equal(encoded()))
+		},
+		Entry("signed integers", orderOf[int32](-5, 3), encodedOrderOf[int32](-5, 3)),
+		Entry("floats", orderOf(-1.5, 0.25), encodedOrderOf(-1.5, 0.25)),
+		Entry(
+			"unsigned integers",
+			orderOf[uint32](256, 1),
+			encodedOrderOf[uint32](256, 1),
+		),
+		Entry("booleans", orderOf(false, true), encodedOrderOf(false, true)),
+		Entry("equal booleans", orderOf(true, true), encodedOrderOf(true, true)),
+		Entry("strings", orderOf("B", "a"), encodedOrderOf("B", "a")),
+		Entry(
+			"named strings",
+			orderOf[name]("ab", "b"),
+			encodedOrderOf[name]("ab", "b"),
+		),
+	)
 })
+
+func orderOf[K primitive](a, b K) func() int {
+	return func() int { return key.Order[K]()(a, b) }
+}
+
+func encodedOrderOf[K primitive](a, b K) func() int {
+	return func() int {
+		codec := key.NewCodec[K](nil)
+		return bytes.Compare(bytes.Clone(codec.Encode(a)), codec.Encode(b))
+	}
+}
+
+type primitive interface {
+	types.Primitive
+	comparable
+}

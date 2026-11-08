@@ -415,6 +415,21 @@ var _ = Describe("Writer", func() {
 					}),
 					"decoding document",
 				),
+				Entry(
+					"an insert into the name",
+					lineplot.NewInsertAction(lineplot.InsertPayload{
+						Path:  []string{"name"},
+						Value: map[string]any{"key": "a"},
+					}),
+					"[name]: the value is not a list",
+				),
+				Entry(
+					"a move in the name",
+					lineplot.NewMoveAction(
+						lineplot.MovePayload{Path: []string{"name"}, Key: "a"},
+					),
+					"[name]: the value is not a list",
+				),
 			)
 
 			It("Should apply a set of the name", func(ctx SpecContext) {

@@ -107,7 +107,6 @@ Operation struct {
 Channel struct {
     name        Name                {
         @doc value    "is the human-readable channel name."
-        @index lookup
         @index sorted
         @search
     }

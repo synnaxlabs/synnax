@@ -56,10 +56,10 @@ var _ = Describe("Sorts", func() {
 		}, table))
 		Expect(sorts).To(HaveLen(2))
 		Expect(sorts[0].Name).To(Equal("name"))
-		Expect(sorts[0].Text).To(BeTrue())
+		Expect(sorts[0].Textual).To(BeTrue())
 		Expect(sorts[0].Leaf().Name).To(Equal("name"))
 		Expect(sorts[1].Name).To(Equal("span_start"))
-		Expect(sorts[1].Text).To(BeFalse())
+		Expect(sorts[1].Textual).To(BeFalse())
 		Expect(sorts[1].Type).To(Equal(resolution.TypeRef{Name: "int64"}))
 		Expect(sorts[1].Leaf().Name).To(Equal("start"))
 		Expect(sorts[1].Path).To(HaveLen(2))
@@ -99,6 +99,19 @@ var _ = Describe("Sorts", func() {
 			"that names no sub-field",
 			sorted("span", resolution.TypeRef{Name: "test.Span"}, "end"),
 			"span: Span has no field end",
+		),
+		Entry(
+			"that shares its field with a lookup mark",
+			func() resolution.Field {
+				f := sorted("name", resolution.TypeRef{Name: "string"}, "")
+				dom := f.Domains["index"]
+				dom.Expressions = append(dom.Expressions, resolution.Expression{
+					Name: "lookup",
+				})
+				f.Domains["index"] = dom
+				return f
+			}(),
+			"name: a sorted index answers exact matches, so drop @index lookup",
 		),
 	)
 })

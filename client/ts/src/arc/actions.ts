@@ -61,8 +61,6 @@ const textOf = (state: Draft<Arc>): Draft<TextSource["text"]> => {
   return state.source.text;
 };
 
-const FIELDS = ["name"];
-
 // isInputsPath reports whether a path action edits the graph's node inputs, whose paths
 // start at the Arc's source. Other path actions edit the fields of the Arc.
 const isInputsPath = (action: patch.Action): boolean =>
@@ -76,7 +74,7 @@ const applyPath = (state: Draft<Arc>, action: patch.Action): HandlerResult =>
         ["graph", "inputs"],
         graphSourceZ,
       )
-    : actions.applyFieldPath(state, action, FIELDS, arcZ);
+    : actions.applyPath(state, action, arcZ);
 
 const handlers: Handlers = {
   create: (state, payload) => {

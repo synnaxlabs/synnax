@@ -386,10 +386,10 @@ var _ = Describe("Go Filter Plugin", func() {
 					"return q.Where(MatchKeys()), nil",
 					"q = q.Limit(int(*r.Limit))",
 					"return q.Offset(int(r.Offset)), nil",
-					`errors.New("a search cannot resume after a position")`,
+					`"a search cannot resume after a position",`,
 					"q = q.After(r.After.Key)",
 				).
-				ToNotContain("r.Order", "func (r RetrieveRequest) order()").
+				ToNotContain("r.Order", "func (r RetrieveRequest) order()", "errors.New(").
 				ToPreserveOrder("r.Where", "r.SearchTerm", "r.After", "r.Limit", "r.Offset")
 		})
 
@@ -422,7 +422,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				ExpectContent(resp, "request.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						`errors.New("a search sorts by relevance")`,
+						`errors.Wrap(validate.ErrValidation, "a search sorts by relevance")`,
 						"o, err := r.order()",
 						"q = q.OrderBy(o)",
 						"} else if r.After != nil {",
@@ -433,10 +433,11 @@ var _ = Describe("Go Filter Plugin", func() {
 						"return OrderByNameAfter(\n\t\t\tdir,\n\t\t\t*r.After.Name,\n\t\t\t"+
 							"r.After.Key,\n\t\t), nil",
 						"case OrderFieldSpanStart:",
-						`errors.New("is required to resume an order by span_start")`,
+						`"is required to resume an order by span_start",`,
 						"return OrderBySpanStartAfter(",
-						`errors.Newf("%q is not a field to sort by", r.Order.Field)`,
-					)
+						`"%q is not a field to sort by",`,
+					).
+					ToNotContain("errors.New(")
 			},
 		)
 

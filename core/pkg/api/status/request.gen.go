@@ -37,13 +37,16 @@ func (r RetrieveRequest) Apply(q servicestatus.Retrieve[any]) (servicestatus.Ret
 	if r.SearchTerm != "" {
 		if r.After != nil {
 			return servicestatus.Retrieve[any]{}, validate.PathedError(
-				errors.New("a search cannot resume after a position"),
+				errors.Wrap(
+					validate.ErrValidation,
+					"a search cannot resume after a position",
+				),
 				"after",
 			)
 		}
 		if r.Order != nil {
 			return servicestatus.Retrieve[any]{}, validate.PathedError(
-				errors.New("a search sorts by relevance"),
+				errors.Wrap(validate.ErrValidation, "a search sorts by relevance"),
 				"order",
 			)
 		}
@@ -82,7 +85,10 @@ func (r RetrieveRequest) order() (servicestatus.Order[any], error) {
 		}
 		if r.After.Name == nil {
 			return nil, validate.PathedError(
-				errors.New("is required to resume an order by name"),
+				errors.Wrap(
+					validate.ErrValidation,
+					"is required to resume an order by name",
+				),
 				"after",
 				"name",
 			)
@@ -94,7 +100,11 @@ func (r RetrieveRequest) order() (servicestatus.Order[any], error) {
 		), nil
 	}
 	return nil, validate.PathedError(
-		errors.Newf("%q is not a field to sort by", r.Order.Field),
+		errors.Wrapf(
+			validate.ErrValidation,
+			"%q is not a field to sort by",
+			r.Order.Field,
+		),
 		"order",
 		"field",
 	)
