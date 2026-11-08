@@ -115,6 +115,11 @@ describe("range", () => {
 
     it("should give the label keys of a range to a caller that cannot read the labels", async () => {
       const lbl = await client.labels.create({ name: "test", color: "#FF0000" });
+      const rng = await client.ranges.create({
+        name: "test",
+        timeRange: new TimeRange({ start: 1, end: 2 }),
+      });
+      await client.labels.label(ranger.resourceID(rng.key), [lbl.key]);
       const onError = vi.fn();
       const userClient = await createTestClientWithPolicy(
         client,
@@ -131,11 +136,6 @@ describe("range", () => {
         ],
         onError,
       );
-      const rng = await client.ranges.create({
-        name: "test",
-        timeRange: new TimeRange({ start: 1, end: 2 }),
-      });
-      await client.labels.label(ranger.resourceID(rng.key), [lbl.key]);
       const retrieved = await userClient.ranges.retrieve(rng.key);
       expect(retrieved.labels).toEqual([lbl.key]);
       await expect(userClient.labels.retrieve({ key: lbl.key })).rejects.toSatisfy(

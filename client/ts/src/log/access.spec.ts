@@ -79,6 +79,8 @@ describe("log", () => {
     });
 
     it("should allow the caller to delete logs with the correct policy", async () => {
+      const proj = await client.projects.create({ name: "test" });
+      const randomLog = await client.logs.create({ project: proj.key, name: "test" });
       const userClient = await createTestClientWithPolicy(client, [
         {
           name: "test",
@@ -87,8 +89,6 @@ describe("log", () => {
         },
         { name: "test", objects: [project.TYPE_RESOURCE_ID], actions: ["update"] },
       ]);
-      const proj = await client.projects.create({ name: "test" });
-      const randomLog = await client.logs.create({ project: proj.key, name: "test" });
       await userClient.logs.delete(randomLog.key);
       await expect(userClient.logs.retrieve(randomLog.key)).rejects.toThrow(
         NotFoundError,

@@ -93,6 +93,13 @@ describe("table", () => {
     });
 
     it("should allow the caller to delete tables with the correct policy", async () => {
+      const proj = await client.projects.create({
+        name: "test",
+      });
+      const randomTable = await client.tables.create({
+        project: proj.key,
+        name: "test",
+      });
       const userClient = await createTestClientWithPolicy(client, [
         {
           name: "test",
@@ -101,13 +108,6 @@ describe("table", () => {
         },
         { name: "test", objects: [project.TYPE_RESOURCE_ID], actions: ["update"] },
       ]);
-      const proj = await client.projects.create({
-        name: "test",
-      });
-      const randomTable = await client.tables.create({
-        project: proj.key,
-        name: "test",
-      });
       await userClient.tables.delete(randomTable.key);
       await expect(userClient.tables.retrieve(randomTable.key)).rejects.toThrow(
         NotFoundError,
