@@ -12,6 +12,7 @@ package pagerduty
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/PagerDuty/go-pagerduty"
@@ -20,8 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/coalesce"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -88,59 +87,63 @@ func newAlertTask(
 }
 
 func (t *alertTask) open(context.Context) (func(context.Context) error, error) {
-	// A reader of a commit must not wait for PagerDuty, so a worker sends the events.
-	changed, err := coalesce.Open(coalesce.Config[status.Key]{
-		Instrumentation: t.factoryCfg.Instrumentation,
-		Handle:          t.sendEvents,
-	})
-	if err != nil {
-		return nil, err
-	}
+	// A reader of a commit must not wait for PagerDuty, so the run sends the events. It
+	// sends one event per change, in commit order, so a quick error still pages.
+	var (
+		mu      sync.Mutex
+		pending []status.Status[any]
+		wake    = make(chan struct{}, 1)
+	)
 	disconnect := t.factoryCfg.Status.Observe().OnChange(func(
 		_ context.Context,
 		r gorp.TxReader[status.Key, status.Status[any]],
 	) {
+		var changed []status.Status[any]
 		for ch := range r {
 			if _, ok := t.alertsByStatus[ch.Key]; ok &&
 				ch.Variant == change.VariantSet {
-				changed.Add(ch.Key)
+				changed = append(changed, ch.Value)
 			}
+		}
+		if len(changed) == 0 {
+			return
+		}
+		mu.Lock()
+		pending = append(pending, changed...)
+		mu.Unlock()
+		select {
+		case wake <- struct{}{}:
+		default:
 		}
 	})
 	return func(ctx context.Context) error {
-		<-ctx.Done()
-		disconnect()
-		return changed.Close()
+		defer disconnect()
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-wake:
+			}
+			mu.Lock()
+			stats := pending
+			pending = nil
+			mu.Unlock()
+			for _, s := range stats {
+				t.sendStatusEvent(ctx, s)
+			}
+		}
 	}, nil
 }
 
-// sendEvents sends an event for each status with a key in keys, as the status is now.
-func (t *alertTask) sendEvents(ctx context.Context, keys set.Set[status.Key]) {
-	var stats []status.Status[any]
-	if err := t.factoryCfg.Status.NewRetrieve[any]().
-		Where(status.MatchKeys[any](keys.Slice()...)).
-		SkipMissingKeys().
-		Entries(&stats).
-		Exec(ctx, nil); err != nil {
-		t.factoryCfg.L.Error(
-			"failed to retrieve alerted statuses",
-			zap.Stringer("task", t.task),
-			zap.Error(err),
-		)
-		return
-	}
-	for _, s := range stats {
-		alertCfg := t.alertsByStatus[s.Key]
-		switch s.Variant {
-		case status.VariantError, status.VariantWarning, status.VariantInfo:
-			event := t.buildTriggerEvent(s, alertCfg)
-			t.sendEvent(ctx, event)
-		case status.VariantSuccess:
-			event := t.buildResolveEvent(s.Key)
-			t.sendEvent(ctx, event)
-		default:
-			// loading, disabled — skip
-		}
+// sendStatusEvent sends the event for s, if its variant has one.
+func (t *alertTask) sendStatusEvent(ctx context.Context, s status.Status[any]) {
+	switch s.Variant {
+	case status.VariantError, status.VariantWarning, status.VariantInfo:
+		t.sendEvent(ctx, t.buildTriggerEvent(s, t.alertsByStatus[s.Key]))
+	case status.VariantSuccess:
+		t.sendEvent(ctx, t.buildResolveEvent(s.Key))
+	default:
+		// Loading and disabled statuses send no event.
 	}
 }
 
