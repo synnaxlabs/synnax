@@ -78,11 +78,18 @@ interface UsesProps extends Pick<UseProps, "onSelectCertificate"> {
   ids: resource.ID[];
 }
 
+const Unused = (): ReactElement => (
+  <Text.Text level="small" color={9} className={CSS.BE("credentials", "unused")}>
+    Nothing uses this secret.
+  </Text.Text>
+);
+
 const Uses = ({ ids, onSelectCertificate }: UsesProps): ReactElement => {
   // The uses are a snapshot, so a resource in them may since have been deleted.
   const resources = Resource.useMultiple({ ids });
+  if (resources.length === 0) return <Unused />;
   return (
-    <>
+    <Flex.Box y empty className={CSS.BE("credentials", "resources")}>
       {resources.map((r) => (
         <Use
           key={`${r.id.type}:${r.id.key}`}
@@ -90,7 +97,7 @@ const Uses = ({ ids, onSelectCertificate }: UsesProps): ReactElement => {
           onSelectCertificate={onSelectCertificate}
         />
       ))}
-    </>
+    </Flex.Box>
   );
 };
 
@@ -104,15 +111,6 @@ export const UsedBy = ({
   onSelectCertificate,
 }: UsedByProps): ReactElement => {
   const uses = useUses(secretKey);
-  if (uses.length === 0)
-    return (
-      <Text.Text level="small" color={9} className={CSS.BE("credentials", "unused")}>
-        Nothing uses this secret.
-      </Text.Text>
-    );
-  return (
-    <Flex.Box y empty className={CSS.BE("credentials", "resources")}>
-      <Uses ids={uses} onSelectCertificate={onSelectCertificate} />
-    </Flex.Box>
-  );
+  if (uses.length === 0) return <Unused />;
+  return <Uses ids={uses} onSelectCertificate={onSelectCertificate} />;
 };
