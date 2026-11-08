@@ -12,8 +12,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, JsonValue
 
-from synnax import device, task
-from synnax import rack as rack_
+from synnax import device, rack as rack_, task
 from synnax.http.types_gen import (
     Header,
     QueryParam,
