@@ -171,7 +171,7 @@ class Client:
         :raises ValidationError: If a filter field is None, or if one policy is wanted
             beside a limit.
         """
-        single = returns_one(fields, one, limit)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),

@@ -12,8 +12,10 @@ package gorp
 import (
 	"cmp"
 	"iter"
+	"slices"
 
 	"github.com/synnaxlabs/gorp/internal/index"
+	"github.com/synnaxlabs/gorp/internal/key"
 )
 
 // Direction is the iteration direction used by a SortedIndex index when it is
@@ -35,6 +37,8 @@ type OrderQuery[K Key, E Entry[K]] interface {
 	// batch keys from the index at a time, or every key at once when batch is 0. A
 	// non-nil keys limits the walk to those keys.
 	walk(keys []K, batch int) iter.Seq2[K, func(e *E) bool]
+	// sort orders entries by the values they hold now, in the walk direction.
+	sort(entries []E)
 }
 
 // SortedQuery is the handle returned by SortedIndex.Ordered. Pass it to
@@ -96,4 +100,19 @@ func (q SortedQuery[K, E, V]) walk(keys []K, batch int) iter.Seq2[K, func(e *E) 
 			after = &next[len(next)-1]
 		}
 	}
+}
+
+//nolint:unused
+func (q SortedQuery[K, E, V]) sort(entries []E) {
+	compareKeys := key.Order[K]()
+	slices.SortFunc(entries, func(a, b E) int {
+		c := cmp.Compare(q.sorted.extract(&a), q.sorted.extract(&b))
+		if c == 0 {
+			c = compareKeys(a.GorpKey(), b.GorpKey())
+		}
+		if q.dir == DirectionDesc {
+			return -c
+		}
+		return c
+	})
 }

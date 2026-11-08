@@ -10,6 +10,7 @@
 import { Unreachable } from "@synnaxlabs/freighter";
 import { type record, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
@@ -1792,6 +1793,45 @@ describe("delete rollback", () => {
     await sleep.sleep(TimeSpan.milliseconds(10));
     expect(onError).not.toHaveBeenCalled();
     expect(table.get("k1")).toEqual(doc("a"));
+  });
+});
+
+describe("refetch", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const doc = (name: string): Doc => ({ key: "k1", name });
+
+  it("should not report an entry the Core no longer holds", async () => {
+    const onError = vi.fn();
+    const fetch = vi.fn(async (): Promise<Doc[]> => []);
+    const table = new query.Table<string, Doc>({ onError, fetch });
+    table.set("k1", doc("a"));
+    table.refetch(["k1"]);
+    await expect.poll(() => fetch.mock.calls.length).toBe(1);
+    await sleep.sleep(TimeSpan.milliseconds(10));
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("should return from a fetch listener before its fetch lands", async () => {
+    let land: (docs: Doc[]) => void = () => {};
+    const fetch = vi.fn(
+      async () =>
+        await new Promise<Doc[]>((resolve) => {
+          land = resolve;
+        }),
+    );
+    const table = new query.Table<string, Doc>({ onError: noopError, fetch });
+    table.set("k1", doc("a"));
+    const listener = query
+      .createFetchListener<z.ZodString, string, Doc>("changes", z.string())
+      .bind(table);
+    expect(listener.onChange(["k1"])).toBeUndefined();
+    await expect.poll(() => fetch.mock.calls.length).toBe(1);
+    expect(table.get("k1")).toEqual(doc("a"));
+    land([doc("b")]);
+    await expect.poll(() => table.get("k1")).toEqual(doc("b"));
   });
 });
 

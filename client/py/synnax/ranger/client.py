@@ -784,7 +784,7 @@ class Client:
         :raises ValidationError: If a filter field is None, or if one range is wanted
             beside a limit.
         """
-        single = returns_one(fields, one, limit)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=list(keys)),
             name=None if names is None else filter.String(in_=list(names)),

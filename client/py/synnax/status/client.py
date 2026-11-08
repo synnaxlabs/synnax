@@ -225,7 +225,7 @@ class Client:
 
         >>> statuses = client.statuses.retrieve(owners=[task.resource_id])
         """
-        single = returns_one(fields, one, limit)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             variant=None if variants is None else filter.Set[Variant](in_=variants),

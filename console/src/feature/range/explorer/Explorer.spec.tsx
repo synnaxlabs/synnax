@@ -149,6 +149,22 @@ describe("range/Explorer", () => {
     await waitFor(() => expect(listedNames(word)).toEqual([`${word} future`, word]));
   });
 
+  it("moves a to-do range to in progress when it starts", async () => {
+    const word = uniqueRangeName("stage");
+    const now = TimeStamp.now();
+    await createRangeAt(`${word} later`, now.add(TimeSpan.hours(1)));
+    await createRangeAt(`${word} soon`, now.add(TimeSpan.seconds(2)));
+    await renderExplorer();
+    await searchRanges(word);
+    await waitFor(() =>
+      expect(listedNames(word)).toEqual([`${word} soon`, `${word} later`]),
+    );
+    await waitFor(
+      () => expect(listedNames(word)).toEqual([`${word} later`, `${word} soon`]),
+      { timeout: 5000 },
+    );
+  });
+
   it("opens the create range modal from the toolbar button", async () => {
     await renderExplorer();
     await enableEditing();

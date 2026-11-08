@@ -12,10 +12,11 @@ import "@/feature/range/explorer/Explorer.css";
 import { ranger, type view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
+import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Flux, Ranger } from "@synnaxlabs/pluto";
-import { location, TimeStamp } from "@synnaxlabs/x";
-import { useEffect, useState } from "react";
+import { location, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
+import { useState } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/feature/range/list/Item";
@@ -42,37 +43,75 @@ const ORDERS: Record<Ranger.Stage, ranger.Order> = {
   completed: { field: "time_range_start", descending: true },
 };
 
-const useStage = (where: view.View["where"], stage: Ranger.Stage, now: TimeStamp) => {
-  const staged = Ranger.stageWhere(stage, now);
+const PAGE_SIZE = 50;
+
+interface Listing {
+  /** The time the stages list their ranges at. */
+  at: TimeStamp;
+  /** How many ranges each stage reads at first. */
+  sizes: number[];
+}
+
+const useStage = (where: view.View["where"], stage: Ranger.Stage, listing: Listing) => {
+  const staged = Ranger.stageWhere(stage, listing.at);
   return Flux.useList((client) => client.ranges, {
     name: "ranges",
     query: {
       where: where == null ? staged : { and: [where as ranger.Where, staged] },
       order: ORDERS[stage],
     },
+    pageSize: listing.sizes[Ranger.STAGES.indexOf(stage)],
   });
+};
+
+type Stage = ReturnType<typeof useStage>;
+
+// The instant a range leaves the stage it lists under.
+const leaves = (stage: Ranger.Stage, range: ranger.Range): TimeStamp | null => {
+  const { start, end } = new TimeRange(range.timeRange).makeValid();
+  if (stage === "to_do") return start;
+  if (stage === "in_progress") return end;
+  return null;
+};
+
+const nextCrossing = (stages: Stage[], now: TimeStamp): TimeStamp | null => {
+  let next: TimeStamp | null = null;
+  stages.forEach(({ data, getItem }, i) =>
+    getItem(data).forEach((range) => {
+      const instant = leaves(Ranger.STAGES[i], range);
+      if (instant?.after(now) === true && (next == null || instant.before(next)))
+        next = instant;
+    }),
+  );
+  return next;
 };
 
 const Internal = () => {
   const [where, setWhere] = useState(View.useContext().getInitialView().where);
-  const [now, setNow] = useState(() => TimeStamp.now());
-  const toDo = useStage(where, "to_do", now);
-  const inProgress = useStage(where, "in_progress", now);
-  const completed = useStage(where, "completed", now);
+  const [listing, setListing] = useState<Listing>(() => ({
+    at: TimeStamp.now(),
+    sizes: Ranger.STAGES.map(() => PAGE_SIZE),
+  }));
+  const toDo = useStage(where, "to_do", listing);
+  const inProgress = useStage(where, "in_progress", listing);
+  const completed = useStage(where, "completed", listing);
   const stages = [toDo, inProgress, completed];
-  // A range that crossed into another stage since now, such as one created to start
-  // at once, lists again under a later now.
-  useEffect(() => {
-    const at = TimeStamp.now();
-    const crossed = stages.some(({ data, getItem }, i) =>
-      getItem(data).some(
-        ({ timeRange }) =>
-          Ranger.getStage(timeRange, now) === Ranger.STAGES[i] &&
-          Ranger.getStage(timeRange, at) !== Ranger.STAGES[i],
-      ),
-    );
-    if (crossed) setNow(at);
-  });
+  const now = useNow((at) => nextCrossing(stages, at));
+  // A range that left its stage, such as one created to start at once, lists again
+  // under the new time. Each stage reads as many ranges as it holds, so the list keeps
+  // its place.
+  const crossed = stages.some(({ data, getItem }, i) =>
+    getItem(data).some(
+      ({ timeRange }) =>
+        Ranger.getStage(timeRange, listing.at) === Ranger.STAGES[i] &&
+        Ranger.getStage(timeRange, now) !== Ranger.STAGES[i],
+    ),
+  );
+  if (crossed)
+    setListing({
+      at: now,
+      sizes: stages.map(({ data }) => Math.max(PAGE_SIZE, data.length)),
+    });
   // A stage shows once every stage before it is complete, so pages arrive in order.
   const incomplete = stages.findIndex((s) => !s.complete);
   const shown = incomplete === -1 ? stages : stages.slice(0, incomplete + 1);
@@ -89,7 +128,9 @@ const Internal = () => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   return (
     <View.Form
-      data={shown.flatMap((s) => s.data)}
+      // A stage shows its last ranges until its new ones land, so a range that crossed
+      // can show in two stages for a moment.
+      data={unique.unique(shown.flatMap((s) => s.data))}
       getItem={toDo.getItem}
       subscribe={toDo.subscribe}
       answered={stages.every((s) => s.answered)}

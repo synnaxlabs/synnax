@@ -555,7 +555,7 @@ class Client:
         if channel is not None:
             selected = params_where(channel)
             positional = normalize_params(channel).single
-        single = returns_one(fields, one or positional, limit)
+        single = returns_one(fields, one or positional, limit=limit, after=after)
         flat = Where(
             key=selected.key,
             name=selected.name,
