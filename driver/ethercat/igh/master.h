@@ -141,22 +141,12 @@ private:
         const std::vector<slave::StartupParameter> &parameters
     );
 
-    /// @brief discovers PDO entries for a slave and populates its PDO lists.
-    void discover_slave_pdos(slave::DiscoveryResult &slave);
-
-    /// @brief reads the PDO entries the slave's sync managers carry.
-    void read_slave_pdos(slave::DiscoveryResult &slave);
+    /// @brief discovers the PDO entries of a slave from the layout IgH scanned for its
+    /// sync_count sync managers.
+    void discover_slave_pdos(slave::DiscoveryResult &slave, uint8_t sync_count);
 
     /// @brief appends the PDO entries that IgH scanned for a sync manager of a slave.
     void append_scanned_pdos(slave::Properties &props, uint8_t sync_index);
-
-    /// @brief appends an entry that a PDO maps to the slave's inputs or outputs.
-    void append_pdo_entry(
-        slave::Properties &props,
-        bool is_input,
-        uint16_t pdo_index,
-        const ec_pdo_entry_info_t &entry_info
-    );
 };
 
 /// @brief sysfs path where IgH EtherCAT masters are exposed.

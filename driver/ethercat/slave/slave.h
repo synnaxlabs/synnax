@@ -239,8 +239,6 @@ struct Properties {
     std::vector<dc::OpMode> op_modes;
     /// @brief the mode the user chose, or nullopt for the mode that dc::select picks.
     std::optional<dc::Choice> op_mode;
-    /// @brief true if PDOs were discovered via CoE assignment objects.
-    bool coe_pdo_order_reliable{};
     /// @brief whether the device is enabled or not.
     bool enabled = true;
     /// @brief CoE objects written to the slave before each move to SAFE-OP. Set by the
@@ -307,7 +305,6 @@ struct Properties {
         props["position"] = this->position;
         props["input_bits"] = this->input_bits;
         props["output_bits"] = this->output_bits;
-        props["pdo_order_reliable"] = this->coe_pdo_order_reliable;
         props["enabled"] = this->enabled;
 
         nlohmann::json op_modes = nlohmann::json::array();

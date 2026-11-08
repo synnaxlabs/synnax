@@ -50,6 +50,7 @@ cc_library(
     deps = [
         ":ecrt_official",
         ":igh_api",
+        "//driver/ethercat/coe",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
         "//driver/ethercat/master",

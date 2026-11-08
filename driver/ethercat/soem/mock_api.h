@@ -104,7 +104,6 @@ public:
     /// @brief the slaves whose EEPROM the master controls: siigetbyte adds the slave,
     /// eeprom2pdi removes it.
     std::set<uint16_t> eeprom_held;
-    int readODlist_return = 0;
     bool close_called = false;
     bool init_called = false;
     int send_count = 0;
@@ -442,7 +441,10 @@ public:
         // PRE-OP.
         if ((this->slave_state(slave) & 0x0F) < EC_STATE_PRE_OP) return 0;
         const auto it = this->sdo_objects.find({index, sub_index});
-        if (it == this->sdo_objects.end()) return 0;
+        if (it == this->sdo_objects.end()) {
+            this->push_sdo_abort(slave, index, sub_index, 0x06020000);
+            return 0;
+        }
         std::memcpy(p, &it->second, *psize);
         return 1;
     }
@@ -509,8 +511,6 @@ public:
     }
 
     void eeprom2pdi(uint16_t slave) override { this->eeprom_held.erase(slave); }
-
-    int readODlist(uint16_t, ec_ODlistt *) override { return this->readODlist_return; }
 
     int readODdescription(uint16_t item, ec_ODlistt *od_list) override {
         const auto it = this->od_names.find(od_list->Index[item]);

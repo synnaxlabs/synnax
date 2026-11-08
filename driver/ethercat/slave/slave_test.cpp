@@ -285,7 +285,6 @@ TEST(PropertiesToJson, SerializesAllFields) {
               .is_input = false,
               .name = "Control",
               .data_type = x::telem::UINT8_T}},
-        .coe_pdo_order_reliable = true,
         .enabled = true,
     };
 
@@ -299,7 +298,6 @@ TEST(PropertiesToJson, SerializesAllFields) {
     ASSERT_EQ(j["position"], 3);
     ASSERT_EQ(j["input_bits"], 16);
     ASSERT_EQ(j["output_bits"], 8);
-    ASSERT_EQ(j["pdo_order_reliable"], true);
     ASSERT_EQ(j["enabled"], true);
     ASSERT_EQ(j["pdos"]["inputs"].size(), 1);
     ASSERT_EQ(j["pdos"]["inputs"][0]["name"], "Value");

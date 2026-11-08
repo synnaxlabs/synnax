@@ -178,9 +178,6 @@ public:
     /// control and keeps it.
     virtual void eeprom2pdi(uint16_t slave) = 0;
 
-    /// @brief reads object dictionary list from slave.
-    virtual int readODlist(uint16_t slave, ec_ODlistt *od_list) = 0;
-
     /// @brief reads the description, including the name, of object
     /// od_list->Index[item] into od_list.
     virtual int readODdescription(uint16_t item, ec_ODlistt *od_list) = 0;
@@ -490,10 +487,6 @@ public:
     }
 
     void eeprom2pdi(uint16_t slave) override { ecx_eeprom2pdi(&this->context, slave); }
-
-    int readODlist(uint16_t slave, ec_ODlistt *od_list) override {
-        return ecx_readODlist(&this->context, slave, od_list);
-    }
 
     int readODdescription(uint16_t item, ec_ODlistt *od_list) override {
         return ecx_readODdescription(&this->context, item, od_list);

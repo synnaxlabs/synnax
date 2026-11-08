@@ -428,6 +428,9 @@ TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
     slave.mbx_proto = ECT_MBXPROT_COE;
     this->add_slave(slave);
     this->mock->sdo_objects = {
+        {{0x1C00, 0}, 4},
+        {{0x1C00, 3}, 3},
+        {{0x1C00, 4}, 4},
         {{ECT_SDO_TXPDOASSIGN, 0}, 1},
         {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
         {{0x1A00, 0}, 2},
@@ -461,6 +464,9 @@ TEST_F(SOEMMasterTest, CoEDiscoveryWaitsForPreOp) {
     slave.mbx_proto = ECT_MBXPROT_COE;
     this->add_slave(slave);
     this->mock->sdo_objects = {
+        {{0x1C00, 0}, 4},
+        {{0x1C00, 3}, 3},
+        {{0x1C00, 4}, 4},
         {{ECT_SDO_TXPDOASSIGN, 0}, 1},
         {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
         {{0x1A00, 0}, 1},
@@ -506,6 +512,60 @@ TEST_F(SOEMMasterTest, SIIDiscoveryUsesEntryDataTypes) {
     EXPECT_EQ(inputs[0].data_type, x::telem::INT16_T);
     EXPECT_EQ(inputs[1].sub_index, 2);
     EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
+}
+
+/// @brief it should read the PDOs of a CoE slave from its SII when the slave has no
+/// sync manager type object, as SOEM then maps it from its SII.
+TEST_F(SOEMMasterTest, CoEDiscoveryReadsTheSIIWithoutSyncManagerTypes) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x40;
+    this->mock->sii_categories = {{ECT_SII_PDO, start}};
+    // One TxPDO, 0x1A00, with entry 0x6000:01 (INTEGER16).
+    const std::vector<uint8_t> category =
+        {8, 0, 0x00, 0x1A, 1, 3, 0, 0, 0, 0, 0x00, 0x60, 1, 0, 0x03, 16, 0, 0};
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves[0].properties.input_pdos.size(), 1);
+    EXPECT_EQ(slaves[0].properties.input_pdos[0].index, 0x6000);
+    EXPECT_TRUE(slaves[0].status.pdo_discovery_error.empty());
+}
+
+/// @brief it should report why a CoE slave failed to give its PDO layout, and not read
+/// its SII in place of it.
+TEST_F(SOEMMasterTest, CoEDiscoveryReportsAFailedRead) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    this->add_slave(slave);
+    this->mock->sdo_objects = {
+        {{0x1C00, 0}, 4},
+        {{0x1C00, 3}, 3},
+        {{0x1C00, 4}, 4},
+        {{ECT_SDO_RXPDOASSIGN, 0}, 0},
+        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+    };
+    constexpr uint16_t start = 0x40;
+    this->mock->sii_categories = {{ECT_SII_PDO, start}};
+    const std::vector<uint8_t> category =
+        {8, 0, 0x00, 0x1A, 1, 3, 0, 0, 0, 0, 0x00, 0x60, 1, 0, 0x03, 16, 0, 0};
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    EXPECT_TRUE(slaves[0].properties.input_pdos.empty());
+    EXPECT_EQ(
+        slaves[0].status.pdo_discovery_error,
+        "failed to read the PDO layout: failed to read 0x1A00:00: Object does not "
+        "exist in the object dictionary"
+    );
 }
 
 /// @brief it should give the EEPROM back to the slave after it reads PDOs from the SII.
@@ -2065,6 +2125,9 @@ MockSlaveInfo coe_slave(const uint16_t input_bits) {
 /// 16-bit entry.
 void serve_padded_txpdo(MockAPI &mock) {
     mock.sdo_objects = {
+        {{0x1C00, 0}, 4},
+        {{0x1C00, 3}, 3},
+        {{0x1C00, 4}, 4},
         {{ECT_SDO_TXPDOASSIGN, 0}, 1},
         {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
         {{0x1A00, 0}, 3},
@@ -2195,6 +2258,9 @@ TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithUnreadableMapping) {
     info.eep_id = EL1008;
     this->add_slave(info);
     this->mock->sdo_objects = {
+        {{0x1C00, 0}, 4},
+        {{0x1C00, 3}, 3},
+        {{0x1C00, 4}, 4},
         {{ECT_SDO_TXPDOASSIGN, 0}, 1},
         {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
         {{ECT_SDO_RXPDOASSIGN, 0}, 0},

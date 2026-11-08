@@ -15,11 +15,13 @@
 #include <iterator>
 #include <string_view>
 #include <thread>
+#include <tuple>
 
 #include "absl/log/log.h"
 
 #include "x/cpp/binary/binary.h"
 
+#include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/slave/slave.h"
@@ -83,22 +85,6 @@ constexpr uint16_t AL_INVALID_DC_SYNC = 0x0030;
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
 constexpr size_t DEFAULT_IOMAP_SIZE = 131072;
-
-/// @name EtherCAT Object Dictionary Standard Addresses
-/// These are defined by the EtherCAT specification (ETG.1000.6) and are the standard
-/// locations for PDO mapping objects in any compliant EtherCAT slave.
-/// @{
-
-/// First TxPDO (slave->master) mapping object index. Range: 0x1A00-0x1BFF.
-constexpr uint16_t TXPDO_MAPPING_START = 0x1A00;
-/// Last TxPDO mapping object index.
-constexpr uint16_t TXPDO_MAPPING_END = 0x1BFF;
-/// First RxPDO (master->slave) mapping object index. Range: 0x1600-0x17FF.
-constexpr uint16_t RXPDO_MAPPING_START = 0x1600;
-/// Last RxPDO mapping object index.
-constexpr uint16_t RXPDO_MAPPING_END = 0x17FF;
-
-/// @}
 
 namespace {
 /// @brief empties the SOEM error list, returning the code of the latest SDO abort in it
@@ -623,9 +609,6 @@ master::Image Master::image() {
                     );
             continue;
         }
-        if (!props.coe_pdo_order_reliable)
-            LOG(WARNING) << "Slave " << props.position
-                         << " PDO offsets may be incorrect (fallback discovery used)";
         pdo::compute_offsets(
             image.offsets,
             props.position,
@@ -644,241 +627,120 @@ master::Image Master::image() {
     return image;
 }
 
-constexpr int MAX_SDO_FAILURES = 3;
+std::pair<uint32_t, x::errors::Error>
+Master::read_sdo(const uint16_t pos, const uint16_t index, const uint8_t sub_index) {
+    uint32_t value = 0;
+    int size = sizeof(value);
+    if (this->api->SDOread(pos, index, sub_index, FALSE, &size, &value, SDO_TIMEOUT) >
+        0)
+        return {value, x::errors::NIL};
+    return {
+        0,
+        coe::read_error(
+            index,
+            sub_index,
+            pop_sdo_abort(*this->api, pos, index, sub_index)
+        )
+    };
+}
 
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
-    if (this->discover_pdos_coe(slave)) {
-        esi::fill_known_entries(props);
-        return;
-    }
-    slave.status.pdo_discovery_error.clear();
-    this->discover_pdos_sii(slave);
-    if (!props.input_pdos.empty() || !props.output_pdos.empty()) {
-        esi::fill_known_entries(props);
-        return;
-    }
-    if (!esi::lookup_device_pdos(
-            props.vendor_id,
-            props.product_code,
-            props.revision,
-            props
-        ))
-        return;
-    VLOG(1) << "Slave " << props.position
-            << " PDOs discovered via ESI: " << props.input_pdos.size() << " inputs, "
-            << props.output_pdos.size() << " outputs";
-    slave.status.pdo_discovery_error.clear();
-    props.coe_pdo_order_reliable = true;
-}
-
-bool Master::discover_pdos_coe(slave::DiscoveryResult &slave) {
-    auto &props = slave.properties;
-    auto &status = slave.status;
-    VLOG(1) << "Slave " << props.position << " mbx_proto: 0x" << std::hex
-            << static_cast<int>(this->api->slave_mbx_proto(props.position)) << std::dec;
-    if ((this->api->slave_mbx_proto(props.position) & ECT_MBXPROT_COE) == 0) {
-        VLOG(1) << "Slave " << props.position << " (" << props.name
-                << ") does not support CoE, falling back to SII";
-        return false;
-    }
-
-    VLOG(1) << "Slave " << props.position << " supports CoE, reading PDO assignments";
-
-    bool tx_success = false;
-    bool rx_success = false;
-
-    bool tx_order_reliable = false;
-    bool rx_order_reliable = false;
-
-    auto err = this->read_pdo_assign(props.position, ECT_SDO_TXPDOASSIGN, true, slave);
-    if (err) {
-        VLOG(1) << "Failed to read TxPDO assignment for slave " << props.position
-                << ": " << err.message() << " - trying direct PDO read";
-        err = this->read_pdo_mapping(props.position, TXPDO_MAPPING_START, true, slave);
-        if (err)
-            VLOG(1) << "Failed to read TxPDO mapping 0x" << std::hex
-                    << TXPDO_MAPPING_START << std::dec << " for slave "
-                    << props.position << ": " << err.message();
-        else
-            tx_success = true;
-    } else {
-        tx_success = true;
-        tx_order_reliable = true;
-    }
-
-    err = this->read_pdo_assign(props.position, ECT_SDO_RXPDOASSIGN, false, slave);
-    if (err) {
-        VLOG(1) << "Failed to read RxPDO assignment for slave " << props.position
-                << ": " << err.message() << " - trying direct PDO read";
-        err = this->read_pdo_mapping(props.position, RXPDO_MAPPING_START, false, slave);
-        if (err)
-            VLOG(1) << "Failed to read RxPDO mapping 0x" << std::hex
-                    << RXPDO_MAPPING_START << std::dec << " for slave "
-                    << props.position << ": " << err.message();
-        else
-            rx_success = true;
-    } else {
-        rx_success = true;
-        rx_order_reliable = true;
-    }
-
-    if (!tx_success && !rx_success) {
-        VLOG(1) << "Standard PDO discovery failed for slave " << props.position
-                << ", scanning object dictionary";
-        if (this->scan_object_dictionary_for_pdos(props.position, slave)) {
-            tx_success = !props.input_pdos.empty();
-            rx_success = !props.output_pdos.empty();
+    const auto pos = props.position;
+    if ((this->api->slave_mbx_proto(pos) & ECT_MBXPROT_COE) != 0) {
+        auto [syncs, err] = coe::read_layout(
+            [this, pos](const uint16_t index, const uint8_t sub_index) {
+                return this->read_sdo(pos, index, sub_index);
+            },
+            EC_MAXSM
+        );
+        if (err) {
+            slave.status.pdo_discovery_error = "failed to read the PDO layout: " +
+                                               err.data;
+            esi::fill(slave);
+            return;
         }
+        for (auto &sync: syncs)
+            for (auto &pdo: sync.pdos) {
+                pdo.name = this->read_object_name(pos, pdo.index);
+                for (auto &entry: pdo.entries)
+                    if (entry.index != 0)
+                        std::tie(
+                            entry.name,
+                            entry.type
+                        ) = this->read_object_entry(pos, entry.index, entry.sub_index);
+                auto &pdos = sync.is_input ? props.input_pdos : props.output_pdos;
+                coe::append(pdos, sync.is_input, pdo);
+            }
     }
-
-    if ((!tx_success && !rx_success) ||
-        (props.input_pdos.empty() && props.output_pdos.empty())) {
-        status.pdo_discovery_error = "no PDO objects found in object dictionary";
-        return false;
-    }
-
-    status.pdos_discovered = true;
-    props.coe_pdo_order_reliable = tx_order_reliable && rx_order_reliable;
-    VLOG(1) << "Slave " << props.position
-            << " PDOs discovered via CoE: " << props.input_pdos.size() << " inputs, "
-            << props.output_pdos.size() << " outputs";
-    return true;
+    // SOEM maps a slave from its SII when CoE gives no process data.
+    if (props.input_pdos.empty() && props.output_pdos.empty())
+        this->discover_pdos_sii(slave);
+    slave.status.pdos_discovered = true;
+    esi::fill(slave);
 }
 
 void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
-    auto &status = slave.status;
-    VLOG(1) << "Using SII fallback for slave " << props.position;
-
-    for (uint8_t t = 0; t <= 1; ++t) {
-        const bool is_input = (t == 0);
-        const uint16_t startpos = this->api->siifind(props.position, ECT_SII_PDO + t);
-        VLOG(1) << "Slave " << props.position << " SII category " << (ECT_SII_PDO + t)
-                << " (" << (is_input ? "TxPDO" : "RxPDO") << ") startpos: " << startpos;
-        if (startpos == 0) continue;
-
-        uint16_t a = startpos;
-        uint16_t length = this->api->siigetbyte(props.position, a++);
-        length += (this->api->siigetbyte(props.position, a++) << 8);
-
-        VLOG(1) << "Slave " << props.position << " " << (is_input ? "TxPDO" : "RxPDO")
-                << " length: " << length;
-
-        uint16_t c = 1;
-        while (c < length) {
-            uint16_t pdo_index = this->api->siigetbyte(props.position, a++);
-            pdo_index += (this->api->siigetbyte(props.position, a++) << 8);
-            c++;
-
-            const uint8_t num_entries = this->api->siigetbyte(props.position, a++);
-            const uint8_t sync_manager = this->api->siigetbyte(props.position, a++);
-            a++;
-            const uint8_t pdo_name_idx = this->api->siigetbyte(props.position, a++);
-            a += 2;
-            c += 2;
-
-            std::optional<std::string> pdo_name;
-            if (pdo_name_idx > 0) {
-                char name_buf[EC_MAXNAME + 1] = {0};
-                this->api->siistring(name_buf, props.position, pdo_name_idx);
-                if (name_buf[0] != '\0') pdo_name = name_buf;
+    const auto pos = props.position;
+    uint16_t addr = 0;
+    const auto read = [&](const int bytes) {
+        uint16_t value = 0;
+        for (int i = 0; i < bytes; ++i)
+            value |= static_cast<uint16_t>(
+                this->api->siigetbyte(pos, addr++) << (8 * i)
+            );
+        return value;
+    };
+    const auto read_string = [&](const uint16_t index) {
+        char name[EC_MAXNAME + 1] = {0};
+        if (index > 0) this->api->siistring(name, pos, index);
+        return std::string(name);
+    };
+    for (const bool is_input: {true, false}) {
+        const uint16_t start = this->api->siifind(
+            pos,
+            is_input ? ECT_SII_PDO : ECT_SII_PDO + 1
+        );
+        if (start == 0) continue;
+        addr = start;
+        const uint16_t words = read(2);
+        const uint16_t end = start + 2 + words * 2;
+        while (addr < end) {
+            coe::PDO pdo{.index = read(2), .entries = {}};
+            const auto count = read(1);
+            const auto sync_manager = read(1);
+            addr++;
+            if (auto name = read_string(read(1)); !name.empty()) pdo.name = name;
+            addr += 2;
+            for (uint16_t i = 0; i < count; ++i) {
+                coe::Entry entry{
+                    .index = read(2),
+                    .sub_index = static_cast<uint8_t>(read(1)),
+                    .bit_length = 0,
+                };
+                entry.name = read_string(read(1));
+                entry.type = static_cast<telem::DataType>(read(1));
+                entry.bit_length = static_cast<uint8_t>(read(1));
+                addr += 2;
+                pdo.entries.push_back(std::move(entry));
             }
-
-            if (sync_manager >= EC_MAXSM) {
-                c += 4 * num_entries;
-                a += 8 * num_entries;
-                c++;
-                continue;
-            }
-
-            for (uint8_t er = 0; er < num_entries; ++er) {
-                c += 4;
-                uint16_t obj_idx = this->api->siigetbyte(props.position, a++);
-                obj_idx += (this->api->siigetbyte(props.position, a++) << 8);
-                const uint8_t obj_subidx = this->api->siigetbyte(props.position, a++);
-                const uint8_t obj_name_idx = this->api->siigetbyte(props.position, a++);
-                const auto coe_type = static_cast<telem::DataType>(
-                    this->api->siigetbyte(props.position, a++)
-                );
-                const uint8_t bitlen = this->api->siigetbyte(props.position, a++);
-                a += 2;
-
-                if (obj_idx == 0) {
-                    pdo::Properties gap{
-                        .pdo_index = pdo_index,
-                        .bit_length = bitlen,
-                        .is_input = is_input,
-                    };
-                    if (is_input)
-                        props.input_pdos.push_back(gap);
-                    else
-                        props.output_pdos.push_back(gap);
-                    continue;
-                }
-
-                std::string entry_name;
-                if (obj_name_idx > 0) {
-                    char name_buf[EC_MAXNAME + 1] = {0};
-                    this->api->siistring(name_buf, props.position, obj_name_idx);
-                    entry_name = name_buf;
-                }
-
-                const auto data_type = telem::map_ethercat_to_synnax(coe_type, bitlen);
-                const std::string name = telem::generate_pdo_entry_name(
-                    entry_name,
-                    obj_idx,
-                    obj_subidx,
-                    is_input,
-                    data_type
-                );
-
-                pdo::Properties entry(
-                    pdo_index,
-                    obj_idx,
-                    obj_subidx,
-                    bitlen,
-                    is_input,
-                    name,
-                    data_type,
-                    pdo_name
-                );
-
-                if (is_input)
-                    props.input_pdos.push_back(entry);
-                else
-                    props.output_pdos.push_back(entry);
-            }
-            c++;
+            auto &pdos = is_input ? props.input_pdos : props.output_pdos;
+            if (sync_manager < EC_MAXSM) coe::append(pdos, is_input, pdo);
         }
     }
-    this->api->eeprom2pdi(props.position);
-
-    if (props.input_pdos.empty() && props.output_pdos.empty()) {
-        if (this->api->slave_Ibits(props.position) > 0 ||
-            this->api->slave_Obits(props.position) > 0) {
-            VLOG(1) << "Slave " << props.position
-                    << " has Ibits=" << this->api->slave_Ibits(props.position)
-                    << " Obits=" << this->api->slave_Obits(props.position)
-                    << " but no SII PDO info";
-            status.pdo_discovery_error = "PDO details not available (I/O size: " +
-                                         std::to_string(
-                                             this->api->slave_Ibits(props.position)
-                                         ) +
-                                         " input bits, " +
-                                         std::to_string(
-                                             this->api->slave_Obits(props.position)
-                                         ) +
-                                         " output bits)";
-        } else {
-            status.pdo_discovery_error = "no PDOs found";
-        }
-    }
-
-    status.pdos_discovered = true;
-    VLOG(1) << "Slave " << props.position
-            << " PDOs discovered via SII: " << props.input_pdos.size() << " inputs, "
-            << props.output_pdos.size() << " outputs";
+    this->api->eeprom2pdi(pos);
+    if (!props.input_pdos.empty() || !props.output_pdos.empty()) return;
+    const auto in = this->api->slave_Ibits(pos);
+    const auto out = this->api->slave_Obits(pos);
+    slave.status.pdo_discovery_error = in > 0 || out > 0
+                                         ? std::format(
+                                               "PDO details not available (I/O size: "
+                                               "{} input bits, {} output bits)",
+                                               in,
+                                               out
+                                           )
+                                         : "no PDOs found";
 }
 
 /// SII category that lists the synchronization modes of a slave.
@@ -922,176 +784,6 @@ std::vector<dc::OpMode> Master::read_op_modes(const uint16_t position) {
     return modes;
 }
 
-x::errors::Error Master::read_pdo_assign(
-    const uint16_t slave_pos,
-    const uint16_t assign_index,
-    const bool is_input,
-    slave::DiscoveryResult &slave
-) {
-    uint8_t num_pdos = 0;
-    int size = sizeof(num_pdos);
-    int result = this->api->SDOread(
-        slave_pos,
-        assign_index,
-        0,
-        FALSE,
-        &size,
-        &num_pdos,
-        SDO_TIMEOUT
-    );
-    if (result <= 0) {
-        VLOG(1) << "Slave " << slave_pos << " SDO read 0x" << std::hex << assign_index
-                << ":0 failed, result=" << std::dec << result
-                << " ecx_err=" << this->api->slave_ALstatuscode(slave_pos);
-        return x::errors::Error(
-            errors::SDO_READ_ERROR,
-            "failed to read PDO assignment count"
-        );
-    }
-    VLOG(1) << "Slave " << slave_pos << " PDO assign 0x" << std::hex << assign_index
-            << " has " << std::dec << static_cast<int>(num_pdos) << " PDOs";
-
-    int consecutive_failures = 0;
-    for (uint8_t i = 1; i <= num_pdos; ++i) {
-        uint16_t pdo_index = 0;
-        size = sizeof(pdo_index);
-        result = this->api->SDOread(
-            slave_pos,
-            assign_index,
-            i,
-            FALSE,
-            &size,
-            &pdo_index,
-            SDO_TIMEOUT
-        );
-        if (result <= 0) {
-            consecutive_failures++;
-            if (consecutive_failures >= MAX_SDO_FAILURES)
-                return x::errors::Error(
-                    errors::SDO_READ_ERROR,
-                    "too many consecutive SDO failures"
-                );
-            continue;
-        }
-        consecutive_failures = 0;
-
-        if (pdo_index == 0) continue;
-
-        if (auto err = this->read_pdo_mapping(slave_pos, pdo_index, is_input, slave))
-            VLOG(1) << "Failed to read PDO mapping 0x" << std::hex << pdo_index
-                    << " for slave " << std::dec << slave_pos << ": " << err.message();
-    }
-
-    return x::errors::NIL;
-}
-
-x::errors::Error Master::read_pdo_mapping(
-    const uint16_t slave_pos,
-    const uint16_t pdo_index,
-    const bool is_input,
-    slave::DiscoveryResult &slave
-) {
-    auto &props = slave.properties;
-    uint8_t num_entries = 0;
-    int size = sizeof(num_entries);
-    int result = this->api->SDOread(
-        slave_pos,
-        pdo_index,
-        0,
-        FALSE,
-        &size,
-        &num_entries,
-        SDO_TIMEOUT
-    );
-    if (result <= 0) {
-        VLOG(1) << "Slave " << slave_pos << " SDO read 0x" << std::hex << pdo_index
-                << ":0 failed, result=" << std::dec << result;
-        return x::errors::Error(
-            errors::SDO_READ_ERROR,
-            "failed to read PDO mapping count"
-        );
-    }
-    VLOG(1) << "Slave " << slave_pos << " PDO 0x" << std::hex << pdo_index << " has "
-            << std::dec << static_cast<int>(num_entries) << " entries";
-
-    const auto pdo_name = this->read_object_name(slave_pos, pdo_index);
-    int consecutive_failures = 0;
-    for (uint8_t i = 1; i <= num_entries; ++i) {
-        uint32_t mapping = 0;
-        size = sizeof(mapping);
-        result = this->api->SDOread(
-            slave_pos,
-            pdo_index,
-            i,
-            FALSE,
-            &size,
-            &mapping,
-            SDO_TIMEOUT
-        );
-        if (result <= 0) {
-            consecutive_failures++;
-            if (consecutive_failures >= MAX_SDO_FAILURES)
-                return x::errors::Error(
-                    errors::SDO_READ_ERROR,
-                    "too many consecutive SDO failures"
-                );
-            continue;
-        }
-        consecutive_failures = 0;
-
-        if (mapping == 0) continue;
-
-        const auto index = static_cast<uint16_t>((mapping >> 16) & 0xFFFF);
-        const auto sub_index = static_cast<uint8_t>((mapping >> 8) & 0xFF);
-        const auto bit_length = static_cast<uint8_t>(mapping & 0xFF);
-
-        if (index == 0) {
-            pdo::Properties gap{
-                .pdo_index = pdo_index,
-                .bit_length = bit_length,
-                .is_input = is_input,
-            };
-            if (is_input)
-                props.input_pdos.push_back(gap);
-            else
-                props.output_pdos.push_back(gap);
-            continue;
-        }
-
-        const auto [coe_name, coe_type] = this->read_pdo_entry(
-            slave_pos,
-            index,
-            sub_index
-        );
-        const auto data_type = telem::map_ethercat_to_synnax(coe_type, bit_length);
-        const std::string name = telem::generate_pdo_entry_name(
-            coe_name,
-            index,
-            sub_index,
-            is_input,
-            data_type
-        );
-
-        pdo::Properties entry(
-            pdo_index,
-            index,
-            sub_index,
-            bit_length,
-            is_input,
-            name,
-            data_type,
-            pdo_name
-        );
-
-        if (is_input)
-            props.input_pdos.push_back(entry);
-        else
-            props.output_pdos.push_back(entry);
-    }
-
-    return x::errors::NIL;
-}
-
 std::optional<std::string>
 Master::read_object_name(const uint16_t slave_pos, const uint16_t index) {
     ec_ODlistt od_list{};
@@ -1103,7 +795,7 @@ Master::read_object_name(const uint16_t slave_pos, const uint16_t index) {
     return std::nullopt;
 }
 
-std::pair<std::string, telem::DataType> Master::read_pdo_entry(
+std::pair<std::string, telem::DataType> Master::read_object_entry(
     const uint16_t slave_pos,
     const uint16_t index,
     const uint8_t sub_index
@@ -1121,56 +813,6 @@ std::pair<std::string, telem::DataType> Master::read_pdo_entry(
         std::string(oe_list.Name[sub_index]),
         static_cast<telem::DataType>(oe_list.DataType[sub_index])
     };
-}
-
-bool Master::scan_object_dictionary_for_pdos(
-    const uint16_t slave_pos,
-    slave::DiscoveryResult &slave
-) {
-    ec_ODlistt od_list{};
-    std::memset(&od_list, 0, sizeof(od_list));
-    od_list.Slave = slave_pos;
-
-    if (this->api->readODlist(slave_pos, &od_list) <= 0) {
-        VLOG(1) << "Slave " << slave_pos << " failed to read object dictionary list";
-        return false;
-    }
-
-    VLOG(1) << "Slave " << slave_pos << " object dictionary has " << od_list.Entries
-            << " entries";
-
-    std::vector<uint16_t> txpdo_indices;
-    std::vector<uint16_t> rxpdo_indices;
-
-    for (uint16_t i = 0; i < od_list.Entries; ++i) {
-        const uint16_t index = od_list.Index[i];
-        if (index >= TXPDO_MAPPING_START && index <= TXPDO_MAPPING_END) {
-            txpdo_indices.push_back(index);
-            VLOG(1) << "Slave " << slave_pos << " found TxPDO object 0x" << std::hex
-                    << index << std::dec;
-        } else if (index >= RXPDO_MAPPING_START && index <= RXPDO_MAPPING_END) {
-            rxpdo_indices.push_back(index);
-            VLOG(1) << "Slave " << slave_pos << " found RxPDO object 0x" << std::hex
-                    << index << std::dec;
-        }
-    }
-
-    bool found_any = false;
-
-    for (const auto pdo_index: txpdo_indices) {
-        auto err = this->read_pdo_mapping(slave_pos, pdo_index, true, slave);
-        if (!err) found_any = true;
-    }
-
-    for (const auto pdo_index: rxpdo_indices) {
-        auto err = this->read_pdo_mapping(slave_pos, pdo_index, false, slave);
-        if (!err) found_any = true;
-    }
-
-    VLOG(1) << "Slave " << slave_pos << " OD scan found " << txpdo_indices.size()
-            << " TxPDO objects, " << rxpdo_indices.size() << " RxPDO objects";
-
-    return found_any;
 }
 
 template<std::integral T>

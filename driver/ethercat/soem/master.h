@@ -179,43 +179,25 @@ private:
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
     void discover_slave_pdos(slave::DiscoveryResult &slave);
 
-    /// @brief discovers PDOs using CoE SDO reads (primary method).
-    bool discover_pdos_coe(slave::DiscoveryResult &slave);
+    /// @brief reads an unsigned value of at most four bytes from the object dictionary
+    /// of the slave at pos.
+    std::pair<uint32_t, x::errors::Error>
+    read_sdo(uint16_t pos, uint16_t index, uint8_t sub_index);
 
-    /// @brief discovers PDOs from SII EEPROM (fallback method).
+    /// @brief discovers PDOs from the SII categories of the slave.
     void discover_pdos_sii(slave::DiscoveryResult &slave);
 
     /// @brief reads the synchronization modes the slave at the given position lists in
     /// its SII. Returns an empty list when the SII has no DC category.
     std::vector<dc::OpMode> read_op_modes(uint16_t position);
 
-    /// @brief reads PDO assignment object to get list of assigned PDOs.
-    x::errors::Error read_pdo_assign(
-        uint16_t slave_pos,
-        uint16_t assign_index,
-        bool is_input,
-        slave::DiscoveryResult &slave
-    );
-
     /// @brief reads the name of a CoE object, or nullopt when the slave has none.
     std::optional<std::string> read_object_name(uint16_t slave_pos, uint16_t index);
-
-    /// @brief reads PDO mapping entries from a specific PDO.
-    x::errors::Error read_pdo_mapping(
-        uint16_t slave_pos,
-        uint16_t pdo_index,
-        bool is_input,
-        slave::DiscoveryResult &slave
-    );
 
     /// @brief reads the name and CoE data type of a PDO entry from the object
     /// dictionary.
     std::pair<std::string, telem::DataType>
-    read_pdo_entry(uint16_t slave_pos, uint16_t index, uint8_t sub_index);
-
-    /// @brief scans the CoE object dictionary to find PDO mapping indices.
-    bool
-    scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
+    read_object_entry(uint16_t slave_pos, uint16_t index, uint8_t sub_index);
 
     /// @brief writes value to the DC register of a slave at address. The register is
     /// as wide as T.

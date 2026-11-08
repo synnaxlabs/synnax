@@ -28,4 +28,8 @@ bool lookup_device_pdos(
 /// registry lists at the same address and bit length. Leaves other entries unchanged.
 void fill_known_entries(slave::Properties &slave);
 
+/// @brief names the entries of a known device. Gives a known device whose discovery
+/// found no entries the layout the registry lists, and clears its discovery error.
+void fill(slave::DiscoveryResult &slave);
+
 }
