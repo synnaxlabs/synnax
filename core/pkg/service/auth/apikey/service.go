@@ -142,10 +142,10 @@ func (s *Service) Authenticate(
 // Version implements [auth.Authenticator]. An API key keeps one version for life.
 func (s *Service) Version(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	credential uuid.UUID,
 ) (telem.TimeStamp, error) {
 	var k APIKey
-	err := s.NewRetrieve().Where(MatchKeys(credential)).Entry(&k).Exec(ctx, tx)
+	err := s.NewRetrieve().Where(MatchKeys(credential)).Entry(&k).Exec(ctx, snap)
 	return k.Created, err
 }

@@ -245,11 +245,11 @@ func identityOf(p Password) auth.Identity {
 // password is set.
 func (s *Service) Version(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	credential uuid.UUID,
 ) (telem.TimeStamp, error) {
 	var p Password
-	err := s.NewRetrieve().Where(MatchKeys(credential)).Entry(&p).Exec(ctx, tx)
+	err := s.NewRetrieve().Where(MatchKeys(credential)).Entry(&p).Exec(ctx, snap)
 	return p.Created, err
 }
 
