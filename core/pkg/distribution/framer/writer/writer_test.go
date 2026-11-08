@@ -37,7 +37,7 @@ import (
 var _ = Describe("Writer", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func(context.Context) scenario{
-			gatewayOnlyScenario,
+			storageScenario,
 			freeWriterScenario,
 		}
 		for i, sF := range scenarios {
@@ -166,7 +166,7 @@ var _ = Describe("Writer", func() {
 		var s scenario
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			s = DeferClose(gatewayOnlyScenario(ctx))
+			s = DeferClose(storageScenario(ctx))
 		})
 		It("Should return an error if no keys are provided", func(ctx SpecContext) {
 			Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -311,13 +311,13 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should end the domain of an index",
 			func(ctx SpecContext) {
-				gw := testutil.NewNode(ctx)
-				idx := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
+				host := testutil.NewNode(ctx)
+				idx := MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
 					Name:     "local_time",
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}}))[0]
-				data := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
+				data := MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
 					Name:       "local",
 					DataType:   telem.Int64T,
 					LocalIndex: idx.LocalKey,
@@ -335,7 +335,7 @@ var _ = Describe("Writer", func() {
 						telem.NewSeries(values),
 					})
 				}
-				w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -345,7 +345,7 @@ var _ = Describe("Writer", func() {
 				Expect(w.EndDomain(channel.Keys{idx.Key()})).To(BeTrue())
 				Expect(w.Write(frameAt(20, 21))).To(BeTrue())
 				MustSucceed(w.Commit())
-				fill := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				fill := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
 					Start: 12 * telem.SecondTS,
 					Mode:  ts.WriterModePersistOnly,
@@ -360,22 +360,22 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return false when another writer holds control",
 			func(ctx SpecContext) {
-				gw := testutil.NewNode(ctx)
+				host := testutil.NewNode(ctx)
 				keys := channel.KeysFromChannels(
-					MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
-						Name:     "gateway_time",
+					MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
+						Name:     "host_time",
 						IsIndex:  true,
 						DataType: telem.TimestampT,
 					}})),
 				)
-				w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					ControlSubject: control.Subject{Key: "low"},
 					Keys:           keys,
 					Start:          10 * telem.SecondTS,
 					Authorities:    []control.Authority{1},
 					Sync:           new(true),
 				}))
-				holder := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				holder := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					ControlSubject: control.Subject{Key: "high"},
 					Keys:           keys,
 					Start:          10 * telem.SecondTS,
@@ -392,20 +392,20 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It("Should report a commit that fails", func(ctx SpecContext) {
-			gw := testutil.NewNode(ctx)
-			idx := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
+			host := testutil.NewNode(ctx)
+			idx := MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
 				Name:        "time",
 				IsIndex:     true,
 				DataType:    telem.TimestampT,
 				Leaseholder: 1,
 			}}))[0]
 			keys := channel.Keys{idx.Key()}
-			live := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+			live := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
 			}))
-			fill := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+			fill := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 				Keys:             keys,
 				Start:            1 * telem.SecondTS,
 				Mode:             ts.WriterModePersistOnly,
@@ -439,22 +439,22 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should stamp the index of a data channel",
 			func(ctx SpecContext) {
-				gw := testutil.NewNode(ctx)
+				host := testutil.NewNode(ctx)
 				idx := channel.Channel{
 					Name:     "auto_index_time",
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				idx = MustSucceed(gw.Channel.Create(ctx, []channel.Channel{idx}))[0]
+				idx = MustSucceed(host.Channel.Create(ctx, []channel.Channel{idx}))[0]
 				data := channel.Channel{
 					Name:       "auto_index_data",
 					DataType:   telem.Float64T,
 					LocalIndex: idx.LocalKey,
 				}
-				data = MustSucceed(gw.Channel.Create(ctx, []channel.Channel{data}))[0]
+				data = MustSucceed(host.Channel.Create(ctx, []channel.Channel{data}))[0]
 
 				before := telem.Now()
-				w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					Keys:      []channel.Key{data.Key()},
 					Sync:      new(true),
 					AutoIndex: new(true),
@@ -468,7 +468,7 @@ var _ = Describe("Writer", func() {
 				Expect(w.Close()).To(Succeed())
 				after := telem.Now()
 
-				iter := MustSucceed(gw.Framer.OpenIterator(ctx, iterator.Config{
+				iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
 					Keys:   []channel.Key{idx.Key()},
 					Bounds: telem.TimeRangeMax,
 				}))
@@ -490,7 +490,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should correctly set alignments on indexed free channels",
 			func(ctx SpecContext) {
-				s := DeferClose(gatewayOnlyScenario(ctx))
+				s := DeferClose(storageScenario(ctx))
 				var (
 					idxCh = channel.Channel{
 						Name:        "free_time",
@@ -573,9 +573,9 @@ var _ = Describe("Writer", func() {
 		)
 
 		It(
-			"Should stamp index-less free channels with the gateway's clock",
+			"Should stamp index-less free channels with the host's clock",
 			func(ctx SpecContext) {
-				s := DeferClose(gatewayOnlyScenario(ctx))
+				s := DeferClose(storageScenario(ctx))
 				ch := channel.Channel{
 					Name:        "free_unindexed",
 					DataType:    telem.Int64T,
@@ -620,7 +620,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should give the samples of an index-less free channel distinct alignments",
 			func(ctx SpecContext) {
-				s := DeferClose(gatewayOnlyScenario(ctx))
+				s := DeferClose(storageScenario(ctx))
 				ch := channel.Channel{
 					Name:        "free_unindexed_aligned",
 					DataType:    telem.Int64T,
@@ -669,7 +669,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return an error when no channel resolver is configured",
 			func(ctx SpecContext) {
-				s := DeferClose(gatewayOnlyScenario(ctx))
+				s := DeferClose(storageScenario(ctx))
 				ch := channel.Channel{
 					Name:        "free_unresolved",
 					DataType:    telem.Int64T,
@@ -765,14 +765,14 @@ var _ = Describe("Writer", func() {
 					Expect(written.TimeRange.Start).To(BeNumerically("<=", after))
 				}
 			},
-			Entry("Gateway", gatewayOnlyScenario),
+			Entry("Storage", storageScenario),
 			Entry("Free", freeWriterScenario),
 		)
 
 		DescribeTable(
 			"Should span a virtual series 1ns for each sample",
 			func(ctx SpecContext, length int) {
-				s := DeferClose(gatewayOnlyScenario(ctx))
+				s := DeferClose(storageScenario(ctx))
 				series := make([]telem.Series, len(s.keys))
 				for i := range series {
 					series[i] = telem.NewSeries(make([]int64, length))
@@ -792,7 +792,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should span a variable-length virtual series 1ns for each sample",
 			func(ctx SpecContext) {
-				s := DeferClose(gatewayOnlyScenario(ctx))
+				s := DeferClose(storageScenario(ctx))
 				ch := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{{
 					Name:     "strings",
 					Virtual:  true,
@@ -814,7 +814,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should start every virtual series in one write at one instant",
 			func(ctx SpecContext) {
-				s := DeferClose(gatewayOnlyScenario(ctx))
+				s := DeferClose(storageScenario(ctx))
 				received, _, _ := writeAndReceive(
 					ctx,
 					s,
@@ -849,14 +849,14 @@ var _ = Describe("Writer", func() {
 				Expect(first.Span()).To(Equal(2 * telem.Nanosecond))
 				Expect(second).To(Equal(first.End.SpanRange(telem.Nanosecond)))
 			},
-			Entry("Gateway", gatewayOnlyScenario),
+			Entry("Storage", storageScenario),
 			Entry("Free", freeWriterScenario),
 		)
 
 		It(
 			"Should align indexed free channels and stamp index-less ones in one frame",
 			func(ctx SpecContext) {
-				s := DeferClose(gatewayOnlyScenario(ctx))
+				s := DeferClose(storageScenario(ctx))
 				idx := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{{
 					Name:        "mixed_time",
 					IsIndex:     true,
@@ -961,14 +961,14 @@ func newChannelSet() []channel.Channel {
 	}
 }
 
-func gatewayOnlyScenario(ctx context.Context) scenario {
+func storageScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
 	node := testutil.OpenNode(ctx)
 	channels = MustSucceed(node.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
-		name:   "Gateway Only",
+		name:   "Storage",
 		keys:   keys,
 		dist:   node,
 		closer: node,

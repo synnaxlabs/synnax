@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package control makes the control state of channels readable and observable. Control
-// is arbitrated by the storage engine on each channel's leaseholder, so the Service
-// routes retrieves to leaseholders.
+// Package control makes the control state of channels readable and observable. The
+// storage engine arbitrates control.
 package control
 
 import (

@@ -18,19 +18,9 @@ type Retrieve struct {
 	baseTX  gorp.Tx
 	indexes indexes
 	gorp    gorp.Retrieve[Key, Rack]
-	hostKey node.Key
 }
 
-// MatchHostIsNode returns a filter that matches racks on the host Core, or racks on
-// other Cores when v is false.
-func MatchHostIsNode(v bool) Filter {
-	return Match(func(_ gorp.Context, r Retrieve, rack *Rack) (bool, error) {
-		isNodeHost := rack.Key.Node() == r.hostKey
-		return isNodeHost == v, nil
-	})
-}
-
-// MatchNode returns a filter that matches racks on the given cluster node.
+// MatchNode returns a filter that matches racks on the given node.
 func MatchNode(node node.Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, rack *Rack) (bool, error) {

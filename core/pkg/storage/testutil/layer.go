@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel_test
+package testutil
 
 import (
-	"testing"
+	"context"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 )
 
-func TestChannel(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Transport Testutil Channel Suite", SuiteConfig())
+// OpenLayer opens an in-memory storage layer. The caller closes it.
+func OpenLayer(ctx context.Context) *storage.Layer {
+	return lo.Must(storage.OpenLayer(ctx, storage.LayerConfig{InMemory: new(true)}))
 }
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

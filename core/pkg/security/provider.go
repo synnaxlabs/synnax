@@ -26,9 +26,6 @@ type TLSProvider interface {
 	// mode. The returned config's behavior may change over time as src reloads its
 	// certificate.
 	TLSConfigFor(cert.Source) *tls.Config
-	// NodeClientConfig returns the tls.Config the node uses when dialing peers, backed
-	// by the node's own certificate. It returns nil in insecure mode.
-	NodeClientConfig() *tls.Config
 	// VerifyCertHost confirms src serves a certificate valid for host, the hostname
 	// check every client performs when dialing this node. It does not check the issuer:
 	// an externally issued certificate is a valid choice. No-op in insecure mode.

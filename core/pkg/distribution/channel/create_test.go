@@ -12,9 +12,11 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -32,11 +34,11 @@ var _ = Describe("Create", Ordered, func() {
 	})
 
 	It(
-		"Should assign a local key and create storage for a gateway channel",
+		"Should assign a local key and create storage for a host channel",
 		func(ctx SpecContext) {
 			out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
 				{
-					Name:        "gateway",
+					Name:        "host",
 					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Leaseholder: n.Identity.HostKey,
@@ -47,7 +49,7 @@ var _ = Describe("Create", Ordered, func() {
 			stored := MustSucceed(
 				n.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey()),
 			)
-			Expect(stored.Name).To(Equal("gateway"))
+			Expect(stored.Name).To(Equal("host"))
 		},
 	)
 	It(
@@ -99,7 +101,7 @@ var _ = Describe("Create", Ordered, func() {
 		},
 	)
 	It(
-		"Should return an error when the leaseholder is not in the cluster",
+		"Should return an error when the leaseholder is not the host node",
 		func(ctx SpecContext) {
 			Expect(n.Channel.Create(ctx, []channel.Channel{
 				{
@@ -115,5 +117,25 @@ var _ = Describe("Create", Ordered, func() {
 		Expect(n.Channel.Create(ctx, []channel.Channel{
 			{Name: "no-index", DataType: telem.Float32T},
 		})).Error().To(MatchError(ContainSubstring("non-indexed channel must have an index")))
+	})
+})
+
+var _ = Describe("Free key counter", func() {
+	It("Should not reuse a free key after the Core reopens", func(ctx SpecContext) {
+		store := DeferClose(storagetestutil.OpenLayer(ctx))
+		create := func() channel.LocalKey {
+			GinkgoHelper()
+			n := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: store})
+			defer func() { Expect(n.Close()).To(Succeed()) }()
+			out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{{
+				Name:        "free",
+				DataType:    telem.Float32T,
+				Leaseholder: node.KeyFree,
+				Virtual:     true,
+			}}))
+			return out[0].LocalKey
+		}
+		first := create()
+		Expect(create()).To(BeNumerically(">", first))
 	})
 })

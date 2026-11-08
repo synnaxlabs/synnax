@@ -27,7 +27,7 @@ var _ = Describe("Node", func() {
 	It("Should open a node with host key 1", func(ctx SpecContext) {
 		n := DeferClose(testutil.OpenNode(ctx))
 		Expect(n.Identity.HostKey).To(Equal(node.KeyBootstrapper))
-		Expect(n.Host.HostKey()).To(Equal(node.KeyBootstrapper))
+		Expect(n.Host.Key).To(Equal(node.KeyBootstrapper))
 	})
 
 	It("Should create channels in the storage layer", func(ctx SpecContext) {
@@ -60,7 +60,7 @@ var _ = Describe("Node", func() {
 	)
 
 	It("Should use the storage layer an override passes", func(ctx SpecContext) {
-		store := DeferClose(storagetestutil.NewCluster()).Provision(ctx)
+		store := DeferClose(storagetestutil.OpenLayer(ctx))
 		n := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 		Expect(n.Storage).To(BeIdenticalTo(store))
 	})

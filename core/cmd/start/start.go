@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	disttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc"
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
@@ -237,19 +236,9 @@ func BootupCore(
 		return err
 	}
 
-	grpcClientPool := configureClientGRPC(securityProvider, *cfg.insecure)
-	// Register the pool first so it closes LAST: every transport that
-	// references it must finish shutting down before its connections are
-	// torn down.
-	if !ok(nil, grpcClientPool) {
-		return ctx.Err()
-	}
-	distTransport := disttransport.New(grpcClientPool)
-
 	distributionLayer, err := distribution.OpenLayer(ctx, distribution.LayerConfig{
 		Instrumentation:  cfg.Child("distribution"),
 		AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
-		Transport:        distTransport,
 		Storage:          storageLayer,
 	})
 	if !ok(err, distributionLayer) {
@@ -323,10 +312,7 @@ func BootupCore(
 				&server.SecureHTTPBranch{
 					Transports: []http.BindableTransport{r, embeddedConsole},
 				},
-				&server.GRPCBranch{Transports: append(
-					transportLayer.GRPC,
-					distTransport,
-				)},
+				&server.GRPCBranch{Transports: transportLayer.GRPC},
 				server.NewHTTPRedirectBranch(),
 			},
 			Debug:           cfg.debug,

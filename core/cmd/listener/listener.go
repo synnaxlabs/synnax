@@ -283,8 +283,7 @@ func parseList(items []any) (Configs, error) {
 // rejectGlobalCertFlags enforces that a listen list is not combined with a global flag
 // that configures the single node certificate. The node cert flags bind with defaults,
 // so only a non-default value counts as set. --certs-dir and the CA flags stay legal:
-// they locate the Core CA and node outbound identity, which every listener still needs
-// for gossip.
+// they locate the Core CA and the node certificate that the Core loads at startup.
 func rejectGlobalCertFlags() error {
 	var offenders []string
 	if viper.GetBool(cmdcert.FlagAutoCert) {

@@ -181,11 +181,10 @@ func (s *Service) Close() error {
 	return errors.Combine(s.shutdown.Close(), s.table.Close())
 }
 
-// Hold marks the session as kept open by a stream on this node. A held session counts
-// as active, so it never idles out, and every Sweep writes its activity for other
-// nodes. The returned channel closes when the session ends, by revocation or by any
-// node's sweep. The caller must call release when the stream closes. Hold returns
-// [ErrInvalidToken] when no session has the key.
+// Hold marks the session as kept open by a stream. A held session counts as active, so
+// it never idles out, and every Sweep writes its activity. The returned channel closes
+// when the session ends, by revocation or by a sweep. The caller must call release when
+// the stream closes. Hold returns [ErrInvalidToken] when no session has the key.
 func (s *Service) Hold(
 	ctx context.Context,
 	key SessionKey,
@@ -446,9 +445,9 @@ func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error {
 }
 
 // Sweep writes the activity of every held session, then ends every other session whose
-// stored activity is older than the idle timeout plus a quarter. A node writes a
-// session's activity up to a quarter period late, so a younger stored mark may hide a
-// session that is live on another node.
+// stored activity is older than the idle timeout plus a quarter. A Core writes a
+// session's activity up to a quarter period late, so a stored mark can trail a session
+// that is still live.
 func (s *Service) Sweep(ctx context.Context) error {
 	now := s.now()
 	cutoff := now - telem.TimeStamp(s.cfg.IdleTimeout+s.cfg.IdleTimeout/4)

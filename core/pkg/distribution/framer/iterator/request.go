@@ -10,17 +10,15 @@
 package iterator
 
 import (
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
 
 //go:generate stringer -type=Command
 
-// Command is an operation that can be executed on a remote Iterator.
+// Command is an operation that can be executed on an Iterator.
 type Command uint8
 
 // AutoSpan instructs Next and Prev to automatically size each chunk so the iterator
@@ -63,17 +61,13 @@ type Request struct {
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
 	// Reduction should only be set when opening the Iterator.
 	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
-	// SeqNum is the sequence number of the request (starting at 0). This is used to
-	// match responses to requests. Each request should increment the sequence number by
-	// 1.
-	SeqNum int `json:"-" msgpack:"-"`
 	// Command is the command to execute on the Iterator.
 	Command Command `json:"command" msgpack:"command"`
 }
 
 //go:generate stringer -type=ResponseVariant
 
-// ResponseVariant is the kind of Response returned by a remote Iterator.
+// ResponseVariant is the kind of Response returned by an Iterator.
 type ResponseVariant uint8
 
 const (
@@ -85,17 +79,16 @@ const (
 	ResponseVariantData
 )
 
-// Response is a response from a remote Iterator.
+// Response is a response from an Iterator.
 type Response struct {
 	// Error is only relevant for variant AckResponse. It is an error returned during a
 	// call to Iterator.Error
 	Error error `json:"error" msgpack:"error"`
 	// Frame is only relevant for DataResponse. It is the data returned by the Iterator.
 	Frame frame.Frame `json:"frame" msgpack:"frame"`
-	// SeqNum matches the response to the Request.SeqNum that triggered it.
+	// SeqNum is the position of the request that triggered the response, counting the
+	// requests of the iterator from 0.
 	SeqNum int `json:"seq_num" msgpack:"seq_num"`
-	// NodeKey is the node Name where the remote Iterator lives.
-	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// Variant is the type of response returned.
 	Variant ResponseVariant `json:"variant" msgpack:"variant"`
 	// Command is the command that produced this response. It is non-zero only for
@@ -104,27 +97,4 @@ type Response struct {
 	// Ack is only relevant for variant AckResponse. Is true if the Iterator
 	// successfully executed the request.
 	Ack bool `json:"ack" msgpack:"ack"`
-}
-
-type (
-	// ClientStream is the client-side of an iterator stream, sending Requests to and
-	// receiving Responses from a remote Core.
-	ClientStream = freighter.ClientStream[Request, Response]
-	// ServerStream is the server-side of an iterator stream, receiving Requests from
-	// and sending Responses to a remote Core.
-	ServerStream = freighter.ServerStream[Request, Response]
-	// Client is the client-side interface for opening an iterator stream to a remote
-	// Core.
-	Client = freighter.StreamClient[Request, Response]
-	// Server is the server-side interface for handling iterator streams from a remote
-	// Core.
-	Server = freighter.StreamServer[Request, Response]
-)
-
-// Transport is the interface for the iterator transport.
-type Transport interface {
-	// Client returns the client-side interface for opening iterator streams.
-	Client() Client
-	// Server returns the server-side interface for handling iterator streams.
-	Server() Server
 }

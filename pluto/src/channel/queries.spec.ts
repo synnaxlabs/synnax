@@ -1316,18 +1316,17 @@ describe("queries", () => {
       });
     });
 
-    it("should handle delete errors gracefully", async () => {
-      const nonExistentKey = 999999999;
+    it("should fail to delete an internal channel", async () => {
+      const [internal] = await client.channels.retrieve({ internal: true });
       const { result } = renderHook(() => Channel.useDelete(), { wrapper });
-
       await act(async () => {
-        try {
-          await result.current.updateAsync(nonExistentKey);
-        } catch (error) {
-          expect(error).toBeDefined();
-        }
+        expect(await result.current.updateAsync(internal.key)).toBe(false);
       });
       expect(result.current.variant).toEqual("error");
+      expect(result.current.status.description).toContain(
+        `can't delete internal channel "${internal.name}"`,
+      );
+      await expect(client.channels.retrieve(internal.key)).resolves.toBeDefined();
     });
   });
 

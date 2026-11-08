@@ -10,9 +10,7 @@
 package writer
 
 import (
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -69,36 +67,12 @@ type Response struct {
 	// SeqNum is the current sequence number of the command. This value will correspond
 	// to the Request.SeqNum that executed the command.
 	SeqNum int
-	// End is the end timestamp of the domain on commit. This value is only validate
-	// during calls to WriterCommit, and it is zero if the commit fails on any node.
+	// End is the end timestamp of the domain on commit. This value is only valid during
+	// calls to WriterCommit, and it is zero if the commit fails.
 	End telem.TimeStamp
-	// NodeKey is the NodeKey of the node that sent the response.
-	NodeKey node.Key
 	// Command is the command that was executed on the writer.
 	Command Command
 	// Authorized flags whether the operation was authorized. It is only valid during
 	// calls to CommandWrite, CommandCommit, and CommandEndDomain.
 	Authorized bool
-}
-
-type (
-	// ClientStream is the client-side of a writer stream, sending Requests to and
-	// receiving Responses from a remote Core.
-	ClientStream = freighter.ClientStream[Request, Response]
-	// ServerStream is the server-side of a writer stream, receiving Requests from and
-	// sending Responses to a remote Core.
-	ServerStream = freighter.ServerStream[Request, Response]
-	// Client is the client-side interface for opening a writer stream to a remote Core.
-	Client = freighter.StreamClient[Request, Response]
-	// Server is the server-side interface for handling writer streams from a remote
-	// Core.
-	Server = freighter.StreamServer[Request, Response]
-)
-
-// Transport is the interface for the writer transport.
-type Transport interface {
-	// Client returns the client-side interface for opening writer streams.
-	Client() Client
-	// Server returns the server-side interface for handling writer streams.
-	Server() Server
 }

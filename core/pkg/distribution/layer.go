@@ -31,24 +31,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Transport bundles the node-to-node transports the distribution layer requires.
-type Transport interface {
-	// Channel returns the transport for channel create, rename, and delete RPCs.
-	Channel() channel.Transport
-	// Framer returns the transport for frame write, iterate, relay, and delete
-	// operations.
-	Framer() framer.Transport
-	// Control returns the transport for control state retrieve and subscribe RPCs.
-	Control() control.Transport
-}
-
 // LayerConfig is the configuration for opening the distribution layer.
 type LayerConfig struct {
-	// Transport bundles the network transports used for channel and framer node-to-node
-	// RPCs.
-	//
-	// [REQUIRED]
-	Transport Transport
 	// GorpCodec sets the codec used to encode/decode data structures within the
 	// metadata DB.
 	//
@@ -77,7 +61,6 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.AdvertiseAddress = override.String(c.AdvertiseAddress, other.AdvertiseAddress)
-	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
 	return c
 }
@@ -87,7 +70,6 @@ func (c LayerConfig) Validate() error {
 	v := validate.New("distribution")
 	v.NotNil("storage", c.Storage)
 	v.NotEmptyString("advertise_address", c.AdvertiseAddress)
-	v.NotNil("transport", c.Transport)
 	v.NotNil("gorp_codec", c.GorpCodec)
 	return v.Error()
 }
@@ -105,7 +87,7 @@ type Layer struct {
 	// Identity names the Core: its cluster key and host key.
 	Identity cluster.Identity
 	// Host is the host node of the Core.
-	Host cluster.Host
+	Host node.Node
 	// Channel is the distribution-layer channel allocator: it assigns local keys and
 	// creates, renames, and deletes storage channels.
 	Channel *channel.Service
@@ -142,17 +124,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
-	l.Host = cluster.Host{
-		Node: node.Node{Key: l.Identity.HostKey, Address: cfg.AdvertiseAddress},
-	}
+	l.Host = node.Node{Key: l.Identity.HostKey, Address: cfg.AdvertiseAddress}
 	l.DB = gorp.Wrap(cfg.Storage.KV, gorp.WithCodec(cfg.GorpCodec))
 
 	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
-		HostResolver:    l.Host,
+		HostKey:         l.Identity.HostKey,
 		KV:              cfg.Storage.KV,
 		TS:              cfg.Storage.TS,
-		Transport:       cfg.Transport.Channel(),
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -160,17 +139,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Framer, err = framer.OpenService(ctx, framer.ServiceConfig{
 		Instrumentation: cfg.Child("framer"),
 		TS:              cfg.Storage.TS,
-		Transport:       cfg.Transport.Framer(),
-		HostResolver:    l.Host,
 	}); !ok(err, l.Framer) {
 		return nil, err
 	}
 
 	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
 		Instrumentation: cfg.Child("control"),
-		HostResolver:    l.Host,
 		TS:              cfg.Storage.TS,
-		Transport:       cfg.Transport.Control(),
 	}); !ok(err, l.Control) {
 		return nil, err
 	}

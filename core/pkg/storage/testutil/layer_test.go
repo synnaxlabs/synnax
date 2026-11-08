@@ -12,30 +12,18 @@ package testutil_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Storage", func() {
+var _ = Describe("OpenLayer", func() {
 	ShouldNotLeakGoroutinesPerSpec()
-	DescribeTable(
-		"Name",
-		func(ctx SpecContext, cfg ...storage.LayerConfig) {
-			b := testutil.NewCluster(cfg...)
-			store := b.Provision(ctx)
-			Expect(store).NotTo(BeNil())
-			Expect(store.KV.Set(ctx, []byte("foo"), []byte("bar"))).To(Succeed())
-			Expect(b.Close()).To(Succeed())
-		},
-		Entry("Memory-backed storage implementation"),
-		Entry(
-			"FS-backed storage implementation",
-			storage.LayerConfig{
-				InMemory: new(false),
-				Dirname:  "./tmp",
-				Version:  "0.0.0",
-			},
-		),
-	)
+	It("Should open an in-memory storage layer", func(ctx SpecContext) {
+		l := testutil.OpenLayer(ctx)
+		Expect(l.KV.Set(ctx, []byte("foo"), []byte("bar"))).To(Succeed())
+		value, closer := MustSucceed2(l.KV.Get(ctx, []byte("foo")))
+		Expect(value).To(Equal([]byte("bar")))
+		Expect(closer.Close()).To(Succeed())
+		Expect(l.Close()).To(Succeed())
+	})
 })

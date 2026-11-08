@@ -24,14 +24,6 @@ var _ = Describe("Key", func() {
 		Entry("another key", node.Key(2), false),
 	)
 
-	DescribeTable("IsBootstrapper", func(key node.Key, bootstrapper bool) {
-		Expect(key.IsBootstrapper()).To(Equal(bootstrapper))
-	},
-		Entry("the host key", node.KeyBootstrapper, true),
-		Entry("KeyFree", node.KeyFree, false),
-		Entry("another key", node.Key(2), false),
-	)
-
 	It("Should format the key as a decimal number", func() {
 		Expect(node.Key(42).String()).To(Equal("42"))
 		Expect(node.KeyFree.String()).To(Equal("4095"))

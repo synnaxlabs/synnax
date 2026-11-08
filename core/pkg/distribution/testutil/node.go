@@ -12,8 +12,8 @@ package testutil
 import (
 	"context"
 
+	"github.com/onsi/ginkgo/v2"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	transporttestutil "github.com/synnaxlabs/synnax/pkg/distribution/transport/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/address"
@@ -28,15 +28,16 @@ type Node struct {
 	*distribution.Layer
 	// Storage is the storage layer of the node.
 	Storage *storage.Layer
-	stores  *storagetestutil.Cluster
+	// storageOwned is true when the Node opened Storage.
+	storageOwned bool
 }
 
 // Close closes the distribution layer, then the storage layer if the Node opened it. It
 // shadows the embedded Layer.Close.
 func (n Node) Close() error {
 	err := n.Layer.Close()
-	if n.stores != nil {
-		err = errors.Join(err, n.stores.Close())
+	if n.storageOwned {
+		err = errors.Join(err, n.Storage.Close())
 	}
 	return err
 }
@@ -44,6 +45,7 @@ func (n Node) Close() error {
 // NewNode opens a Node and registers its teardown via testutil.DeferClose. It must be
 // called from within a Ginkgo node; use OpenNode from plain Go tests and benchmarks.
 func NewNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
+	ginkgo.GinkgoHelper()
 	return testutil.DeferClose(OpenNode(ctx, overrides...))
 }
 
@@ -51,6 +53,7 @@ func NewNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
 // distribution.LayerConfig. The Node opens its own storage layer unless an override
 // passes one, which the caller then closes. The caller closes the returned Node.
 func OpenNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
+	ginkgo.GinkgoHelper()
 	var n Node
 	for _, o := range overrides {
 		if o.Storage != nil {
@@ -58,15 +61,11 @@ func OpenNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
 		}
 	}
 	if n.Storage == nil {
-		n.stores = storagetestutil.NewCluster()
-		n.Storage = n.stores.Provision(ctx)
+		n.Storage = storagetestutil.OpenLayer(ctx)
+		n.storageOwned = true
 	}
 	addr := address.Address("localhost:0")
-	cfg := distribution.LayerConfig{
-		Storage:          n.Storage,
-		Transport:        transporttestutil.NewNetwork().New(addr, 1),
-		AdvertiseAddress: addr,
-	}
+	cfg := distribution.LayerConfig{Storage: n.Storage, AdvertiseAddress: addr}
 	cfgs := append([]distribution.LayerConfig{cfg}, overrides...)
 	n.Layer = testutil.MustSucceed(distribution.OpenLayer(ctx, cfgs...))
 	n.Framer.SetFreeIndexResolver(nopFreeIndexResolver{})
