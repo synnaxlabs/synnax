@@ -204,9 +204,21 @@ type LSPConfig struct {
 	Rename func(ctx context.Context, key channel.Key, name string) error
 }
 
+// Validate returns a validation error if Allowed or Rename is nil.
+func (c LSPConfig) Validate() error {
+	v := validate.New("arc.lsp")
+	v.NotNil("allowed", c.Allowed)
+	v.NotNil("rename", c.Rename)
+	return v.Error()
+}
+
 // NewLSP opens the language server of one editor session. The server treats the
-// channels and modules that the subject cannot retrieve as unknown names.
+// channels and modules that the subject cannot retrieve as unknown names. NewLSP
+// returns a validation error if cfg is not valid.
 func (s *Service) NewLSP(cfg LSPConfig) (*lsp.Server, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 	return lsp.New(lsp.Config{
 		Instrumentation:  s.cfg.Child("lsp"),
 		NewRoot:          func() *symbol.Symbol { return s.newLSPRoot(cfg.Allowed) },
