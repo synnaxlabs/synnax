@@ -195,8 +195,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 // transaction of w. A change of name or rack also updates the device's status. Apply
 // returns an error wrapping validate.ErrValidation when an action is a create, the
 // result fails to validate, or the device's group does not sit under its rack or
-// parent,
-// and an error wrapping query.ErrNotFound when no device has the key.
+// parent, and an error wrapping query.ErrNotFound when no device has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	var prev Device
 	if err := w.table.NewRetrieve().

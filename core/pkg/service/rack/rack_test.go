@@ -1097,6 +1097,32 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 
 		It(
+			"Should keep the live status when a set action renames a rack",
+			func(ctx SpecContext) {
+				openTx()
+				r := rack.Rack{
+					Name: "starting rack",
+					Status: &rack.Status{
+						Variant: status.VariantWarning,
+						Message: "Rack is starting",
+						Time:    telem.SecondTS,
+					},
+				}
+				Expect(writer.Create(ctx, &r)).To(Succeed())
+				live := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
+				live.Variant = status.VariantSuccess
+				live.Message = "Rack is connected"
+				Expect(stat.NewWriter(tx).Set(ctx, &live)).To(Succeed())
+				expected := live
+				expected.Name = "connected rack"
+
+				Expect(writer.Rename(ctx, r.Key, "connected rack")).To(Succeed())
+
+				Expect(retrieveStatusTx(ctx, stat, tx, r.Key)).To(Equal(expected))
+			},
+		)
+
+		It(
 			"Should not write the status on a create that keeps the rack name",
 			func(ctx SpecContext) {
 				frozenNow.Store(int64(telem.Now()))

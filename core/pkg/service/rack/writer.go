@@ -96,10 +96,10 @@ func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
 
 // Create creates or updates a rack and attaches a create action that holds it. If the
 // rack key is zero or a rack with the key does not exist, a new rack will be created
-// with the Driver role. An existing rack keeps
-// its group and role. A status provided on the rack replaces the stored status. With
-// no provided status, the stored status stays and takes the rack's name, and only a
-// rack with no stored status gets the default "unknown" status.
+// with the Driver role. An existing rack keeps its group and role. A status provided on
+// the rack replaces the stored status. With no provided status, the stored status stays
+// and takes the rack's name, and only a rack with no stored status gets the default
+// "unknown" status.
 func (w Writer) Create(ctx context.Context, r *Rack) error {
 	var err error
 	if r.Key.IsZero() {
