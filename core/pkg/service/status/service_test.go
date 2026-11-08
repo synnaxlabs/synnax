@@ -387,6 +387,38 @@ var _ = Describe("Dispatch", Ordered, func() {
 	})
 
 	Describe("Join", func() {
+		It("Should resolve and join statuses through a snapshot", func(
+			ctx SpecContext,
+		) {
+			r := rack.Rack{Key: 65539, Name: "snapshot"}
+			Expect(racks.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
+			owner := r.ResourceID()
+			Expect(setStatus(ctx, &status.Status[any]{
+				Owner:   &owner,
+				Name:    "snapshot-join",
+				Variant: status.VariantSuccess,
+				Message: "running",
+				Time:    telem.Now(),
+			})).To(Succeed())
+			var (
+				resolved []status.Status[any]
+				joined   []*status.Status[any]
+			)
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				if resolved, err = svc.ResolveKeyOrName(
+					ctx,
+					snap,
+					"snapshot-join",
+				); err != nil {
+					return err
+				}
+				joined, err = svc.Join[any](ctx, snap, []resource.ID{owner})
+				return err
+			})).To(Succeed())
+			Expect(resolved).To(HaveExactElements(HaveField("Name", "snapshot-join")))
+			Expect(joined).To(HaveExactElements(HaveField("Message", "running")))
+		})
+
 		It(
 			"Should return the status of each resource in order, nil for a missing one",
 			func(ctx SpecContext) {

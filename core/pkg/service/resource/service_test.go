@@ -272,6 +272,29 @@ var _ = Describe("Service", func() {
 			},
 		)
 
+		It("Should retrieve and search resources through a snapshot", func(
+			ctx SpecContext,
+		) {
+			var retrieved, found []resource.Resource
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				if retrieved, err = svc.Retrieve(ctx, snap, racks.id("1")); err != nil {
+					return err
+				}
+				found, err = svc.Search(ctx, snap, resource.SearchQuery{
+					Term:  "pump",
+					Types: []resource.Type{resource.TypeRack},
+				})
+				return err
+			})).To(Succeed())
+			Expect(retrieved).To(Equal([]resource.Resource{
+				{ID: racks.id("1"), Name: "pump"},
+			}))
+			Expect(found).To(Equal([]resource.Resource{
+				{ID: racks.id("1"), Name: "pump"},
+				{ID: racks.id("2"), Name: "pump station rack"},
+			}))
+		})
+
 		It("Should return each resource once", func(ctx SpecContext) {
 			Expect(MustSucceed(svc.Retrieve(
 				ctx,

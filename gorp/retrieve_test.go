@@ -800,7 +800,7 @@ var _ = Describe("Retrieve", func() {
 						Where(gorp.Match(func(gCtx gorp.Context, _ *entry) (bool, error) {
 							callCount++
 							Expect(gCtx.Context).To(BeIdenticalTo(ctx))
-							Expect(gCtx.Tx).To(BeIdenticalTo(tx))
+							Expect(gCtx.Snapshot).To(BeIdenticalTo(tx))
 							return false, nil
 						})).
 						Count(ctx, tx)).To(Equal(0))
