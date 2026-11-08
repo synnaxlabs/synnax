@@ -158,6 +158,16 @@ type CreateResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
+var _ bind.Returns = CreateResponse{}
+
+// Returned implements bind.Returns, so a create that returns an existing channel needs
+// retrieve on it.
+func (r CreateResponse) Returned() []resource.ID {
+	return lo.Map(r.Channels, func(ch Channel, _ int) resource.ID {
+		return channel.ResourceID(ch.Key)
+	})
+}
+
 // Create creates a Channel based on the parameters given in the request.
 func (s *Service) Create(
 	ctx context.Context,

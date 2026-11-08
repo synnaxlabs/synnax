@@ -143,6 +143,58 @@ var _ = Describe("Service", func() {
 			},
 		)
 	})
+	Describe("RetrieveIfNameExists", func() {
+		var (
+			existing channel.Channel
+			u        user.User
+			create   = func(ctx SpecContext) (apichannel.CreateResponse, error) {
+				return createChannels(AuthedCtx(ctx, u), apichannel.CreateRequest{
+					Channels: []apichannel.Channel{{
+						Name:     existing.Name,
+						DataType: existing.DataType,
+						Virtual:  true,
+					}},
+					RetrieveIfNameExists: true,
+				})
+			}
+		)
+		BeforeEach(func(ctx SpecContext) {
+			existing = createChannel(ctx, telem.Float32T)
+			u = MustSucceed(rbactestutil.CreateUser(
+				ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
+			))
+		})
+
+		It(
+			"Should deny an existing channel that the subject cannot retrieve",
+			func(ctx SpecContext) {
+				Expect(create(ctx)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"%s cannot %s %s",
+						u.ResourceID(),
+						access.ActionRetrieve,
+						existing.ResourceID(),
+					)),
+				))
+			},
+		)
+		It(
+			"Should return an existing channel that the subject can retrieve",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					existing.ResourceID(),
+				)
+				res := MustSucceed(create(ctx))
+				Expect(res.Channels).To(HaveLen(1))
+				Expect(res.Channels[0].Key).To(Equal(existing.Key()))
+			},
+		)
+	})
+
 	Describe("Storage", func() {
 		var (
 			ch       channel.Channel

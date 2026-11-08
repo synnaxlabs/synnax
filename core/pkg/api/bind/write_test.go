@@ -121,6 +121,30 @@ func write(ctx context.Context, u user.User, f apply, sources ...resource.ID) er
 	return err
 }
 
+// returned is a response that returns records.
+type returned struct{ records []resource.ID }
+
+func (r returned) Returned() []resource.ID { return r.records }
+
+// writeReturning runs f through bind.Write as u, with a response that returns records.
+func writeReturning(
+	ctx context.Context,
+	u user.User,
+	f apply,
+	records ...resource.ID,
+) error {
+	_, err := bind.Write(
+		binder,
+		func(ctx context.Context, tx gorp.Tx, _ struct{}) (returned, error) {
+			if err := f(ctx, tx); err != nil {
+				return returned{}, err
+			}
+			return returned{records: records}, nil
+		},
+	)(AuthedCtx(ctx, u), struct{}{})
+	return err
+}
+
 // denied matches an error that denies u the action on object.
 func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
 	return SatisfyAll(
@@ -638,6 +662,31 @@ var _ = Describe("Write", func() {
 					SetRole(ctx, svc.RBAC.Builtin.OwnerKey, nil, u.Key)
 			},
 		),
+	)
+
+	It(
+		"Should require retrieve on a returned record that the write did not change",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			l := createLabel(ctx)
+			unchanged := func(context.Context, gorp.Tx) error { return nil }
+			Expect(writeReturning(ctx, u, unchanged, l.ResourceID())).
+				To(denied(u, access.ActionRetrieve, l.ResourceID()))
+			grant(ctx, u, access.ActionRetrieve, l.ResourceID())
+			Expect(writeReturning(ctx, u, unchanged, l.ResourceID())).To(Succeed())
+		},
+	)
+
+	It(
+		"Should require only create on a returned record that the write created",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			l := label.Label{Key: uuid.New(), Name: "returned"}
+			grant(ctx, u, access.ActionCreate, l.ResourceID())
+			Expect(writeReturning(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Label.NewWriter(tx).Create(ctx, &l)
+			}, l.ResourceID())).To(Succeed())
+		},
 	)
 
 	It("Should return the response of apply", func(ctx SpecContext) {

@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -34,6 +35,12 @@ import (
 type Copy interface {
 	// Sources returns the records that the request copies.
 	Sources() []resource.ID
+}
+
+// Returns is a response that returns records.
+type Returns interface {
+	// Returned returns the records that the response holds.
+	Returned() []resource.ID
 }
 
 // Write returns a handler that runs apply in one write transaction, checks access on
@@ -47,7 +54,9 @@ type Copy interface {
 //     unless the subject is that user or rack;
 //   - update on the target of each place link added or removed;
 //   - retrieve on the target of each use link added;
-//   - retrieve on each source of a request that implements Copy.
+//   - retrieve on each source of a request that implements Copy;
+//   - retrieve on each record that a response implementing Returns holds and the
+//     transaction did not change.
 //
 // Policies are read from committed state, so a policy or role that apply stages grants
 // nothing. A denial wraps access.ErrDenied and names the record.
@@ -67,7 +76,7 @@ func Write[RQ, RS freighter.Payload](
 			if res, err = apply(ctx, tx, req); err != nil {
 				return err
 			}
-			return s.check(ctx, tx, sources)
+			return s.check(ctx, tx, append(slices.Clip(sources), unchanged(tx, res)...))
 		}); err != nil {
 			return zero, err
 		}
@@ -94,6 +103,24 @@ func WritePrepared[RQ, RS freighter.Payload, P any](
 			return apply(ctx, tx, req, prepared)
 		})(ctx, req)
 	}
+}
+
+// unchanged returns the records that res returns and tx did not change.
+func unchanged[RS any](tx gorp.Tx, res RS) []resource.ID {
+	r, ok := any(res).(Returns)
+	if !ok {
+		return nil
+	}
+	changed := make(set.Set[resource.ID])
+	for _, c := range gorp.ChangesOf(tx) {
+		// A record with no resource type is never returned.
+		if id, err := resourceOf(c.Record); err == nil {
+			changed.Add(id)
+		}
+	}
+	return lo.Reject(r.Returned(), func(id resource.ID, _ int) bool {
+		return changed.Contains(id)
+	})
 }
 
 // check returns an error wrapping access.ErrDenied when the subject of ctx cannot make
