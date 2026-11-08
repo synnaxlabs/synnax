@@ -15,11 +15,11 @@ from typing import Any
 import pytest
 from scripts_common import FakeGH
 
-SCRIPT = Path(__file__).resolve().parents[1] / "greptile_outside_diff.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "outside_diff.sh"
 
 
-GREPTILE = "greptile-apps[bot]"
-MARKER = "<!-- greptile_outside_diff -->\n\n<h3>Comments Outside Diff</h3>\n\n"
+SEDOSAUR = "sedosaur[bot]"
+MARKER = "<!-- sedosaur_outside_diff -->\n\n<h3>Comments Outside Diff</h3>\n\n"
 FINDINGS = MARKER + "These findings could not be posted inline.\n\n- **Bug** `a.go:1`\n"
 CLEARED = MARKER + "No findings outside the diff remain.\n"
 ANSWER = "<!-- agent:outside-diff -->\nFixed the bug."
@@ -63,39 +63,39 @@ def gh(tmp_path: Path) -> Harness:
     return Harness(tmp_path)
 
 
-class TestGreptileOutsideDiff:
-    """Prints Greptile findings outside the diff that need action."""
+class TestOutsideDiff:
+    """Prints Sedosaur findings outside the diff that need action."""
 
     def test_should_print_nothing_without_the_comment(self, gh: Harness) -> None:
         assert gh.run() == ""
 
     def test_should_print_open_findings(self, gh: Harness) -> None:
-        gh.comments(comment(GREPTILE, FINDINGS, "2026-01-01T00:00:00Z"))
+        gh.comments(comment(SEDOSAUR, FINDINGS, "2026-01-01T00:00:00Z"))
         assert gh.run() == FINDINGS.strip()
 
-    def test_should_print_nothing_once_greptile_clears_them(self, gh: Harness) -> None:
-        gh.comments(comment(GREPTILE, CLEARED, "2026-01-01T00:00:00Z"))
+    def test_should_print_nothing_once_sedosaur_clears_them(self, gh: Harness) -> None:
+        gh.comments(comment(SEDOSAUR, CLEARED, "2026-01-01T00:00:00Z"))
         assert gh.run() == ""
 
     def test_should_print_nothing_after_an_agent_answers(self, gh: Harness) -> None:
         gh.comments(
-            comment(GREPTILE, FINDINGS, "2026-01-01T00:00:00Z"),
+            comment(SEDOSAUR, FINDINGS, "2026-01-01T00:00:00Z"),
             comment("synnax-codex[bot]", ANSWER, "2026-01-02T00:00:00Z"),
         )
         assert gh.run() == ""
 
-    def test_should_print_findings_greptile_edits_after_an_answer(
+    def test_should_print_findings_sedosaur_edits_after_an_answer(
         self, gh: Harness
     ) -> None:
         gh.comments(
-            comment(GREPTILE, FINDINGS, "2026-01-01T00:00:00Z", "2026-01-03T00:00:00Z"),
+            comment(SEDOSAUR, FINDINGS, "2026-01-01T00:00:00Z", "2026-01-03T00:00:00Z"),
             comment("synnax-codex[bot]", ANSWER, "2026-01-02T00:00:00Z"),
         )
         assert gh.run() == FINDINGS.strip()
 
     def test_should_ignore_comments_that_do_not_answer(self, gh: Harness) -> None:
         gh.comments(
-            comment(GREPTILE, FINDINGS, "2026-01-01T00:00:00Z"),
+            comment(SEDOSAUR, FINDINGS, "2026-01-01T00:00:00Z"),
             comment("synnax-codex[bot]", "Fixed CI", "2026-01-02T00:00:00Z"),
             comment("someone", ANSWER, "2026-01-02T00:00:00Z", kind="User"),
         )

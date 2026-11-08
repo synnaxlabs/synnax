@@ -67,7 +67,15 @@ const create = async <S extends task.Schemas = task.Schemas>({
     if (devices.length === 1 && devices[0].configured) deviceKey = devices[0].key;
   }
   // Initial values carry the zero payload's empty key; the row must mint its own.
-  const { status: _, key: __, ...initial } = getInitialValues({ deviceKey, config });
+  const {
+    status: _,
+    key: __,
+    ...initial
+  } = await getInitialValues({
+    client,
+    deviceKey,
+    config,
+  });
   return await client.tasks.create({ ...initial, rack: rackKey ?? initial.rack ?? 0 });
 };
 

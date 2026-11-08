@@ -9,24 +9,24 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Prints Greptile's "Comments Outside Diff" comment on a pull request when it lists
-# findings that need action, and nothing otherwise. Usage: greptile_outside_diff.sh
-# <pr>. Greptile keeps these findings in one top-level comment that it edits on each
-# review. A bot comment holding "<!-- agent:outside-diff -->" after Greptile's last edit
-# answers them until Greptile reviews again.
+# Prints Sedosaur's "Comments Outside Diff" comment on a pull request when it lists
+# findings that need action, and nothing otherwise. Usage: outside_diff.sh <pr>.
+# Sedosaur keeps these findings in one top-level comment that it edits on each review. A
+# bot comment holding "<!-- agent:outside-diff -->" after Sedosaur's last edit answers
+# them until Sedosaur reviews again.
 
 set -euo pipefail
 
-PR=${1:?usage: greptile_outside_diff.sh <pr>}
+PR=${1:?usage: outside_diff.sh <pr>}
 REPO=${GITHUB_REPOSITORY:-synnaxlabs/synnax}
 
 gh api "repos/${REPO}/issues/${PR}/comments?per_page=100" --paginate | jq -rs '
     add as $all
-    | [$all[] | select(.user.login == "greptile-apps[bot]"
-        and (.body | contains("<!-- greptile_outside_diff -->")))] | last
+    | [$all[] | select(.user.login == "sedosaur[bot]"
+        and (.body | contains("<!-- sedosaur_outside_diff -->")))] | last
     | select(. != null and (.body | test("(?m)^- ")))
-    | . as $greptile
+    | . as $review
     | [$all[] | select(.user.type == "Bot"
         and (.body | contains("<!-- agent:outside-diff -->"))) | .created_at]
-    | select((max // "") < $greptile.updated_at)
-    | $greptile.body'
+    | select((max // "") < $review.updated_at)
+    | $review.body'
