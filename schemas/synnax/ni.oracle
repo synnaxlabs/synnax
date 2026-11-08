@@ -1635,6 +1635,7 @@ AnalogReadConfig struct extends task.ReadConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
 
@@ -1649,6 +1650,7 @@ CounterReadConfig struct extends task.ReadConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
 
@@ -1671,6 +1673,7 @@ AnalogWriteConfig struct extends WriteConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
 
@@ -1688,6 +1691,7 @@ DigitalReadConfig struct extends task.ReadConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
 
@@ -1700,6 +1704,7 @@ DigitalWriteConfig struct extends WriteConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
 
@@ -1708,6 +1713,7 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
 }
 
 AccelChargeSensitivityUnits enum {

@@ -748,7 +748,7 @@ describe("Task", async () => {
       });
       await expect(
         client.tasks.dispatch(t.key, task.set({ path: ["type"], value: "arc" })),
-      ).rejects.toThrow('unknown object member name "type"');
+      ).rejects.toThrow("[type]: the path names no editable field");
       const cached = await client.tasks.retrieve(t.key);
       expect(cached.type).toBe("pagerduty_alert");
       await client.tasks.settled(t.key);
