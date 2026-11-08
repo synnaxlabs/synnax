@@ -147,6 +147,7 @@ var _ = Describe("Report.FirstExitCode", func() {
 		Entry("persistence", "persistence", 13),
 		Entry("cache", "cache", 14),
 		Entry("versions", "versions", 15),
+		Entry("frozen", "frozen", 16),
 	)
 })
 
