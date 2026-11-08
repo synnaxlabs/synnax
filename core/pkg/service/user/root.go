@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"go.uber.org/zap"
@@ -40,6 +39,12 @@ func ProvisionRoot(
 	changed, err := passwordChanged(ctx, passwords, creds)
 	if err != nil {
 		return User{}, false, err
+	}
+	var hash password.Hash
+	if changed {
+		if hash, err = passwords.Hash(creds.Password); err != nil {
+			return User{}, false, err
+		}
 	}
 	var root User
 	if err := users.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -67,7 +72,8 @@ func ProvisionRoot(
 		if !changed {
 			return nil
 		}
-		return passwords.NewWriter(tx).Set(ctx, root.ResourceID(), creds)
+		return passwords.NewWriter(tx).
+			Set(ctx, root.ResourceID(), creds.Username, hash)
 	}); err != nil {
 		return User{}, false, err
 	}
@@ -138,9 +144,6 @@ func (s *Service) resolveRoot(
 		if r.ResourceID() == p.Subject {
 			return r, nil
 		}
-	}
-	if p.Subject.Type != resource.TypeUser {
-		return User{}, errors.Newf("password %q is not held by a user", username)
 	}
 	key, err := KeyFromResourceID(p.Subject)
 	if err != nil {

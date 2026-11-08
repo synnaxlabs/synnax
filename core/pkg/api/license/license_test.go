@@ -26,7 +26,7 @@ var object = resource.ID{Type: resource.TypeBuiltin, Key: "license"}
 
 var _ = Describe("Service", Ordered, func() {
 	It("Should refuse retrieval without a retrieve permission", func(ctx SpecContext) {
-		Expect(apiSvc.Retrieve(
+		Expect(retrieve(
 			AuthedCtx(ctx, freshUser(ctx)),
 			apilicense.RetrieveRequest{},
 		)).Error().To(MatchError(access.ErrDenied))
@@ -40,7 +40,7 @@ var _ = Describe("Service", Ordered, func() {
 			[]access.Action{access.ActionRetrieve},
 			object,
 		)
-		info := MustSucceed(apiSvc.Retrieve(
+		info := MustSucceed(retrieve(
 			AuthedCtx(ctx, reader),
 			apilicense.RetrieveRequest{},
 		))

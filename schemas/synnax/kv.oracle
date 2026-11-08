@@ -18,6 +18,7 @@ Pair struct {
         @doc value     """
             is the unique identifier of the range owning this key-value pair.
         """
+        @ref kind      place
         @ref on_delete cascade
     }
     key   string     {

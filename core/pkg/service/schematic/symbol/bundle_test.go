@@ -76,9 +76,13 @@ var _ = Describe("ExportGroup", func() {
 			Scope:  resource.TypeSchematicSymbol,
 			Parent: parent,
 		}
-		Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return groupSvc.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Delete(ctx, g.Key)
+			})).To(Succeed())
 		})
 		return g
 	}
@@ -93,15 +97,19 @@ var _ = Describe("ExportGroup", func() {
 			Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 			Group: &g.Key,
 		})
-		Expect(svc.NewWriter(nil).Create(ctx, &sym)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &sym)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, sym.Key)
+			})).To(Succeed())
 		})
 		return sym
 	}
 	exportFiles := func(ctx SpecContext, key group.Key) zip.Files {
 		GinkgoHelper()
-		files, _ := MustSucceed2(svc.ExportGroup(ctx, key, xjson.Codec))
+		files, _ := MustSucceed2(svc.ExportGroup(ctx, db, key, xjson.Codec))
 		return files
 	}
 	fileNames := func(files zip.Files) []string {
@@ -131,19 +139,19 @@ var _ = Describe("ExportGroup", func() {
 	It("Should write each member as its leaf export envelope", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		sym := createSymbol(ctx, g, "Inlet")
-		env := MustSucceed(svc.Export(ctx, symbol.ResourceID(sym.Key)))
+		env := MustSucceed(svc.Export(ctx, db, symbol.ResourceID(sym.Key)))
 		Expect(exportFiles(ctx, g.Key)["Inlet.json"]).
 			To(MatchJSON(MustSucceed(xjson.Codec.Encode(ctx, env))))
 	})
 	It("Should report every exported symbol as a member", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		sym := createSymbol(ctx, g, "Inlet")
-		_, members := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+		_, members := MustSucceed2(svc.ExportGroup(ctx, db, g.Key, xjson.Codec))
 		Expect(members).To(ConsistOf(symbol.ResourceID(sym.Key)))
 	})
 	It("Should export an empty group as a manifest alone", func(ctx SpecContext) {
 		g := createRoot(ctx, "Empty")
-		files, members := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+		files, members := MustSucceed2(svc.ExportGroup(ctx, db, g.Key, xjson.Codec))
 		Expect(fileNames(files)).To(ConsistOf("manifest.json"))
 		Expect(members).To(BeEmpty())
 		Expect(manifestOf(files).Name).To(Equal("Empty"))
@@ -174,14 +182,14 @@ var _ = Describe("ExportGroup", func() {
 			To(ConsistOf("manifest.json", HaveLen(255)))
 	})
 	It("Should return not found for a missing group", func(ctx SpecContext) {
-		Expect(svc.ExportGroup(ctx, uuid.New(), xjson.Codec)).Error().
+		Expect(svc.ExportGroup(ctx, db, uuid.New(), xjson.Codec)).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 	It("Should skip a child that is not a schematic symbol", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		createGroup(ctx, "Nested", new(g.ResourceID()))
 		sym := createSymbol(ctx, g, "Ball Valve")
-		files, members := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+		files, members := MustSucceed2(svc.ExportGroup(ctx, db, g.Key, xjson.Codec))
 		Expect(fileNames(files)).To(ConsistOf("manifest.json", "Ball Valve.json"))
 		Expect(members).To(ConsistOf(symbol.ResourceID(sym.Key)))
 	})
@@ -190,7 +198,7 @@ var _ = Describe("ExportGroup", func() {
 			g := createRoot(ctx, "Valves")
 			createSymbol(ctx, g, first)
 			createSymbol(ctx, g, second)
-			files, _ := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+			files, _ := MustSucceed2(svc.ExportGroup(ctx, db, g.Key, xjson.Codec))
 			Expect(fileNames(files)).
 				To(ConsistOf("manifest.json", firstFile, secondFile))
 		},
@@ -208,7 +216,7 @@ var _ = Describe("ExportGroup", func() {
 		func(ctx SpecContext, name, file string) {
 			g := createRoot(ctx, "Valves")
 			createSymbol(ctx, g, name)
-			files, _ := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+			files, _ := MustSucceed2(svc.ExportGroup(ctx, db, g.Key, xjson.Codec))
 			Expect(fileNames(files)).To(ConsistOf("manifest.json", file))
 		},
 		Entry("manifest", "manifest", "manifest (1).json"),
@@ -219,7 +227,7 @@ var _ = Describe("ExportGroup", func() {
 	) {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "Inlet")
-		Expect(svc.ExportGroup(ctx, g.Key, failEncoder{})).Error().
+		Expect(svc.ExportGroup(ctx, db, g.Key, failEncoder{})).Error().
 			To(MatchError(errEncode))
 	})
 	It("Should return the encoder's error when the manifest fails to encode", func(
@@ -227,7 +235,7 @@ var _ = Describe("ExportGroup", func() {
 	) {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "Inlet")
-		Expect(svc.ExportGroup(ctx, g.Key, failEncoder{onManifest: true})).Error().
+		Expect(svc.ExportGroup(ctx, db, g.Key, failEncoder{onManifest: true})).Error().
 			To(MatchError(errEncode))
 	})
 })
@@ -292,7 +300,9 @@ var _ = Describe("ImportGroup", func() {
 		src := group.Group{Name: "Valves", Scope: resource.TypeSchematicSymbol}
 		Expect(groupSvc.NewWriter(tx).Create(ctx, &src)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(groupSvc.NewWriter(nil).Delete(ctx, src.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Delete(ctx, src.Key)
+			})).To(Succeed())
 		})
 		sym := defaults.Fill(symbol.Symbol{
 			Name:  "Inlet",
@@ -301,10 +311,12 @@ var _ = Describe("ImportGroup", func() {
 		})
 		Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, sym.Key)
+			})).To(Succeed())
 		})
 		Expect(tx.Commit(ctx)).To(Succeed())
-		files, _ := MustSucceed2(svc.ExportGroup(ctx, src.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.ExportGroup(ctx, db, src.Key, xjson.Codec))
 		tx = DeferClose(db.OpenTx())
 		g := importGroup(ctx, files)
 		Expect(g.Key).ToNot(Equal(src.Key))

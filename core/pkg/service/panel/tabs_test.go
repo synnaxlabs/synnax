@@ -33,17 +33,26 @@ var _ = Describe("Tabs", func() {
 
 	It("Should keep the tab of a deleted line plot", func(ctx SpecContext) {
 		deleted := uuid.New()
-		createPlot(ctx, nil, deleted)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			createPlot(ctx, tx, deleted)
+			return nil
+		})).To(Succeed())
 		p := panel.Panel{
 			Name:    "deleted",
 			Root:    leafNode(tab(deleted), viewTab(uuid.New(), "docs")),
 			Project: &proj.Key,
 		}
-		Expect(writer.Create(ctx, &p)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &p)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, p.Key)
+			})).To(Succeed())
 		})
-		Expect(plotSvc.NewWriter(nil).Delete(ctx, deleted)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return plotSvc.NewWriter(tx).Delete(ctx, deleted)
+		})).To(Succeed())
 		leaf := MustBeOk(asLeaf(retrieve(ctx, db, p.Key).Root))
 		Expect(leaf.Tabs).To(HaveLen(2))
 		Expect(leaf.Tabs[0].Key()).To(Equal(deleted))

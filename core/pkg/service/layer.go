@@ -74,7 +74,6 @@ import (
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -263,18 +262,21 @@ func (l *Layer) Close() error { return l.closer.Close() }
 
 func revokePasswordSessions(
 	ctx context.Context,
+	db *gorp.DB,
 	passwords *password.Service,
 	sessions *auth.Service,
 	subject resource.ID,
 ) error {
-	var p password.Password
-	if err := passwords.NewRetrieve().
-		Where(password.MatchSubjects(subject)).
-		Entry(&p).
-		Exec(ctx, nil); err != nil {
-		return errors.Wrap(err, "load the root password")
-	}
-	return sessions.NewWriter(nil).RevokeCredential(ctx, p.Key)
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		var p password.Password
+		if err := passwords.NewRetrieve().
+			Where(password.MatchSubjects(subject)).
+			Entry(&p).
+			Exec(ctx, tx); err != nil {
+			return errors.Wrap(err, "load the root password")
+		}
+		return sessions.NewWriter(tx).RevokeCredential(ctx, p.Key)
+	})
 }
 
 // OpenLayer opens the service layer using the provided configurations. Later
@@ -372,6 +374,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, channelGraph) {
 		return nil, err
 	}
+	if l.Signals, err = signals.New(signals.Config{
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		Framer:          cfg.Distribution.Framer,
+		Instrumentation: cfg.Child("signals"),
+	}); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.ServiceConfig{
@@ -380,23 +390,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			ChannelGraph:    channelGraph,
+			Reserved:        l.Signals.Publishes,
 		},
 	); !ok(err, l.Framer) {
 		return nil, err
 	}
-	if l.Signals, err = signals.New(signals.Config{
-		DB:              cfg.Distribution.DB,
-		Channel:         l.Channel,
-		Framer:          l.Framer,
-		Instrumentation: cfg.Child("signals"),
-	}); !ok(err, nil) {
-		return nil, err
-	}
-	if closer, err := channelsignals.Publish(
+	if err = l.Signals.PublishTable(
 		ctx,
-		l.Signals,
-		l.Channel.Observe(),
-	); !ok(err, closer) {
+		channelsignals.TableConfig(l.Channel),
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if closer, err := history.Publish(ctx, history.Config{
@@ -415,31 +417,41 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
-	if closer, err := l.Signals.PublishFromGorp(
+	if err = l.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigUUID(l.Group.Observe()),
-	); !ok(err, closer) {
-		return nil, err
-	}
-	if closer, err := l.Signals.PublishFromGorp(
-		ctx,
-		signals.GorpPublisherConfigUUID(l.Label.Observe()),
-	); !ok(err, closer) {
-		return nil, err
-	}
-	if closer, err := l.Signals.PublishActions(
-		ctx,
-		signals.ActionPublisherConfig[label.Key, label.Action]{
-			Observable: l.Label.ObserveActions(),
-			Name:       "label_action",
+		signals.TableConfig[group.Key, group.Group]{
+			Changes:  l.Group.Changes,
+			Resource: group.ResourceID,
 		},
-	); !ok(err, closer) {
+	); !ok(err, nil) {
 		return nil, err
 	}
-	if closer, err := l.Signals.PublishFromGorp(
+	if err = l.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigString(l.Status.Observe()),
-	); !ok(err, closer) {
+		signals.TableConfig[label.Key, label.Label]{
+			Changes:  l.Label.Changes,
+			Resource: label.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[label.Key, label.Action]{
+			Name:     "sy_label_action_set",
+			Actions:  l.Label.Actions(),
+			Resource: label.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[status.Key, status.Status[any]]{
+			Changes:  l.Status.Changes,
+			Resource: status.ResourceID,
+		},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
@@ -496,10 +508,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}
-	if closer, err := l.Signals.PublishFromGorp(
+	if err = l.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigNumeric(l.Rack.Observe(), telem.Uint32T),
-	); !ok(err, closer) {
+		signals.TableConfig[rack.Key, rack.Rack]{
+			Changes:  l.Rack.Changes,
+			Resource: rack.Key.ResourceID,
+		},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if l.RBAC, err = rbac.NewService(ctx, rbac.ServiceConfig{
@@ -548,6 +563,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if rootPasswordChanged {
 		if err = revokePasswordSessions(
 			ctx,
+			cfg.Distribution.DB,
 			l.Password,
 			l.Auth,
 			root.ResourceID(),
@@ -765,7 +781,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Resource, err = resource.NewService(resource.ServiceConfig{
-		DB: cfg.Distribution.DB,
 		Providers: map[resource.Type]resource.Provider{
 			resource.TypeArc:             l.Arc.Resources(),
 			resource.TypeArcDirectory:    l.Arc.DirectoryResources(),
@@ -795,7 +810,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Bundle, err = bundle.NewService(bundle.Config{
-		DB:       cfg.Distribution.DB,
 		Resource: l.Resource,
 		Project:  l.Project,
 		Group:    l.Group,
@@ -840,6 +854,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		cfg.Distribution.DB,
 		l.Channel,
 	); !ok(err, nil) {
+		return nil, err
+	}
+	// The change channels send no commit before Start, so the migrations above send
+	// nothing.
+	signalsCloser, err := l.Signals.Start(ctx)
+	if !ok(err, signalsCloser) {
 		return nil, err
 	}
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
@@ -39,17 +40,26 @@ var (
 	db          *gorp.DB
 	passwordSvc *password.Service
 	userSvc     *user.Service
-	writer      user.Writer
 	apiSvc      *apiuser.Service
 	rbacSvc     *rbac.Service
 	root        user.User
+	// The handlers below run their routes as the API layer binds them.
+	create         freighter.UnaryHandler[apiuser.CreateRequest, apiuser.CreateResponse]
+	changeUsername freighter.UnaryHandler[apiuser.ChangeUsernameRequest, struct{}]
+	del            freighter.UnaryHandler[apiuser.DeleteRequest, struct{}]
+	rename         freighter.UnaryHandler[apiuser.RenameRequest, struct{}]
+	setRole        freighter.UnaryHandler[apiuser.SetRoleRequest, struct{}]
+	retrieve       freighter.UnaryHandler[
+		apiuser.RetrieveRequest,
+		apiuser.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+	MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 		DB: db,
 		Authenticators: map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: passwordSvc,
@@ -59,7 +69,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
-	writer = userSvc.NewWriter(nil)
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
 	}))
@@ -78,12 +87,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		),
 	)
 	apiSvc = MustSucceed(apiuser.NewService(apiuser.ServiceConfig{
+		DB:       db,
 		RBAC:     rbacSvc,
 		User:     userSvc,
 		Password: passwordSvc,
-		Auth:     authSvc,
 	}))
 	root = findRoot(ctx, userSvc)
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	create = bind.WritePrepared(binder, apiSvc.PrepareCreate, apiSvc.Create)
+	changeUsername = bind.Write(binder, apiSvc.ChangeUsername)
+	del = bind.Write(binder, apiSvc.Delete)
+	rename = bind.Write(binder, apiSvc.Rename)
+	setRole = bind.Write(binder, apiSvc.SetRole)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 func login(ctx context.Context, username, pwd string) (auth.Identity, error) {
@@ -98,7 +114,7 @@ func findRoot(ctx SpecContext, svc *user.Service) user.User {
 	GinkgoHelper()
 	var u user.User
 	Expect(
-		svc.NewRetrieve().Where(user.MatchRootUser(true)).Entry(&u).Exec(ctx, nil),
+		svc.NewRetrieve().Where(user.MatchRootUser(true)).Entry(&u).Exec(ctx, db),
 	).To(Succeed())
 	return u
 }
@@ -110,4 +126,10 @@ func rootCtx(ctx SpecContext) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fctx.Set("Subject", root.ResourceID())
 	return fctx
+}
+
+// hash hashes plaintext with svc.
+func hash(svc *password.Service, plaintext string) password.Hash {
+	GinkgoHelper()
+	return MustSucceed(svc.Hash(plaintext))
 }
