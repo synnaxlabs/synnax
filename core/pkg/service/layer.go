@@ -804,6 +804,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Secret:          l.Secret,
 		Status:          l.Status,
 		Signals:         l.Signals,
+		Channel:         l.Channel,
 	}); !ok(err, l.Certificate) {
 		return nil, err
 	}
