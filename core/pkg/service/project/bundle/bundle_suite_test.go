@@ -151,7 +151,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}))
 	svc = MustSucceed(bundle.NewService(bundle.Config{
-		DB:       db,
 		Resource: resourceSvc,
 		Project:  projectSvc,
 		Group:    groupSvc,

@@ -137,13 +137,14 @@ func (*testService) Match(map[string]any) bool { return false }
 
 func (s *testService) Export(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	id resource.ID,
 ) (imex.Envelope, error) {
 	var e testEntry
 	if err := s.table.NewRetrieve().
 		Where(gorp.MatchKeys[string, testEntry](id.Key)).
 		Entry(&e).
-		Exec(ctx, s.db); err != nil {
+		Exec(ctx, snap); err != nil {
 		return imex.Envelope{}, err
 	}
 	env := imex.Envelope{
@@ -185,7 +186,11 @@ func (errorService) Import(
 	return resource.ID{}, errors.New("importer error: forced failure")
 }
 
-func (errorService) Export(context.Context, resource.ID) (imex.Envelope, error) {
+func (errorService) Export(
+	context.Context,
+	gorp.Snapshot,
+	resource.ID,
+) (imex.Envelope, error) {
 	return imex.Envelope{}, errors.New("exporter error: forced failure")
 }
 
@@ -217,7 +222,11 @@ type noopExporter struct{ typ resource.Type }
 
 func (n noopExporter) Type() resource.Type { return n.typ }
 
-func (n noopExporter) Export(context.Context, resource.ID) (imex.Envelope, error) {
+func (n noopExporter) Export(
+	context.Context,
+	gorp.Snapshot,
+	resource.ID,
+) (imex.Envelope, error) {
 	env := imex.Envelope{Version: testVersion, Type: string(n.typ)}
 	if err := env.Encode(testResource{Name: "noop"}); err != nil {
 		return imex.Envelope{}, err
@@ -384,7 +393,7 @@ var _ = Describe("Service", func() {
 			Expect(
 				s.RegisterExporter(noopExporter{typ: resource.TypeLog}),
 			).To(Succeed())
-			env := MustSucceed(s.Export(ctx, resource.ID{
+			env := MustSucceed(s.Export(ctx, db, resource.ID{
 				Type: resource.TypeLog,
 				Key:  "any",
 			}))
@@ -430,7 +439,7 @@ var _ = Describe("Service", func() {
 				MatchError(imex.ErrTypeTaken),
 				MatchError(ContainSubstring(`exporter for type "log"`)),
 			))
-			env := MustSucceed(s.Export(ctx, resource.ID{
+			env := MustSucceed(s.Export(ctx, db, resource.ID{
 				Type: resource.TypeLog,
 				Key:  "any",
 			}))
@@ -447,7 +456,7 @@ var _ = Describe("Service", func() {
 				)).To(Succeed())
 				ts := DeferClose(openTestService(ctx, db))
 				Expect(s.RegisterImportExporter(ts)).To(MatchError(imex.ErrTypeTaken))
-				Expect(s.Export(ctx, resource.ID{
+				Expect(s.Export(ctx, db, resource.ID{
 					Type: resource.TypeChannel,
 					Key:  "any",
 				})).Error().To(MatchError(ContainSubstring("no exporter registered")))
@@ -653,7 +662,7 @@ var _ = Describe("Service", func() {
 					ctx, db, sampleEnvelope("Round Trip", resource.TypeChannel),
 					imex.ImportOptions{},
 				))
-				env := MustSucceed(svc.Export(ctx, id))
+				env := MustSucceed(svc.Export(ctx, db, id))
 				Expect(env.Version).To(Equal(testVersion))
 				Expect(env.Type).To(Equal(string(resource.TypeChannel)))
 				Expect(env.Name).To(Equal("Round Trip"))
@@ -667,7 +676,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should pass errors from the exporter through verbatim",
 			func(ctx SpecContext) {
-				Expect(svc.Export(ctx, resource.ID{
+				Expect(svc.Export(ctx, db, resource.ID{
 					Type: resource.TypeDevice,
 					Key:  "any-key",
 				})).Error().To(MatchError(ContainSubstring("exporter error: forced failure")))
@@ -675,7 +684,7 @@ var _ = Describe("Service", func() {
 		)
 
 		It("Should reject an unregistered type", func(ctx SpecContext) {
-			Expect(svc.Export(ctx, resource.ID{
+			Expect(svc.Export(ctx, db, resource.ID{
 				Type: "nonexistent",
 				Key:  "660e8400-e29b-41d4-a716-446655440000",
 			})).Error().To(SatisfyAll(

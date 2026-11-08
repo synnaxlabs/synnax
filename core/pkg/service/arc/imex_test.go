@@ -55,7 +55,7 @@ var _ = Describe("ImEx", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &a)
 			})).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, arc.ResourceID(a.Base().Key)))
+			env := MustSucceed(svc.Export(ctx, db, arc.ResourceID(a.Base().Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("arc-automation"))
 			Expect(env.Name).To(Equal("exported"))
@@ -76,7 +76,7 @@ var _ = Describe("ImEx", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &a)
 				})).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, arc.ResourceID(a.Base().Key)))
+				env := MustSucceed(svc.Export(ctx, db, arc.ResourceID(a.Base().Key)))
 				var body map[string]any
 				Expect(json.Unmarshal(MustSucceed(json.Marshal(env)), &body)).
 					To(Succeed())
@@ -93,12 +93,15 @@ var _ = Describe("ImEx", func() {
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
 			id := resource.ID{Type: resource.TypeArc, Key: uuid.New().String()}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
+			Expect(svc.Export(ctx, db, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
 			id := resource.ID{Type: resource.TypeArc, Key: "not-a-uuid"}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
+			Expect(
+				svc.Export(ctx, db, id),
+			).Error().
+				To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 
@@ -301,7 +304,9 @@ var _ = Describe("ImEx", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &original)
 				})).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, arc.ResourceID(original.Base().Key)))
+				env := MustSucceed(
+					svc.Export(ctx, db, arc.ResourceID(original.Base().Key)),
+				)
 				Expect(env.Type).To(Equal("arc-module"))
 				// The import lands beside the original, where the name is taken.
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

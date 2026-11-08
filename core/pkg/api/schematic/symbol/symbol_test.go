@@ -315,7 +315,7 @@ var _ = Describe("ExportGroup", func() {
 			grantRetrieveOn(
 				ctx, author.ResourceID(), g.ResourceID(), symbol.ResourceID(sym.Key),
 			)
-			Expect(MustSucceed(apiSvc.ExportGroup(
+			Expect(MustSucceed(exportGroup(
 				AuthedCtx(ctx, author),
 				apisymbol.ExportGroupRequest{
 					Key:      g.Key,
@@ -327,7 +327,7 @@ var _ = Describe("ExportGroup", func() {
 	It("Should reject an unsupported encoding", func(ctx SpecContext) {
 		g := createGroup(ctx, "bad-encoding")
 		grantRetrieveOn(ctx, author.ResourceID(), g.ResourceID())
-		Expect(apiSvc.ExportGroup(
+		Expect(exportGroup(
 			AuthedCtx(ctx, author),
 			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: "YAML"},
 		)).Error().To(MatchError(ContainSubstring("unsupported encoding")))
@@ -338,7 +338,7 @@ var _ = Describe("ExportGroup", func() {
 		g := createGroup(ctx, "ungranted-group")
 		sym := createSymbol(ctx, g, "Outlet")
 		grantRetrieveOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
-		Expect(apiSvc.ExportGroup(
+		Expect(exportGroup(
 			AuthedCtx(ctx, author),
 			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))
@@ -351,7 +351,7 @@ var _ = Describe("ExportGroup", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return groupSvc.NewWriter(tx).Create(ctx, &nested)
 		})).To(Succeed())
-		Expect(apiSvc.ExportGroup(
+		Expect(exportGroup(
 			AuthedCtx(ctx, createUser(ctx)),
 			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))
@@ -362,7 +362,7 @@ var _ = Describe("ExportGroup", func() {
 		g := createGroup(ctx, "ungranted-member")
 		createSymbol(ctx, g, "Vent")
 		grantRetrieveOn(ctx, author.ResourceID(), g.ResourceID())
-		Expect(apiSvc.ExportGroup(
+		Expect(exportGroup(
 			AuthedCtx(ctx, author),
 			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))

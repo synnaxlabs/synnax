@@ -53,8 +53,8 @@ var (
 	panelSvc   *panel.Service
 	userSvc    *user.Service
 	apiSvc     *apiproject.Service
-	// create, del, rename, importBundle, setGroup, and retrieve run their routes as the
-	// API layer binds them.
+	// create, del, rename, importBundle, setGroup, retrieve, and export run their
+	// routes as the API layer binds them.
 	create freighter.UnaryHandler[
 		apiproject.CreateRequest,
 		apiproject.CreateResponse,
@@ -70,6 +70,7 @@ var (
 		apiproject.RetrieveRequest,
 		apiproject.RetrieveResponse,
 	]
+	export freighter.UnaryHandler[apiproject.ExportRequest, apiproject.ExportResponse]
 	author user.User
 )
 
@@ -122,7 +123,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}))
 	bundleSvc := MustSucceed(bundle.NewService(bundle.Config{
-		DB:       db,
 		Resource: resourceSvc,
 		Project:  projectSvc,
 		Group:    groupSvc,
@@ -130,7 +130,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:     imexSvc,
 	}))
 	apiSvc = MustSucceed(apiproject.NewService(apiproject.ServiceConfig{
-		RBAC:    rbacSvc,
 		Project: projectSvc,
 		Bundle:  bundleSvc,
 	}))
@@ -141,6 +140,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	importBundle = bind.Write(binder, apiSvc.Import)
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	export = bind.Read(binder, apiSvc.Export)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))

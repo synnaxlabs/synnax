@@ -535,7 +535,7 @@ var _ = Describe("Sessions", func() {
 	})
 	Describe("RetrieveSessions", func() {
 		It("Should list the caller's own sessions by default", func(ctx SpecContext) {
-			res := MustSucceed(apiSvc.RetrieveSessions(
+			res := MustSucceed(retrieveSessions(
 				authed(ctx, bobToken),
 				apiauth.SessionRetrieveRequest{},
 			))
@@ -545,7 +545,7 @@ var _ = Describe("Sessions", func() {
 		It(
 			"Should let the owner list another subject's sessions",
 			func(ctx SpecContext) {
-				res := MustSucceed(apiSvc.RetrieveSessions(
+				res := MustSucceed(retrieveSessions(
 					authed(ctx, rootToken),
 					apiauth.SessionRetrieveRequest{
 						Subjects: []resource.ID{bob.ResourceID()},
@@ -559,7 +559,7 @@ var _ = Describe("Sessions", func() {
 			"Should return an empty list for a subject with no sessions",
 			func(ctx SpecContext) {
 				idle := createUser(ctx, "idle-"+uuid.New().String(), "p")
-				res := MustSucceed(apiSvc.RetrieveSessions(
+				res := MustSucceed(retrieveSessions(
 					authed(ctx, rootToken),
 					apiauth.SessionRetrieveRequest{
 						Subjects: []resource.ID{idle.ResourceID()},
@@ -572,7 +572,7 @@ var _ = Describe("Sessions", func() {
 		It(
 			"Should deny a user listing another subject's sessions",
 			func(ctx SpecContext) {
-				Expect(apiSvc.RetrieveSessions(
+				Expect(retrieveSessions(
 					authed(ctx, bobToken),
 					apiauth.SessionRetrieveRequest{
 						Subjects: []resource.ID{root.ResourceID()},

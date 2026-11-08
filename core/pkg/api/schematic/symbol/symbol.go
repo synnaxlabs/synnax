@@ -223,37 +223,29 @@ type (
 	ExportGroupResponse = zip.Files
 )
 
+var _ bind.Named = ExportGroupRequest{}
+
+// Named implements bind.Named.
+func (r ExportGroupRequest) Named() []resource.ID {
+	return []resource.ID{group.ResourceID(r.Key)}
+}
+
 // ExportGroup exports every symbol in the group as a bundle. It requires retrieve
-// access on the group, which it enforces before it reads a symbol, and on every symbol
-// the group holds.
+// access on every symbol the group holds.
 func (s *Service) ExportGroup(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req ExportGroupRequest,
 ) (ExportGroupResponse, error) {
 	encoder, err := imex.ResolveEncoding(req.Encoding)
 	if err != nil {
 		return nil, err
 	}
-	var (
-		enforcer = s.access.NewEnforcer(nil)
-		subject  = auth.GetSubject(ctx)
-	)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{group.ResourceID(req.Key)},
-	}); err != nil {
-		return nil, err
-	}
-	files, members, err := s.internal.ExportGroup(ctx, req.Key, encoder)
+	files, members, err := s.internal.ExportGroup(ctx, snap, req.Key, encoder)
 	if err != nil {
 		return nil, err
 	}
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionRetrieve,
-		Objects: members,
-	}); err != nil {
+	if err = snap.Enforce(members...); err != nil {
 		return nil, err
 	}
 	return files, nil

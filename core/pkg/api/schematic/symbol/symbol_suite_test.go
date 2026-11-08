@@ -48,11 +48,15 @@ var (
 	symbolSvc *symbol.Service
 	userSvc   *user.Service
 	apiSvc    *apisymbol.Service
-	// setGroup and retrieve run their routes as the API layer binds them.
+	// setGroup, retrieve, and exportGroup run their routes as the API layer binds them.
 	setGroup freighter.UnaryHandler[apisymbol.SetGroupRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apisymbol.RetrieveRequest,
 		apisymbol.RetrieveResponse,
+	]
+	exportGroup freighter.UnaryHandler[
+		apisymbol.ExportGroupRequest,
+		apisymbol.ExportGroupResponse,
 	]
 	author user.User
 )
@@ -97,6 +101,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	exportGroup = bind.Read(binder, apiSvc.ExportGroup)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))

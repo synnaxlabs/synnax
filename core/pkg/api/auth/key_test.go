@@ -188,14 +188,14 @@ var _ = Describe("API keys", func() {
 		It("Should list the caller's own keys by default", func(ctx SpecContext) {
 			own := MustSucceed(create(ctx, bobToken, resource.ID{})).Key
 			MustSucceed(create(ctx, rootToken, resource.ID{}))
-			res := MustSucceed(apiSvc.RetrieveKeys(
+			res := MustSucceed(retrieveKeys(
 				authed(ctx, bobToken),
 				apiauth.KeyRetrieveRequest{},
 			))
 			Expect(res.Keys).To(ConsistOf(own))
 		})
 		It("Should deny a user listing another subject's keys", func(ctx SpecContext) {
-			Expect(apiSvc.RetrieveKeys(
+			Expect(retrieveKeys(
 				authed(ctx, bobToken),
 				apiauth.KeyRetrieveRequest{Subjects: []resource.ID{root.ResourceID()}},
 			)).Error().To(MatchError(access.ErrDenied))

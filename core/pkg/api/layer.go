@@ -14,6 +14,7 @@
 package api
 
 import (
+	"context"
 	"slices"
 
 	"github.com/samber/lo"
@@ -548,10 +549,22 @@ func (l *Layer) BindTo(t Transport) {
 	))
 	t.AuthSessionCreate.BindHandler(l.Auth.CreateSession)
 	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
-	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
+	t.AuthSessionRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req auth.SessionRetrieveRequest,
+	) (auth.SessionRetrieveResponse, error) {
+		return l.Auth.RetrieveSessions(ctx, snap, req)
+	}))
 	t.AuthSessionDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteSessions))
 	t.AuthKeyCreate.BindHandler(bind.Write(l.binder, l.Auth.CreateKey))
-	t.AuthKeyRetrieve.BindHandler(l.Auth.RetrieveKeys)
+	t.AuthKeyRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req auth.KeyRetrieveRequest,
+	) (auth.KeyRetrieveResponse, error) {
+		return l.Auth.RetrieveKeys(ctx, snap, req)
+	}))
 	t.AuthKeyDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteKeys))
 	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
 		l.binder,
@@ -650,7 +663,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ProjectDelete.BindHandler(bind.Write(l.binder, l.Project.Delete))
 	t.ProjectRetrieve.BindHandler(bind.Read(l.binder, l.Project.Retrieve))
 	t.ProjectRename.BindHandler(bind.Write(l.binder, l.Project.Rename))
-	t.ProjectExport.BindHandler(l.Project.Export)
+	t.ProjectExport.BindHandler(bind.Read(l.binder, l.Project.Export))
 	t.ProjectImport.BindHandler(bind.Write(l.binder, l.Project.Import))
 
 	// SCHEMATIC
@@ -671,7 +684,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicSymbolRename.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Rename),
 	)
-	t.SchematicSymbolExportGroup.BindHandler(l.Symbol.ExportGroup)
+	t.SchematicSymbolExportGroup.BindHandler(
+		bind.Read(l.binder, l.Symbol.ExportGroup),
+	)
 	t.SchematicSymbolImportGroup.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Symbol.ImportGroup),
 	)
@@ -767,7 +782,7 @@ func (l *Layer) BindTo(t Transport) {
 
 	// IMPORT/EXPORT
 	t.ImExImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ImEx.Import))
-	t.ImExExport.BindHandler(l.ImEx.Export)
+	t.ImExExport.BindHandler(bind.Read(l.binder, l.ImEx.Export))
 }
 
 // NewLayer instantiates the server API layer using the provided Configs. This should
@@ -789,7 +804,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Password: cfg.Service.Password,
 		APIKey:   cfg.Service.APIKey,
 		User:     cfg.Service.User,
-		RBAC:     cfg.Service.RBAC,
 		Identity: cfg.Distribution.Identity,
 	}); err != nil {
 		return nil, err
@@ -871,7 +885,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Project, err = project.NewService(project.ServiceConfig{
-		RBAC:    cfg.Service.RBAC,
 		Project: cfg.Service.Project,
 		Bundle:  cfg.Service.Bundle,
 	}); err != nil {

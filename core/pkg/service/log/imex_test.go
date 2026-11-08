@@ -80,7 +80,7 @@ var _ = Describe("ImEx", func() {
 					TimestampPrecision: 2,
 					ChannelNamesHidden: true,
 				})
-				env := MustSucceed(imexSvc.Export(ctx, l.ResourceID()))
+				env := MustSucceed(imexSvc.Export(ctx, db, l.ResourceID()))
 				Expect(env.Version).To(Equal(versions.Latest))
 				Expect(env.Type).To(Equal("log"))
 				Expect(env.Name).To(Equal("exported"))
@@ -102,7 +102,7 @@ var _ = Describe("ImEx", func() {
 					Key:  uuid.New().String(),
 				}
 				Expect(
-					imexSvc.Export(ctx, id),
+					imexSvc.Export(ctx, db, id),
 				).Error().
 					To(MatchError(query.ErrNotFound))
 			},
@@ -113,7 +113,7 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				id := resource.ID{Type: resource.TypeLog, Key: "not-a-uuid"}
 				Expect(
-					imexSvc.Export(ctx, id),
+					imexSvc.Export(ctx, db, id),
 				).Error().
 					To(MatchError(ContainSubstring("uuid")))
 			},
@@ -469,7 +469,7 @@ var _ = Describe("ImEx", func() {
 					TimestampPrecision: 1,
 					TimestampsHidden:   true,
 				})
-				env := MustSucceed(imexSvc.Export(ctx, original.ResourceID()))
+				env := MustSucceed(imexSvc.Export(ctx, db, original.ResourceID()))
 				var id resource.ID
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 					id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),

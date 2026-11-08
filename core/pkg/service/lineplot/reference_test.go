@@ -141,7 +141,7 @@ var _ = Describe("Channel references", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &plot)
 			})).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(plot.Key)))
+			env := MustSucceed(svc.Export(ctx, db, lineplot.ResourceID(plot.Key)))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).Delete(ctx, gone, false)
 			})).To(Succeed())

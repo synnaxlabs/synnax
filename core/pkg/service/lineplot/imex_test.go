@@ -56,7 +56,7 @@ var _ = Describe("ImEx", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &lp)
 			})).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(lp.Key)))
+			env := MustSucceed(svc.Export(ctx, db, lineplot.ResourceID(lp.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("lineplot"))
 			Expect(env.Name).To(Equal("exported"))
@@ -72,12 +72,15 @@ var _ = Describe("ImEx", func() {
 				Type: resource.TypeLineplot,
 				Key:  uuid.New().String(),
 			}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
+			Expect(svc.Export(ctx, db, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
 			id := resource.ID{Type: resource.TypeLineplot, Key: "not-a-uuid"}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
+			Expect(
+				svc.Export(ctx, db, id),
+			).Error().
+				To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 
@@ -287,7 +290,9 @@ var _ = Describe("ImEx", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &original)
 				})).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(original.Key)))
+				env := MustSucceed(
+					svc.Export(ctx, db, lineplot.ResourceID(original.Key)),
+				)
 				var id resource.ID
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 					id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),

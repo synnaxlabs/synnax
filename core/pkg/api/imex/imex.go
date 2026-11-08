@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -224,25 +225,24 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 }
 
 type (
-	// ExportRequest is the request type for the Export endpoint.
-	ExportRequest = resource.ID
+	// ExportRequest names the resource to export.
+	ExportRequest resource.ID
 	// ExportResponse is the response type for the Export endpoint.
 	ExportResponse = imex.Envelope
 )
 
+var _ bind.Named = ExportRequest{}
+
+// Named implements bind.Named.
+func (r ExportRequest) Named() []resource.ID { return []resource.ID{resource.ID(r)} }
+
 // Export exports a resource to an envelope.
 func (s *Service) Export(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req ExportRequest,
 ) (ExportResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{req},
-	}); err != nil {
-		return ExportResponse{}, err
-	}
-	env, err := s.internal.Export(ctx, req)
+	env, err := s.internal.Export(ctx, snap, resource.ID(req))
 	if err != nil {
 		return ExportResponse{}, err
 	}

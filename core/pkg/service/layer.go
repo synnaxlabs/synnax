@@ -810,7 +810,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Bundle, err = bundle.NewService(bundle.Config{
-		DB:       cfg.Distribution.DB,
 		Resource: l.Resource,
 		Project:  l.Project,
 		Group:    l.Group,

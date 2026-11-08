@@ -103,7 +103,7 @@ var _ = Describe("Visualization exports", Ordered, func() {
 
 	DescribeTable("Should leave the placement out of a single-resource export",
 		func(ctx SpecContext, id func() resource.ID) {
-			env := MustSucceed(l.ImEx.Export(ctx, id()))
+			env := MustSucceed(l.ImEx.Export(ctx, db, id()))
 			expectUnplaced(MustSucceed(json.Marshal(env)))
 		},
 		Entry("schematic", func() resource.ID { return sch.ResourceID() }),
@@ -116,7 +116,7 @@ var _ = Describe("Visualization exports", Ordered, func() {
 	It("Should leave the placement out of every member of a project bundle", func(
 		ctx SpecContext,
 	) {
-		files, _ := MustSucceed2(l.Bundle.Export(ctx, proj.Key, xjson.Codec))
+		files, _ := MustSucceed2(l.Bundle.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(6))
 		for path, data := range files {
 			By(path)

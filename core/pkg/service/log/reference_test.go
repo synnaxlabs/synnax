@@ -138,7 +138,7 @@ var _ = Describe("Channel references", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &l)
 			})).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, l.ResourceID()))
+			env := MustSucceed(svc.Export(ctx, db, l.ResourceID()))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).Delete(ctx, gone, false)
 			})).To(Succeed())

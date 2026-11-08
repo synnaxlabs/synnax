@@ -190,6 +190,52 @@ var _ = Describe("Read", func() {
 	})
 })
 
+// heldQuery reads the API keys or sessions of holders.
+type heldQuery struct{ holders []resource.ID }
+
+var _ bind.Held = heldQuery{}
+
+func (q heldQuery) Holders() []resource.ID { return q.holders }
+
+var _ = Describe("Read of a Held request", func() {
+	var held func(context.Context, heldQuery) (struct{}, error)
+	BeforeEach(func() {
+		held = bind.Read(
+			binder,
+			func(context.Context, bind.Snapshot, heldQuery) (struct{}, error) {
+				return struct{}{}, nil
+			},
+		)
+	})
+
+	It("Should let a subject read its own records with no policy", func(
+		ctx SpecContext,
+	) {
+		u := newUser(ctx)
+		Expect(held(AuthedCtx(ctx, u), heldQuery{[]resource.ID{u.ResourceID()}})).
+			Error().ToNot(HaveOccurred())
+	})
+
+	It("Should deny the records of another holder without retrieve", func(
+		ctx SpecContext,
+	) {
+		u, other := newUser(ctx), newUser(ctx)
+		Expect(held(
+			AuthedCtx(ctx, u),
+			heldQuery{[]resource.ID{u.ResourceID(), other.ResourceID()}},
+		)).Error().To(denied(u, access.ActionRetrieve, other.ResourceID()))
+	})
+
+	It("Should let a subject with retrieve on another holder read its records", func(
+		ctx SpecContext,
+	) {
+		u, other := newUser(ctx), newUser(ctx)
+		grant(ctx, u, access.ActionRetrieve, other.ResourceID())
+		Expect(held(AuthedCtx(ctx, u), heldQuery{[]resource.ID{other.ResourceID()}})).
+			Error().ToNot(HaveOccurred())
+	})
+})
+
 var _ = Describe("Snapshot", func() {
 	It("Should report whether the subject can retrieve a record", func(
 		ctx SpecContext,
@@ -216,6 +262,35 @@ var _ = Describe("Snapshot", func() {
 			labelQuery{},
 		))
 		Expect(allowed).To(Equal([]bool{true, false}))
+	})
+
+	It("Should deny the first record that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		labels := createLabels(ctx, 3)
+		u := newUser(ctx)
+		grant(ctx, u, access.ActionRetrieve, labels[0].ResourceID())
+		var errs []error
+		MustSucceed(bind.Read(
+			binder,
+			func(
+				_ context.Context,
+				snap bind.Snapshot,
+				_ labelQuery,
+			) (struct{}, error) {
+				errs = []error{
+					snap.Enforce(labels[0].ResourceID()),
+					snap.Enforce(
+						labels[0].ResourceID(),
+						labels[1].ResourceID(),
+						labels[2].ResourceID(),
+					),
+				}
+				return struct{}{}, nil
+			},
+		)(AuthedCtx(ctx, u), labelQuery{}))
+		Expect(errs[0]).ToNot(HaveOccurred())
+		Expect(errs[1]).To(denied(u, access.ActionRetrieve, labels[1].ResourceID()))
 	})
 })
 

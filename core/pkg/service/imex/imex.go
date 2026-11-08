@@ -433,9 +433,9 @@ type Importer interface {
 // Exporter serializes a stored resource as an Envelope, stamping its own per-schema
 // version on the returned value.
 type Exporter interface {
-	// Export retrieves the resource identified by id and serializes it, stamping the
-	// exporter's per-schema Version.
-	Export(context.Context, resource.ID) (Envelope, error)
+	// Export retrieves the resource identified by id from the snapshot and serializes
+	// it, stamping the exporter's per-schema Version.
+	Export(context.Context, gorp.Snapshot, resource.ID) (Envelope, error)
 	// Type returns the resource type this exporter handles.
 	Type() resource.Type
 }
