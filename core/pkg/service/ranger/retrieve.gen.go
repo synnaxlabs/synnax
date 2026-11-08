@@ -42,6 +42,7 @@ func newIndexes() indexes {
 			Name:     "labels",
 			Table:    "label",
 			OnDelete: gorp.Detach,
+			Kind:     gorp.Use,
 			Targets: func(e *Range) []label.Key {
 				return e.Labels
 			},
@@ -55,6 +56,7 @@ func newIndexes() indexes {
 			Name:     "parent",
 			Table:    "range",
 			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Acyclic:  true,
 			Targets: func(e *Range) []Key {
 				if e.Parent == nil {

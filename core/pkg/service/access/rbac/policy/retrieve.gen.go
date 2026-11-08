@@ -41,6 +41,7 @@ func newIndexes() indexes {
 			Name:     "role",
 			Table:    "role",
 			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Targets: func(e *Policy) []role.Key {
 				return []role.Key{e.Role}
 			},

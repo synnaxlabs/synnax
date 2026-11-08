@@ -121,6 +121,7 @@ func newDirectoryReference() *gorp.KeyReference[Key, Arc, directory.Key] {
 		Name:     "directory",
 		Table:    string(resource.TypeArcDirectory),
 		OnDelete: gorp.Restrict,
+		Kind:     gorp.Place,
 		Targets: func(a *Arc) []directory.Key {
 			if d := a.Base().Directory; d != nil {
 				return []directory.Key{*d}

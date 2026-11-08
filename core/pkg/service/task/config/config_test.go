@@ -588,6 +588,7 @@ var _ = Describe("With a detach reference", func() {
 				Name:     "arc_key",
 				Table:    targetTable,
 				OnDelete: gorp.Detach,
+				Kind:     gorp.Use,
 				Targets: func(c *arctask.Config) []uuid.UUID {
 					if c.ArcKey == uuid.Nil() {
 						return nil

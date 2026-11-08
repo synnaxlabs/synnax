@@ -56,6 +56,7 @@ func newIndexes() indexes {
 			Name:     "group",
 			Table:    "group",
 			OnDelete: gorp.Detach,
+			Kind:     gorp.Place,
 			Targets: func(e *Channel) []group.Key {
 				if e.Group == nil {
 					return nil

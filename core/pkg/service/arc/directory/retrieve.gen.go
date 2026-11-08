@@ -48,6 +48,7 @@ func newIndexes() indexes {
 			Name:     "parent",
 			Table:    "arc_directory",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Place,
 			Acyclic:  true,
 			Targets: func(e *Directory) []Key {
 				if e.Parent == nil {

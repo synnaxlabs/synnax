@@ -49,6 +49,7 @@ func newIndexes() indexes {
 			Name:     "parent",
 			Tables:   []string{"group", "project", "rack"},
 			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Acyclic:  true,
 			Targets: func(e *Group) []gorp.Target {
 				if e.Parent == nil {

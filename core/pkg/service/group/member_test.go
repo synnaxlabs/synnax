@@ -94,6 +94,7 @@ var _ = Describe("Member", func() {
 					Name:     "group",
 					Table:    "group",
 					OnDelete: gorp.Detach,
+					Kind:     gorp.Place,
 					Targets: func(r *rack) []group.Key {
 						if r.Group == nil {
 							return nil

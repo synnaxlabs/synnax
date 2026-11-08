@@ -1101,6 +1101,7 @@ var _ = Describe("Reference", func() {
 								Name:     "parent",
 								Table:    "project",
 								OnDelete: gorp.Cascade,
+								Kind:     gorp.Place,
 								Targets:  func(*refProject) []string { return nil },
 							},
 						),
@@ -1111,11 +1112,13 @@ var _ = Describe("Reference", func() {
 			Entry("with no name", gorp.KeyReferenceConfig[string, refProject, string]{
 				Table:    "label",
 				OnDelete: gorp.Restrict,
+				Kind:     gorp.Use,
 				Targets:  func(*refProject) []string { return nil },
 			}, "project.references.1.name: required"),
 			Entry("with no table", gorp.KeyReferenceConfig[string, refProject, string]{
 				Name:     "label",
 				OnDelete: gorp.Restrict,
+				Kind:     gorp.Use,
 				Targets:  func(*refProject) []string { return nil },
 			}, "project.references.1.table: must name at least one table"),
 			Entry(
@@ -1124,20 +1127,29 @@ var _ = Describe("Reference", func() {
 					Name:     "label",
 					Table:    "label",
 					OnDelete: gorp.Restrict,
+					Kind:     gorp.Use,
 				},
 				"project.references.1.targets: must be non-nil",
 			),
 			Entry("with no policy", gorp.KeyReferenceConfig[string, refProject, string]{
 				Name:    "label",
 				Table:   "label",
+				Kind:    gorp.Use,
 				Targets: func(*refProject) []string { return nil },
 			}, "project.references.1.on_delete: must be Restrict, Cascade, or Detach"),
+			Entry("with no kind", gorp.KeyReferenceConfig[string, refProject, string]{
+				Name:     "label",
+				Table:    "label",
+				OnDelete: gorp.Restrict,
+				Targets:  func(*refProject) []string { return nil },
+			}, "project.references.1.kind: must be Place or Use"),
 			Entry(
 				"detaching with no Detach",
 				gorp.KeyReferenceConfig[string, refProject, string]{
 					Name:     "label",
 					Table:    "label",
 					OnDelete: gorp.Detach,
+					Kind:     gorp.Use,
 					Targets:  func(*refProject) []string { return nil },
 				},
 				"project.references.1.detach: must be set when on_delete is Detach",
@@ -1148,6 +1160,7 @@ var _ = Describe("Reference", func() {
 					Name:     "label",
 					Table:    "label",
 					OnDelete: gorp.Cascade,
+					Kind:     gorp.Use,
 					Acyclic:  true,
 					Targets:  func(*refProject) []string { return nil },
 				},
@@ -1183,6 +1196,7 @@ var _ = Describe("Reference closure", func() {
 					Name:     "project",
 					Table:    "project",
 					OnDelete: gorp.Cascade,
+					Kind:     gorp.Place,
 					Targets:  func(g *refGroup) []string { return []string{g.Project} },
 				}),
 			},
@@ -1191,6 +1205,7 @@ var _ = Describe("Reference closure", func() {
 			Name:     "group",
 			Table:    "group",
 			OnDelete: policy,
+			Kind:     gorp.Place,
 			Targets: func(s *refSchematic) []string {
 				if s.Group == "" {
 					return nil
@@ -1212,6 +1227,7 @@ var _ = Describe("Reference closure", func() {
 							Name:     "project",
 							Table:    "project",
 							OnDelete: gorp.Cascade,
+							Kind:     gorp.Place,
 							Targets: func(s *refSchematic) []string {
 								return []string{s.Project}
 							},
@@ -1369,6 +1385,7 @@ var _ = Describe("DropDangling", func() {
 					Name:     "rack",
 					Tables:   []string{"rack"},
 					OnDelete: gorp.Restrict,
+					Kind:     gorp.Place,
 					Targets:  rack,
 					Detach:   rackDetach,
 				}),
@@ -1376,6 +1393,7 @@ var _ = Describe("DropDangling", func() {
 					Name:     "labels",
 					Table:    "label",
 					OnDelete: gorp.Detach,
+					Kind:     gorp.Use,
 					Targets:  func(d *refDevice) []string { return d.Labels },
 					Detach: func(d *refDevice, t string) {
 						d.Labels = slices.DeleteFunc(d.Labels, func(l string) bool {
