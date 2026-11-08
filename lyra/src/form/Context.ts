@@ -129,7 +129,8 @@ const [Context, useCtx] = context.create<ContextValue | null>({
 export { Context };
 
 /**
- * @returns the enclosing form's {@link ContextValue}, or the override when one is given.
+ * @returns the enclosing form's {@link ContextValue}, or the override when one is
+ * given.
  * @throws {Error} if there is neither an enclosing form nor an override.
  */
 export const useContext = <Z extends z.ZodType = z.ZodType>(

@@ -65,7 +65,9 @@ export interface OnFileDropProps {
 export interface ContextValue {
   /** onDrop is the Frame-level tab drop handler invoked by {@link Leaf} parts. */
   onDrop?: (props: OnDropProps) => void;
-  /** onCreate is the Frame-level creation drop handler invoked by {@link Leaf} parts. */
+  /**
+   * onCreate is the Frame-level creation drop handler invoked by {@link Leaf} parts.
+   */
   onCreate?: (props: OnCreateProps) => void;
   /**
    * onFileDrop is the Frame-level OS file drop handler invoked by {@link Leaf}
@@ -88,7 +90,9 @@ export { useContext };
 export interface FrameProps extends Omit<Flex.BoxProps, "onDrop" | "onResize"> {
   /** onDrop is called when a hauled tab lands on one of the frame's leaves. */
   onDrop?: (props: OnDropProps) => void;
-  /** onCreate is called when hauled creation items land on one of the frame's leaves. */
+  /**
+   * onCreate is called when hauled creation items land on one of the frame's leaves.
+   */
   onCreate?: (props: OnCreateProps) => void;
   /** onFileDrop enables OS file drops on the frame's leaves and handles them. */
   onFileDrop?: (props: OnFileDropProps) => void;
