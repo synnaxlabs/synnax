@@ -529,11 +529,12 @@ var _ = Describe("Changes", func() {
 			Expect(refs.rack.Get(ctx, nil, 1)).Error().
 				To(MatchError(gorp.ErrIndexInvalid))
 			tx := DeferClose(linked.OpenTx())
-			err := gorp.WrapWriter[string, refDevice](tx).Delete(ctx, "d")
-			Expect(err).To(MatchError(errUndecodable))
 			Expect(
-				err,
-			).To(MatchError("[gorp] - read the links of device d: undecodable"))
+				gorp.WrapWriter[string, refDevice](tx).Delete(ctx, "d"),
+			).To(SatisfyAll(
+				MatchError(errUndecodable),
+				MatchError("[gorp] - read the links of device d: undecodable"),
+			))
 			Expect(gorp.ChangesOf(tx)).To(BeEmpty())
 		},
 	)
