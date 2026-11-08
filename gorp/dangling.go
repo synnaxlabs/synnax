@@ -18,11 +18,15 @@ import (
 )
 
 // DropDangling removes from e each target of the table's references that does not exist
-// in tx, through the Detach of the reference that holds it. It skips each reference
+// in snap, through the Detach of the reference that holds it. It skips each reference
 // with no Detach, whose targets the write check of e verifies. A target whose key is
 // not in the text form of its table's keys does not exist. DropDangling reports whether
 // it removed a target.
-func (t *Table[K, E]) DropDangling(ctx context.Context, tx Tx, e *E) (bool, error) {
+func (t *Table[K, E]) DropDangling(
+	ctx context.Context,
+	snap Snapshot,
+	e *E,
+) (bool, error) {
 	dropped := false
 	for _, ref := range t.references {
 		if !ref.canDetach() {
@@ -34,7 +38,7 @@ func (t *Table[K, E]) DropDangling(ctx context.Context, tx Tx, e *E) (bool, erro
 				return false, err
 			}
 			if table.canonical(target.Key) {
-				ok, err := table.exists(ctx, tx, target.Key)
+				ok, err := table.exists(ctx, snap, target.Key)
 				if err != nil {
 					return false, err
 				}

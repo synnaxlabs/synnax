@@ -42,7 +42,6 @@ var (
 	db         *gorp.DB
 	groupSvc   *group.Service
 	svc        *panel.Service
-	writer     panel.Writer
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
 	projectSvc *project.Service
@@ -64,10 +63,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: node.DB,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      node.DB,
@@ -83,18 +82,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	sigs := MustSucceed(signals.New(signals.Config{
 		DB:      db,
 		Channel: channelSvc,
-		Framer:  framerSvc,
+		Framer:  node.Framer,
 	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB:      node.DB,
 		Signals: sigs,
 	}))
-	writer = svc.NewWriter(nil)
+	MustOpen(sigs.Start(ctx))
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: node.DB,
 	}))
 	proj = project.Project{Name: "panel-project"}
-	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
 	plotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:   node.DB,
 		ImEx: imex.NewService(),
@@ -109,3 +110,15 @@ func createPlot(ctx context.Context, tx gorp.Tx, key uuid.UUID) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// dispatch runs Writer.Apply in a transaction of its own.
+func dispatch(
+	ctx context.Context,
+	key panel.Key,
+	dispatchKey string,
+	acts []panel.Action,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).WithDispatchKey(dispatchKey).Apply(ctx, key, acts...)
+	})
+}

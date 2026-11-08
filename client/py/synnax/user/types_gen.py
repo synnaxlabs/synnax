@@ -11,13 +11,12 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Any, TypeAlias, TypedDict, override as _override
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax.access import role
+from synnax.access import role as role_
 from synnax.resource import ID
 from x import filter
 from x.filter import shorthand
@@ -26,21 +25,21 @@ Key: TypeAlias = UUID
 
 
 class User(BaseModel):
-    """Is an account entity representing a person accessing the Synnax system. Users can
-    have roles assigned for permission management.
+    """Is an account entity representing a person accessing the Synnax system. Each user
+    holds one role, which grants its permissions.
 
     Attributes:
         key: Is the unique identifier for this user.
         name: Is the user's display name.
         root_user: Is true if this is a root/admin user with full system access. Root
             users cannot be deleted.
-        roles: Are the roles that grant the user its permissions.
+        role: Is the role that grants the user its permissions.
     """
 
     key: Key
     name: str = Field(min_length=1)
     root_user: bool = False
-    roles: list[role.Key] = Field(default_factory=list)
+    role: role_.Key
 
     @_override
     def __hash__(self) -> int:
@@ -66,7 +65,7 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     usernames: list[str] | None = None
-    roles: list[role.Key] | None = None
+    roles: list[role_.Key] | None = None
 
     @field_validator("usernames", "roles", mode="before")
     @classmethod
@@ -84,7 +83,7 @@ WhereInput = TypedDict(
         "not": "WhereInput",
         "key": filter.SetInput[Key],
         "usernames": str | list[str],
-        "roles": role.Key | list[role.Key],
+        "roles": role_.Key | list[role_.Key],
     },
     total=False,
 )

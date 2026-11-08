@@ -40,7 +40,7 @@ const cachedPoliciesOf = (
   c: Synnax,
   subject: resource.ID = subjectOf(c),
 ): access.policy.Policy[] => {
-  const cached = c.access.policies.getCached({ where: { subjects: [subject] } });
+  const cached = c.access.policies.getCached({ subjects: [subject] });
   return query.isLive(cached) ? cached : [];
 };
 
@@ -135,7 +135,7 @@ describe("Access Queries", () => {
         username,
         password: "test",
         name: "test test",
-        roles: [r.key],
+        role: r.key,
       });
       const userClient = createTestClient({ username, password: "test" });
       const { result } = renderHook(
@@ -178,7 +178,7 @@ describe("Access Queries", () => {
           username,
           password: "test",
           name: "test test",
-          roles: [role.key],
+          role: role.key,
         });
       });
 

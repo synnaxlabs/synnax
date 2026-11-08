@@ -43,8 +43,8 @@ const ProjectSideEffect = (): null => {
 };
 
 /**
- * The center of it all. This is the main layout for the Synnax Console. Try to keep this
- * component as simple, presentational, and navigable as possible.
+ * The center of it all. This is the main layout for the Synnax Console. Try to keep
+ * this component as simple, presentational, and navigable as possible.
  */
 export const Primary = (): ReactElement => {
   const os = OS.use();

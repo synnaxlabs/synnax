@@ -13,24 +13,25 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"go.uber.org/zap"
 )
 
 // ProvisionRoot makes the user whose password holds creds.Username the only root user,
-// promoting or creating it, and demotes every other root user without touching its
-// roles. It writes the password only when creds does not verify, and reports that
-// write. It runs in one transaction and returns a validation error when creds is
-// incomplete.
+// promoting or creating it with the role rootRole, and demotes every other root user
+// without changing its role. It writes the password only when creds does not verify,
+// and reports that write. It runs in one transaction and returns a validation error
+// when creds is incomplete.
 func ProvisionRoot(
 	ctx context.Context,
 	users *Service,
 	passwords *password.Service,
 	creds auth.Credentials,
+	rootRole role.Key,
 ) (User, bool, error) {
 	if err := creds.Validate(); err != nil {
 		return User{}, false, err
@@ -38,6 +39,12 @@ func ProvisionRoot(
 	changed, err := passwordChanged(ctx, passwords, creds)
 	if err != nil {
 		return User{}, false, err
+	}
+	var hash password.Hash
+	if changed {
+		if hash, err = passwords.Hash(creds.Password); err != nil {
+			return User{}, false, err
+		}
 	}
 	var root User
 	if err := users.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -51,12 +58,13 @@ func ProvisionRoot(
 			passwords,
 			roots,
 			creds.Username,
+			rootRole,
 		); err != nil {
 			return err
 		}
 		for _, r := range roots {
 			if r.Key != root.Key {
-				if err := users.demoteRoot(ctx, tx, r); err != nil {
+				if err := users.demote(ctx, tx, r); err != nil {
 					return err
 				}
 			}
@@ -64,7 +72,8 @@ func ProvisionRoot(
 		if !changed {
 			return nil
 		}
-		return passwords.NewWriter(tx).Set(ctx, root.ResourceID(), creds)
+		return passwords.NewWriter(tx).
+			Set(ctx, root.ResourceID(), creds.Username, hash)
 	}); err != nil {
 		return User{}, false, err
 	}
@@ -101,14 +110,15 @@ func (s *Service) loadRootUsers(ctx context.Context, tx gorp.Tx) ([]User, error)
 	return roots, nil
 }
 
-// resolveRoot returns the user whose password holds username, creating a root user
-// when no password holds it.
+// resolveRoot returns the user whose password holds username, creating a root user with
+// rootRole when no password holds it.
 func (s *Service) resolveRoot(
 	ctx context.Context,
 	tx gorp.Tx,
 	passwords *password.Service,
 	roots []User,
 	username string,
+	rootRole role.Key,
 ) (User, error) {
 	var p password.Password
 	err := passwords.NewRetrieve().
@@ -119,6 +129,7 @@ func (s *Service) resolveRoot(
 		created, err := s.NewWriter(tx).create(ctx, User{
 			Name:     username,
 			RootUser: true,
+			Role:     rootRole,
 		})
 		if err != nil {
 			return User{}, errors.Wrap(err, "create root user record")
@@ -134,9 +145,6 @@ func (s *Service) resolveRoot(
 			return r, nil
 		}
 	}
-	if p.Subject.Type != resource.TypeUser {
-		return User{}, errors.Newf("password %q is not held by a user", username)
-	}
 	key, err := KeyFromResourceID(p.Subject)
 	if err != nil {
 		return User{}, err
@@ -148,16 +156,17 @@ func (s *Service) resolveRoot(
 		Exec(ctx, tx); err != nil {
 		return User{}, errors.Wrapf(err, "look up user holding %q", username)
 	}
-	if err := s.NewWriter(tx).setRootUser(ctx, existing.Key, true); err != nil {
+	if err := s.NewWriter(tx).promoteRoot(ctx, existing.Key, rootRole); err != nil {
 		return User{}, errors.Wrapf(err, "promote existing user %q to root", username)
 	}
 	existing.RootUser = true
+	existing.Role = rootRole
 	s.cfg.L.Info("promoted existing user to root", zap.String("username", username))
 	return existing, nil
 }
 
-func (s *Service) demoteRoot(ctx context.Context, tx gorp.Tx, u User) error {
-	if err := s.NewWriter(tx).setRootUser(ctx, u.Key, false); err != nil {
+func (s *Service) demote(ctx context.Context, tx gorp.Tx, u User) error {
+	if err := s.NewWriter(tx).demoteRoot(ctx, u.Key); err != nil {
 		return errors.Wrapf(err, "demote root user %q", u.Name)
 	}
 	s.cfg.L.Warn("demoted root user", zap.String("name", u.Name))

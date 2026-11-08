@@ -106,8 +106,9 @@ var _ = Describe("Delete", func() {
 						).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 
-						err := subDB.DeleteChannel(key)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
+						Expect(
+							subDB.DeleteChannel(key),
+						).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -286,9 +287,8 @@ var _ = Describe("Delete", func() {
 										),
 									)
 
-									err := db.DeleteChannel(uChannelKey)
 									Expect(
-										err,
+										db.DeleteChannel(uChannelKey),
 									).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
 
 									sCtx, cancel := signal.Isolated()
@@ -320,9 +320,8 @@ var _ = Describe("Delete", func() {
 										),
 									)
 
-									err := db.DeleteChannel(vChannelKey)
 									Expect(
-										err,
+										db.DeleteChannel(vChannelKey),
 									).To(MatchError(ContainSubstring("1 unclosed writers")))
 
 									sCtx, cancel := signal.Isolated()
@@ -363,9 +362,8 @@ var _ = Describe("Delete", func() {
 										),
 									)
 
-									err := db.DeleteChannel(uChannelKey)
 									Expect(
-										err,
+										db.DeleteChannel(uChannelKey),
 									).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
 
 									sCtx, cancel := signal.Isolated()
@@ -406,9 +404,8 @@ var _ = Describe("Delete", func() {
 									)).To(Succeed())
 
 									By("Deleting channel")
-									err := db.DeleteChannel(dependent)
 									Expect(
-										err,
+										db.DeleteChannel(dependent),
 									).To(MatchError(ContainSubstring("cannot delete channel [dependent]<%d> because it indexes data in channel [dependee]<%d>", dependent, dependee)))
 
 									By("Deleting channel that depend on it")
@@ -416,10 +413,10 @@ var _ = Describe("Delete", func() {
 
 									By("Deleting the index channel again")
 									Expect(db.DeleteChannel(dependent)).To(Succeed())
-									_, err = db.RetrieveChannel(ctx, 12)
 									Expect(
-										err,
-									).To(MatchError(cesium.ErrChannelNotFound))
+										db.RetrieveChannel(ctx, 12),
+									).Error().
+										To(MatchError(cesium.ErrChannelNotFound))
 								},
 							)
 						},
@@ -481,18 +478,14 @@ var _ = Describe("Delete", func() {
 								//  0  1  2  3  4  5  6  7  8  9
 
 								By("Deleting channel data")
-								err := db.DeleteTimeRange(
+								Expect(db.DeleteTimeRange(
 									ctx,
 									[]cesium.ChannelKey{indexChannelKey},
 									telem.TimeRange{
 										Start: 12 * telem.SecondTS,
 										End:   17 * telem.SecondTS,
 									},
-								)
-
-								Expect(
-									err,
-								).To(MatchError(ContainSubstring("depending")))
+								)).To(MatchError(ContainSubstring("depending")))
 							},
 						)
 					},
@@ -557,8 +550,10 @@ var _ = Describe("Delete", func() {
 								f.Name(),
 							).ToNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
 						}
-						_, err := db.RetrieveChannel(ctx, key)
-						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+						Expect(
+							db.RetrieveChannel(ctx, key),
+						).Error().
+							To(MatchError(cesium.ErrChannelNotFound))
 
 						By("We can also create a channel of the same key")
 						Expect(
@@ -606,8 +601,10 @@ var _ = Describe("Delete", func() {
 								f.Name(),
 							).ToNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
 						}
-						_, err := db.RetrieveChannel(ctx, key)
-						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+						Expect(
+							db.RetrieveChannel(ctx, key),
+						).Error().
+							To(MatchError(cesium.ErrChannelNotFound))
 
 						Expect(
 							db.CreateChannel(
@@ -648,8 +645,10 @@ var _ = Describe("Delete", func() {
 								f.Name(),
 							).ToNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
 						}
-						_, err := db.RetrieveChannel(ctx, key)
-						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+						Expect(
+							db.RetrieveChannel(ctx, key),
+						).Error().
+							To(MatchError(cesium.ErrChannelNotFound))
 
 						Expect(
 							db.CreateChannel(
@@ -752,8 +751,10 @@ var _ = Describe("Delete", func() {
 						func(ctx SpecContext, chs ...channel.Key) {
 							Expect(db.DeleteChannels(chs)).To(Succeed())
 							for _, c := range chs {
-								_, err := db.RetrieveChannel(ctx, c)
-								Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+								Expect(
+									db.RetrieveChannel(ctx, c),
+								).Error().
+									To(MatchError(cesium.ErrChannelNotFound))
 								Eventually(
 									fs.Exists,
 								).WithArguments(channelKeyToPath(c)).
@@ -791,8 +792,9 @@ var _ = Describe("Delete", func() {
 						).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 
-						err := subDB.DeleteChannels([]cesium.ChannelKey{key})
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
+						Expect(
+							subDB.DeleteChannels([]cesium.ChannelKey{key}),
+						).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -825,8 +827,10 @@ var _ = Describe("Delete", func() {
 							Expect(w1.Close()).To(Succeed())
 							Expect(fs.Exists(channelKeyToPath(data1))).To(BeFalse())
 							Expect(fs.Exists(channelKeyToPath(data2))).To(BeTrue())
-							_, err := db.RetrieveChannel(ctx, data1)
-							Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+							Expect(
+								db.RetrieveChannel(ctx, data1),
+							).Error().
+								To(MatchError(cesium.ErrChannelNotFound))
 							MustSucceed(db.RetrieveChannel(ctx, data2))
 							Expect(
 								db.DeleteChannels([]cesium.ChannelKey{data1, data3}),
@@ -882,8 +886,10 @@ var _ = Describe("Delete", func() {
 							Expect(i1.Close()).To(Succeed())
 							Expect(i2.Close()).To(Succeed())
 							Expect(fs.Exists(channelKeyToPath(data2))).To(BeFalse())
-							_, err := db.RetrieveChannel(ctx, data2)
-							Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+							Expect(
+								db.RetrieveChannel(ctx, data2),
+							).Error().
+								To(MatchError(cesium.ErrChannelNotFound))
 							Expect(fs.Exists(channelKeyToPath(index1))).To(BeTrue())
 							Expect(fs.Exists(channelKeyToPath(index2))).To(BeTrue())
 							MustSucceed(db.RetrieveChannel(ctx, index1))
@@ -906,8 +912,10 @@ var _ = Describe("Delete", func() {
 							).To(MatchError(ContainSubstring("1 unclosed")))
 							Expect(i.Close()).To(Succeed())
 							Expect(fs.Exists(channelKeyToPath(data1))).To(BeFalse())
-							_, err := db.RetrieveChannels(ctx, data1)
-							Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+							Expect(
+								db.RetrieveChannels(ctx, data1),
+							).Error().
+								To(MatchError(cesium.ErrChannelNotFound))
 						},
 					)
 				})
@@ -1174,18 +1182,14 @@ var _ = Describe("Delete", func() {
 								//  0  1  2  3  4  5  6  7  8  9
 
 								By("Deleting channel data")
-								err := db.DeleteTimeRange(
+								Expect(db.DeleteTimeRange(
 									ctx,
 									[]cesium.ChannelKey{basic3Index},
 									telem.TimeRange{
 										Start: 12 * telem.SecondTS,
 										End:   17 * telem.SecondTS,
 									},
-								)
-
-								Expect(
-									err,
-								).To(MatchError(ContainSubstring("depending")))
+								)).To(MatchError(ContainSubstring("depending")))
 							},
 						)
 					},
@@ -1470,14 +1474,11 @@ var _ = Describe("Delete", func() {
 								),
 							)
 
-							err := db.DeleteTimeRange(
+							Expect(db.DeleteTimeRange(
 								ctx,
 								[]cesium.ChannelKey{data},
 								(8 * telem.SecondTS).Range(11*telem.SecondTS),
-							)
-							Expect(
-								err,
-							).To(MatchError(ContainSubstring("cannot access time range")))
+							)).To(MatchError(ContainSubstring("cannot access time range")))
 
 							By("Closing the writer and asserting we can now delete")
 							Expect(w.Close()).To(Succeed())
@@ -1568,14 +1569,11 @@ var _ = Describe("Delete", func() {
 								),
 							).To(Succeed())
 
-							err := db.DeleteTimeRange(
+							Expect(db.DeleteTimeRange(
 								ctx,
 								[]cesium.ChannelKey{index},
 								(8 * telem.SecondTS).Range(11*telem.SecondTS),
-							)
-							Expect(
-								err,
-							).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it on the time range %v", channels[0], channels[1], (8 * telem.SecondTS).Range(11*telem.SecondTS)))))
+							)).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it on the time range %v", channels[0], channels[1], (8 * telem.SecondTS).Range(11*telem.SecondTS)))))
 						},
 					)
 					It(
@@ -1599,14 +1597,11 @@ var _ = Describe("Delete", func() {
 								),
 							)
 
-							err := db.DeleteTimeRange(
+							Expect(db.DeleteTimeRange(
 								ctx,
 								[]cesium.ChannelKey{index},
 								(8 * telem.SecondTS).Range(10*telem.SecondTS),
-							)
-							Expect(
-								err,
-							).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it on the time range %v", channels[0], channels[1], (8 * telem.SecondTS).Range(10*telem.SecondTS)))))
+							)).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it on the time range %v", channels[0], channels[1], (8 * telem.SecondTS).Range(10*telem.SecondTS)))))
 
 							Expect(
 								db.DeleteTimeRange(
@@ -1651,14 +1646,11 @@ var _ = Describe("Delete", func() {
 							),
 							)).To(Succeed())
 
-							err := db.DeleteTimeRange(
+							Expect(db.DeleteTimeRange(
 								ctx,
 								[]cesium.ChannelKey{data, data2, index},
 								(11 * telem.SecondTS).Range(14*telem.SecondTS),
-							)
-							Expect(
-								err,
-							).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it", channels[0], newChannels[1]))))
+							)).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it", channels[0], newChannels[1]))))
 						},
 					)
 				})

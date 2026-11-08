@@ -15,6 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -34,23 +37,37 @@ func TestAPIResource(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	svc    *service.Layer
-	apiSvc *apiresource.Service
+	db  *gorp.DB
+	svc *service.Layer
+	// search and retrieve run their routes as the API layer binds them.
+	search freighter.UnaryHandler[
+		apiresource.SearchRequest,
+		apiresource.SearchResponse,
+	]
+	retrieve freighter.UnaryHandler[
+		apiresource.RetrieveRequest,
+		apiresource.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
-	apiSvc = MustSucceed(apiresource.NewService(apiresource.ServiceConfig{
+	apiSvc := MustSucceed(apiresource.NewService(apiresource.ServiceConfig{
 		Resource: svc.Resource,
-		RBAC:     svc.RBAC,
 	}))
+	binder := MustSucceed(
+		bind.NewService(bind.ServiceConfig{DB: node.DB, RBAC: svc.RBAC}),
+	)
+	search = bind.Read(binder, apiSvc.Search)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
@@ -59,6 +76,7 @@ func grant(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	MustSucceed(rbactestutil.Grant(
 		ctx,
+		db,
 		svc.RBAC,
 		svc.User,
 		MustSucceed(user.KeyFromResourceID(subject)),

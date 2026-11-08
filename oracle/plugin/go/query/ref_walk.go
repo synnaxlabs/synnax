@@ -116,14 +116,21 @@ func newRefWalker(table *resolution.Table) *refWalker {
 }
 
 // walk returns the references that typ holds, in the order its fields declare them.
+// For a union, these are the references in the fields of its variants.
 func (w *refWalker) walk(typ resolution.Type) ([]*walkedRef, error) {
-	if _, ok := typ.Form.(resolution.StructForm); !ok {
-		return nil, errors.Newf(
-			"%s: @retrieve references needs a struct",
+	var err error
+	switch form := typ.Form.(type) {
+	case resolution.StructForm:
+		err = w.walkStruct(typ, nil, nil)
+	case resolution.UnionForm:
+		err = w.walkUnion(typ, form, nil, nil)
+	default:
+		err = errors.Newf(
+			"%s: @retrieve references needs a struct or a union",
 			typ.QualifiedName,
 		)
 	}
-	if err := w.walkStruct(typ, nil, nil); err != nil {
+	if err != nil {
 		return nil, err
 	}
 	return w.refs, nil
@@ -686,6 +693,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 // sameReference reports whether a and b declare the same reference.
 func sameReference(a, b refInfo) bool {
 	return a.OnDelete == b.OnDelete &&
+		a.Kind == b.Kind &&
 		a.Unique == b.Unique &&
 		a.Acyclic == b.Acyclic &&
 		a.IsID == b.IsID &&
@@ -792,14 +800,14 @@ func extractReferencesInfo(
 	r *resolver.Resolver,
 	ctx *resolver.Context,
 ) (referencesInfo, error) {
-	if form, ok := typ.Form.(resolution.StructForm); ok && len(form.TypeParams) > 0 {
+	if len(resolution.TypeParams(typ.Form)) > 0 {
 		return referencesInfo{}, errors.Newf(
 			"%s: @retrieve references does not support a generic type",
 			typ.QualifiedName,
 		)
 	}
 	var keyField *resolution.Field
-	fields := resolution.UnifiedFields(typ, table)
+	fields, _ := resolution.RecordFields(typ, table)
 	for i := range fields {
 		if plugindomain.HasDomainFromField(fields[i], "key") {
 			keyField = &fields[i]

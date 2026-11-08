@@ -11,7 +11,6 @@ package table
 
 import (
 	"context"
-	stdio "io"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -111,19 +110,19 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		var sig stdio.Closer
-		if sig, err = cfg.Signals.PublishActions(
-			ctx,
-			signals.ActionPublisherConfig[Key, Action]{
-				Observable: s.state,
-				Name:       "table",
-			},
-		); !ok(err, sig) {
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:     "sy_table_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+			Table:    tableName,
+		}); !ok(err, nil) {
 			return nil, err
 		}
-		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-		deleteCfg.DisableSet = true
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Table]{
+			Changes:     s.table.Changes,
+			Resource:    ResourceID,
+			SetDisabled: new(true),
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -135,59 +134,18 @@ func (s *Service) Close() error {
 	return s.closer.Close()
 }
 
-// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
-// handler runs synchronously inside Dispatch after the underlying transaction commits.
-// The returned Disconnect removes the handler.
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnChange(handler)
 }
 
-// Dispatch applies a sequence of actions atomically to the table with the given key.
-// Dispatches for the same table run one at a time, each in its own transaction
-// committed before the actions are notified, so two concurrent dispatches can never
-// overwrite each other's edits. dispatchKey is a client-generated identifier carried
-// verbatim onto the broadcast so the originating client can recognize its own echo.
-// Returns a validation error, and stores nothing, if the actions leave the table
-// invalid.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	return s.state.Dispatch(
-		ctx,
-		key,
-		dispatchKey,
-		acts,
-		func(tx gorp.Tx) ([]Action, error) {
-			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
-				ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
-					reduced, err := Reduce(t, acts...)
-					if err != nil {
-						return Table{}, err
-					}
-					if err = reduced.Validate(); err != nil {
-						return Table{}, err
-					}
-					if err = validateUniqueKeys(reduced); err != nil {
-						return Table{}, err
-					}
-					return reduced, nil
-				}).Exec(ctx, tx)
-		},
-	)
-}
-
-// NewWriter opens a new writer for creating, updating, and deleting tables in Synnax.
-// If tx is provided, the writer will use that transaction. If tx is nil, the Writer
-// will execute the operations directly on the underlying gorp.DB.
+// NewWriter opens a new writer for creating, updating, and deleting tables in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		svc:        s,
 		tx:         tx,
 		tbl:        s.table,
 		dispatcher: s.state.Dispatcher(),
@@ -198,7 +156,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
 	}
 }

@@ -23,8 +23,7 @@ NOT implemented in Console UI (no helpers for these):
 
 import time
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.base import ResourceClient
@@ -185,7 +184,7 @@ class AccessClient(ResourceClient):
         if badge.count() == 0 or not badge.is_visible():
             return None
         badge.click()
-        role = self.layout.page.locator(".console-user-info__roles")
+        role = self.layout.page.locator(".console-user-info__role")
         try:
             role.wait_for(state="visible", timeout=5000)
             return role.inner_text().strip()

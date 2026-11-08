@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -27,7 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
-	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -35,10 +34,11 @@ import (
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v   svctestutil.Vectors[task.Task, task.Where]
+		v   vectors.Vectors[task.Task, task.Where]
+		db  *gorp.DB
 		svc *task.Service
 	)
-	v = MustSucceed(svctestutil.ReadVectors[task.Task, task.Where]("tasks"))
+	v = MustSucceed(vectors.Read[task.Task, task.Where]("tasks"))
 	aliases := lo.MapEntries(v.Records, func(
 		alias string,
 		t task.Task,
@@ -48,7 +48,7 @@ var _ = Describe("Where", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))
@@ -62,10 +62,10 @@ var _ = Describe("Where", Ordered, func() {
 			DB: db,
 		}))
 		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			HostProvider: testutil.NewStaticHostProvider(1),
-			Status:       stat,
-			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			DB:         db,
+			HostKey:    1,
+			Status:     stat,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
 			DB: db,
@@ -79,26 +79,30 @@ var _ = Describe("Where", Ordered, func() {
 		}))
 		for _, t := range v.Records {
 			r := rack.Rack{Key: t.Rack, Name: "Rack"}
-			Expect(racks.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return racks.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 		}
 	})
 
 	DescribeTable(
 		"Should match the case",
-		func(ctx SpecContext, c svctestutil.Case[task.Where]) {
+		func(ctx SpecContext, c vectors.Case[task.Where]) {
 			f := MustSucceed(task.MatchWhere(c.Where))
 			var res []task.Task
 			Expect(svc.NewRetrieve().
 				SkipMissingKeys().
 				Where(f).
 				Entries(&res).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(lo.Map(res, func(t task.Task, _ int) string {
 				return aliases[t.Key]
 			})).To(ConsistOf(c.Expected))
 		},
-		lo.Map(v.Cases, func(c svctestutil.Case[task.Where], _ int) TableEntry {
+		lo.Map(v.Cases, func(c vectors.Case[task.Where], _ int) TableEntry {
 			return Entry(c.Name, c)
 		}),
 	)

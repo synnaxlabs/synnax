@@ -76,7 +76,7 @@ Checker::Checker(
     name(std::move(name)),
     clock_skew_threshold(clock_skew_threshold.abs()),
     running(true) {
-    this->_state.client_version = this->client_version;
+    this->current_state.client_version = this->client_version;
     this->check();
     this->poll_thread = std::thread([this] { this->run(); });
 }
@@ -99,8 +99,8 @@ State Checker::check() {
     bool prev_skew_exceeded = false;
     {
         std::lock_guard lk(this->mu);
-        prev_status = this->_state.status;
-        prev_skew_exceeded = this->_state.clock_skew_exceeded;
+        prev_status = this->current_state.status;
+        prev_skew_exceeded = this->current_state.clock_skew_exceeded;
     }
 
     this->skew_calc.start();
@@ -111,16 +111,16 @@ State Checker::check() {
     {
         std::lock_guard lk(this->mu);
         if (err) {
-            this->_state.status = Status::FAILED;
-            this->_state.error = err;
-            this->_state.message = err.message();
+            this->current_state.status = Status::FAILED;
+            this->current_state.error = err;
+            this->current_state.message = err.message();
         } else {
             this->skew_calc.end(x::telem::TimeStamp(res.node_time()));
-            this->_state.clock_skew = this->skew_calc.skew();
-            this->_state.clock_skew_exceeded = this->skew_calc.exceeds(
+            this->current_state.clock_skew = this->skew_calc.skew();
+            this->current_state.clock_skew_exceeded = this->skew_calc.exceeds(
                 this->clock_skew_threshold
             );
-            if (this->_state.clock_skew_exceeded) {
+            if (this->current_state.clock_skew_exceeded) {
                 const auto *direction = this->skew_calc.skew() >
                                                 x::telem::TimeSpan::ZERO()
                                           ? "ahead of"
@@ -132,14 +132,14 @@ State Checker::check() {
             }
             const auto &nv = res.node_version();
             if (nv.empty()) {
-                this->_state.client_server_compatible = false;
+                this->current_state.client_server_compatible = false;
                 if (!this->version_warned) {
                     LOG(WARNING)
                         << create_version_warning("", this->client_version, true);
                     this->version_warned = true;
                 }
             } else if (!versions_compatible(this->client_version, nv)) {
-                this->_state.client_server_compatible = false;
+                this->current_state.client_server_compatible = false;
                 if (!this->version_warned) {
                     LOG(WARNING) << create_version_warning(
                         nv,
@@ -149,15 +149,15 @@ State Checker::check() {
                     this->version_warned = true;
                 }
             } else {
-                this->_state.client_server_compatible = true;
+                this->current_state.client_server_compatible = true;
             }
-            this->_state.status = Status::CONNECTED;
-            this->_state.message = "Connected to " +
-                                   (this->name.empty() ? "cluster" : this->name);
-            this->_state.cluster_key = res.cluster_key();
-            this->_state.node_version = nv;
+            this->current_state.status = Status::CONNECTED;
+            this->current_state.message = "Connected to " +
+                                          (this->name.empty() ? "cluster" : this->name);
+            this->current_state.cluster_key = res.cluster_key();
+            this->current_state.node_version = nv;
         }
-        snapshot = this->_state;
+        snapshot = this->current_state;
     }
 
     const bool changed = prev_status != snapshot.status ||
@@ -168,7 +168,7 @@ State Checker::check() {
 
 State Checker::state() const {
     std::lock_guard lk(this->mu);
-    return this->_state;
+    return this->current_state;
 }
 
 void Checker::on_change(std::function<void(const State &)> handler) {

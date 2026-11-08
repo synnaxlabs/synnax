@@ -11,7 +11,6 @@ package arc
 
 import (
 	"context"
-	"io"
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
@@ -40,7 +39,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/set"
-	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -159,19 +157,22 @@ type Service struct {
 	// reserved holds the standard module names, which no entry of root may take.
 	reserved set.Set[string]
 	state    *actions.State[Key, Action]
-	locks    xsync.KeyedMutex[Key]
 	sweeper  textSweeper
 	taskSync *debounce.Keyed[Key]
+	// resyncs and deletes hold the Arcs that a transaction dispatched to and deleted.
+	// followCommit reads them once the transaction commits.
+	resyncs *gorp.Attachment[Key]
+	deletes *gorp.Attachment[Key]
 }
 
-// NewRoot builds the production analysis root: the STL, status, and ranges modules,
-// the Core channel resolver, and the user modules below Arcs. tx is consulted for
-// lookups; nil uses the DB. A root resolves each channel name and module the same
-// way for its lifetime, so build one per analysis or compile.
-func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
-	channels := channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(tx))
+// NewRoot builds the production analysis root: the STL, status, and ranges modules, the
+// Core channel resolver, and the user modules below Arcs. The root looks up channels
+// and modules in snap. A root resolves each channel name and module the same way for
+// its lifetime, so build one per analysis or compile.
+func (s *Service) NewRoot(snap gorp.Snapshot) *symbol.Symbol {
+	channels := channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(snap))
 	modules := arctext.NewLoader(arctext.LoaderConfig{
-		Source:   s.moduleSource(tx),
+		Source:   s.moduleSource(snap),
 		Channels: channels,
 		Ambient:  standardSymbols,
 		Config:   parser.Config{AllowDashedNames: s.AllowDashedNames()},
@@ -185,8 +186,10 @@ func standardSymbols() []*symbol.Symbol {
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
-		Instrumentation:  s.cfg.Child("lsp"),
-		NewRoot:          func() *symbol.Symbol { return s.NewRoot(nil) },
+		Instrumentation: s.cfg.Child("lsp"),
+		// The LSP analyzes outside any scope the Core holds, so its roots read the DB
+		// with no snapshot.
+		NewRoot:          func() *symbol.Symbol { return s.NewRoot(s.cfg.DB) },
 		AllowDashedNames: s.AllowDashedNames(),
 		OnRename: func(
 			ctx context.Context,
@@ -197,8 +200,10 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 			if sym.Kind != symbol.KindChannel {
 				return nil
 			}
-			return s.cfg.Channel.NewWriter(nil).
-				Rename(ctx, channel.Key(sym.ID), newName, false)
+			return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return s.cfg.Channel.NewWriter(tx).
+					Rename(ctx, channel.Key(sym.ID), newName, false)
+			})
 		},
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.Observe(),
@@ -227,7 +232,9 @@ func (s *Service) AllowDashedNames() bool { return !s.cfg.Channel.ShouldValidate
 // is a validation error.
 func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, error) {
 	var entry Arc
-	err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, nil)
+	err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, snap)
+	})
 	if err != nil {
 		return AutomationArc{}, err
 	}
@@ -241,12 +248,14 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 		)
 	}
 	var prog arc.Program
+	// Compilation reads the DB with no snapshot, so it delays no write.
+	root := s.NewRoot(s.cfg.DB)
 	switch src := automation.Source.Variant.(type) {
 	case TextSource:
-		prog, err = arc.CompileText(ctx, src.Text.Materialize(), s.NewRoot(nil),
+		prog, err = arc.CompileText(ctx, src.Text.Materialize(), root,
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	case GraphSource:
-		prog, err = arc.CompileGraph(ctx, src.Graph, s.NewRoot(nil),
+		prog, err = arc.CompileGraph(ctx, src.Graph, root,
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	}
 	if err != nil {
@@ -280,6 +289,8 @@ func OpenService(
 		indexes:     cfg.Table.indexes,
 		directories: cfg.Table.directories,
 		root:        cfg.Table.root,
+		resyncs:     gorp.NewAttachment[Key](),
+		deletes:     gorp.NewAttachment[Key](),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -295,6 +306,7 @@ func OpenService(
 	}); !ok(err, s.taskSync) {
 		return nil, err
 	}
+	ok(nil, xio.NoFailCloserFunc(cfg.DB.Observe().OnChange(s.followCommit)))
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -304,46 +316,49 @@ func OpenService(
 		}
 	}
 	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishActions(
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:     "sy_arc_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+			Table:    tableName,
+		}); !ok(err, nil) {
+			return nil, err
+		}
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Arc]{
+			Changes:     s.table.Changes,
+			Resource:    ResourceID,
+			SetDisabled: new(true),
+		}); !ok(err, nil) {
+			return nil, err
+		}
+		if err = cfg.Signals.PublishTable(
 			ctx,
-			signals.ActionPublisherConfig[Key, Action]{
-				Observable: s.state,
-				Name:       "arc",
+			signals.TableConfig[directory.Key, directory.Directory]{
+				Changes:    s.directories.Changes,
+				Resource:   directory.ResourceID,
+				SetName:    directory.SetChannelName,
+				DeleteName: directory.DeleteChannelName,
 			},
-		); !ok(err, sig) {
-			return nil, err
-		}
-		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-		deleteCfg.DisableSet = true
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
-			return nil, err
-		}
-		dirCfg := signals.GorpPublisherConfigUUID(s.directories.Observe())
-		dirCfg.SetName = directory.SetChannelName
-		dirCfg.DeleteName = directory.DeleteChannelName
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, dirCfg); !ok(err, sig) {
+		); !ok(err, nil) {
 			return nil, err
 		}
 	}
 	return s, nil
 }
 
-// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
-// handler runs synchronously inside Dispatch after the underlying transaction commits.
-// The returned Disconnect removes the handler.
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnChange(handler)
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting Arcs in Synnax. If
-// tx is provided, the writer will use that transaction. If tx is nil, the Writer will
-// execute the operations directly against the underlying gorp.DB.
+// NewWriter opens a new writer for creating, updating, and deleting Arcs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:          gorp.OverrideTx(s.cfg.DB, tx),
+		tx:          tx,
 		root:        s.root,
 		directories: s.directories,
 		reserved:    s.reserved,
@@ -352,9 +367,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		status:      s.cfg.Status,
 		table:       s.table,
 		dispatcher:  s.state.Dispatcher(),
-		publish:     s.publish,
 		sweeper:     s.sweeper,
-		taskSync:    s.taskSync,
+		resyncs:     s.resyncs,
+		deletes:     s.deletes,
 	}
 }
 
@@ -362,7 +377,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
 	}
 }

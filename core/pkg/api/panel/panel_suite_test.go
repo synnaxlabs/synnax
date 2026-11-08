@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -38,12 +40,23 @@ func TestAPIPanel(t *testing.T) {
 }
 
 var (
-	db         *gorp.DB
-	groupSvc   *group.Service
-	rbacSvc    *rbac.Service
-	panelSvc   *panel.Service
-	userSvc    *user.Service
-	apiSvc     *apipanel.Service
+	db       *gorp.DB
+	groupSvc *group.Service
+	rbacSvc  *rbac.Service
+	panelSvc *panel.Service
+	userSvc  *user.Service
+	apiSvc   *apipanel.Service
+	// create, del, dispatch, setGroup, setProject, and retrieve run their routes as the
+	// API layer binds them.
+	create     freighter.UnaryHandler[apipanel.CreateRequest, apipanel.CreateResponse]
+	del        freighter.UnaryHandler[apipanel.DeleteRequest, struct{}]
+	dispatch   freighter.UnaryHandler[apipanel.DispatchRequest, struct{}]
+	setGroup   freighter.UnaryHandler[apipanel.SetGroupRequest, struct{}]
+	setProject freighter.UnaryHandler[apipanel.SetProjectRequest, struct{}]
+	retrieve   freighter.UnaryHandler[
+		apipanel.RetrieveRequest,
+		apipanel.RetrieveResponse,
+	]
 	author     user.User
 	proj       project.Project
 	projectSvc *project.Service
@@ -60,14 +73,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
-	MustSucceed2(
-		user.ProvisionRoot(
-			ctx,
-			userSvc,
-			passwordSvc,
-			auth.Credentials{Username: "suite-root", Password: "p"},
-		),
-	)
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
 	}))
@@ -76,21 +81,38 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:   userSvc,
 		Status: statusSvc,
 	})).RBAC
+	MustSucceed2(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "suite-root", Password: "p"},
+			rbacSvc.Builtin.OwnerKey,
+		),
+	)
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB: db,
 	}))
 	apiSvc = MustSucceed(apipanel.NewService(apipanel.ServiceConfig{
-		RBAC:  rbacSvc,
 		Panel: panelSvc,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	setProject = bind.Write(binder, apiSvc.SetProject)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
+		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: db,
 	}))
 	proj = project.Project{Name: "panel-project"}
-	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
 })
 
 // newUser creates a fresh user. RBAC state is committed and shared across specs, so
@@ -99,12 +121,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // absent.
 func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: uuid.New().String(),
 	}))
 }
 
-// grant grants the action on the objects to the subject through a new role.
+// grant grants the action on the objects to the subject.
 func grant(
 	ctx SpecContext,
 	subject resource.ID,
@@ -114,7 +136,7 @@ func grant(
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }
 
 // grantCreate lets subject create panels in the suite project.

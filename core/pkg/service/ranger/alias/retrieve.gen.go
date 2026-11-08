@@ -33,6 +33,7 @@ func newIndexes() indexes {
 			Name:     "range",
 			Table:    "range",
 			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Targets: func(e *Alias) []ranger.Key {
 				return []ranger.Key{e.Range}
 			},
