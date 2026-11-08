@@ -134,24 +134,6 @@ func (s *Service) Authenticate(
 	return identityOf(p), nil
 }
 
-// Verify returns the identity that creds prove, reading through snap. It returns the
-// errors of Authenticate, and it never stores a new hash, so it can run in an open
-// transaction.
-func (s *Service) Verify(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	creds auth.PasswordProof,
-) (auth.Identity, error) {
-	p, err := s.find(ctx, snap, creds)
-	if err != nil {
-		return auth.Identity{}, err
-	}
-	if _, err = s.check(p, creds); err != nil {
-		return auth.Identity{}, err
-	}
-	return identityOf(p), nil
-}
-
 // verify checks the password after its snapshot closes, since a check is slow.
 func (s *Service) verify(
 	ctx context.Context,
