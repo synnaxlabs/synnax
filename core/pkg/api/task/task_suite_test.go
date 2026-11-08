@@ -38,7 +38,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	node   testutil.Node
 	svc    *service.Layer
-	apiSvc *apitask.Service
+	binder *bind.Service
 	// create, copyTask, dispatch, rename, and retrieve run their routes as the API
 	// layer binds them.
 	create   freighter.UnaryHandler[apitask.CreateRequest, apitask.CreateResponse]
@@ -55,14 +55,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = testutil.NewNode(ctx)
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
-	apiSvc = MustSucceed(apitask.NewService(apitask.ServiceConfig{
+	apiSvc := MustSucceed(apitask.NewService(apitask.ServiceConfig{
 		DB:     node.DB,
 		Task:   svc.Task,
 		Status: svc.Status,
 		RBAC:   svc.RBAC,
 		Framer: svc.Framer,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,
 		RBAC: svc.RBAC,
 	}))

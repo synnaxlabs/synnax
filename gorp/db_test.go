@@ -453,6 +453,94 @@ var _ = Describe("DB", func() {
 		})
 	})
 
+	Describe("BeforeCommit", func() {
+		var (
+			hookDB *gorp.DB
+			ran    []string
+			work   = func(name string, err error) func(context.Context) error {
+				return func(context.Context) error {
+					ran = append(ran, name)
+					return err
+				}
+			}
+			create = func(ctx context.Context, tx gorp.Tx) error {
+				return gorp.NewCreate[int32, entry]().
+					Entry(&entry{ID: 1, Data: "One"}).
+					Exec(ctx, tx)
+			}
+			exists = func(ctx context.Context) bool {
+				GinkgoHelper()
+				return MustSucceed(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](1)).
+					Exists(ctx, hookDB))
+			}
+		)
+		BeforeEach(func() {
+			hookDB = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+			ran = nil
+		})
+
+		It(
+			"Should run work in registration order before the writes commit",
+			func(ctx SpecContext) {
+				var committedBefore bool
+				Expect(hookDB.WithTx(ctx, func(tx gorp.Tx) error {
+					gorp.BeforeCommit(tx, work("first", nil))
+					if err := create(ctx, tx); err != nil {
+						return err
+					}
+					gorp.BeforeCommit(tx, func(ctx context.Context) error {
+						committedBefore = exists(ctx)
+						return work("second", nil)(ctx)
+					})
+					return nil
+				})).To(Succeed())
+				Expect(ran).To(Equal([]string{"first", "second"}))
+				Expect(committedBefore).To(BeFalse())
+				Expect(exists(ctx)).To(BeTrue())
+			},
+		)
+
+		It(
+			"Should run no work when the transaction closes without a commit",
+			func(ctx SpecContext) {
+				Expect(hookDB.WithTx(ctx, func(tx gorp.Tx) error {
+					gorp.BeforeCommit(tx, work("first", nil))
+					return query.ErrNotFound
+				})).To(MatchError(query.ErrNotFound))
+				Expect(ran).To(BeEmpty())
+			},
+		)
+
+		It(
+			"Should roll back the transaction and stop when work fails",
+			func(ctx SpecContext) {
+				var commits int
+				DeferCleanup(hookDB.Observe().OnChange(
+					func(context.Context, gorp.Commit) { commits++ },
+				))
+				Expect(hookDB.WithTx(ctx, func(tx gorp.Tx) error {
+					gorp.BeforeCommit(tx, work("first", nil))
+					gorp.BeforeCommit(tx, work("second", query.ErrNotFound))
+					gorp.BeforeCommit(tx, work("third", nil))
+					return create(ctx, tx)
+				})).To(MatchError(query.ErrNotFound))
+				Expect(ran).To(Equal([]string{"first", "second"}))
+				Expect(exists(ctx)).To(BeFalse())
+				Expect(commits).To(BeZero())
+				Expect(hookDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return create(ctx, tx)
+				})).To(Succeed())
+				Expect(ran).To(Equal([]string{"first", "second"}))
+			},
+		)
+
+		It("Should panic when registering on a DB", func() {
+			Expect(func() { gorp.BeforeCommit(hookDB, work("first", nil)) }).
+				To(PanicWith("[gorp] - BeforeCommit needs a transaction, not a DB"))
+		})
+	})
+
 	Describe("KV", func() {
 		It("Should return the underlying key-value store for the DB", func() {
 			Expect(db.KV()).To(BeIdenticalTo(kvDB))

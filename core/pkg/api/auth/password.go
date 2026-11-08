@@ -110,7 +110,8 @@ func (s *Service) SetPassword(
 		Exec(ctx, tx); err != nil {
 		return PasswordSetResponse{}, err
 	}
-	if err := s.password.NewWriter(tx).ChangePassword(ctx, subject, hash); err != nil {
+	if err := s.password.NewWriter(tx).
+		Apply(ctx, subject, password.NewSetHashAction(hash)); err != nil {
 		return PasswordSetResponse{}, err
 	}
 	w := s.auth.NewWriter(tx)

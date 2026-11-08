@@ -500,7 +500,7 @@ var _ = Describe("DeleteGroup", func() {
 		return deleteGroup(AuthedCtx(ctx, u), apisymbol.DeleteGroupRequest{Key: g.Key})
 	}
 	It(
-		"Should delete the group and its symbols with delete on both and update on it",
+		"Should delete the group and its symbols with delete on both alone",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
 			g := createGroup(ctx, "deletable")
@@ -508,7 +508,6 @@ var _ = Describe("DeleteGroup", func() {
 			grantDeleteOn(
 				ctx, u.ResourceID(), g.ResourceID(), symbol.ResourceID(sym.Key),
 			)
-			grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
 			MustSucceed(removeGroup(ctx, u, g))
 			Expect(exists(ctx, sym.Key)).To(BeFalse())
 		},
@@ -520,22 +519,8 @@ var _ = Describe("DeleteGroup", func() {
 		g := createGroup(ctx, "ungranted-group")
 		sym := createSymbol(ctx, g, "Outlet")
 		grantDeleteOn(ctx, u.ResourceID(), symbol.ResourceID(sym.Key))
-		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
 		Expect(removeGroup(ctx, u, g)).Error().
 			To(denied(u.ResourceID(), access.ActionDelete, g.ResourceID()))
-		Expect(exists(ctx, sym.Key)).To(BeTrue())
-	})
-	It("Should reject the request when update is not granted on the group", func(
-		ctx SpecContext,
-	) {
-		u := createUser(ctx)
-		g := createGroup(ctx, "unupdatable-group")
-		sym := createSymbol(ctx, g, "Outlet")
-		grantDeleteOn(
-			ctx, u.ResourceID(), g.ResourceID(), symbol.ResourceID(sym.Key),
-		)
-		Expect(removeGroup(ctx, u, g)).Error().
-			To(denied(u.ResourceID(), access.ActionUpdate, g.ResourceID()))
 		Expect(exists(ctx, sym.Key)).To(BeTrue())
 	})
 	It("Should reject the request when a member is not granted", func(ctx SpecContext) {
@@ -543,7 +528,6 @@ var _ = Describe("DeleteGroup", func() {
 		g := createGroup(ctx, "ungranted-member")
 		sym := createSymbol(ctx, g, "Vent")
 		grantDeleteOn(ctx, u.ResourceID(), g.ResourceID())
-		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
 		Expect(removeGroup(ctx, u, g)).Error().To(denied(
 			u.ResourceID(),
 			access.ActionDelete,
@@ -584,31 +568,19 @@ func newBundle(name string) zip.Files {
 }
 
 var _ = Describe("ImportGroup", func() {
-	It(
-		"Should import the bundle with create on the types and update on groups",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			grantCreateOn(ctx, u.ResourceID(), groupType, symbolType)
-			grantUpdateOn(ctx, u.ResourceID(), groupType)
-			res := MustSucceed(importGroup(AuthedCtx(ctx, u), newBundle("Valves")))
-			Expect(res.Group.Name).To(Equal("Valves"))
-			Expect(groupSymbols(ctx, res.Group.Key)).
-				To(HaveLen(1))
-		},
-	)
-	It("Should reject the request without update on the new group", func(
+	It("Should import the bundle with create on the types alone", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		grantCreateOn(ctx, u.ResourceID(), groupType, symbolType)
-		Expect(importGroup(AuthedCtx(ctx, u), newBundle("Valves"))).Error().
-			To(deniedOnType(u.ResourceID(), access.ActionUpdate, resource.TypeGroup))
+		res := MustSucceed(importGroup(AuthedCtx(ctx, u), newBundle("Valves")))
+		Expect(res.Group.Name).To(Equal("Valves"))
+		Expect(groupSymbols(ctx, res.Group.Key)).To(HaveLen(1))
 	})
 	It("Should reject the request when create is not granted on the types", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		grantUpdateOn(ctx, u.ResourceID(), groupType)
 		Expect(importGroup(AuthedCtx(ctx, u), newBundle("Valves"))).Error().
 			To(deniedOnType(u.ResourceID(), access.ActionCreate, resource.TypeGroup))
 	})
@@ -617,7 +589,6 @@ var _ = Describe("ImportGroup", func() {
 	) {
 		u := createUser(ctx)
 		grantCreateOn(ctx, u.ResourceID(), groupType)
-		grantUpdateOn(ctx, u.ResourceID(), groupType)
 		Expect(importGroup(AuthedCtx(ctx, u), newBundle("Valves"))).Error().To(
 			deniedOnType(
 				u.ResourceID(),

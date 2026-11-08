@@ -93,6 +93,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// CHANNEL
 	t.ChannelRename = noop.UnaryServer[apichannel.RenameRequest, struct{}]{}
+	t.ChannelDispatch = noop.UnaryServer[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]{}
 
 	// FRAME
 	t.FrameRead = noop.UnaryServer[apiframer.ReadRequest, apiframer.ReadResponse]{}
@@ -104,6 +108,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.UserDelete = noop.UnaryServer[user.DeleteRequest, struct{}]{}
 	t.UserRetrieve = noop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}
 	t.UserSetRole = noop.UnaryServer[user.SetRoleRequest, struct{}]{}
+	t.UserDispatch = noop.UnaryServer[user.DispatchRequest, struct{}]{}
 
 	// RESOURCE
 	t.ResourceSearch = noop.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]{}
@@ -150,8 +155,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// RENAME
 	t.RackRename = noop.UnaryServer[apirack.RenameRequest, struct{}]{}
+	t.RackDispatch = noop.UnaryServer[apirack.DispatchRequest, struct{}]{}
 	t.TaskRename = noop.UnaryServer[apitask.RenameRequest, struct{}]{}
 	t.DeviceRename = noop.UnaryServer[apidevice.RenameRequest, struct{}]{}
+	t.DeviceDispatch = noop.UnaryServer[apidevice.DispatchRequest, struct{}]{}
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
 	t.ViewDispatch = noop.UnaryServer[view.DispatchRequest, struct{}]{}
@@ -225,6 +232,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.AccessCreateRole = noop.UnaryServer[role.CreateRequest, role.CreateResponse]{}
 	t.AccessDeleteRole = noop.UnaryServer[role.DeleteRequest, struct{}]{}
 	t.AccessRetrieveRole = noop.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]{}
+	t.AccessDispatchPolicy = noop.UnaryServer[policy.DispatchRequest, struct{}]{}
+	t.AccessDispatchRole = noop.UnaryServer[role.DispatchRequest, struct{}]{}
 
 	// IMPORT/EXPORT
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}

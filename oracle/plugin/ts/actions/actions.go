@@ -23,6 +23,7 @@ import (
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -56,14 +57,15 @@ func (*Plugin) Domains() []string  { return []string{"ts"} }
 func (*Plugin) Requires() []string { return []string{"ts/types"} }
 
 // Generate emits one actions.gen.ts per output package containing a struct or union
-// that declares actions. Types without actions are skipped.
+// that declares actions. It skips types without actions and types that TS hand-writes
+// or omits.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	req = req.OmitFields("ts")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	types := append(req.Resolutions.StructTypes(), req.Resolutions.UnionTypes()...)
 	for _, typ := range types {
 		actions := typ.Actions()
-		if len(actions) == 0 {
+		if len(actions) == 0 || omit.IsSkipped(typ, "ts") {
 			continue
 		}
 		outputPath := output.GetPath(typ, "ts")

@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -137,6 +138,11 @@ func newAutomation(b arc.Base) arc.Arc {
 
 // newModule returns a module that holds b.
 func newModule(b arc.Base) arc.Arc { return arc.Arc{Variant: arc.ModuleArc{Base: b}} }
+
+// readAll is an LSP access read that lets the subject retrieve every record.
+func readAll(context.Context) (func(resource.ID) bool, error) {
+	return func(resource.ID) bool { return true }, nil
+}
 
 // newArc returns an Arc of type t that holds b.
 func newArc(t arc.Type, b arc.Base) arc.Arc {

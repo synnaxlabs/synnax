@@ -67,6 +67,27 @@ var _ = Describe("TS Actions Plugin", func() {
 			})
 		})
 
+		Context("hand-written types", func() {
+			It("Should not emit an actions.gen.ts file", func(ctx SpecContext) {
+				source := `
+					@ts output "client/ts/src/counter"
+
+					Counter struct {
+						key uuid
+
+						action Reset {
+						}
+
+						@ts hand
+					}
+				`
+				resp := MustGenerate(ctx, source, "counter", loader, p)
+				for _, f := range resp.Files {
+					Expect(f.Path).ToNot(HaveSuffix("actions.gen.ts"))
+				}
+			})
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave an omitted field out of an action payload", func(
 				ctx SpecContext,

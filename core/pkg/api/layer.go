@@ -83,11 +83,15 @@ type Transport struct {
 	UserDelete         freighter.UnaryServer[user.DeleteRequest, struct{}]
 	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
 	UserSetRole        freighter.UnaryServer[user.SetRoleRequest, struct{}]
+	// UserDispatch applies actions to a user.
+	UserDispatch freighter.UnaryServer[user.DispatchRequest, struct{}]
 	// CHANNEL
 	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
 	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
 	ChannelRename   freighter.UnaryServer[channel.RenameRequest, struct{}]
+	// ChannelDispatch applies actions to a channel.
+	ChannelDispatch freighter.UnaryServer[channel.DispatchRequest, channel.DispatchResponse]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[struct{}, connectivity.CheckResponse]
 	// LICENSE
@@ -191,6 +195,8 @@ type Transport struct {
 	RackDelete   freighter.UnaryServer[rack.DeleteRequest, struct{}]
 	// RackRename renames a rack.
 	RackRename freighter.UnaryServer[rack.RenameRequest, struct{}]
+	// RackDispatch applies actions to a rack.
+	RackDispatch freighter.UnaryServer[rack.DispatchRequest, struct{}]
 	// TASK
 	TaskCreate   freighter.UnaryServer[task.CreateRequest, task.CreateResponse]
 	TaskRetrieve freighter.UnaryServer[task.RetrieveRequest, task.RetrieveResponse]
@@ -206,6 +212,8 @@ type Transport struct {
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
 	// DeviceRename renames a device.
 	DeviceRename freighter.UnaryServer[device.RenameRequest, struct{}]
+	// DeviceDispatch applies actions to a device.
+	DeviceDispatch freighter.UnaryServer[device.DispatchRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -213,6 +221,10 @@ type Transport struct {
 	AccessCreateRole     freighter.UnaryServer[role.CreateRequest, role.CreateResponse]
 	AccessDeleteRole     freighter.UnaryServer[role.DeleteRequest, struct{}]
 	AccessRetrieveRole   freighter.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]
+	// AccessDispatchPolicy applies path actions to a policy.
+	AccessDispatchPolicy freighter.UnaryServer[policy.DispatchRequest, struct{}]
+	// AccessDispatchRole applies path actions to a role.
+	AccessDispatchRole freighter.UnaryServer[role.DispatchRequest, struct{}]
 	// STATUS
 	StatusSet      freighter.UnaryServer[status.SetRequest, status.SetResponse]
 	StatusRetrieve freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
@@ -363,12 +375,14 @@ func (l *Layer) BindTo(t Transport) {
 		t.UserDelete,
 		t.UserRetrieve,
 		t.UserSetRole,
+		t.UserDispatch,
 
 		// CHANNEL
 		t.ChannelCreate,
 		t.ChannelRetrieve,
 		t.ChannelDelete,
 		t.ChannelRename,
+		t.ChannelDispatch,
 
 		// FRAME
 		t.FrameWriter,
@@ -477,6 +491,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.RackRetrieve,
 		t.RackDelete,
 		t.RackRename,
+		t.RackDispatch,
 
 		// TASK
 		t.TaskCreate,
@@ -491,6 +506,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.DeviceRetrieve,
 		t.DeviceDelete,
 		t.DeviceRename,
+		t.DeviceDispatch,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -499,6 +515,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.AccessCreateRole,
 		t.AccessDeleteRole,
 		t.AccessRetrieveRole,
+		t.AccessDispatchPolicy,
+		t.AccessDispatchRole,
 
 		// STATUS
 		t.StatusSet,
@@ -604,13 +622,15 @@ func (l *Layer) BindTo(t Transport) {
 	t.UserDelete.BindHandler(bind.Write(l.binder, l.User.Delete))
 	t.UserRetrieve.BindHandler(bind.Read(l.binder, l.User.Retrieve))
 	t.UserSetRole.BindHandler(bind.Write(l.binder, l.User.SetRole))
+	t.UserDispatch.BindHandler(bind.Write(l.binder, l.User.Dispatch))
 
 	// CHANNEL
-	t.ChannelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Create))
+	t.ChannelCreate.BindHandler(bind.Write(l.binder, l.Channel.Create))
 	t.ChannelRetrieve.BindHandler(bind.Read(l.binder, l.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
-	t.ChannelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Delete))
-	t.ChannelRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Rename))
+	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
+	t.ChannelRename.BindHandler(bind.Write(l.binder, l.Channel.Rename))
+	t.ChannelDispatch.BindHandler(bind.Write(l.binder, l.Channel.Dispatch))
 
 	// FRAME
 	t.FrameWriter.BindHandler(l.Framer.Write)
@@ -749,11 +769,14 @@ func (l *Layer) BindTo(t Transport) {
 	t.RackRetrieve.BindHandler(bind.Read(l.binder, l.Rack.Retrieve))
 	t.RackDelete.BindHandler(bind.Write(l.binder, l.Rack.Delete))
 	t.RackRename.BindHandler(bind.Write(l.binder, l.Rack.Rename))
+	t.RackDispatch.BindHandler(bind.Write(l.binder, l.Rack.Dispatch))
 
 	// TASK
 	t.TaskCreate.BindHandler(bind.Write(l.binder, l.Task.Create))
 	t.TaskRetrieve.BindHandler(bind.Read(l.binder, l.Task.Retrieve))
-	t.TaskDelete.BindHandler(l.Task.Delete)
+	t.TaskDelete.BindHandler(
+		bind.WritePrepared(l.binder, l.Task.PrepareDelete, l.Task.Delete),
+	)
 	t.TaskCopy.BindHandler(bind.Write(l.binder, l.Task.Copy))
 	t.TaskRename.BindHandler(bind.Write(l.binder, l.Task.Rename))
 	t.TaskDispatch.BindHandler(bind.Write(l.binder, l.Task.Dispatch))
@@ -763,6 +786,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.DeviceRetrieve.BindHandler(bind.Read(l.binder, l.Device.Retrieve))
 	t.DeviceDelete.BindHandler(bind.Write(l.binder, l.Device.Delete))
 	t.DeviceRename.BindHandler(bind.Write(l.binder, l.Device.Rename))
+	t.DeviceDispatch.BindHandler(bind.Write(l.binder, l.Device.Dispatch))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
@@ -771,6 +795,8 @@ func (l *Layer) BindTo(t Transport) {
 	t.AccessCreateRole.BindHandler(bind.Write(l.binder, l.Role.Create))
 	t.AccessDeleteRole.BindHandler(bind.Write(l.binder, l.Role.Delete))
 	t.AccessRetrieveRole.BindHandler(bind.Read(l.binder, l.Role.Retrieve))
+	t.AccessDispatchPolicy.BindHandler(bind.Write(l.binder, l.Policy.Dispatch))
+	t.AccessDispatchRole.BindHandler(bind.Write(l.binder, l.Role.Dispatch))
 
 	// STATUS
 	t.StatusSet.BindHandler(bind.Write(l.binder, l.Status.Set))
@@ -860,7 +886,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Channel, err = channel.NewService(channel.ServiceConfig{
 		DB:      cfg.Distribution.DB,
-		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
 		Status:  cfg.Service.Status,
 		Alias:   cfg.Service.Alias,
@@ -987,6 +1012,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Instrumentation: cfg.Instrumentation,
 		Arc:             cfg.Service.Arc,
 		Status:          cfg.Service.Status,
+		RBAC:            cfg.Service.RBAC,
+		RenameChannel:   bind.Write(l.binder, l.Channel.Rename),
 	}); err != nil {
 		return nil, err
 	}

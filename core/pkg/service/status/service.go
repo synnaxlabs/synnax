@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
@@ -62,6 +63,7 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Status[any]]
 	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService opens a new Service with the provided configuration. If error is nil, the
@@ -72,7 +74,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, indexes: newIndexes()}
+	s = &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(
@@ -108,6 +114,9 @@ func (s *Service) Changes(
 ) gorp.TxReader[Key, Status[any]] {
 	return s.table.Changes(ctx, c)
 }
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key
 // match over name matches. Read-only; callers enforce access on and write the result.
@@ -227,9 +236,10 @@ func (s *Service) NewMigrationWriter(tx gorp.Tx) *gorp.Writer[Key, Status[any]] 
 // NewWriter opens a Writer for statuses that runs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:      tx,
-		table:   s.table,
-		indexes: s.indexes,
+		tx:         tx,
+		table:      s.table,
+		indexes:    s.indexes,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 

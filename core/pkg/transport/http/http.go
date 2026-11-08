@@ -119,6 +119,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/user/set-role",
 		),
+		UserDispatch: unary[user.DispatchRequest, struct{}](
+			router,
+			"/api/v1/user/dispatch",
+		),
 
 		// CHANNEL
 		ChannelCreate: unary[channel.CreateRequest, channel.CreateResponse](
@@ -136,6 +140,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ChannelRename: unary[channel.RenameRequest, struct{}](
 			router,
 			"/api/v1/channel/rename",
+		),
+		ChannelDispatch: unary[channel.DispatchRequest, channel.DispatchResponse](
+			router,
+			"/api/v1/channel/dispatch",
 		),
 
 		// CONNECTIVITY
@@ -562,6 +570,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/rack/rename",
 		),
+		RackDispatch: unary[rack.DispatchRequest, struct{}](
+			router,
+			"/api/v1/rack/dispatch",
+		),
 
 		// TASK
 		TaskCreate: unary[task.CreateRequest, task.CreateResponse](
@@ -606,6 +618,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/device/rename",
 		),
+		DeviceDispatch: unary[device.DispatchRequest, struct{}](
+			router,
+			"/api/v1/device/dispatch",
+		),
 
 		// ACCESS
 		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](
@@ -631,6 +647,14 @@ func Bind(layer *api.Layer, router *http.Router) {
 		AccessRetrieveRole: unary[role.RetrieveRequest, role.RetrieveResponse](
 			router,
 			"/api/v1/access/role/retrieve",
+		),
+		AccessDispatchPolicy: unary[policy.DispatchRequest, struct{}](
+			router,
+			"/api/v1/access/policy/dispatch",
+		),
+		AccessDispatchRole: unary[role.DispatchRequest, struct{}](
+			router,
+			"/api/v1/access/role/dispatch",
 		),
 
 		// ARC

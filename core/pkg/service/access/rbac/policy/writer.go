@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -25,12 +26,21 @@ type Writer struct {
 	allowInternal bool
 	table         *gorp.Table[Key, Policy]
 	roles         *role.Service
+	dispatcher    actions.Dispatcher[Key, Action]
 }
 
-// Create creates or overwrites a policy. It returns a validation error when the
-// policy's role does not exist. A writer that does not allow internal writes also
-// returns a validation error for an internal policy, a policy of a built-in role, and a
-// policy that would overwrite one of a built-in role.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
+}
+
+// Create creates or overwrites a policy, and its commit carries a create action that
+// holds the stored policy. It returns a validation error when the policy's role does
+// not exist. A writer that does not allow internal writes also returns a validation
+// error for an internal policy, a policy of a built-in role, and a policy that would
+// overwrite one of a built-in role.
 func (w Writer) Create(ctx context.Context, p *Policy) error {
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
@@ -49,7 +59,41 @@ func (w Writer) Create(ctx context.Context, p *Policy) error {
 			return err
 		}
 	}
-	return w.table.NewCreate().Entry(p).Exec(ctx, w.tx)
+	if err := w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, p.Key, NewCreateAction(CreatePayload{Policy: *p}))
+	return nil
+}
+
+// Apply applies the actions to the policy with the given key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns a validation error when an action is a create or leaves the policy invalid,
+// or when the policy belongs to a built-in role and w does not allow internal writes,
+// and an error wrapping query.ErrNotFound when no policy has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Policy](key)).
+		ChangeErr(func(ctx gorp.Context, p Policy) (Policy, error) {
+			if !w.allowInternal {
+				if err := w.checkRole(ctx, p.Role); err != nil {
+					return Policy{}, err
+				}
+			}
+			next, err := Reduce(p, acts...)
+			if err != nil {
+				return Policy{}, err
+			}
+			if err = next.Validate(); err != nil {
+				return Policy{}, err
+			}
+			return next, nil
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }
 
 // CreateMany creates the given policies. If policies with the same key already exist,

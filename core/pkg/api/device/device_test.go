@@ -65,13 +65,12 @@ func grantAll(ctx SpecContext, u user.User, needs ...need) {
 }
 
 // newDeviceNeeds returns what a create of a new device d on the embedded rack needs:
-// create on d and its status, and update on d and the rack, which the status and d
-// sit in. d is the device, or the device type for any device.
+// create on d and its status, and update on the rack, which d sits in. d is the device,
+// or the device type for any device.
 func newDeviceNeeds(d resource.ID) []need {
 	return []need{
 		{access.ActionCreate, d},
 		{access.ActionCreate, resource.ID{Type: resource.TypeStatus}},
-		{access.ActionUpdate, d},
 		{access.ActionUpdate, svc.Rack.EmbeddedKey.ResourceID()},
 	}
 }
@@ -196,12 +195,7 @@ var _ = Describe("Create", func() {
 				Exists(ctx, db)).To(BeFalse())
 		},
 		Entry("without create on the device", 0, "create-denied-device"),
-		Entry(
-			"without update on the device, which its status sits in",
-			2,
-			"create-denied-status",
-		),
-		Entry("without update on its rack", 3, "create-denied-rack"),
+		Entry("without update on its rack", 2, "create-denied-rack"),
 	)
 	It("Should check read access on each device in a batch", func(ctx SpecContext) {
 		u := createUser(ctx)
@@ -227,6 +221,7 @@ var _ = Describe("Create", func() {
 		GinkgoHelper()
 		u := createUser(ctx)
 		grantAll(ctx, u, newDeviceNeeds(deviceType)...)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), deviceType)
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), deviceType)
 		return AuthedCtx(ctx, u)
 	}
@@ -340,13 +335,12 @@ var _ = Describe("Rename", func() {
 
 var _ = Describe("Delete", func() {
 	// deleteNeeds returns what a delete of d needs: delete on d and its status, and
-	// update on d and its rack, which the status and d leave.
+	// update on the rack that d leaves.
 	deleteNeeds := func(ctx SpecContext, d device.Device) []need {
 		GinkgoHelper()
 		return []need{
 			{access.ActionDelete, d.ResourceID()},
 			{access.ActionDelete, statusOf(ctx, d)},
-			{access.ActionUpdate, d.ResourceID()},
 			{access.ActionUpdate, d.Rack.ResourceID()},
 		}
 	}
@@ -385,7 +379,7 @@ var _ = Describe("Delete", func() {
 		},
 		Entry("without delete on the device", 0, "delete-denied-device"),
 		Entry("without delete on its status", 1, "delete-denied-status"),
-		Entry("without update on its rack", 3, "delete-denied-rack"),
+		Entry("without update on its rack", 2, "delete-denied-rack"),
 	)
 })
 
@@ -653,6 +647,36 @@ var _ = Describe("Create in a group", func() {
 	})
 })
 
+var _ = Describe("Dispatch", func() {
+	locate := apidevice.DispatchRequest{
+		DispatchKey: "dk",
+		Actions: []device.Action{device.NewSetAction(device.SetPayload{
+			Path:  []string{"location"},
+			Value: "Bay 2",
+		})},
+	}
+	It("Should apply the actions with update on the device", func(ctx SpecContext) {
+		u := createUser(ctx)
+		d := createDevice(ctx, "dispatch-granted")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), d.ResourceID())
+		req := locate
+		req.Key = d.Key
+		MustSucceed(dispatch(AuthedCtx(ctx, u), req))
+		Expect(retrieveDevice(ctx, d.Key).Location).To(Equal("Bay 2"))
+	})
+	It("Should refuse the actions without update on the device", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		d := createDevice(ctx, "dispatch-denied")
+		req := locate
+		req.Key = d.Key
+		Expect(dispatch(AuthedCtx(ctx, u), req)).
+			Error().To(denied(u, access.ActionUpdate, d.ResourceID()))
+		Expect(retrieveDevice(ctx, d.Key).Location).To(Equal(d.Location))
+	})
+})
+
 var _ = Describe("Create on another rack", func() {
 	var (
 		u     user.User
@@ -703,5 +727,31 @@ var _ = Describe("Create on another rack", func() {
 		moved := retrieveDevice(ctx, d.Key)
 		Expect(moved.Rack).To(Equal(other.Key))
 		Expect(moved.Group).To(BeNil())
+	})
+	Describe("Dispatch", func() {
+		setRack := func(ctx SpecContext) (struct{}, error) {
+			return dispatch(AuthedCtx(ctx, u), apidevice.DispatchRequest{
+				Key: d.Key,
+				Actions: []device.Action{device.NewSetRackAction(
+					device.SetRackPayload{Rack: other.Key},
+				)},
+			})
+		}
+		It("Should refuse to move a device without update on its group", func(
+			ctx SpecContext,
+		) {
+			Expect(setRack(ctx)).
+				Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
+			Expect(retrieveDevice(ctx, d.Key).Rack).To(Equal(d.Rack))
+		})
+		It("Should move the device and drop its group with update on it", func(
+			ctx SpecContext,
+		) {
+			grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+			MustSucceed(setRack(ctx))
+			moved := retrieveDevice(ctx, d.Key)
+			Expect(moved.Rack).To(Equal(other.Key))
+			Expect(moved.Group).To(BeNil())
+		})
 	})
 })
