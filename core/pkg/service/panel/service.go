@@ -13,26 +13,31 @@ import (
 	"context"
 	"io"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
 	alamos.Instrumentation
-	Signals  *signals.Provider
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
+	Signals *signals.Provider
+	DB      *gorp.DB
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -41,7 +46,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -50,7 +54,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("panel")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -79,13 +82,20 @@ func OpenService(
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Panel]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
+	// A delete that detaches a target rewrites the panel outside the writer. The
+	// service publishes the stored panel as a create, in order with the dispatches on
+	// it.
+	ok(nil, xio.NoFailCloserFunc(s.table.ObserveDetaches().OnChange(
+		func(ctx context.Context, p Panel) { s.publishDetached(ctx, p.Key) },
+	)))
 	if cfg.Signals == nil {
 		return s, nil
 	}
@@ -108,6 +118,33 @@ func OpenService(
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
+
+// CompositionMigrations returns the panel migrations that read other services' staged
+// data. Run them once every service table is open.
+func (s *Service) CompositionMigrations() []gorp.Migration {
+	return versions.CompositionMigrations(s.table)
+}
+
+func (s *Service) publishDetached(ctx context.Context, key Key) {
+	err := s.state.Dispatch(ctx, key, "", nil, func(tx gorp.Tx) ([]Action, error) {
+		var p Panel
+		if err := s.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Panel](key)).
+			Entry(&p).
+			Exec(ctx, tx); err != nil {
+			return nil, err
+		}
+		return []Action{NewCreateAction(CreatePayload{Panel: p})}, nil
+	})
+	// A later delete can remove the panel before the broadcast.
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		s.cfg.L.Error(
+			"failed to publish a detached panel",
+			zap.Stringer("panel", key),
+			zap.Error(err),
+		)
+	}
+}
 
 // OnAction subscribes the given handler to the action stream emitted by Dispatch. The
 // handler runs synchronously inside Dispatch after the underlying transaction commits.
@@ -157,8 +194,8 @@ func (s *Service) Dispatch(
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
+		svc:        s,
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
-		otg:        s.cfg.Ontology.NewWriter(tx),
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
@@ -170,4 +207,28 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 	}
+}
+
+// MoveGroups moves the panels in groups into the project top, in tx, after those groups
+// move under top. It returns a validation error when one of the groups holds a panel
+// and top is not a project.
+func (s *Service) MoveGroups(
+	ctx context.Context,
+	tx gorp.Tx,
+	groups []group.Key,
+	top *resource.ID,
+) error {
+	var moved []Panel
+	if err := s.NewRetrieve().
+		Where(MatchGroups(groups...)).
+		Entries(&moved).
+		Exec(ctx, tx); err != nil || len(moved) == 0 {
+		return err
+	}
+	p, err := project.TopParentProject(top, resource.TypePanel)
+	if err != nil {
+		return err
+	}
+	keys := lo.Map(moved, func(e Panel, _ int) Key { return e.Key })
+	return s.NewWriter(tx).setProject(ctx, *p, keys...)
 }

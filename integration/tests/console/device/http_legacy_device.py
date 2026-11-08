@@ -82,10 +82,10 @@ class HTTPLegacyDevice(SimulatorCase, ConsoleCase):
     def test_driver_connects(self) -> None:
         """The Driver health checks the legacy device and reports it connected."""
         self.log("Testing: Driver connects the legacy device")
-        status_key = str(sy.resource.ID(type="device", key=self.legacy.key))
+        owner = sy.device.resource_id(self.legacy.key)
         timer = sy.Timer()
         while True:
-            statuses = self.client.statuses.retrieve(keys=[status_key])
+            statuses = self.client.statuses.retrieve(owners=[owner])
             if statuses and statuses[0].variant == "success":
                 break
             if timer.elapsed() > STATUS_TIMEOUT:

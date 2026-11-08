@@ -160,7 +160,7 @@ describe("Imex", () => {
       ).rejects.toThrow("parent: must be a project");
     });
 
-    it("should parent the imported resource under the given parent", async () => {
+    it("should put the imported resource in the given project", async () => {
       const proj = await client.projects.create({
         name: `imex-proj-${id.create()}`,
       });
@@ -170,10 +170,25 @@ describe("Imex", () => {
         fileName: `${name}.json`,
         parent: project.resourceID(proj.key),
       });
-      const children = await client.ontology.children.retrieve({
-        ids: project.resourceID(proj.key),
+      const logs = await client.logs.retrieve({ projects: [proj.key] });
+      expect(logs.map(({ key }) => key)).toContain(oid.key);
+    });
+
+    it("should put the imported resource in the given group", async () => {
+      const proj = await client.projects.create({ name: `imex-proj-${id.create()}` });
+      const g = await client.groups.create({
+        parent: project.resourceID(proj.key),
+        name: `imex-group-${id.create()}`,
       });
-      expect(children.map((child) => child.id.key)).toContain(oid.key);
+      const name = `imex-${id.create()}`;
+      const oid = await client.imex.import(toBlob(logEnvelope(name)), {
+        encoding: "JSON",
+        fileName: `${name}.json`,
+        parent: project.resourceID(proj.key),
+        group: g.key,
+      });
+      const l = await client.logs.retrieve({ key: oid.key });
+      expect(l.group).toEqual(g.key);
     });
 
     it("should throw an error when the parent does not exist", async () => {
@@ -184,7 +199,7 @@ describe("Imex", () => {
           fileName: `${name}.json`,
           parent: project.resourceID(uuid.create()),
         }),
-      ).rejects.toThrow("not found");
+      ).rejects.toThrow("does not exist");
     });
   });
 

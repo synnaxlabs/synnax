@@ -56,6 +56,8 @@ class API {
         decltype(&ecrt_master_slave_config) master_slave_config;
         decltype(&ecrt_slave_config_state) slave_config_state;
         decltype(&ecrt_slave_config_reg_pdo_entry) slave_config_reg_pdo_entry;
+        decltype(&ecrt_slave_config_sdo) slave_config_sdo;
+        decltype(&ecrt_master_sdo_download) master_sdo_download;
         decltype(&ecrt_master_get_sync_manager) master_get_sync_manager;
         decltype(&ecrt_master_get_pdo) master_get_pdo;
         decltype(&ecrt_master_get_pdo_entry) master_get_pdo_entry;
@@ -140,6 +142,14 @@ public:
             decltype(&ecrt_slave_config_reg_pdo_entry)>(const_cast<void *>(
             this->lib->get_func_ptr("ecrt_slave_config_reg_pdo_entry")
         ));
+        this->func_ptrs
+            .slave_config_sdo = reinterpret_cast<decltype(&ecrt_slave_config_sdo)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_slave_config_sdo"))
+        );
+        this->func_ptrs.master_sdo_download = reinterpret_cast<
+            decltype(&ecrt_master_sdo_download)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_master_sdo_download"))
+        );
         this->func_ptrs.master_get_sync_manager = reinterpret_cast<
             decltype(&ecrt_master_get_sync_manager)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_master_get_sync_manager"))
@@ -301,6 +311,39 @@ public:
             entry_sub_index,
             domain,
             bit_position
+        );
+    }
+
+    /// @brief adds an SDO the master writes each time it moves the slave to SAFE-OP.
+    [[nodiscard]] virtual int slave_config_sdo(
+        ec_slave_config_t *sc,
+        uint16_t index,
+        uint8_t subindex,
+        const uint8_t *data,
+        size_t size
+    ) const {
+        return this->func_ptrs.slave_config_sdo(sc, index, subindex, data, size);
+    }
+
+    /// @brief writes an SDO to a slave and blocks until it answers, setting abort_code
+    /// when the slave rejects the write.
+    [[nodiscard]] virtual int master_sdo_download(
+        ec_master_t *master,
+        uint16_t slave_position,
+        uint16_t index,
+        uint8_t subindex,
+        const uint8_t *data,
+        size_t data_size,
+        uint32_t *abort_code
+    ) const {
+        return this->func_ptrs.master_sdo_download(
+            master,
+            slave_position,
+            index,
+            subindex,
+            data,
+            data_size,
+            abort_code
         );
     }
 

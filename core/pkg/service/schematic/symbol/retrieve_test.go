@@ -14,14 +14,20 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
-	var sym1, sym2, sym3 symbol.Symbol
+	var (
+		tx               gorp.Tx
+		sym1, sym2, sym3 symbol.Symbol
+	)
 
-	BeforeEach(func(ctx SpecContext) {
+	createSymbols := func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
 		sym1 = symbol.Symbol{
 			Name: "symbol-1",
 			Data: symbol.Spec{
@@ -53,12 +59,13 @@ var _ = Describe("Retrieve", func() {
 				},
 			},
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, &sym1, proj.ResourceID())).To(Succeed())
-		Expect(svc.NewWriter(tx).Create(ctx, &sym2, proj.ResourceID())).To(Succeed())
-		Expect(svc.NewWriter(tx).Create(ctx, &sym3, proj.ResourceID())).To(Succeed())
-	})
+		Expect(svc.NewWriter(tx).Create(ctx, &sym1)).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, &sym2)).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, &sym3)).To(Succeed())
+	}
 
 	Describe("WhereKeys", func() {
+		BeforeEach(createSymbols)
 		It("Should retrieve a single symbol by key", func(ctx SpecContext) {
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().
@@ -94,6 +101,7 @@ var _ = Describe("Retrieve", func() {
 
 	Describe("Exec", func() {
 		It("Should execute with provided transaction", func(ctx SpecContext) {
+			createSymbols(ctx)
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().
 				Where(symbol.MatchKeys(sym1.Key)).
@@ -109,7 +117,7 @@ var _ = Describe("Retrieve", func() {
 				Data: symbol.Spec{SVG: "<svg>no-tx</svg>", Variant: "valve"},
 			}
 			Expect(
-				svc.NewWriter(nil).Create(ctx, &symNoTx, proj.ResourceID()),
+				svc.NewWriter(nil).Create(ctx, &symNoTx),
 			).To(Succeed())
 
 			var retrieved symbol.Symbol
@@ -125,6 +133,7 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	Describe("Complex Queries", func() {
+		BeforeEach(createSymbols)
 		It("Should retrieve all symbols created", func(ctx SpecContext) {
 			var allSymbols []symbol.Symbol
 			Expect(svc.NewRetrieve().
@@ -159,7 +168,7 @@ var _ = Describe("Retrieve", func() {
 				Data: largeData,
 			}
 			Expect(
-				svc.NewWriter(tx).Create(ctx, &largeSym, proj.ResourceID()),
+				svc.NewWriter(tx).Create(ctx, &largeSym),
 			).To(Succeed())
 
 			var retrieved symbol.Symbol

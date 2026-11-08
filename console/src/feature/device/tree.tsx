@@ -9,7 +9,7 @@
 
 import "@/feature/device/tree.css";
 
-import { device, type ontology, status } from "@synnaxlabs/client";
+import { device, type rack, status, type Synnax } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -99,7 +99,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
+const icon = (resource: Tree.Resource) => getIcon(getMake(resource.data?.make));
 
 const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
@@ -107,7 +107,7 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
   const location =
     typeof resource.data?.location === "string" ? resource.data.location : "";
   return (
-    <PTree.Item className={CSS.cls(className, CSS.B("device-ontology-item"))} {...rest}>
+    <PTree.Item className={CSS.cls(className, CSS.B("device-tree-item"))} {...rest}>
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>
         {icon(resource)}
         <Text.MaybeEditable
@@ -135,9 +135,41 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
   );
 };
 
+/** Lists the devices that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "device",
+  children: (client, key) =>
+    Tree.createSource(
+      client.devices,
+      { where: { groups: [key] } },
+      Tree.toResource("device"),
+    ),
+};
+
+/** Lists the top level of the device tree: its groups and the racks in no group. */
+export const listTreeRoot = (client: Synnax): Tree.Source[] => [
+  Tree.createSource(
+    client.groups,
+    { scope: "device", nested: false },
+    Tree.toResource("group"),
+  ),
+  Tree.createSource(client.racks, { where: { grouped: false } }, (r: rack.Rack) =>
+    Tree.toResource("rack")(r.payload),
+  ),
+];
+
+const children: Tree.Children = ({ client, id }) => [
+  Tree.createSource(
+    client.devices,
+    { where: { parents: [id.key] } },
+    Tree.toResource("device"),
+  ),
+];
+
 const TreeItem = Tree.createItem({
   type: "device",
   icon,
+  children,
   ContextMenu: TreeContextMenu,
   Content,
 });

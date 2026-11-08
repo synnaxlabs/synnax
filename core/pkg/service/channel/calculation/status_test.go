@@ -19,19 +19,6 @@ import (
 )
 
 var _ = Describe("Status", func() {
-	Describe("StatusKey", func() {
-		It("Should return a consistent key for a given channel key", func() {
-			k := calculation.StatusKey(channel.Key(42))
-			Expect(k).To(Equal(channel.ResourceID(42).String()))
-		})
-
-		It("Should return different keys for different channel keys", func() {
-			Expect(
-				calculation.StatusKey(channel.Key(1)),
-			).ToNot(Equal(calculation.StatusKey(channel.Key(2))))
-		})
-	})
-
 	Describe("StatusFromError", func() {
 		It("Should build a status with the correct fields", func() {
 			st := calculation.StatusFromError(
@@ -39,7 +26,8 @@ var _ = Describe("Status", func() {
 				"my_channel",
 				errors.New("unexpected token"),
 			)
-			Expect(st.Key).To(Equal(calculation.StatusKey(42)))
+			Expect(st.Key).To(BeEmpty())
+			Expect(st.Owner).To(HaveValue(Equal(channel.ResourceID(42))))
 			Expect(st.Name).To(Equal("my_channel"))
 			Expect(st.Variant).To(Equal(status.VariantError))
 			Expect(st.Message).To(Equal("Failed to compile calculation"))

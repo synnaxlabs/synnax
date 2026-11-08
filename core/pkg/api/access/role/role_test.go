@@ -44,34 +44,3 @@ var _ = Describe("Retrieve", func() {
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 })
-
-var _ = Describe("Assign", func() {
-	It("Should reject the request when update is not granted on the user", func(
-		ctx SpecContext,
-	) {
-		u := createUser(ctx)
-		target := createUser(ctx)
-		r := createRole(ctx)
-		Expect(apiSvc.Assign(
-			AuthedCtx(ctx, u), nil,
-			apirole.AssignRequest{User: target.Key, Role: r.Key},
-		)).Error().To(MatchError(access.ErrDenied))
-	})
-})
-
-var _ = Describe("Unassign", func() {
-	It("Should reject the request when update is not granted on the user", func(
-		ctx SpecContext,
-	) {
-		u := createUser(ctx)
-		target := createUser(ctx)
-		r := createRole(ctx)
-		Expect(svc.RBAC.Role.NewWriter(nil, true).AssignRole(
-			ctx, target.ResourceID(), r.Key,
-		)).To(Succeed())
-		Expect(apiSvc.Unassign(
-			AuthedCtx(ctx, u), nil,
-			apirole.UnassignRequest{User: target.Key, Role: r.Key},
-		)).Error().To(MatchError(access.ErrDenied))
-	})
-})

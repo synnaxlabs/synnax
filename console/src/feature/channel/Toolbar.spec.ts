@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, group } from "@synnaxlabs/client";
+import { type channel, DataType } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import {
   act,
@@ -58,22 +58,14 @@ const renderChannelToolbar = async (
 const createGroupedChannel = async (
   name: string,
 ): Promise<{ ch: channel.Channel; groupName: string }> => {
+  const groupName = uniqueName("grp");
+  const grp = await client.groups.create({ scope: "channel", name: groupName });
   const ch = await client.channels.create({
     name,
     dataType: DataType.TIMESTAMP,
     isIndex: true,
+    group: grp.key,
   });
-  const groupName = uniqueName("grp");
-  const channels = await client.channels.retrieveGroup();
-  const grp = await client.groups.create({
-    parent: group.resourceID(channels.key),
-    name: groupName,
-  });
-  await client.ontology.moveChildren(
-    group.resourceID(channels.key),
-    group.resourceID(grp.key),
-    channel.resourceID(ch.key),
-  );
   return { ch, groupName };
 };
 

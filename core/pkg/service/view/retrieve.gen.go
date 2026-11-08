@@ -18,6 +18,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the View table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "view"
+
 // Retrieve is used to retrieve View records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {

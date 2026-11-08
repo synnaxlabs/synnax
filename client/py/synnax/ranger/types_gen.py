@@ -37,18 +37,17 @@ class Payload(BaseModel):
             timestamps.
         color: Is an optional display color for visual identification of the range in
             user interfaces.
-        labels: Contains optional labels attached to this range for categorization and
-            filtering.
-        parent: Is an optional parent range for hierarchical organization. Ranges can be
-            nested within other ranges.
+        labels: Are the keys of the labels attached to the range.
+        parent: Is the key of the range this range is nested in. Empty for a top-level
+            range.
     """
 
     key: Key
     name: str = Field(min_length=1)
     time_range: telem.TimeRange
     color: color_.Color | None = None
-    labels: list[label.Label] | None = None
-    parent: Payload | None = None
+    labels: list[label.Key] = Field(default_factory=list)
+    parent: Key | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -66,6 +65,7 @@ class Where(BaseModel):
         name: Selects by name.
         overlaps: Matches ranges whose time range overlaps the given range.
         labels: Matches ranges that have any of the given labels.
+        parents: Matches the ranges nested in any of the given ranges.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -77,8 +77,9 @@ class Where(BaseModel):
     name: filter.String | None = None
     overlaps: telem.TimeRange | None = None
     labels: list[label.Key] | None = None
+    parents: list[Key] | None = None
 
-    @field_validator("labels", mode="before")
+    @field_validator("labels", "parents", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -96,6 +97,7 @@ WhereInput = TypedDict(
         "name": filter.StringInput,
         "overlaps": telem.TimeRange,
         "labels": label.Key | list[label.Key],
+        "parents": Key | list[Key],
     },
     total=False,
 )
@@ -141,8 +143,6 @@ class RetrieveRequest(BaseModel):
         search_term: Keeps the ranges that match the term, closest match first.
         limit: Is the most ranges to return.
         offset: Is the number of matching ranges to skip.
-        include_labels: Includes the labels of each record.
-        include_parent: Includes the parent of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -151,11 +151,8 @@ class RetrieveRequest(BaseModel):
     search_term: str = ""
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
-    include_labels: bool = False
-    include_parent: bool = False
 
 
-Payload.model_rebuild()
 Where.model_rebuild()
 
 

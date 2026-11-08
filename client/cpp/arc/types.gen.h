@@ -59,6 +59,8 @@ struct Where {
     ::x::filter::Field<::x::filter::Set<Key>> key;
     /// @brief name selects by name.
     ::x::filter::Field<::x::filter::String> name;
+    /// @brief directories matches the Arcs in any of the given directories.
+    ::x::filter::List<x::uuid::UUID> directories;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {
@@ -191,6 +193,8 @@ struct Base {
     std::string name;
     /// @brief source is the Arc's source code, written as text or drawn as a graph.
     Source source = TextSource{};
+    /// @brief directory is the key of the directory that holds the Arc.
+    std::optional<x::uuid::UUID> directory;
 
     static Base parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

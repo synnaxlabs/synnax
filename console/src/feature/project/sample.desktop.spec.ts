@@ -9,11 +9,10 @@
 
 import {
   type arc,
-  group,
-  lineplot,
+  type lineplot,
   type panel,
   project,
-  schematic,
+  type schematic,
   TimeStamp,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
@@ -46,7 +45,7 @@ const resourceKeys = (node: panel.Node): string[] => {
 };
 
 const retrieveSample = async (key: project.Key): Promise<Sample> => {
-  const panels = await client.panels.retrieve({ parent: project.resourceID(key) });
+  const panels = await client.panels.retrieve({ projects: [key] });
   expect(panels).toHaveLength(1);
   const { key: panelKey, root } = panels[0];
   if (root.variant !== "split" || root.first.variant !== "split")
@@ -284,19 +283,22 @@ describe("Sample project", () => {
     }
   });
 
-  it("should move the schematic back under the project on a reset", async () => {
+  it("should move the schematic out of its group on a reset", async () => {
     const { sample, open, waitForOpened } = await openFromPalette();
-    const projectID = project.resourceID(sample.project);
-    const schematicID = schematic.resourceID(sample.schematic);
-    const folder = await client.groups.create({ parent: projectID, name: "Folder" });
-    const folderID = group.resourceID(folder.key);
-    await client.ontology.moveChildren(projectID, folderID, schematicID);
+    const folder = await client.groups.create({
+      parent: project.resourceID(sample.project),
+      name: "Folder",
+    });
+    await client.batch.send([
+      client.schematics.setGroupRequest(sample.schematic, folder.key),
+    ]);
     await open();
     fireEvent.click(await screen.findByRole("button", { name: "Reset" }));
-    await waitFor(async () => {
-      const parents = await client.ontology.parents.retrieve({ ids: schematicID });
-      expect(parents.map(({ id }) => id)).toEqual([projectID]);
-    });
+    await waitFor(async () =>
+      expect(
+        (await client.schematics.retrieve(sample.schematic)).group,
+      ).toBeUndefined(),
+    );
     await waitForOpened(sample);
     await client.groups.delete(folder.key);
   });
@@ -306,12 +308,12 @@ describe("Sample project", () => {
     await client.projects.delete(sample.project);
     await open();
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({
-        ids: project.resourceID(sample.project),
+      const schematics = await client.schematics.retrieve({
+        projects: [sample.project],
       });
-      const ids = children.map(({ id }) => id);
-      expect(ids).toContainEqual(schematic.resourceID(sample.schematic));
-      expect(ids).toContainEqual(lineplot.resourceID(sample.linePlot));
+      const plots = await client.lineplots.retrieve({ projects: [sample.project] });
+      expect(schematics.map(({ key }) => key)).toContain(sample.schematic);
+      expect(plots.map(({ key }) => key)).toContain(sample.linePlot);
     });
     await waitForOpened(sample);
   });

@@ -12,6 +12,7 @@
 import { filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { role } from "@/access/role";
 import { resource } from "@/resource";
 
 export const keyZ = z.uuid();
@@ -31,6 +32,8 @@ export const userZ = z.object({
    * cannot be deleted.
    */
   rootUser: z.boolean().default(false),
+  /** roles are the roles that grant the user its permissions. */
+  roles: role.keyZ.array().default(() => []),
 });
 export interface User extends z.infer<typeof userZ> {}
 
@@ -41,6 +44,7 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   usernames?: string[];
+  roles?: role.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -59,6 +63,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   key: filter.setZ(keyZ).optional(),
   /** usernames matches the users whose password has any of the given usernames. */
   usernames: zod.nullToUndefined(z.string().array()),
+  /** roles matches the users that hold any of the given roles. */
+  roles: zod.nullToUndefined(role.keyZ.array()),
 });
 
 export const newZ = userZ

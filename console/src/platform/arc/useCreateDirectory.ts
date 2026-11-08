@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, type ontology, resource } from "@synnaxlabs/client";
+import { arc, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -38,7 +38,7 @@ export const useCreateDirectory = ({
     }: Flux.BeforeUpdateParams<Arc.Directory.CreateParams>) => {
       const newID = arc.directory.resourceID(uuid.create());
       const newIDString = resource.idToString(newID);
-      const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
+      const res: Tree.Resource = { key: newIDString, id: newID, name: "" };
       const node: PTree.Node<string> = { key: newIDString, children: [] };
       setResource(res);
       const destination = resource.idsEqual(parent, root)

@@ -14,15 +14,27 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Service", func() {
-	var svc *kafka.Service
+	var (
+		svc   *kafka.Service
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
+		// The suite's DB holds a kafka service and a task service of its own.
+		db := DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: db}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: svc.Stores(),
+		}))
 	})
 
 	Describe("OpenService", func() {
@@ -50,8 +62,8 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device": "dev-1",
 				"topic":  "telemetry",
 				"records": []any{map[string]any{
@@ -78,8 +90,7 @@ var _ = Describe("Service", func() {
 		It("Should apply read config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"records": []any{map[string]any{
 					"key":    "r-1",
 					"fields": []any{map[string]any{"key": "f-1"}},
@@ -98,8 +109,7 @@ var _ = Describe("Service", func() {
 		It("Should apply write config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{"key": "ch-1"}},
 			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
@@ -116,8 +126,7 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should keep the record pointers the caller sets", func(ctx SpecContext) {
-			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"record": map[string]any{
 					"channel_pointer":   "/name",
 					"timestamp_pointer": "/time",
@@ -133,15 +142,14 @@ var _ = Describe("Service", func() {
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 
 		It("Should return the read validation error for an invalid start offset",
 			func(ctx SpecContext) {
-				Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 					"start_offset": "bogus",
 				})).Error().To(MatchError(ContainSubstring("invalid start_offset: bogus")))
 			},
@@ -149,7 +157,7 @@ var _ = Describe("Service", func() {
 
 		It("Should return the write validation error for an invalid record key",
 			func(ctx SpecContext) {
-				Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Write.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 					"record_key": "bogus",
 				})).Error().To(MatchError(ContainSubstring("invalid record_key: bogus")))
 			},

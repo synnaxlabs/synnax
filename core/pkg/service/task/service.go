@@ -14,15 +14,15 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -32,9 +32,11 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -43,15 +45,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between tasks and other resources in the
-	// Synnax cluster.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
-	// Group is used to create task related groups of ontology resources.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Rack is used to manage rack-related operations for tasks.
 	//
 	// [REQUIRED]
@@ -83,6 +76,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	ImExExcluded []string
+	// MatchArcs returns a filter for the tasks that run any of the Arcs with the given
+	// keys.
+	//
+	// [OPTIONAL] - A retrieve that filters by Arc fails without it.
+	MatchArcs func(arcs ...uuid.UUID) Filter
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -95,8 +93,6 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -104,6 +100,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Configs = override.Zero(c.Configs, other.Configs)
 	c.ImExExcluded = override.Slice(c.ImExExcluded, other.ImExExcluded)
+	c.MatchArcs = override.Nil(c.MatchArcs, other.MatchArcs)
 	return c
 }
 
@@ -111,8 +108,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("task")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	v.NotNil("rack", c.Rack)
 	v.NotNil("status", c.Status)
 	v.NotNil("imex", c.ImEx)
@@ -123,7 +118,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg               ServiceConfig
 	closer            xio.MultiCloser
-	group             group.Group
 	table             *gorp.Table[Key, Task]
 	indexes           indexes
 	state             *actions.State[Key, Action]
@@ -152,28 +146,18 @@ func OpenService(
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
-		DB:      cfg.DB,
-		Indexes: s.indexes.all(),
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
-			Status:   cfg.Status,
-			Ontology: cfg.Ontology,
-			Configs:  cfg.Configs,
+			Status:  cfg.Status,
+			Configs: cfg.Configs,
 		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Tasks",
-		ontology.RootID,
-	); !ok(
-		err,
-		nil,
-	) {
-		return nil, err
-	}
-	cfg.Ontology.RegisterService(s)
 	if err = cfg.ImEx.RegisterExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -214,6 +198,10 @@ func OpenService(
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
+	for _, t := range cfg.Configs.Types() {
+		store, _ := cfg.Configs.Store(t)
+		ok(nil, xio.NoFailCloserFunc(store.ObserveDetaches().OnChange(s.syncConfig)))
+	}
 	if cfg.Signals != nil {
 		pubCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		pubCfg.MarshalSet = func(t Task) ([]byte, error) {
@@ -287,6 +275,22 @@ func (s *Service) Dispatch(
 	return added, nil
 }
 
+// syncConfig stores the hash of a config that a delete detached and broadcasts the
+// config, so open clients and the Driver see the change.
+func (s *Service) syncConfig(ctx context.Context, key Key) {
+	err := s.state.Dispatch(ctx, key, "", nil, func(tx gorp.Tx) ([]Action, error) {
+		return s.NewWriter(tx).syncConfig(ctx, key)
+	})
+	// The delete that detached the config can delete its task too.
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		s.cfg.L.Error(
+			"failed to sync a detached task config",
+			zap.Stringer("task", key),
+			zap.Error(err),
+		)
+	}
+}
+
 func (s *Service) CommandChannelKey() channel.Key {
 	return s.commandChannelKey
 }
@@ -299,33 +303,63 @@ func (s *Service) ActionChannelKey() channel.Key {
 
 func (s *Service) Close() error { return s.closer.Close() }
 
+// ConfigTask returns the ID of the task whose config record target names, and false
+// when target names no config record.
+func (s *Service) ConfigTask(target gorp.Target) (resource.ID, bool) {
+	for _, typ := range s.cfg.Configs.Types() {
+		if config.TableName(typ) == target.Table {
+			return resource.ID{Type: resource.TypeTask, Key: target.Key}, true
+		}
+	}
+	return resource.ID{}, false
+}
+
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
+		svc:        s,
 		tx:         tx,
-		otgWriter:  s.cfg.Ontology.NewWriter(tx),
-		otg:        s.cfg.Ontology,
-		group:      s.group,
 		status:     s.cfg.Status.NewWriter(tx),
+		statuses:   s.cfg.Status,
 		table:      s.table,
 		configs:    s.cfg.Configs,
 		dispatcher: s.state.Dispatcher(),
+		racks:      s.cfg.Rack.NewWriter(tx),
+		guardRack:  s.guardRack,
 	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		indexes: s.indexes,
-		baseTX:  s.cfg.DB,
-		gorp:    s.table.NewRetrieve(),
-		otg:     s.cfg.Ontology,
-		configs: s.cfg.Configs,
+		indexes:   s.indexes,
+		baseTX:    s.cfg.DB,
+		gorp:      s.table.NewRetrieve(),
+		configs:   s.cfg.Configs,
+		matchArcs: s.cfg.MatchArcs,
 	}
 }
 
+func (s *Service) guardRack(ctx gorp.Context, r rack.Rack) error {
+	exists, err := s.NewRetrieve().
+		Where(And(MatchRacks(r.Key), MatchInternal(false))).
+		Exists(ctx, ctx.Tx)
+	if err != nil || !exists {
+		return err
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"cannot delete rack %s because it still holds tasks",
+		r.Name,
+	)
+}
+
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
+	rackKey, err := rack.KeyFromResourceID(*rackStat.Owner)
+	if err != nil {
+		return err
+	}
 	var tasks []Task
-	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
+	if err := s.NewRetrieve().Where(MatchRacks(rackKey)).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
@@ -349,6 +383,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 		// hash is carried across.
 		statuses = append(statuses, Status{
 			Key:     prev.Key,
+			Owner:   prev.Owner,
 			Time:    telem.Now(),
 			Name:    tsk.Name,
 			Variant: rackStat.Variant,
@@ -359,9 +394,8 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 				rackStat.Name,
 			),
 			Details: StatusDetails{
-				Task:       tsk.Key,
 				ConfigHash: prev.Details.ConfigHash,
-				Rack:       rackStat.Details.Rack,
+				Rack:       rackKey,
 			},
 		})
 	}

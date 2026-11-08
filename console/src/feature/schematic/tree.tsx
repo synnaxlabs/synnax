@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, resource, schematic } from "@synnaxlabs/client";
+import { resource, schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -95,8 +95,7 @@ const useRangeSnapshot = () => {
       key: id.key,
       name: getResource(id).name,
     }));
-    const parentID = ranger.resourceID(rng.key);
-    update({ schematics, parentID });
+    update({ schematics, range: rng.key });
   };
 };
 
@@ -168,10 +167,20 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+/** Lists the schematics that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "schematic",
+  children: (client, key) =>
+    Tree.createSource(
+      client.schematics,
+      { groups: [key] },
+      Tree.toResource("schematic"),
+    ),
+};
+
 const TreeItem = Tree.createItem({
   type: "schematic",
   icon: <Icon.Schematic />,
-  hasChildren: false,
   useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,

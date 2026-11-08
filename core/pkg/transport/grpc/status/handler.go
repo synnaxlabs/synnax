@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/status/pb"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	xpb "github.com/synnaxlabs/x/pb"
@@ -89,26 +88,18 @@ func (setRequestTranslator) Forward(
 	if err != nil {
 		return nil, err
 	}
-	return &SetRequest{Parent: msg.Parent.String(), Statuses: statuses}, nil
+	return &SetRequest{Statuses: statuses}, nil
 }
 
 func (setRequestTranslator) Backward(
 	_ context.Context,
 	msg *SetRequest,
 ) (status.SetRequest, error) {
-	var parent resource.ID
-	if msg.Parent != "" {
-		var err error
-		parent, err = resource.ParseID(msg.Parent)
-		if err != nil {
-			return status.SetRequest{}, err
-		}
-	}
 	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
 		return status.SetRequest{}, err
 	}
-	return status.SetRequest{Parent: parent, Statuses: statuses}, nil
+	return status.SetRequest{Statuses: statuses}, nil
 }
 
 func (setResponseTranslator) Forward(
