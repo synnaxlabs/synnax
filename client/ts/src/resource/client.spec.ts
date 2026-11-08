@@ -323,6 +323,14 @@ describe("Resource", () => {
       await expect.poll(() => latest?.map((r) => r.name)).toEqual([first, second]);
     });
 
+    it("should name a resource once when the IDs repeat it", async () => {
+      const l = await createLabel(randomToken());
+      const ids = [l, l];
+      expect((await client.resources.retrieve(ids)).map((r) => r.id)).toEqual([l]);
+      const cached = client.resources.getCached(ids);
+      expect(query.isLive(cached) && cached.map((r) => r.id)).toEqual([l]);
+    });
+
     it("should return the cached answer of a list read before", async () => {
       const l = await createLabel(randomToken());
       await client.resources.retrieve([l]);
