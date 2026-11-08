@@ -30,7 +30,7 @@ export const useList = ({
   ...rest
 }: Omit<
   Flux.UseListParams<ListQuery, rack.Rack>,
-  "item" | "name"
+  "itemQuery" | "name"
 > = {}): Flux.UseListReturn<rack.Key, rack.Rack> =>
   Flux.useList((client) => client.racks, {
     ...rest,

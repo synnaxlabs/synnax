@@ -97,7 +97,7 @@ export const useList = ({
   ...rest
 }: Omit<
   Flux.UseListParams<ListQuery, task.Task>,
-  "item" | "name"
+  "itemQuery" | "name"
 > = {}): Flux.UseListReturn<task.Key, task.Task> =>
   Flux.useList((client) => client.tasks, {
     ...rest,

@@ -191,7 +191,7 @@ export const useList = ({
   ...rest
 }: Omit<
   Flux.UseListParams<RetrieveMultipleQuery, device.Device>,
-  "item" | "name"
+  "itemQuery" | "name"
 > = {}): Flux.UseListReturn<device.Key, device.Device> =>
   Flux.useList((client) => client.devices, {
     ...rest,
