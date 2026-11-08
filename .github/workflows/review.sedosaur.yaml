@@ -30,9 +30,7 @@ on:
         type: string
         required: false
       head:
-        description:
-          "Commit to review in a replay. A live review waits for the pull request to
-          show it, then reviews the pull request's head."
+        description: "Commit to review, if not the head of the pull request"
         type: string
         required: false
       base:
@@ -101,24 +99,13 @@ jobs:
             exit 1
           fi
           set -o pipefail
-          pull=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
-          # The relay names the pushed head. The API can lag a push for a moment, and a
-          # later push can reach the queue first, so a live review waits a little for
-          # the named head, then reviews the head that the API shows.
-          if [ "$REPLAY" != true ] && [ -n "$HEAD" ]; then
-            for _ in 1 2 3; do
-              if [ "$(jq -r .head.sha <<< "$pull")" = "$HEAD" ]; then break; fi
-              sleep 5
-              pull=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
-            done
-            HEAD=
-          fi
-          jq -r --arg head "$HEAD" --arg base "$BASE" '
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" |
+            jq -r --arg head "$HEAD" --arg base "$BASE" '
               "head=\(if $head == "" then .head.sha else $head end)",
               "base=\(if $base == "" then .base.sha else $base end)",
               "fork=\(.head.repo.full_name != .base.repo.full_name)",
               "key=\(.number):\(.base.ref)"
-            ' <<< "$pull" >> "$GITHUB_OUTPUT"
+            ' >> "$GITHUB_OUTPUT"
 
       - name: Check out the scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -329,6 +316,31 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           BOT: ${{ steps.app.outputs.app-slug }}
         run: python3 -m review post "$RUNNER_TEMP/review.json"
+
+  # A pushed head can reach the queue after a newer one and replace its review, and the
+  # API can lag a push. So a run that ends with another head on the pull request asks
+  # for a review of that head.
+  follow:
+    needs: [start, review]
+    if: always() && !inputs.replay && needs.start.result == 'success'
+    name: Follow the head
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      pull-requests: read
+    steps:
+      - name: Start Review - Sedosaur
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          REVIEWED: ${{ needs.start.outputs.head }}
+          REF: ${{ github.event.repository.default_branch }}
+        run: |
+          head=$(gh api "repos/$GH_REPO/pulls/$PR" --jq .head.sha)
+          if [ "$head" != "$REVIEWED" ]; then
+            gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR"
+          fi
 
   # A review that never gets a runner cannot close its own check run, so a hosted job
   # closes it whenever the review did not succeed.
