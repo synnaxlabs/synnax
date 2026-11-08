@@ -147,26 +147,17 @@ func (s *Service) OnAction(
 	return s.state.OnChange(handler)
 }
 
-// Dispatch applies the actions to the range with the given key in tx and attaches them
-// to tx, so the commit of tx broadcasts them. dispatchKey is carried onto the broadcast
-// so the sender recognizes its echo. Dispatch returns an error wrapping
-// validate.ErrValidation when an action is a create or the result fails to decode or
-// validate, and an error wrapping query.ErrNotFound when no range has the key.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	return s.state.Dispatch(
-		tx,
+// Apply applies the actions to the range with the given key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create or the
+// result fails to decode or validate, and an error wrapping query.ErrNotFound when no
+// range has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	return w.dispatcher.Dispatch(
+		w.tx,
 		key,
-		dispatchKey,
 		acts,
-		func(tx gorp.Tx) ([]Action, error) {
-			return nil, s.NewWriter(tx).apply(ctx, key, acts)
-		},
+		func(gorp.Tx) ([]Action, error) { return nil, w.apply(ctx, key, acts) },
 	)
 }
 

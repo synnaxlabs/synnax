@@ -705,7 +705,9 @@ var _ = Describe("Task", Ordered, func() {
 		) ([]task.Action, error) {
 			var added []task.Action
 			if err := db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-				added, err = svc.Dispatch(ctx, tx, key, dispatchKey, acts)
+				added, err = svc.NewWriter(tx).
+					WithDispatchKey(dispatchKey).
+					Apply(ctx, key, acts...)
 				return err
 			}); err != nil {
 				return nil, err

@@ -65,7 +65,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
 
-// dispatch runs svc.Dispatch in a transaction of its own.
+// dispatch runs Writer.Apply in a transaction of its own.
 func dispatch(
 	ctx context.Context,
 	key schematic.Key,
@@ -73,6 +73,6 @@ func dispatch(
 	acts []schematic.Action,
 ) error {
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.Dispatch(ctx, tx, key, dispatchKey, acts)
+		return svc.NewWriter(tx).WithDispatchKey(dispatchKey).Apply(ctx, key, acts...)
 	})
 }

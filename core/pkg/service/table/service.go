@@ -143,25 +143,17 @@ func (s *Service) OnAction(
 	return s.state.OnChange(handler)
 }
 
-// Dispatch applies a sequence of actions to the table with the given key in tx and
-// attaches them to tx, so the commit of tx broadcasts them. dispatchKey is a
-// client-generated identifier carried verbatim onto the broadcast so the originating
-// client can recognize its own echo. Returns a validation error, and stores nothing, if
-// the actions leave the table invalid.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	return s.state.Dispatch(
-		tx,
+// Apply applies a sequence of actions to the table with the given key and attaches them
+// to the transaction of w, so its commit broadcasts them with the dispatch key of w.
+// Returns a validation error, and stores nothing, if the actions leave the table
+// invalid.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	return w.dispatcher.Dispatch(
+		w.tx,
 		key,
-		dispatchKey,
 		acts,
 		func(tx gorp.Tx) ([]Action, error) {
-			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
+			return nil, w.tbl.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
 				ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
 					reduced, err := Reduce(t, acts...)
 					if err != nil {

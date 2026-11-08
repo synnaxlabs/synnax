@@ -78,14 +78,14 @@ var _ = Describe("Dispatch", func() {
 		return res
 	}
 
-	// dispatch runs st.Dispatch in a transaction of its own.
+	// dispatch runs a dispatch with the dispatch key "dk" in a transaction of its own.
 	dispatch := func(
 		ctx SpecContext,
 		acts []testAction,
 		stage func(gorp.Tx) ([]testAction, error),
 	) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
-			return st.Dispatch(tx, "c", "dk", acts, stage)
+			return st.Dispatcher().WithDispatchKey("dk").Dispatch(tx, "c", acts, stage)
 		})
 	}
 
@@ -170,10 +170,9 @@ var _ = Describe("Dispatch", func() {
 		func(ctx SpecContext) {
 			later := errors.New("later write failed")
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				if err := st.Dispatch(
+				if err := st.Dispatcher().WithDispatchKey("dk").Dispatch(
 					tx,
 					"c",
-					"dk",
 					[]testAction{{Type: "inc"}},
 					increment(ctx, nil),
 				); err != nil {
@@ -190,19 +189,17 @@ var _ = Describe("Dispatch", func() {
 		"Should deliver the batches of one transaction in the order it attached them",
 		func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				if err := st.Dispatch(
+				if err := st.Dispatcher().WithDispatchKey("first").Dispatch(
 					tx,
 					"c",
-					"first",
 					[]testAction{{Type: "a"}},
 					increment(ctx, nil),
 				); err != nil {
 					return err
 				}
-				return st.Dispatch(
+				return st.Dispatcher().WithDispatchKey("second").Dispatch(
 					tx,
 					"c",
-					"second",
 					[]testAction{{Type: "b"}},
 					increment(ctx, nil),
 				)

@@ -28,7 +28,6 @@ import (
 )
 
 var _ = Describe("Directories", func() {
-	var root directory.Key
 	uniqueName := func() string {
 		return "d_" + strings.ReplaceAll(uuid.New().String(), "-", "_")
 	}
@@ -56,7 +55,8 @@ var _ = Describe("Directories", func() {
 			Exec(ctx, nil)).To(Succeed())
 		return []resource.ID{directory.ResourceID(*a.Base().Directory)}
 	}
-	createDirectory := func(ctx SpecContext) directory.Directory {
+	// newDirectory creates a directory under the root as the Core, deleted on cleanup.
+	newDirectory := func(ctx SpecContext) directory.Directory {
 		GinkgoHelper()
 		d := directory.Directory{Name: uniqueName()}
 		Expect(arcSvc.NewWriter(nil).CreateDirectory(ctx, &d, root)).To(Succeed())
@@ -65,15 +65,6 @@ var _ = Describe("Directories", func() {
 		})
 		return d
 	}
-	BeforeEach(func(ctx SpecContext) {
-		var r directory.Directory
-		Expect(arcSvc.NewDirectoryRetrieve().
-			Where(directory.MatchNested(false)).
-			Entry(&r).
-			Exec(ctx, nil)).To(Succeed())
-		root = r.Key
-	})
-
 	Describe("RetrieveDirectories", func() {
 		retrieve := func(ctx SpecContext) ([]directory.Directory, error) {
 			res, err := apiSvc.RetrieveDirectories(
@@ -85,81 +76,139 @@ var _ = Describe("Directories", func() {
 			return res.Directories, err
 		}
 		It("Should retrieve the directories a directory holds", func(ctx SpecContext) {
-			d := createDirectory(ctx)
+			d := newDirectory(ctx)
 			grantOn(ctx, author.ResourceID(), access.ActionRetrieve, d.ResourceID())
 			Expect(retrieve(ctx)).To(ContainElement(d))
 		})
 		It("Should deny a caller without retrieve access", func(ctx SpecContext) {
-			createDirectory(ctx)
+			newDirectory(ctx)
 			Expect(retrieve(ctx)).Error().To(MatchError(access.ErrDenied))
 		})
 	})
 
 	Describe("CreateDirectory", func() {
-		It("Should create a directory under its parent", func(ctx SpecContext) {
-			grantOn(
-				ctx,
-				author.ResourceID(),
-				access.ActionCreate,
-				resource.ID{Type: resource.TypeArcDirectory},
+		createIn := func(
+			ctx SpecContext,
+			parent directory.Key,
+		) (apiarc.CreateDirectoryResponse, error) {
+			return createDirectory(
+				AuthedCtx(ctx, author),
+				apiarc.CreateDirectoryRequest{
+					Parent:    parent,
+					Directory: directory.Directory{Name: uniqueName()},
+				},
 			)
-			res := MustSucceed(apiSvc.CreateDirectory(
-				AuthedCtx(ctx, author),
-				db,
-				apiarc.CreateDirectoryRequest{
-					Parent:    root,
-					Directory: directory.Directory{Name: uniqueName()},
-				},
-			))
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(arcSvc.NewWriter(nil).DeleteDirectory(ctx, res.Directory.Key)).
-					To(Succeed())
-			})
-			Expect(parentsOf(ctx, res.Directory.ResourceID())).
-				To(ConsistOf(directory.ResourceID(root)))
-		})
+		}
+		It(
+			"Should create a directory with create access and update on its parent",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionCreate,
+					resource.ID{Type: resource.TypeArcDirectory},
+				)
+				grantUpdateOn(ctx, author.ResourceID(), directory.ResourceID(root))
+				res := MustSucceed(createIn(ctx, root))
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(
+						arcSvc.NewWriter(nil).DeleteDirectory(ctx, res.Directory.Key),
+					).
+						To(Succeed())
+				})
+				Expect(parentsOf(ctx, res.Directory.ResourceID())).
+					To(ConsistOf(directory.ResourceID(root)))
+			},
+		)
 		It("Should deny a caller without create access", func(ctx SpecContext) {
-			Expect(apiSvc.CreateDirectory(
-				AuthedCtx(ctx, author),
-				db,
-				apiarc.CreateDirectoryRequest{
-					Parent:    root,
-					Directory: directory.Directory{Name: uniqueName()},
-				},
-			)).Error().To(MatchError(access.ErrDenied))
+			grantUpdateOn(ctx, author.ResourceID(), directory.ResourceID(root))
+			Expect(createIn(ctx, root)).Error().To(MatchError(access.ErrDenied))
 		})
+		It(
+			"Should deny a caller without update access to the parent",
+			func(ctx SpecContext) {
+				parent := newDirectory(ctx)
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionCreate,
+					resource.ID{Type: resource.TypeArcDirectory},
+				)
+				Expect(createIn(ctx, parent.Key)).Error().
+					To(denied(author, access.ActionUpdate, parent.ResourceID()))
+			},
+		)
 	})
 
 	Describe("RenameDirectory", func() {
-		It("Should rename a directory", func(ctx SpecContext) {
-			d := createDirectory(ctx)
+		rename := func(ctx SpecContext, d directory.Directory, name string) error {
+			_, err := renameDirectory(
+				AuthedCtx(ctx, author),
+				apiarc.RenameDirectoryRequest{Key: d.Key, Name: name},
+			)
+			return err
+		}
+		It("Should rename a directory with update access to it", func(ctx SpecContext) {
+			d := newDirectory(ctx)
 			grantUpdateOn(ctx, author.ResourceID(), d.ResourceID())
 			name := uniqueName()
-			MustSucceed(apiSvc.RenameDirectory(
-				AuthedCtx(ctx, author),
-				db,
-				apiarc.RenameDirectoryRequest{Key: d.Key, Name: name},
-			))
+			Expect(rename(ctx, d, name)).To(Succeed())
 			Expect(retrieveDirectory(ctx, d.Key).Name).To(Equal(name))
+		})
+		It("Should deny a caller without update access", func(ctx SpecContext) {
+			d := newDirectory(ctx)
+			Expect(rename(ctx, d, uniqueName())).
+				To(denied(author, access.ActionUpdate, d.ResourceID()))
+			Expect(retrieveDirectory(ctx, d.Key).Name).To(Equal(d.Name))
+		})
+		It("Should reject a rename of the root directory", func(ctx SpecContext) {
+			grantUpdateOn(ctx, author.ResourceID(), directory.ResourceID(root))
+			Expect(rename(ctx, retrieveDirectory(ctx, root), uniqueName())).
+				To(MatchError(validate.ErrValidation))
 		})
 	})
 
 	Describe("DeleteDirectory", func() {
-		It("Should delete a directory", func(ctx SpecContext) {
-			d := directory.Directory{Name: uniqueName()}
-			Expect(arcSvc.NewWriter(nil).CreateDirectory(ctx, &d, root)).To(Succeed())
-			grantOn(ctx, author.ResourceID(), access.ActionDelete, d.ResourceID())
-			MustSucceed(apiSvc.DeleteDirectory(
+		deleteDir := func(ctx SpecContext, d directory.Directory) error {
+			_, err := deleteDirectory(
 				AuthedCtx(ctx, author),
-				db,
 				apiarc.DeleteDirectoryRequest{Keys: []directory.Key{d.Key}},
-			))
-			var res directory.Directory
-			Expect(arcSvc.NewDirectoryRetrieve().
-				Where(directory.MatchKeys(d.Key)).
-				Entry(&res).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			)
+			return err
+		}
+		It(
+			"Should delete a directory with delete access and update on its parent",
+			func(ctx SpecContext) {
+				d := directory.Directory{Name: uniqueName()}
+				Expect(arcSvc.NewWriter(nil).CreateDirectory(ctx, &d, root)).
+					To(Succeed())
+				grantOn(ctx, author.ResourceID(), access.ActionDelete, d.ResourceID())
+				grantUpdateOn(ctx, author.ResourceID(), directory.ResourceID(root))
+				Expect(deleteDir(ctx, d)).To(Succeed())
+				var res directory.Directory
+				Expect(arcSvc.NewDirectoryRetrieve().
+					Where(directory.MatchKeys(d.Key)).
+					Entry(&res).
+					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			},
+		)
+		It("Should deny a caller without delete access", func(ctx SpecContext) {
+			d := newDirectory(ctx)
+			grantUpdateOn(ctx, author.ResourceID(), directory.ResourceID(root))
+			Expect(deleteDir(ctx, d)).
+				To(denied(author, access.ActionDelete, d.ResourceID()))
+			Expect(retrieveDirectory(ctx, d.Key).Name).To(Equal(d.Name))
 		})
+		It(
+			"Should deny a caller without update access to the parent",
+			func(ctx SpecContext) {
+				d := newDirectory(ctx)
+				grantOn(ctx, author.ResourceID(), access.ActionDelete, d.ResourceID())
+				Expect(deleteDir(ctx, d)).
+					To(denied(author, access.ActionUpdate, directory.ResourceID(root)))
+				Expect(retrieveDirectory(ctx, d.Key).Name).To(Equal(d.Name))
+			},
+		)
 	})
 
 	Describe("Move", func() {
@@ -179,9 +228,8 @@ var _ = Describe("Directories", func() {
 			from, to directory.Directory,
 			ids ...resource.ID,
 		) error {
-			_, err := apiSvc.Move(
+			_, err := move(
 				AuthedCtx(ctx, author),
-				db,
 				apiarc.MoveRequest{From: from.Key, To: to.Key, IDs: ids},
 			)
 			return err
@@ -189,8 +237,8 @@ var _ = Describe("Directories", func() {
 		It(
 			"Should move an Arc with update access to it and both directories",
 			func(ctx SpecContext) {
-				src := createDirectory(ctx)
-				dst := createDirectory(ctx)
+				src := newDirectory(ctx)
+				dst := newDirectory(ctx)
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,
@@ -206,8 +254,8 @@ var _ = Describe("Directories", func() {
 		It(
 			"Should deny a caller without update access to the source",
 			func(ctx SpecContext) {
-				src := createDirectory(ctx)
-				dst := createDirectory(ctx)
+				src := newDirectory(ctx)
+				dst := newDirectory(ctx)
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,
@@ -223,8 +271,8 @@ var _ = Describe("Directories", func() {
 		It(
 			"Should deny a caller without update access to the destination",
 			func(ctx SpecContext) {
-				src := createDirectory(ctx)
-				dst := createDirectory(ctx)
+				src := newDirectory(ctx)
+				dst := newDirectory(ctx)
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,
@@ -240,8 +288,8 @@ var _ = Describe("Directories", func() {
 		It(
 			"Should deny a caller without update access to the entry",
 			func(ctx SpecContext) {
-				src := createDirectory(ctx)
-				dst := createDirectory(ctx)
+				src := newDirectory(ctx)
+				dst := newDirectory(ctx)
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,
@@ -257,9 +305,9 @@ var _ = Describe("Directories", func() {
 		It(
 			"Should deny moving a directory out of a source the caller cannot edit",
 			func(ctx SpecContext) {
-				src := createDirectory(ctx)
-				dst := createDirectory(ctx)
-				sub := createDirectory(ctx)
+				src := newDirectory(ctx)
+				dst := newDirectory(ctx)
+				sub := newDirectory(ctx)
 				Expect(arcSvc.NewWriter(nil).Move(
 					ctx, root, src.Key, sub.ResourceID(),
 				)).To(Succeed())
@@ -276,11 +324,60 @@ var _ = Describe("Directories", func() {
 			},
 		)
 		It(
+			"Should move an Arc and a directory in one request",
+			func(ctx SpecContext) {
+				src := newDirectory(ctx)
+				dst := newDirectory(ctx)
+				sub := newDirectory(ctx)
+				Expect(arcSvc.NewWriter(nil).Move(
+					ctx, root, src.Key, sub.ResourceID(),
+				)).To(Succeed())
+				a := createArcIn(ctx, src)
+				grantUpdateOn(
+					ctx,
+					author.ResourceID(),
+					a.ResourceID(),
+					sub.ResourceID(),
+					src.ResourceID(),
+					dst.ResourceID(),
+				)
+				Expect(move(ctx, src, dst, a.ResourceID(), sub.ResourceID())).
+					To(Succeed())
+				Expect(parentsOf(ctx, a.ResourceID())).To(ConsistOf(dst.ResourceID()))
+				Expect(parentsOf(ctx, sub.ResourceID())).
+					To(ConsistOf(dst.ResourceID()))
+			},
+		)
+		It(
+			"Should move neither entry when the caller cannot edit one of them",
+			func(ctx SpecContext) {
+				src := newDirectory(ctx)
+				dst := newDirectory(ctx)
+				sub := newDirectory(ctx)
+				Expect(arcSvc.NewWriter(nil).Move(
+					ctx, root, src.Key, sub.ResourceID(),
+				)).To(Succeed())
+				a := createArcIn(ctx, src)
+				grantUpdateOn(
+					ctx,
+					author.ResourceID(),
+					a.ResourceID(),
+					src.ResourceID(),
+					dst.ResourceID(),
+				)
+				Expect(move(ctx, src, dst, a.ResourceID(), sub.ResourceID())).
+					To(denied(author, access.ActionUpdate, sub.ResourceID()))
+				Expect(parentsOf(ctx, a.ResourceID())).To(ConsistOf(src.ResourceID()))
+				Expect(parentsOf(ctx, sub.ResourceID())).
+					To(ConsistOf(src.ResourceID()))
+			},
+		)
+		It(
 			"Should reject a source that does not hold the entry",
 			func(ctx SpecContext) {
-				src := createDirectory(ctx)
-				named := createDirectory(ctx)
-				dst := createDirectory(ctx)
+				src := newDirectory(ctx)
+				named := newDirectory(ctx)
+				dst := newDirectory(ctx)
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,
@@ -297,7 +394,7 @@ var _ = Describe("Directories", func() {
 		It(
 			"Should move within one directory with update access to it",
 			func(ctx SpecContext) {
-				src := createDirectory(ctx)
+				src := newDirectory(ctx)
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,

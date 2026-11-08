@@ -14,17 +14,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -54,11 +56,26 @@ var (
 	userSvc *user.Service
 	arcSvc  *arc.Service
 	apiSvc  *apiarc.Service
-	// dispatch runs the Dispatch route in one transaction, as the API layer binds it.
-	dispatch freighter.UnaryHandler[apiarc.DispatchRequest, struct{}]
-	author   user.User
-	rackSvc  *rack.Service
-	testRack *rack.Rack
+	// The write routes, bound as the API layer binds them.
+	create     freighter.UnaryHandler[apiarc.CreateRequest, apiarc.CreateResponse]
+	del        freighter.UnaryHandler[apiarc.DeleteRequest, struct{}]
+	dispatch   freighter.UnaryHandler[apiarc.DispatchRequest, struct{}]
+	updateTask freighter.UnaryHandler[
+		apiarc.UpdateTaskRequest,
+		apiarc.UpdateTaskResponse,
+	]
+	createDirectory freighter.UnaryHandler[
+		apiarc.CreateDirectoryRequest,
+		apiarc.CreateDirectoryResponse,
+	]
+	renameDirectory freighter.UnaryHandler[apiarc.RenameDirectoryRequest, struct{}]
+	deleteDirectory freighter.UnaryHandler[apiarc.DeleteDirectoryRequest, struct{}]
+	move            freighter.UnaryHandler[apiarc.MoveRequest, struct{}]
+	author          user.User
+	rackSvc         *rack.Service
+	testRack        *rack.Rack
+	// root is the directory that holds every Arc.
+	root directory.Key
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -131,7 +148,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Arc:    arcSvc,
 		Status: statusSvc,
 	}))
-	dispatch = fgorp.CreateWriteUnaryHandler(db, apiSvc.Dispatch)
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	updateTask = bind.Write(binder, apiSvc.UpdateTask)
+	createDirectory = bind.Write(binder, apiSvc.CreateDirectory)
+	renameDirectory = bind.Write(binder, apiSvc.RenameDirectory)
+	deleteDirectory = bind.Write(binder, apiSvc.DeleteDirectory)
+	move = bind.Write(binder, apiSvc.Move)
+	var r directory.Directory
+	Expect(arcSvc.NewDirectoryRetrieve().
+		Where(directory.MatchNested(false)).
+		Entry(&r).
+		Exec(ctx, nil)).To(Succeed())
+	root = r.Key
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
@@ -161,6 +192,19 @@ func grantOn(
 func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
+}
+
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
 }
 
 // textOf returns the text of the text-mode Arc b, failing the spec otherwise.

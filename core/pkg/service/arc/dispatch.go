@@ -19,34 +19,27 @@ import (
 	"go.uber.org/zap"
 )
 
-// Dispatch applies a sequence of actions to the Arc with the given key in tx and
-// attaches them to tx, so the commit of tx carries them to the change channels.
-// dispatchKey is a client-generated identifier carried verbatim onto the actions so the
-// originating client can recognize its own echo.
+// Apply applies a sequence of actions to the Arc with the given key and attaches them
+// to the transaction of w, so its commit carries them to the change channels with the
+// dispatch key of w.
 //
-// When the Arc's text has gone quiet, Dispatch also reclaims the space held by
-// tombstoned characters: it forgets the characters that were already dead before this
-// dispatch and attaches that sweep as a second batch with an empty dispatchKey, so
-// every editor (including the originator, which skips its own echo) applies it.
+// When the Arc's text has gone quiet, Apply also reclaims the space held by tombstoned
+// characters: it forgets the characters that were already dead before this apply and
+// attaches that sweep as a second batch with an empty dispatch key, so every editor
+// (including the originator, which skips its own echo) applies it.
 //
-// Dispatch also schedules a debounced rewrite of the Arc's task config, so a burst of
+// Apply also schedules a debounced rewrite of the Arc's task config, so a burst of
 // edits produces one rewrite instead of one per edit. The rewrite opens its own
-// transaction, so it reads the Arc after tx commits or rolls back.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
+// transaction, so it reads the Arc after the transaction of w commits or rolls back.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	var sweep []Action
-	if err := s.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
 		ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
 			sweep = nil
 			var dead []crdt.ID
 			src, isText := a.Base().Source.Variant.(TextSource)
-			if isText && s.sweeper.quiet(key) {
-				dead = s.sweeper.forgettable(src.Text.Doc)
+			if isText && w.sweeper.quiet(key) {
+				dead = w.sweeper.forgettable(src.Text.Doc)
 			}
 			name := a.Base().Name
 			a, err := Reduce(a, acts...)
@@ -54,7 +47,7 @@ func (s *Service) Dispatch(
 				return a, err
 			}
 			if renamed := a.Base().Name; renamed != name {
-				if err = s.NewWriter(tx).validateName(
+				if err = w.validateName(
 					ctx, ResourceID(key), renamed, a.Type() == TypeModule,
 				); err != nil {
 					return Arc{}, err
@@ -69,18 +62,17 @@ func (s *Service) Dispatch(
 				}
 			}
 			if containsTextEdit(acts) {
-				s.sweeper.recordEdit(key)
+				w.sweeper.recordEdit(key)
 			}
 			return a, nil
-		}).Exec(ctx, tx); err != nil {
+		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	dispatcher := s.state.Dispatcher()
-	dispatcher.WithDispatchKey(dispatchKey).Attach(tx, key, acts...)
+	w.dispatcher.Attach(w.tx, key, acts...)
 	if len(sweep) > 0 {
-		dispatcher.Attach(tx, key, sweep...)
+		w.dispatcher.WithDispatchKey("").Attach(w.tx, key, sweep...)
 	}
-	s.taskSync.Trigger(key)
+	w.taskSync.Trigger(key)
 	return nil
 }
 

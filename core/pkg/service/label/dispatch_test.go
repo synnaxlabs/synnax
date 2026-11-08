@@ -51,7 +51,9 @@ var _ = Describe("Dispatch", func() {
 		acts []label.Action,
 	) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Dispatch(ctx, tx, key, dispatchKey, acts)
+			return svc.NewWriter(tx).
+				WithDispatchKey(dispatchKey).
+				Apply(ctx, key, acts...)
 		})
 	}
 	record := func() *Recorder[label.Key, label.Action] {

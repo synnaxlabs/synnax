@@ -161,7 +161,9 @@ func (s *Service) Dispatch(
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (DispatchResponse, error) {
-	computed, err := s.task.Dispatch(ctx, tx, req.Key, req.DispatchKey, req.Actions)
+	computed, err := s.task.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 	if err != nil {
 		return DispatchResponse{}, err
 	}
@@ -224,9 +226,11 @@ func (s *Service) Rename(
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	_, err := s.task.Dispatch(ctx, tx, req.Key, "", []task.Action{
+	_, err := s.task.NewWriter(tx).Apply(
+		ctx,
+		req.Key,
 		task.NewSetAction(task.SetPayload{Path: []string{"name"}, Value: req.Name}),
-	})
+	)
 	return struct{}{}, err
 }
 
