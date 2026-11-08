@@ -45,8 +45,8 @@ type (
 
 // ServiceConfig is the configuration for the Arc API service.
 type ServiceConfig struct {
-	// DB holds the channels and modules that compilation reads. Compilation reads it
-	// with no snapshot, so it delays no write.
+	// DB holds the channels and modules that compilation reads. Compilation reads it as
+	// channel.CompileConsistent describes.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -252,7 +252,7 @@ func (s *Service) Retrieve(
 
 // Compiled returns a handler that runs retrieve and then, when the request includes
 // programs, compiles each automation that retrieve returns. Compilation runs after
-// retrieve returns, so it holds no read lock and delays no write.
+// retrieve releases its snapshot.
 func (s *Service) Compiled(
 	retrieve freighter.UnaryHandler[RetrieveRequest, RetrieveResponse],
 ) freighter.UnaryHandler[RetrieveRequest, RetrieveResponse] {
