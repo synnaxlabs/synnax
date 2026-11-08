@@ -262,7 +262,7 @@ def run_and_expect_rejection(
                         status = sy.task.Status.model_validate(raw)
                     except ValidationError:
                         continue
-                    if status.details is None or status.details.task != task.key:
+                    if status.owner != sy.task.resource_id(task.key):
                         continue
                     if status.variant in ("warning", "error"):
                         return _status_text(status)
@@ -318,7 +318,7 @@ def _buffered_task_errors(statuses: sy.Streamer, task_key: sy.task.Key) -> list[
                 status = sy.task.Status.model_validate(raw)
             except ValidationError:
                 continue
-            if status.details is None or status.details.task != task_key:
+            if status.owner != sy.task.resource_id(task_key):
                 continue
             if status.variant in ("warning", "error"):
                 errors.append(f"{status.variant}: {_status_text(status)}")

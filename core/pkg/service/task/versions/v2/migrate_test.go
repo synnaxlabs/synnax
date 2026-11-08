@@ -30,6 +30,7 @@ import (
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
@@ -51,7 +52,7 @@ var _ = Describe("Migrations", func() {
 				DB:       db,
 				Ontology: otg,
 			}))
-			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
@@ -59,8 +60,6 @@ var _ = Describe("Migrations", func() {
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
-				Group:    g,
-				Label:    labelSvc,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
@@ -94,9 +93,12 @@ var _ = Describe("Migrations", func() {
 			Expect(otg.NewWriter(nil).DefineResources(ctx, legacyID)).To(Succeed())
 
 			// Legacy data stored the task key as a msgpack float64; the v0 backfill
-			// must read it through the flex decoder before the re-key runs.
+			// must read it through the flex decoder before the re-key runs. The status
+			// migration already gave the status its owner and key.
+			legacyStatusKey, _ := statusv2.MigrateKey(legacyID.String())
 			legacyStatus := status.Status[any]{
-				Key:     "task:" + strconv.FormatUint(uint64(legacyKey), 10),
+				Key:     legacyStatusKey,
+				Owner:   new(legacyID),
 				Name:    "Legacy Task",
 				Variant: status.VariantSuccess,
 				Message: "Started",
@@ -107,9 +109,7 @@ var _ = Describe("Migrations", func() {
 					"cmd":     "start",
 				},
 			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return stat.NewWriter(tx).Set(ctx, &legacyStatus)
-			})).To(Succeed())
+			Expect(stat.NewMigrationWriter(nil).Set(ctx, legacyStatus)).To(Succeed())
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
@@ -137,10 +137,10 @@ var _ = Describe("Migrations", func() {
 
 			var restoredStatus task.Status
 			Expect(stat.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](task.ResourceID(migrated.Key).String())).
+				Where(status.MatchOwners[task.StatusDetails](task.ResourceID(migrated.Key))).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(restoredStatus.Details.Task).To(Equal(migrated.Key))
+			Expect(restoredStatus.Key).To(Equal(legacyStatusKey))
 			Expect(restoredStatus.Details.Running).To(BeTrue())
 			Expect(restoredStatus.Details.Cmd).To(Equal("start"))
 
@@ -169,7 +169,7 @@ var _ = Describe("Migrations", func() {
 				DB:       db,
 				Ontology: otg,
 			}))
-			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
@@ -177,8 +177,6 @@ var _ = Describe("Migrations", func() {
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
-				Group:    g,
-				Label:    labelSvc,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,

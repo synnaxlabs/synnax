@@ -392,8 +392,8 @@ var _ = Describe("Driver", func() {
 
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](
-						task.ResourceID(ghost).String(),
+					Where(status.MatchOwners[task.StatusDetails](
+						task.ResourceID(ghost),
 					)).
 					Entry(&stat).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
@@ -643,8 +643,8 @@ var _ = Describe("Driver", func() {
 				GinkgoHelper()
 				var stat task.Status
 				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](
-						t.ResourceID().String(),
+					Where(status.MatchOwners[task.StatusDetails](
+						t.ResourceID(),
 					)).
 					Entry(&stat).
 					Exec(ctx, nil)).To(Succeed())
@@ -691,7 +691,7 @@ var _ = Describe("Driver", func() {
 				details := task.NewStatusDetails(t, true)
 				details.ConfigHash = "deployed"
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
-					Key:     t.ResourceID().String(),
+					Owner:   new(t.ResourceID()),
 					Name:    t.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
@@ -719,9 +719,8 @@ var _ = Describe("Driver", func() {
 				func(
 					ctx SpecContext,
 				) {
-					Expect(
-						statusSvc.NewWriter(nil).Delete(ctx, t.ResourceID().String()),
-					).
+					sw := statusSvc.NewWriter(nil)
+					Expect(sw.DeleteOwned(ctx, t.ResourceID())).
 						To(Succeed())
 					writeCommand(ctx, task.Command{
 						Task:       t.Key,
@@ -848,7 +847,7 @@ var _ = Describe("Driver", func() {
 									return nil
 								}
 								stat := task.Status{
-									Key:     t.ResourceID().String(),
+									Owner:   new(t.ResourceID()),
 									Name:    t.Name,
 									Variant: status.VariantSuccess,
 									Message: "Stopped task",
@@ -879,8 +878,8 @@ var _ = Describe("Driver", func() {
 				Eventually(func() bool { return stopped.Load() }).Should(BeTrue())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](
-						t.ResourceID().String(),
+					Where(status.MatchOwners[task.StatusDetails](
+						t.ResourceID(),
 					)).
 					Entry(&stat).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
@@ -1046,8 +1045,8 @@ var _ = Describe("Driver", func() {
 				Eventually(func(g Gomega) {
 					var statuses []status.Status[task.StatusDetails]
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](
-							task.ResourceID(t.Key).String(),
+						Where(status.MatchOwners[task.StatusDetails](
+							task.ResourceID(t.Key),
 						)).
 						Entries(&statuses).
 						Exec(ctx, node.DB)).To(Succeed())
@@ -1077,8 +1076,8 @@ var _ = Describe("Driver", func() {
 				Eventually(func(g Gomega) {
 					var stat status.Status[task.StatusDetails]
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](
-							task.ResourceID(t.Key).String(),
+						Where(status.MatchOwners[task.StatusDetails](
+							task.ResourceID(t.Key),
 						)).
 						Entry(&stat).
 						Exec(ctx, node.DB)).To(Succeed())
@@ -1522,8 +1521,8 @@ var _ = Describe("Driver", func() {
 			renamedAt := telem.Now()
 			Eventually(func(g Gomega) {
 				var stat rack.Status
-				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](rack.StatusKey(key))).
+				g.Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.MatchOwners[struct{}](key.ResourceID())).
 					Entry(&stat).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(stat.Time).To(BeNumerically(">", renamedAt))
@@ -1537,13 +1536,14 @@ var _ = Describe("Driver", func() {
 				openDriverWithInterval(ctx, 25*time.Millisecond)
 				key := embeddedRackKey(ctx)
 				renameRack(ctx, key, "Renamed Driver")
-				Expect(statusSvc.NewWriter(nil).Delete(ctx, rack.StatusKey(key))).
+				sw := statusSvc.NewWriter(nil)
+				Expect(sw.DeleteOwned(ctx, key.ResourceID())).
 					To(Succeed())
 				deletedAt := telem.Now()
 				Eventually(func(g Gomega) {
 					var stat rack.Status
-					g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
-						Where(status.MatchKeys[rack.StatusDetails](rack.StatusKey(key))).
+					g.Expect(statusSvc.NewRetrieve[struct{}]().
+						Where(status.MatchOwners[struct{}](key.ResourceID())).
 						Entry(&stat).
 						Exec(ctx, node.DB)).To(Succeed())
 					g.Expect(stat.Time).To(BeNumerically(">", deletedAt))
@@ -1565,11 +1565,11 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 50 * time.Millisecond,
 			}))
 
-			statusKey := embeddedRackKey(ctx).ResourceID().String()
+			owner := embeddedRackKey(ctx).ResourceID()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
+				g.Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.MatchOwners[struct{}](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -1590,12 +1590,12 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
 
-			statusKey := embeddedRackKey(ctx).ResourceID().String()
+			owner := embeddedRackKey(ctx).ResourceID()
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
+				g.Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.MatchOwners[struct{}](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -1604,8 +1604,8 @@ var _ = Describe("Driver", func() {
 
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
+				g.Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.MatchOwners[struct{}](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -1626,11 +1626,11 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 25 * time.Millisecond,
 			})))
 
-			statusKey := embeddedRackKey(ctx).ResourceID().String()
+			owner := embeddedRackKey(ctx).ResourceID()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
+				g.Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.MatchOwners[struct{}](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -1640,16 +1640,16 @@ var _ = Describe("Driver", func() {
 
 			var lastTime telem.TimeStamp
 			var statuses []rack.Status
-			Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
-				Where(status.MatchKeys[rack.StatusDetails](statusKey)).
+			Expect(statusSvc.NewRetrieve[struct{}]().
+				Where(status.MatchOwners[struct{}](owner)).
 				Entries(&statuses).
 				Exec(ctx, node.DB)).To(Succeed())
 			lastTime = statuses[0].Time
 
 			Consistently(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
+				g.Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.MatchOwners[struct{}](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses[0].Time).To(Equal(lastTime))
@@ -1817,7 +1817,7 @@ var _ = Describe("Driver", func() {
 				t.Rack = embeddedRackKey(ctx)
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
-					Key:     t.ResourceID().String(),
+					Owner:   new(t.ResourceID()),
 					Name:    t.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
@@ -1828,7 +1828,7 @@ var _ = Describe("Driver", func() {
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
 				Consistently(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, t.ResourceID().String(),
+						ctx, t.ResourceID(),
 					).Details.Cmd
 				}, 200*time.Millisecond, 50*time.Millisecond).ShouldNot(Equal("cmd-1"))
 			},
@@ -1852,7 +1852,7 @@ var _ = Describe("Driver", func() {
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
 				Eventually(func(g Gomega) {
 					stat := retrieveStatus[task.StatusDetails](
-						ctx, t.ResourceID().String(),
+						ctx, t.ResourceID(),
 					)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
@@ -1885,7 +1885,7 @@ var _ = Describe("Driver", func() {
 				)
 				Eventually(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, t.ResourceID().String(),
+						ctx, t.ResourceID(),
 					).Details.Cmd
 				}).Should(Equal("cmd-1"))
 				otherRack := rack.Rack{Name: "Other Rack"}
@@ -1896,7 +1896,7 @@ var _ = Describe("Driver", func() {
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-2"})
 				Consistently(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, t.ResourceID().String(),
+						ctx, t.ResourceID(),
 					).Details.Cmd
 				}, 200*time.Millisecond, 50*time.Millisecond).ShouldNot(Equal("cmd-2"))
 			},
@@ -1920,7 +1920,7 @@ var _ = Describe("Driver", func() {
 				details := task.NewStatusDetails(t, false)
 				details.Cmd = "cmd-0"
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
-					Key:         t.ResourceID().String(),
+					Owner:       new(t.ResourceID()),
 					Name:        t.Name,
 					Time:        telem.Now(),
 					Variant:     status.VariantError,
@@ -1936,7 +1936,7 @@ var _ = Describe("Driver", func() {
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
 				Eventually(func(g Gomega) {
 					stat := retrieveStatus[task.StatusDetails](
-						ctx, t.ResourceID().String(),
+						ctx, t.ResourceID(),
 					)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
@@ -1971,14 +1971,14 @@ var _ = Describe("Driver", func() {
 				)
 				Eventually(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, t.ResourceID().String(),
+						ctx, t.ResourceID(),
 					).Details.Cmd
 				}).Should(Equal("cmd-1"))
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-2"})
 
 				Eventually(func(g Gomega) {
 					stat := retrieveStatus[task.StatusDetails](
-						ctx, t.ResourceID().String(),
+						ctx, t.ResourceID(),
 					)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
@@ -2084,13 +2084,13 @@ var _ = Describe("Driver", func() {
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-fail"})
 
 			Eventually(func(g Gomega) {
-				stat := retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
+				stat := retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 				g.Expect(stat.Details.Cmd).To(Equal("cmd-fail"))
 				g.Expect(stat.Variant).To(Equal(status.VariantError))
 				g.Expect(stat.Message).To(Equal("Failed to start task"))
 				g.Expect(stat.Description).To(Equal("execution failed"))
 				g.Expect(stat.Name).To(Equal(t.Name))
-				g.Expect(stat.Details.Task).To(Equal(t.Key))
+				g.Expect(stat.Owner).To(HaveValue(Equal(t.ResourceID())))
 				g.Expect(stat.Details.Rack).To(Equal(t.Rack))
 			}).Should(Succeed())
 		})
@@ -2132,7 +2132,7 @@ var _ = Describe("Driver", func() {
 
 			Consistently(func() status.Key {
 				return retrieveStatus[task.StatusDetails](
-					ctx, t.ResourceID().String(),
+					ctx, t.ResourceID(),
 				).Key
 			}, 200*time.Millisecond, 50*time.Millisecond).Should(BeEmpty())
 		})
@@ -2194,7 +2194,7 @@ var _ = Describe("Driver", func() {
 
 				Eventually(func(g Gomega) {
 					stat := retrieveStatus[task.StatusDetails](
-						ctx, t.ResourceID().String(),
+						ctx, t.ResourceID(),
 					)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-panic"))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
@@ -2255,7 +2255,7 @@ var _ = Describe("Driver", func() {
 				)
 				Eventually(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, t.ResourceID().String(),
+						ctx, t.ResourceID(),
 					).Details.Cmd
 				}).Should(Equal("cmd-1"))
 
@@ -2263,7 +2263,7 @@ var _ = Describe("Driver", func() {
 
 				Eventually(func(g Gomega) {
 					stat := retrieveStatus[task.StatusDetails](
-						ctx, t.ResourceID().String(),
+						ctx, t.ResourceID(),
 					)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
@@ -2323,7 +2323,7 @@ var _ = Describe("Driver", func() {
 				writeCommand(ctx, task.Command{Task: scanTask.Key, Type: "start"})
 				Eventually(func() bool {
 					return retrieveStatus[task.StatusDetails](
-						ctx, scanTask.ResourceID().String(),
+						ctx, scanTask.ResourceID(),
 					).Details.Running
 				}).Should(BeTrue())
 				writeCommand(ctx, task.Command{
@@ -2337,7 +2337,7 @@ var _ = Describe("Driver", func() {
 				Eventually(scanner.release).Should(BeSent(struct{}{}))
 				Eventually(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, scanTask.ResourceID().String(),
+						ctx, scanTask.ResourceID(),
 					).Details.Cmd
 				}).Should(Equal("cmd-wait"))
 			},
@@ -2390,8 +2390,8 @@ var _ = Describe("Driver", func() {
 			Eventually(func(g Gomega) {
 				var stat status.Status[task.StatusDetails]
 				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](
-						task.ResourceID(t.Key).String(),
+					Where(status.MatchOwners[task.StatusDetails](
+						task.ResourceID(t.Key),
 					)).
 					Entry(&stat).
 					Exec(ctx, node.DB)).To(Succeed())
@@ -2448,7 +2448,7 @@ var _ = Describe("Driver", func() {
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
 			Eventually(execStarted).Should(Receive())
 			Eventually(func(g Gomega) {
-				stat := retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
+				stat := retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 				g.Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 				g.Expect(stat.Variant).To(Equal(status.VariantError))
 				g.Expect(stat.Message).To(Equal("Failed to start task"))

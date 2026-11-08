@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -81,3 +82,11 @@ parse_ids(const std::vector<std::string> &strs);
 /// @returns A vector of strings in "type:key" format.
 [[nodiscard]] std::vector<std::string> ids_to_strings(const std::vector<ID> &ids);
 }
+
+/// @brief Hash support for use in std::unordered_map/set.
+template<>
+struct std::hash<synnax::resource::ID> {
+    size_t operator()(const synnax::resource::ID &id) const noexcept {
+        return std::hash<std::string>()(id.string());
+    }
+};

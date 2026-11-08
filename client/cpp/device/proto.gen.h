@@ -92,7 +92,6 @@ inline std::pair<::service::device::pb::StatusDetails, x::errors::Error>
 StatusDetails::to_proto() const {
     ::service::device::pb::StatusDetails pb;
     pb.set_rack(this->rack);
-    pb.set_device(this->device);
     pb.set_connected(this->connected);
     if (this->data.has_value()) {
         auto [v, err] = x::json::to_struct(*this->data);
@@ -106,7 +105,6 @@ inline std::pair<StatusDetails, x::errors::Error>
 StatusDetails::from_proto(const ::service::device::pb::StatusDetails &pb) {
     StatusDetails cpp;
     cpp.rack = pb.rack();
-    cpp.device = pb.device();
     cpp.connected = pb.connected();
     if (pb.has_data()) {
         auto [v, err] = x::json::from_struct(pb.data());

@@ -582,12 +582,12 @@ describe("cached reads", () => {
         }),
       ]);
       // One status request needs both statuses to exist: the calculation
-      // engine only writes them once data flows, so seed them directly.
+      // engine only writes them once data flows, so create them directly.
       await Promise.all(
         created.map(
           async ({ key }) =>
             await client.statuses.set({
-              key: channel.statusKey(key),
+              owner: channel.resourceID(key),
               name: "Calculation Status",
               variant: "info",
               message: "calculating",
@@ -839,12 +839,11 @@ describe("cached reads", () => {
 
     const setStatus = async (calc: channel.Channel, message: string) =>
       await client.statuses.set({
-        key: channel.statusKey(calc.key),
+        owner: channel.resourceID(calc.key),
         name: calc.name,
         variant: "error",
         message,
         time: TimeStamp.now(),
-        details: { channel: calc.key },
       });
 
     const createCalculatedWithStatus = async () => {
@@ -855,7 +854,10 @@ describe("cached reads", () => {
 
     const createCalculatedWithoutStatus = async () => {
       const calc = await createCalculated();
-      await client.statuses.delete(channel.statusKey(calc.key));
+      const held = await client.statuses.retrieve({
+        where: { owners: [channel.resourceID(calc.key)] },
+      });
+      await client.statuses.delete(held.map((s) => s.key));
       return calc;
     };
 
@@ -1025,7 +1027,7 @@ describe("cached reads", () => {
 
     const setStatus = async (key: number, message: string): Promise<void> => {
       await remote.statuses.set({
-        key: channel.statusKey(key),
+        owner: channel.resourceID(key),
         name: "Calculation Status",
         variant: "info",
         message,
@@ -1104,7 +1106,7 @@ describe("cached reads", () => {
         const child = await client.ranges.create({
           name: `qry-${id.create()}`,
           timeRange: new TimeRange(start, start.add(TimeStamp.seconds(1))),
-          parent,
+          parent: parent.key,
         });
         const inherited = `qry_alias_${id.create()}`;
         await client.ranges.setAlias(parent.key, ch.key, inherited);

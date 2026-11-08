@@ -66,7 +66,7 @@ func (db *DB) OpenTx() Tx {
 			zap.Duration("wait", wait),
 		)
 	}
-	return &tx{Tx: db.DB.OpenTx(), options: db.options, unlock: db.lock.Unlock}
+	return &tx{Tx: db.DB.OpenTx(), options: db.options, db: db, unlock: db.lock.Unlock}
 }
 
 // Set sets key to value in a transaction of its own.
@@ -247,6 +247,20 @@ type tx struct {
 	state txState
 	// unlock releases the write lock of the DB. It is nil once the transaction ends.
 	unlock func()
+	// db is the DB that opened the transaction.
+	db *DB
+}
+
+// txDB returns the DB of tx, or nil when tx is neither a DB nor one of its
+// transactions.
+func txDB(t Tx) *DB {
+	switch t := t.(type) {
+	case *DB:
+		return t
+	case *tx:
+		return t.db
+	}
+	return nil
 }
 
 var _ Tx = (*tx)(nil)

@@ -15,10 +15,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/observe"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -834,5 +839,57 @@ var _ = Describe("Retrieve", func() {
 			Expect(id.Type).To(Equal(resource.Type("c")))
 			Expect(id.Key).To(Equal(""))
 		})
+	})
+})
+
+var _ = Describe("Parents of a relationship a migration writes", func() {
+	var (
+		hostDB *gorp.DB
+		host   *ontology.Ontology
+		a, b   resource.ID
+		rel    ontology.Relationship
+	)
+	BeforeEach(func(ctx SpecContext) {
+		hostDB = DeferClose(gorp.Wrap(
+			memkv.New(),
+			gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
+		))
+		host = MustOpen(ontology.Open(ctx, ontology.Config{DB: hostDB}))
+		host.RegisterService(&sampleService{})
+		a, b = newSampleType("A"), newSampleType("B")
+		Expect(host.NewWriter(nil).DefineResources(ctx, a, b)).To(Succeed())
+		rel = ontology.Relationship{
+			From: a,
+			Type: ontology.RelationshipTypeParentOf,
+			To:   b,
+		}
+	})
+	parents := func(ctx SpecContext) []resource.ID {
+		GinkgoHelper()
+		var res []ontology.Resource
+		Expect(host.NewRetrieve().
+			WhereIDs(b).
+			TraverseTo(ontology.ParentsTraverser).
+			Entries(&res).
+			Exec(ctx, nil)).To(Succeed())
+		return lo.Map(res, func(r ontology.Resource, _ int) resource.ID { return r.ID })
+	}
+
+	It("Should find a relationship that a migration sets", func(ctx SpecContext) {
+		Expect(hostDB.WithTx(ctx, func(tx gorp.Tx) error {
+			return gorp.WrapWriter[string, ontologyv0.Relationship](tx).Set(ctx, rel)
+		})).To(Succeed())
+		Expect(parents(ctx)).To(ConsistOf(a))
+	})
+
+	It("Should drop a relationship that a migration deletes", func(ctx SpecContext) {
+		Expect(host.NewWriter(nil).DefineRelationships(
+			ctx, a, ontology.RelationshipTypeParentOf, b,
+		)).To(Succeed())
+		Expect(parents(ctx)).To(ConsistOf(a))
+		Expect(hostDB.WithTx(ctx, func(tx gorp.Tx) error {
+			return ontologyv0.DeleteRelationships(ctx, tx, rel)
+		})).To(Succeed())
+		Expect(parents(ctx)).To(BeEmpty())
 	})
 })

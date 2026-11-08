@@ -11,6 +11,8 @@ package ranger_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,11 +21,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -89,249 +90,199 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).To(Equal(k))
 		})
-		Context("Parent Management", func() {
-			It("Should set a custom parent for the range", func(ctx SpecContext) {
-				parent := ranger.Range{
-					Name:      "Parent",
+		Context("Parent", func() {
+			create := func(ctx SpecContext, name string, parent *ranger.Key) ranger.Range {
+				GinkgoHelper()
+				r := ranger.Range{
+					Name:      name,
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Parent:    parent,
 				}
-				Expect(w.Create(ctx, &parent)).To(Succeed())
+				Expect(w.Create(ctx, &r)).To(Succeed())
+				return r
+			}
+			retrieve := func(ctx SpecContext, key ranger.Key) ranger.Range {
+				GinkgoHelper()
+				var r ranger.Range
+				Expect(svc.NewRetrieve().
+					Where(ranger.MatchKeys(key)).
+					Entry(&r).
+					Exec(ctx, tx)).To(Succeed())
+				return r
+			}
+			It("Should store the parent of the range", func(ctx SpecContext) {
+				parent := create(ctx, "Parent", nil)
+				r := create(ctx, "Range", &parent.Key)
+				Expect(retrieve(ctx, r.Key).Parent).To(HaveValue(Equal(parent.Key)))
+			})
+			It(
+				"Should keep the stored parent when a create has none",
+				func(ctx SpecContext) {
+					parent := create(ctx, "Parent", nil)
+					r := create(ctx, "Range", &parent.Key)
+					r.Parent = nil
+					Expect(w.Create(ctx, &r)).To(Succeed())
+					Expect(r.Parent).To(HaveValue(Equal(parent.Key)))
+					Expect(retrieve(ctx, r.Key).Parent).To(HaveValue(Equal(parent.Key)))
+				},
+			)
+			It(
+				"Should replace the parent when a create has a new one",
+				func(ctx SpecContext) {
+					first, second := create(
+						ctx,
+						"First",
+						nil,
+					), create(
+						ctx,
+						"Second",
+						nil,
+					)
+					r := create(ctx, "Range", &first.Key)
+					r.Parent = &second.Key
+					Expect(w.Create(ctx, &r)).To(Succeed())
+					Expect(retrieve(ctx, r.Key).Parent).To(HaveValue(Equal(second.Key)))
+				},
+			)
+			It("Should find the children of a range", func(ctx SpecContext) {
+				parent := create(ctx, "Parent", nil)
+				a, b := create(ctx, "A", &parent.Key), create(ctx, "B", &parent.Key)
+				create(ctx, "Other", nil)
+				var children []ranger.Range
+				Expect(svc.NewRetrieve().
+					Where(ranger.MatchParents(parent.Key)).
+					Entries(&children).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(lo.Map(children, func(r ranger.Range, _ int) ranger.Key {
+					return r.Key
+				})).To(ConsistOf(a.Key, b.Key))
+			})
+			It("Should reject a parent that does not exist", func(ctx SpecContext) {
+				missing := uuid.New()
+				r := ranger.Range{
+					Name:      "Range",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Parent:    &missing,
+				}
+				err := w.Create(ctx, &r)
+				Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+				Expect(err).To(MatchError(
+					"parent: range " + missing.String() + " does not exist: validation error",
+				))
+			})
+			It("Should reject a parent that is a descendant", func(ctx SpecContext) {
+				grandparent := create(ctx, "Grandparent", nil)
+				parent := create(ctx, "Parent", &grandparent.Key)
+				child := create(ctx, "Child", &parent.Key)
+				grandparent.Parent = &child.Key
+				err := w.Create(ctx, &grandparent)
+				Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+				Expect(err).To(MatchError(
+					"parent: range " + grandparent.Key.String() +
+						" would form a cycle: validation error",
+				))
+			})
+		})
+		Context("Labels", func() {
+			createLabel := func(ctx SpecContext, name string) label.Key {
+				GinkgoHelper()
+				l := &label.Label{Name: name}
+				Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
+				return l.Key
+			}
+			labelsOf := func(ctx SpecContext, key ranger.Key) []label.Key {
+				GinkgoHelper()
+				var r ranger.Range
+				Expect(svc.NewRetrieve().
+					Where(ranger.MatchKeys(key)).
+					Entry(&r).
+					Exec(ctx, tx)).To(Succeed())
+				return r.Labels
+			}
+			It(
+				"Should keep the stored labels on an update and ignore the carried ones",
+				func(ctx SpecContext) {
+					a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+					r := &ranger.Range{
+						Name:      "Range",
+						TimeRange: telem.SecondTS.SpanRange(telem.Second),
+						Labels:    []label.Key{a},
+					}
+					Expect(w.Create(ctx, r)).To(Succeed())
+					Expect(labelsOf(ctx, r.Key)).To(Equal([]label.Key{a}))
+					r.Labels = []label.Key{b}
+					Expect(w.Create(ctx, r)).To(Succeed())
+					Expect(r.Labels).To(Equal([]label.Key{a}))
+					Expect(labelsOf(ctx, r.Key)).To(Equal([]label.Key{a}))
+				},
+			)
+			It("Should reject a label that does not exist", func(ctx SpecContext) {
+				missing := uuid.New()
 				r := &ranger.Range{
 					Name:      "Range",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					Parent:    &parent,
+					Labels:    []label.Key{missing},
+				}
+				err := w.Create(ctx, r)
+				Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+				Expect(err).To(MatchError(
+					"labels: label " + missing.String() + " does not exist: validation error",
+				))
+			})
+			It("Should add and replace labels", func(ctx SpecContext) {
+				a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+				r := &ranger.Range{
+					Name:      "Range",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Labels:    []label.Key{a},
 				}
 				Expect(w.Create(ctx, r)).To(Succeed())
-				var res ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(parent.ResourceID()).
-					TraverseTo(ontology.ChildrenTraverser).
-					Entry(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res.ID.Key).To(Equal(r.Key.String()))
+				Expect(w.AddLabels(ctx, r.Key, []label.Key{b})).To(Succeed())
+				Expect(labelsOf(ctx, r.Key)).To(ConsistOf(a, b))
+				Expect(w.ReplaceLabels(ctx, r.Key, []label.Key{b})).To(Succeed())
+				Expect(labelsOf(ctx, r.Key)).To(Equal([]label.Key{b}))
+			})
+			It("Should remove labels", func(ctx SpecContext) {
+				a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+				r := &ranger.Range{
+					Name:      "Range",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Labels:    []label.Key{a, b},
+				}
+				Expect(w.Create(ctx, r)).To(Succeed())
+				Expect(w.RemoveLabels(ctx, r.Key, []label.Key{a})).To(Succeed())
+				Expect(labelsOf(ctx, r.Key)).To(Equal([]label.Key{b}))
 			})
 			It(
-				"Should NOT re-set the custom parent when the range exists but no parent is provided",
+				"Should remove a deleted label from the ranges that hold it",
 				func(ctx SpecContext) {
-					parent := ranger.Range{
-						Name:      "Parent",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					}
-					Expect(w.Create(ctx, &parent)).To(Succeed())
+					a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
 					r := &ranger.Range{
 						Name:      "Range",
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-						Parent:    &parent,
+						Labels:    []label.Key{a, b},
 					}
 					Expect(w.Create(ctx, r)).To(Succeed())
-					r.Parent = nil
-					Expect(w.Create(ctx, r)).To(Succeed())
-					var res ontology.Resource
-					Expect(otg.NewRetrieve().
-						WhereIDs(parent.ResourceID()).
-						TraverseTo(ontology.ChildrenTraverser).
-						Entry(&res).
-						Exec(ctx, tx)).To(Succeed())
-					Expect(res.ID.Key).To(Equal(r.Key.String()))
+					Expect(labelSvc.NewWriter(tx).Delete(ctx, a)).To(Succeed())
+					Expect(labelsOf(ctx, r.Key)).To(Equal([]label.Key{b}))
 				},
 			)
-			It(
-				"Should change the custom parent when the range exists and a new parent is provided",
-				func(ctx SpecContext) {
-					parent1 := ranger.Range{
-						Name:      "Parent1",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					}
-					Expect(w.Create(ctx, &parent1)).To(Succeed())
-					parent2 := ranger.Range{
-						Name:      "Parent2",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					}
-					Expect(w.Create(ctx, &parent2)).To(Succeed())
-					r := &ranger.Range{
-						Name:      "Range",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-						Parent:    &parent1,
-					}
-					Expect(w.Create(ctx, r)).To(Succeed())
-					r.Parent = &parent2
-					Expect(w.Create(ctx, r)).To(Succeed())
-					var res ontology.Resource
-					Expect(otg.NewRetrieve().
-						WhereIDs(parent2.ResourceID()).
-						TraverseTo(ontology.ChildrenTraverser).
-						Entry(&res).
-						Exec(ctx, tx)).To(Succeed())
-					Expect(res.ID.Key).To(Equal(r.Key.String()))
-					var res2 ontology.Resource
-					Expect(otg.NewRetrieve().
-						WhereIDs(parent1.ResourceID()).
-						TraverseTo(ontology.ChildrenTraverser).
-						Entry(&res2).
-						Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-				},
-			)
-			It(
-				"Should create multiple ranges with the same parent",
-				func(ctx SpecContext) {
-					parent := ranger.Range{
-						Name:      "Parent",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					}
-					Expect(w.Create(ctx, &parent)).To(Succeed())
-					r1 := ranger.Range{
-						Name:      "Range1",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-						Parent:    &parent,
-					}
-					r2 := ranger.Range{
-						Name:      "Range2",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-						Parent:    &parent,
-					}
-					Expect(w.CreateMany(ctx, &[]ranger.Range{r1, r2})).To(Succeed())
-					var res []ontology.Resource
-					Expect(otg.NewRetrieve().
-						WhereIDs(parent.ResourceID()).
-						TraverseTo(ontology.ChildrenTraverser).
-						Entries(&res).
-						Exec(ctx, tx)).To(Succeed())
-					Expect(res).To(HaveLen(2))
-				},
-			)
-			It(
-				"Should resolve the parent's name and time range on create",
-				func(ctx SpecContext) {
-					parent := ranger.Range{
-						Name:      "Parent",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					}
-					Expect(w.Create(ctx, &parent)).To(Succeed())
-					child := &ranger.Range{
-						Name:      "Range",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-						Parent:    &ranger.Range{Key: parent.Key},
-					}
-					Expect(w.Create(ctx, child)).To(Succeed())
-					Expect(child.Parent.Name).To(Equal("Parent"))
-					Expect(child.Parent.TimeRange).To(Equal(parent.TimeRange))
-				},
-			)
-			It(
-				"Should NOT resolve the parent's labels on create",
-				func(ctx SpecContext) {
-					l := &label.Label{Name: "L"}
-					Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
-					parent := ranger.Range{
-						Name:      "Parent",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-						Labels:    []label.Label{*l},
-					}
-					Expect(w.Create(ctx, &parent)).To(Succeed())
-					child := &ranger.Range{
-						Name:      "Range",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-						Parent:    &ranger.Range{Key: parent.Key},
-					}
-					Expect(w.Create(ctx, child)).To(Succeed())
-					Expect(child.Parent.Labels).To(BeEmpty())
-				},
-			)
-			It(
-				"Should not resolve the parent's own parent on create",
-				func(ctx SpecContext) {
-					grandparent := ranger.Range{
-						Name:      "Grandparent",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					}
-					Expect(w.Create(ctx, &grandparent)).To(Succeed())
-					parent := ranger.Range{
-						Name:      "Parent",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-						Parent:    &grandparent,
-					}
-					Expect(w.Create(ctx, &parent)).To(Succeed())
-					child := &ranger.Range{
-						Name:      "Range",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-						Parent:    &ranger.Range{Key: parent.Key},
-					}
-					Expect(w.Create(ctx, child)).To(Succeed())
-					Expect(child.Parent.Parent).To(BeNil())
-				},
-			)
-		})
-		Context("Label Management", func() {
-			It(
-				"Should define LabeledBy relationships for labels on the range",
-				func(ctx SpecContext) {
-					l1 := &label.Label{Name: "L1"}
-					l2 := &label.Label{Name: "L2"}
-					Expect(labelSvc.NewWriter(tx).Create(ctx, l1)).To(Succeed())
-					Expect(labelSvc.NewWriter(tx).Create(ctx, l2)).To(Succeed())
-					r := &ranger.Range{
-						Name:      "Labeled",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-						Labels:    []label.Label{*l1, *l2},
-					}
-					Expect(w.Create(ctx, r)).To(Succeed())
-					resolved := MustSucceed(
-						labelSvc.RetrieveFor(ctx, r.ResourceID(), tx),
-					)
-					resolvedKeys := lo.Map(
-						resolved,
-						func(l label.Label, _ int) label.Key { return l.Key },
-					)
-					Expect(resolvedKeys).To(ConsistOf(l1.Key, l2.Key))
-				},
-			)
-			It(
-				"Should leave label relationships untouched when r.Labels is empty",
-				func(ctx SpecContext) {
-					l := &label.Label{Name: "Existing"}
-					Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
-					r := &ranger.Range{
-						Name:      "Range",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					}
-					Expect(w.Create(ctx, r)).To(Succeed())
-					Expect(
-						labelSvc.NewWriter(tx).
-							Label(ctx, r.ResourceID(), []label.Key{l.Key}),
-					).To(Succeed())
-					Expect(w.Create(ctx, r)).To(Succeed())
-					resolved := MustSucceed(
-						labelSvc.RetrieveFor(ctx, r.ResourceID(), tx),
-					)
-					Expect(resolved).To(HaveLen(1))
-					Expect(resolved[0].Key).To(Equal(l.Key))
-				},
-			)
-			It(
-				"Should add to existing label relationships when a range is re-created with new labels",
-				func(ctx SpecContext) {
-					l1 := &label.Label{Name: "First"}
-					l2 := &label.Label{Name: "Second"}
-					Expect(labelSvc.NewWriter(tx).Create(ctx, l1)).To(Succeed())
-					Expect(labelSvc.NewWriter(tx).Create(ctx, l2)).To(Succeed())
-					r := &ranger.Range{
-						Name:      "Range",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-						Labels:    []label.Label{*l1},
-					}
-					Expect(w.Create(ctx, r)).To(Succeed())
-					r.Labels = []label.Label{*l2}
-					Expect(w.Create(ctx, r)).To(Succeed())
-					resolved := MustSucceed(
-						labelSvc.RetrieveFor(ctx, r.ResourceID(), tx),
-					)
-					keys := lo.Map(
-						resolved,
-						func(l label.Label, _ int) label.Key { return l.Key },
-					)
-					Expect(keys).To(ConsistOf(l1.Key, l2.Key))
-				},
-			)
+			It("Should find the ranges that hold a label", func(ctx SpecContext) {
+				a := createLabel(ctx, "A")
+				r := &ranger.Range{
+					Name:      "Range",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Labels:    []label.Key{a},
+				}
+				Expect(w.Create(ctx, r)).To(Succeed())
+				var res []ranger.Range
+				Expect(svc.NewRetrieve().
+					Where(ranger.MatchLabels(a)).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(HaveLen(1))
+				Expect(res[0].Key).To(Equal(r.Key))
+			})
 		})
 	})
 
@@ -371,7 +322,7 @@ var _ = Describe("Writer", func() {
 						Start: telem.TimeStamp(7 * telem.Second),
 						End:   telem.TimeStamp(9 * telem.Second),
 					},
-					Parent: &parent,
+					Parent: &parent.Key,
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 				Expect(svc.NewWriter(tx).Delete(ctx, parent.Key)).To(Succeed())
@@ -432,13 +383,13 @@ var _ = Describe("Writer", func() {
 				parent := ranger.Range{
 					Name:      "Parent",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					Parent:    &grandparent,
+					Parent:    &grandparent.Key,
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
 				child := ranger.Range{
 					Name:      "Child",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					Parent:    &parent,
+					Parent:    &parent.Key,
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, &child)).To(Succeed())
 				Expect(svc.NewWriter(tx).Delete(ctx, grandparent.Key)).To(Succeed())
@@ -492,7 +443,7 @@ var _ = Describe("Writer broadcasts", func() {
 		return res
 	}
 
-	It("Should broadcast a create without labels or parent", func(ctx SpecContext) {
+	It("Should broadcast a create with labels and parent", func(ctx SpecContext) {
 		openTx()
 		parent := newRange()
 		Expect(w.Create(ctx, parent)).To(Succeed())
@@ -501,7 +452,7 @@ var _ = Describe("Writer broadcasts", func() {
 		rec := &Recorder[ranger.Key, ranger.Action]{}
 		DeferCleanup(svc.OnAction(rec.Record))
 		r := newRange()
-		r.Parent, r.Labels = &ranger.Range{Key: parent.Key}, []label.Label{l}
+		r.Parent, r.Labels = &parent.Key, []label.Key{l.Key}
 		Expect(w.WithDispatchKey("dk-create").Create(ctx, r)).To(Succeed())
 		Expect(rec.Snapshot()).To(BeEmpty())
 		commit(ctx, parent.Key, r.Key)
@@ -518,9 +469,59 @@ var _ = Describe("Writer broadcasts", func() {
 				Key:       r.Key,
 				Name:      r.Name,
 				TimeRange: r.TimeRange,
+				Labels:    []label.Key{l.Key},
+				Parent:    &parent.Key,
 			}}),
 		}))
 	})
+
+	It("Should broadcast a label edit as a set of the labels", func(ctx SpecContext) {
+		openTx()
+		l := label.Label{Key: uuid.New(), Name: "Label"}
+		Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+		r := newRange()
+		Expect(w.Create(ctx, r)).To(Succeed())
+		rec := &Recorder[ranger.Key, ranger.Action]{}
+		DeferCleanup(svc.OnAction(rec.Record))
+		Expect(w.AddLabels(ctx, r.Key, []label.Key{l.Key})).To(Succeed())
+		commit(ctx, r.Key)
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(labelSvc.NewWriter(db).Delete(ctx, l.Key)).To(Succeed())
+		})
+		frames := framesOf(rec, r.Key)
+		Expect(frames).To(HaveLen(2))
+		Expect(frames[1].Actions).To(HaveLen(1))
+		Expect(frames[1].Actions[0].Set.Path).To(Equal([]string{"labels"}))
+	})
+
+	It(
+		"Should broadcast the labels a range keeps when a label delete detaches one",
+		func(ctx SpecContext) {
+			openTx()
+			deleted := label.Label{Key: uuid.New(), Name: "Deleted"}
+			kept := label.Label{Key: uuid.New(), Name: "Kept"}
+			Expect(labelSvc.NewWriter(tx).Create(ctx, &deleted)).To(Succeed())
+			Expect(labelSvc.NewWriter(tx).Create(ctx, &kept)).To(Succeed())
+			r := newRange()
+			r.Labels = []label.Key{deleted.Key, kept.Key}
+			Expect(w.Create(ctx, r)).To(Succeed())
+			commit(ctx, r.Key)
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(labelSvc.NewWriter(db).Delete(ctx, kept.Key)).To(Succeed())
+			})
+			rec := &Recorder[ranger.Key, ranger.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(labelSvc.NewWriter(db).Delete(ctx, deleted.Key)).To(Succeed())
+			frames := framesOf(rec, r.Key)
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].Actions).To(Equal([]ranger.Action{
+				ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"labels"},
+					Value: []label.Key{kept.Key},
+				}),
+			}))
+		},
+	)
 
 	It("Should not broadcast a create that never commits", func(ctx SpecContext) {
 		rec := &Recorder[ranger.Key, ranger.Action]{}
@@ -530,4 +531,57 @@ var _ = Describe("Writer broadcasts", func() {
 		Expect(uncommitted.Close()).To(Succeed())
 		Expect(rec.Snapshot()).To(BeEmpty())
 	})
+})
+
+var _ = Describe("Writer with no transaction", func() {
+	It(
+		"Should keep the labels that adds write during concurrent creates",
+		func(ctx SpecContext) {
+			labels := make([]label.Key, 20)
+			for i := range labels {
+				l := label.Label{Name: fmt.Sprintf("Concurrent %d", i)}
+				Expect(labelSvc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+				labels[i] = l.Key
+			}
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(labelSvc.NewWriter(nil).Delete(ctx, labels...)).To(Succeed())
+			})
+			r := ranger.Range{
+				Name: "Concurrent",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, r.Key)).To(Succeed())
+			})
+			var wg sync.WaitGroup
+			wg.Go(func() {
+				defer GinkgoRecover()
+				for range 100 {
+					update := r
+					Expect(svc.NewWriter(nil).Create(ctx, &update)).To(Succeed())
+				}
+			})
+			wg.Go(func() {
+				defer GinkgoRecover()
+				for _, l := range labels {
+					Expect(svc.NewWriter(nil).AddLabels(
+						ctx,
+						r.Key,
+						[]label.Key{l},
+					)).To(Succeed())
+				}
+			})
+			wg.Wait()
+			var stored ranger.Range
+			Expect(svc.NewRetrieve().
+				Where(ranger.MatchKeys(r.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Labels).To(ConsistOf(labels))
+		},
+	)
 })

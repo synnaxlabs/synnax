@@ -90,7 +90,7 @@ class TestTaskClient:
         res = client.tasks.retrieve(key=task.key, include_status=True)
         assert isinstance(res.status, sy.task.Status)
         assert res.status.details is not None
-        assert res.status.details.task == task.key
+        assert res.status.owner == task.resource_id
 
     def test_retrieve_by_rack(self, client: sy.Synnax) -> None:
         """Should return a list of only the tasks on the given rack."""
@@ -244,14 +244,10 @@ class TestTaskClient:
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
                 client.statuses.set(
                     sy.task.Status(
-                        key=str(sy.task.resource_id(cmd.task)),
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Command executed.",
-                        details=sy.task.StatusDetails(
-                            task=cmd.task,
-                            running=False,
-                            cmd=cmd.key,
-                        ),
+                        details=sy.task.StatusDetails(running=False, cmd=cmd.key),
+                        owner=sy.task.resource_id(cmd.task),
                     )
                 )
 

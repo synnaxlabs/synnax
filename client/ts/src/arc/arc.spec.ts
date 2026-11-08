@@ -215,11 +215,10 @@ describe("arc", () => {
         expect(res?.key).toEqual(tsk.key);
         await client.statuses.set(
           status.create<ReturnType<typeof task.statusDetailsZ>>({
-            key: task.statusKey(tsk.key),
+            owner: task.resourceID(tsk.key),
             variant: "error",
             message: "Task failed",
             details: {
-              task: tsk.key,
               running: false,
               cmd: "",
               configHash: "",

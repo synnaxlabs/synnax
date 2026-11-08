@@ -159,9 +159,9 @@ export const createTaskStatus = (
     message: "Running smoothly",
     description: "",
     time: TimeStamp.now(),
+    labels: [],
     ...rest,
     details: {
-      task: "0",
       running: false,
       cmd: "",
       configHash: "",
@@ -573,8 +573,8 @@ export const reportTaskRunning = async (
 ): Promise<void> => {
   await client.statuses.set(
     createTaskStatus({
-      key: task.statusKey(tsk.key),
-      details: { task: tsk.key, running: true, configHash, rack: tsk.rack },
+      owner: task.resourceID(tsk.key),
+      details: { running: true, configHash, rack: tsk.rack },
     }),
   );
 };
@@ -592,7 +592,7 @@ export const reportTaskStopped = async (
     ...tsk,
     status: createTaskStatus({
       message: "Task stopped",
-      details: { task: tsk.key, running: false, configHash: tsk.configHash },
+      details: { running: false, configHash: tsk.configHash },
     }),
   });
 };
@@ -618,7 +618,7 @@ export const answerCommand = async (
     ...tsk.payload,
     status: createTaskStatus({
       ...answer,
-      details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack, data },
+      details: { cmd: cmd.key, rack: tsk.rack, data },
     }),
   });
 };

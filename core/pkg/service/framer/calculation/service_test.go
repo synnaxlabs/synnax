@@ -124,16 +124,14 @@ var _ = Describe("Calculation", Ordered, func() {
 			DB:       dist.DB,
 			Ontology: otg,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: otg,
 			Group:    groupSvc,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
-			Group:    groupSvc,
 			Ontology: otg,
-			Label:    labelSvc,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      dist.Channel,
@@ -918,9 +916,9 @@ var _ = Describe("Calculation", Ordered, func() {
 					rm.Set(ctx, channel.KeysFromChannels([]channel.Channel{calc})),
 				).To(Succeed())
 				var st calculation.Status
-				statusKey := calc.ResourceID().String()
+				owner := calc.ResourceID()
 				Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchKeys[struct{}](statusKey)).
+					Where(status.MatchOwners[struct{}](owner)).
 					Entry(&st).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(st.Variant).To(Equal(status.VariantError))
@@ -961,10 +959,10 @@ var _ = Describe("Calculation", Ordered, func() {
 				),
 				).To(Succeed())
 				var st calculation.Status
-				statusKey := calc.ResourceID().String()
+				owner := calc.ResourceID()
 				Eventually(func(g Gomega) {
 					g.Expect(statusSvc.NewRetrieve[struct{}]().
-						Where(status.MatchKeys[struct{}](statusKey)).
+						Where(status.MatchOwners[struct{}](owner)).
 						Entry(&st).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(st.Variant).To(Equal(status.VariantError))
@@ -994,7 +992,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				stored := func() (calculation.Status, error) {
 					var st calculation.Status
 					err := statusSvc.NewRetrieve[struct{}]().
-						Where(status.MatchKeys[struct{}](dep.ResourceID().String())).
+						Where(status.MatchOwners[struct{}](dep.ResourceID())).
 						Entry(&st).
 						Exec(ctx, nil)
 					return st, err
@@ -1089,7 +1087,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				mu.Lock()
 				writes = nil
 				mu.Unlock()
-				statusKey := calc.ResourceID().String()
+				owner := calc.ResourceID()
 				DeferCleanup(statusSvc.Observe().OnChange(func(
 					_ context.Context,
 					r gorp.TxReader[status.Key, status.Status[any]],
@@ -1097,8 +1095,8 @@ var _ = Describe("Calculation", Ordered, func() {
 					mu.Lock()
 					defer mu.Unlock()
 					for ch := range r {
-						if ch.Key == statusKey &&
-							ch.Variant == change.VariantSet {
+						if ch.Variant == change.VariantSet &&
+							ch.Value.Owner != nil && *ch.Value.Owner == owner {
 							writes = append(writes, calculation.Status{
 								Variant:     ch.Value.Variant,
 								Message:     ch.Value.Message,
@@ -1314,7 +1312,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					stored := func() (calculation.Status, error) {
 						var st calculation.Status
 						err := statusSvc.NewRetrieve[struct{}]().
-							Where(status.MatchKeys[struct{}](calc.ResourceID().String())).
+							Where(status.MatchOwners[struct{}](calc.ResourceID())).
 							Entry(&st).
 							Exec(ctx, nil)
 						return st, err
@@ -1356,39 +1354,42 @@ var _ = Describe("Calculation", Ordered, func() {
 				flushChanges(ctx)
 				var st calculation.Status
 				Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchKeys[struct{}](calc.ResourceID().String())).
+					Where(status.MatchOwners[struct{}](calc.ResourceID())).
 					Entry(&st).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
-		Specify("Should use channel resource ID as status key", func(ctx SpecContext) {
-			base := channel.Channel{
-				Name:     UniqueChannelName(),
-				DataType: telem.Int64T,
-				Virtual:  true,
-			}
-			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
-			calc := channel.Channel{
-				Name:        UniqueChannelName(),
-				DataType:    telem.Int64T,
-				Virtual:     true,
-				Leaseholder: node.KeyFree,
-				Expression:  fmt.Sprintf("return %s * 2", base.Name),
-			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-			Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
-			rm := c.OpenRequestManager()
-			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
-			var st calculation.Status
-			expectedKey := calc.ResourceID().String()
-			Expect(statusSvc.NewRetrieve[struct{}]().
-				Where(status.MatchKeys[struct{}](expectedKey)).
-				Entry(&st).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(st.Key).To(Equal(expectedKey))
-			Expect(rm.Close(ctx)).To(Succeed())
-		})
+		Specify(
+			"Should make the calculated channel own its status",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				calc := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 2", base.Name),
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
+				rm := c.OpenRequestManager()
+				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+				var st calculation.Status
+				owner := calc.ResourceID()
+				Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.MatchOwners[struct{}](owner)).
+					Entry(&st).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(st.Owner).To(HaveValue(Equal(owner)))
+				Expect(rm.Close(ctx)).To(Succeed())
+			},
+		)
 	})
 
 	Describe("Calculation Updates", func() {

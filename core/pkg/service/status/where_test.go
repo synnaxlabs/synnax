@@ -56,27 +56,17 @@ var _ = Describe("Where", Ordered, func() {
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Label:    labelSvc,
-			Group:    g,
 		}))
 		tx = DeferClose(db.OpenTx())
-		labels := make(map[label.Key]label.Label)
-		for _, s := range v.Records {
-			for _, l := range s.Labels {
-				labels[l.Key] = l
-			}
-			s.Labels = nil
-			Expect(svc.NewWriter(tx).Set(ctx, &s)).To(Succeed())
-		}
-		for _, l := range labels {
+		for _, k := range lo.Uniq(lo.FlatMap(
+			lo.Values(v.Records),
+			func(s status.Status[any], _ int) []label.Key { return s.Labels },
+		)) {
+			l := label.Label{Key: k, Name: k.String()}
 			Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		}
 		for _, s := range v.Records {
-			Expect(labelSvc.NewWriter(tx).Label(
-				ctx,
-				s.ResourceID(),
-				lo.Map(s.Labels, func(l label.Label, _ int) label.Key { return l.Key }),
-			)).To(Succeed())
+			Expect(svc.NewWriter(tx).Set(ctx, &s)).To(Succeed())
 		}
 	})
 

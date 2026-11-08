@@ -111,7 +111,7 @@ const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => 
   return await client.ranges.create({
     name: uniqueRangeName("child"),
     timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
-    parent: { key: parent.key },
+    parent: parent.key,
   });
 };
 

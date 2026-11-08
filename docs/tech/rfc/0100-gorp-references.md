@@ -152,7 +152,8 @@ fill, `Filter` and `FilterHolding` fall back to a scan, and the other probes fai
 2. The plan reads only. It adds each `cascade` dependent to the closure and repeats
    until nothing new comes in. `restrict` fails only for a dependent outside the
    closure. `detach` applies only to dependents the delete keeps.
-3. The apply step detaches first, then deletes each entry in the closure.
+3. The apply step detaches first, then deletes each entry in the closure. After the
+   commit, `Table.ObserveDetaches` notifies each entry that the delete detached.
 
 A delete that would delete or rewrite more entries than `gorp.WithMaxDeleteSize`
 (default `1 << 20`, `gorp/options.go`) fails before any change. Detached dependents

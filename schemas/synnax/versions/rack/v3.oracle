@@ -9,9 +9,7 @@
 
 Key = v0.Key
 
-StatusDetails = v0.StatusDetails
-
-Status = v1.Status
+Status = v2.Status
 
 Rack struct extends v2.Rack {
     version string? {

@@ -48,7 +48,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db, Ontology: otg, Group: g,
 	}))
 	svc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Label: labelSvc,
+		DB: db, Ontology: otg, Group: g,
 	}))
 })
 

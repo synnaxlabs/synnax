@@ -74,9 +74,8 @@ afterEach(async () => {
 const setRunning = async (t: task.Task, running: boolean, drifted = false) =>
   await client.statuses.set(
     createTaskStatus({
-      key: task.statusKey(t.key),
+      owner: task.resourceID(t.key),
       details: {
-        task: t.key,
         running,
         configHash: drifted ? "stale" : t.configHash,
         rack: t.rack,

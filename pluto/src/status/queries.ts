@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, query, type resource, status, TimeStamp } from "@synnaxlabs/client";
+import { query, status, TimeStamp } from "@synnaxlabs/client";
 import { deep, primitive, uuid, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
@@ -43,20 +43,14 @@ export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Ke
 
 export interface SetParams {
   statuses: status.New | status.New[];
-  parent?: resource.ID;
 }
 
 export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
   name: RESOURCE_NAME,
   verbs: verbs.SET,
-  update: async ({
-    client,
-    data,
-    data: { statuses, parent },
-    onOptimisticComplete,
-  }) => {
+  update: async ({ client, data, data: { statuses }, onOptimisticComplete }) => {
     const onOptimistic = async () => await onOptimisticComplete(data);
-    await client.statuses.set(statuses, { parent, onOptimistic });
+    await client.statuses.set(statuses, { onOptimistic });
     return data;
   },
 });
@@ -107,9 +101,7 @@ export const useDeleteSynchronizer = (onDelete: (key: status.Key) => void): void
   useEffect(() => client?.statuses.onDelete(onDelete), [client, onDelete]);
 };
 
-export const formSchema = status.statusZ().omit({ labels: true }).safeExtend({
-  labels: label.keyZ.array().optional(),
-});
+export const formSchema = status.statusZ();
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
@@ -127,33 +119,24 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: INITIAL_VALUES,
-  retrieve: async ({ client, query }) => {
-    const [stat, labels] = await Promise.all([
-      client.statuses.retrieve(query),
-      client.labels.retrieve({ for: status.resourceID(query.key) }),
-    ]);
-    return { ...stat, labels: labels.map((l) => l.key) };
-  },
+  retrieve: async ({ client, query }) => await client.statuses.retrieve(query),
   update: async ({ client, value, set }) => {
     set(formPath.time, TimeStamp.now());
     const v = value();
     if (primitive.isZero(v.key)) v.key = uuid.create();
-    const { labels: labelKeys, ...rest } = v;
-    const res = await client.statuses.set(rest);
-    if (labelKeys != null)
-      await Label.setLabelsFor({
-        client,
-        data: { id: status.resourceID(res.key), labels: labelKeys },
-      });
+    // An update keeps the stored labels, so the form edits them separately.
+    const res = await client.statuses.set(v);
+    await Label.editFor(client, {
+      id: status.resourceID(res.key),
+      added: v.labels.filter((key) => !res.labels.includes(key)),
+      removed: res.labels.filter((key) => !v.labels.includes(key)),
+    });
     set(formPath.key, res.key);
   },
   mountListeners: ({ client, query: { key }, reset, abandon }) =>
     client.statuses.onChange(key, (result) => {
       if (query.Deleted.matches(result)) abandon();
-      else if (query.isLive(result)) {
-        const { labels, ...rest } = result;
-        reset({ ...rest, labels: labels?.map((l) => l.key) ?? [] });
-      }
+      else if (query.isLive(result)) reset(result);
     }),
 });
 

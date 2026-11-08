@@ -141,6 +141,7 @@ func OpenService(
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
 		DB:      cfg.DB,
+		Name:    tableName,
 		Indexes: s.indexes.all(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			HostProvider: cfg.HostProvider,
@@ -273,6 +274,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		newKey:     s.newKey,
 		group:      s.group,
 		status:     s.Status.NewWriter(tx),
+		statuses:   s.Status,
 		table:      s.table,
 		driverRole: s.DriverRole,
 	}

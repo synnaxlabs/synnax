@@ -11,15 +11,15 @@ package status
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status/versions"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -36,20 +36,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology will be used to create relationships between statuses (parent-child) and
-	// with other resources within the Synnax cluster.
+	// Ontology serves statuses to ontology search and retrieval.
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group is used to create the top level "Statuses" group that will be the default
-	// parent of all statuses.
-	//
-	// [REQUIRED]
-	Group *group.Service
-	// Label is used to create and manage labels for statuses.
-	//
-	// [REQUIRED]
-	Label *label.Service
 	alamos.Instrumentation
 }
 
@@ -59,8 +49,7 @@ var _ config.Config[ServiceConfig] = (*ServiceConfig)(nil)
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
-	c.Label = override.Nil(c.Label, other.Label)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
 
@@ -69,8 +58,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("service.status")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
-	v.NotNil("label", c.Label)
 	return v.Error()
 }
 
@@ -82,7 +69,6 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Status[any]]
 	indexes indexes
-	group   group.Group
 }
 
 // OpenService opens a new Service with the provided configuration. If error is nil, the
@@ -100,18 +86,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ctx,
 		gorp.TableConfig[Key, Status[any]]{
 			DB:              cfg.DB,
+			Name:            tableName,
 			Indexes:         s.indexes.all(),
+			References:      s.indexes.references(),
 			Instrumentation: cfg.Instrumentation,
 			Migrations:      versions.Migrations,
 		},
 	); !ok(err, s.table) {
-		return nil, err
-	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Statuses",
-		ontology.RootID,
-	); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -203,17 +184,63 @@ func (s *Service) SetByKeyOrName(
 	return key, multipleMatches, nil
 }
 
-// NewWriter opens a Writer for statuses. Pass a nil tx to write directly against the
-// service's DB. A status write spans the entry and its ontology resource, so the two
-// land together only when tx does.
+// SetMissing writes each of statuses whose owner holds no status, under the key that
+// v2.MigrateKey derives from the owner, and defines its ontology resource. Each status
+// needs an owner. It skips reference checks, so only the migrations of the tables that
+// status owners live in may call it.
+func (s *Service) SetMissing[D any](
+	ctx context.Context,
+	tx gorp.Tx,
+	statuses []Status[D],
+) error {
+	owners := make([]resource.ID, len(statuses))
+	for i, st := range statuses {
+		owners[i] = *st.Owner
+	}
+	var held []Status[D]
+	if err := s.NewRetrieve[D]().
+		Where(MatchOwners[D](owners...)).
+		Entries(&held).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	var (
+		w       = s.NewMigrationWriter(tx)
+		written []resource.ID
+	)
+	for _, st := range statuses {
+		if slices.ContainsFunc(held, func(h Status[D]) bool {
+			return *h.Owner == *st.Owner
+		}) {
+			continue
+		}
+		st.Key, _ = v2.MigrateKey(st.Owner.String())
+		if err := w.Set(ctx, st.ToAny()); err != nil {
+			return err
+		}
+		written = append(written, st.ResourceID())
+	}
+	return s.cfg.Ontology.NewWriter(tx).DefineResources(ctx, written...)
+}
+
+// NewMigrationWriter returns a writer that skips reference checks, for the migrations
+// of the tables that status owners live in. Those migrations run before their tables
+// open, so no other caller may use it. Pass a nil tx to write directly against the
+// service's DB.
+func (s *Service) NewMigrationWriter(tx gorp.Tx) *gorp.Writer[Key, Status[any]] {
+	return s.table.NewUncheckedWriter(gorp.OverrideTx(s.cfg.DB, tx))
+}
+
+// NewWriter opens a Writer for statuses. Pass a nil tx to run each call in a
+// transaction of its own on the service's DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
+		svc:       s,
 		tx:        tx,
 		table:     s.table,
+		indexes:   s.indexes,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		otg:       s.cfg.Ontology,
-		group:     s.group,
 	}
 }
 
@@ -223,12 +250,11 @@ func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 		gorp:    gorp.NewRetrieve[Key, Status[D]](),
 		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
-		label:   s.cfg.Label,
 	}
 }
 
-// Join returns the stored status of each resource in ids, in the same order. A resource
-// with no stored status gets nil.
+// Join returns the status that each resource in ids owns, in the same order. A resource
+// that owns no status gets nil.
 func (s *Service) Join[D any](
 	ctx context.Context,
 	tx gorp.Tx,
@@ -236,19 +262,20 @@ func (s *Service) Join[D any](
 ) ([]*Status[D], error) {
 	var statuses []Status[D]
 	if err := s.NewRetrieve[D]().
-		SkipMissingKeys().
-		Where(MatchKeys[D](resource.IDsToKeys(ids)...)).
+		Where(MatchOwners[D](ids...)).
 		Entries(&statuses).
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	byKey := make(map[Key]*Status[D], len(statuses))
+	byOwner := make(map[resource.ID]*Status[D], len(statuses))
 	for i := range statuses {
-		byKey[statuses[i].Key] = &statuses[i]
+		if owner := statuses[i].Owner; owner != nil {
+			byOwner[*owner] = &statuses[i]
+		}
 	}
 	joined := make([]*Status[D], len(ids))
 	for i, id := range ids {
-		joined[i] = byKey[id.String()]
+		joined[i] = byOwner[id]
 	}
 	return joined, nil
 }

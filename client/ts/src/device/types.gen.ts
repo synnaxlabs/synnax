@@ -16,18 +16,13 @@ import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
-export const keyZ = z.string();
-export type Key = z.infer<typeof keyZ>;
-
 /**
- * StatusDetails contains device-specific status details identifying the device and its
- * associated rack.
+ * StatusDetails contains device-specific status details, including the rack the device
+ * belongs to.
  */
 export const statusDetailsZ = z.object({
   /** rack is the key of the rack this device belongs to. */
   rack: rack.keyZ,
-  /** device is the device identifier. */
-  device: keyZ,
   /**
    * connected is true while the Driver confirms that it can reach the device. A device
    * whose state is unknown is not connected.
@@ -37,6 +32,12 @@ export const statusDetailsZ = z.object({
   data: zod.nullToUndefined(record.unknownZ()),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
+
+export const keyZ = z.string();
+export type Key = z.infer<typeof keyZ>;
+
+export const statusZ = status.statusZ({ details: statusDetailsZ });
+export type Status = z.infer<typeof statusZ>;
 
 /** Where is a filter that selects devices. */
 export type Where = {
@@ -76,26 +77,6 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   /** rack selects by rack. */
   rack: filter.setZ(rack.keyZ).optional(),
 });
-
-export const statusZ = status.statusZ({ details: statusDetailsZ });
-export type Status = z.infer<typeof statusZ>;
-
-/** RetrieveRequest is a request to retrieve devices. */
-export const retrieveRequestZ = z.strictObject({
-  /** where selects the devices to retrieve. An absent where selects all of them. */
-  where: whereZ.optional(),
-  /** searchTerm keeps the devices that match the term, closest match first. */
-  searchTerm: z.string().optional(),
-  /** limit is the most devices to return. */
-  limit: z.uint32().optional(),
-  /** offset is the number of matching devices to skip. */
-  offset: z.uint32().optional(),
-  /** includeStatus includes the status of each record. */
-  includeStatus: z.boolean().optional(),
-  /** includeParent includes the parent of each record. */
-  includeParent: z.boolean().optional(),
-});
-export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
 export interface DeviceSchemas<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -140,6 +121,23 @@ export interface Device<
   status?: Status;
   parent?: resource.ID;
 }
+
+/** RetrieveRequest is a request to retrieve devices. */
+export const retrieveRequestZ = z.strictObject({
+  /** where selects the devices to retrieve. An absent where selects all of them. */
+  where: whereZ.optional(),
+  /** searchTerm keeps the devices that match the term, closest match first. */
+  searchTerm: z.string().optional(),
+  /** limit is the most devices to return. */
+  limit: z.uint32().optional(),
+  /** offset is the number of matching devices to skip. */
+  offset: z.uint32().optional(),
+  /** includeStatus includes the status of each record. */
+  includeStatus: z.boolean().optional(),
+  /** includeParent includes the parent of each record. */
+  includeParent: z.boolean().optional(),
+});
+export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export type New<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,

@@ -39,13 +39,11 @@ struct RetrieveResponse;
 
 using Key = std::string;
 
-/// @brief StatusDetails contains device-specific status details identifying the device
-/// and its associated rack.
+/// @brief StatusDetails contains device-specific status details, including the rack the
+/// device belongs to.
 struct StatusDetails {
     /// @brief rack is the key of the rack this device belongs to.
     ::synnax::rack::Key rack = 0;
-    /// @brief device is the device identifier.
-    Key device;
     /// @brief connected is true while the Driver confirms that it can reach the device.
     /// A device whose state is unknown is not connected.
     bool connected = false;

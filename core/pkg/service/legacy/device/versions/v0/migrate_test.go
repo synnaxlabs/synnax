@@ -21,6 +21,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -40,7 +41,7 @@ var _ = Describe("Migration", func() {
 			DB:       db,
 			Ontology: otg,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -48,8 +49,6 @@ var _ = Describe("Migration", func() {
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
-			Group:    groupSvc,
-			Label:    labelSvc,
 		}))
 	})
 
@@ -79,9 +78,11 @@ var _ = Describe("Migration", func() {
 
 			var restoredStatus status.Status[v0.StatusDetails]
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
-				Where(status.MatchKeys[v0.StatusDetails](d.ResourceID().String())).
+				Where(status.MatchOwners[v0.StatusDetails](d.ResourceID())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
+			key, _ := statusv2.MigrateKey(d.ResourceID().String())
+			Expect(restoredStatus.Key).To(Equal(key))
 			Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(
 				restoredStatus.Message,
@@ -106,24 +107,27 @@ var _ = Describe("Migration", func() {
 				Entry(&d).
 				Exec(ctx, db)).To(Succeed())
 			existing := status.Status[v0.StatusDetails]{
-				Key:     d.ResourceID().String(),
+				Key:     "existing-device-status",
+				Owner:   new(d.ResourceID()),
 				Name:    d.Name,
 				Variant: status.VariantSuccess,
 				Message: "Device With Status is configured",
 				Time:    telem.Now(),
 				Details: v0.StatusDetails{Rack: d.Rack, Device: d.Key},
 			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return statusSvc.NewWriter(tx).Set(ctx, &existing)
-			})).To(Succeed())
+			// The device table is not open during its own migration, so the status
+			// skips reference checks.
+			Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, existing.ToAny())).
+				To(Succeed())
 
 			runMigration(ctx)
 
 			var deviceStatus status.Status[v0.StatusDetails]
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
-				Where(status.MatchKeys[v0.StatusDetails](d.ResourceID().String())).
+				Where(status.MatchOwners[v0.StatusDetails](d.ResourceID())).
 				Entry(&deviceStatus).
 				Exec(ctx, nil)).To(Succeed())
+			Expect(deviceStatus.Key).To(Equal(existing.Key))
 			Expect(deviceStatus.Variant).To(Equal(status.VariantSuccess))
 			Expect(deviceStatus.Message).To(ContainSubstring("Device With Status"))
 		},

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, filter, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, unique, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { actions } from "@/actions";
@@ -19,8 +19,6 @@ import {
   dispatchResZ,
   scopedActionZ,
 } from "@/label/actions.gen";
-import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
-import { matchLabeledBy } from "@/label/store";
 import {
   type Key,
   keyZ,
@@ -30,16 +28,8 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
-  type Where,
 } from "@/label/types.gen";
-import {
-  type Lines,
-  matches,
-  retrieveInputZ,
-  serverComputed,
-  shortcutZ,
-} from "@/label/where.gen";
-import { ontology } from "@/ontology";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/label/where.gen";
 import { query } from "@/query";
 import { resource } from "@/resource";
 
@@ -56,7 +46,7 @@ const setReqZ = z.object({
 });
 
 interface SetReq extends z.infer<typeof setReqZ> {}
-/** Options for `Client.set`. Set `replace` to swap the whole label set at once. */
+/** Options for `Client.label`. Set `replace` to swap the whole label set at once. */
 export interface SetOptions extends Pick<SetReq, "replace"> {}
 
 const removeReqZ = setReqZ.omit({ replace: true });
@@ -67,32 +57,28 @@ const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
 );
 
-/** @returns the resources that the for lines of where name. */
-const forIDs = (where: Where): resource.ID[] => [
-  ...(where.for != null ? [where.for] : []),
-  ...[...(where.and ?? []), ...(where.or ?? [])].flatMap(forIDs),
-  ...(where.not != null ? forIDs(where.not) : []),
-];
-
-/** @returns the resource whose labels a request selects, and nothing else, or null. */
-const labelsOf = ({ where, ...rest }: RetrieveRequest): resource.ID | null => {
-  if (where?.for == null || Object.values(rest).some((v) => v != null)) return null;
-  const { for: id, ...others } = where;
-  return Object.values(others).every((v) => v == null) ? id : null;
-};
-
 /** Names one label. */
 export type RetrieveSingleParams = { key: Key };
-/** Everything a multi-label retrieval can filter on, including the resource labeled. */
+/** Everything a multi-label retrieval can filter on. */
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 /** Params for a label retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
+
+/**
+ * Changes the labels of the cached record under the key with update, and returns the
+ * rollback. It skips a record the cache does not hold.
+ */
+export type Relabel = (
+  key: string,
+  update: (labels: Key[]) => Key[],
+) => destructor.Destructor;
 
 /** Config for {@link Client}. */
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
+  /** Changes the cached labels of the records of each resource type that holds them. */
+  relabel: Record<string, Relabel>;
 }
 
 /**
@@ -107,23 +93,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
   private readonly dispatcher: actions.Controller<Key, Label, Action>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, ontology: ontologyClient } = cfg;
-    const { relationships } = ontologyClient.cache;
-    // Resources whose every label the relationship table holds. A change stream gap
-    // can hide a removal, so a new epoch forgets them.
-    const labelSets = new Set<string>();
-    cache.onEpoch(() => labelSets.clear());
-    // Null when the client neither saw the relationship nor holds every label of id.
-    const labeledBy = (id: resource.ID, key: Key): boolean | null => {
-      const status = relationships.status(
-        ontology.relationshipToString(labeledByRel(id, key)),
-      );
-      if (status === "present") return true;
-      if (status === "tombstoned" || labelSets.has(resource.idToString(id)))
-        return false;
-      return null;
-    };
-    const lines: Lines = { for: (l, id) => labeledBy(id, l.key) === true };
+    const { cache } = cfg;
     const store = cache.createTable<Key, Label>({
       name: "labels",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
@@ -146,54 +116,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
       shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => {
-          const id = labelsOf(req);
-          const { epoch } = cache;
-          const since = relationships.stamp();
-          const labels = await this.execRetrieve(req);
-          // A response from before a reconnect can miss a change that the gap hid.
-          if (id == null || cache.epoch !== epoch) return labels;
-          // The response holds every label of id, so it replaces the cached set.
-          const fetched = new Map(
-            labels.map((l) => {
-              const rel = labeledByRel(id, l.key);
-              return [ontology.relationshipToString(rel), rel];
-            }),
-          );
-          const vanished = ontologyClient.cache
-            .relationshipsFrom(id)
-            .filter((r) => matchLabeledBy(r, id))
-            .map(ontology.relationshipToString)
-            .filter((key) => !fetched.has(key));
-          relationships.batch(() => {
-            relationships.ingestDeletes(vanished, since);
-            fetched.forEach((rel, key) => relationships.ingest(key, rel, { since }));
-          });
-          labelSets.add(resource.idToString(id));
-          return labels;
-        },
-        matches: (l, req) => {
-          if (
-            req.where != null &&
-            forIDs(req.where).some((id) => labeledBy(id, l.key) == null)
-          )
-            return null;
-          return matches(lines, l, req.where);
-        },
-        serverComputed: (req) => serverComputed(lines, req.where),
-        watch: [
-          query.watch(relationships, (event, req: RetrieveRequest) => {
-            if (req.where == null) return null;
-            const ids = forIDs(req.where);
-            if (ids.length === 0) return null;
-            const rel =
-              event.variant === "set"
-                ? event.value
-                : ontology.relationshipZ.parse(event.key);
-            if (!ids.some((id) => matchLabeledBy(rel, id))) return null;
-            return [rel.to.key];
-          }),
-        ],
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (label, req) => matches(label, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;
@@ -201,55 +126,56 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     this.dispatcher = dispatcher;
   }
 
-  async label(
-    id: resource.ID,
-    labels: Key[],
-    opts: SetOptions & query.WriteOptions = {},
-  ): Promise<void> {
-    await query.optimistic({
-      rollbacks: [
-        ...(opts.replace === true
-          ? [this.cfg.ontology.cache.relationships.delete((r) => matchLabeledBy(r, id))]
-          : []),
-        ...labels.map((key) => {
-          const rel = labeledByRel(id, key);
-          return this.cfg.ontology.cache.relationships.set(
-            ontology.relationshipToString(rel),
-            rel,
-          );
-        }),
-      ],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
+  /**
+   * Attaches labels to the range or status that the ID names. The record keeps the
+   * labels it holds unless `replace` is set.
+   * @throws {ValidationError} if the ID does not name a range or a status.
+   */
+  async label(id: resource.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
+    await this.relabel(
+      id,
+      (prev) => (opts.replace === true ? labels : unique.unique([...prev, ...labels])),
+      async () =>
         await this.cfg.unary.send(
           "/label/set",
           { id, labels, replace: opts.replace },
           setReqZ,
           emptyResZ,
         ),
-    });
+    );
   }
 
-  async remove(
-    id: resource.ID,
-    labels: Key[],
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    await query.optimistic({
-      rollbacks: [
-        this.cfg.ontology.cache.relationships.delete(
-          (r) => matchLabeledBy(r, id) && labels.includes(r.to.key),
-        ),
-      ],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
+  /**
+   * Detaches labels from the range or status that the ID names.
+   * @throws {ValidationError} if the ID does not name a range or a status.
+   */
+  async remove(id: resource.ID, labels: Key[]): Promise<void> {
+    await this.relabel(
+      id,
+      (prev) => prev.filter((key) => !labels.includes(key)),
+      async () =>
         await this.cfg.unary.send(
           "/label/remove",
           { id, labels },
           removeReqZ,
           emptyResZ,
         ),
-    });
+    );
+  }
+
+  /**
+   * Applies update to the cached labels of the record before commit and again after,
+   * since a change that lands during commit can undo the first write. Rolls back when
+   * commit fails.
+   */
+  private async relabel(
+    id: resource.ID,
+    update: (labels: Key[]) => Key[],
+    commit: () => Promise<unknown>,
+  ): Promise<void> {
+    const apply = () => this.cfg.relabel[id.type]?.(id.key, update) ?? (() => {});
+    await query.optimistic({ rollbacks: [apply()], commit });
+    apply();
   }
 
   async create(label: New, opts?: query.WriteOptions<Label[]>): Promise<Label>;
@@ -298,15 +224,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.store.delete(keysArr),
-      this.cfg.ontology.cache.relationships.delete(
-        (r) =>
-          r.type === LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
-          r.to.type === "label" &&
-          keysArr.includes(r.to.key),
-      ),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -331,12 +249,3 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     return res.labels;
   }
 }
-
-const labeledByRel = (id: resource.ID, key: Key): ontology.Relationship => ({
-  from: id,
-  type: LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-  to: resourceID(key),
-});
-
-export const resourceID = resource.createIDFactory<Key>("label");
-export const TYPE_RESOURCE_ID = resourceID("");

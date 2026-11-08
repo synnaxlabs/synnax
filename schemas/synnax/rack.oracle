@@ -27,15 +27,7 @@ Key uint32 {
     @key
 }
 
-StatusDetails struct {
-    rack Key {
-        @doc value "is the key of the rack this status pertains to."
-    }
-
-    @doc value "contains rack-specific status details."
-}
-
-Status = status.Status<StatusDetails> {
+Status = status.Status<nil> {
     @doc value "is rack-specific status information including operational state."
 }
 

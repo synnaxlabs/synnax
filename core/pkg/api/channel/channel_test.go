@@ -130,7 +130,7 @@ var _ = Describe("Service", func() {
 			setStatus := func(ctx SpecContext, ch channel.Channel) {
 				GinkgoHelper()
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &apichannel.Status{
-					Key:     channel.ResourceID(ch.Key()).String(),
+					Owner:   new(channel.ResourceID(ch.Key())),
 					Name:    ch.Name,
 					Variant: status.VariantSuccess,
 					Message: "ok",

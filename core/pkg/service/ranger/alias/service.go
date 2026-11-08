@@ -79,10 +79,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Service is the main entry point for managing channel aliases on ranges.
 type Service struct {
-	closer xio.MultiCloser
-	table  *gorp.Table[string, Alias]
-	search *gorp.SearchIndex[string, Alias]
-	cfg    ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[string, Alias]
+	search  *gorp.SearchIndex[string, Alias]
+	indexes indexes
+	cfg     ServiceConfig
 }
 
 // OpenService opens a new alias.Service with the provided configuration.
@@ -91,12 +92,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{cfg: cfg, search: newSearchIndex(), indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Alias]{
 		DB:              cfg.DB,
 		Indexes:         []gorp.Index[string, Alias]{s.search},
+		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

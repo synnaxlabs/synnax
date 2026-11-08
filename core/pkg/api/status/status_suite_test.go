@@ -24,9 +24,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -48,6 +51,9 @@ var (
 	apiSvc    *apistatus.Service
 	author    user.User
 	userSvc   *user.Service
+	racks     *gorp.Table[rack.Key, rack.Rack]
+	devices   *gorp.Table[device.Key, device.Device]
+	tasks     *gorp.Table[task.Key, task.Task]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -67,12 +73,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB: db, Ontology: otg, Group: g, User: userSvc,
 	}))
+	// A status owner must exist, so the owner tables must be open.
+	racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
+		DB: db, Name: string(resource.TypeRack),
+	}))
+	devices = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[device.Key, device.Device]{
+		DB: db, Name: string(resource.TypeDevice),
+	}))
+	tasks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[task.Key, task.Task]{
+		DB: db, Name: string(resource.TypeTask),
+	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Label: labelSvc,
+		DB: db, Ontology: otg,
 	}))
 	apiSvc = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
 		Status: statusSvc,
-		Label:  labelSvc,
 		RBAC:   rbacSvc,
 	}))
 	author = MustSucceed(

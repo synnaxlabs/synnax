@@ -79,7 +79,7 @@ var _ = Describe("Dispatch", func() {
 		DeferCleanup(svc.OnAction(rec.Record))
 		Expect(svc.Dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
 			set([]string{"name"}, "Cold flow"),
-			set([]string{"labels"}, []any{}),
+			set([]string{"key"}, "renamed"),
 		})).To(MatchError(validate.ErrValidation))
 		Expect(retrieve(ctx, hotFire.Key).Name).To(Equal("Hot fire"))
 		Expect(rec.Snapshot()).To(BeEmpty())

@@ -26,6 +26,25 @@ from x import filter, telem
 Key: TypeAlias = UUID
 
 
+class StatusDetails(BaseModel):
+    """Contains task-specific status details including execution state.
+
+    Attributes:
+        running: Is true if the task is currently executing.
+        cmd: Is the last command executed on this task.
+        config_hash: Is the hash of the config the running task instance was built from.
+            Empty when no instance exists.
+        rack: Is the key of the rack running the task instance.
+        data: Contains task-specific status data.
+    """
+
+    running: bool
+    cmd: str = ""
+    config_hash: str = ""
+    rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
+    data: dict[str, JsonValue] | None = None
+
+
 class KeyedConfig(BaseModel):
     """Is the base for every stored task configuration record.
 
@@ -88,27 +107,6 @@ Scale = Annotated[
     LinearScale | MapScale | PolynomialScale | TableScale | NoneScale,
     Field(discriminator="type"),
 ]
-
-
-class StatusDetails(BaseModel):
-    """Contains task-specific status details including execution state.
-
-    Attributes:
-        task: Is the key of the task this status pertains to.
-        running: Is true if the task is currently executing.
-        cmd: Is the last command executed on this task.
-        config_hash: Is the hash of the config the running task instance was built from.
-            Empty when no instance exists.
-        rack: Is the key of the rack running the task instance.
-        data: Contains task-specific status data.
-    """
-
-    task: Key
-    running: bool
-    cmd: str = ""
-    config_hash: str = ""
-    rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
-    data: dict[str, JsonValue] | None = None
 
 
 class Where(BaseModel):
@@ -181,6 +179,9 @@ class Command(BaseModel):
     pinned: bool = False
 
 
+Status: TypeAlias = status_.Status[StatusDetails]
+
+
 class StartConfig(KeyedConfig):
     """Carries the configuration fields shared by every task.
 
@@ -211,9 +212,6 @@ class ScanConfig(KeyedConfig):
         return hash(self.key)
 
 
-Status: TypeAlias = status_.Status[StatusDetails]
-
-
 class RetrieveRequest(BaseModel):
     """Is a request to retrieve tasks.
 
@@ -232,20 +230,6 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
     include_status: bool = False
-
-
-class PersistConfig(StartConfig):
-    """Carries the configuration fields shared by tasks that write telemetry.
-
-    Attributes:
-        data_saving_disabled: Is true when task telemetry is not persisted to disk.
-    """
-
-    data_saving_disabled: bool = False
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
 
 
 class Payload(BaseModel):
@@ -285,6 +269,30 @@ class Payload(BaseModel):
         return hash(self.key)
 
 
+class PersistConfig(StartConfig):
+    """Carries the configuration fields shared by tasks that write telemetry.
+
+    Attributes:
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+    """
+
+    data_saving_disabled: bool = False
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the tasks a RetrieveRequest selects.
+
+    Attributes:
+        tasks: Are the tasks the request selects.
+    """
+
+    tasks: list[Payload] = Field(default_factory=list)
+
+
 class ReadConfig(PersistConfig):
     """Carries the configuration fields shared by hardware acquisition tasks.
 
@@ -313,16 +321,6 @@ class WriteConfig(PersistConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class RetrieveResponse(BaseModel):
-    """Holds the tasks a RetrieveRequest selects.
-
-    Attributes:
-        tasks: Are the tasks the request selects.
-    """
-
-    tasks: list[Payload] = Field(default_factory=list)
 
 
 Where.model_rebuild()

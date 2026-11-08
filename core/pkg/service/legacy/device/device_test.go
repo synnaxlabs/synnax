@@ -50,7 +50,7 @@ var _ = Describe("Device", func() {
 			DB:       db,
 			Ontology: otg,
 		}))
-		label := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -58,8 +58,6 @@ var _ = Describe("Device", func() {
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
-			Group:    groupSvc,
-			Label:    label,
 		}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
@@ -294,7 +292,7 @@ var _ = Describe("Device", func() {
 
 				var deviceStatus device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
+					Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 					Entry(&deviceStatus).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(deviceStatus.Name).To(Equal("New Name"))
@@ -324,18 +322,16 @@ var _ = Describe("Device", func() {
 
 				var deviceStatus device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
+					Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 					Entry(&deviceStatus).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(deviceStatus.Variant).To(Equal(status.VariantSuccess))
 				Expect(deviceStatus.Message).To(Equal("Device is connected"))
 				Expect(deviceStatus.Description).To(Equal("Custom device description"))
-				// Key should be auto-assigned
-				Expect(deviceStatus.Key).To(Equal(d.ResourceID().String()))
+				Expect(deviceStatus.Owner).To(HaveValue(Equal(d.ResourceID())))
 				// Name should be auto-filled
 				Expect(deviceStatus.Name).To(Equal(d.Name))
 				// Details should be auto-filled
-				Expect(deviceStatus.Details.Device).To(Equal(d.Key))
 				Expect(deviceStatus.Details.Rack).To(Equal(d.Rack))
 			},
 		)
@@ -394,10 +390,12 @@ var _ = Describe("Device", func() {
 				}
 				Expect(w.Create(ctx, &d)).To(Succeed())
 
-				Expect(stat.NewWriter(tx).
-					Delete(ctx, d.ResourceID().String())).To(Succeed())
-				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
+				sw := stat.NewWriter(tx)
+				Expect(sw.DeleteOwned(ctx, d.ResourceID())).
+					To(Succeed())
+				Expect(stat.NewRetrieve[any]().
+					Where(status.MatchOwners[any](d.ResourceID())).
+					Entry(new(status.Status[any])).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
 				reconfigured := device.Device{
@@ -412,10 +410,54 @@ var _ = Describe("Device", func() {
 
 				var healed device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
+					Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 					Entry(&healed).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(healed.Details.Device).To(Equal(d.Key))
+				Expect(healed.Owner).To(HaveValue(Equal(d.ResourceID())))
+			},
+		)
+
+		It(
+			"Should not write a provided status over the status of another device",
+			func(ctx SpecContext) {
+				retrieve := func(d device.Device) device.Status {
+					GinkgoHelper()
+					var s device.Status
+					Expect(stat.NewRetrieve[device.StatusDetails]().
+						Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
+						Entry(&s).
+						Exec(ctx, tx)).To(Succeed())
+					return s
+				}
+				a := device.Device{
+					Key:      "status-owner-a",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "a",
+					Name:     "A",
+					Make:     "Test Make",
+					Model:    "Test Model",
+				}
+				Expect(w.Create(ctx, &a)).To(Succeed())
+				aKey := retrieve(a).Key
+				b := device.Device{
+					Key:      "status-owner-b",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "b",
+					Name:     "B",
+					Make:     "Test Make",
+					Model:    "Test Model",
+					Status: &device.Status{
+						Key:     aKey,
+						Variant: status.VariantSuccess,
+						Message: "forged",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(w.Create(ctx, &b)).To(Succeed())
+				Expect(retrieve(a).Message).To(Equal("Device status unknown"))
+				bStatus := retrieve(b)
+				Expect(bStatus.Message).To(Equal("forged"))
+				Expect(bStatus.Key).ToNot(Equal(aKey))
 			},
 		)
 
@@ -449,7 +491,7 @@ var _ = Describe("Device", func() {
 
 				var preserved device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
+					Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 					Entry(&preserved).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
@@ -470,12 +512,12 @@ var _ = Describe("Device", func() {
 				}
 				Expect(w.Create(ctx, &d)).To(Succeed())
 				live := device.Status{
-					Key:     d.ResourceID().String(),
+					Owner:   new(d.ResourceID()),
 					Name:    d.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
 					Message: "Device is connected",
-					Details: device.StatusDetails{Rack: d.Rack, Device: d.Key},
+					Details: device.StatusDetails{Rack: d.Rack},
 				}
 				Expect(stat.NewWriter(tx).Set(ctx, &live)).To(Succeed())
 
@@ -492,7 +534,7 @@ var _ = Describe("Device", func() {
 
 				var stored device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](live.Key)).
+					Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 					Entry(&stored).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(stored.Variant).To(Equal(status.VariantSuccess))
@@ -530,26 +572,22 @@ var _ = Describe("Device", func() {
 		)
 
 		It(
-			"Should keep a status row stored before the device existed",
+			"Should refuse a status whose device does not exist",
 			func(ctx SpecContext) {
 				d := device.Device{
-					Key:      "early-status-device",
-					Rack:     rackSvc.EmbeddedKey,
-					Location: "early-loc",
-					Name:     "Early Device",
-					Make:     "Test Make",
-					Model:    "Test Model",
+					Key:  "early-status-device",
+					Rack: rackSvc.EmbeddedKey,
 				}
 				Expect(stat.NewWriter(tx).Set(ctx, &device.Status{
-					Key:     d.ResourceID().String(),
-					Name:    d.Name,
+					Owner:   new(d.ResourceID()),
+					Name:    "Early Device",
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
 					Message: "Device is connected",
-					Details: device.StatusDetails{Rack: d.Rack, Device: d.Key},
-				})).To(Succeed())
-				Expect(w.Create(ctx, &d)).To(Succeed())
-				Expect(d.Status.Message).To(Equal("Device is connected"))
+					Details: device.StatusDetails{Rack: d.Rack},
+				})).To(MatchError(ContainSubstring(
+					"owner: device early-status-device does not exist",
+				)))
 			},
 		)
 
@@ -577,7 +615,7 @@ var _ = Describe("Device", func() {
 
 				var stored device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
+					Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 					Entry(&stored).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(stored.Message).To(Equal("Device is connected"))
@@ -1061,13 +1099,13 @@ var _ = Describe("Device", func() {
 				Expect(res.Properties).To(Equal(d.Properties))
 				var renamed device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
+					Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 					Entry(&renamed).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(renamed.Name).To(Equal("After"))
 				Expect(renamed.Variant).To(Equal(status.VariantSuccess))
 				Expect(renamed.Message).To(Equal("Connected"))
-				Expect(renamed.Details.Device).To(Equal(d.Key))
+				Expect(renamed.Owner).To(HaveValue(Equal(d.ResourceID())))
 			},
 		)
 		It("Should return a validation error for an empty name", func(ctx SpecContext) {
@@ -1100,7 +1138,8 @@ var _ = Describe("Device", func() {
 				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
-			Expect(stat.NewWriter(tx).Delete(ctx, d.ResourceID().String())).
+			sw := stat.NewWriter(tx)
+			Expect(sw.DeleteOwned(ctx, d.ResourceID())).
 				To(Succeed())
 			Expect(w.Rename(ctx, d.Key, "After")).To(Succeed())
 		})
@@ -1127,10 +1166,9 @@ var _ = Describe("Device", func() {
 						Exec(ctx, tx),
 				).
 					To(MatchError(query.ErrNotFound))
-				var deletedStatus device.Status
-				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
-					Entry(&deletedStatus).
+				Expect(stat.NewRetrieve[any]().
+					Where(status.MatchOwners[any](d.ResourceID())).
+					Entry(new(status.Status[any])).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -1165,7 +1203,7 @@ var _ = Describe("Device", func() {
 				DB:       db,
 				Ontology: otg,
 			}))
-			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -1173,8 +1211,6 @@ var _ = Describe("Device", func() {
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
-				Group:    groupSvc,
-				Label:    labelSvc,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
@@ -1224,7 +1260,7 @@ var _ = Describe("Device", func() {
 					DB:       db,
 					Ontology: otg,
 				}))
-				labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+				MustOpen(label.OpenService(ctx, label.ServiceConfig{
 					DB:       db,
 					Ontology: otg,
 					Group:    groupSvc,
@@ -1232,8 +1268,6 @@ var _ = Describe("Device", func() {
 				stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 					Ontology: otg,
 					DB:       db,
-					Group:    groupSvc,
-					Label:    labelSvc,
 				}))
 				rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 					DB:                  db,
@@ -1270,12 +1304,12 @@ var _ = Describe("Device", func() {
 				Eventually(func(g Gomega) {
 					var deviceStatus device.Status
 					g.Expect(stat.NewRetrieve[device.StatusDetails]().
-						Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
+						Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 						Entry(&deviceStatus).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(deviceStatus.Variant).To(Equal(status.VariantWarning))
 					g.Expect(deviceStatus.Message).To(Equal("Driver not running"))
-					g.Expect(deviceStatus.Details.Device).To(Equal(d.Key))
+					g.Expect(deviceStatus.Owner).To(HaveValue(Equal(d.ResourceID())))
 					g.Expect(deviceStatus.Details.Rack).To(Equal(r.Key))
 				}).Should(Succeed())
 			},

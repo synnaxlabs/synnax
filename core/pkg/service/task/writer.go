@@ -35,6 +35,7 @@ type Writer struct {
 	otg        *ontology.Ontology
 	group      group.Group
 	status     status.Writer
+	statuses   *status.Service
 	table      *gorp.Table[Key, Task]
 	configs    config.Registry
 	dispatcher actions.Dispatcher[Key, Action]
@@ -50,7 +51,7 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // resolveStatus returns the status to persist for t. Without a provided status, a task
 // created for the first time provably has no live instance, so it gets a quiet "not
 // deployed" placeholder; an existing task can be running, so its placeholder stays a
-// "status unknown" warning.
+// "status unknown" warning. The owner selects the status, so a provided key is ignored.
 func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 	if provided == nil {
 		message := "Task status unknown"
@@ -60,16 +61,15 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 			variant = status.VariantDisabled
 		}
 		return &Status{
-			Key:     t.ResourceID().String(),
+			Owner:   new(t.ResourceID()),
 			Time:    telem.Now(),
 			Name:    t.Name,
 			Message: message,
 			Variant: variant,
-			Details: StatusDetails{Task: t.Key},
 		}
 	}
-	provided.Key = t.ResourceID().String()
-	provided.Details.Task = t.Key
+	provided.Key = ""
+	provided.Owner = new(t.ResourceID())
 	provided.Name = t.Name
 	return provided
 }
@@ -80,8 +80,8 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 // task's current name.
 func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 	var existing Status
-	err := gorp.NewRetrieve[string, Status]().
-		Where(gorp.MatchKeys[string, Status](stat.Key)).
+	err := w.statuses.NewRetrieve[StatusDetails]().
+		Where(status.MatchOwners[StatusDetails](*stat.Owner)).
 		Entry(&existing).
 		Exec(ctx, w.tx)
 	if err == nil {
@@ -225,7 +225,7 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 	// A missing status row is valid: the next Create heals it.
 	return errors.Skip(
-		w.status.Rename(ctx, ResourceID(key).String(), name),
+		w.status.RenameOwned(ctx, ResourceID(key), name),
 		query.ErrNotFound,
 	)
 }
@@ -330,10 +330,7 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otgWriter.DeleteResources(ctx, ResourceID(key)); err != nil {
-		return err
-	}
-	return w.status.Delete(ctx, ResourceID(key).String())
+	return w.otgWriter.DeleteResources(ctx, ResourceID(key))
 }
 
 // DeleteByRacks deletes every task attached to the given racks, along with each task's

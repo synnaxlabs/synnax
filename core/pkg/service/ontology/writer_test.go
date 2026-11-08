@@ -12,7 +12,6 @@ package ontology_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -20,6 +19,14 @@ import (
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+const otherType ontology.RelationshipType = "other"
+
+var otherTraverser = ontology.Traverser{
+	Traverse:     ontology.ChildrenTraverser.Traverse,
+	Direction:    ontology.DirectionForward,
+	FilterPrefix: ontology.RelationshipPrefix(otherType),
+}
 
 var _ = Describe("Writer", func() {
 	var (
@@ -336,7 +343,7 @@ var _ = Describe("Writer", func() {
 							ctx, idOne, ontology.RelationshipTypeParentOf, idTwo,
 						)).To(Succeed())
 						Expect(w.DefineRelationships(
-							ctx, idOne, label.OntologyRelationshipTypeLabeledBy, idTwo,
+							ctx, idOne, otherType, idTwo,
 						)).To(Succeed())
 						Expect(w.DeleteIncomingRelationshipsOfType(
 							ctx, idTwo, ontology.RelationshipTypeParentOf,
@@ -351,7 +358,7 @@ var _ = Describe("Writer", func() {
 						var res2 []ontology.Resource
 						Expect(otg.NewRetrieve().
 							WhereIDs(idOne).
-							TraverseTo(label.LabelsOntologyTraverser).
+							TraverseTo(otherTraverser).
 							Entries(&res2).
 							Exec(ctx, tx)).To(Succeed())
 						Expect(res2).To(HaveLen(1))
@@ -366,7 +373,7 @@ var _ = Describe("Writer", func() {
 							ctx, idOne, ontology.RelationshipTypeParentOf, idTwo,
 						)).To(Succeed())
 						Expect(w.DefineRelationships(
-							ctx, idOne, label.OntologyRelationshipTypeLabeledBy, idTwo,
+							ctx, idOne, otherType, idTwo,
 						)).To(Succeed())
 						Expect(w.DeleteOutgoingRelationshipsOfType(
 							ctx, idOne, ontology.RelationshipTypeParentOf,
@@ -381,7 +388,7 @@ var _ = Describe("Writer", func() {
 						var res2 []ontology.Resource
 						Expect(otg.NewRetrieve().
 							WhereIDs(idOne).
-							TraverseTo(label.LabelsOntologyTraverser).
+							TraverseTo(otherTraverser).
 							Entries(&res2).
 							Exec(ctx, tx)).To(Succeed())
 						Expect(res2).To(HaveLen(1))

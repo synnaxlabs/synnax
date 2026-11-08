@@ -42,7 +42,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       node.DB,
 		Ontology: otg,
 	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
@@ -50,8 +50,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,

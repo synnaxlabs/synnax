@@ -93,6 +93,7 @@ var _ = Describe("WriteTask", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		t = task.Task{Key: uuid.New(), Name: "write-task-test", Type: "mock"}
+		createTask(ctx, t)
 		sink = &recordingSink{health: make(chan error, 1)}
 		cmdCh = channel.Channel{
 			Name:     UniqueChannelName(),
@@ -117,7 +118,7 @@ var _ = Describe("WriteTask", func() {
 
 	retrieve := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 	}
 
 	// command writes value to the command channel until check passes, because a

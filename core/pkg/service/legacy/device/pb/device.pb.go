@@ -36,19 +36,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// StatusDetails contains device-specific status details identifying the device and its
-// associated rack.
+// StatusDetails contains device-specific status details, including the rack the device
+// belongs to.
 type StatusDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// rack is the key of the rack this device belongs to.
 	Rack uint32 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
-	// device is the device identifier.
-	Device string `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
 	// connected is true while the Driver confirms that it can reach the device. A device
 	// whose state is unknown is not connected.
-	Connected bool `protobuf:"varint,3,opt,name=connected,proto3" json:"connected,omitempty"`
+	Connected bool `protobuf:"varint,2,opt,name=connected,proto3" json:"connected,omitempty"`
 	// data contains device-specific status data.
-	Data          *structpb.Struct `protobuf:"bytes,4,opt,name=data,proto3,oneof" json:"data,omitempty"`
+	Data          *structpb.Struct `protobuf:"bytes,3,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -88,13 +86,6 @@ func (x *StatusDetails) GetRack() uint32 {
 		return x.Rack
 	}
 	return 0
-}
-
-func (x *StatusDetails) GetDevice() string {
-	if x != nil {
-		return x.Device
-	}
-	return ""
 }
 
 func (x *StatusDetails) GetConnected() bool {
@@ -609,12 +600,11 @@ var File_core_pkg_service_legacy_device_pb_device_proto protoreflect.FileDescrip
 
 const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/resource/pb/resource.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"\x94\x01\n" +
+	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/resource/pb/resource.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"|\n" +
 	"\rStatusDetails\x12\x12\n" +
-	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
-	"\x06device\x18\x02 \x01(\tR\x06device\x12\x1c\n" +
-	"\tconnected\x18\x03 \x01(\bR\tconnected\x120\n" +
-	"\x04data\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
+	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x1c\n" +
+	"\tconnected\x18\x02 \x01(\bR\tconnected\x120\n" +
+	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
 	"\x05_data\"\xe5\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +

@@ -27,7 +27,6 @@ namespace synnax::device {
 inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
     return StatusDetails{
         .rack = parser.field<::synnax::rack::Key>("rack"),
-        .device = parser.field<Key>("device"),
         .connected = parser.field<bool>("connected", false),
         .data = parser.field<std::optional<x::json::json::object_t>>("data"),
     };
@@ -36,7 +35,6 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 inline x::json::json StatusDetails::to_json() const {
     x::json::json j = x::json::json::object();
     j["rack"] = this->rack;
-    j["device"] = this->device;
     j["connected"] = this->connected;
     if (this->data.has_value()) j["data"] = *this->data;
     return j;

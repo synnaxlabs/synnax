@@ -30,16 +30,18 @@ type Writer[K Key, E Entry[K]] struct {
 	table *Table[K, E]
 }
 
-// WrapWriter wraps the given Tx to provide a strongly typed Writer that
-// does not stage mutations against any secondary indexes.
+// WrapWriter wraps the given Tx to provide a strongly typed Writer that checks no
+// references. The Writer keeps the indexes of each open Table of E on the DB of tx
+// current.
 func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
 	w := wrapWriter[K, E](tx, nil, nil)
 	return &w
 }
 
 // wrapWriter constructs a Writer that encodes keys under prefix and stages each Set /
-// Delete against indexes. A nil prefix falls back to the prefix of E's table. It
-// returns a value so that the Writer of a query stays off the heap.
+// Delete against indexes. A nil prefix falls back to the prefix of E's table. Nil
+// indexes fall back to the indexes of the open tables of E. It returns a value so that
+// the Writer of a query stays off the heap.
 func wrapWriter[K Key, E Entry[K]](
 	tx Tx,
 	prefix []byte,
@@ -47,6 +49,9 @@ func wrapWriter[K Key, E Entry[K]](
 ) Writer[K, E] {
 	if prefix == nil {
 		prefix = key.Prefix[E]()
+	}
+	if indexes == nil {
+		indexes = openIndexes[K, E](tx, prefix)
 	}
 	return Writer[K, E]{
 		tx:       tx,
@@ -81,6 +86,22 @@ func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
 		}
 		return nil
 	})
+}
+
+// openIndexes returns the indexes of the open tables of E on the DB of tx that store
+// under prefix.
+func openIndexes[K Key, E Entry[K]](tx Tx, prefix []byte) []Index[K, E] {
+	db := txDB(tx)
+	if db == nil {
+		return nil
+	}
+	var indexes []Index[K, E]
+	for _, t := range db.registry.indexedTables(prefix) {
+		if t, ok := t.(*Table[K, E]); ok {
+			indexes = append(indexes, t.indexes...)
+		}
+	}
+	return indexes
 }
 
 // bind returns a copy of w that writes through tx.

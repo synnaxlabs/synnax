@@ -13,11 +13,9 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Writer wraps a transaction to create, update, and delete labels.
@@ -95,40 +93,4 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	return w.otg.DeleteResources(ctx, ResourceIDs(keys)...)
-}
-
-// Label assigns a set of labels to the target resource. If the target resource already
-// has labels, Label will add the new labels to the existing set.
-func (w Writer) Label(ctx context.Context, target resource.ID, labels []Key) error {
-	return w.otg.DefineRelationships(
-		ctx, target, OntologyRelationshipTypeLabeledBy, ResourceIDs(labels)...,
-	)
-}
-
-// Replace makes the given labels the complete set of labels on the target resource.
-// Labels the target already has are left untouched.
-func (w Writer) Replace(ctx context.Context, target resource.ID, labels []Key) error {
-	return w.otg.ReplaceOutgoingRelationshipsOfType(
-		ctx, target, OntologyRelationshipTypeLabeledBy, ResourceIDs(labels)...,
-	)
-}
-
-// RemoveLabel removes a set of labels from the target resource. RemoveLabel is
-// idempotent, and will not return an error if the target resource does not have the
-// specified labels.
-func (w Writer) RemoveLabel(
-	ctx context.Context,
-	target resource.ID,
-	labels []Key,
-) error {
-	return w.otg.DeleteRelationships(
-		ctx,
-		lo.Map(labels, func(key Key, _ int) ontology.Relationship {
-			return ontology.Relationship{
-				From: target,
-				Type: OntologyRelationshipTypeLabeledBy,
-				To:   ResourceID(key),
-			}
-		})...,
-	)
 }

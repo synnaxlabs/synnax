@@ -13,16 +13,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
 )
 
 // MigrationConfig is the configuration for newMigration.
@@ -60,42 +56,18 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 				return nil
 			}
 
-			statusKeys := lo.Map(tasks, func(t Task, _ int) status.Key {
-				return t.ResourceID().String()
-			})
-			var existingStatuses []v0Status
-			if err = cfg.Status.NewRetrieve[StatusDetails]().
-				Where(status.MatchKeys[StatusDetails](statusKeys...)).
-				Entries(&existingStatuses).
-				Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-				return err
-			}
-			existingKeys := make(set.Set[status.Key])
-			for _, stat := range existingStatuses {
-				existingKeys.Add(stat.Key)
-			}
-			var missingStatuses []v0Status
-			for _, t := range tasks {
-				key := t.ResourceID().String()
-				if !existingKeys.Contains(key) {
-					missingStatuses = append(missingStatuses, v0Status{
-						Key:     key,
-						Name:    t.Name,
-						Time:    telem.Now(),
-						Variant: status.VariantWarning,
-						Message: fmt.Sprintf("%s status unknown", t.Name),
-						Details: StatusDetails{Task: t.Key},
-					})
+			statuses := make([]v0Status, len(tasks))
+			for i, t := range tasks {
+				statuses[i] = v0Status{
+					Owner:   new(t.ResourceID()),
+					Name:    t.Name,
+					Time:    telem.Now(),
+					Variant: status.VariantWarning,
+					Message: fmt.Sprintf("%s status unknown", t.Name),
+					Details: StatusDetails{Task: t.Key},
 				}
 			}
-			if len(missingStatuses) == 0 {
-				return nil
-			}
-			ins.L.Info(
-				"creating unknown statuses for existing tasks",
-				zap.Int("count", len(missingStatuses)),
-			)
-			return cfg.Status.NewWriter(tx).SetMany(ctx, &missingStatuses)
+			return cfg.Status.SetMissing(ctx, tx, statuses)
 		},
 	)
 }

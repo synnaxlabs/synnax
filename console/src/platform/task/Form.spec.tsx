@@ -493,12 +493,12 @@ describe("wrapForm", () => {
       await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));
       const before = renders;
       await client.statuses.set({
-        key: device.statusKey(deviceKey),
+        owner: device.resourceID(deviceKey),
         name: "",
         variant: "warning",
         message: "device degraded",
         time: TimeStamp.now(),
-        details: { rack: rack.key, device: deviceKey },
+        details: { rack: rack.key },
       });
       await waitFor(() => expect(seen).toHaveBeenCalled());
       await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));

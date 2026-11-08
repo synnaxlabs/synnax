@@ -51,20 +51,54 @@ type detachOp struct {
 	target Target
 }
 
-// registry holds the tables of a DB that take part in references, by name.
+// registry holds the tables of a DB that take part in references, by name, and the
+// open tables that have indexes, by key prefix.
 type registry struct {
-	// mu guards tables and referencing.
+	// mu guards tables, referencing, and indexed.
 	mu     sync.RWMutex
 	tables map[string]registeredTable
 	// referencing maps a table name to the references that may point at it.
 	referencing map[string][]registeredReference
+	// indexed maps a key prefix to the open tables with indexes that store under it.
+	indexed map[string][]any
 }
 
 func newRegistry() *registry {
 	return &registry{
 		tables:      make(map[string]registeredTable),
 		referencing: make(map[string][]registeredReference),
+		indexed:     make(map[string][]any),
 	}
+}
+
+// addIndexed adds table, which stores under prefix, to the tables that writers keep
+// the indexes of.
+func (r *registry) addIndexed(prefix []byte, table any) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.indexed[string(prefix)] = append(r.indexed[string(prefix)], table)
+}
+
+// removeIndexed undoes addIndexed.
+func (r *registry) removeIndexed(prefix []byte, table any) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	kept := slices.DeleteFunc(
+		slices.Clone(r.indexed[string(prefix)]),
+		func(t any) bool { return t == table },
+	)
+	if len(kept) == 0 {
+		delete(r.indexed, string(prefix))
+		return
+	}
+	r.indexed[string(prefix)] = kept
+}
+
+// indexedTables returns the open tables with indexes that store under prefix.
+func (r *registry) indexedTables(prefix []byte) []any {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return slices.Clone(r.indexed[string(prefix)])
 }
 
 func (r *registry) register(name string, table registeredTable) error {
