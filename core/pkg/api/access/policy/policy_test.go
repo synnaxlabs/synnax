@@ -201,9 +201,12 @@ var _ = Describe("Retrieve", func() {
 		u := createUser(ctx)
 		granted := createPolicy(ctx, createRole(ctx).Key)
 		createPolicy(ctx, createRole(ctx).Key)
-		grantOn(ctx, u.ResourceID(), access.ActionRetrieve, granted.ResourceID())
+		own := grantOn(ctx, u.ResourceID(), access.ActionRetrieve, granted.ResourceID())
 		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{}))
-		Expect(res.Policies).To(HaveExactElements(HaveField("Key", granted.Key)))
+		Expect(res.Policies).To(ConsistOf(
+			HaveField("Key", granted.Key),
+			HaveField("Key", own.Key),
+		))
 	})
 
 	It("Should return the policies of a subject when retrieve is granted", func(
@@ -217,31 +220,44 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Policies).To(HaveExactElements(HaveField("Key", p.Key)))
 	})
 
-	It(
-		"Should deny the policies of a subject when retrieve is not granted on one",
-		func(
+	Context("With no retrieve on policies", func() {
+		var (
+			u     user.User
+			own   policy.Policy
+			other policy.Policy
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = createUser(ctx)
+			own = grantOn(ctx, u.ResourceID(), access.ActionUpdate, u.ResourceID())
+			other = createPolicy(ctx, createRole(ctx).Key)
+		})
+		It("Should return the policies of the subject's role by subject", func(
 			ctx SpecContext,
 		) {
-			u := createUser(ctx)
-			p := grantOn(ctx, u.ResourceID(), access.ActionUpdate, u.ResourceID())
-			Expect(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
 				Where: &policy.Where{Subjects: []resource.ID{u.ResourceID()}},
-			})).Error().To(MatchError(access.Denied(
-				u.ResourceID(),
-				access.ActionRetrieve,
-				policy.ResourceID(p.Key),
-			).Error()))
-		},
-	)
-
-	It("Should reject the request when retrieve is not granted on a match", func(
-		ctx SpecContext,
-	) {
-		u := createUser(ctx)
-		p := grantOn(ctx, u.ResourceID(), access.ActionUpdate, u.ResourceID())
-		Expect(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
-			Where: &policy.Where{Key: &filter.Set[policy.Key]{Eq: &p.Key}},
-		})).Error().To(MatchError(access.ErrDenied))
+			}))
+			Expect(res.Policies).To(HaveExactElements(HaveField("Key", own.Key)))
+		})
+		It("Should return a policy of the subject's role by key", func(
+			ctx SpecContext,
+		) {
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+				Where: &policy.Where{Key: &filter.Set[policy.Key]{Eq: &own.Key}},
+			}))
+			Expect(res.Policies).To(HaveExactElements(HaveField("Key", own.Key)))
+		})
+		It("Should deny a policy of another role by key", func(ctx SpecContext) {
+			Expect(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+				Where: &policy.Where{Key: &filter.Set[policy.Key]{Eq: &other.Key}},
+			})).Error().To(denied(u, access.ActionRetrieve, other.ResourceID()))
+		})
+		It("Should leave out the policies of another role", func(ctx SpecContext) {
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+				Where: &policy.Where{Roles: []role.Key{other.Role}},
+			}))
+			Expect(res.Policies).To(BeEmpty())
+		})
 	})
 
 	It("Should retrieve the policies of the roles a subject holds", func(

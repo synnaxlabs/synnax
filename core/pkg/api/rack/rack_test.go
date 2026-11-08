@@ -71,13 +71,13 @@ func grantAll(ctx SpecContext, u user.User, needs ...need) {
 }
 
 // newRackNeeds returns what a create of a new rack needs: create on the rack and its
-// status, update on the rack, which its status sits in, and retrieve on the Driver role
-// that the rack uses. r is the rack, or the rack type for a key the Core assigns.
+// status, and retrieve on the Driver role that the rack uses. r is the rack, or the
+// rack
+// type for a key the Core assigns.
 func newRackNeeds(r resource.ID) []need {
 	return []need{
 		{access.ActionCreate, r},
 		{access.ActionCreate, resource.ID{Type: resource.TypeStatus}},
-		{access.ActionUpdate, r},
 		{access.ActionRetrieve, role.ResourceID(svc.RBAC.Builtin.DriverKey)},
 	}
 }
@@ -165,12 +165,7 @@ var _ = Describe("Create", func() {
 				Exists(ctx, db)).To(BeFalse())
 		},
 		Entry("without create on the rack", 0, rack.NewKey(1, 60100)),
-		Entry(
-			"without update on the rack, which its status sits in",
-			2,
-			rack.NewKey(1, 60101),
-		),
-		Entry("without retrieve on the Driver role", 3, rack.NewKey(1, 60102)),
+		Entry("without retrieve on the Driver role", 2, rack.NewKey(1, 60102)),
 	)
 	It(
 		"Should leave out the status of a rack the caller can only update",
@@ -495,7 +490,7 @@ var _ = Describe("RetrieveRequest", func() {
 
 var _ = Describe("Delete", func() {
 	// deleteNeeds returns what a delete of r needs: delete on r and its status, and
-	// update on r, which its status, API keys, sessions, and tasks leave.
+	// update on r, which its API keys and sessions leave.
 	deleteNeeds := func(ctx SpecContext, r rack.Rack) []need {
 		GinkgoHelper()
 		return []need{
