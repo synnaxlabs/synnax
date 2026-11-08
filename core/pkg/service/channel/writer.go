@@ -32,9 +32,9 @@ import (
 const calculatedIndexNameSuffix = "_time"
 
 // Writer creates, deletes, and renames channels within a single transaction. It infers
-// DataTypes for calculated channels before persisting, orchestrating key/storage
-// allocation through the distribution-layer allocator and writing channel metadata to
-// the service table. Obtain one from Service.NewWriter. A Writer is not safe for
+// DataTypes for calculated channels before persisting. It changes storage channels when
+// the transaction commits, before the channel records reach the store, and a storage
+// error aborts the commit. Obtain one from Service.NewWriter. A Writer is not safe for
 // concurrent use.
 type Writer struct {
 	svc      *Service
@@ -454,10 +454,9 @@ func (w Writer) create(
 	return nil
 }
 
-// allocateAndWrite enforces the channel limit, then allocates keys and storage for the
-// new channels, writes them to the table, and records them in the external non-virtual
-// set. It holds the service lock throughout, so a create rejected by the limit
-// allocates nothing and concurrent creates cannot pass the limit together.
+// allocateAndWrite enforces the channel limit, then allocates keys for the new channels
+// and writes them to the table. When the transaction commits, it creates their storage
+// channels and records them in the external non-virtual set.
 func (w Writer) allocateAndWrite(
 	ctx context.Context,
 	channels []Channel,
@@ -470,18 +469,19 @@ func (w Writer) allocateAndWrite(
 			externalNewCount++
 		}
 	}
-	w.svc.mu.Lock()
-	defer w.svc.mu.Unlock()
+	w.svc.mu.RLock()
 	count := w.svc.mu.externalNonVirtualSet.Size()
+	w.svc.mu.RUnlock()
 	if err := w.svc.cfg.Limit(
 		types.Uint20(int(count) + externalNewCount),
 	); err != nil {
 		return err
 	}
 	toCreate := make([]Channel, 0, len(newIndices))
+	var allocated []channel.Channel
 	if len(minimal) != 0 {
-		allocated, err := w.svc.cfg.Channel.Create(ctx, minimal)
-		if err != nil {
+		var err error
+		if allocated, err = w.svc.cfg.Channel.Allocate(ctx, minimal); err != nil {
 			return err
 		}
 		for j, i := range newIndices {
@@ -533,7 +533,15 @@ func (w Writer) allocateAndWrite(
 	if err := w.svc.table.NewCreate().Entries(&toCreate).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.svc.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
+	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
+		if err := w.svc.cfg.Channel.Create(ctx, allocated); err != nil {
+			return err
+		}
+		w.svc.mu.Lock()
+		w.svc.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
+		w.svc.mu.Unlock()
+		return nil
+	})
 	return nil
 }
 
@@ -627,14 +635,15 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	// Storage deletion goes last, as it is the only operation that can fail without an
-	// atomic guarantee.
-	if err := w.svc.cfg.Channel.Delete(ctx, keys); err != nil {
-		return err
-	}
-	w.svc.mu.Lock()
-	w.svc.mu.externalNonVirtualSet.Remove(keys...)
-	w.svc.mu.Unlock()
+	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
+		if err := w.svc.cfg.Channel.Delete(ctx, keys); err != nil {
+			return err
+		}
+		w.svc.mu.Lock()
+		w.svc.mu.externalNonVirtualSet.Remove(keys...)
+		w.svc.mu.Unlock()
+		return nil
+	})
 	return nil
 }
 
@@ -676,5 +685,8 @@ func (w Writer) rename(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.svc.cfg.Channel.Rename(ctx, renameMap)
+	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
+		return w.svc.cfg.Channel.Rename(ctx, renameMap)
+	})
+	return nil
 }
