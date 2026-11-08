@@ -67,7 +67,7 @@ const Trigger = ({ value, preview }: TriggerProps): ReactElement => {
       <Icon.Secret className={CSS.BE("secret-field", "icon")} />
       {s == null ? (
         <Text.Text el="span" color={8} className={CSS.BE("secret-field", "text")}>
-          Select a secret
+          {preview === true ? "None" : "Select a secret"}
         </Text.Text>
       ) : (
         <>
