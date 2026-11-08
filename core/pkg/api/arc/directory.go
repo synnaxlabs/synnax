@@ -34,7 +34,10 @@ func (s *Service) RetrieveDirectories(
 	if err != nil {
 		return apidirectory.RetrieveResponse{}, err
 	}
-	return res, q.Where(bind.Filter(snap, directory.Match)).Exec(ctx, snap)
+	if err = q.Where(bind.Filter(snap, directory.Match)).Exec(ctx, snap); err != nil {
+		return apidirectory.RetrieveResponse{}, err
+	}
+	return res, nil
 }
 
 type (

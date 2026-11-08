@@ -660,6 +660,45 @@ var _ = Describe("Service", func() {
 					MatchError(ContainSubstring(blocked.ResourceID().String())),
 				))
 			})
+
+			It(
+				"Should deny a channel named by name that the subject cannot retrieve",
+				func(
+					ctx SpecContext,
+				) {
+					Expect(retrieveChannels(
+						AuthedCtx(ctx, reader),
+						apichannel.AliasedRetrieveRequest{
+							Request: apichannel.RetrieveRequest{Where: &channel.Where{
+								Name: &filter.String{
+									In: []string{allowed.Name, blocked.Name},
+								},
+							}},
+						},
+					)).Error().To(MatchError(access.Denied(
+						reader.ResourceID(),
+						access.ActionRetrieve,
+						blocked.ResourceID(),
+					).Error()))
+				},
+			)
+
+			It(
+				"Should return a channel named by name that the subject can retrieve",
+				func(
+					ctx SpecContext,
+				) {
+					res := MustSucceed(retrieveChannels(
+						AuthedCtx(ctx, reader),
+						apichannel.AliasedRetrieveRequest{
+							Request: apichannel.RetrieveRequest{Where: &channel.Where{
+								Name: &filter.String{Eq: new(allowed.Name)},
+							}},
+						},
+					))
+					Expect(res.Channels).To(ConsistOf(HaveField("Key", allowed.Key())))
+				},
+			)
 		})
 
 		It("Should return a path error for an invalid regex", func(ctx SpecContext) {

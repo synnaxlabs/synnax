@@ -138,14 +138,17 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	// A child range passes only when the subject can also retrieve its parent.
-	return res, q.Where(ranger.Match(func(
+	if err = q.Where(ranger.Match(func(
 		_ gorp.Context,
 		_ ranger.Retrieve,
 		r *ranger.Range,
 	) (bool, error) {
 		return snap.Allowed(r.ResourceID()) &&
 			(r.Parent == nil || snap.Allowed(ranger.ResourceID(*r.Parent))), nil
-	})).Exec(ctx, snap)
+	})).Exec(ctx, snap); err != nil {
+		return RetrieveResponse{}, err
+	}
+	return res, nil
 }
 
 type RenameRequest struct {

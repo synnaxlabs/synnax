@@ -84,7 +84,7 @@ describe("range", () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         objects: [ranger.resourceID("")],
-        actions: ["delete"],
+        actions: ["delete", "retrieve"],
       });
       const randomRange = await client.ranges.create({
         name: "test",

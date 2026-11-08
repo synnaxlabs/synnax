@@ -201,7 +201,10 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	return res, q.Where(bind.Filter(snap, status.Match[any])).Exec(ctx, snap)
+	if err = q.Where(bind.Filter(snap, status.Match[any])).Exec(ctx, snap); err != nil {
+		return RetrieveResponse{}, err
+	}
+	return res, nil
 }
 
 // RenameRequest names the status to rename and the name to give it.
