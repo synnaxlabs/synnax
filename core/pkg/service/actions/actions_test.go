@@ -185,10 +185,11 @@ var _ = Describe("State", func() {
 	It(
 		"Should skip the numbers that an aborted transaction took",
 		func(ctx SpecContext) {
+			txErr := errors.New("abort")
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				state.Dispatcher().Attach(tx, uuid.New())
-				return errors.New("abort")
-			})).To(HaveOccurred())
+				return txErr
+			})).To(MatchError(txErr))
 			attach(ctx, state.Dispatcher(), uuid.New())
 			Expect(rec.Snapshot()).To(HaveExactElements(HaveField("Seq", uint64(2))))
 		},
