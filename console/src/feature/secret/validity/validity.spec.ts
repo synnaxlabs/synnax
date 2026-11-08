@@ -90,10 +90,18 @@ describe("secret/validity", () => {
         text: "/etc/ssl/client.pem",
       });
     });
-    it("shows an unknown expiry for a stored certificate with no details", () => {
-      const { details: _, ...c } = STORED;
-      expect(Validity.describeCertificate(c, NOT_AFTER)).toEqual({
-        text: "Expiry unknown",
+
+    it("shows the expiry of a file certificate with details", () => {
+      const c: certificate.Certificate = {
+        key: "2a5f3d2e-9b9e-4c6f-8e4d-3b8c7d6e5f40",
+        name: "Client",
+        source: "file",
+        certificatePath: "/etc/ssl/client.pem",
+        details: STORED.details,
+      };
+      expect(Validity.describeCertificate(c, NOT_AFTER.add(TimeSpan.days(1)))).toEqual({
+        text: "Expired June 15, 2026",
+        status: "error",
       });
     });
   });
