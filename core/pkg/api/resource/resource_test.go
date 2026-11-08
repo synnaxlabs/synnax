@@ -197,5 +197,20 @@ var _ = Describe("Resource", func() {
 				},
 			)).Error().To(MatchError(`ids: unknown resource type "framer"`))
 		})
+
+		It("Should deny an ID of an unknown type that is not granted",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				id := resource.ID{Type: resource.TypeFramer, Key: "1"}
+				Expect(retrieve(
+					AuthedCtx(ctx, u),
+					apiresource.RetrieveRequest{IDs: []resource.ID{id}},
+				)).Error().To(MatchError(access.Denied(
+					u.ResourceID(),
+					access.ActionRetrieve,
+					id,
+				).Error()))
+			},
+		)
 	})
 })
