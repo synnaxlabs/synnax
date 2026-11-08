@@ -111,6 +111,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.GroupCreate = noop.UnaryServer[group.CreateRequest, group.CreateResponse]{}
 	t.GroupDelete = noop.UnaryServer[group.DeleteRequest, struct{}]{}
 	t.GroupRename = noop.UnaryServer[group.RenameRequest, struct{}]{}
+	t.GroupDispatch = noop.UnaryServer[group.DispatchRequest, struct{}]{}
 	t.GroupRetrieve = noop.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]{}
 	t.GroupRetrieveAncestors = noop.UnaryServer[
 		group.RetrieveAncestorsRequest,
@@ -141,6 +142,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectRetrieve = noop.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]{}
 	t.ProjectDelete = noop.UnaryServer[project.DeleteRequest, struct{}]{}
 	t.ProjectRename = noop.UnaryServer[project.RenameRequest, struct{}]{}
+	t.ProjectDispatch = noop.UnaryServer[project.DispatchRequest, struct{}]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
 
@@ -150,6 +152,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.DeviceRename = noop.UnaryServer[apidevice.RenameRequest, struct{}]{}
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
+	t.ViewDispatch = noop.UnaryServer[view.DispatchRequest, struct{}]{}
 
 	// TASK
 	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, apitask.DispatchResponse]{}
@@ -169,6 +172,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SchematicSymbolRetrieve = noop.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]{}
 	t.SchematicSymbolDelete = noop.UnaryServer[symbol.DeleteRequest, struct{}]{}
 	t.SchematicSymbolRename = noop.UnaryServer[symbol.RenameRequest, struct{}]{}
+	t.SchematicSymbolDispatch = noop.UnaryServer[symbol.DispatchRequest, struct{}]{}
 	t.SchematicSymbolExportGroup = noop.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]{}
 	t.SchematicSymbolImportGroup = noop.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]{}
 	t.SchematicSymbolDeleteGroup = noop.UnaryServer[symbol.DeleteGroupRequest, struct{}]{}

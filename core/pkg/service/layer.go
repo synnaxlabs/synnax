@@ -426,6 +426,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[group.Key, group.Action]{
+			Name:     "sy_group_action_set",
+			Actions:  l.Group.Actions(),
+			Resource: group.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if err = l.Signals.PublishTable(
 		ctx,
 		signals.TableConfig[label.Key, label.Label]{

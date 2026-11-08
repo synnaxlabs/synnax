@@ -127,6 +127,7 @@ type Transport struct {
 	GroupCreate            freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
 	GroupDelete            freighter.UnaryServer[group.DeleteRequest, struct{}]
 	GroupRename            freighter.UnaryServer[group.RenameRequest, struct{}]
+	GroupDispatch          freighter.UnaryServer[group.DispatchRequest, struct{}]
 	GroupRetrieve          freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
 	GroupRetrieveAncestors freighter.UnaryServer[group.RetrieveAncestorsRequest, group.RetrieveAncestorsResponse]
 	// PROJECT
@@ -134,6 +135,7 @@ type Transport struct {
 	ProjectRetrieve freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
 	ProjectDelete   freighter.UnaryServer[project.DeleteRequest, struct{}]
 	ProjectRename   freighter.UnaryServer[project.RenameRequest, struct{}]
+	ProjectDispatch freighter.UnaryServer[project.DispatchRequest, struct{}]
 	ProjectExport   freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
 	ProjectImport   freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
 	// SCHEMATIC
@@ -147,6 +149,7 @@ type Transport struct {
 	SchematicSymbolRetrieve    freighter.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]
 	SchematicSymbolDelete      freighter.UnaryServer[symbol.DeleteRequest, struct{}]
 	SchematicSymbolRename      freighter.UnaryServer[symbol.RenameRequest, struct{}]
+	SchematicSymbolDispatch    freighter.UnaryServer[symbol.DispatchRequest, struct{}]
 	SchematicSymbolExportGroup freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
 	SchematicSymbolImportGroup freighter.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]
 	SchematicSymbolDeleteGroup freighter.UnaryServer[symbol.DeleteGroupRequest, struct{}]
@@ -231,6 +234,8 @@ type Transport struct {
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
 	// ViewRename renames a view.
 	ViewRename freighter.UnaryServer[view.RenameRequest, struct{}]
+	// ViewDispatch applies path actions to a view.
+	ViewDispatch freighter.UnaryServer[view.DispatchRequest, struct{}]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
@@ -378,6 +383,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.GroupCreate,
 		t.GroupDelete,
 		t.GroupRename,
+		t.GroupDispatch,
 		t.GroupRetrieve,
 		t.GroupRetrieveAncestors,
 
@@ -406,6 +412,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ProjectCreate,
 		t.ProjectRetrieve,
 		t.ProjectRename,
+		t.ProjectDispatch,
 		t.ProjectExport,
 		t.ProjectImport,
 
@@ -421,6 +428,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicSymbolRetrieve,
 		t.SchematicSymbolDelete,
 		t.SchematicSymbolRename,
+		t.SchematicSymbolDispatch,
 		t.SchematicSymbolExportGroup,
 		t.SchematicSymbolImportGroup,
 		t.SchematicSymbolDeleteGroup,
@@ -497,6 +505,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ViewRetrieve,
 		t.ViewDelete,
 		t.ViewRename,
+		t.ViewDispatch,
 
 		// ARC
 		t.ArcCreate,
@@ -614,6 +623,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.GroupCreate.BindHandler(bind.Write(l.binder, l.Group.Create))
 	t.GroupDelete.BindHandler(bind.Write(l.binder, l.Group.Delete))
 	t.GroupRename.BindHandler(bind.Write(l.binder, l.Group.Rename))
+	t.GroupDispatch.BindHandler(bind.Write(l.binder, l.Group.Dispatch))
 	t.GroupRetrieve.BindHandler(bind.Read(l.binder, l.Group.Retrieve))
 	t.GroupRetrieveAncestors.BindHandler(bind.Read(l.binder, l.Group.RetrieveAncestors))
 
@@ -665,6 +675,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ProjectDelete.BindHandler(bind.Write(l.binder, l.Project.Delete))
 	t.ProjectRetrieve.BindHandler(bind.Read(l.binder, l.Project.Retrieve))
 	t.ProjectRename.BindHandler(bind.Write(l.binder, l.Project.Rename))
+	t.ProjectDispatch.BindHandler(bind.Write(l.binder, l.Project.Dispatch))
 	t.ProjectExport.BindHandler(bind.Read(l.binder, l.Project.Export))
 	t.ProjectImport.BindHandler(bind.Write(l.binder, l.Project.Import))
 
@@ -680,6 +691,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicSymbolRetrieve.BindHandler(bind.Read(l.binder, l.Symbol.Retrieve))
 	t.SchematicSymbolDelete.BindHandler(bind.Write(l.binder, l.Symbol.Delete))
 	t.SchematicSymbolRename.BindHandler(bind.Write(l.binder, l.Symbol.Rename))
+	t.SchematicSymbolDispatch.BindHandler(bind.Write(l.binder, l.Symbol.Dispatch))
 	t.SchematicSymbolExportGroup.BindHandler(
 		bind.Read(l.binder, l.Symbol.ExportGroup),
 	)
@@ -762,6 +774,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ViewRetrieve.BindHandler(bind.Read(l.binder, l.View.Retrieve))
 	t.ViewDelete.BindHandler(bind.Write(l.binder, l.View.Delete))
 	t.ViewRename.BindHandler(bind.Write(l.binder, l.View.Rename))
+	t.ViewDispatch.BindHandler(bind.Write(l.binder, l.View.Dispatch))
 
 	// ARC
 	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))

@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
@@ -133,6 +134,60 @@ var _ = Describe("Create", func() {
 		))
 		grantUpdateOn(ctx, u.ResourceID(), symbol.ResourceID(sym.Key))
 		MustSucceed(create(AuthedCtx(ctx, u), req))
+	})
+})
+
+var _ = Describe("Dispatch", func() {
+	var (
+		u        user.User
+		from, to group.Group
+		sym      symbol.Symbol
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = createUser(ctx)
+		from = createGroup(ctx, "dispatch-from")
+		to = createGroup(ctx, "dispatch-to")
+		sym = createSymbol(ctx, from, "Inlet")
+	})
+	move := func(ctx SpecContext) (struct{}, error) {
+		return dispatch(AuthedCtx(ctx, u), apisymbol.DispatchRequest{
+			Key: sym.Key,
+			Actions: []symbol.Action{symbol.NewSetAction(symbol.SetPayload{
+				Path:  []string{"group"},
+				Value: to.Key,
+			})},
+		})
+	}
+	DescribeTable(
+		"Should refuse a group change without update on a record it changes",
+		func(ctx SpecContext, refused func() resource.ID) {
+			changed := []resource.ID{
+				symbol.ResourceID(sym.Key),
+				from.ResourceID(),
+				to.ResourceID(),
+			}
+			grantUpdateOn(ctx, u.ResourceID(), lo.Without(changed, refused())...)
+			Expect(move(ctx)).Error().
+				To(denied(u.ResourceID(), access.ActionUpdate, refused()))
+			Expect(groupSymbols(ctx, from.Key)).
+				To(ConsistOf(symbol.ResourceID(sym.Key)))
+		},
+		Entry("the symbol", func() resource.ID { return symbol.ResourceID(sym.Key) }),
+		Entry("the source group", func() resource.ID { return from.ResourceID() }),
+		Entry("the destination group", func() resource.ID { return to.ResourceID() }),
+	)
+	It("Should move the symbol with update on it and both groups", func(
+		ctx SpecContext,
+	) {
+		grantUpdateOn(
+			ctx,
+			u.ResourceID(),
+			symbol.ResourceID(sym.Key),
+			from.ResourceID(),
+			to.ResourceID(),
+		)
+		MustSucceed(move(ctx))
+		Expect(groupSymbols(ctx, to.Key)).To(ConsistOf(symbol.ResourceID(sym.Key)))
 	})
 })
 
