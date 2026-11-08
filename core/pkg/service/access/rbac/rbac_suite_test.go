@@ -50,14 +50,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
-	MustSucceed2(
-		user.ProvisionRoot(
-			ctx,
-			userSvc,
-			passwordSvc,
-			auth.Credentials{Username: "suite-root", Password: "p"},
-		),
-	)
 	roles = MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
@@ -77,6 +69,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:  userSvc,
 		Rack:  rackSvc,
 	}))
+	MustSucceed2(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "suite-root", Password: "p"},
+			roles.Builtin.OwnerKey,
+		),
+	)
 })
 
 // newRolesConfig opens a database apart from the suite's database.

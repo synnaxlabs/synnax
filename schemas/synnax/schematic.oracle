@@ -1006,7 +1006,10 @@ Schematic struct {
     action RemoveNode {
         key string
 
-        @doc value "removes a node and any config stored under its key."
+        @doc value """
+            removes the node, its config, and the edges that connect to it and their
+            configs. No-op when no node has the key.
+        """
     }
 
     action AddEdge {
@@ -1014,14 +1017,14 @@ Schematic struct {
 
         @doc value """
             appends the edge to the schematic. No-op when an edge with the same key
-            already exists.
+            already exists, or when the source or target node does not exist.
         """
     }
 
     action RemoveEdge {
         key string
 
-        @doc value "removes the edge with the given key, if present."
+        @doc value "removes the edge with the given key and its config, if present."
     }
 
     action SetConfig {
@@ -1029,27 +1032,37 @@ Schematic struct {
         config ElementConfig
 
         @doc value """
-            replaces the config entry stored under the given node or edge key.
+            replaces the config entry stored under the given node or edge key. No-op
+            when no node or edge has the key.
         """
     }
 
     action Set extends patch.Set {
-        @doc value "replaces the value at a path in the schematic's element configs."
+        @doc value """
+            replaces the value at a path in the schematic's element configs. No-op when
+            no node or edge has the config's key.
+        """
     }
 
     action Remove extends patch.Remove {
         @doc value """
             removes an entry from a list or a field from an object in the schematic's
-            element configs.
+            element configs. No-op when no node or edge has the config's key.
         """
     }
 
     action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the schematic's element configs."
+        @doc value """
+            adds an entry to a list in the schematic's element configs. No-op when no
+            node or edge has the config's key.
+        """
     }
 
     action Move extends patch.Move {
-        @doc value "moves an entry in a list in the schematic's element configs."
+        @doc value """
+            moves an entry in a list in the schematic's element configs. No-op when no
+            node or edge has the config's key.
+        """
     }
 
     @create

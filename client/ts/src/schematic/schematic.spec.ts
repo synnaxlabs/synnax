@@ -400,6 +400,9 @@ describe("Schematic", () => {
       }
     });
 
+    const setNodes = (...keys: string[]): schematic.Action[] =>
+      keys.map((key) => schematic.setNode({ node: { key, position: { x: 0, y: 0 } } }));
+
     test("addEdge appends new edges and is a no-op on duplicate keys", async () => {
       const { schem } = await newProjectSchematic(client);
       const e = (
@@ -414,6 +417,7 @@ describe("Schematic", () => {
         target: { node: tgtNode, param: tgtParam },
       });
       await client.schematics.dispatch(schem.key, [
+        ...setNodes("a", "b", "c", "d"),
         schematic.addEdge({ edge: e("e1", "a", "o", "b", "i") }),
         schematic.addEdge({ edge: e("e2", "b", "o", "c", "i") }),
       ]);
@@ -432,6 +436,7 @@ describe("Schematic", () => {
     test("removeEdge removes the matching edge", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
+        ...setNodes("a", "b"),
         schematic.addEdge({
           edge: {
             key: "e1",
@@ -439,17 +444,21 @@ describe("Schematic", () => {
             target: { node: "b", param: "i" },
           },
         }),
+        schematic.setConfig({ key: "e1", config: { variant: "pipe" } }),
       ]);
+      expect((await client.schematics.retrieve(schem.key)).edges).toHaveLength(1);
       await client.schematics.dispatch(schem.key, [
         schematic.removeEdge({ key: "e1" }),
       ]);
       const res = await client.schematics.retrieve(schem.key);
       expect(res.edges).toEqual([]);
+      expect(res.configs).toEqual({});
     });
 
     test("setConfig replaces the config under the given key", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
+        ...setNodes("n1"),
         schematic.setConfig({
           key: "n1",
           config: { variant: "tank", label: { label: "Original" } },
@@ -473,6 +482,7 @@ describe("Schematic", () => {
       const { schem } = await newProjectSchematic(client);
       const base = tank({ label: { label: "Original" } });
       await client.schematics.dispatch(schem.key, [
+        ...setNodes("n1"),
         schematic.setConfig({ key: "n1", config: base }),
       ]);
       const red = { strokeColor: "#ff0000" };
@@ -497,6 +507,7 @@ describe("Schematic", () => {
       const { schem } = await newProjectSchematic(client);
       const base = tank({ strokeColor: "#ff0000" });
       await client.schematics.dispatch(schem.key, [
+        ...setNodes("n1"),
         schematic.setConfig({ key: "n1", config: base }),
       ]);
       await client.schematics.dispatch(
@@ -555,6 +566,7 @@ describe("Schematic", () => {
     test("round-trips telem args through dispatch", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
+        ...setNodes("valveNode_B2"),
         schematic.setConfig({
           key: "valveNode_B2",
           config: { variant: "valve", stateChannel: 12, commandChannel: 13 },

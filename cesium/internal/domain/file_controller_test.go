@@ -92,15 +92,12 @@ var _ = Describe("File Controller", Ordered, func() {
 			BeforeEach(func() {
 				fs = openFS()
 			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
-			})
 			Describe("Writers", func() {
 				It(
 					"Should allow one writing to a file at all times",
 					func(ctx SpecContext) {
 						By("Initializing a file controller")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        1 * telem.Megabyte,
 							Instrumentation: PanicLogger(),
@@ -140,7 +137,7 @@ var _ = Describe("File Controller", Ordered, func() {
 
 				It("Should obey the file size limit", func(ctx SpecContext) {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        10 * telem.Byte,
 						Instrumentation: PanicLogger(),
@@ -168,7 +165,7 @@ var _ = Describe("File Controller", Ordered, func() {
 
 				It("Should persist obey the file size limit", func(ctx SpecContext) {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS: fs, FileSize: 10 * telem.Byte,
 						Instrumentation: PanicLogger(),
 					}))
@@ -186,7 +183,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 
 					By("Reopening the db and fc")
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        10 * telem.Byte,
 						Instrumentation: PanicLogger(),
@@ -208,7 +205,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should open a file if it is below threshold",
 					func(ctx SpecContext) {
 						By("Initializing a file controller")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -240,7 +237,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should persist and open a file if it is below threshold",
 					func(ctx SpecContext) {
 						By("Initializing a file controller")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -259,7 +256,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(db.Close()).To(Succeed())
 
 						By("Reopening the db and fc")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -285,7 +282,7 @@ var _ = Describe("File Controller", Ordered, func() {
 							limit = 4
 							opens = 64
 						)
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							MaxDescriptors:  limit,
 							Instrumentation: PanicLogger(),
@@ -320,7 +317,7 @@ var _ = Describe("File Controller", Ordered, func() {
 
 				It("Should obey the file descriptor limit", func(ctx SpecContext) {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						MaxDescriptors:  2,
 						Instrumentation: PanicLogger(),
@@ -369,7 +366,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should persist the counter file across open/close",
 					func(ctx SpecContext) {
 						By("Initializing a file controller")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -390,7 +387,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(db.Close()).To(Succeed())
 
 						By("Reopening the db on the same FS")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -432,7 +429,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should open writers on partially full files after reopening the file controller",
 					func(ctx SpecContext) {
 						By("Initializing a file controller")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -461,7 +458,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(db.Close()).To(Succeed())
 
 						By("Reopening the db on the same FS")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -585,7 +582,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should work with file auto cutoff generated files",
 					func(ctx SpecContext) {
 						By("Initializing a file controller")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -607,7 +604,7 @@ var _ = Describe("File Controller", Ordered, func() {
 
 						By("Reopening the db")
 						Expect(db.Close()).To(Succeed())
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -659,7 +656,7 @@ var _ = Describe("File Controller", Ordered, func() {
 				const watchdog = 5 * time.Second
 				openDB := func(fs xfs.FS, limit int) {
 					GinkgoHelper()
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						MaxDescriptors:  limit,
 						Instrumentation: PanicLogger(),
@@ -912,7 +909,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should open a new file handle for each simultaneously held reader",
 					func(ctx SpecContext) {
 						rec := NewRecorder(fs)
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              rec,
 							FileSize:        1 * telem.Megabyte,
 							Instrumentation: PanicLogger(),
@@ -954,7 +951,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should reuse reader file handles across sequential acquires of the same file",
 					func(ctx SpecContext) {
 						rec := NewRecorder(fs)
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              rec,
 							FileSize:        1 * telem.Megabyte,
 							Instrumentation: PanicLogger(),
