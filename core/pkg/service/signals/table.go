@@ -11,6 +11,7 @@ package signals
 
 import (
 	"context"
+	"encoding/json/v2"
 	"fmt"
 	"reflect"
 	"strings"
@@ -163,6 +164,15 @@ func (f *tableFeed[K, E]) append(
 		fr = fr.Append(f.del.Key(), deletes)
 	}
 	return fr
+}
+
+// MarshalJSON encodes e as one variable JSON sample.
+func MarshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
+	b, err := json.Marshal(e)
+	if err != nil {
+		return nil, err
+	}
+	return telem.MarshalVariableSample(b), nil
 }
 
 // keyDataType returns the data type of the delete channel of a table keyed by K.

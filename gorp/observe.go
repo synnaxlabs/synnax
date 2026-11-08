@@ -60,11 +60,6 @@ func (t *Table[K, E]) Changes(ctx context.Context, c Commit) TxReader[K, E] {
 	}
 }
 
-// ObserveDetaches returns an observable that notifies each entry of the table, as
-// written, that a delete of one of its targets detached. Handlers run synchronously
-// after the delete's transaction commits.
-func (t *Table[K, E]) ObserveDetaches() observe.Observable[E] { return t.detaches }
-
 // holds reports whether ch changed an entry of the table.
 func (t *Table[K, E]) holds(ch Change) bool { return ch.Record.Table == t.name }
 

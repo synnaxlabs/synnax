@@ -187,7 +187,7 @@ var _ = Describe("Delivery", func() {
 	})
 
 	It(
-		"Should deliver after the key-value observers and before the OnCommit hooks",
+		"Should deliver after the key-value observers and before Commit returns",
 		func(ctx SpecContext) {
 			var calls []string
 			DeferCleanup(db.OnChange(func(context.Context, kv.TxReader) {
@@ -198,9 +198,9 @@ var _ = Describe("Delivery", func() {
 			}))
 			tx := DeferClose(db.OpenTx())
 			Expect(create(ctx, 1)(tx)).To(Succeed())
-			gorp.OnCommit(tx, func() { calls = append(calls, "hook") })
 			Expect(tx.Commit(ctx)).To(Succeed())
-			Expect(calls).To(Equal([]string{"observer", "reader", "hook"}))
+			calls = append(calls, "commit")
+			Expect(calls).To(Equal([]string{"observer", "reader", "commit"}))
 		},
 	)
 

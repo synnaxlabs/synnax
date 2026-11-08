@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
@@ -70,8 +69,6 @@ type Table[K Key, E Entry[K]] struct {
 	populateShutdown io.Closer
 	// onDetach is TableConfig.OnDetach.
 	onDetach func(ctx context.Context, tx Tx, e E) error
-	// detaches notifies each entry that a delete of a target detached.
-	detaches observe.Observer[E]
 }
 
 // Close cancels any running populate goroutine, waits for it to exit, and releases
@@ -113,7 +110,6 @@ func OpenTable[K Key, E Entry[K]](
 		name:       cfg.Name,
 		references: cfg.References,
 		onDetach:   cfg.OnDetach,
-		detaches:   observe.New[E](),
 	}
 	if t.name == "" {
 		t.name = types.Name[E]()
