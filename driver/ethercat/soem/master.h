@@ -197,6 +197,14 @@ private:
     /// @brief discovers PDOs from the SII categories of the slave.
     void discover_pdos_sii(slave::DiscoveryResult &slave);
 
+    /// @brief returns the input or output PDOs that the SII of the slave at pos lists
+    /// on the sync managers that keep accepts, then gives the EEPROM back to the slave.
+    std::vector<pdo::PDO> read_sii_pdos(
+        uint16_t pos,
+        bool is_input,
+        const std::function<bool(uint8_t sync)> &keep
+    );
+
     /// @brief reads the synchronization modes the slave at the given position lists in
     /// its SII. Returns an empty list when the SII has no DC category.
     std::vector<dc::OpMode> read_op_modes(uint16_t position);

@@ -572,6 +572,67 @@ TEST_F(SOEMMasterTest, CoEDiscoveryReportsAFailedRead) {
     );
 }
 
+/// @brief it should reject a CoE slave whose SII lists PDOs on a sync manager with no
+/// PDO assign object while its other sync managers have assigned PDOs, as SOEM leaves
+/// the fixed sync manager unmapped.
+TEST_F(SOEMMasterTest, CoEDiscoveryRejectsAFixedSyncManagerNextToAnAssignedOne) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    this->add_slave(slave);
+    this->mock->slave_infos[0].sdo_objects = {
+        {{0x1C00, 0}, 4},
+        {{0x1C00, 3}, 3},
+        {{0x1C00, 4}, 4},
+        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+        {{0x1A00, 0}, 1},
+        {{0x1A00, 1}, 0x60000110},
+    };
+    constexpr uint16_t start = 0x40;
+    this->mock->slave_infos[0].sii_categories = {{ECT_SII_PDO + 1, start}};
+    // One RxPDO, 0x1600 on SM2, with entry 0x7000:01 (INTEGER16).
+    const std::vector<uint8_t> category =
+        {8, 0, 0x00, 0x16, 1, 2, 0, 0, 0, 0, 0x00, 0x70, 1, 0, 0x03, 16, 0, 0};
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    EXPECT_TRUE(slaves[0].properties.input_pdos.empty());
+    EXPECT_TRUE(slaves[0].properties.output_pdos.empty());
+    EXPECT_EQ(
+        slaves[0].status.pdo_discovery_error,
+        "SOEM cannot map this slave because sync manager 2 has fixed PDOs and the "
+        "other sync managers have assigned PDOs. Use IgH for this slave"
+    );
+    EXPECT_TRUE(this->mock->eeprom_held.empty());
+}
+
+/// @brief it should keep the assigned PDOs of a CoE slave when its SII lists no PDOs on
+/// the sync manager that has no PDO assign object.
+TEST_F(SOEMMasterTest, CoEDiscoveryKeepsAFixedSyncManagerWithNoPDOs) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    this->add_slave(slave);
+    this->mock->slave_infos[0].sdo_objects = {
+        {{0x1C00, 0}, 4},
+        {{0x1C00, 3}, 3},
+        {{0x1C00, 4}, 4},
+        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+        {{0x1A00, 0}, 1},
+        {{0x1A00, 1}, 0x60000110},
+    };
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves[0].properties.input_pdos.size(), 1);
+    EXPECT_EQ(slaves[0].properties.input_pdos[0].index, 0x6000);
+    EXPECT_TRUE(slaves[0].status.pdo_discovery_error.empty());
+}
+
 /// @brief it should give the EEPROM back to the slave after it reads PDOs from the SII.
 TEST_F(SOEMMasterTest, SIIDiscoveryGivesTheEEPROMBackToTheSlave) {
     MockSlaveInfo slave;

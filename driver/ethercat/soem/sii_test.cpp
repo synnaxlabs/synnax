@@ -22,6 +22,11 @@ Strings lookup(const std::map<uint8_t, std::string> &strings) {
         return it == strings.end() ? std::string{} : it->second;
     };
 }
+
+/// @brief keeps the PDOs on sync managers 0 through 7.
+bool below_eight(const uint8_t sync) {
+    return sync < 8;
+}
 }
 
 /// @brief it should read each PDO with its name, the objects it maps with their names
@@ -36,7 +41,7 @@ TEST(ParsePDOsTest, ReadsPDOsWithNamesTypesAndPadding) {
     const auto data = std::span(category).subspan(2);
     const auto pdos = parse_pdos(
         data,
-        8,
+        below_eight,
         lookup({{1, "Channel 1"}, {2, "Underrange"}, {3, "Value"}})
     );
     ASSERT_EQ(pdos.size(), 1);
@@ -63,7 +68,7 @@ TEST(ParsePDOsTest, ReadsConsecutivePDOs) {
         0x00, 0x1A, 1, 3, 0, 0, 0, 0, 0x00, 0x60, 1, 0, 0x03, 16, 0, 0,
         0x01, 0x1A, 1, 3, 0, 0, 0, 0, 0x10, 0x60, 1, 0, 0x08, 32, 0, 0,
     };
-    const auto pdos = parse_pdos(data, 8, lookup({}));
+    const auto pdos = parse_pdos(data, below_eight, lookup({}));
     ASSERT_EQ(pdos.size(), 2);
     EXPECT_EQ(pdos[0].name, std::nullopt);
     EXPECT_EQ(pdos[1].index, 0x1A01);
@@ -71,9 +76,8 @@ TEST(ParsePDOsTest, ReadsConsecutivePDOs) {
     EXPECT_EQ(pdos[1].entries[0].type, telem::DataType::EC_REAL32);
 }
 
-/// @brief it should leave out a PDO on a sync manager that the master does not
-/// configure.
-TEST(ParsePDOsTest, LeavesOutAPDOOnASyncManagerAboveTheMaximum) {
+/// @brief it should leave out a PDO on a sync manager that keep rejects.
+TEST(ParsePDOsTest, LeavesOutAPDOOnARejectedSyncManager) {
     const std::vector<uint8_t> data = {
         0x00,
         0x1A,
@@ -92,7 +96,7 @@ TEST(ParsePDOsTest, LeavesOutAPDOOnASyncManagerAboveTheMaximum) {
         0,
         0,
     };
-    EXPECT_TRUE(parse_pdos(data, 8, lookup({})).empty());
+    EXPECT_TRUE(parse_pdos(data, below_eight, lookup({})).empty());
 }
 
 /// @brief it should read the PDO after one that it leaves out.
@@ -101,7 +105,7 @@ TEST(ParsePDOsTest, ReadsThePDOAfterOneItLeavesOut) {
         0x00, 0x1A, 1, 8, 0, 0, 0, 0, 0x00, 0x60, 1, 0, 0x03, 16, 0, 0,
         0x01, 0x1A, 1, 3, 0, 0, 0, 0, 0x10, 0x60, 1, 0, 0x08, 32, 0, 0,
     };
-    const auto pdos = parse_pdos(data, 8, lookup({}));
+    const auto pdos = parse_pdos(data, below_eight, lookup({}));
     ASSERT_EQ(pdos.size(), 1);
     EXPECT_EQ(pdos[0].index, 0x1A01);
     EXPECT_EQ(pdos[0].entries[0].index, 0x6010);
@@ -127,7 +131,7 @@ TEST(ParsePDOsTest, LeavesOutAPDOThatRunsPastTheCategory) {
         0,
         0,
     };
-    EXPECT_TRUE(parse_pdos(data, 8, lookup({})).empty());
+    EXPECT_TRUE(parse_pdos(data, below_eight, lookup({})).empty());
 }
 
 /// @brief it should read each synchronization mode in SII order.
