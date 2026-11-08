@@ -181,7 +181,7 @@ describe("Secret", () => {
       const before = await client.secrets.retrieve(q);
       expect(before.uses).toEqual([{ type: "certificate", key: c.key }]);
       vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout"],
+        toFake: ["setTimeout", "clearTimeout", "Date"],
         shouldAdvanceTime: true,
       });
       try {
