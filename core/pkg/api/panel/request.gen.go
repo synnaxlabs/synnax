@@ -22,8 +22,11 @@ import (
 
 // ApplyRetrieve narrows q to the records that r selects. A key with no record is a
 // non-match, as for every other line. It returns a validate.PathError for a value that
-// no filter can hold. It is not a method, so a package that names RetrieveRequest does
-// not compile every generic method of the Retrieve.
+// no filter can hold.
+//
+// ApplyRetrieve is a function, not a method, to cut compile time. As a method, it would
+// make every package that names RetrieveRequest compile each generic method of the
+// Retrieve.
 func ApplyRetrieve(r RetrieveRequest, q servicepanel.Retrieve) (servicepanel.Retrieve, error) {
 	q = q.SkipMissingKeys()
 	if r.Where != nil {
