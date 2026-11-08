@@ -225,6 +225,7 @@ type Transport struct {
 	ArcRetrieveDirectory freighter.UnaryServer[arcdirectory.RetrieveRequest, arcdirectory.RetrieveResponse]
 	ArcCreateDirectory   freighter.UnaryServer[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse]
 	ArcRenameDirectory   freighter.UnaryServer[arc.RenameDirectoryRequest, struct{}]
+	ArcDispatchDirectory freighter.UnaryServer[arc.DispatchDirectoryRequest, struct{}]
 	ArcDeleteDirectory   freighter.UnaryServer[arc.DeleteDirectoryRequest, struct{}]
 	ArcMove              freighter.UnaryServer[arc.MoveRequest, struct{}]
 	ArcLSP               freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
@@ -516,6 +517,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcRetrieveDirectory,
 		t.ArcCreateDirectory,
 		t.ArcRenameDirectory,
+		t.ArcDispatchDirectory,
 		t.ArcDeleteDirectory,
 		t.ArcMove,
 		t.ArcLSP,
@@ -785,6 +787,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcRetrieveDirectory.BindHandler(bind.Read(l.binder, l.Arc.RetrieveDirectories))
 	t.ArcCreateDirectory.BindHandler(bind.Write(l.binder, l.Arc.CreateDirectory))
 	t.ArcRenameDirectory.BindHandler(bind.Write(l.binder, l.Arc.RenameDirectory))
+	t.ArcDispatchDirectory.BindHandler(bind.Write(l.binder, l.Arc.DispatchDirectory))
 	t.ArcDeleteDirectory.BindHandler(bind.Write(l.binder, l.Arc.DeleteDirectory))
 	t.ArcMove.BindHandler(bind.Write(l.binder, l.Arc.Move))
 	t.ArcLSP.BindHandler(l.Arc.LSP)

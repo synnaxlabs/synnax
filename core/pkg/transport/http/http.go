@@ -655,6 +655,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/arc/directory/rename",
 		),
+		ArcDispatchDirectory: unary[arc.DispatchDirectoryRequest, struct{}](
+			router,
+			"/api/v1/arc/directory/dispatch",
+		),
 		ArcDeleteDirectory: unary[arc.DeleteDirectoryRequest, struct{}](
 			router,
 			"/api/v1/arc/directory/delete",

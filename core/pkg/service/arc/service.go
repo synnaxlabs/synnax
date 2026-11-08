@@ -163,6 +163,8 @@ type Service struct {
 	// followCommit reads them once the transaction commits.
 	resyncs *gorp.Attachment[Key]
 	deletes *gorp.Attachment[Key]
+	// directoryState holds the actions that change directories.
+	directoryState *actions.State[directory.Key, directory.Action]
 }
 
 // NewRoot builds the production analysis root: the STL, status, and ranges modules, the
@@ -296,6 +298,7 @@ func OpenService(
 			cfg.TextSweepQuiescence,
 			cfg.TextSweepThreshold,
 		),
+		directoryState: actions.NewState[directory.Key, directory.Action](cfg.DB),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -342,6 +345,16 @@ func OpenService(
 		); !ok(err, nil) {
 			return nil, err
 		}
+		if err = cfg.Signals.PublishActions(
+			ctx,
+			signals.ActionConfig[directory.Key, directory.Action]{
+				Name:     "sy_arc_directory_action_set",
+				Actions:  s.directoryState,
+				Resource: directory.ResourceID,
+			},
+		); !ok(err, nil) {
+			return nil, err
+		}
 	}
 	return s, nil
 }
@@ -355,21 +368,30 @@ func (s *Service) OnAction(
 	return s.state.OnChange(handler)
 }
 
+// OnDirectoryAction calls handler with each directory action batch that a transaction
+// attaches, after the transaction commits. It has the contract of OnAction.
+func (s *Service) OnDirectoryAction(
+	handler func(context.Context, actions.Scoped[directory.Key, directory.Action]),
+) observe.Disconnect {
+	return s.directoryState.OnChange(handler)
+}
+
 // NewWriter opens a new writer for creating, updating, and deleting Arcs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:          tx,
-		root:        s.root,
-		directories: s.directories,
-		reserved:    s.reserved,
-		tasks:       s.cfg.Task,
-		matchTasks:  s.cfg.MatchTasks,
-		status:      s.cfg.Status,
-		table:       s.table,
-		dispatcher:  s.state.Dispatcher(),
-		sweeper:     s.sweeper,
-		resyncs:     s.resyncs,
-		deletes:     s.deletes,
+		tx:                  tx,
+		root:                s.root,
+		directories:         s.directories,
+		reserved:            s.reserved,
+		tasks:               s.cfg.Task,
+		matchTasks:          s.cfg.MatchTasks,
+		status:              s.cfg.Status,
+		table:               s.table,
+		dispatcher:          s.state.Dispatcher(),
+		directoryDispatcher: s.directoryState.Dispatcher(),
+		sweeper:             s.sweeper,
+		resyncs:             s.resyncs,
+		deletes:             s.deletes,
 	}
 }
 

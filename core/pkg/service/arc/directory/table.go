@@ -144,30 +144,20 @@ func (w Writer) Create(ctx context.Context, d *Directory) error {
 	return w.table.NewCreate().Entry(d).Exec(ctx, w.tx)
 }
 
-// Rename gives the directory with key the given name.
-func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.update(ctx, func(d Directory) Directory { d.Name = name; return d }, key)
-}
-
-// SetParent moves the directories with keys into the directory parent. A move that
-// puts a directory below itself is a validation error.
-func (w Writer) SetParent(ctx context.Context, parent Key, keys ...Key) error {
-	return w.update(
-		ctx,
-		func(d Directory) Directory { d.Parent = &parent; return d },
-		keys...,
-	)
-}
-
-func (w Writer) update(
+// Update replaces the directory with key with the result of change, which receives the
+// stored directory. An invalid result is a validation error.
+func (w Writer) Update(
 	ctx context.Context,
-	change func(Directory) Directory,
-	keys ...Key,
+	key Key,
+	change func(Directory) (Directory, error),
 ) error {
 	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Directory](keys...)).
+		Where(gorp.MatchKeys[Key, Directory](key)).
 		ChangeErr(func(_ gorp.Context, d Directory) (Directory, error) {
-			d = change(d)
+			d, err := change(d)
+			if err != nil {
+				return Directory{}, err
+			}
 			return d, d.Validate()
 		}).
 		Exec(ctx, w.tx)
