@@ -36,8 +36,7 @@ func (s Sort) Leaf() Field { return s.Path[len(s.Path)-1] }
 
 // Sorts returns the orders that the `@index sorted` marks of fields declare, in field
 // order. It returns an error for a mark that names no sub-field of a struct, that
-// orders
-// a value that is neither a string nor a number, or that shares its field with
+// orders a value that is neither a string nor a number, or that shares its field with
 // `@index lookup`.
 func Sorts(fields []Field, table *Table) ([]Sort, error) {
 	var sorts []Sort

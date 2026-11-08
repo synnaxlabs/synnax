@@ -1085,6 +1085,42 @@ var _ = Describe("Index", func() {
 			)
 
 			It(
+				"Should sort an entry that moved after the walk found it into a full result",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 1, Score: 500}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(HaveLen(20))
+					Expect(scoresOf(res)[:2]).To(Equal([]int64{0, 20}))
+					Expect(res[19]).To(Equal(moved))
+				},
+			)
+
+			It(
+				"Should sort an entry that moved after the walk found it into a key filter",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 1, Score: 500}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						Where(gorp.MatchKeys[int32, indexedEntry](2, 1, 0)).
+						OrderBy(scoreIdx.Ordered(gorp.DirectionDesc)).
+						Limit(2).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(idsOf(res)).To(Equal([]int32{1, 2}))
+				},
+			)
+
+			It(
 				"Should run validators on the ordered result set",
 				func(ctx SpecContext) {
 					var (

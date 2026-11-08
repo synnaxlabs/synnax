@@ -716,6 +716,19 @@ var _ = Describe("Retrieve", func() {
 				}))
 			})
 
+			It("Should drop the filter keys up to the key", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.MatchKeys[int32, entry](1005, 1000, 1001, 1003)).
+					After(1001).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{
+					{ID: 1003, Data: "data"},
+					{ID: 1005, Data: "data"},
+				}))
+			})
+
 			It("Should count only the entries past the key", func(ctx SpecContext) {
 				Expect(gorp.NewRetrieve[int32, entry]().
 					After(1289).
