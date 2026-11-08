@@ -261,6 +261,26 @@ var _ = Describe("Dispatch", func() {
 			Expect(retrieveTask(ctx, t.Key).ConfigHash).To(Equal(t.ConfigHash))
 		},
 	)
+	It(
+		"Should refuse any edit of a config naming a secret the subject cannot read",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			t := createAlerts(ctx)
+			grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
+			Expect(apiSvc.Dispatch(
+				AuthedCtx(ctx, u),
+				apitask.DispatchRequest{
+					Key:         t.Key,
+					DispatchKey: "dk",
+					Actions: []task.Action{task.NewSetAction(task.SetPayload{
+						Path:  []string{"config", "auto_start"},
+						Value: true,
+					})},
+				},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveTask(ctx, t.Key).ConfigHash).To(Equal(t.ConfigHash))
+		},
+	)
 	It("Should return the dispatch error", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
