@@ -262,9 +262,8 @@ var _ = Describe("Service", func() {
 		It("Should return a zero hash for an empty new password", func(
 			ctx SpecContext,
 		) {
-			h, err := svc.HashProven(ctx, credentials("secret"), "")
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(h).To(Equal(password.Hash{}))
+			Expect(svc.HashProven(ctx, credentials("secret"), "")).Error().
+				To(MatchError(validate.ErrValidation))
 		})
 	})
 	Describe("NewRetrieve", func() {
