@@ -245,10 +245,13 @@ func (txn *tx) Close() error {
 	return nil
 }
 
-// NewReader implements kv.Writer.
+// NewReader implements kv.Writer. It reads the operations as they are when NewReader is
+// called. Readers that NewReader returns are safe to run on separate goroutines.
 func (txn *tx) NewReader() kv.TxReader {
+	// Batch.Reader sets up an empty batch, so it must not run on reader goroutines.
+	ops := txn.Reader()
 	return func(yield func(kv.Change) bool) {
-		r := txn.Reader()
+		r := ops
 		for {
 			kind, k, v, ok, err := r.Next()
 			if err != nil {
