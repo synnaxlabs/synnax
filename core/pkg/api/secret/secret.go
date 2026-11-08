@@ -310,8 +310,7 @@ func (s *Service) Delete(
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
-// GrantCreateRequest names a subject and the secrets it may read once, whether or not
-// anything on the subject uses them.
+// GrantCreateRequest names a subject and the secrets it may read once.
 type GrantCreateRequest struct {
 	// Subject is the subject that may read the secrets. It must be a rack.
 	Subject resource.ID `json:"subject" msgpack:"subject"`
