@@ -539,7 +539,7 @@ describe("Status queries", () => {
       });
 
       const statuses = await client.statuses.retrieve({
-        where: { key: { in: ["batch-hook-1", "batch-hook-2"] } },
+        key: ["batch-hook-1", "batch-hook-2"],
       });
       expect(statuses).toHaveLength(2);
     });
@@ -1234,7 +1234,7 @@ describe("Status queries", () => {
       });
 
       const statuses = await client.statuses.retrieve({
-        where: { key: { in: [status1.key, status2.key] } },
+        key: [status1.key, status2.key],
       });
 
       expect(statuses).toHaveLength(2);
@@ -1261,15 +1261,13 @@ describe("Status queries", () => {
       await client.statuses.retrieve(status1.key);
 
       const statuses = await client.statuses.retrieve({
-        where: { key: { in: [status1.key, status2.key] } },
+        key: [status1.key, status2.key],
       });
 
       expect(statuses).toHaveLength(2);
       expect(statuses.map((s) => s.key)).toContain(status1.key);
       expect(statuses.map((s) => s.key)).toContain(status2.key);
-      const cached = client.statuses.getCached({
-        where: { key: { in: [status1.key, status2.key] } },
-      });
+      const cached = client.statuses.getCached({ key: [status1.key, status2.key] });
       expect(query.isLive(cached)).toBe(true);
     });
 
@@ -1289,12 +1287,10 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
 
-      await client.statuses.retrieve({
-        where: { key: { in: [status1.key, status2.key] } },
-      });
+      await client.statuses.retrieve({ key: [status1.key, status2.key] });
 
       const statuses = await client.statuses.retrieve({
-        where: { key: { in: [status1.key, status2.key] } },
+        key: [status1.key, status2.key],
       });
 
       expect(statuses).toHaveLength(2);

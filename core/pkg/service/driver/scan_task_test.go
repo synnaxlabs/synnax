@@ -135,9 +135,9 @@ type refusingTx struct {
 	refused bool
 }
 
-func (t *refusingTx) Set(ctx context.Context, key, value []byte, opts ...any) error {
+func (t *refusingTx) Set(ctx context.Context, key, value []byte) error {
 	t.refused = t.refused || bytes.Contains(key, t.marker)
-	return t.Tx.Set(ctx, key, value, opts...)
+	return t.Tx.Set(ctx, key, value)
 }
 
 func (t *refusingTx) Commit(ctx context.Context, opts ...any) error {

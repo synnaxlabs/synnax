@@ -446,7 +446,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
-			HostProvider:        testutil.NewStaticHostProvider(1),
+			HostKey:             1,
 			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			DriverRole: MustSucceed(
@@ -473,10 +473,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			}}},
 		}).Exec(ctx, db)).To(Succeed())
 		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           db,
-			HostProvider: node.Cluster,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			DB:      db,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
 		}))
 		toCreated = createFixtureTargets(
 			ctx,

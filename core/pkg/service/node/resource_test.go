@@ -32,12 +32,12 @@ var _ = Describe("Resources", func() {
 		}))
 	})
 
-	It("Should leave out a node that is not in the cluster", func(ctx SpecContext) {
+	It("Should leave out a node that is not the host", func(ctx SpecContext) {
 		Expect(testSvc.Resources().Retrieve(
 			ctx,
 			nil,
-			[]resource.ID{node.ResourceID(999), node.ResourceID(2)},
-		)).To(Equal([]resource.Resource{{ID: node.ResourceID(2), Name: "Node 2"}}))
+			[]resource.ID{node.ResourceID(999), node.ResourceID(1)},
+		)).To(Equal([]resource.Resource{{ID: node.ResourceID(1), Name: "Node 1"}}))
 	})
 
 	It("Should return a validation error for a malformed key", func(ctx SpecContext) {
@@ -64,7 +64,7 @@ var _ = Describe("Resources", func() {
 		))
 	})
 
-	DescribeTable("Should list the nodes in the cluster in order of key",
+	DescribeTable("Should list the host node",
 		func(
 			ctx SpecContext,
 			limit int,
@@ -74,18 +74,15 @@ var _ = Describe("Resources", func() {
 			Expect(testSvc.Resources().List(ctx, nil, limit, except)).
 				To(Equal(expected))
 		},
-		Entry("every node", 10, nil, []resource.Resource{
-			{ID: node.ResourceID(1), Name: "Node 1"},
-			{ID: node.ResourceID(2), Name: "Node 2"},
-		}),
-		Entry("at most the limit", 1, nil, []resource.Resource{
+		Entry("the host", 10, nil, []resource.Resource{
 			{ID: node.ResourceID(1), Name: "Node 1"},
 		}),
+		Entry("nothing at a zero limit", 0, nil, []resource.Resource{}),
 		Entry(
-			"without the excepted nodes",
-			1,
+			"nothing when the host is excepted",
+			10,
 			func(id resource.ID) bool { return id == node.ResourceID(1) },
-			[]resource.Resource{{ID: node.ResourceID(2), Name: "Node 2"}},
+			[]resource.Resource{},
 		),
 	)
 })
@@ -109,18 +106,15 @@ var _ = Describe("Resource", func() {
 
 	Describe("Service", func() {
 		Describe("Search", func() {
-			DescribeTable("Should search the nodes currently in the cluster",
+			DescribeTable("Should search the host node",
 				func(ctx SpecContext, term string, limit int, expected []resource.ID) {
 					q := search.Query[resource.ID]{Term: term, Limit: limit}
 					Expect(
 						MustSucceed(testSvc.Resources().Search(ctx, nil, q)).Keys,
 					).To(Equal(expected))
 				},
-				Entry("every node", "node", 10,
-					[]resource.ID{node.ResourceID(1), node.ResourceID(2)}),
-				Entry("the node that matches every word", "node 2", 10,
-					[]resource.ID{node.ResourceID(2)}),
-				Entry("at most the limit", "node", 1,
+				Entry("the host", "node", 10, []resource.ID{node.ResourceID(1)}),
+				Entry("the host by every word", "node 1", 10,
 					[]resource.ID{node.ResourceID(1)}),
 				Entry("no match", "valve", 10, []resource.ID{}),
 			)

@@ -15,7 +15,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -63,10 +62,10 @@ func Open(ctx context.Context, cfg Config) (s *Services, err error) {
 		return nil, err
 	}
 	if s.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           cfg.DB,
-		HostProvider: disttestutil.NewStaticHostProvider(1),
-		Status:       cfg.Status,
-		DriverRole:   roles.Builtin.DriverKey,
+		DB:         cfg.DB,
+		HostKey:    1,
+		Status:     cfg.Status,
+		DriverRole: roles.Builtin.DriverKey,
 	}); !ok(err, s.Rack) {
 		return nil, err
 	}

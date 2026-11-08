@@ -163,7 +163,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err != nil {
 		return err
 	}
-	if err = w.tx.Set(ctx, encoded, data, entry.SetOptions()...); err != nil {
+	if err = w.tx.Set(ctx, encoded, data); err != nil {
 		return err
 	}
 	changes.set(s, data, w.links(&entry), w.derived)

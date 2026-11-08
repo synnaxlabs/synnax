@@ -29,12 +29,6 @@ var _ = Describe("Resource", func() {
 			Expect(r.GorpKey()).To(Equal("channel:qux"))
 		})
 	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Resource{}.SetOptions()).To(BeNil())
-		})
-	})
 })
 
 var _ = Describe("ResourceNormalizeKeys", func() {
