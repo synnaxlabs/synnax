@@ -372,6 +372,17 @@ var _ = Describe("Rename", func() {
 })
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the racks that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		granted := createRackWithStatus(ctx, "leave-out-granted")
+		createRackWithStatus(ctx, "leave-out-denied")
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{}))
+		Expect(res.Racks).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should attach only each rack's own status", func(ctx SpecContext) {
 		u := createUser(ctx)
 		withStatus := rack.Rack{Name: "With Status"}

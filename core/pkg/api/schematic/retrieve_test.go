@@ -88,3 +88,16 @@ var _ = Describe("Retrieve by snapshot and page", func() {
 		Expect(append(first, second...)).To(ConsistOf("editable", "snap"))
 	})
 })
+
+var _ = Describe("Retrieve access", func() {
+	It("Should leave out the schematics that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := newUser(ctx)
+		granted := createSchematic(ctx, "leave-out-granted")
+		createSchematic(ctx, "leave-out-denied")
+		grantOn(ctx, u.ResourceID(), access.ActionRetrieve, granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apischematic.RetrieveRequest{}))
+		Expect(res.Schematics).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+})

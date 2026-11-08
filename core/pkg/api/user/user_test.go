@@ -206,6 +206,25 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Retrieve", func() {
+		It("Should leave out the users that the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			fctx, u := nonRootCtx(ctx)
+			granted := createUser(ctx, "leave-out-granted-"+uuid.New().String())
+			createUser(ctx, "leave-out-denied-"+uuid.New().String())
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				u.Key,
+				[]access.Action{access.ActionRetrieve},
+				granted.ResourceID(),
+			))
+			res := MustSucceed(retrieve(fctx, apiuser.RetrieveRequest{}))
+			Expect(res.Users).To(HaveExactElements(HaveField("Key", granted.Key)))
+		})
+
 		It(
 			"Should retrieve users by key when the subject has retrieve access",
 			func(ctx SpecContext) {
