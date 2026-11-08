@@ -219,14 +219,11 @@ minimum becomes the minimum, or 0 with none, above the maximum becomes the maxim
 a fraction truncates, as the Driver's cast does. It logs the task, field, old value, and
 new value. An identifier (NI `port` and `line`, LabJack `neg_chan`) never clamps,
 because a clamped one picks a channel the user did not choose. Out of range, the pure
-channel migration sets it to its minimum, disables its channel, and returns the old
-value, so the store migration, `Normalize`, and imports share the rule. Each caller gets
-the Status service injected and writes a warning naming the channel and old value, keyed
-by the task's ontology ID plus `/migration`, under the task with `SetWithParent`. The
-Driver never writes that key, deleting the task removes it, and saving the task clears
-it. Boot succeeds, and the task runs its other channels. A `neg_chan` of 199 and a
-backlog count of 0 become absent. Each migration phase tests a clamp at both bounds and
-a disabled identifier.
+config migration drops the channel and logs the task, channel, and old value, so the
+store migration, `Normalize`, and imports share the rule, and the task runs its other
+channels. The log is the only record, but DAQmx or LJM rejected that channel, so it
+never ran. A `neg_chan` of 199 and a backlog count of 0 become absent. Each migration
+phase tests a clamp at both bounds and a dropped identifier.
 
 LabJack v2 shipped, so LabJack gets v3. NI v3 has not shipped, so NI changes it in place
 if it lands before a release, or else adds v4. Kafka v0 changes in place in Phase 7.
@@ -274,8 +271,8 @@ narrowing. Each drop is logged.
   reconcile.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
-string variant. Each field in §6 clamps or disables by its rule and logs. A released
-Core keeps reading v2, v3, and v0.58 to v0.59 envelopes.
+string variant. Each field in §6 clamps or drops by its rule and logs. A released Core
+keeps reading v2, v3, and v0.58 to v0.59 envelopes.
 
 ## 8 Implementation phases
 
