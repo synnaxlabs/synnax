@@ -52,7 +52,8 @@ var (
 	rackSvc   *rack.Service
 	devices   *gorp.Table[device.Key, device.Device]
 	tasks     *gorp.Table[task.Key, task.Task]
-	// del, rename, and setByKeyOrName run their routes as the API layer binds them.
+	// The handlers below run their routes as the API layer binds them.
+	setStatuses    freighter.UnaryHandler[apistatus.SetRequest, apistatus.SetResponse]
 	del            freighter.UnaryHandler[apistatus.DeleteRequest, struct{}]
 	rename         freighter.UnaryHandler[apistatus.RenameRequest, struct{}]
 	setByKeyOrName freighter.UnaryHandler[
@@ -92,6 +93,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:   rbacSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	setStatuses = bind.Write(binder, apiSvc.Set)
 	del = bind.Write(binder, apiSvc.Delete)
 	rename = bind.Write(binder, apiSvc.Rename)
 	setByKeyOrName = bind.Write(binder, apiSvc.SetByKeyOrName)

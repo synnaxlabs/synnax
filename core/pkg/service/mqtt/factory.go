@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -188,7 +187,7 @@ func (f *Factory) onDeviceChange(
 	r gorp.TxReader[device.Key, device.Device],
 ) {
 	for ch := range r {
-		if ch.Variant != change.VariantSet || ch.Value.Make != Make {
+		if ch.Kind == gorp.ChangeDelete || ch.Value.Make != Make {
 			continue
 		}
 		f.edited.Lock()

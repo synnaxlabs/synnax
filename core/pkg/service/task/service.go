@@ -118,7 +118,6 @@ type Service struct {
 	indexes           indexes
 	state             *actions.State[Key, Action]
 	commandChannelKey channel.Key
-	actionChannelKey  channel.Key
 }
 
 // Observe returns an observable that notifies callers of changes to task entries.
@@ -204,7 +203,8 @@ func OpenService(
 	}
 	if cfg.Signals != nil {
 		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Task]{
-			Changes: s.table.Changes,
+			Changes:  s.table.Changes,
+			Resource: ResourceID,
 			MarshalSet: func(t Task) ([]byte, error) {
 				t.Config, t.Status = nil, nil
 				return signals.MarshalJSON(t)
@@ -215,19 +215,12 @@ func OpenService(
 		// The Driver reads sy_task_set as task metadata, so actions take their own
 		// channel.
 		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
-			Name:    "sy_task_action_set",
-			Actions: s.state,
+			Name:     "sy_task_action_set",
+			Actions:  s.state,
+			Resource: ResourceID,
 		}); !ok(err, nil) {
 			return nil, err
 		}
-		var actionCh channel.Channel
-		if err = cfg.Channel.NewRetrieve().
-			Where(channel.MatchNames("sy_task_action_set")).
-			Entry(&actionCh).
-			Exec(ctx, nil); !ok(err, nil) {
-			return nil, err
-		}
-		s.actionChannelKey = actionCh.Key()
 	}
 	return s, nil
 }
@@ -274,12 +267,6 @@ func (s *Service) Dispatch(
 
 func (s *Service) CommandChannelKey() channel.Key {
 	return s.commandChannelKey
-}
-
-// ActionChannelKey returns the key of the channel that broadcasts task actions. Its
-// samples carry task configs, so only subjects that can read a task may receive them.
-func (s *Service) ActionChannelKey() channel.Key {
-	return s.actionChannelKey
 }
 
 func (s *Service) Close() error { return s.closer.Close() }

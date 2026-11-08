@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/samber/lo"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -135,6 +136,34 @@ var _ = Describe("Service", func() {
 				)).Error().To(MatchError(access.ErrDenied))
 			},
 		)
+	})
+	Describe("SetGroup", func() {
+		// denied matches an error that denies the subject the action on object.
+		denied := func(
+			subject resource.ID,
+			action access.Action,
+			object resource.ID,
+		) types.GomegaMatcher {
+			return SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(
+					ContainSubstring("%s cannot %s %s", subject, action, object),
+				),
+			)
+		}
+		move := func(
+			ctx SpecContext,
+			g group.Group,
+			ch channel.Channel,
+		) (struct{}, error) {
+			return setGroup(
+				AuthedCtx(ctx, author),
+				apichannel.SetGroupRequest{
+					Group: &g.Key,
+					Keys:  []channel.Key{ch.Key()},
+				},
+			)
+		}
 		It(
 			"Should refuse a move without update on the destination group",
 			func(ctx SpecContext) {
@@ -146,38 +175,72 @@ var _ = Describe("Service", func() {
 					[]access.Action{access.ActionUpdate},
 					channel.ResourceID(ch.Key()),
 				)
-				Expect(apiSvc.SetGroup(
-					AuthedCtx(ctx, author),
-					nil,
-					apichannel.SetGroupRequest{
-						Group: &g.Key,
-						Keys:  []channel.Key{ch.Key()},
-					},
-				)).Error().To(MatchError(access.ErrDenied))
+				Expect(move(ctx, g, ch)).
+					Error().
+					To(denied(author.ResourceID(), access.ActionUpdate, g.ResourceID()))
 				Expect(retrieveChannel(ctx, ch.Key()).Group).To(BeNil())
 			},
 		)
 		It(
-			"Should move a channel with update on the destination group",
+			"Should refuse a move without update on the source group",
 			func(ctx SpecContext) {
 				ch := createChannel(ctx, telem.Float32T)
-				g := createChannelGroup(ctx, "Set group granted")
+				from := createChannelGroup(ctx, "Set group source denied")
+				Expect(channelSvc.NewWriter(nil).SetGroup(ctx, &from.Key, ch.Key())).
+					To(Succeed())
+				to := createChannelGroup(ctx, "Set group destination granted")
 				grantOn(
 					ctx,
 					author.ResourceID(),
 					[]access.Action{access.ActionUpdate},
 					channel.ResourceID(ch.Key()),
-					group.ResourceID(g.Key),
+					to.ResourceID(),
 				)
-				Expect(apiSvc.SetGroup(
-					AuthedCtx(ctx, author),
-					nil,
-					apichannel.SetGroupRequest{
-						Group: &g.Key,
-						Keys:  []channel.Key{ch.Key()},
-					},
-				)).Error().ToNot(HaveOccurred())
-				Expect(retrieveChannel(ctx, ch.Key()).Group).To(Equal(&g.Key))
+				Expect(move(ctx, to, ch)).Error().To(denied(
+					author.ResourceID(),
+					access.ActionUpdate,
+					from.ResourceID(),
+				))
+				Expect(retrieveChannel(ctx, ch.Key()).Group).To(Equal(&from.Key))
+			},
+		)
+		It(
+			"Should refuse a move without update on the channel",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx, telem.Float32T)
+				g := createChannelGroup(ctx, "Set group channel denied")
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					g.ResourceID(),
+				)
+				Expect(move(ctx, g, ch)).Error().To(denied(
+					author.ResourceID(),
+					access.ActionUpdate,
+					channel.ResourceID(ch.Key()),
+				))
+				Expect(retrieveChannel(ctx, ch.Key()).Group).To(BeNil())
+			},
+		)
+		It(
+			"Should move a channel with update on the channel and both groups",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx, telem.Float32T)
+				from := createChannelGroup(ctx, "Set group source granted")
+				Expect(channelSvc.NewWriter(nil).SetGroup(ctx, &from.Key, ch.Key())).
+					To(Succeed())
+				to := createChannelGroup(ctx, "Set group granted")
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+					from.ResourceID(),
+					to.ResourceID(),
+				)
+				MustSucceed(move(ctx, to, ch))
+				Expect(retrieveChannel(ctx, ch.Key()).Group).To(Equal(&to.Key))
 			},
 		)
 	})

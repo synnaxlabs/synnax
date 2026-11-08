@@ -631,19 +631,6 @@ var _ = Describe("Import", func() {
 			proj := importProject(ctx, files)
 			Expect(childrenOf(ctx, project.ResourceID(proj.Key))).To(HaveLen(5))
 		})
-
-		It("Should report every resource kind the bundle creates", func(
-			ctx SpecContext,
-		) {
-			Expect(svc.ImportObjects(ctx, bundle())).To(ConsistOf(
-				resource.ID{Type: resource.TypeProject},
-				resource.ID{Type: resource.TypeLog},
-				resource.ID{Type: resource.TypeArc},
-				resource.ID{Type: resource.TypeTask},
-				resource.ID{Type: resource.TypePanel},
-				resource.ID{Type: resource.TypeGroup},
-			))
-		})
 	})
 
 	It("Should import an exported bundle back as an equal project", func(
@@ -918,46 +905,6 @@ var _ = Describe("Import", func() {
 	})
 })
 
-var _ = Describe("ImportObjects", func() {
-	It("Should list the project and each distinct member type", func(ctx SpecContext) {
-		objects := MustSucceed(svc.ImportObjects(ctx, zip.Files{
-			"manifest.json": bundleManifest("Valves"),
-			"Metrics.json":  bundleLog("Metrics"),
-			"Flow.json":     bundleLog("Flow"),
-		}))
-		Expect(objects).To(ConsistOf(
-			resource.ID{Type: resource.TypeProject},
-			resource.ID{Type: resource.TypeLog},
-		))
-	})
-
-	It("Should include the group and panel types when the bundle carries them", func(
-		ctx SpecContext,
-	) {
-		objects := MustSucceed(svc.ImportObjects(ctx, zip.Files{
-			"manifest.json":  bundleManifest("Valves"),
-			"A/Metrics.json": bundleLog("Metrics"),
-			"Controls.json":  bundlePanel("Controls", "A/Metrics.json"),
-		}))
-		Expect(objects).To(ConsistOf(
-			resource.ID{Type: resource.TypeProject},
-			resource.ID{Type: resource.TypeLog},
-			resource.ID{Type: resource.TypePanel},
-			resource.ID{Type: resource.TypeGroup},
-		))
-	})
-
-	It("Should reject an invalid bundle with the import's error", func(
-		ctx SpecContext,
-	) {
-		Expect(svc.ImportObjects(ctx, zip.Files{"Metrics.json": []byte("{}")})).
-			Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("bundle holds no manifest.json")),
-		))
-	})
-})
-
 func legacyLayoutFile(layouts map[string]map[string]any) []byte {
 	GinkgoHelper()
 	return MustSucceed(json.Marshal(map[string]any{"layouts": layouts}))
@@ -1078,19 +1025,6 @@ var _ = Describe("Legacy import", func() {
 		Expect(svc.Import(ctx, tx, files, "Legacy.zip")).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`data for layout "k1" not found`)),
-		))
-	})
-
-	It("Should list the legacy members' types for access checks", func(
-		ctx SpecContext,
-	) {
-		objects := MustSucceed(svc.ImportObjects(ctx, zip.Files{
-			"LAYOUT.json":  legacyLayoutFile(logLayout),
-			"Metrics.json": legacyLogState(nil),
-		}))
-		Expect(objects).To(ConsistOf(
-			resource.ID{Type: resource.TypeProject},
-			resource.ID{Type: resource.TypeLog},
 		))
 	})
 })
@@ -1253,18 +1187,5 @@ var _ = Describe("Legacy tiling", func() {
 		children := childrenOf(ctx, project.ResourceID(proj.Key))
 		Expect(children).To(HaveLen(1))
 		Expect(children[0].ID.Type).To(Equal(resource.TypeLog))
-	})
-
-	It("Should list the panel type when the tiling converts", func(ctx SpecContext) {
-		objects := MustSucceed(svc.ImportObjects(ctx, twoLogFiles(zip.Files{
-			"LAYOUT.json": legacyTilingFile(tiledLayouts, map[string]any{
-				"main": map[string]any{"root": legacyLeaf("k1")},
-			}),
-		})))
-		Expect(objects).To(ConsistOf(
-			resource.ID{Type: resource.TypeProject},
-			resource.ID{Type: resource.TypeLog},
-			resource.ID{Type: resource.TypePanel},
-		))
 	})
 })

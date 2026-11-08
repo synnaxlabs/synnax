@@ -29,7 +29,7 @@ import (
 
 // ServiceConfig is the configuration for the alias API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of resolve, list, and retrieve requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -81,19 +81,13 @@ type SetRequest struct {
 	Range   ranger.Key             `json:"range"   msgpack:"range"`
 }
 
+// Set creates or updates the aliases of the channels on the range. It returns an error
+// wrapping query.ErrNotFound when a channel does not exist.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
 ) (struct{}, error) {
-	keys := lo.Keys(req.Aliases)
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: alias.ResourceIDs(req.Range, keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	w := s.alias.NewWriter(tx)
 	for k, v := range req.Aliases {
 		if err := w.Set(ctx, req.Range, k, v); err != nil {
@@ -144,18 +138,13 @@ type DeleteRequest struct {
 	Range    ranger.Key    `json:"range"    msgpack:"range"`
 }
 
+// Delete deletes the aliases of the channels on the range. A channel with no alias is
+// ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: alias.ResourceIDs(req.Range, req.Channels),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	w := s.alias.NewWriter(tx)
 	for _, ch := range req.Channels {
 		if err := w.Delete(ctx, req.Range, ch); err != nil {

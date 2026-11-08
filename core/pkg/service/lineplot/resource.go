@@ -30,11 +30,6 @@ func ResourceID(k Key) resource.ID {
 	return resource.ID{Type: resource.TypeLineplot, Key: k.String()}
 }
 
-// ResourceIDs returns the resource IDs of the line plots with keys.
-func ResourceIDs(keys []Key) []resource.ID {
-	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
-}
-
 // ResourceIDsFromLinePlots returns the resource IDs of the schematics.
 func ResourceIDsFromLinePlots(linePlots []LinePlot) []resource.ID {
 	return lo.Map(linePlots, func(linePlot LinePlot, _ int) resource.ID {

@@ -38,10 +38,11 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	svc    *service.Layer
 	apiSvc *apidevice.Service
-	// create, del, and rename run their routes as the API layer binds them.
-	create freighter.UnaryHandler[apidevice.CreateRequest, apidevice.CreateResponse]
-	del    freighter.UnaryHandler[apidevice.DeleteRequest, struct{}]
-	rename freighter.UnaryHandler[apidevice.RenameRequest, struct{}]
+	// These handlers run their routes as the API layer binds them.
+	create   freighter.UnaryHandler[apidevice.CreateRequest, apidevice.CreateResponse]
+	del      freighter.UnaryHandler[apidevice.DeleteRequest, struct{}]
+	rename   freighter.UnaryHandler[apidevice.RenameRequest, struct{}]
+	setGroup freighter.UnaryHandler[apidevice.SetGroupRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -60,6 +61,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	rename = bind.Write(binder, apiSvc.Rename)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
 })
 
 // createUser creates a user that can do nothing.

@@ -28,7 +28,7 @@ type Pair = kv.Pair
 
 // ServiceConfig is the configuration for the range key-value API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of get requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -115,18 +115,12 @@ type SetRequest struct {
 	Range ranger.Key `json:"range" msgpack:"range"`
 }
 
+// Set creates or updates the key-value pairs. Each pair names its own range.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{ranger.ResourceID(req.Range)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.kv.NewWriter(tx).SetMany(ctx, req.Pairs)
 }
 
@@ -135,18 +129,13 @@ type DeleteRequest struct {
 	Range ranger.Key `json:"range" msgpack:"range"`
 }
 
+// Delete deletes the pairs with the given keys from the range. A key that matches no
+// pair is ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{ranger.ResourceID(req.Range)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	w := s.kv.NewWriter(tx)
 	for _, key := range req.Keys {
 		if err := w.Delete(ctx, req.Range, key); err != nil {

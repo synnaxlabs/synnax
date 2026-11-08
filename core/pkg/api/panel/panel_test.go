@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -28,6 +29,19 @@ import (
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
+}
 
 // createPanel persists a panel in the suite project and returns it with its key
 // populated. Writes commit immediately (nil tx) so the api enforcer can observe the new
@@ -46,18 +60,47 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := newUser(ctx)
 				p := panel.Panel{Key: uuid.New(), Name: "no-policy", Project: &proj.Key}
-				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+				Expect(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
+
+		It("Should refuse the create without create on the panel", func(
+			ctx SpecContext,
+		) {
+			u := newUser(ctx)
+			grant(ctx, u.ResourceID(), access.ActionUpdate, proj.ResourceID())
+			p := panel.Panel{Key: uuid.New(), Name: "denied", Project: &proj.Key}
+			Expect(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
+				Panels: []panel.Panel{p},
+			})).Error().To(denied(u, access.ActionCreate, p.ResourceID()))
+			Expect(panelSvc.NewRetrieve().
+				Where(panel.MatchKeys(p.Key)).
+				Entry(&panel.Panel{}).
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should refuse to overwrite a panel without update on it", func(
+			ctx SpecContext,
+		) {
+			u := newUser(ctx)
+			grantCreate(ctx, u.ResourceID())
+			stored := createPanel(ctx, "stored")
+			Expect(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
+				Panels: []panel.Panel{
+					{Key: stored.Key, Name: "overwritten", Project: &proj.Key},
+				},
+			})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+			Expect(retrievePanel(ctx, stored.Key).Name).To(Equal("stored"))
+		})
 
 		It("Should create the panels in the provided project", func(ctx SpecContext) {
 			u := newUser(ctx)
 			p := panel.Panel{Key: uuid.New(), Name: "with-parent", Project: &proj.Key}
 			grantCreate(ctx, u.ResourceID())
 			res := MustSucceed(
-				apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+				create(AuthedCtx(ctx, u), apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
 				}),
 			)
@@ -78,7 +121,7 @@ var _ = Describe("Service", func() {
 			rec := &Recorder[panel.Key, panel.Action]{}
 			DeferCleanup(panelSvc.OnAction(rec.Record))
 			p := panel.Panel{Key: uuid.New(), Name: "broadcast", Project: &proj.Key}
-			MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+			MustSucceed(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
 				Panels:      []panel.Panel{p},
 				DispatchKey: "dk-create",
 			}))
@@ -95,7 +138,7 @@ var _ = Describe("Service", func() {
 				grant(ctx, u.ResourceID(), access.ActionCreate,
 					resource.ID{Type: resource.TypePanel})
 				p := panel.Panel{Key: uuid.New(), Name: "denied", Project: &proj.Key}
-				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+				Expect(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
@@ -108,7 +151,7 @@ var _ = Describe("Service", func() {
 				p := panel.Panel{Key: uuid.New(), Name: "no-owner"}
 				grant(ctx, u.ResourceID(), access.ActionCreate,
 					resource.ID{Type: resource.TypePanel})
-				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+				Expect(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
 				})).Error().To(MatchError(ContainSubstring(
 					"must belong to exactly one of a project and a range",
@@ -123,7 +166,7 @@ var _ = Describe("Service", func() {
 				p := panel.Panel{Key: uuid.New(), Name: "denied", Project: &proj.Key}
 				grant(ctx, u.ResourceID(), access.ActionCreate,
 					resource.ID{Type: resource.TypePanel})
-				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+				Expect(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
@@ -242,9 +285,8 @@ var _ = Describe("Service", func() {
 			"Should reject the request when the subject has no update policy",
 			func(ctx SpecContext) {
 				p := createPanel(ctx, "move-denied")
-				Expect(apiSvc.SetProject(
+				Expect(setProject(
 					AuthedCtx(ctx, author),
-					nil,
 					apipanel.SetProjectRequest{
 						Project: proj.Key,
 						Keys:    []panel.Key{p.Key},
@@ -262,9 +304,8 @@ var _ = Describe("Service", func() {
 				p := createPanel(ctx, "move-denied")
 				grant(ctx, u.ResourceID(), access.ActionUpdate,
 					p.ResourceID(), proj.ResourceID())
-				Expect(apiSvc.SetProject(
+				Expect(setProject(
 					AuthedCtx(ctx, u),
-					nil,
 					apipanel.SetProjectRequest{
 						Project: dest.Key,
 						Keys:    []panel.Key{p.Key},
@@ -281,9 +322,8 @@ var _ = Describe("Service", func() {
 			p := createPanel(ctx, "moved")
 			grant(ctx, u.ResourceID(), access.ActionUpdate,
 				p.ResourceID(), proj.ResourceID(), dest.ResourceID())
-			Expect(apiSvc.SetProject(
+			Expect(setProject(
 				AuthedCtx(ctx, u),
-				nil,
 				apipanel.SetProjectRequest{Project: dest.Key, Keys: []panel.Key{p.Key}},
 			)).Error().To(Succeed())
 			Expect(retrievePanel(ctx, p.Key).Project).To(Equal(&dest.Key))
@@ -299,9 +339,8 @@ var _ = Describe("Service", func() {
 					To(Succeed())
 				grant(ctx, u.ResourceID(), access.ActionUpdate,
 					p.ResourceID(), proj.ResourceID())
-				Expect(apiSvc.SetProject(
+				Expect(setProject(
 					AuthedCtx(ctx, u),
-					nil,
 					apipanel.SetProjectRequest{
 						Project: proj.Key,
 						Keys:    []panel.Key{p.Key},
@@ -362,29 +401,61 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Delete", func() {
+		var (
+			u user.User
+			p panel.Panel
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = newUser(ctx)
+			p = createPanel(ctx, "Deleted")
+		})
+		deleteAs := func(ctx SpecContext) (struct{}, error) {
+			return del(AuthedCtx(ctx, u), apipanel.DeleteRequest{
+				Keys: []panel.Key{p.Key},
+			})
+		}
+		panelID := func() resource.ID { return p.ResourceID() }
+		projectID := func() resource.ID { return proj.ResourceID() }
+		DescribeTable(
+			"Should refuse the delete and keep the panel",
+			func(
+				ctx SpecContext,
+				granted access.Action,
+				grantedOn func() resource.ID,
+				refused access.Action,
+				refusedOn func() resource.ID,
+			) {
+				grant(ctx, u.ResourceID(), granted, grantedOn())
+				Expect(deleteAs(ctx)).Error().To(denied(u, refused, refusedOn()))
+				Expect(retrievePanel(ctx, p.Key).Key).To(Equal(p.Key))
+			},
+			Entry(
+				"without delete on the panel",
+				access.ActionUpdate,
+				projectID,
+				access.ActionDelete,
+				panelID,
+			),
+			Entry(
+				"without update on its project",
+				access.ActionDelete,
+				panelID,
+				access.ActionUpdate,
+				projectID,
+			),
+		)
 		It(
-			"Should reject the request when the subject has no delete policy",
+			"Should delete the panel with delete on it and update on its project",
 			func(ctx SpecContext) {
-				p := createPanel(ctx, "delete-denied")
-				Expect(
-					apiSvc.Delete(AuthedCtx(ctx, author), nil, apipanel.DeleteRequest{
-						Keys: []panel.Key{p.Key},
-					}),
-				).Error().
-					To(MatchError(access.ErrDenied))
+				grant(ctx, u.ResourceID(), access.ActionDelete, panelID())
+				grant(ctx, u.ResourceID(), access.ActionUpdate, projectID())
+				MustSucceed(deleteAs(ctx))
+				Expect(panelSvc.NewRetrieve().
+					Where(panel.MatchKeys(p.Key)).
+					Entry(&panel.Panel{}).
+					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
-
-		It("Should delete the panels with the given keys", func(ctx SpecContext) {
-			p := createPanel(ctx, "deletable")
-			grant(ctx, author.ResourceID(), access.ActionDelete, p.ResourceID())
-			Expect(apiSvc.Delete(AuthedCtx(ctx, author), nil, apipanel.DeleteRequest{
-				Keys: []panel.Key{p.Key},
-			})).Error().To(Succeed())
-			var got panel.Panel
-			Expect(panelSvc.NewRetrieve().Where(panel.MatchKeys(p.Key)).
-				Entry(&got).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-		})
 	})
 })
 
@@ -414,8 +485,8 @@ var _ = Describe("SetGroup", func() {
 			p := createPanel(ctx, "Set group denied")
 			g := createGroup(ctx, "Set group denied")
 			grant(ctx, u.ResourceID(), access.ActionUpdate, panel.ResourceID(p.Key))
-			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), db,
+			Expect(setGroup(
+				AuthedCtx(ctx, u),
 				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{p.Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 			Expect(retrievePanel(ctx, p.Key).Group).To(BeNil())
@@ -434,8 +505,8 @@ var _ = Describe("SetGroup", func() {
 				panel.ResourceID(p.Key),
 				g.ResourceID(),
 			)
-			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), db,
+			Expect(setGroup(
+				AuthedCtx(ctx, u),
 				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{p.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(retrievePanel(ctx, p.Key).Group).To(Equal(&g.Key))
@@ -457,9 +528,8 @@ var _ = Describe("SetGroup", func() {
 			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 		})
 		move := func(ctx SpecContext) (struct{}, error) {
-			return apiSvc.SetGroup(
+			return setGroup(
 				AuthedCtx(ctx, u),
-				db,
 				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{x.Key}},
 			)
 		}
@@ -510,7 +580,7 @@ var _ = Describe("Create in a group", func() {
 			u := newUser(ctx)
 			g := createGroup(ctx, "Create denied")
 			grantCreate(ctx, u.ResourceID())
-			Expect(apiSvc.Create(AuthedCtx(ctx, u), db, apipanel.CreateRequest{
+			Expect(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
 				Panels: []panel.Panel{newPanel("Denied", g)},
 			})).Error().To(MatchError(access.ErrDenied))
 		},
@@ -521,7 +591,7 @@ var _ = Describe("Create in a group", func() {
 		grantCreate(ctx, u.ResourceID())
 		grant(ctx, u.ResourceID(), access.ActionUpdate, g.ResourceID())
 		p := newPanel("Granted", g)
-		Expect(apiSvc.Create(AuthedCtx(ctx, u), db, apipanel.CreateRequest{
+		Expect(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
 			Panels: []panel.Panel{p},
 		})).Error().ToNot(HaveOccurred())
 		Expect(retrievePanel(ctx, p.Key).Group).To(Equal(&g.Key))
@@ -540,8 +610,11 @@ var _ = Describe("Create in a group", func() {
 			g = group.Group{Name: "Create destination", Parent: new(dest.ResourceID())}
 			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 		})
-		create := func(ctx SpecContext, carried *project.Key) (apipanel.CreateResponse, error) {
-			return apiSvc.Create(AuthedCtx(ctx, u), db, apipanel.CreateRequest{
+		createIn := func(
+			ctx SpecContext,
+			carried *project.Key,
+		) (apipanel.CreateResponse, error) {
+			return create(AuthedCtx(ctx, u), apipanel.CreateRequest{
 				Panels: []panel.Panel{
 					{
 						Key:     uuid.New(),
@@ -556,7 +629,10 @@ var _ = Describe("Create in a group", func() {
 			"Should refuse a create in a group without update on the group's project",
 			func(ctx SpecContext, carried func() *project.Key) {
 				grant(ctx, u.ResourceID(), access.ActionUpdate, g.ResourceID())
-				Expect(create(ctx, carried())).Error().To(MatchError(access.ErrDenied))
+				Expect(
+					createIn(ctx, carried()),
+				).Error().
+					To(MatchError(access.ErrDenied))
 			},
 			Entry(
 				"with the project it carries",
@@ -574,7 +650,7 @@ var _ = Describe("Create in a group", func() {
 					g.ResourceID(),
 					dest.ResourceID(),
 				)
-				res := MustSucceed(create(ctx, nil))
+				res := MustSucceed(createIn(ctx, nil))
 				Expect(
 					retrievePanel(ctx, res.Panels[0].Key).Project,
 				).To(Equal(&dest.Key))

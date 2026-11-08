@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -48,8 +48,20 @@ var (
 	rbacSvc      *rbac.Service
 	schematicSvc *schematic.Service
 	apiSvc       *apischematic.Service
-	// dispatch runs the Dispatch route in one transaction, as the API layer binds it.
-	dispatch   freighter.UnaryHandler[apischematic.DispatchRequest, struct{}]
+	// create, del, dispatch, copySchematic, setGroup, and setProject run their routes
+	// as the API layer binds them.
+	create freighter.UnaryHandler[
+		apischematic.CreateRequest,
+		apischematic.CreateResponse,
+	]
+	del           freighter.UnaryHandler[apischematic.DeleteRequest, struct{}]
+	dispatch      freighter.UnaryHandler[apischematic.DispatchRequest, struct{}]
+	copySchematic freighter.UnaryHandler[
+		apischematic.CopyRequest,
+		apischematic.CopyResponse,
+	]
+	setGroup   freighter.UnaryHandler[apischematic.SetGroupRequest, struct{}]
+	setProject freighter.UnaryHandler[apischematic.SetProjectRequest, struct{}]
 	proj       project.Project
 	projectSvc *project.Service
 	author     user.User
@@ -96,7 +108,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:      rbacSvc,
 		Schematic: schematicSvc,
 	}))
-	dispatch = fgorp.CreateWriteUnaryHandler(db, apiSvc.Dispatch)
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	copySchematic = bind.Write(binder, apiSvc.Copy)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	setProject = bind.Write(binder, apiSvc.SetProject)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))

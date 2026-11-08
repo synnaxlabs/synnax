@@ -106,6 +106,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if cfg.Signals != nil {
 		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Symbol]{
 			Changes:    s.table.Changes,
+			Resource:   ResourceID,
 			SetName:    "sy_schematic_symbol_set",
 			DeleteName: "sy_schematic_symbol_delete",
 		}); !ok(err, nil) {

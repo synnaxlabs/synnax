@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -137,18 +136,9 @@ func (s *Service) Set(
 	req SetRequest,
 ) (SetResponse, error) {
 	w := s.internal.NewWriter(tx)
-	enforcer := s.access.NewEnforcer(tx)
 	for i := range req.Statuses {
 		st := &req.Statuses[i]
-		labelIDs := label.ResourceIDs(st.Labels)
 		if err := w.Resolve(ctx, st); err != nil {
-			return SetResponse{}, err
-		}
-		if err := enforcer.Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: append([]resource.ID{st.ResourceID()}, labelIDs...),
-		}); err != nil {
 			return SetResponse{}, err
 		}
 		if err := validateDetails(*st); err != nil {

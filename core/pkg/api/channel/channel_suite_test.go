@@ -14,6 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -46,12 +48,15 @@ var (
 	aliasSvc   *alias.Service
 	userSvc    *user.Service
 	apiSvc     *apichannel.Service
-	author     user.User
+	// setGroup runs the SetGroup route as the API layer binds it.
+	setGroup freighter.UnaryHandler[apichannel.SetGroupRequest, struct{}]
+	author   user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	svc := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+	node := testutil.NewNode(ctx)
+	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
 	channelSvc, groupSvc, statusSvc, rbacSvc = svc.Channel, svc.Group, svc.Status, svc.RBAC
 	rangeSvc, aliasSvc, userSvc = svc.Ranger, svc.Alias, svc.User
 	apiSvc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
@@ -60,6 +65,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:  statusSvc,
 		Alias:   aliasSvc,
 	}))
+	binder := MustSucceed(
+		bind.NewService(bind.ServiceConfig{DB: node.DB, RBAC: rbacSvc}),
+	)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)

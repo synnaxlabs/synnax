@@ -30,13 +30,6 @@ func ResourceID(k Key) resource.ID {
 	return resource.ID{Type: resource.TypeSchematic, Key: k.String()}
 }
 
-// ResourceIDs returns the resource IDs of the schematics with keys.
-func ResourceIDs(keys []Key) []resource.ID {
-	return lo.Map(keys, func(key Key, _ int) resource.ID {
-		return ResourceID(key)
-	})
-}
-
 // ResourceIDsFromSchematics returns the resource IDs of the schematics.
 func ResourceIDsFromSchematics(schematics []Schematic) []resource.ID {
 	return lo.Map(schematics, func(s Schematic, _ int) resource.ID {

@@ -11,9 +11,7 @@ package panel
 
 import (
 	"context"
-	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -22,17 +20,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // ServiceConfig is the configuration for the panel API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of retrieve requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -63,9 +58,8 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// Service is the API-layer panel service. It enforces access control and routes
-// requests to the distribution panel service. Write handlers execute inside the
-// transaction provided by the binding layer (fgorp.CreateWriteUnaryHandler).
+// Service is the API-layer panel service. Its write handlers run in the transaction
+// of the write binder, which checks their access.
 type Service struct {
 	access   *rbac.Service
 	internal *panel.Service
@@ -96,68 +90,19 @@ type (
 	}
 )
 
-// Create persists the panels in req and returns them with their assigned keys. It
-// requires create access on the panel type and update access on the group and owner of
-// each new panel, and returns a validation error when a panel does not belong to
-// exactly one project or range.
+// Create creates the panels, and overwrites each one whose key exists. It returns a
+// validation error when a panel does not belong to exactly one project or range.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
-) (res CreateResponse, err error) {
-	enforcer := s.access.NewEnforcer(tx)
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypePanel}},
-	}); err != nil {
-		return res, err
-	}
-	var stored []panel.Panel
-	if err = s.internal.NewRetrieve().
-		Where(panel.MatchKeys(lo.Map(
-			req.Panels,
-			func(p panel.Panel, _ int) panel.Key { return p.Key },
-		)...)).
-		Entries(&stored).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return res, err
-	}
-	owners, err := project.CreateObjects(
-		ctx,
-		tx,
-		resource.TypePanel,
-		req.Panels,
-		stored,
-		func(p panel.Panel) *group.Key { return p.Group },
-		func(p panel.Panel) *resource.ID {
-			return project.OwnerID(p.Project, p.Range)
-		},
-	)
-	if err != nil {
-		return res, err
-	}
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: slices.Concat(
-			group.CreateObjects(
-				req.Panels,
-				stored,
-				func(p panel.Panel) *group.Key { return p.Group },
-			),
-			owners,
-		),
-	}); err != nil {
-		return res, err
-	}
+) (CreateResponse, error) {
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, &req.Panels); err != nil {
-		return res, err
+		return CreateResponse{}, err
 	}
-	res.Panels = req.Panels
-	return res, nil
+	return CreateResponse{Panels: req.Panels}, nil
 }
 
 func (s *Service) Retrieve(
@@ -188,21 +133,13 @@ func (s *Service) Retrieve(
 // its own broadcast echo.
 type DispatchRequest = actions.DispatchRequest[panel.Key, panel.Action]
 
-// Dispatch applies the action sequence to the target panel atomically. The actions
-// are reduced server-side via panel.Reduce; on success the resulting Scoped action
-// is broadcast on the panel set channel so connected clients can mirror the change.
+// Dispatch applies the action sequence to the target panel in tx. Subscribers to the
+// panel action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{panel.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.
 		Dispatch(ctx, tx, req.Key, req.DispatchKey, req.Actions)
 }
@@ -211,18 +148,13 @@ type DeleteRequest struct {
 	Keys []panel.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the panels with the given keys. A key that matches no panel is
+// ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: panel.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -233,49 +165,12 @@ type SetGroupRequest struct {
 }
 
 // SetGroup moves the panels with the given keys into a group. A move into a group under
-// another project also requires update access on the stored owner and on that project.
+// another project moves the panels into that project.
 func (s *Service) SetGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
-	var panels []panel.Panel
-	if err := s.internal.NewRetrieve().
-		Where(panel.MatchKeys(req.Keys...)).
-		Entries(&panels).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			panel.ResourceIDs(req.Keys),
-			lo.Map(panels, func(e panel.Panel, _ int) *group.Key { return e.Group }),
-			req.Group,
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
-	projects, err := project.SetGroupObjects(
-		ctx,
-		tx,
-		req.Group,
-		resource.TypePanel,
-		lo.Map(panels, func(e panel.Panel, _ int) *resource.ID {
-			return project.OwnerID(e.Project, e.Range)
-		}),
-	)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: projects,
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }
 
@@ -286,36 +181,12 @@ type SetProjectRequest struct {
 }
 
 // SetProject moves the panels with the given keys out of their group and into a
-// project. It requires update access on the panels, their groups, their owners, and the
 // project.
 func (s *Service) SetProject(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetProjectRequest,
 ) (struct{}, error) {
-	var stored []panel.Panel
-	if err := s.internal.NewRetrieve().
-		Where(panel.MatchKeys(req.Keys...)).
-		Entries(&stored).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			project.MoveObjects(
-				panel.ResourceIDs(req.Keys),
-				lo.Map(stored, func(e panel.Panel, _ int) *resource.ID {
-					return project.OwnerID(e.Project, e.Range)
-				}),
-				new(project.ResourceID(req.Project)),
-			),
-			lo.Map(stored, func(e panel.Panel, _ int) *group.Key { return e.Group }),
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).
 		SetProject(ctx, req.Project, req.Keys...)
 }

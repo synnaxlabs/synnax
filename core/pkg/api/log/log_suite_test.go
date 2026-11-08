@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apilog "github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -39,7 +41,14 @@ var (
 	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apilog.Service
-	proj   project.Project
+	// create, del, dispatch, setGroup, and setProject run their routes as the API
+	// layer binds them.
+	create     freighter.UnaryHandler[apilog.CreateRequest, apilog.CreateResponse]
+	del        freighter.UnaryHandler[apilog.DeleteRequest, struct{}]
+	dispatch   freighter.UnaryHandler[apilog.DispatchRequest, struct{}]
+	setGroup   freighter.UnaryHandler[apilog.SetGroupRequest, struct{}]
+	setProject freighter.UnaryHandler[apilog.SetProjectRequest, struct{}]
+	proj       project.Project
 	// author can do nothing until a spec grants it access.
 	author user.User
 )
@@ -53,6 +62,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: svc.RBAC,
 		Log:  svc.Log,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: svc.RBAC,
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	setProject = bind.Write(binder, apiSvc.SetProject)
 	proj = project.Project{Name: "test-project"}
 	Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 	author = MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{

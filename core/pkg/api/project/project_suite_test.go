@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -50,7 +52,20 @@ var (
 	panelSvc   *panel.Service
 	userSvc    *user.Service
 	apiSvc     *apiproject.Service
-	author     user.User
+	// create, del, rename, importBundle, and setGroup run their routes as the API layer
+	// binds them.
+	create freighter.UnaryHandler[
+		apiproject.CreateRequest,
+		apiproject.CreateResponse,
+	]
+	del          freighter.UnaryHandler[apiproject.DeleteRequest, struct{}]
+	rename       freighter.UnaryHandler[apiproject.RenameRequest, struct{}]
+	importBundle freighter.UnaryHandler[
+		apiproject.ImportRequest,
+		apiproject.ImportResponse,
+	]
+	setGroup freighter.UnaryHandler[apiproject.SetGroupRequest, struct{}]
+	author   user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -114,6 +129,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Project: projectSvc,
 		Bundle:  bundleSvc,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	rename = bind.Write(binder, apiSvc.Rename)
+	importBundle = bind.Write(binder, apiSvc.Import)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))
