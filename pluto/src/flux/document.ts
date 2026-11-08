@@ -46,7 +46,7 @@ const COALESCE_WINDOW = TimeSpan.milliseconds(200);
 
 /** The value that an edit writes at a path. */
 interface Write {
-  /** The action that writes the value. */
+  /** The action that writes the value, in the document's paths. */
   action: patch.Action;
   value: unknown;
   /** Whether the value passes its field schema. */
@@ -230,12 +230,7 @@ class DocumentStore<
       deep.set(whole, target.rest, value);
     }
     if (deep.equal(whole, target.node)) return;
-    const guards = patch.guards(this.params.schema, target.path, values);
-    this.write(target.path.join(deep.SEPARATOR), {
-      action: { type: "set", set: { path: target.path, value: whole, guards } },
-      value: whole,
-      valid,
-    });
+    this.write(target.path, whole, valid);
   };
 
   remove = (formPath: string): void => {
@@ -325,13 +320,13 @@ class DocumentStore<
     return target.path;
   }
 
-  private write(at: string, write: Write): void {
+  private write(path: string[], value: unknown, valid: boolean): void {
     if (this.removed) return;
-    const prefixed = patch.prefix(write.action, this.params.path);
     if (this.batched != null) {
-      this.batched.add(prefixed);
+      this.batched.add(this.setAction(path, value));
       return;
     }
+    const at = path.join(deep.SEPARATOR);
     let edit = this.edits.find((e) =>
       [...e.writes.keys()].some((p) => overlaps(p, at)),
     );
@@ -341,25 +336,32 @@ class DocumentStore<
     }
     // A write replaces every earlier write below its path.
     const replaced = [...edit.writes.keys()].filter((p) => deep.pathsMatch(p, at));
-    for (const p of replaced) edit.writes.delete(p);
-    edit.writes.set(at, write);
-    if (replaced.length === 0) edit.tx.add(prefixed);
-    else {
+    if (replaced.length > 0) {
       // The Core applies each action of a dispatch, so a replaced value that fails its
       // schema would fail the dispatch.
+      for (const p of replaced) edit.writes.delete(p);
       edit.tx.abort();
       edit.tx = this.params.domain.beginTransaction(this.key);
-      edit.tx.add(
-        [...edit.writes.values()].map(({ action }) =>
-          patch.prefix(action, this.params.path),
-        ),
-      );
+      edit.tx.add([...edit.writes.values()].map(({ action }) => action));
     }
+    // The guards read the document without the replaced writes.
+    const action = this.setAction(path, value);
+    edit.writes.set(at, { action, value, valid });
+    edit.tx.add(action);
     clearTimeout(edit.timer);
     const scheduled = edit;
     edit.timer = setTimeout(
       () => void this.take(scheduled),
       COALESCE_WINDOW.milliseconds,
+    );
+  }
+
+  /** @returns the action that sets the value at path, guarded on the shown document. */
+  private setAction(path: string[], value: unknown): patch.Action {
+    const guards = patch.guards(this.params.schema, path, this.get());
+    return patch.prefix(
+      { type: "set", set: { path, value, guards } },
+      this.params.path,
     );
   }
 
