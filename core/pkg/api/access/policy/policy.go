@@ -107,7 +107,10 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	return res, q.Where(bind.Filter(snap, rbacpolicy.Match)).Exec(ctx, snap)
+	if err = q.Where(bind.Filter(snap, rbacpolicy.Match)).Exec(ctx, snap); err != nil {
+		return RetrieveResponse{}, err
+	}
+	return res, nil
 }
 
 // DeleteRequest holds the keys of the policies to delete.

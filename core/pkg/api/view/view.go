@@ -127,7 +127,10 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	return res, q.Where(bind.Filter(snap, view.Match)).Exec(ctx, snap)
+	if err = q.Where(bind.Filter(snap, view.Match)).Exec(ctx, snap); err != nil {
+		return RetrieveResponse{}, err
+	}
+	return res, nil
 }
 
 // RenameRequest names the view to rename and the name to give it.
