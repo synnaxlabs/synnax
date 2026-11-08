@@ -117,9 +117,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
-// Retrieve returns the control state of the given channels from across the cluster.
-// Passing no keys returns the state of every controlled channel on every node. Channels
-// that no subject controls are absent from the result.
+// Retrieve returns the control state of the given channels. Passing no keys returns the
+// state of every controlled channel. Channels that no subject controls are absent from
+// the result.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	keys ...channel.Key,

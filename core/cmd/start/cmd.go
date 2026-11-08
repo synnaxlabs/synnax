@@ -148,6 +148,13 @@ func readLicenseKey() (string, error) {
 // This is used by the Windows service to start the Core with the config loaded from
 // a YAML file.
 func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
+	// A Core that ignored a set peers key would start a new cluster without an error.
+	if viper.IsSet("peers") {
+		return CoreConfig{}, errors.New(
+			"peers is set, but a Core no longer joins other Cores: remove peers from " +
+				"the config file and the SYNNAX_PEERS variable",
+		)
+	}
 	factoryCfg := cert.BuildCertFactoryConfig(ins)
 	listeners, err := listener.Parse()
 	if err != nil {
