@@ -63,9 +63,10 @@ requests changes, and confirms a stored shape change carries a migration.
 Two statuses gate a merge into `main` or a `release/**` branch. `Review gate` stays
 pending until the PR has one tier label and a finished Sedosaur review of the head. A
 Sedosaur confidence score below 5/5 fails it: push a fix, then comment
-`@sedosaur review`. A push alone starts no review, but any member or agent comment that
-mentions `@sedosaur` asks for one. A head never gets a second review on one base once
-one succeeds, and the review does not read replies. The gate does not wait for a human
+`@sedosaur review`. A push, a new base, or a reply alone starts no review, but any
+member or agent comment that mentions `@sedosaur` asks for one. Sedosaur reacts with a
+rocket when it takes the request. A head never gets a second review on one base once one
+succeeds, and the review does not read replies. The gate does not wait for a human
 approval on either tier. A pull request Dependabot opened and wrote every commit of
 passes the gate without a review. `OK` is the CI workflow's last job: it fails when any
 check the PR's paths select failed. A merge into `main` goes through a merge queue,
