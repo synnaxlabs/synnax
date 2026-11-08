@@ -209,6 +209,7 @@ func newTaskReference[E gorp.Entry[uuid.UUID]]() *gorp.KeyReference[uuid.UUID, E
 		Name:     "key",
 		Table:    string(resource.TypeTask),
 		OnDelete: gorp.Cascade,
+		Kind:     gorp.Place,
 		Targets:  func(e *E) []uuid.UUID { return []uuid.UUID{(*e).GorpKey()} },
 	})
 }

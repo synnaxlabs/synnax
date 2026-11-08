@@ -70,12 +70,14 @@ Rack struct {
     group        group.Key? {
         @cpp omit
         @doc value     "is the group the rack sits in, if any."
+        @ref kind      place
         @ref on_delete detach
     }
     role         role.Key   {
         @cpp omit
         @doc value     "is the role that grants the rack its permissions."
         @pb omit
+        @ref kind      use
         @ref on_delete restrict
     }
 

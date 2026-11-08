@@ -43,6 +43,7 @@ func newIndexes() indexes {
 			Name:     "group",
 			Table:    "group",
 			OnDelete: gorp.Detach,
+			Kind:     gorp.Place,
 			Targets: func(e *Rack) []group.Key {
 				if e.Group == nil {
 					return nil
@@ -55,6 +56,7 @@ func newIndexes() indexes {
 			Name:     "role",
 			Table:    "role",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *Rack) []role.Key {
 				return []role.Key{e.Role}
 			},

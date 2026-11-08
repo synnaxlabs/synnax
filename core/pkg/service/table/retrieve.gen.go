@@ -52,6 +52,7 @@ func newIndexes() indexes {
 			Name:     "group",
 			Table:    "group",
 			OnDelete: gorp.Detach,
+			Kind:     gorp.Place,
 			Targets: func(e *Table) []group.Key {
 				if e.Group == nil {
 					return nil
@@ -64,6 +65,7 @@ func newIndexes() indexes {
 			Name:     "project",
 			Table:    "project",
 			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Targets: func(e *Table) []project.Key {
 				if e.Project == nil {
 					return nil
@@ -75,6 +77,7 @@ func newIndexes() indexes {
 			Name:     "range",
 			Table:    "range",
 			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Targets: func(e *Table) []ranger.Key {
 				if e.Range == nil {
 					return nil
