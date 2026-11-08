@@ -609,12 +609,12 @@ TEST_F(EngineLockTest, ReaderDecodesEachSampleAcrossTheBufferEnd) {
         this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
     );
     this->master->stall();
+    // Destroyed before the writer, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
     this->master->wait_until_stalled();
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16, IN_I24, IN_U4}, x::telem::Rate(100), SAMPLES)
     );
-    // Destroyed before the reader, which cannot stop a stalled bus.
-    x::defer::defer resume([this] { this->master->resume(); });
     // The stalled cycle took its schedule before the reader joined.
     this->master->step();
     for (size_t r = 0; r < READS; ++r) {
