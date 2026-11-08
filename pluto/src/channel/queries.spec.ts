@@ -1052,7 +1052,7 @@ describe("queries", () => {
       it("should fetch once when the channel has no status row", async () => {
         const calc = await createCalculated();
         const held = await client.statuses.retrieve({
-          where: { owners: [channel.resourceID(calc.key)] },
+          owners: [channel.resourceID(calc.key)],
         });
         await client.statuses.delete(held.map((s) => s.key));
         const local = createTestClient();
