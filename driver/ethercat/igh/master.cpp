@@ -22,7 +22,7 @@
 namespace driver::ethercat::igh {
 namespace {
 /// @brief reads the PDO layout that the slave at position assigns.
-std::pair<std::vector<coe::Sync>, x::errors::Error>
+std::pair<std::vector<pdo::Sync>, x::errors::Error>
 read_layout(const API &api, ec_master_t *master, const uint16_t position) {
     return coe::read_layout(
         [&](const uint16_t index,
@@ -460,7 +460,7 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
                 " after its startup parameters: " + err.data
         );
     const auto assignable = [&](const bool is_input) {
-        return std::ranges::any_of(syncs, [is_input](const coe::Sync &s) {
+        return std::ranges::any_of(syncs, [is_input](const pdo::Sync &s) {
             return !s.fixed && s.is_input == is_input;
         });
     };
@@ -496,7 +496,7 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
                 .entries = entries.data(),
             });
             if (pdo.entries.empty()) empty_pdos.push_back(pdo.index);
-            coe::append(
+            pdo::append(
                 sync.is_input ? props.input_pdos : props.output_pdos,
                 sync.is_input,
                 pdo
@@ -603,7 +603,7 @@ void Master::append_scanned_pdos(slave::Properties &props, const uint8_t sync_in
                 &pdo_info
             ) != 0)
             continue;
-        coe::PDO pdo{.index = pdo_info.index, .entries = {}};
+        pdo::PDO pdo{.index = pdo_info.index, .entries = {}};
         for (unsigned int entry_pos = 0; entry_pos < pdo_info.n_entries; ++entry_pos) {
             ec_pdo_entry_info_t entry{};
             if (this->api->master_get_pdo_entry(
@@ -621,7 +621,7 @@ void Master::append_scanned_pdos(slave::Properties &props, const uint8_t sync_in
                 .bit_length = entry.bit_length,
             });
         }
-        coe::append(is_input ? props.input_pdos : props.output_pdos, is_input, pdo);
+        pdo::append(is_input ? props.input_pdos : props.output_pdos, is_input, pdo);
     }
 }
 

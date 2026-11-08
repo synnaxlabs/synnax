@@ -165,7 +165,6 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
         this->populate_slaves();
         this->initialized = true;
     }
-    std::lock_guard lock(this->mu);
     return {this->slave_list, x::errors::NIL};
 }
 
@@ -202,7 +201,6 @@ bool Master::write_startup_parameters(
                   );
         break;
     }
-    std::lock_guard lock(this->mu);
     if (failure.empty())
         this->session.value().startup_failures.erase(pos);
     else
@@ -246,7 +244,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         const auto pos = static_cast<uint16_t>(i);
         auto config = this->config(pos);
-        this->slave(pos).group = config.enabled ? ENABLED_GROUP : DISABLED_GROUP;
+        this->record(pos).group = config.enabled ? ENABLED_GROUP : DISABLED_GROUP;
         if (!config.enabled || config.startup_parameters.empty()) {
             this->api->set_PO2SOconfig(pos, nullptr);
             continue;
@@ -268,9 +266,9 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     // 0x1C00 does not list, and turns it on. A slave can refuse SAFE-OP for that.
     // config_map_group then gives a sync manager a length only from its PDOs.
     for (int i = 1; i <= this->api->context.slavecount; ++i)
-        if (this->slave(i).group == ENABLED_GROUP)
+        if (this->record(i).group == ENABLED_GROUP)
             for (int sm = 2; sm < EC_MAXSM; ++sm)
-                this->slave(i).SM[sm].SMlength = 0;
+                this->record(i).SM[sm].SMlength = 0;
     const int iomap_size = this->api->config_map_group(
         this->iomap.data(),
         ENABLED_GROUP
@@ -285,28 +283,25 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
             )
         };
 
-    {
-        std::lock_guard lock(this->mu);
-        std::string msg;
-        for (const auto &[pos, failure]: session.startup_failures)
-            msg += (msg.empty() ? "" : "; ") + std::string("slave ") +
-                   std::to_string(pos) + " (" + this->slave(pos).name + ") " + failure;
-        if (!msg.empty())
-            return {.err = x::errors::Error(errors::STARTUP_PARAMETER_ERROR, msg)};
-    }
+    std::string failures;
+    for (const auto &[pos, failure]: session.startup_failures)
+        failures += (failures.empty() ? "" : "; ") + std::string("slave ") +
+                    std::to_string(pos) + " (" + this->record(pos).name + ") " +
+                    failure;
+    if (!failures.empty())
+        return {.err = x::errors::Error(errors::STARTUP_PARAMETER_ERROR, failures)};
 
     // A startup parameter can change the slave's PDO assignment.
     for (const auto pos: parameterized) {
         auto result = this->discover_slave(pos);
-        std::lock_guard lock(this->mu);
         this->slave_list[pos - 1] = std::move(result);
     }
 
     this->api->configdc();
     // configdc makes only the frames of the reference slave's group carry the DC time.
     auto &group = this->api->context.grouplist[ENABLED_GROUP];
-    group.hasdc = this->slave(0).hasdc;
-    group.DCnext = this->slave(0).DCnext;
+    group.hasdc = this->record(0).hasdc;
+    group.DCnext = this->record(0).DCnext;
     session.has_dc = group.hasdc != 0;
     session.input_sz = group.Ibytes;
     session.output_sz = group.Obytes;
@@ -425,31 +420,29 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
     this->api->readstate();
     std::vector<slave::Health> health;
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
-        if (this->slave(i).group != ENABLED_GROUP) continue;
+        if (this->record(i).group != ENABLED_GROUP) continue;
         this->update_lost(i);
-        const uint16_t state = this->slave(i).state;
+        const uint16_t state = this->record(i).state;
         auto &h = health.emplace_back(
             slave::Health{
                 .position = static_cast<uint16_t>(i),
                 .state = slave::from_al_state(state),
                 .faulted = (state & EC_STATE_ERROR) != 0,
-                .lost = this->slave(i).islost != 0,
+                .lost = this->record(i).islost != 0,
             }
         );
         if (this->al_error(i))
-            h.al_status = ec_ALstatuscode2string(this->slave(i).ALstatuscode);
-        {
-            std::lock_guard lock(this->mu);
-            if (const auto it = this->session.value().dc_restore_errors.find(i);
-                it != this->session.value().dc_restore_errors.end()) {
-                h.faulted = true;
-                h.dc_restore_error = it->second;
-            }
-            if (const auto it = this->session.value().startup_failures.find(i);
-                it != this->session.value().startup_failures.end()) {
-                h.faulted = true;
-                h.startup_error = it->second;
-            }
+            h.al_status = ec_ALstatuscode2string(this->record(i).ALstatuscode);
+        const auto &session = this->session.value();
+        if (const auto it = session.dc_restore_errors.find(i);
+            it != session.dc_restore_errors.end()) {
+            h.faulted = true;
+            h.dc_restore_error = it->second;
+        }
+        if (const auto it = session.startup_failures.find(i);
+            it != session.startup_failures.end()) {
+            h.faulted = true;
+            h.startup_error = it->second;
         }
         if (breaker.running()) this->recover(i, breaker);
     }
@@ -457,35 +450,31 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
 }
 
 void Master::update_lost(const uint16_t pos) {
-    if (this->slave(pos).state == EC_STATE_NONE && !this->slave(pos).islost)
+    if (this->record(pos).state == EC_STATE_NONE && !this->record(pos).islost)
         this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
-    this->slave(pos).islost = this->slave(pos).state == EC_STATE_NONE ? 1 : 0;
+    this->record(pos).islost = this->record(pos).state == EC_STATE_NONE ? 1 : 0;
 }
 
 void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
-    {
-        std::lock_guard lock(this->mu);
-        if (this->session.value().startup_failures.contains(pos)) return;
-    }
-    const uint16_t state = this->slave(pos).state;
+    if (this->session.value().startup_failures.contains(pos)) return;
+    const uint16_t state = this->record(pos).state;
     if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
-        this->slave(pos).state = EC_STATE_SAFE_OP + EC_STATE_ACK;
+        this->record(pos).state = EC_STATE_SAFE_OP + EC_STATE_ACK;
         this->api->writestate(pos);
     } else if (state == EC_STATE_SAFE_OP) {
         // From PRE-OP, the next check restores the clock again.
-        this->slave(pos).state = this->restore_failed(pos) ? EC_STATE_PRE_OP
-                                                           : EC_STATE_OPERATIONAL;
+        this->record(pos).state = this->restore_failed(pos) ? EC_STATE_PRE_OP
+                                                            : EC_STATE_OPERATIONAL;
         this->api->writestate(pos);
     } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
         auto params = this->config(pos).startup_parameters;
-        const bool has_dc = this->slave(pos).hasdc != 0;
+        const bool has_dc = this->record(pos).hasdc != 0;
         if (has_dc || !params.empty())
             this->api->set_PO2SOconfig(
                 pos,
                 [this, pos, &breaker, params = std::move(params), has_dc](uint16_t) {
                     if (!this->write_startup_parameters(pos, params) || !has_dc) return;
                     const auto err = this->restore_dc(pos, breaker);
-                    std::lock_guard lock(this->mu);
                     if (err)
                         this->session.value().dc_restore_errors[pos] = err.data;
                     else
@@ -494,14 +483,13 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
             );
         this->api->reconfig_slave(pos, RECOVERY_TIMEOUT);
         this->api->set_PO2SOconfig(pos, nullptr);
-        std::lock_guard lock(this->mu);
         if (this->session.value().startup_failures.contains(pos)) {
-            this->slave(pos).state = EC_STATE_PRE_OP;
+            this->record(pos).state = EC_STATE_PRE_OP;
             this->api->writestate(pos);
         }
     }
-    if (this->slave(pos).islost && this->api->recover_slave(pos, RECOVERY_TIMEOUT) > 0)
-        this->slave(pos).islost = 0;
+    if (this->record(pos).islost && this->api->recover_slave(pos, RECOVERY_TIMEOUT) > 0)
+        this->record(pos).islost = 0;
 }
 
 void Master::populate_slaves() {
@@ -516,12 +504,12 @@ slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
     slave::DiscoveryResult result{};
     result.properties.network = this->iface_name;
     result.properties.position = pos;
-    result.properties.vendor_id = this->slave(pos).eep_man;
-    result.properties.product_code = this->slave(pos).eep_id;
-    result.properties.revision = this->slave(pos).eep_rev;
-    result.properties.serial = this->slave(pos).eep_ser;
-    result.properties.name = this->slave(pos).name;
-    result.status.state = slave::from_al_state(this->slave(pos).state);
+    result.properties.vendor_id = this->record(pos).eep_man;
+    result.properties.product_code = this->record(pos).eep_id;
+    result.properties.revision = this->record(pos).eep_rev;
+    result.properties.serial = this->record(pos).eep_ser;
+    result.properties.name = this->record(pos).name;
+    result.status.state = slave::from_al_state(this->record(pos).state);
     this->discover_slave_pdos(result);
     result.properties.op_modes = this->read_op_modes(pos);
     return result;
@@ -536,14 +524,13 @@ master::Image Master::image() {
     for (const auto &[pos, regs]: session.dc_setups)
         if (regs.sync0_cycle > 0 && (regs.assign_activate & dc::PDI_SYNC_UNIT) == 0)
             image.dc_sync.push_back(regs);
-    std::lock_guard lock(this->mu);
     image.slaves = this->slave_list;
     const auto *base = this->iomap.data();
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
-        if (this->slave(props.position).group != ENABLED_GROUP) continue;
-        const auto *outputs = this->slave(props.position).outputs;
-        const auto *inputs = this->slave(props.position).inputs;
+        if (this->record(props.position).group != ENABLED_GROUP) continue;
+        const auto *outputs = this->record(props.position).outputs;
+        const auto *inputs = this->record(props.position).inputs;
         const size_t output_offset = outputs != nullptr
                                        ? static_cast<size_t>(outputs - base)
                                        : 0;
@@ -553,8 +540,8 @@ master::Image Master::image() {
                                       : 0;
         const auto input_bits = pdo::total_bits(props.input_pdos);
         const auto output_bits = pdo::total_bits(props.output_pdos);
-        const auto mapped_input_bits = this->slave(props.position).Ibits;
-        const auto mapped_output_bits = this->slave(props.position).Obits;
+        const auto mapped_input_bits = this->record(props.position).Ibits;
+        const auto mapped_output_bits = this->record(props.position).Obits;
         if (input_bits != mapped_input_bits || output_bits != mapped_output_bits) {
             const auto err = x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
@@ -621,7 +608,7 @@ Master::read_sdo(const uint16_t pos, const uint16_t index, const uint8_t sub_ind
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
     const auto pos = props.position;
-    if ((this->slave(pos).mbx_proto & ECT_MBXPROT_COE) != 0) {
+    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) != 0) {
         auto [syncs, err] = coe::read_layout(
             [this, pos](const uint16_t index, const uint8_t sub_index) {
                 return this->read_sdo(pos, index, sub_index);
@@ -644,7 +631,7 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
                             entry.type
                         ) = this->read_object_entry(pos, entry.index, entry.sub_index);
                 auto &pdos = sync.is_input ? props.input_pdos : props.output_pdos;
-                coe::append(pdos, sync.is_input, pdo);
+                pdo::append(pdos, sync.is_input, pdo);
             }
     }
     // SOEM maps a slave from its SII when CoE gives no process data.
@@ -686,7 +673,7 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
         );
         auto &pdos = is_input ? props.input_pdos : props.output_pdos;
         for (const auto &pdo: sii::parse_pdos(data, EC_MAXSM, this->sii_strings(pos)))
-            coe::append(pdos, is_input, pdo);
+            pdo::append(pdos, is_input, pdo);
     }
     this->api->eeprom2pdi(pos);
     if (props.input_pdos.empty() && props.output_pdos.empty())
@@ -752,7 +739,7 @@ Master::write_dc_register(const uint16_t pos, const uint16_t address, const T va
         std::format(
             "slave {} ({}) did not take a write to DC register 0x{:04X}",
             pos,
-            this->slave(pos).name,
+            this->record(pos).name,
             address
         )
     );
@@ -771,7 +758,7 @@ Master::read_dc_register(const uint16_t pos, const uint16_t address) {
             std::format(
                 "slave {} ({}) did not answer a read of DC register 0x{:04X}",
                 pos,
-                this->slave(pos).name,
+                this->record(pos).name,
                 address
             )
         )
@@ -789,7 +776,7 @@ x::errors::Error Master::clear_sync(const uint16_t pos) {
 x::errors::Error Master::clear_dc_activation() {
     std::string failed;
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
-        if (this->slave(i).group != ENABLED_GROUP || !this->slave(i).hasdc) continue;
+        if (this->record(i).group != ENABLED_GROUP || !this->record(i).hasdc) continue;
         if (const auto err = this->clear_sync(i)) {
             if (!failed.empty()) failed += "; ";
             failed += err.data;
@@ -804,7 +791,6 @@ std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() c
     std::vector<DCSetup> setups;
     std::vector<x::telem::TimeSpan> cycles;
     std::string events;
-    std::lock_guard lock(this->mu);
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
         const auto config = this->config(props.position);
@@ -920,7 +906,7 @@ x::errors::Error Master::wait_for_dc_settle(
                     "the clock of slave {} ({}) is {} off the reference clock after "
                     "{}. It must be within {} before SYNC0 starts.",
                     worst_pos,
-                    this->slave(worst_pos).name,
+                    this->record(worst_pos).name,
                     worst.to_string(),
                     this->cfg.dc_settle_timeout.to_string(),
                     DC_SETTLED_DIFF.to_string()
@@ -973,7 +959,7 @@ x::errors::Error Master::start_sync(const DCSetup &setup) {
         "[ethercat] slave {} ({}) runs DC sync: AssignActivate 0x{:04X}, SYNC0 "
         "cycle {} ns, SYNC1 register {} ns, first SYNC0 at {} ns",
         pos,
-        this->slave(pos).name,
+        this->record(pos).name,
         regs.assign_activate,
         regs.sync0_cycle,
         regs.sync1_cycle,
@@ -995,9 +981,9 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
         const auto other = static_cast<uint16_t>(i);
         // A slave in SAFE-OP or OP kept its clock since activation or a restore that
         // worked. A failed restore leaves its slave in SAFE-OP until the next check.
-        if (other == pos || this->slave(other).group != ENABLED_GROUP ||
-            !this->slave(other).hasdc || this->slave(other).islost ||
-            (this->slave(other).state & 0x0F) < EC_STATE_SAFE_OP ||
+        if (other == pos || this->record(other).group != ENABLED_GROUP ||
+            !this->record(other).hasdc || this->record(other).islost ||
+            (this->record(other).state & 0x0F) < EC_STATE_SAFE_OP ||
             this->restore_failed(other))
             continue;
         const auto [other_local, other_local_err] = this->read_dc_register<int64_t>(
@@ -1011,8 +997,8 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
         );
         if (other_offset_err) return other_offset_err;
         // Each slave latched its propagation delay after the reference clock.
-        const int64_t system = other_local + other_offset + this->slave(pos).pdelay -
-                               this->slave(other).pdelay;
+        const int64_t system = other_local + other_offset + this->record(pos).pdelay -
+                               this->record(other).pdelay;
         return this->write_dc_register(pos, ECT_REG_DCSYSOFFSET, system - local);
     }
     const int64_t offset = this->session.value().host_dc_offset.load(
@@ -1036,7 +1022,7 @@ Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
     if (auto err = this->write_dc_register(
             pos,
             ECT_REG_DCSYSDELAY,
-            this->slave(pos).pdelay
+            this->record(pos).pdelay
         ))
         return err;
     if (auto err = this->align_clock(pos)) return err;
@@ -1052,8 +1038,8 @@ Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
 
 master::Activation Master::request_state(const uint16_t state, const int timeout) {
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
-        if (this->slave(i).group != ENABLED_GROUP) continue;
-        this->slave(i).state = state;
+        if (this->record(i).group != ENABLED_GROUP) continue;
+        this->record(i).state = state;
         this->api->writestate(i);
     }
     const auto deadline = this->cfg.clock.steady() + std::chrono::microseconds(timeout);
@@ -1063,8 +1049,8 @@ master::Activation Master::request_state(const uint16_t state, const int timeout
         // Like ecx_statecheck, a slave in the state counts even with its error flag
         // set: a request without the ACK bit leaves the flag as it is.
         for (int i = 1; i <= this->api->context.slavecount; ++i)
-            if (this->slave(i).group == ENABLED_GROUP &&
-                (this->slave(i).state & ~EC_STATE_ERROR) != state)
+            if (this->record(i).group == ENABLED_GROUP &&
+                (this->record(i).state & ~EC_STATE_ERROR) != state)
                 pending.push_back(i);
         if (pending.empty()) return {};
         std::vector<uint16_t> refused;
@@ -1079,12 +1065,11 @@ master::Activation Master::request_state(const uint16_t state, const int timeout
 }
 
 bool Master::al_error(const uint16_t pos) const {
-    return (this->slave(pos).state & EC_STATE_ERROR) != 0 &&
-           this->slave(pos).ALstatuscode != 0;
+    return (this->record(pos).state & EC_STATE_ERROR) != 0 &&
+           this->record(pos).ALstatuscode != 0;
 }
 
 bool Master::restore_failed(const uint16_t pos) const {
-    std::lock_guard lock(this->mu);
     return this->session.value().dc_restore_errors.contains(pos);
 }
 
@@ -1102,7 +1087,7 @@ bool Master::wait_for_frame(
 }
 
 bool Master::refuses(const uint16_t pos, const uint16_t state) const {
-    return this->al_error(pos) && (this->slave(pos).state & ~EC_STATE_ERROR) < state;
+    return this->al_error(pos) && (this->record(pos).state & ~EC_STATE_ERROR) < state;
 }
 
 master::Activation
@@ -1112,13 +1097,13 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     std::map<uint16_t, slave::Refusal> refusing;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
-        msg += "slave " + std::to_string(pos) + " (" + this->slave(pos).name +
+        msg += "slave " + std::to_string(pos) + " (" + this->record(pos).name +
                ") is in " +
                slave::slave_state_to_string(
-                   slave::from_al_state(this->slave(pos).state)
+                   slave::from_al_state(this->record(pos).state)
                );
         if (!this->al_error(pos)) continue;
-        const auto code = this->slave(pos).ALstatuscode;
+        const auto code = this->record(pos).ALstatuscode;
         const std::string text = ec_ALstatuscode2string(code);
         if (this->refuses(pos, state) &&
             std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end())

@@ -34,16 +34,6 @@ namespace driver::ethercat::master {
 /// @brief the distributed clock epoch, 2000-01-01, as a Unix timestamp.
 inline const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 
-/// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
-/// message about one or more such slaves ends with it once.
-inline constexpr std::string_view DC_SYNC_ADVICE =
-    "A slave that reports \"Invalid DC SYNC configuration\" expects a synchronization "
-    "mode that the Driver did not set up. Set the DC mode of the slave in its device "
-    "settings. With no setting, the Driver uses SM sync when the slave lists an SM "
-    "mode, and its first DC mode when it lists only DC modes. If the slave does not "
-    "list the mode it expects, change its mode with the configuration tool of its "
-    "vendor.";
-
 /// @brief information about an available EtherCAT master or network.
 struct Info {
     /// @brief unique identifier for this master (e.g., "igh:0" or "eth0").

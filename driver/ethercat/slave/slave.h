@@ -16,6 +16,7 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -330,13 +331,23 @@ struct Status {
     std::string pdo_discovery_error;
 };
 
+/// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
+/// message about one or more such slaves ends with it once.
+inline constexpr std::string_view DC_SYNC_ADVICE =
+    "A slave that reports \"Invalid DC SYNC configuration\" expects a synchronization "
+    "mode that the Driver did not set up. Set the DC mode of the slave in its device "
+    "settings. With no setting, the Driver uses SM sync when the slave lists an SM "
+    "mode, and its first DC mode when it lists only DC modes. If the slave does not "
+    "list the mode it expects, change its mode with the configuration tool of its "
+    "vendor.";
+
 /// @brief why the bus started without a slave that refused a state.
 struct Refusal {
     /// @brief the refused state and the AL status text, such as "refused SAFE-OP:
     /// Inconsistent settings".
     std::string reason;
     /// @brief whether the slave reports "Invalid DC SYNC configuration", so that a
-    /// message about the refusal ends with master::DC_SYNC_ADVICE.
+    /// message about the refusal ends with DC_SYNC_ADVICE.
     bool dc_sync_invalid = false;
 
     bool operator==(const Refusal &) const = default;
