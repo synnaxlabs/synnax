@@ -11,22 +11,20 @@ package device_test
 
 import (
 	"context"
-	"iter"
-	"slices"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -37,7 +35,6 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
-		otg        *ontology.Ontology
 		stat       *status.Service
 		rackSvc    *rack.Service
 		svc        *device.Service
@@ -46,36 +43,21 @@ var _ = Describe("Service", func() {
 		rackKey    rack.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-		}))
-		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
-			Group:    groupSvc,
-			Label:    labelSvc,
-		}))
+		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
+		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        groupSvc,
-			HostProvider: testutil.NewStaticHostProvider(1),
-			Status:       stat,
-			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+			DB:         db,
+			HostKey:    1,
+			Status:     stat,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		rackKey = rackSvc.EmbeddedKey
 		referenced = set.New[device.Key]()
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Status:   stat,
+			DB:     db,
+			Status: stat,
 			Referenced: func(
 				_ context.Context,
 				_ gorp.Tx,
@@ -111,37 +93,22 @@ var _ = Describe("Service", func() {
 	retrieveStatus := func(ctx context.Context, key device.Key) device.Status {
 		GinkgoHelper()
 		var s device.Status
-		Expect(gorp.NewRetrieve[status.Key, device.Status]().
-			Where(gorp.MatchKeys[status.Key, device.Status](
-				device.OntologyID(key).String(),
-			)).
+		Expect(stat.NewRetrieve[device.StatusDetails]().
+			Where(status.MatchOwners[device.StatusDetails](device.ResourceID(key))).
 			Entry(&s).
 			Exec(ctx, tx)).To(Succeed())
 		return s
-	}
-	parents := func(ctx context.Context, key device.Key) []ontology.ID {
-		GinkgoHelper()
-		var res []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(device.OntologyID(key)).
-			TraverseTo(ontology.ParentsTraverser).
-			Entries(&res).
-			Exec(ctx, tx)).To(Succeed())
-		return ontology.ResourceIDs(res)
 	}
 
 	Describe("OpenService", func() {
 		DescribeTable("Should reject a config missing a required field",
 			func(ctx SpecContext, field string, unset func(*device.ServiceConfig)) {
-				cfg := device.ServiceConfig{DB: db, Ontology: otg, Status: stat}
+				cfg := device.ServiceConfig{DB: db, Status: stat}
 				unset(&cfg)
 				Expect(device.OpenService(ctx, cfg)).Error().
 					To(MatchError(ContainSubstring(field + ": must be non-nil")))
 			},
 			Entry("db", "db", func(c *device.ServiceConfig) { c.DB = nil }),
-			Entry("ontology", "ontology", func(c *device.ServiceConfig) {
-				c.Ontology = nil
-			}),
 			Entry("status", "status", func(c *device.ServiceConfig) { c.Status = nil }),
 		)
 	})
@@ -205,9 +172,15 @@ var _ = Describe("Service", func() {
 			Expect(retrieveStatus(ctx, d.Key).Variant).To(Equal(status.VariantSuccess))
 		})
 
-		It("Should parent a standalone device to its rack", func(ctx SpecContext) {
-			d := create(ctx)
-			Expect(parents(ctx, d.Key)).To(ConsistOf(rackKey.OntologyID()))
+		It("Should refuse a device on a rack that does not exist", func(
+			ctx SpecContext,
+		) {
+			missing := rack.NewKey(1, 999)
+			d := device.Device{Rack: missing, Name: "Module"}
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(MatchError(fmt.Sprintf(
+				"rack: rack %d does not exist: validation error",
+				missing,
+			)))
 		})
 	})
 
@@ -253,56 +226,6 @@ var _ = Describe("Service", func() {
 			Expect(retrieveStatus(ctx, d.Key).Name).To(Equal("Renamed"))
 		})
 
-		It("Should move the parent edge with the rack", func(ctx SpecContext) {
-			d := create(ctx)
-			other := rack.Rack{Name: "Other"}
-			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-			Expect(svc.NewWriter(tx).Update(
-				ctx,
-				d.Key,
-				func(d device.Device) (device.Device, error) {
-					d.Rack = other.Key
-					return d, nil
-				},
-			)).To(Succeed())
-			Expect(parents(ctx, d.Key)).To(ConsistOf(other.OntologyID()))
-		})
-
-		It("Should move the parent edge when change edits the chassis in place", func(
-			ctx SpecContext,
-		) {
-			first, second := uuid.New(), uuid.New()
-			chassisID := func(key uuid.UUID) ontology.ID {
-				return ontology.ID{
-					Type: ontology.ResourceTypeNiChassis,
-					Key:  key.String(),
-				}
-			}
-			Expect(otg.NewWriter(tx).DefineResources(
-				ctx,
-				chassisID(first),
-				chassisID(second),
-			)).To(Succeed())
-			d := device.Device{Rack: rackKey, Name: "Module", Chassis: &first}
-			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
-			Expect(svc.NewWriter(tx).Update(
-				ctx,
-				d.Key,
-				func(d device.Device) (device.Device, error) {
-					*d.Chassis = second
-					return d, nil
-				},
-			)).To(Succeed())
-			var res []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(d.OntologyID()).
-				TraverseTo(ontology.ParentsTraverser).
-				ExcludeFieldData(true).
-				Entries(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(ontology.ResourceIDs(res)).To(ConsistOf(chassisID(second)))
-		})
-
 		It("Should move the status with the rack", func(ctx SpecContext) {
 			d := create(ctx)
 			s := retrieveStatus(ctx, d.Key)
@@ -329,9 +252,9 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			d := create(ctx)
-			Expect(stat.NewWriter(tx).Delete(
+			Expect(stat.NewWriter(tx).DeleteOwned(
 				ctx,
-				device.OntologyID(d.Key).String(),
+				device.ResourceID(d.Key),
 			)).To(Succeed())
 			Expect(svc.NewWriter(tx).Update(
 				ctx,
@@ -384,21 +307,16 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should remove the device, status, and resource", func(ctx SpecContext) {
+		It("Should remove the device and its status", func(ctx SpecContext) {
 			d := create(ctx)
 			Expect(svc.NewWriter(tx).Delete(ctx, d.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(device.MatchKeys(d.Key)).
 				Exists(ctx, tx)).To(BeFalse())
-			Expect(gorp.NewRetrieve[status.Key, device.Status]().
-				Where(gorp.MatchKeys[status.Key, device.Status](
-					device.OntologyID(d.Key).String(),
-				)).
-				Exists(ctx, tx)).To(BeFalse())
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(device.OntologyID(d.Key)).
-				Entry(&res).
+			var s device.Status
+			Expect(stat.NewRetrieve[device.StatusDetails]().
+				Where(status.MatchOwners[device.StatusDetails](device.ResourceID(d.Key))).
+				Entry(&s).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
@@ -431,10 +349,6 @@ var _ = Describe("Service", func() {
 		It("Should match devices by chassis", func(ctx SpecContext) {
 			key := uuid.New()
 			d := device.Device{Rack: rackKey, Name: "Module", Chassis: &key}
-			Expect(otg.NewWriter(tx).DefineResources(ctx, ontology.ID{
-				Type: ontology.ResourceTypeNiChassis,
-				Key:  key.String(),
-			})).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 			create(ctx)
 			var got []device.Device
@@ -447,76 +361,28 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("Ontology", func() {
-		It("Should report its resource type", func() {
-			Expect(svc.Type()).To(Equal(ontology.ResourceTypeNiDevice))
-		})
-
-		It("Should return one ontology ID per key", func() {
-			key := uuid.New()
-			Expect(device.OntologyIDs([]device.Key{key})).
-				To(ConsistOf(device.OntologyID(key)))
-		})
-
-		Describe("OnChange", func() {
-			var (
-				changes    []ontology.Change
-				disconnect func()
-			)
-			BeforeEach(func() {
-				changes = nil
-				disconnect = svc.OnChange(func(
-					_ context.Context,
-					reader iter.Seq[ontology.Change],
-				) {
-					changes = append(changes, slices.Collect(reader)...)
-				})
-				DeferCleanup(func() { disconnect() })
-			})
-
-			It("Should translate a set and a delete", func(ctx SpecContext) {
-				d := device.Device{Rack: rackKey, Name: "Module"}
-				Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
-				Expect(svc.NewWriter(nil).Delete(ctx, d.Key)).To(Succeed())
-				id := device.OntologyID(d.Key).String()
-				Expect(changes).To(HaveLen(2))
-				Expect(changes[0].Variant).To(Equal(change.VariantSet))
-				Expect(changes[0].Key).To(Equal(id))
-				Expect(changes[0].Value.Name).To(Equal(d.Name))
-				Expect(changes[1].Variant).To(Equal(change.VariantDelete))
-				Expect(changes[1].Key).To(Equal(id))
-			})
-
-			It("Should stop after disconnecting", func(ctx SpecContext) {
-				disconnect()
-				d := device.Device{Rack: rackKey, Name: "Module"}
-				Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
-				DeferCleanup(func(ctx SpecContext) {
-					Expect(svc.NewWriter(nil).Delete(ctx, d.Key)).To(Succeed())
-				})
-				Expect(changes).To(BeEmpty())
-			})
-		})
-
-		It("Should retrieve a device as a resource", func(ctx SpecContext) {
+	Describe("Resources", func() {
+		It("Should name each device by its name", func(ctx SpecContext) {
 			d := create(ctx)
-			res := MustSucceed(svc.RetrieveResource(ctx, d.Key.String(), tx))
-			Expect(res.ID).To(Equal(device.OntologyID(d.Key)))
-			Expect(res.Name).To(Equal(d.Name))
+			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{d.ResourceID()})).
+				To(Equal([]resource.Resource{{ID: d.ResourceID(), Name: d.Name}}))
 		})
 
 		It("Should reject a key that is not a UUID", func(ctx SpecContext) {
-			Expect(svc.RetrieveResource(ctx, "not-a-uuid", tx)).Error().
-				To(MatchError(ContainSubstring("uuid")))
+			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{{
+				Type: resource.TypeNiDevice,
+				Key:  "not-a-uuid",
+			}})).Error().To(MatchError(validate.ErrValidation))
 		})
 
 		It("Should find a device by its name", func(ctx SpecContext) {
 			d := create(ctx)
-			res := MustSucceed(svc.Search(ctx, tx, search.Query[ontology.ID]{
-				Term:  d.Name,
-				Limit: 10,
-			}))
-			Expect(res.Keys).To(ContainElement(device.OntologyID(d.Key)))
+			res := MustSucceed(svc.Resources().Search(
+				ctx,
+				tx,
+				search.Query[resource.ID]{Term: d.Name, Limit: 10},
+			))
+			Expect(res.Keys).To(ContainElement(d.ResourceID()))
 		})
 	})
 })

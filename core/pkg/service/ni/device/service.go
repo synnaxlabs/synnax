@@ -11,11 +11,9 @@ package device
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -30,9 +28,6 @@ type ServiceConfig struct {
 	// DB is the database devices are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology holds each device's resource and parent edge.
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Status stores each device's status.
 	// [REQUIRED]
 	Status *status.Service
@@ -53,7 +48,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Referenced = override.Nil(c.Referenced, other.Referenced)
@@ -65,7 +59,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("ni.device")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("status", c.Status)
 	return v.Error()
 }
@@ -89,21 +82,24 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		pub := signals.GorpPublisherConfigUUID(s.table.Observe())
-		pub.SetName = "sy_ni_device_set"
-		pub.DeleteName = "sy_ni_device_delete"
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, pub); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(
+			ctx,
+			signals.TableConfig[Key, Device]{
+				Changes:  s.table.Changes,
+				Resource: ResourceID,
+			},
+		); !ok(err, nil) {
 			return nil, err
 		}
 	}
-	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
 
@@ -111,16 +107,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // call concurrently with any other service methods.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a writer that runs its operations in tx. A nil tx runs each operation
-// in its own transaction.
+// NewWriter opens a writer that runs its operations in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	resolved := gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		service:    s,
-		tx:         resolved,
-		ownsTx:     tx == nil,
-		otg:        s.cfg.Ontology.NewWriter(resolved),
-		status:     s.cfg.Status.NewWriter(resolved),
+		tx:         tx,
+		status:     s.cfg.Status.NewWriter(tx),
+		statuses:   s.cfg.Status,
 		table:      s.table,
 		referenced: s.cfg.Referenced,
 	}
@@ -129,7 +121,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a query over the stored devices.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
 	}
