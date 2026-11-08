@@ -23,7 +23,6 @@ import { Access, Secret } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { useCreateModal } from "@/feature/secret/useCreateModal";
-import { byName } from "@/feature/secret/useLists";
 import { Validity } from "@/feature/secret/validity";
 import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
@@ -125,9 +124,7 @@ const Picker = ({
   defaultName,
   preview,
 }: PickerProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = Secret.useList({
-    sort: byName,
-  });
+  const { data, retrieve, getItem, subscribe, status } = Secret.useList();
   const { fetchMore, search } = List.usePager({ retrieve });
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   return (

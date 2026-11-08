@@ -11,7 +11,7 @@ import { certificate, secret } from "@synnaxlabs/client";
 import { Access, Certificate, type Flux, Secret } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
 
-export const byName = (a: { name: string }, b: { name: string }): number =>
+const byName = (a: { name: string }, b: { name: string }): number =>
   a.name.localeCompare(b.name);
 
 interface Retrievable {
