@@ -51,7 +51,7 @@ type ServiceConfig struct {
 	Now func() telem.TimeStamp
 	alamos.Instrumentation
 	// EncryptionKey protects the value of every stored secret. It encrypts the random
-	// data key that encrypts each value.
+	// data key that encrypts each value. Every Core in a cluster must use the same key.
 	//
 	// [REQUIRED]
 	EncryptionKey EncryptionKey

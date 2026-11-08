@@ -65,8 +65,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		Exec(ctx, w.tx)
 }
 
-// Delete deletes the secrets with the given keys. It returns a validation error when
-// anything uses one of them. Delete is idempotent.
+// Delete deletes the secrets with the given keys. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Secret](keys...)).
