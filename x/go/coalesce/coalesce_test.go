@@ -49,7 +49,9 @@ var _ = Describe("Worker", func() {
 
 	It("Should handle every key that Add receives from many goroutines", func() {
 		rec := &recorder{}
-		w := MustOpen(coalesce.Open(coalesce.Config[int]{Handle: rec.handle}))
+		w := DeferClose(
+			MustOpen(coalesce.Open(coalesce.Config[int]{Handle: rec.handle})),
+		)
 		var wg sync.WaitGroup
 		for g := range 8 {
 			wg.Go(func() {
@@ -72,7 +74,7 @@ var _ = Describe("Worker", func() {
 			release = make(chan struct{})
 			calls   = make(chan set.Set[int], 2)
 		)
-		w := MustOpen(coalesce.Open(coalesce.Config[int]{
+		w := DeferClose(MustOpen(coalesce.Open(coalesce.Config[int]{
 			Handle: func(_ context.Context, keys set.Set[int]) {
 				if keys.Contains(1) {
 					close(started)
@@ -80,7 +82,7 @@ var _ = Describe("Worker", func() {
 				}
 				calls <- keys
 			},
-		}))
+		})))
 		w.Add(1)
 		Eventually(started).Should(BeClosed())
 		w.Add(2, 3, 2)
@@ -89,16 +91,29 @@ var _ = Describe("Worker", func() {
 		Eventually(calls).Should(Receive(Equal(set.New(2, 3))))
 	})
 
+	It("Should end the context of a running Handle when Close runs", func() {
+		started := make(chan struct{})
+		w := MustOpen(coalesce.Open(coalesce.Config[int]{
+			Handle: func(ctx context.Context, _ set.Set[int]) {
+				close(started)
+				<-ctx.Done()
+			},
+		}))
+		w.Add(1)
+		Eventually(started).Should(BeClosed())
+		Expect(w.Close()).To(Succeed())
+	})
+
 	It("Should not wait in Add while Handle runs", func() {
 		release := make(chan struct{})
-		w := MustOpen(coalesce.Open(coalesce.Config[int]{
+		w := DeferClose(MustOpen(coalesce.Open(coalesce.Config[int]{
 			Handle: func(ctx context.Context, _ set.Set[int]) {
 				select {
 				case <-release:
 				case <-ctx.Done():
 				}
 			},
-		}))
+		})))
 		DeferCleanup(func() { close(release) })
 		done := make(chan struct{})
 		go func() {

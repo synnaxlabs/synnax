@@ -523,10 +523,9 @@ func unsupportedDescription(cmdType string) string {
 	return fmt.Sprintf("The task does not accept the '%s' command.", cmdType)
 }
 
-// handleTaskChange stops live instances of deleted tasks. Sets are ignored:
-// configs deploy on start, and a rack move leaves the old live instance running
-// until the task is redeployed.
 // deleteTasks stops the instance of each task with a key in keys that no longer exists.
+// Sets need nothing: configs deploy on start, and a rack move leaves the old instance
+// running until the task deploys again.
 func (d *Driver) deleteTasks(ctx context.Context, keys set.Set[task.Key]) {
 	var kept []task.Task
 	if err := d.cfg.Task.NewRetrieve().

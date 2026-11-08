@@ -44,9 +44,9 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 	})
 }
 
-// Create creates a new label, assigning it a unique key if one is not provided. If
-// a label with the same key already exists, it will be overwritten. The commit
-// carries a create action that holds the stored label.
+// Create creates a new label, assigning it a unique key if one is not provided. If a
+// label with the same key already exists, it will be overwritten. The commit carries a
+// create action that holds the stored label.
 func (w Writer) Create(ctx context.Context, l *Label) error {
 	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()

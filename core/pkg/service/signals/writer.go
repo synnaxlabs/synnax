@@ -69,10 +69,10 @@ func (p *Provider) add(
 	return nil
 }
 
-// Start opens one writer for every channel that PublishTable and PublishActions created,
-// and writes each later commit of the DB to them as one frame. A commit before Start
-// writes nothing. The committing goroutine writes the frame, and waits while the writer
-// is full. Close the returned io.Closer to stop writing.
+// Start opens one writer for every channel that PublishTable and PublishActions
+// created, and writes each later commit of the DB to them as one frame. A commit before
+// Start writes nothing. The committing goroutine writes the frame, and waits while the
+// writer is full. Close the returned io.Closer to stop writing.
 func (p *Provider) Start(ctx context.Context) (io.Closer, error) {
 	if p.started {
 		return nil, errors.New("[signals] - Start already ran")

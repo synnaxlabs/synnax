@@ -78,9 +78,9 @@ type DispatchResponse[A any] struct {
 	Actions []A `json:"actions" msgpack:"actions"`
 }
 
-// State attaches the action batches of one service to the transactions that apply
-// them, and runs the dispatches of the service. Construct it once in OpenService and
-// hand Dispatcher() to each Writer.
+// State attaches the action batches of one service to the transactions that apply them,
+// and runs the dispatches of the service. Construct it once in OpenService and hand
+// Dispatcher() to each Writer.
 type State[K comparable, A any] struct {
 	db       *gorp.DB
 	attached *gorp.Attachment[Scoped[K, A]]
@@ -122,9 +122,9 @@ func (s *State[K, A]) Of(c gorp.Commit) []Scoped[K, A] {
 	return batches
 }
 
-// OnChange calls handler with each batch that Of returns for each commit of the DB.
-// The handler runs on the committing goroutine, as the readers of gorp.DB.Observe do.
-// The returned Disconnect removes the handler.
+// OnChange calls handler with each batch that Of returns for each commit of the DB. The
+// handler runs on the committing goroutine, as the readers of gorp.DB.Observe do. The
+// returned Disconnect removes the handler.
 func (s *State[K, A]) OnChange(
 	handler func(context.Context, Scoped[K, A]),
 ) observe.Disconnect {
@@ -154,8 +154,8 @@ func (d Dispatcher[K, A]) WithDispatchKey(dispatchKey string) Dispatcher[K, A] {
 	return d
 }
 
-// Attach attaches actions on the entry with key to tx, after the batches attached to
-// tx before. The commit of tx delivers them. It panics when tx is a DB.
+// Attach attaches actions on the entry with key to tx, after the batches attached to tx
+// before. The commit of tx delivers them. It panics when tx is a DB.
 func (d Dispatcher[K, A]) Attach(tx gorp.Tx, key K, actions ...A) {
 	d.attached.Add(tx, Scoped[K, A]{
 		Key:         key,

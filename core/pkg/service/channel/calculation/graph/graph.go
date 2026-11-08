@@ -412,8 +412,8 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 	return nil
 }
 
-// handleChanges reconciles the Graph with the channels with keys as tx stores them. A
-// key with no channel is a delete.
+// handleChanges reconciles the Graph with the channels with keys as the DB stores them.
+// A key with no channel is a delete.
 func (g *Graph) handleChanges(ctx context.Context, keys set.Set[channel.Key]) {
 	var (
 		updates []channel.Channel
