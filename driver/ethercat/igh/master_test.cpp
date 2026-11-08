@@ -233,6 +233,23 @@ TEST_F(IGHMasterTest, ScanFailsWhenASlaveCannotBeRead) {
     EXPECT_TRUE(this->api->released);
 }
 
+/// @brief it should report why it failed to read the layout of a slave, and give the
+/// slave no PDOs.
+TEST_F(IGHMasterTest, ScanReportsAFailedLayoutRead) {
+    auto &slave = this->api->add_slave();
+    create_io(slave);
+    slave.layout_unreadable = true;
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    ASSERT_EQ(slaves.size(), 1);
+    EXPECT_TRUE(slaves[0].properties.input_pdos.empty());
+    EXPECT_TRUE(slaves[0].properties.output_pdos.empty());
+    EXPECT_EQ(
+        slaves[0].status.pdo_discovery_error,
+        "failed to read the PDO layout: failed to read PDO 0 of sync manager 2: "
+        "Input/output error"
+    );
+}
+
 /// @brief it should discover padding entries but not register them with the master.
 TEST_F(IGHMasterTest, ScanDiscoversPaddingThatActivateDoesNotRegister) {
     auto &slave = this->api->add_slave();
@@ -403,6 +420,21 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveStaysBelowOP) {
         "failed to reach OP within 10s: slave 1 (TestSlave) is in SAFE-OP"
     );
     EXPECT_TRUE(activation.refusals.empty());
+}
+
+/// @brief it should name the slave whose state it failed to read when a start times
+/// out.
+TEST_F(IGHMasterTest, ActivateReportsASlaveWhoseStateItCannotRead) {
+    this->api->add_slave().reaches = EC_AL_STATE_SAFEOP;
+    ASSERT_NIL_P(this->master.scan());
+    this->api->slaves[0].unreadable = true;
+    const auto activation = this->activate();
+    ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
+    EXPECT_EQ(
+        activation.err.data,
+        "failed to reach OP within 10s: slave 1 (TestSlave): failed to read its "
+        "state: Input/output error"
+    );
 }
 
 /// @brief it should fail activation on a chosen DC mode before it configures any slave,
@@ -700,6 +732,39 @@ TEST_F(IGHMasterTest, ReceiveIgnoresAnEmptyDomain) {
     ASSERT_NIL(this->scan_and_activate());
     this->api->outputs.state.wc_state = EC_WC_ZERO;
     ASSERT_NIL(this->master.receive());
+}
+
+/// @brief it should fail when the master fails to receive frames.
+TEST_F(IGHMasterTest, ReceiveFailsWhenTheMasterCannotReceive) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->receive_result = -EIO;
+    const auto err = this->master.receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "failed to receive frames: Input/output error");
+}
+
+/// @brief it should fail when the master fails to send frames.
+TEST_F(IGHMasterTest, SendFailsWhenTheMasterCannotSend) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->send_result = -EIO;
+    const auto err = this->master.send();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "failed to send frames: Input/output error");
+}
+
+/// @brief it should report a slave whose state or info it cannot read as lost.
+TEST_F(IGHMasterTest, CheckReportsASlaveItCannotReadAsLost) {
+    this->api->add_slave();
+    this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->slaves[0].state_unreadable = true;
+    this->api->slaves[1].unreadable = true;
+    const auto health = this->master.check(this->brk);
+    ASSERT_EQ(health.size(), 2);
+    EXPECT_TRUE(health[0].lost);
+    EXPECT_TRUE(health[1].lost);
 }
 
 /// @brief it should report a slave that is offline as lost.

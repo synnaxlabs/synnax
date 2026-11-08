@@ -150,11 +150,9 @@ private:
         const std::vector<slave::StartupParameter> &parameters
     );
 
-    /// @brief discovers the PDO entries of a slave from the layout IgH scanned for its
-    /// sync_count sync managers.
-
     /// @brief appends the PDO entries that IgH scanned for a sync manager of a slave.
-    void append_scanned_pdos(slave::Properties &props, uint8_t sync_index);
+    /// Returns PDO_DISCOVERY_ERROR when IgH fails to give a part of the layout.
+    x::errors::Error append_scanned_pdos(slave::Properties &props, uint8_t sync_index);
 };
 
 /// @brief IgH-based implementation of master::Manager.
