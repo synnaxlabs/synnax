@@ -11,45 +11,45 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 
 // Key is a unique identifier for a channel in the Synnax database. Composed of a node
 // key (first 12 bits) and a local key (last 20 bits), enabling distributed assignment
 // while maintaining global uniqueness.
-type Key = v0.Key
+type Key = v1.Key
 
 // LocalKey is a 20-bit unsigned integer representing the locally-unique portion of a
 // channel key within a node. Combined with a node.Key to form the global channel Key.
-type LocalKey = v0.LocalKey
+type LocalKey = v1.LocalKey
 
 // Name is a human-readable name for a channel. Must start with a letter or underscore
 // and contain only letters, digits, and underscores. Names are not guaranteed to be
 // unique across channels.
-type Name = v0.Name
+type Name = v1.Name
 
 // OperationType is the type of aggregation operation to apply to channel data over
 // time.
-type OperationType = v0.OperationType
+type OperationType = v1.OperationType
 
 const (
 	// OperationTypeMin keeps the lowest sample since the last reset.
-	OperationTypeMin OperationType = v0.OperationTypeMin
+	OperationTypeMin OperationType = v1.OperationTypeMin
 	// OperationTypeMax keeps the highest sample since the last reset.
-	OperationTypeMax OperationType = v0.OperationTypeMax
+	OperationTypeMax OperationType = v1.OperationTypeMax
 	// OperationTypeAvg keeps the mean of the samples since the last reset.
-	OperationTypeAvg OperationType = v0.OperationTypeAvg
+	OperationTypeAvg OperationType = v1.OperationTypeAvg
 	// OperationTypeNone applies no aggregation.
-	OperationTypeNone OperationType = v0.OperationTypeNone
+	OperationTypeNone OperationType = v1.OperationTypeNone
 	// OperationTypeDerivative computes the rate of change of the samples.
-	OperationTypeDerivative OperationType = v0.OperationTypeDerivative
+	OperationTypeDerivative OperationType = v1.OperationTypeDerivative
 )
 
 // Operation defines an aggregation operation applied to channel data. Operations
 // calculate min, max, average, or derivative values over a time duration or triggered
 // by a reset channel.
-type Operation = v0.Operation
+type Operation = v1.Operation
 
 // Channel is an internal representation of a channel containing all storage and
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
-type Channel = v0.Channel
+type Channel = v1.Channel

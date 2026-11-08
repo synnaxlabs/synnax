@@ -12,9 +12,11 @@
 package pb
 
 import (
+	"uuid"
+
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	ontologypb "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/defaults"
@@ -28,7 +30,6 @@ import (
 func StatusDetailsToPB(r device.StatusDetails) (*StatusDetails, error) {
 	pb := &StatusDetails{
 		Rack:      uint32(r.Rack),
-		Device:    r.Device,
 		Connected: r.Connected,
 	}
 	if r.Data != nil {
@@ -52,7 +53,6 @@ func StatusDetailsFromPB(pb *StatusDetails) (device.StatusDetails, error) {
 	}
 	defaults.Prefill(&r)
 	r.Rack = rack.Key(pb.Rack)
-	r.Device = pb.Device
 	r.Connected = pb.Connected
 	if pb.Data != nil {
 		r.Data = pb.Data.AsMap()
@@ -261,6 +261,18 @@ func WhereToPB(r device.Where) (*Where, error) {
 			return nil, err
 		}
 	}
+	if r.Groups != nil {
+		pb.Groups = &GroupKeyList{Values: lo.Map(r.Groups, func(u group.Key, _ int) string { return uuid.UUID(u).String() })}
+	}
+	if r.Grouped != nil {
+		pb.Grouped = r.Grouped
+	}
+	if r.Parents != nil {
+		pb.Parents = &KeyList{Values: r.Parents}
+	}
+	if r.Nested != nil {
+		pb.Nested = r.Nested
+	}
 	return pb, nil
 }
 
@@ -333,6 +345,32 @@ func WhereFromPB(pb *Where) (device.Where, error) {
 		}
 		r.Rack = &val
 	}
+	if pb.Groups != nil {
+		vals, err := func() ([]group.Key, error) {
+			result := make([]group.Key, len(pb.Groups.Values))
+			for i, s := range pb.Groups.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = group.Key(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return device.Where{}, err
+		}
+		r.Groups = xpb.ListValues(vals)
+	}
+	if pb.Grouped != nil {
+		r.Grouped = pb.Grouped
+	}
+	if pb.Parents != nil {
+		r.Parents = xpb.ListValues(pb.Parents.Values)
+	}
+	if pb.Nested != nil {
+		r.Nested = pb.Nested
+	}
 	return r, nil
 }
 
@@ -388,12 +426,12 @@ func DeviceToPB(
 			return nil, err
 		}
 	}
+	if r.Group != nil {
+		v := r.Group.String()
+		pb.Group = &v
+	}
 	if r.Parent != nil {
-		var err error
-		pb.Parent, err = ontologypb.IDToPB(*r.Parent)
-		if err != nil {
-			return nil, err
-		}
+		pb.Parent = r.Parent
 	}
 	return pb, nil
 }
@@ -422,12 +460,15 @@ func DeviceFromPB(
 		}
 		r.Status = &val
 	}
-	if pb.Parent != nil {
-		val, err := ontologypb.IDFromPB(pb.Parent)
+	if pb.Group != nil {
+		v, err := uuid.Parse(*pb.Group)
 		if err != nil {
 			return device.Device{}, err
 		}
-		r.Parent = &val
+		r.Group = &v
+	}
+	if pb.Parent != nil {
+		r.Parent = pb.Parent
 	}
 	return r, nil
 }

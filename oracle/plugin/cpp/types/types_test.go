@@ -2310,7 +2310,7 @@ var _ = Describe("C++ Union Generation", func() {
 		},
 	)
 
-	It("Should emit ontology helpers for a union", func(ctx SpecContext) {
+	It("Should emit resource helpers for a union", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
 
@@ -2328,18 +2328,18 @@ var _ = Describe("C++ Union Generation", func() {
 					size int32
 				}
 
-				@ontology type "view"
+				@resource type "view"
 			}
 		`
 		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
 			ToContain(
-				`const synnax::ontology::ID ONTOLOGY_TYPE("view", "");`,
-				`return synnax::ontology::ID("view", key.to_string());`,
+				`const synnax::resource::ID TYPE_RESOURCE_ID("view", "");`,
+				`return synnax::resource::ID("view", key.to_string());`,
 			)
 	})
 
-	It("Should type union ontology helpers by a primitive key", func(ctx SpecContext) {
+	It("Should type union resource helpers by a primitive key", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
 
@@ -2352,12 +2352,12 @@ var _ = Describe("C++ Union Generation", func() {
 					name string
 				}
 
-				@ontology type "view"
+				@resource type "view"
 			}
 		`
 		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
-			ToContain(`ontology_id(const x::uuid::UUID& key)`)
+			ToContain(`resource_id(const x::uuid::UUID& key)`)
 	})
 
 	It(

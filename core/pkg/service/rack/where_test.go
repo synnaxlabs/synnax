@@ -17,7 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -25,10 +25,10 @@ import (
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v   testutil.Vectors[rack.Rack, rack.Where]
+		v   vectors.Vectors[rack.Rack, rack.Where]
 		svc *rack.Service
 	)
-	v = MustSucceed(testutil.ReadVectors[rack.Rack, rack.Where]("racks"))
+	v = MustSucceed(vectors.Read[rack.Rack, rack.Where]("racks"))
 	aliases := lo.MapEntries(v.Records, func(
 		alias string,
 		r rack.Rack,
@@ -39,7 +39,6 @@ var _ = Describe("Where", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		// The stack's host is node 1, so racks a and b are on the host.
 		svc = DeferClose(openStack(ctx, db, rack.ServiceConfig{})).rack
 		for _, r := range v.Records {
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
@@ -48,7 +47,7 @@ var _ = Describe("Where", Ordered, func() {
 
 	DescribeTable(
 		"Should match the case",
-		func(ctx SpecContext, c testutil.Case[rack.Where]) {
+		func(ctx SpecContext, c vectors.Case[rack.Where]) {
 			f := MustSucceed(rack.MatchWhere(c.Where))
 			var res []rack.Rack
 			Expect(svc.NewRetrieve().
@@ -63,7 +62,7 @@ var _ = Describe("Where", Ordered, func() {
 			})
 			Expect(matched).To(ConsistOf(c.Expected))
 		},
-		lo.Map(v.Cases, func(c testutil.Case[rack.Where], _ int) TableEntry {
+		lo.Map(v.Cases, func(c vectors.Case[rack.Where], _ int) TableEntry {
 			return Entry(c.Name, c)
 		}),
 	)

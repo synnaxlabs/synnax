@@ -278,7 +278,7 @@ func (r *routine) runPostlude(err error) error {
 	defer r.ctx.mu.Unlock()
 
 	if err != nil {
-		_ = r.span.Error(err, context.Canceled)
+		err = r.span.Error(err, context.Canceled)
 		// Only non-context errors are considered failures.
 		if errors.IsAny(err, context.Canceled, context.DeadlineExceeded) {
 			r.state.state = RoutineStateContextCanceled
@@ -330,8 +330,7 @@ func (r *routine) maybeRecover(panicReason any) error {
 	case propagatePanic:
 		r.state.state = RoutineStatePanicked
 		if err, ok := panicReason.(error); ok {
-			r.state.err = err
-			_ = r.span.Error(err)
+			r.state.err = r.span.Error(err)
 		}
 		r.span.End()
 		panic(panicReason)

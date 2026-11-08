@@ -20,9 +20,9 @@ them. A layer imports only layers below it — never above:
    Frameworks (tree, mosaic, panel, palette, link, import/export, modals) and
    cross-domain-shared widgets/hooks. Never imports `feature/`.
 3. **`feature/`** — isolated leaves: a domain's full widget (renderer, toolbar,
-   controls, `useCreate`) plus its ontology/palette/link glue. Imports platform +
-   session, **never a sibling feature** — cross-domain wiring bottoms out in `session/`,
-   the client SDK, or `platform/panel`.
+   controls, `useCreate`) plus its tree/palette/link glue. Imports platform + session,
+   **never a sibling feature** — cross-domain wiring bottoms out in `session/`, the
+   client SDK, or `platform/panel`.
 4. **`app/`** (highest) — composition root: aggregates every domain's exports into
    global registries + the shell chrome. No domain logic.
 

@@ -21,7 +21,10 @@ const client = createTestClient();
 describe("Schematic.useLink", () => {
   it("should open a tab for the retrieved schematic", async () => {
     const project = await client.projects.create({ name: id.create() });
-    const s = await client.schematics.create(project.key, { name: "Pump Schematic" });
+    const s = await client.schematics.create({
+      project: project.key,
+      name: "Pump Schematic",
+    });
     const { handler, store } = await renderLinkHook(Schematic.useLink, { client });
     store.dispatch(Session.Project.select(project.key));
     await handler({ client, key: s.key });
@@ -29,7 +32,7 @@ describe("Schematic.useLink", () => {
     const panelKey = Session.Panel.selectSelected(store.getState());
     if (panelKey == null) throw new Error("no panel selected");
     const doc = await client.panels.retrieve(panelKey);
-    const tab = panel.findTabByResource(doc.root, schematic.ontologyID(s.key));
+    const tab = panel.findTabByResource(doc.root, schematic.resourceID(s.key));
     expect(tab?.key).toBe(focusedTab);
   });
 });

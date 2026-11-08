@@ -10,11 +10,18 @@
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { role } from "@/access/role";
 import { AccessDeniedError, NotFoundError } from "@/index";
-import { createTestClient, createTestClientWithPolicy } from "@/testutil";
+import {
+  createEmptyRole,
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@/testutil";
 import { user } from "@/user";
 
 const client = createTestClient();
+
+const empty = await createEmptyRole(client);
 
 describe("user", () => {
   describe("access control", () => {
@@ -27,6 +34,7 @@ describe("user", () => {
       const randomUser = await client.users.create({
         username: id.create(),
         password: "test",
+        role: empty.key,
       });
       await expect(userClient.users.retrieve(randomUser.key)).rejects.toSatisfy(
         AccessDeniedError.matches,
@@ -36,39 +44,57 @@ describe("user", () => {
     it("should allow the caller to retrieve users with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [user.ontologyID("")],
+        objects: [user.resourceID("")],
         actions: ["retrieve"],
       });
       const randomUser = await client.users.create({
         username: id.create(),
         password: "test",
+        role: empty.key,
       });
       const retrieved = await userClient.users.retrieve(randomUser.key);
       expect(retrieved.key).toBe(randomUser.key);
     });
 
     it("should allow the caller to create users with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [user.ontologyID("")],
-        actions: ["create"],
-      });
-      await userClient.users.create({
+      const userClient = await createTestClientWithPolicy(client, [
+        { name: "test", objects: [user.resourceID("")], actions: ["create", "update"] },
+        { name: "test", objects: [role.resourceID(empty.key)], actions: ["update"] },
+      ]);
+      const created = await userClient.users.create({
         username: id.create(),
         password: "test",
+        role: empty.key,
       });
+      expect(created.role).toBe(empty.key);
+    });
+
+    it("should deny creating a user whose role the caller cannot update", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [user.resourceID("")],
+        actions: ["create", "update"],
+      });
+      await expect(
+        userClient.users.create({
+          username: id.create(),
+          password: "test",
+          role: empty.key,
+        }),
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [user.ontologyID("")],
+        objects: [user.resourceID("")],
         actions: [],
       });
       await expect(
         userClient.users.create({
           username: id.create(),
           password: "test",
+          role: empty.key,
         }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
@@ -76,12 +102,13 @@ describe("user", () => {
     it("should allow the caller to delete users with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [user.ontologyID("")],
+        objects: [user.resourceID("")],
         actions: ["delete"],
       });
       const randomUser = await client.users.create({
         username: id.create(),
         password: "test",
+        role: empty.key,
       });
       await userClient.users.delete(randomUser.key);
       await expect(userClient.users.retrieve(randomUser.key)).rejects.toThrow(
@@ -92,12 +119,13 @@ describe("user", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [user.ontologyID("")],
+        objects: [user.resourceID("")],
         actions: [],
       });
       const randomUser = await client.users.create({
         username: id.create(),
         password: "test",
+        role: empty.key,
       });
       await expect(userClient.users.delete(randomUser.key)).rejects.toSatisfy(
         AccessDeniedError.matches,

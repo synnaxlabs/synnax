@@ -9,8 +9,12 @@
 
 from collections.abc import Callable
 
-from playwright.sync_api import Locator, Page, expect
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import (
+    Locator,
+    Page,
+    TimeoutError as PlaywrightTimeoutError,
+    expect,
+)
 from pydantic import TypeAdapter
 
 import synnax as sy

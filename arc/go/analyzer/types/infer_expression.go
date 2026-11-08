@@ -354,7 +354,11 @@ func inferPrimaryType(
 			if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
 				return types.Type{}
 			}
-			t, _ := InferFromTypeContext(typeCtx)
+			// Analysis reports a type that does not infer.
+			t, err := InferFromTypeContext(typeCtx)
+			if err != nil {
+				return types.Type{}
+			}
 			return t
 		}
 	}

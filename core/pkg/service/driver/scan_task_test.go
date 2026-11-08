@@ -10,7 +10,6 @@
 package driver_test
 
 import (
-	"bytes"
 	"context"
 	"strings"
 	"sync"
@@ -29,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -118,35 +116,6 @@ func (s *mapScanner) Exec(
 	return nil, driver.ErrUnsupportedCommand
 }
 
-// refusingDB is a kv.DB whose transactions fail to commit when they set a key that
-// holds marker.
-type refusingDB struct {
-	kv.DB
-	marker []byte
-}
-
-func (d refusingDB) OpenTx() kv.Tx {
-	return &refusingTx{Tx: d.DB.OpenTx(), marker: d.marker}
-}
-
-type refusingTx struct {
-	kv.Tx
-	marker  []byte
-	refused bool
-}
-
-func (t *refusingTx) Set(ctx context.Context, key, value []byte, opts ...any) error {
-	t.refused = t.refused || bytes.Contains(key, t.marker)
-	return t.Tx.Set(ctx, key, value, opts...)
-}
-
-func (t *refusingTx) Commit(ctx context.Context, opts ...any) error {
-	if t.refused {
-		return errCommit
-	}
-	return t.Tx.Commit(ctx, opts...)
-}
-
 var _ = Describe("Fit", func() {
 	It("Should keep every item that fits", func() {
 		kept, truncated := MustSucceed2(driver.Fit(nil, [][]string{{"a", "b"}, {"c"}}))
@@ -195,15 +164,16 @@ var _ = Describe("ScanTask", func() {
 			Type: "mock",
 			Rack: rackKey,
 		}
+		createTask(ctx, t)
 		scanner = newMapScanner()
 		checkTimeout = 0
 	})
 
-	openOn := func(statusDB *gorp.DB, interval time.Duration) *driver.ScanTask {
+	open := func(interval time.Duration) *driver.ScanTask {
 		GinkgoHelper()
 		st := MustSucceed(driver.NewScanTask(driver.ScanTaskConfig{
 			Scanner: scanner,
-			DB:      statusDB, Status: statusSvc,
+			DB:      db, Status: statusSvc,
 			Device:             deviceSvc,
 			Make:               deviceMake,
 			ReachableMessage:   "Broker connected",
@@ -214,10 +184,6 @@ var _ = Describe("ScanTask", func() {
 		}))
 		DeferCleanup(func() { Expect(st.Stop(false)).To(Succeed()) })
 		return st
-	}
-	open := func(interval time.Duration) *driver.ScanTask {
-		GinkgoHelper()
-		return openOn(db, interval)
 	}
 
 	// writeDevices runs write in one transaction, as the API does, so a device and its
@@ -245,12 +211,12 @@ var _ = Describe("ScanTask", func() {
 
 	deviceStatus := func(ctx context.Context, dev device.Device) device.Status {
 		GinkgoHelper()
-		return retrieveStatus[device.StatusDetails](ctx, dev.OntologyID().String())
+		return retrieveStatus[device.StatusDetails](ctx, dev.ResourceID())
 	}
 
 	taskStatus := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 	}
 
 	Describe("NewScanTask", func() {
@@ -279,7 +245,7 @@ var _ = Describe("ScanTask", func() {
 					stat := deviceStatus(ctx, up)
 					g.Expect(stat.Variant).To(Equal(status.VariantSuccess))
 					g.Expect(stat.Message).To(Equal("Broker connected"))
-					g.Expect(stat.Details.Device).To(Equal(up.Key))
+					g.Expect(stat.Owner).To(HaveValue(Equal(up.ResourceID())))
 					g.Expect(stat.Details.Rack).To(Equal(rackKey))
 				}).Should(Succeed())
 				stat := deviceStatus(ctx, down)
@@ -437,10 +403,13 @@ var _ = Describe("ScanTask", func() {
 
 		It("Should warn with the error of a scan that fails", func(ctx SpecContext) {
 			dev := createDevice(ctx, deviceMake)
-			st := openOn(
-				gorp.Wrap(refusingDB{DB: db.KV(), marker: []byte(dev.Key)}),
-				time.Hour,
-			)
+			var devStatus status.Status[any]
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchOwners[any](dev.ResourceID())).
+				Entry(&devStatus).
+				Exec(ctx, nil)).To(Succeed())
+			DeferCleanup(hookedKV.HookKey([]byte(devStatus.Key), refuse))
+			st := open(time.Hour)
 			Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
 			Eventually(func(g Gomega) {
 				stat := taskStatus(ctx)
@@ -537,33 +506,20 @@ var _ = Describe("ScanTask", func() {
 			},
 		)
 
-		It("Should not answer a command the scanner does not support",
+		It("Should answer a command the scanner does not support with an error",
 			func(ctx SpecContext) {
-				var writes atomic.Int32
-				key := t.OntologyID().String()
-				DeferCleanup(statusSvc.Observe().OnChange(func(
-					_ context.Context,
-					r gorp.TxReader[status.Key, status.Status[any]],
-				) {
-					for ch := range r {
-						if ch.Key == key {
-							writes.Add(1)
-						}
-					}
-				}))
 				st := open(time.Hour)
 				Expect(st.Exec(ctx, task.Command{Type: "tare", Key: "cmd-4"})).
 					To(Succeed())
-				// Commands run in no fixed order, so the writes stay under watch after
-				// the answer to cmd-5.
-				Expect(st.Exec(ctx, task.Command{
-					Type: "test_connection", Key: "cmd-5",
-				})).To(Succeed())
-				Eventually(func() string { return taskStatus(ctx).Details.Cmd }).
-					Should(Equal("cmd-5"))
-				// A commit shows the status before its observers run.
-				Eventually(writes.Load).Should(BeEquivalentTo(1))
-				Consistently(writes.Load).Should(BeEquivalentTo(1))
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-4"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Failed to execute command"))
+					g.Expect(stat.Description).To(Equal(
+						"The task does not accept the 'tare' command.",
+					))
+				}).Should(Succeed())
 			},
 		)
 

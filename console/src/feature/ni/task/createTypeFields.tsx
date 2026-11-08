@@ -22,7 +22,7 @@ interface TypeFieldsProps<V extends { type: string }, K extends V["type"]> {
 /**
  * Builds a component that renders the form for a value's type.
  *
- * @param forms One form per type. Each form gets a path narrowed to its type.
+ * @param forms - One form per type. Each form gets a path narrowed to its type.
  */
 export const createTypeFields = <V extends { type: string }>(forms: {
   [K in V["type"]]: FC<TypeFormProps<V, K>>;

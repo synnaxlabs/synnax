@@ -48,6 +48,8 @@ class Master final : public master::Master {
     std::map<uint16_t, slave::Refusal> left_out;
     std::map<uint16_t, slave::Refusal> start_refusals;
     bool start_dc_sync_refused{false};
+    std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
+        startup_parameters_by_slave;
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
@@ -253,11 +255,11 @@ public:
     void fault_slave(
         const uint16_t position,
         const slave::State state,
-        const std::string &al_status
+        const std::string &fault
     ) {
         std::lock_guard lock(this->mu);
         this->slave_states[position] = state;
-        this->faults[position] = al_status;
+        this->faults[position] = fault;
     }
 
     /// @brief makes check() report that the master could not restore the distributed
@@ -326,10 +328,23 @@ public:
         std::lock_guard lock(this->mu);
         this->disabled_slaves.clear();
         this->chosen_modes.clear();
+        this->startup_parameters_by_slave.clear();
         for (auto &[position, config]: configs) {
             if (!config.enabled) this->disabled_slaves.insert(position);
             if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+            this->startup_parameters_by_slave[position] = std::move(
+                config.startup_parameters
+            );
         }
+    }
+
+    /// @brief returns the startup parameters set for a slave.
+    std::vector<slave::StartupParameter>
+    startup_parameters(const uint16_t position) const {
+        std::lock_guard lock(this->mu);
+        const auto it = this->startup_parameters_by_slave.find(position);
+        if (it == this->startup_parameters_by_slave.end()) return {};
+        return it->second;
     }
 
     /// @brief returns whether the latest settings enable the slave at a position.
