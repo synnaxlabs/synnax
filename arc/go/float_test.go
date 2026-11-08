@@ -15,10 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channels"
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -99,19 +96,42 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("is_finite of integer arithmetic", "math.is_finite(1 + 2)", 0.0, true),
 	)
 
-	It(
-		"Should fail to compile a float check with no float argument",
-		func(ctx SpecContext) {
-			root := symbol.NewRoot(nil, stl.NewSymbols())
-			Expect(arc.CompileText(
-				ctx,
-				arc.Text{
-					Raw: "import math\nfunc f() str {\n    return f\"{math.is_nan(3)}\"\n}",
-				},
-				root,
-			)).Error().To(MatchError(ContainSubstring("float check requires an f32 or f64")))
-		},
-	)
+	Describe("Format string placeholders", func() {
+		// format runs a func that writes source to a string channel, with a NaN f32 a and
+		// an f64 b of 1.5 in scope, and returns the string.
+		format := func(ctx SpecContext, source string) string {
+			GinkgoHelper()
+			h := newRuntimeHarness(ctx, `import math
+			func f() {a f32} {
+				b f64 := 1.5
+				log = `+source+`
+			}
+			x -> f()`, channelSymbols(map[string]channelDef{
+				"x":   {types.F32(), 100},
+				"log": {types.String(), 101},
+			}),
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV(float32(nan)))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			series := out.Get(101).Series
+			Expect(series).ToNot(BeEmpty())
+			values := series[len(series)-1].Unmarshal[string]()
+			return values[len(values)-1]
+		}
+
+		It("Should read an integer literal as a float", func(ctx SpecContext) {
+			Expect(format(ctx, `f"{math.is_nan(3)}"`)).To(Equal("false"))
+		})
+
+		It("Should type each call on its own", func(ctx SpecContext) {
+			Expect(format(ctx, `f"{math.is_nan(a)} {math.is_nan(b)}"`)).
+				To(Equal("true false"))
+		})
+	})
 
 	Describe("Mixed float and integer literals", func() {
 		run := func(ctx SpecContext, dt types.Type, expr string) telem.Series {
