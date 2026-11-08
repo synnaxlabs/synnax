@@ -26,6 +26,15 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+func notWhole(path string) OmegaMatcher {
+	return SatisfyAll(
+		MatchError(validate.ErrValidation),
+		MatchError(ContainSubstring(
+			path+": a policy takes only a set of its whole name, objects, or actions",
+		)),
+	)
+}
+
 var _ = Describe("Dispatch", func() {
 	type frame = actions.Scoped[policy.Key, policy.Action]
 	var (
@@ -88,9 +97,10 @@ var _ = Describe("Dispatch", func() {
 	}
 
 	It("Should store the edited name, objects, and actions", func(ctx SpecContext) {
+		objects := []resource.ID{{Type: resource.TypeRange}, {Type: resource.TypeTask}}
 		acts := []policy.Action{
 			set("name", "edit ranges"),
-			set("objects", []resource.ID{{Type: resource.TypeRange}}),
+			set("objects", objects),
 			set("actions", []access.Action{access.ActionRetrieve, access.ActionUpdate}),
 		}
 		rec := record()
@@ -98,7 +108,7 @@ var _ = Describe("Dispatch", func() {
 		Expect(retrieve(ctx, p.Key)).To(Equal(policy.Policy{
 			Key:     p.Key,
 			Name:    "edit ranges",
-			Objects: []resource.ID{{Type: resource.TypeRange}},
+			Objects: objects,
 			Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate},
 			Role:    editable.Key,
 		}))
@@ -134,6 +144,43 @@ var _ = Describe("Dispatch", func() {
 			"a create",
 			policy.NewCreateAction(policy.CreatePayload{}),
 			MatchError(ContainSubstring("only the Core dispatches a policy create")),
+		),
+		Entry(
+			"a set inside the objects",
+			policy.NewSetAction(policy.SetPayload{
+				Path:  []string{"objects", "", "type"},
+				Value: resource.TypeRange,
+			}),
+			notWhole("[objects, , type]"),
+		),
+		Entry(
+			"a remove from the objects",
+			policy.NewRemoveAction(policy.RemovePayload{Path: []string{"objects"}}),
+			notWhole("[objects, ]"),
+		),
+		Entry(
+			"a remove from the actions",
+			policy.NewRemoveAction(policy.RemovePayload{
+				Path: []string{"actions"},
+				Key:  string(access.ActionRetrieve),
+			}),
+			notWhole("[actions, retrieve]"),
+		),
+		Entry(
+			"an insert into the objects",
+			policy.NewInsertAction(policy.InsertPayload{
+				Path:  []string{"objects"},
+				Value: resource.ID{Type: resource.TypeTask, Key: "5"},
+			}),
+			notWhole("[objects]"),
+		),
+		Entry(
+			"a move in the actions",
+			policy.NewMoveAction(policy.MovePayload{
+				Path: []string{"actions"},
+				Key:  string(access.ActionRetrieve),
+			}),
+			notWhole("[actions]"),
 		),
 	)
 

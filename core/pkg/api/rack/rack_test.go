@@ -72,8 +72,7 @@ func grantAll(ctx SpecContext, u user.User, needs ...need) {
 
 // newRackNeeds returns what a create of a new rack needs: create on the rack and its
 // status, and retrieve on the Driver role that the rack uses. r is the rack, or the
-// rack
-// type for a key the Core assigns.
+// rack type for a key the Core assigns.
 func newRackNeeds(r resource.ID) []need {
 	return []need{
 		{access.ActionCreate, r},

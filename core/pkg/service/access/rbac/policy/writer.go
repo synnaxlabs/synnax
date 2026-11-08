@@ -68,9 +68,10 @@ func (w Writer) Create(ctx context.Context, p *Policy) error {
 
 // Apply applies the actions to the policy with the given key and attaches them to the
 // transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
-// returns a validation error when an action is a create or leaves the policy invalid,
-// or when the policy belongs to a built-in role and w does not allow internal writes,
-// and an error wrapping query.ErrNotFound when no policy has the key.
+// returns a validation error when an action is a create, is not a set of a whole
+// member, or leaves the policy invalid, or when the policy belongs to a built-in role
+// and w does not allow internal writes, and an error wrapping query.ErrNotFound when no
+// policy has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Policy](key)).
