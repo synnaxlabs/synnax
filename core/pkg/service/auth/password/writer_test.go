@@ -190,6 +190,36 @@ var _ = Describe("Writer", func() {
 			},
 		)
 	})
+	Describe("Apply with a hash and a username", func() {
+		It("Should change both in one call", func(ctx SpecContext) {
+			renamed := uuid.New().String()
+			Expect(apply(
+				ctx,
+				alice,
+				password.NewSetHashAction(hash(svc, "q")),
+				password.NewSetUsernameAction(renamed),
+			)).To(Succeed())
+			MustSucceed(svc.Authenticate(ctx, proof(renamed, "q")))
+			Expect(svc.Authenticate(ctx, proof(renamed, "p"))).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+		})
+		It("Should change neither when the username is taken", func(ctx SpecContext) {
+			bob := subject()
+			taken := uuid.New().String()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, bob, taken, hash(svc, "p"))
+			})).
+				To(Succeed())
+			before := retrieve(ctx, alice)
+			Expect(apply(
+				ctx,
+				alice,
+				password.NewSetHashAction(hash(svc, "q")),
+				password.NewSetUsernameAction(taken),
+			)).To(MatchError(auth.ErrRepeatedUsername))
+			Expect(retrieve(ctx, alice)).To(Equal(before))
+		})
+	})
 	Describe("Set", func() {
 		It("Should refuse a subject that does not exist", func(ctx SpecContext) {
 			missing := resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
