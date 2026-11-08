@@ -71,7 +71,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
 		DB:      node.DB,
 		Channel: channelSvc,
-		Framer:  framerSvc,
+		Framer:  node.Framer,
 	}))
 	MustOpen(history.Publish(ctx, history.Config{
 		Framer:        node.Framer,

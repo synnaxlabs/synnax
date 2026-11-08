@@ -33,18 +33,20 @@ var _ = Describe("Start", func() {
 		sigs = MustSucceed(signals.New(signals.Config{
 			DB:      db,
 			Channel: channelSvc,
-			Framer:  framerSvc,
+			Framer:  nodeFramer,
 		}))
 		state = actions.NewState[uuid.UUID, action](db)
 		setName, actName = nextName(), nextName()
 		Expect(sigs.PublishTable(ctx, signals.TableConfig[uuid.UUID, testUUIDEntry]{
 			Changes:    uuidTable.Changes,
+			Resource:   testResource[uuid.UUID],
 			SetName:    setName,
 			DeleteName: nextName(),
 		})).To(Succeed())
 		Expect(sigs.PublishActions(ctx, signals.ActionConfig[uuid.UUID, action]{
-			Name:    actName,
-			Actions: state,
+			Name:     actName,
+			Actions:  state,
+			Resource: testResource[uuid.UUID],
 		})).To(Succeed())
 	})
 
@@ -97,6 +99,7 @@ var _ = Describe("Start", func() {
 		MustOpen(sigs.Start(ctx))
 		Expect(sigs.PublishTable(ctx, signals.TableConfig[uuid.UUID, testUUIDEntry]{
 			Changes:    uuidTable.Changes,
+			Resource:   testResource[uuid.UUID],
 			DeleteName: nextName(),
 		})).To(MatchError(ContainSubstring("after Start")))
 	})

@@ -23,7 +23,8 @@ func TableConfig(
 	svc *channel.Service,
 ) signals.TableConfig[channel.Key, channel.Channel] {
 	return signals.TableConfig[channel.Key, channel.Channel]{
-		Changes: svc.Changes,
+		Changes:  svc.Changes,
+		Resource: channel.ResourceID,
 		MarshalSet: func(c channel.Channel) ([]byte, error) {
 			v, err := json.Marshal(c.ToPayload())
 			if err != nil {

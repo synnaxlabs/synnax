@@ -54,8 +54,9 @@ var _ = Describe("Actions", func() {
 	Describe("ActionConfig", func() {
 		full := func() signals.ActionConfig[uuid.UUID, action] {
 			return signals.ActionConfig[uuid.UUID, action]{
-				Name:    "actions_validate",
-				Actions: actions.NewState[uuid.UUID, action](nil),
+				Name:     "actions_validate",
+				Actions:  actions.NewState[uuid.UUID, action](nil),
+				Resource: testResource[uuid.UUID],
 			}
 		}
 
@@ -80,6 +81,11 @@ var _ = Describe("Actions", func() {
 				func(c *signals.ActionConfig[uuid.UUID, action]) { c.Name = "" },
 				"name",
 			),
+			Entry(
+				"resource",
+				func(c *signals.ActionConfig[uuid.UUID, action]) { c.Resource = nil },
+				"resource",
+			),
 		)
 	})
 
@@ -99,15 +105,16 @@ var _ = Describe("Actions", func() {
 			sigs := MustSucceed(signals.New(signals.Config{
 				DB:              db,
 				Channel:         channelSvc,
-				Framer:          framerSvc,
+				Framer:          nodeFramer,
 				Instrumentation: alamos.New("signals", alamos.WithLogger(logger)),
 			}))
 			state = actions.NewState[uuid.UUID, action](db)
 			name := nextName()
 			Expect(sigs.PublishActions(ctx, signals.ActionConfig[uuid.UUID, action]{
-				Name:    name,
-				Actions: state,
-				Table:   uuidTableName,
+				Name:     name,
+				Actions:  state,
+				Resource: testResource[uuid.UUID],
+				Table:    uuidTableName,
 			})).To(Succeed())
 			MustOpen(sigs.Start(ctx))
 			ch = retrieveChannel(ctx, name)

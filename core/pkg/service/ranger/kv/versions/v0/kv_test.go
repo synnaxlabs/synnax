@@ -34,6 +34,14 @@ var _ = Describe("Pair", func() {
 		})
 	})
 
+	Describe("GorpKeyRange", func() {
+		It("Should return the range of a key that GorpKey returns", func() {
+			rng := uuid.New()
+			key := v0.Pair{Range: rng, Key: "a<--->b"}.GorpKey()
+			Expect(v0.Pair{}.GorpKeyRange(key)).To(Equal(rng.String()))
+		})
+	})
+
 	Describe("CustomTypeName", func() {
 		It("Should return the KVPair gorp type name", func() {
 			Expect(v0.Pair{}.CustomTypeName()).To(Equal("KVPair"))

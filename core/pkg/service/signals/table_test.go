@@ -63,9 +63,30 @@ var _ = Describe("Table", func() {
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("changes")))
 		})
 
+		It("Should fail without a function that returns the resource of a key", func() {
+			cfg := signals.DefaultTableConfig[uuid.UUID, testUUIDEntry]().Override(
+				signals.TableConfig[uuid.UUID, testUUIDEntry]{
+					Changes: uuidTable.Changes,
+				},
+			)
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring("resource")))
+		})
+
+		It("Should fail without a function that reads the key of a set", func() {
+			cfg := signals.DefaultTableConfig[uuid.UUID, testUUIDEntry]().Override(
+				signals.TableConfig[uuid.UUID, testUUIDEntry]{
+					Changes:  uuidTable.Changes,
+					Resource: testResource[uuid.UUID],
+				},
+			)
+			cfg.SetKey = nil
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring("set_key")))
+		})
+
 		It("Should fail without set_disabled", func() {
 			cfg := signals.TableConfig[uuid.UUID, testUUIDEntry]{
 				Changes:    uuidTable.Changes,
+				Resource:   testResource[uuid.UUID],
 				DeleteName: "sy_testuuidentry_delete",
 			}
 			Expect(cfg.Validate()).To(MatchError("set_disabled: must be non-nil"))
@@ -75,6 +96,7 @@ var _ = Describe("Table", func() {
 			cfg := signals.DefaultTableConfig[uuid.UUID, testUUIDEntry]().Override(
 				signals.TableConfig[uuid.UUID, testUUIDEntry]{
 					Changes:     uuidTable.Changes,
+					Resource:    testResource[uuid.UUID],
 					SetDisabled: new(true),
 				},
 			)
@@ -89,7 +111,7 @@ var _ = Describe("Table", func() {
 			sigs = MustSucceed(signals.New(signals.Config{
 				DB:      db,
 				Channel: channelSvc,
-				Framer:  framerSvc,
+				Framer:  nodeFramer,
 			}))
 		})
 
@@ -99,6 +121,7 @@ var _ = Describe("Table", func() {
 			setName, deleteName := nextName(), nextName()
 			Expect(sigs.PublishTable(ctx, signals.TableConfig[uuid.UUID, testUUIDEntry]{
 				Changes:    uuidTable.Changes,
+				Resource:   testResource[uuid.UUID],
 				SetName:    setName,
 				DeleteName: deleteName,
 			})).To(Succeed())
@@ -125,6 +148,7 @@ var _ = Describe("Table", func() {
 				ctx,
 				signals.TableConfig[uint32, testNumericEntry]{
 					Changes:     numTable.Changes,
+					Resource:    testResource[uint32],
 					DeleteName:  deleteName,
 					SetDisabled: new(true),
 				},
@@ -148,6 +172,7 @@ var _ = Describe("Table", func() {
 				ctx,
 				signals.TableConfig[string, testStringEntry]{
 					Changes:     stringTable.Changes,
+					Resource:    testResource[string],
 					DeleteName:  deleteName,
 					SetDisabled: new(true),
 				},
@@ -168,6 +193,7 @@ var _ = Describe("Table", func() {
 			setName := nextName()
 			Expect(sigs.PublishTable(ctx, signals.TableConfig[uuid.UUID, testUUIDEntry]{
 				Changes:    uuidTable.Changes,
+				Resource:   testResource[uuid.UUID],
 				SetName:    setName,
 				DeleteName: nextName(),
 				MarshalSet: func(e testUUIDEntry) ([]byte, error) {
@@ -187,6 +213,7 @@ var _ = Describe("Table", func() {
 			setName := nextName()
 			Expect(sigs.PublishTable(ctx, signals.TableConfig[uuid.UUID, testUUIDEntry]{
 				Changes:     uuidTable.Changes,
+				Resource:    testResource[uuid.UUID],
 				SetName:     setName,
 				DeleteName:  nextName(),
 				SetDisabled: new(true),

@@ -96,6 +96,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if cfg.Signals != nil {
 		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[string, Alias]{
 			Changes:    s.table.Changes,
+			Resource:   resourceID,
+			SetKey:     signals.UnmarshalEntryKey[string, Alias],
 			SetName:    "sy_range_alias_set",
 			DeleteName: "sy_range_alias_delete",
 		}); !ok(err, nil) {

@@ -302,14 +302,16 @@ func OpenService(
 	}
 	if cfg.Signals != nil {
 		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
-			Name:    "sy_arc_set",
-			Actions: s.state,
-			Table:   tableName,
+			Name:     "sy_arc_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+			Table:    tableName,
 		}); !ok(err, nil) {
 			return nil, err
 		}
 		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Arc]{
 			Changes:     s.table.Changes,
+			Resource:    ResourceID,
 			SetDisabled: new(true),
 		}); !ok(err, nil) {
 			return nil, err
@@ -318,6 +320,7 @@ func OpenService(
 			ctx,
 			signals.TableConfig[directory.Key, directory.Directory]{
 				Changes:    s.directories.Changes,
+				Resource:   directory.ResourceID,
 				SetName:    directory.SetChannelName,
 				DeleteName: directory.DeleteChannelName,
 			},

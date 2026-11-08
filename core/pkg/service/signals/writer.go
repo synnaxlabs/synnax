@@ -12,12 +12,13 @@ package signals
 import (
 	"context"
 	"io"
+	"maps"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
@@ -32,10 +33,13 @@ import (
 // feed adds the samples that one commit gives its change channels to a frame.
 type feed interface {
 	append(ctx context.Context, c gorp.Commit, fr framer.Frame) framer.Frame
+	// records returns the RecordOf of each channel of the feed. It runs once the
+	// channels have keys.
+	records() map[channel.Key]RecordOf
 }
 
 // add creates channels as free, virtual, internal channels, stores their keys in them,
-// and adds f to the feeds that Start writes.
+// and adds f to the feeds that Start writes and its records to Records.
 func (p *Provider) add(
 	ctx context.Context,
 	f feed,
@@ -66,6 +70,7 @@ func (p *Provider) add(
 		p.keys = append(p.keys, ch.Key())
 	}
 	p.feeds = append(p.feeds, f)
+	maps.Copy(p.records, f.records())
 	return nil
 }
 

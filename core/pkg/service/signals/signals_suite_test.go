@@ -19,11 +19,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -103,10 +105,16 @@ func (t *testStringEntry) DecodeOrc(r *orc.Reader) error {
 
 const uuidTableName = "signals_test_uuid"
 
+// testResource returns the resource of the test entry with the given key.
+func testResource[K gorp.Key](k K) resource.ID {
+	return resource.ID{Type: "signals_test", Key: gorp.FormatKey(k)}
+}
+
 var (
 	db          *gorp.DB
 	channelSvc  *channel.Service
 	framerSvc   *framer.Service
+	nodeFramer  *distframer.Service
 	uuidTable   *gorp.Table[uuid.UUID, testUUIDEntry]
 	numTable    *gorp.Table[uint32, testNumericEntry]
 	stringTable *gorp.Table[string, testStringEntry]
@@ -159,6 +167,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	db = node.DB
+	nodeFramer = node.Framer
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: node.DB,
 	}))
