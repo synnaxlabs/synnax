@@ -289,9 +289,8 @@ var _ = Describe("SetGroup", func() {
 			lp := createLinePlot(ctx, "Set group denied")
 			g := createGroup(ctx, "Set group denied")
 			grant(ctx, access.ActionUpdate, u.ResourceID(), lineplot.ResourceID(lp.Key))
-			Expect(apiSvc.SetGroup(
+			Expect(setGroup(
 				AuthedCtx(ctx, u),
-				db,
 				apilineplot.SetGroupRequest{
 					Group: &g.Key,
 					Keys:  []lineplot.Key{lp.Key},
@@ -313,9 +312,8 @@ var _ = Describe("SetGroup", func() {
 				lineplot.ResourceID(lp.Key),
 				g.ResourceID(),
 			)
-			Expect(apiSvc.SetGroup(
+			Expect(setGroup(
 				AuthedCtx(ctx, u),
-				db,
 				apilineplot.SetGroupRequest{
 					Group: &g.Key,
 					Keys:  []lineplot.Key{lp.Key},
@@ -340,9 +338,8 @@ var _ = Describe("SetGroup", func() {
 			Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 		})
 		move := func(ctx SpecContext) (struct{}, error) {
-			return apiSvc.SetGroup(
+			return setGroup(
 				AuthedCtx(ctx, u),
-				db,
 				apilineplot.SetGroupRequest{Group: &g.Key, Keys: []lineplot.Key{x.Key}},
 			)
 		}
@@ -489,17 +486,20 @@ var _ = Describe("SetProject", func() {
 		Expect(svc.Project.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 		return p
 	}
-	setProject := func(ctx SpecContext, u user.User, to project.Key, key lineplot.Key) error {
+	setProject := func(
+		ctx SpecContext,
+		u user.User,
+		to project.Key,
+		key lineplot.Key,
+	) (struct{}, error) {
 		GinkgoHelper()
-		_, err := apiSvc.SetProject(
+		return setProject(
 			AuthedCtx(ctx, u),
-			nil,
 			apilineplot.SetProjectRequest{
 				Project: to,
 				Keys:    []lineplot.Key{key},
 			},
 		)
-		return err
 	}
 	It(
 		"Should refuse the move without update on the destination project",
@@ -508,7 +508,10 @@ var _ = Describe("SetProject", func() {
 			e := createLinePlot(ctx, "Set project denied")
 			dest := createProject(ctx)
 			grant(ctx, access.ActionUpdate, u.ResourceID(), lineplot.ResourceID(e.Key))
-			Expect(setProject(ctx, u, dest.Key, e.Key)).To(MatchError(access.ErrDenied))
+			Expect(
+				setProject(ctx, u, dest.Key, e.Key),
+			).Error().
+				To(MatchError(access.ErrDenied))
 			Expect(retrieveLinePlot(ctx, e.Key).Project).To(Equal(&proj.Key))
 		},
 	)
@@ -525,7 +528,10 @@ var _ = Describe("SetProject", func() {
 				lineplot.ResourceID(e.Key),
 				project.ResourceID(dest.Key),
 			)
-			Expect(setProject(ctx, u, dest.Key, e.Key)).To(MatchError(access.ErrDenied))
+			Expect(
+				setProject(ctx, u, dest.Key, e.Key),
+			).Error().
+				To(MatchError(access.ErrDenied))
 			Expect(retrieveLinePlot(ctx, e.Key).Project).To(Equal(&proj.Key))
 		},
 	)
@@ -542,7 +548,7 @@ var _ = Describe("SetProject", func() {
 				lineplot.ResourceID(e.Key),
 				project.ResourceID(dest.Key),
 			)
-			Expect(setProject(ctx, u, dest.Key, e.Key)).To(Succeed())
+			MustSucceed(setProject(ctx, u, dest.Key, e.Key))
 			Expect(retrieveLinePlot(ctx, e.Key).Project).To(Equal(&dest.Key))
 		},
 	)
@@ -555,7 +561,10 @@ var _ = Describe("SetProject", func() {
 			Expect(svc.LinePlot.NewWriter(nil).SetGroup(ctx, &g.Key, e.Key)).
 				To(Succeed())
 			grant(ctx, access.ActionUpdate, u.ResourceID(), lineplot.ResourceID(e.Key))
-			Expect(setProject(ctx, u, proj.Key, e.Key)).To(MatchError(access.ErrDenied))
+			Expect(
+				setProject(ctx, u, proj.Key, e.Key),
+			).Error().
+				To(MatchError(access.ErrDenied))
 			Expect(retrieveLinePlot(ctx, e.Key).Group).To(Equal(&g.Key))
 		},
 	)

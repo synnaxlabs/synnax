@@ -192,38 +192,6 @@ func parentTop(
 	return topParent(ctx, tx, p)
 }
 
-// SetParentObjects returns the top parents that moving the groups in gs under parent
-// needs update access on: for each group whose top parent the move changes, the top
-// parent it leaves and the one it joins. A nil top parent adds nothing.
-func SetParentObjects(
-	ctx context.Context,
-	tx gorp.Tx,
-	gs []Group,
-	parent *resource.ID,
-) ([]resource.ID, error) {
-	after, err := parentTop(ctx, tx, parent)
-	if err != nil {
-		return nil, err
-	}
-	var objects []resource.ID
-	add := func(id *resource.ID) {
-		if id != nil && !slices.Contains(objects, *id) {
-			objects = append(objects, *id)
-		}
-	}
-	for _, g := range gs {
-		before, err := topParent(ctx, tx, g)
-		if err != nil {
-			return nil, err
-		}
-		if !sameID(before, after) {
-			add(before)
-			add(after)
-		}
-	}
-	return objects, nil
-}
-
 // moveMembers passes the groups with keys and every group under them to the
 // MoveMembers hook, after those groups move under the top parent top.
 func (w Writer) moveMembers(ctx context.Context, keys []Key, top *resource.ID) error {

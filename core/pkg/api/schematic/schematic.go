@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -165,6 +166,8 @@ type (
 		Schematic schematic.Schematic `json:"schematic" msgpack:"schematic"`
 	}
 )
+
+var _ bind.Copy = CopyRequest{}
 
 // Sources implements bind.Copy.
 func (r CopyRequest) Sources() []resource.ID {

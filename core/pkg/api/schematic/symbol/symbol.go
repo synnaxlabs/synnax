@@ -349,23 +349,5 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
-	var symbols []symbol.Symbol
-	if err := s.internal.NewRetrieve().
-		Where(symbol.MatchKeys(req.Keys...)).
-		Entries(&symbols).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			symbol.ResourceIDs(req.Keys),
-			lo.Map(symbols, func(e symbol.Symbol, _ int) *group.Key { return e.Group }),
-			req.Group,
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

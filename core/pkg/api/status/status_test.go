@@ -16,16 +16,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/gorp"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -44,8 +46,9 @@ var _ = Describe("Service.Set", func() {
 		statuses ...status.Status[any],
 	) (apistatus.SetResponse, error) {
 		GinkgoHelper()
-		return fgorp.CreateWriteUnaryHandler(db, apiSvc.Set)(
-			AuthedCtx(ctx, author), apistatus.SetRequest{Statuses: statuses},
+		return setStatuses(
+			AuthedCtx(ctx, author),
+			apistatus.SetRequest{Statuses: statuses},
 		)
 	}
 	newStatus := func(owner *resource.ID, details any) status.Status[any] {
@@ -59,8 +62,13 @@ var _ = Describe("Service.Set", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		grantOn(ctx, author.ResourceID(),
-			[]access.Action{access.ActionCreate},
+			[]access.Action{access.ActionCreate, access.ActionUpdate},
 			statusTypeOnly)
+		grantOn(ctx, author.ResourceID(),
+			[]access.Action{access.ActionUpdate},
+			resource.ID{Type: resource.TypeRack},
+			resource.ID{Type: resource.TypeDevice},
+			resource.ID{Type: resource.TypeTask})
 	})
 
 	DescribeTable(
@@ -152,10 +160,10 @@ var _ = Describe("Service.Set", func() {
 			grantOn(ctx, u.ResourceID(),
 				[]access.Action{access.ActionCreate},
 				status.ResourceID(req.Key))
-			Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Set)(
+			Expect(setStatuses(
 				AuthedCtx(ctx, u),
 				apistatus.SetRequest{Statuses: []status.Status[any]{req}},
-			)).Error().To(MatchError(access.ErrDenied))
+			)).Error().To(denied(u, access.ActionUpdate, status.ResourceID(held.Key)))
 			var res status.Status[any]
 			Expect(statusSvc.NewRetrieve[any]().
 				Where(status.MatchKeys[any](held.Key)).
@@ -200,6 +208,167 @@ var _ = Describe("Service.Set", func() {
 		},
 	)
 })
+
+var _ = Describe("Service.Set access", func() {
+	var u user.User
+	BeforeEach(func(ctx SpecContext) { u = freshUser(ctx) })
+	setAs := func(
+		ctx SpecContext,
+		s status.Status[any],
+	) (apistatus.SetResponse, error) {
+		return setStatuses(
+			AuthedCtx(ctx, u),
+			apistatus.SetRequest{Statuses: []status.Status[any]{s}},
+		)
+	}
+	newStatus := func(owner *resource.ID, labels ...label.Key) status.Status[any] {
+		return status.Status[any]{
+			Key:     uuid.New().String(),
+			Owner:   owner,
+			Labels:  labels,
+			Time:    telem.Now(),
+			Variant: status.VariantInfo,
+		}
+	}
+	retrieve := func(ctx SpecContext, key status.Key) status.Status[any] {
+		GinkgoHelper()
+		var s status.Status[any]
+		Expect(statusSvc.NewRetrieve[any]().
+			Where(status.MatchKeys[any](key)).
+			Entry(&s).
+			Exec(ctx, db)).To(Succeed())
+		return s
+	}
+	exists := func(ctx SpecContext, key status.Key) bool {
+		GinkgoHelper()
+		var found []status.Status[any]
+		Expect(statusSvc.NewRetrieve[any]().
+			Where(status.MatchKeys[any](key)).
+			SkipMissingKeys().
+			Entries(&found).
+			Exec(ctx, db)).To(Succeed())
+		return len(found) > 0
+	}
+	createLabel := func(ctx SpecContext) label.Label {
+		GinkgoHelper()
+		l := label.Label{Name: "label"}
+		Expect(labelSvc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+		return l
+	}
+
+	It("Should refuse a new status without create on it", func(ctx SpecContext) {
+		s := newStatus(nil)
+		Expect(setAs(ctx, s)).
+			Error().To(denied(u, access.ActionCreate, status.ResourceID(s.Key)))
+		Expect(exists(ctx, s.Key)).To(BeFalse())
+	})
+
+	It("Should create a new status with create on it", func(ctx SpecContext) {
+		s := newStatus(nil)
+		grantOn(ctx, u.ResourceID(),
+			[]access.Action{access.ActionCreate},
+			status.ResourceID(s.Key))
+		MustSucceed(setAs(ctx, s))
+		Expect(exists(ctx, s.Key)).To(BeTrue())
+	})
+
+	It(
+		"Should refuse an update of a status without update on it",
+		func(ctx SpecContext) {
+			s := newStatus(nil)
+			s.Message = "Stored"
+			Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+			grantOn(ctx, u.ResourceID(),
+				[]access.Action{access.ActionCreate},
+				status.ResourceID(s.Key))
+			s.Message = "Updated"
+			Expect(setAs(ctx, s)).
+				Error().To(denied(u, access.ActionUpdate, status.ResourceID(s.Key)))
+			Expect(retrieve(ctx, s.Key).Message).To(Equal("Stored"))
+		},
+	)
+
+	It("Should update a status with update on it", func(ctx SpecContext) {
+		s := newStatus(nil)
+		Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+		grantOn(ctx, u.ResourceID(),
+			[]access.Action{access.ActionUpdate},
+			status.ResourceID(s.Key))
+		s.Message = "Updated"
+		MustSucceed(setAs(ctx, s))
+		Expect(retrieve(ctx, s.Key).Message).To(Equal("Updated"))
+	})
+
+	It(
+		"Should refuse a new status without retrieve on its labels",
+		func(ctx SpecContext) {
+			l := createLabel(ctx)
+			s := newStatus(nil, l.Key)
+			grantOn(ctx, u.ResourceID(),
+				[]access.Action{access.ActionCreate},
+				status.ResourceID(s.Key))
+			Expect(setAs(ctx, s)).
+				Error().To(denied(u, access.ActionRetrieve, l.ResourceID()))
+			Expect(exists(ctx, s.Key)).To(BeFalse())
+		},
+	)
+
+	It(
+		"Should create a new status with retrieve on its labels",
+		func(ctx SpecContext) {
+			l := createLabel(ctx)
+			s := newStatus(nil, l.Key)
+			grantOn(ctx, u.ResourceID(),
+				[]access.Action{access.ActionCreate},
+				status.ResourceID(s.Key))
+			grantOn(ctx, u.ResourceID(),
+				[]access.Action{access.ActionRetrieve},
+				l.ResourceID())
+			MustSucceed(setAs(ctx, s))
+			Expect(retrieve(ctx, s.Key).Labels).To(Equal([]label.Key{l.Key}))
+		},
+	)
+
+	It(
+		"Should refuse a new owned status without update on its owner",
+		func(ctx SpecContext) {
+			owner := createTask(ctx)
+			s := newStatus(&owner)
+			grantOn(ctx, u.ResourceID(),
+				[]access.Action{access.ActionCreate},
+				status.ResourceID(s.Key))
+			Expect(setAs(ctx, s)).Error().To(denied(u, access.ActionUpdate, owner))
+			Expect(exists(ctx, s.Key)).To(BeFalse())
+		},
+	)
+
+	It(
+		"Should create a new owned status with update on its owner",
+		func(ctx SpecContext) {
+			owner := createTask(ctx)
+			s := newStatus(&owner)
+			grantOn(ctx, u.ResourceID(),
+				[]access.Action{access.ActionCreate},
+				status.ResourceID(s.Key))
+			grantOn(ctx, u.ResourceID(), []access.Action{access.ActionUpdate}, owner)
+			MustSucceed(setAs(ctx, s))
+			Expect(retrieve(ctx, s.Key).Owner).To(Equal(&owner))
+		},
+	)
+})
+
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
+}
 
 func createRack(ctx SpecContext) resource.ID {
 	GinkgoHelper()

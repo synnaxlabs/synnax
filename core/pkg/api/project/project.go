@@ -13,7 +13,6 @@ import (
 	"context"
 	"encoding/json/v2"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -28,13 +27,12 @@ import (
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // ServiceConfig is the configuration for the project API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of retrieve and export requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -96,40 +94,12 @@ type (
 	CreateResponse = CreateRequest
 )
 
+// Create creates the projects, and overwrites each one whose key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeProject}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	var stored []project.Project
-	if err := s.internal.NewRetrieve().
-		Where(project.MatchKeys(lo.Map(
-			req.Projects,
-			func(p project.Project, _ int) project.Key { return p.Key },
-		)...)).
-		Entries(&stored).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return CreateResponse{}, err
-	}
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			req.Projects,
-			stored,
-			func(p project.Project) *group.Key { return p.Group },
-		),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Projects); err != nil {
 		return CreateResponse{}, err
 	}
@@ -141,18 +111,12 @@ type RenameRequest struct {
 	Key  project.Key `json:"key"  msgpack:"key"`
 }
 
+// Rename renames the project with the given key.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{project.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
@@ -239,9 +203,7 @@ type (
 	}
 )
 
-// Import imports a project bundle in a single transaction. It requires create access on
-// the project type and on every resource kind the bundle carries, all enforced before
-// any import work runs.
+// Import imports a project bundle into a new project.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -249,17 +211,6 @@ func (s *Service) Import(
 ) (ImportResponse, error) {
 	fileName, err := parseImportParams(ctx)
 	if err != nil {
-		return ImportResponse{}, err
-	}
-	objects, err := s.bundle.ImportObjects(ctx, req)
-	if err != nil {
-		return ImportResponse{}, err
-	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: objects,
-	}); err != nil {
 		return ImportResponse{}, err
 	}
 	p, err := s.bundle.Import(ctx, tx, req, fileName)
@@ -302,18 +253,12 @@ type DeleteRequest struct {
 	Keys []project.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the projects with the given keys, and the records each one holds.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: project.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -329,26 +274,5 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
-	var projects []project.Project
-	if err := s.internal.NewRetrieve().
-		Where(project.MatchKeys(req.Keys...)).
-		Entries(&projects).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			project.ResourceIDs(req.Keys),
-			lo.Map(
-				projects,
-				func(e project.Project, _ int) *group.Key { return e.Group },
-			),
-			req.Group,
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

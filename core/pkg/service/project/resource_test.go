@@ -75,13 +75,6 @@ var _ = Describe("Resource", func() {
 			},
 		)
 	})
-	Describe("ResourceIDs", func() {
-		It("Should map a slice of keys to resource IDs", func() {
-			a, b := uuid.New(), uuid.New()
-			Expect(project.ResourceIDs([]project.Key{a, b})).
-				To(ConsistOf(project.ResourceID(a), project.ResourceID(b)))
-		})
-	})
 	Describe("ResourceIDsFromProjects", func() {
 		It("Should map a slice of projects to resource IDs", func() {
 			a := project.Project{Key: uuid.New(), Name: "a"}

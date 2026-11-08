@@ -72,11 +72,8 @@ var _ = Describe("Resource", func() {
 			Expect(id.Key).To(Equal(key.String()))
 		})
 
-		It("Should map keys and panels to resource IDs", func() {
+		It("Should map panels to resource IDs", func() {
 			a, b := uuid.New(), uuid.New()
-			Expect(panel.ResourceIDs([]panel.Key{a, b})).To(Equal([]resource.ID{
-				panel.ResourceID(a), panel.ResourceID(b),
-			}))
 			Expect(
 				panel.ResourceIDsFromPanels([]panel.Panel{{Key: a}, {Key: b}}),
 			).To(Equal(

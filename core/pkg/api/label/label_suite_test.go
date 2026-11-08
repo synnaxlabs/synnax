@@ -15,8 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apilabel "github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -36,23 +37,35 @@ func TestAPILabel(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	svc    *service.Layer
-	apiSvc *apilabel.Service
-	// dispatch runs the Dispatch route in one transaction, as the API layer binds it.
+	svc *service.Layer
+	// create, del, dispatch, add, and remove run their routes as the API layer binds
+	// them.
+	create   freighter.UnaryHandler[apilabel.CreateRequest, apilabel.CreateResponse]
+	del      freighter.UnaryHandler[apilabel.DeleteRequest, struct{}]
 	dispatch freighter.UnaryHandler[apilabel.DispatchRequest, struct{}]
+	add      freighter.UnaryHandler[apilabel.AddRequest, struct{}]
+	remove   freighter.UnaryHandler[apilabel.RemoveRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
-	apiSvc = MustSucceed(apilabel.NewService(apilabel.ServiceConfig{
+	apiSvc := MustSucceed(apilabel.NewService(apilabel.ServiceConfig{
 		RBAC:   svc.RBAC,
 		Label:  svc.Label,
 		Ranger: svc.Ranger,
 		Status: svc.Status,
 	}))
-	dispatch = fgorp.CreateWriteUnaryHandler(node.DB, apiSvc.Dispatch)
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	add = bind.Write(binder, apiSvc.Add)
+	remove = bind.Write(binder, apiSvc.Remove)
 })
 
 // createUser creates a user that can do nothing.
@@ -61,6 +74,19 @@ func createUser(ctx SpecContext) user.User {
 	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
+}
+
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
 }
 
 // grant grants the action on the objects to the subject.

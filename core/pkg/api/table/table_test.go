@@ -10,8 +10,11 @@
 package table_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	apitable "github.com/synnaxlabs/synnax/pkg/api/table"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -22,8 +25,22 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
+}
 
 var _ = Describe("Retrieve", func() {
 	It("Should reject the request when retrieve is not granted on a match", func(
@@ -44,7 +61,7 @@ var _ = Describe("Create", func() {
 		u := newCreator(ctx)
 		rec := &Recorder[table.Key, table.Action]{}
 		DeferCleanup(svc.Table.OnAction(rec.Record))
-		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
+		res := MustSucceed(create(AuthedCtx(ctx, u), apitable.CreateRequest{
 			Tables:      []table.Table{{Name: "broadcast", Project: &proj.Key}},
 			DispatchKey: "dk-create",
 		}))
@@ -52,6 +69,118 @@ var _ = Describe("Create", func() {
 		Expect(frames).To(HaveLen(1))
 		Expect(frames[0].Key).To(Equal(res.Tables[0].Key))
 		Expect(frames[0].DispatchKey).To(Equal("dk-create"))
+	})
+	It("Should refuse the create without create on the table", func(ctx SpecContext) {
+		u := newUser(ctx)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), project.ResourceID(proj.Key))
+		t := table.Table{Key: uuid.New(), Name: "Denied", Project: &proj.Key}
+		Expect(create(AuthedCtx(ctx, u), apitable.CreateRequest{
+			Tables: []table.Table{t},
+		})).Error().To(denied(u, access.ActionCreate, t.ResourceID()))
+		Expect(svc.Table.NewRetrieve().
+			Where(table.MatchKeys(t.Key)).
+			Entry(&table.Table{}).
+			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+	})
+	It("Should refuse to overwrite a table without update on it", func(
+		ctx SpecContext,
+	) {
+		u := newCreator(ctx)
+		stored := createTable(ctx, "Stored")
+		Expect(create(AuthedCtx(ctx, u), apitable.CreateRequest{
+			Tables: []table.Table{
+				{Key: stored.Key, Name: "Overwritten", Project: &proj.Key},
+			},
+		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		Expect(retrieveTable(ctx, stored.Key).Name).To(Equal("Stored"))
+	})
+})
+
+var _ = Describe("Delete", func() {
+	var (
+		u user.User
+		t table.Table
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = newUser(ctx)
+		t = createTable(ctx, "Deleted")
+	})
+	deleteAs := func(ctx SpecContext) (struct{}, error) {
+		return del(AuthedCtx(ctx, u), apitable.DeleteRequest{Keys: []table.Key{t.Key}})
+	}
+	tableID := func() resource.ID { return t.ResourceID() }
+	projectID := func() resource.ID { return project.ResourceID(proj.Key) }
+	DescribeTable(
+		"Should refuse the delete and keep the table",
+		func(
+			ctx SpecContext,
+			granted access.Action,
+			grantedOn func() resource.ID,
+			refused access.Action,
+			refusedOn func() resource.ID,
+		) {
+			grant(ctx, granted, u.ResourceID(), grantedOn())
+			Expect(deleteAs(ctx)).Error().To(denied(u, refused, refusedOn()))
+			Expect(retrieveTable(ctx, t.Key).Key).To(Equal(t.Key))
+		},
+		Entry(
+			"without delete on the table",
+			access.ActionUpdate,
+			projectID,
+			access.ActionDelete,
+			tableID,
+		),
+		Entry(
+			"without update on its project",
+			access.ActionDelete,
+			tableID,
+			access.ActionUpdate,
+			projectID,
+		),
+	)
+	It(
+		"Should delete the table with delete on it and update on its project",
+		func(ctx SpecContext) {
+			grant(ctx, access.ActionDelete, u.ResourceID(), tableID())
+			grant(ctx, access.ActionUpdate, u.ResourceID(), projectID())
+			MustSucceed(deleteAs(ctx))
+			Expect(svc.Table.NewRetrieve().
+				Where(table.MatchKeys(t.Key)).
+				Entry(&table.Table{}).
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		},
+	)
+})
+
+var _ = Describe("Dispatch", func() {
+	var (
+		u user.User
+		t table.Table
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = newUser(ctx)
+		t = createTable(ctx, "Dispatched")
+	})
+	dispatchAs := func(ctx SpecContext) (struct{}, error) {
+		return dispatch(AuthedCtx(ctx, u), apitable.DispatchRequest{
+			Key: t.Key,
+			Actions: []table.Action{
+				table.NewRenameAction(table.RenamePayload{Name: "Renamed"}),
+			},
+		})
+	}
+	It(
+		"Should refuse a dispatch without update on the table and write nothing",
+		func(ctx SpecContext) {
+			Expect(dispatchAs(ctx)).Error().
+				To(denied(u, access.ActionUpdate, t.ResourceID()))
+			Expect(retrieveTable(ctx, t.Key).Name).To(Equal("Dispatched"))
+		},
+	)
+	It("Should apply the actions with update on the table", func(ctx SpecContext) {
+		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
+		MustSucceed(dispatchAs(ctx))
+		Expect(retrieveTable(ctx, t.Key).Name).To(Equal("Renamed"))
 	})
 })
 
@@ -88,8 +217,8 @@ var _ = Describe("SetGroup", func() {
 			t := createTable(ctx, "Set group denied")
 			g := createGroup(ctx, "Set group denied")
 			grant(ctx, access.ActionUpdate, u.ResourceID(), table.ResourceID(t.Key))
-			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), db,
+			Expect(setGroup(
+				AuthedCtx(ctx, u),
 				apitable.SetGroupRequest{Group: &g.Key, Keys: []table.Key{t.Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 			Expect(retrieveTable(ctx, t.Key).Group).To(BeNil())
@@ -108,8 +237,8 @@ var _ = Describe("SetGroup", func() {
 				table.ResourceID(t.Key),
 				g.ResourceID(),
 			)
-			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), db,
+			Expect(setGroup(
+				AuthedCtx(ctx, u),
 				apitable.SetGroupRequest{Group: &g.Key, Keys: []table.Key{t.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(retrieveTable(ctx, t.Key).Group).To(Equal(&g.Key))
@@ -131,9 +260,8 @@ var _ = Describe("SetGroup", func() {
 			Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 		})
 		move := func(ctx SpecContext) (struct{}, error) {
-			return apiSvc.SetGroup(
+			return setGroup(
 				AuthedCtx(ctx, u),
-				db,
 				apitable.SetGroupRequest{Group: &g.Key, Keys: []table.Key{x.Key}},
 			)
 		}
@@ -175,7 +303,7 @@ var _ = Describe("Create in a group", func() {
 		func(ctx SpecContext) {
 			u := newCreator(ctx)
 			g := createGroup(ctx, "Create denied")
-			Expect(apiSvc.Create(AuthedCtx(ctx, u), db, apitable.CreateRequest{
+			Expect(create(AuthedCtx(ctx, u), apitable.CreateRequest{
 				Tables: []table.Table{
 					{Project: &proj.Key, Name: "Denied", Group: &g.Key},
 				},
@@ -186,7 +314,7 @@ var _ = Describe("Create in a group", func() {
 		u := newCreator(ctx)
 		g := createGroup(ctx, "Create granted")
 		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
-		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), db, apitable.CreateRequest{
+		res := MustSucceed(create(AuthedCtx(ctx, u), apitable.CreateRequest{
 			Tables: []table.Table{{Project: &proj.Key, Name: "Granted", Group: &g.Key}},
 		}))
 		Expect(retrieveTable(ctx, res.Tables[0].Key).Group).To(Equal(&g.Key))
@@ -204,8 +332,11 @@ var _ = Describe("Create in a group", func() {
 			g = group.Group{Name: "Create destination", Parent: new(dest.ResourceID())}
 			Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 		})
-		create := func(ctx SpecContext, carried *project.Key) (apitable.CreateResponse, error) {
-			return apiSvc.Create(AuthedCtx(ctx, u), db, apitable.CreateRequest{
+		createIn := func(
+			ctx SpecContext,
+			carried *project.Key,
+		) (apitable.CreateResponse, error) {
+			return create(AuthedCtx(ctx, u), apitable.CreateRequest{
 				Tables: []table.Table{
 					{Project: carried, Name: "Elsewhere", Group: &g.Key},
 				},
@@ -215,7 +346,10 @@ var _ = Describe("Create in a group", func() {
 			"Should refuse a create in a group without update on the group's project",
 			func(ctx SpecContext, carried func() *project.Key) {
 				grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
-				Expect(create(ctx, carried())).Error().To(MatchError(access.ErrDenied))
+				Expect(
+					createIn(ctx, carried()),
+				).Error().
+					To(MatchError(access.ErrDenied))
 			},
 			Entry(
 				"with the project it carries",
@@ -233,7 +367,7 @@ var _ = Describe("Create in a group", func() {
 					g.ResourceID(),
 					dest.ResourceID(),
 				)
-				res := MustSucceed(create(ctx, nil))
+				res := MustSucceed(createIn(ctx, nil))
 				Expect(
 					retrieveTable(ctx, res.Tables[0].Key).Project,
 				).To(Equal(&dest.Key))
@@ -251,7 +385,7 @@ var _ = Describe("Create with an owner", func() {
 			u.ResourceID(),
 			resource.ID{Type: resource.TypeTable},
 		)
-		Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
+		Expect(create(AuthedCtx(ctx, u), apitable.CreateRequest{
 			Tables: []table.Table{{Project: &proj.Key, Name: "Denied"}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
@@ -264,13 +398,17 @@ var _ = Describe("SetProject", func() {
 		Expect(svc.Project.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 		return p
 	}
-	setProject := func(ctx SpecContext, u user.User, to project.Key, key table.Key) error {
+	setProject := func(
+		ctx SpecContext,
+		u user.User,
+		to project.Key,
+		key table.Key,
+	) (struct{}, error) {
 		GinkgoHelper()
-		_, err := apiSvc.SetProject(AuthedCtx(ctx, u), nil, apitable.SetProjectRequest{
+		return setProject(AuthedCtx(ctx, u), apitable.SetProjectRequest{
 			Project: to,
 			Keys:    []table.Key{key},
 		})
-		return err
 	}
 	It(
 		"Should refuse the move without update on the destination project",
@@ -279,7 +417,10 @@ var _ = Describe("SetProject", func() {
 			e := createTable(ctx, "Set project denied")
 			dest := createProject(ctx)
 			grant(ctx, access.ActionUpdate, u.ResourceID(), table.ResourceID(e.Key))
-			Expect(setProject(ctx, u, dest.Key, e.Key)).To(MatchError(access.ErrDenied))
+			Expect(
+				setProject(ctx, u, dest.Key, e.Key),
+			).Error().
+				To(MatchError(access.ErrDenied))
 			Expect(retrieveTable(ctx, e.Key).Project).To(Equal(&proj.Key))
 		},
 	)
@@ -296,7 +437,10 @@ var _ = Describe("SetProject", func() {
 				table.ResourceID(e.Key),
 				project.ResourceID(dest.Key),
 			)
-			Expect(setProject(ctx, u, dest.Key, e.Key)).To(MatchError(access.ErrDenied))
+			Expect(
+				setProject(ctx, u, dest.Key, e.Key),
+			).Error().
+				To(MatchError(access.ErrDenied))
 			Expect(retrieveTable(ctx, e.Key).Project).To(Equal(&proj.Key))
 		},
 	)
@@ -313,7 +457,7 @@ var _ = Describe("SetProject", func() {
 				table.ResourceID(e.Key),
 				project.ResourceID(dest.Key),
 			)
-			Expect(setProject(ctx, u, dest.Key, e.Key)).To(Succeed())
+			MustSucceed(setProject(ctx, u, dest.Key, e.Key))
 			Expect(retrieveTable(ctx, e.Key).Project).To(Equal(&dest.Key))
 		},
 	)
@@ -325,7 +469,10 @@ var _ = Describe("SetProject", func() {
 			g := createGroup(ctx, "Set project grouped")
 			Expect(svc.Table.NewWriter(nil).SetGroup(ctx, &g.Key, e.Key)).To(Succeed())
 			grant(ctx, access.ActionUpdate, u.ResourceID(), table.ResourceID(e.Key))
-			Expect(setProject(ctx, u, proj.Key, e.Key)).To(MatchError(access.ErrDenied))
+			Expect(
+				setProject(ctx, u, proj.Key, e.Key),
+			).Error().
+				To(MatchError(access.ErrDenied))
 			Expect(retrieveTable(ctx, e.Key).Group).To(Equal(&g.Key))
 		},
 	)

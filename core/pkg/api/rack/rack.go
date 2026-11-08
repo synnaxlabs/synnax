@@ -13,7 +13,6 @@ import (
 	"context"
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -333,23 +332,5 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
-	var racks []rack.Rack
-	if err := s.rack.NewRetrieve().
-		Where(rack.MatchKeys(req.Keys...)).
-		Entries(&racks).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			rack.ResourceIDs(req.Keys),
-			lo.Map(racks, func(e rack.Rack, _ int) *group.Key { return e.Group }),
-			req.Group,
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.rack.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

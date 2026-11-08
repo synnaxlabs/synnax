@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -46,8 +46,13 @@ var (
 	panelSvc *panel.Service
 	userSvc  *user.Service
 	apiSvc   *apipanel.Service
-	// dispatch runs the Dispatch route in one transaction, as the API layer binds it.
+	// create, del, dispatch, setGroup, and setProject run their routes as the API
+	// layer binds them.
+	create     freighter.UnaryHandler[apipanel.CreateRequest, apipanel.CreateResponse]
+	del        freighter.UnaryHandler[apipanel.DeleteRequest, struct{}]
 	dispatch   freighter.UnaryHandler[apipanel.DispatchRequest, struct{}]
+	setGroup   freighter.UnaryHandler[apipanel.SetGroupRequest, struct{}]
+	setProject freighter.UnaryHandler[apipanel.SetProjectRequest, struct{}]
 	author     user.User
 	proj       project.Project
 	projectSvc *project.Service
@@ -88,7 +93,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:  rbacSvc,
 		Panel: panelSvc,
 	}))
-	dispatch = fgorp.CreateWriteUnaryHandler(db, apiSvc.Dispatch)
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	setProject = bind.Write(binder, apiSvc.SetProject)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)

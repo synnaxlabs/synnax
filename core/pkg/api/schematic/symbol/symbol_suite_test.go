@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -45,7 +47,9 @@ var (
 	symbolSvc *symbol.Service
 	userSvc   *user.Service
 	apiSvc    *apisymbol.Service
-	author    user.User
+	// setGroup runs the SetGroup route as the API layer binds it.
+	setGroup freighter.UnaryHandler[apisymbol.SetGroupRequest, struct{}]
+	author   user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -85,6 +89,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Symbol: symbolSvc,
 		RBAC:   rbacSvc,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))

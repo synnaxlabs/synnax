@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -129,6 +130,13 @@ func createRange(ctx SpecContext) ranger.Range {
 	r := ranger.Range{Name: "Hot fire", TimeRange: telem.NewRangeSeconds(1, 5)}
 	Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 	return r
+}
+
+func rangeExists(ctx SpecContext, key ranger.Key) bool {
+	GinkgoHelper()
+	return MustSucceed(svc.Ranger.NewRetrieve().
+		Where(ranger.MatchKeys(key)).
+		Exists(ctx, nil))
 }
 
 func retrieveRange(ctx SpecContext, key ranger.Key) ranger.Range {
@@ -320,7 +328,7 @@ var _ = Describe("Create", func() {
 			rec := &Recorder[ranger.Key, ranger.Action]{}
 			DeferCleanup(svc.Ranger.OnAction(rec.Record))
 			res := MustSucceed(
-				apiSvc.Create(AuthedCtx(ctx, u), nil, apiranger.CreateRequest{
+				create(AuthedCtx(ctx, u), apiranger.CreateRequest{
 					Ranges: []ranger.Range{{
 						Name:      "Created",
 						TimeRange: telem.NewRangeSeconds(1, 5),
@@ -332,6 +340,175 @@ var _ = Describe("Create", func() {
 			frames := rec.Snapshot()
 			Expect(frames).To(HaveLen(1))
 			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
+		},
+	)
+
+	It("Should refuse a create without create on the range", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := ranger.Range{
+			Key:       uuid.New(),
+			Name:      "Denied",
+			TimeRange: telem.NewRangeSeconds(1, 5),
+		}
+		Expect(create(AuthedCtx(ctx, u), apiranger.CreateRequest{
+			Ranges: []ranger.Range{r},
+		})).Error().To(denied(u, access.ActionCreate, r.ResourceID()))
+		Expect(rangeExists(ctx, r.Key)).To(BeFalse())
+	})
+
+	It("Should refuse to overwrite a range without update on it", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+			Type: resource.TypeRange,
+		})
+		stored := createRange(ctx)
+		overwrite := stored
+		overwrite.Name = "Overwritten"
+		Expect(create(AuthedCtx(ctx, u), apiranger.CreateRequest{
+			Ranges: []ranger.Range{overwrite},
+		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		Expect(retrieveRange(ctx, stored.Key).Name).To(Equal("Hot fire"))
+	})
+
+	Context("Under a parent", func() {
+		var (
+			u      user.User
+			parent ranger.Range
+			child  ranger.Range
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = createUser(ctx)
+			parent = createRange(ctx)
+			child = ranger.Range{
+				Key:       uuid.New(),
+				Name:      "Child",
+				TimeRange: telem.NewRangeSeconds(1, 5),
+				Parent:    &parent.Key,
+			}
+			grant(ctx, access.ActionCreate, u.ResourceID(), child.ResourceID())
+		})
+		createChild := func(ctx SpecContext) (apiranger.CreateResponse, error) {
+			return create(AuthedCtx(ctx, u), apiranger.CreateRequest{
+				Ranges: []ranger.Range{child},
+			})
+		}
+		It(
+			"Should refuse the create without update on the parent",
+			func(ctx SpecContext) {
+				grant(ctx, access.ActionCreate, u.ResourceID(), parent.ResourceID())
+				Expect(createChild(ctx)).Error().
+					To(denied(u, access.ActionUpdate, parent.ResourceID()))
+				Expect(rangeExists(ctx, child.Key)).To(BeFalse())
+			},
+		)
+		It("Should create the range with update on the parent", func(ctx SpecContext) {
+			grant(ctx, access.ActionUpdate, u.ResourceID(), parent.ResourceID())
+			MustSucceed(createChild(ctx))
+			Expect(retrieveRange(ctx, child.Key).Parent).
+				To(HaveValue(Equal(parent.Key)))
+		})
+	})
+
+	Context("With a label", func() {
+		var (
+			u user.User
+			l label.Label
+			r ranger.Range
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = createUser(ctx)
+			l = label.Label{Name: "Labeled"}
+			Expect(svc.Label.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+			r = ranger.Range{
+				Key:       uuid.New(),
+				Name:      "Labeled",
+				TimeRange: telem.NewRangeSeconds(1, 5),
+				Labels:    []label.Key{l.Key},
+			}
+			grant(ctx, access.ActionCreate, u.ResourceID(), r.ResourceID())
+		})
+		createLabeled := func(ctx SpecContext) (apiranger.CreateResponse, error) {
+			return create(AuthedCtx(ctx, u), apiranger.CreateRequest{
+				Ranges: []ranger.Range{r},
+			})
+		}
+		It(
+			"Should refuse the create without retrieve on the label",
+			func(ctx SpecContext) {
+				grant(ctx, access.ActionCreate, u.ResourceID(), l.ResourceID())
+				Expect(createLabeled(ctx)).Error().
+					To(denied(u, access.ActionRetrieve, l.ResourceID()))
+				Expect(rangeExists(ctx, r.Key)).To(BeFalse())
+			},
+		)
+		It("Should create the range with retrieve on the label", func(ctx SpecContext) {
+			grant(ctx, access.ActionRetrieve, u.ResourceID(), l.ResourceID())
+			MustSucceed(createLabeled(ctx))
+			Expect(retrieveRange(ctx, r.Key).Labels).To(Equal([]label.Key{l.Key}))
+		})
+	})
+})
+
+var _ = Describe("Delete", func() {
+	var (
+		u      user.User
+		parent ranger.Range
+		child  ranger.Range
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = createUser(ctx)
+		parent = createRange(ctx)
+		child = ranger.Range{
+			Name:      "Child",
+			TimeRange: telem.NewRangeSeconds(1, 5),
+			Parent:    &parent.Key,
+		}
+		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+	})
+	deleteChild := func(ctx SpecContext) (struct{}, error) {
+		return del(AuthedCtx(ctx, u), apiranger.DeleteRequest{
+			Keys: []ranger.Key{child.Key},
+		})
+	}
+	childID := func() resource.ID { return child.ResourceID() }
+	parentID := func() resource.ID { return parent.ResourceID() }
+	DescribeTable(
+		"Should refuse the delete and keep the range",
+		func(
+			ctx SpecContext,
+			granted access.Action,
+			grantedOn func() resource.ID,
+			refused access.Action,
+			refusedOn func() resource.ID,
+		) {
+			grant(ctx, granted, u.ResourceID(), grantedOn())
+			Expect(deleteChild(ctx)).Error().To(denied(u, refused, refusedOn()))
+			Expect(rangeExists(ctx, child.Key)).To(BeTrue())
+		},
+		Entry(
+			"without delete on the range",
+			access.ActionUpdate,
+			parentID,
+			access.ActionDelete,
+			childID,
+		),
+		Entry(
+			"without update on its parent",
+			access.ActionDelete,
+			childID,
+			access.ActionUpdate,
+			parentID,
+		),
+	)
+	It(
+		"Should delete the range with delete on it and update on its parent",
+		func(ctx SpecContext) {
+			grant(ctx, access.ActionDelete, u.ResourceID(), childID())
+			grant(ctx, access.ActionUpdate, u.ResourceID(), parentID())
+			MustSucceed(deleteChild(ctx))
+			Expect(rangeExists(ctx, child.Key)).To(BeFalse())
 		},
 	)
 })

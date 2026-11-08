@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apigroup "github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -39,6 +41,11 @@ var (
 	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apigroup.Service
+	// create, del, rename, and setParent run their routes as the API layer binds them.
+	create    freighter.UnaryHandler[apigroup.CreateRequest, apigroup.CreateResponse]
+	del       freighter.UnaryHandler[apigroup.DeleteRequest, struct{}]
+	rename    freighter.UnaryHandler[apigroup.RenameRequest, struct{}]
+	setParent freighter.UnaryHandler[apigroup.SetParentRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -50,6 +57,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:  svc.RBAC,
 		Group: svc.Group,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: svc.RBAC}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	rename = bind.Write(binder, apiSvc.Rename)
+	setParent = bind.Write(binder, apiSvc.SetParent)
 })
 
 // grant returns a policy that allows actions on objects.

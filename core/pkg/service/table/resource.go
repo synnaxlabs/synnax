@@ -30,11 +30,6 @@ func ResourceID(k Key) resource.ID {
 	return resource.ID{Type: resource.TypeTable, Key: k.String()}
 }
 
-// ResourceIDs returns the resource IDs of the tables with keys.
-func ResourceIDs(keys []Key) []resource.ID {
-	return lo.Map(keys, func(key Key, _ int) resource.ID { return ResourceID(key) })
-}
-
 // ResourceIDsFromTables returns the resource IDs of the tables.
 func ResourceIDsFromTables(tables []Table) []resource.ID {
 	return lo.Map(tables, func(t Table, _ int) resource.ID { return t.ResourceID() })

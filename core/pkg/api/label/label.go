@@ -41,7 +41,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of retrieve requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -108,19 +108,12 @@ type CreateResponse struct {
 	Labels []Label `json:"labels" msgpack:"labels"`
 }
 
-// Create creates the labels in the cluster.
+// Create creates the labels, and overwrites each one whose key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeLabel}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, &req.Labels); err != nil {
@@ -141,13 +134,6 @@ func (s *Service) Dispatch(
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{label.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.Dispatch(
 		ctx,
 		tx,
@@ -187,18 +173,13 @@ type DeleteRequest struct {
 	Keys []label.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the labels with the given keys and removes them from every range and
+// status that holds them. A key that matches no label is ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: label.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -209,18 +190,14 @@ type AddRequest struct {
 	Replace bool        `json:"replace" msgpack:"replace"`
 }
 
+// Add adds the labels to the range or status that req.ID names, or replaces its labels
+// when req.Replace is true. It returns a validation error when req.ID names a resource
+// that cannot have labels.
 func (s *Service) Add(
 	ctx context.Context,
 	tx gorp.Tx,
 	req AddRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: append(label.ResourceIDs(req.Labels), req.ID),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	switch req.ID.Type {
 	case resource.TypeRange:
 		key, err := ranger.KeyFromResourceID(req.ID)
@@ -248,18 +225,13 @@ type RemoveRequest struct {
 	Labels []label.Key `json:"labels" msgpack:"labels"`
 }
 
+// Remove removes the labels from the range or status that req.ID names. It returns a
+// validation error when req.ID names a resource that cannot have labels.
 func (s *Service) Remove(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RemoveRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: append(label.ResourceIDs(req.Labels), req.ID),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	switch req.ID.Type {
 	case resource.TypeRange:
 		key, err := ranger.KeyFromResourceID(req.ID)
