@@ -9,8 +9,7 @@
 
 """Symbol Editor modal client for creating and editing custom symbols."""
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 
 from console import color
 from console.layout import LayoutClient
