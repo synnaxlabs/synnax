@@ -97,6 +97,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ChannelGraph *channelgraph.Graph
+	// Reserved reports whether only the Core writes a channel. OpenWriter and
+	// NewStreamWriter refuse a reserved channel.
+	//
+	// [OPTIONAL] - no channel is reserved.
+	Reserved func(channel.Key) bool
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -122,6 +127,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelGraph = override.Nil(c.ChannelGraph, other.ChannelGraph)
+	c.Reserved = override.Nil(c.Reserved, other.Reserved)
 	return c
 }
 
@@ -150,6 +156,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Instrumentation: cfg.Child("writer"),
 		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
+		Reserved:        cfg.Reserved,
 	}); !ok(err, nil) {
 		return nil, err
 	}

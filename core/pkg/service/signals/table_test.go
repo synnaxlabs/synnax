@@ -111,7 +111,7 @@ var _ = Describe("Table", func() {
 			sigs = MustSucceed(signals.New(signals.Config{
 				DB:      db,
 				Channel: channelSvc,
-				Framer:  framerSvc,
+				Framer:  nodeFramer,
 			}))
 		})
 
