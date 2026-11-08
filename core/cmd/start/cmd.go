@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	xsignal "github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -41,12 +42,15 @@ var Cmd = &cobra.Command{
 	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		return viper.BindPFlags(cmd.Flags())
 	},
-	Run: func(cmd *cobra.Command, _ []string) { start(cmd) },
+	RunE: func(cmd *cobra.Command, _ []string) error { return start(cmd) },
 }
 
 // start is the entrypoint for starting a Synnax Core. It handles stop requests and
-// delegates to BootupCore for the actual startup.
-func start(cmd *cobra.Command) {
+// delegates to BootupCore for the actual startup. It logs the error that ends the Core
+// and returns it.
+func start(cmd *cobra.Command) error {
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
 	ctx := cmd.Context()
 	ins := instrumentation.Configure()
 	defer instrumentation.Cleanup(ctx, ins)
@@ -70,8 +74,8 @@ func start(cmd *cobra.Command) {
 
 	cfg, err := GetCoreConfigFromViper(ins)
 	if err != nil {
-		ins.L.Fatal("invalid configuration", zap.Error(err))
-		return
+		ins.L.Error("invalid configuration", zap.Error(err))
+		return err
 	}
 
 	sCtx.Go(func(ctx context.Context) error {
@@ -120,9 +124,10 @@ func start(cmd *cobra.Command) {
 			"\033[31mSynnax has encountered an error and is shutting down: %v\033[0m",
 			err,
 		)
-		ins.L.Fatal("synnax failed", zap.Error(err))
+		return err
 	}
 	ins.L.Info("\033[34mSynnax has shut down\033[0m")
+	return nil
 }
 
 func init() { AddFlags(Cmd) }
@@ -157,7 +162,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 	factoryCfg := cert.BuildCertFactoryConfig(ins)
 	listeners, err := listener.Parse()
 	if err != nil {
-		return CoreConfig{}, err
+		return CoreConfig{}, errors.Mark(err, validate.ErrValidation)
 	}
 	factoryCfg.Hosts = lo.Map(
 		listeners,
@@ -167,7 +172,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 	)
 	licenseKey, err := readLicenseKey()
 	if err != nil {
-		return CoreConfig{}, err
+		return CoreConfig{}, errors.Mark(err, validate.ErrValidation)
 	}
 	return CoreConfig{
 		Instrumentation:     ins,
@@ -187,6 +192,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			Password: viper.GetString(FlagPassword),
 		},
 		noDriver:             new(viper.GetBool(FlagNoDriver)),
+		updateBackupDisabled: new(viper.GetBool(FlagNoUpdateBackup)),
 		taskOpTimeout:        viper.GetDuration(FlagTaskOpTimeout),
 		taskPollInterval:     viper.GetDuration(FlagTaskPollInterval),
 		taskShutdownTimeout:  viper.GetDuration(FlagTaskShutdownTimeout),

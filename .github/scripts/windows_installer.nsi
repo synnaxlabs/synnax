@@ -78,20 +78,64 @@ Section "MainSection" SEC01
     CreateDirectory "$INSTDIR"
     DetailPrint "Installing to: $INSTDIR"
 
-    ; Stop and remove existing service if present
-    DetailPrint "Checking for existing service..."
-    nsExec::ExecToStack '"$INSTDIR\synnax-server.exe" service stop'
+    ; An installed service updates through the update of the new Core, which waits
+    ; until the new Core commits the update and starts the old Core if it fails.
+    nsExec::ExecToStack 'sc query SynnaxCore'
     Pop $0
-    ; Wait for graceful shutdown (service has 30s timeout, we wait 10s)
-    Sleep 10000
-    nsExec::ExecToStack '"$INSTDIR\synnax-server.exe" service uninstall'
-    Pop $0
+    Pop $1
+    ${If} $0 == 0
+    ${AndIf} $InstallService == ${BST_CHECKED}
+        DetailPrint "Updating the Synnax service..."
+        InitPluginsDir
+        SetOutPath "$PLUGINSDIR"
+        File /oname=synnax-update.exe "synnax-server.exe"
+        nsExec::ExecToLog '"$PLUGINSDIR\synnax-update.exe" update --file "$PLUGINSDIR\synnax-update.exe"'
+        Pop $0
+        ${If} $0 != 0
+            MessageBox MB_ICONSTOP "The update of the Synnax Core failed, and the previous Core runs again. The details list the cause." /SD IDOK
+            Abort
+        ${EndIf}
+        SetOutPath "$INSTDIR"
+    ${Else}
+        ; Stop and remove existing service if present
+        DetailPrint "Checking for existing service..."
+        nsExec::ExecToStack '"$INSTDIR\synnax-server.exe" service stop'
+        Pop $0
+        ; Wait for graceful shutdown (service has 30s timeout, we wait 10s)
+        Sleep 10000
+        nsExec::ExecToStack '"$INSTDIR\synnax-server.exe" service uninstall'
+        Pop $0
 
-    Delete "$INSTDIR\synnax-server.exe"
+        Delete "$INSTDIR\synnax-server.exe"
+
+        SetOutPath "$INSTDIR"
+        File /oname=synnax-server.exe "synnax-server.exe"
+
+        # Install as service if selected
+        ${If} $InstallService == ${BST_CHECKED}
+            DetailPrint "Installing Synnax as Windows Service..."
+
+            ${If} $ServiceAutoStart == ${BST_CHECKED}
+                nsExec::ExecToLog '"$INSTDIR\synnax-server.exe" service install --data "$DataDir" --auto-start --insecure'
+            ${Else}
+                nsExec::ExecToLog '"$INSTDIR\synnax-server.exe" service install --data "$DataDir" --insecure'
+            ${EndIf}
+            Pop $0
+
+            ${If} $0 == 0
+                DetailPrint "Service installed successfully"
+
+                ; Start the service
+                DetailPrint "Starting Synnax service..."
+                nsExec::ExecToLog '"$INSTDIR\synnax-server.exe" service start'
+                Pop $0
+            ${Else}
+                DetailPrint "Warning: Service installation returned: $0"
+            ${EndIf}
+        ${EndIf}
+    ${EndIf}
+
     Delete "$INSTDIR\synnax.bat"
-
-    SetOutPath "$INSTDIR"
-    File /oname=synnax-server.exe "synnax-server.exe"
 
     # Create batch file alias
     FileOpen $0 "$INSTDIR\synnax.bat" w
@@ -108,29 +152,6 @@ Section "MainSection" SEC01
     EnVar::AddValue "PATH" "$INSTDIR"
     Pop $0
     DetailPrint "EnVar::AddValue (system PATH) returned: $0"
-
-    # Install as service if selected
-    ${If} $InstallService == ${BST_CHECKED}
-        DetailPrint "Installing Synnax as Windows Service..."
-
-        ${If} $ServiceAutoStart == ${BST_CHECKED}
-            nsExec::ExecToLog '"$INSTDIR\synnax-server.exe" service install --data "$DataDir" --auto-start --insecure'
-        ${Else}
-            nsExec::ExecToLog '"$INSTDIR\synnax-server.exe" service install --data "$DataDir" --insecure'
-        ${EndIf}
-        Pop $0
-
-        ${If} $0 == 0
-            DetailPrint "Service installed successfully"
-
-            ; Start the service
-            DetailPrint "Starting Synnax service..."
-            nsExec::ExecToLog '"$INSTDIR\synnax-server.exe" service start'
-            Pop $0
-        ${Else}
-            DetailPrint "Warning: Service installation returned: $0"
-        ${EndIf}
-    ${EndIf}
 
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
@@ -168,6 +189,7 @@ Section "Uninstall"
     DetailPrint "EnVar::DeleteValue (system PATH) returned: $0"
 
     Delete "$INSTDIR\synnax-server.exe"
+    Delete "$INSTDIR\synnax-server.exe.old"
     Delete "$INSTDIR\synnax.bat"
     Delete "$INSTDIR\uninstall.exe"
     Delete "$DESKTOP\Synnax.lnk"

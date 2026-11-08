@@ -21,8 +21,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -43,12 +45,26 @@ var (
 	}
 )
 
+// beRefused matches an error that storage.ErrRefused marks.
+func beRefused() types.GomegaMatcher {
+	return MatchError(
+		func(err error) bool { return errors.Is(err, storage.ErrRefused) },
+		"storage.ErrRefused",
+	)
+}
+
+// openLayer opens a Layer on dir as a Core of the given version, and commits the update
+// that the open starts, as a Core does once it serves.
 func openLayer(ctx context.Context, dir, version string) *storage.Layer {
 	GinkgoHelper()
-	return MustSucceed(storage.OpenLayer(
+	l := MustSucceed(storage.OpenLayer(
 		ctx,
 		storage.LayerConfig{Dirname: dir, Version: version},
 	))
+	if l.Update != nil {
+		Expect(l.Update.Commit()).To(Succeed())
+	}
+	return l
 }
 
 // write writes three samples to each of the channels, starting at start seconds.

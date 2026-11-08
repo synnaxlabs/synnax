@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package update provides the commands that undo an update of the Core.
+// Package update provides the commands that update the Core and undo an update.
 package update
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"text/tabwriter"
 	"time"
 
@@ -24,24 +26,58 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// NewCmd returns the command group that lists the metadata backups and undoes
-// updates.
+const (
+	flagFile    = "file"
+	flagTimeout = "timeout"
+)
+
+// NewCmd returns the command that updates the Core, with the subcommands that list the
+// metadata backups, undo an update, and allow a failed update to run again.
 func NewCmd() *cobra.Command {
 	group := &cobra.Command{
 		Use:   "update",
-		Short: "Undo an update of the Core",
-		Long: "Before a new version first opens the data, the Core backs up its " +
-			"metadata. These commands list the backups and undo an update with " +
-			"one. A backup holds no telemetry.",
-		Args: cobra.NoArgs,
+		Short: "Update the Core, or undo an update",
+		Long: "Replaces the installed Core with the Core binary that --file names. " +
+			"For a Core service, the command stops the service, replaces the " +
+			"binary, starts the service, and waits until the new Core commits the " +
+			"update. If the new Core fails and undoes the update, the command puts " +
+			"the old Core back and starts it. Without a service, stop the Core " +
+			"before the update and start it after. Run the command as an " +
+			"administrator.\n\nBefore a new version first opens the data, the Core " +
+			"backs up its metadata. The subcommands list the backups, undo an " +
+			"update, and allow a failed update to run again. A backup holds no " +
+			"telemetry. Without --data, the subcommands use the data directory of " +
+			"the Core service, if there is one.",
+		Example: "sudo synnax update --file ./synnax-v0.61.0-linux",
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			file, err := cmd.Flags().GetString(flagFile)
+			if err != nil || file == "" {
+				return errors.Combine(err, cmd.Help())
+			}
+			timeout, err := cmd.Flags().GetDuration(flagTimeout)
+			if err != nil {
+				return err
+			}
+			cmd.SilenceUsage = true
+			return fromFile(cmd.Context(), cmd.OutOrStdout(), file, timeout)
+		},
 	}
+	group.Flags().String(flagFile, "", "Path of the Core binary to update to")
+	group.Flags().Duration(
+		flagTimeout,
+		10*time.Minute,
+		"How long to wait for the new Core service to commit the update",
+	)
 	undoCmd := &cobra.Command{
 		Use:   "undo [backup]",
 		Short: "Undo the last update, or go back to an older backup",
 		Long: "Puts back the metadata of the newest backup, or of the named one, " +
 			"and prints the Core version to run on the data. Stop the Core first. " +
 			"Telemetry stays, but the telemetry of channels created after the " +
-			"backup moves to an orphaned directory in the backups directory.",
+			"backup moves to an orphaned directory in the backups directory. When " +
+			"the binary that synnax update replaced is the Core version to run, the " +
+			"command puts it back.",
 		Example: "synnax update undo --data /mnt/ssd1\n" +
 			"synnax update undo 1793000000-0.60.1 --data /mnt/ssd1",
 		Args:    cobra.MaximumNArgs(1),
@@ -51,11 +87,38 @@ func NewCmd() *cobra.Command {
 			start.DisablePermissionBits()
 			ins := instrumentation.Configure()
 			defer instrumentation.Cleanup(cmd.Context(), ins)
-			backups, err := storage.NewBackups(buildBackupsConfig(ins))
+			backups, dir, err := openBackups(ins)
 			if err != nil {
 				return err
 			}
-			return undo(cmd.OutOrStdout(), backups, args)
+			return undo(cmd.Context(), cmd.OutOrStdout(), backups, dir, args)
+		},
+	}
+	retryCmd := &cobra.Command{
+		Use:   "retry",
+		Short: "Allow a failed update to run again",
+		Long: "After a failed update, the Core refuses to start the version that " +
+			"failed. Fix the cause of the failure, then run this command, and the " +
+			"version updates the data again at its next start.",
+		Example: "synnax update retry --data /mnt/ssd1",
+		Args:    cobra.NoArgs,
+		PreRunE: bindFlags,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cmd.SilenceUsage = true
+			ins := instrumentation.Configure()
+			defer instrumentation.Cleanup(cmd.Context(), ins)
+			backups, _, err := openBackups(ins)
+			if err != nil {
+				return err
+			}
+			failed, err := backups.Retry()
+			if err != nil {
+				return err
+			}
+			return printLines(cmd.OutOrStdout(), fmt.Sprintf(
+				"Core %s updates the data again at its next start.",
+				failed,
+			))
 		},
 	}
 	historyCmd := &cobra.Command{
@@ -69,7 +132,7 @@ func NewCmd() *cobra.Command {
 			cmd.SilenceUsage = true
 			ins := instrumentation.Configure()
 			defer instrumentation.Cleanup(cmd.Context(), ins)
-			backups, err := storage.NewBackups(buildBackupsConfig(ins))
+			backups, _, err := openBackups(ins)
 			if err != nil {
 				return err
 			}
@@ -78,7 +141,8 @@ func NewCmd() *cobra.Command {
 	}
 	addFlags(undoCmd)
 	addFlags(historyCmd)
-	group.AddCommand(undoCmd, historyCmd)
+	addFlags(retryCmd)
+	group.AddCommand(undoCmd, historyCmd, retryCmd)
 	return group
 }
 
@@ -86,7 +150,13 @@ func bindFlags(cmd *cobra.Command, _ []string) error {
 	return viper.BindPFlags(cmd.Flags())
 }
 
-func undo(w io.Writer, backups *storage.Backups, args []string) error {
+func undo(
+	ctx context.Context,
+	w io.Writer,
+	backups *storage.Backups,
+	dir string,
+	args []string,
+) error {
 	var (
 		res storage.Restored
 		err error
@@ -108,18 +178,33 @@ func undo(w io.Writer, backups *storage.Backups, args []string) error {
 	if res.Backup.Version == storage.UnknownVersion {
 		lines = append(lines, "The backup does not record its Core version. Run "+
 			"the Core version that ran on the data before the update.")
-	} else {
-		lines = append(
-			lines,
+		return printLines(w, lines...)
+	}
+	if err = printLines(w, lines...); err != nil {
+		return err
+	}
+	inst, installed, err := installation()
+	if err != nil {
+		return err
+	}
+	if installed && filepath.Clean(inst.Data) != dir {
+		return printLines(
+			w,
 			fmt.Sprintf("Run Core %s on the data.", res.Backup.Version),
 		)
 	}
-	for _, line := range lines {
-		if _, err = fmt.Fprintln(w, line); err != nil {
-			return err
-		}
+	putBack, err := putBackOld(ctx, inst.Binary, res.Backup.Version)
+	if err != nil {
+		return err
 	}
-	return nil
+	if putBack {
+		return printLines(w, fmt.Sprintf(
+			"Put back Core %s at %s. Start the Core.",
+			res.Backup.Version,
+			inst.Binary,
+		))
+	}
+	return printLines(w, fmt.Sprintf("Run Core %s on the data.", res.Backup.Version))
 }
 
 func history(w io.Writer, backups *storage.Backups) error {

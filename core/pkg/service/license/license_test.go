@@ -844,4 +844,39 @@ var _ = Describe("License", func() {
 			Expect(keys).To(Receive(Equal(license.OntologyKey)))
 		})
 	})
+
+	Describe("CheckUpdate", func() {
+		// expired returns a license whose term ended and that covers versions up to
+		// ceiling.
+		expired := func(ceiling string) *license.License {
+			lic := newLicense()
+			lic.Exp = seconds(now.Add(-100 * day))
+			lic.MaxVersion = new(ceiling)
+			return &lic
+		}
+		It(
+			"should refuse an update from a version that only the license covers",
+			func(ctx SpecContext) {
+				store(ctx, *expired("0.59"))
+				Expect(open(ctx).CheckUpdate("0.59.3")).To(And(
+					MatchError(license.ErrExpired),
+					MatchError(ContainSubstring(
+						"license covers versions up to 0.59, this Core is 0.60.1",
+					)),
+				))
+			},
+		)
+		DescribeTable(
+			"should allow an update that keeps the license",
+			func(ctx SpecContext, lic *license.License) {
+				if lic != nil {
+					store(ctx, *lic)
+				}
+				Expect(open(ctx).CheckUpdate("0.59.3")).To(Succeed())
+			},
+			Entry("with a license that covers this Core", new(newLicense())),
+			Entry("with a license that covered neither version", expired("0.58")),
+			Entry("without a license", nil),
+		)
+	})
 })

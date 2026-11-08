@@ -190,6 +190,15 @@ integrations.
 
 </Field.Item>
 
+<Field.Item name="--no-update-backup" env="SYNNAX_NO_UPDATE_BACKUP">
+
+Skips the backup of the metadata before a new version first opens the data, so the Core
+cannot undo a failed update. Use it only when you snapshot the data folder before each
+update. The Core still refuses data that a newer Core opened. See
+[When an update fails](/reference/enterprise/upgrade#when-an-update-fails).
+
+</Field.Item>
+
 <Field.Item name="--stop-on-stdin-close" env="SYNNAX_STOP_ON_STDIN_CLOSE">
 
 Stops the Core when its standard input closes. A line `stop` on standard input always
@@ -456,6 +465,17 @@ Fields of a listener:
 
 </Field.List>
 
+### Exit codes
+
+| Code | Meaning                                                                                                           |
+| ---- | ----------------------------------------------------------------------------------------------------------------- |
+| 0    | The Core stopped.                                                                                                 |
+| 1    | The Core failed. A later start can succeed, for example after another process frees the port.                     |
+| 65   | The Core refuses its data: a newer Core opened it, a restore did not finish, or an update to this version failed. |
+| 78   | A flag, a config value, or a certificate is not valid.                                                            |
+
+After code 65 or 78, the Core fails the same way at each start until you fix the cause.
+
 <Divider.Divider x />
 
 ## Cert
@@ -488,9 +508,26 @@ synnax cert node synnax.example.com
 
 ## Update
 
-The `update` commands undo an update of the Core. Before a new version first opens the
-data, the Core backs up its metadata. Stop the Core first. Both commands take `--data`
-with the same default as `start`. See
+The `update` command updates the Core to a new binary. Run it as an administrator:
+
+```bash
+sudo synnax update --file ./synnax-v0.61.0-linux
+```
+
+The command checks that the file is a Core for the computer and not older than the
+installed Core. For a [Core service](#service), it stops the service, puts the new
+binary in place of the old one, and starts the service. It then waits for the new Core
+to commit the update. If the new Core fails, the command puts the old Core back and
+starts it. Without a service, it only replaces the binary that runs the command, so stop
+the Core first and start it after. The old binary stays next to the new one, with an
+`.old` extension.
+
+- `--file` -> the Core binary to update to.
+- `--timeout` -> how long to wait for the new Core to commit the update. Default `10m`.
+
+Before a new version first opens the data, the Core backs up its metadata. The
+subcommands use these backups. Stop the Core first. Without `--data`, they use the data
+folder of the [Core service](#service), or `synnax-data` when there is no service. See
 [Go back to an earlier version](/reference/enterprise/upgrade#go-back-to-an-earlier-version).
 
 ### update undo
@@ -503,6 +540,9 @@ synnax update undo
 synnax update undo 1793000000-0.60.1
 ```
 
+When the `.old` binary from `synnax update` is that version, the command also puts it
+back.
+
 ### update history
 
 Lists the backups, oldest first:
@@ -510,6 +550,17 @@ Lists the backups, oldest first:
 ```bash
 synnax update history
 ```
+
+### update retry
+
+After a failed update, the Core does not start the failed version on the data. Fix the
+cause, then run this command, and the next start of that version updates the data again:
+
+```bash
+synnax update retry
+```
+
+See [When an update fails](/reference/enterprise/upgrade#when-an-update-fails).
 
 <Divider.Divider x />
 
@@ -525,44 +576,53 @@ synnax version
 
 <Divider.Divider x />
 
-## Service (Windows only)
+## Service
 
-The `service` commands run the Core as a Windows service named `SynnaxCore`. Run them in
-a terminal as an administrator. For the steps, see
+The `service` commands run the Core as a service on Linux and Windows. Run them as root
+or as an administrator. For the steps, see
 [Run the Core as a service](/reference/enterprise/service).
 
-The service starts when Windows starts, unless installed with `--auto-start=false`. When
-the Core crashes, Windows restarts it after 5 seconds, then 30 seconds, then 60 seconds.
-The count resets each day. The service writes its log to the log file, not to the
-Windows Event Log.
+On Linux, the service is the systemd unit `synnax`, and it runs as the `synnax` system
+user. When the Core exits, systemd starts it again after 5 seconds, except after
+[exit code](#exit-codes) 65 or 78. The service writes its log to the log file and to the
+journal.
+
+On Windows, the service is named `SynnaxCore`. When the Core crashes, Windows restarts
+it after 5 seconds, then 30 seconds, then 60 seconds. The count resets each day. The
+service writes its log to the log file, not to the Windows Event Log.
 
 ### service install
 
-Installs the service. It takes every `start` flag and writes them to
-`C:\ProgramData\Synnax\config.yaml`. The service reads only that file, and ignores
-`SYNNAX_*` environment variables. When the file exists, `install` does not change it.
+Installs the service. It takes every `start` flag and writes them to a config file. The
+service reads only that file, and ignores `SYNNAX_*` environment variables. When the
+file exists, `install` does not change it.
 
 ```bash
 synnax service install --listen=synnax.example.com:9090 --auto-cert
 ```
 
-On Windows, these flags have different defaults:
+These flags have different defaults for a service:
 
-- `--data` -> `C:\ProgramData\Synnax\data`
-- `--certs-dir` -> `C:\ProgramData\Synnax\certs`
-- `--log-file-path` -> `C:\ProgramData\Synnax\logs\synnax.log`
+| Flag              | Linux                             | Windows                                 |
+| ----------------- | --------------------------------- | --------------------------------------- |
+| Config file       | `/etc/synnax/config.yaml`         | `C:\ProgramData\Synnax\config.yaml`     |
+| `--data`          | `/var/lib/synnax/data`            | `C:\ProgramData\Synnax\data`            |
+| `--certs-dir`     | `/var/lib/synnax/certs`           | `C:\ProgramData\Synnax\certs`           |
+| `--log-file-path` | `/var/lib/synnax/logs/synnax.log` | `C:\ProgramData\Synnax\logs\synnax.log` |
 
 Two flags are only for `install`:
 
-- `--auto-start` -> start the service when Windows starts. Default true.
-- `--delayed-start` -> start the service after Windows finishes starting. Default false.
-  With `--delayed-start`, the service starts automatically even with
+- `--auto-start` -> start the service when the computer starts. Default true.
+- `--delayed-start` -> on Windows, start the service after Windows finishes starting.
+  Default false. With `--delayed-start`, the service starts automatically even with
   `--auto-start=false`.
+
+On Linux, `install` also creates the `synnax` system user.
 
 ### service uninstall
 
-Removes the service. It does not stop a running service, and it does not delete
-`config.yaml`. Run `synnax service stop` first.
+Removes the service. It does not delete the config file. On Windows, it does not stop a
+running service, so run `synnax service stop` first. On Linux, it stops the service.
 
 ```bash
 synnax service uninstall
@@ -578,7 +638,7 @@ synnax service start
 
 ### service stop
 
-Stops the service.
+Stops the service and waits until the Core exits.
 
 ```bash
 synnax service stop

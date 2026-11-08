@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/testutil"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -157,6 +158,12 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 				Error().
 				To(And(
 					MatchError(fs.ErrNotExist),
+					MatchError(
+						func(err error) bool {
+							return errors.Is(err, validate.ErrValidation)
+						},
+						"validate.ErrValidation",
+					),
 					MatchError(ContainSubstring(
 						"failed to read the --license-file file",
 					)),
