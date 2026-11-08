@@ -75,6 +75,7 @@ Rack struct {
     role         role.Key   {
         @cpp omit
         @doc value     "is the role that grants the rack its permissions."
+        @pb omit
         @ref on_delete restrict
     }
 

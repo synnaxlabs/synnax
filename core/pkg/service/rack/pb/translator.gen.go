@@ -30,7 +30,6 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 		Name:         r.Name,
 		Embedded:     r.Embedded,
 		Integrations: r.Integrations,
-		Role:         r.Role.String(),
 	}
 	if r.Status != nil {
 		var err error
@@ -54,11 +53,6 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 	var r rack.Rack
 	if pb == nil {
 		return r, nil
-	}
-	var err error
-	r.Role, err = uuid.Parse(pb.Role)
-	if err != nil {
-		return rack.Rack{}, err
 	}
 	r.Key = rack.Key(pb.Key)
 	r.Name = pb.Name
