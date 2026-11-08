@@ -603,7 +603,7 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheDCSyncAdvice) {
         "It refused SAFE-OP: Invalid DC SYNC configuration. The other devices on the "
         "network started without it. The Driver tries it again the next time the "
         "network starts. " +
-            std::string(master::DC_SYNC_ADVICE)
+            std::string(slave::DC_SYNC_ADVICE)
     );
 }
 

@@ -52,7 +52,7 @@ cc_library(
     srcs = ["sii.cpp"],
     hdrs = ["sii.h"],
     deps = [
-        "//driver/ethercat/coe",
+        "//driver/ethercat/pdo",
         "//driver/ethercat/dc",
         "//driver/ethercat/telem",
     ],

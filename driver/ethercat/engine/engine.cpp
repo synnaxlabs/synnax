@@ -11,7 +11,6 @@
 #include <cmath>
 #include <format>
 #include <numeric>
-#include <tuple>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -123,30 +122,6 @@ bool serves(
            });
 }
 
-/// @brief returns err, the error of the last pass of a failed start, with a sentence
-/// for each slave that the start left out. The error ends with master::DC_SYNC_ADVICE
-/// once when a slave that refused in the last pass or a left-out slave needs it.
-x::errors::Error start_error(
-    x::errors::Error err,
-    const std::map<uint16_t, slave::Refusal> &refused,
-    const std::map<uint16_t, slave::Refusal> &left_out
-) {
-    const auto needs_advice = [](const auto &entry) {
-        return entry.second.dc_sync_invalid;
-    };
-    const bool dc_sync_refused = std::ranges::any_of(refused, needs_advice) ||
-                                 std::ranges::any_of(left_out, needs_advice);
-    for (const auto &[pos, refusal]: left_out) {
-        if (!err.data.ends_with('.')) err.data += '.';
-        err.data += " The Driver left out slave " + std::to_string(pos) +
-                    " because it " + refusal.reason + ".";
-    }
-    if (!dc_sync_refused) return err;
-    if (!err.data.ends_with('.')) err.data += '.';
-    err.data.append(" ").append(master::DC_SYNC_ADVICE);
-    return err;
-}
-
 /// @brief returns the error for an entry on a slave that the bus started without.
 x::errors::Error left_out_error(
     const uint16_t position,
@@ -160,9 +135,29 @@ x::errors::Error left_out_error(
         name,
         refusal.reason
     );
-    if (refusal.dc_sync_invalid) msg.append(" ").append(master::DC_SYNC_ADVICE);
+    if (refusal.dc_sync_invalid) msg.append(" ").append(slave::DC_SYNC_ADVICE);
     return x::errors::Error(errors::STATE_CHANGE_REFUSED, msg);
 }
+}
+
+x::errors::Error Engine::start_error(
+    x::errors::Error err,
+    const std::map<uint16_t, slave::Refusal> &refused,
+    const std::map<uint16_t, LeftOut> &left_out
+) {
+    bool dc_sync_refused = std::ranges::any_of(refused, [](const auto &r) {
+        return r.second.dc_sync_invalid;
+    });
+    for (const auto &[pos, left]: left_out) {
+        if (!err.data.ends_with('.')) err.data += '.';
+        err.data += " The Driver left out slave " + std::to_string(pos) +
+                    " because it " + left.refusal.reason + ".";
+        dc_sync_refused |= left.refusal.dc_sync_invalid;
+    }
+    if (!dc_sync_refused) return err;
+    if (!err.data.ends_with('.')) err.data += '.';
+    err.data.append(" ").append(slave::DC_SYNC_ADVICE);
+    return err;
 }
 
 Engine::Input::Input(
@@ -357,8 +352,8 @@ void Engine::supervise() {
     std::vector<slave::Health> last;
     while (this->bus.running()) {
         auto health = this->master->check(this->bus);
-        for (const auto &[pos, refusal]: this->left_out)
-            health.push_back({.position = pos, .refusal = refusal});
+        for (const auto &[pos, left]: this->left_out)
+            health.push_back({.position = pos, .refusal = left.refusal});
         for (const auto &h: health) {
             if (h.refusal) continue;
             const auto prev = std::ranges::find(
@@ -439,7 +434,13 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
                         << pos << ": it " << refusal.reason;
                     plan.slaves[pos].enabled = false;
                 }
-                this->left_out.insert(refused.begin(), refused.end());
+                for (const auto &s: this->slaves)
+                    if (const auto it = refused.find(s.properties.position);
+                        it != refused.end())
+                        this->left_out[it->first] = {
+                            .name = s.properties.name,
+                            .refusal = it->second,
+                        };
                 continue;
             }
         }
@@ -690,25 +691,33 @@ x::telem::Rate Engine::cycle_rate() const {
     );
 }
 
-std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
-Engine::discover(const bool rediscover) {
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::discover() {
     std::lock_guard lock(this->mu);
     if (this->running()) return {this->slaves, x::errors::NIL};
-    if (rediscover) this->master->deactivate();
     auto [slaves, err] = this->master->scan();
     if (err) return {{}, err};
-    if (!rediscover) {
-        const auto [count, count_err] = this->master->count_slaves();
-        if (count_err) return {{}, count_err};
-        if (count != slaves.size()) {
-            LOG(INFO) << "[ethercat] " << count << " slaves answer on " << this->iface
-                      << " where " << slaves.size()
-                      << " were discovered, rediscovering";
-            this->master->deactivate();
-            std::tie(slaves, err) = this->master->scan();
-            if (err) return {{}, err};
-        }
+    const auto [count, count_err] = this->master->count_slaves();
+    if (count_err) return {{}, count_err};
+    if (count != slaves.size()) {
+        LOG(INFO) << "[ethercat] " << count << " slaves answer on " << this->iface
+                  << " where " << slaves.size() << " were discovered, rediscovering";
+        return this->rediscover_locked();
     }
+    this->slaves = slaves;
+    return {std::move(slaves), x::errors::NIL};
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::rediscover() {
+    std::lock_guard lock(this->mu);
+    if (this->running()) return {this->slaves, x::errors::NIL};
+    return this->rediscover_locked();
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Engine::rediscover_locked() {
+    this->master->deactivate();
+    auto [slaves, err] = this->master->scan();
+    if (err) return {{}, err};
     this->slaves = slaves;
     return {std::move(slaves), x::errors::NIL};
 }
@@ -721,21 +730,8 @@ std::pair<std::vector<pdo::Offset>, x::errors::Error> Engine::offsets_locked(
     offsets.reserve(entries.size());
     for (const auto &entry: entries) {
         const auto pos = entry.slave_position;
-        if (const auto it = this->left_out.find(pos); it != this->left_out.end()) {
-            const auto slave = std::ranges::find(
-                this->slaves,
-                pos,
-                [](const slave::DiscoveryResult &s) { return s.properties.position; }
-            );
-            return {
-                {},
-                left_out_error(
-                    pos,
-                    slave == this->slaves.end() ? "" : slave->properties.name,
-                    it->second
-                )
-            };
-        }
+        if (const auto it = this->left_out.find(pos); it != this->left_out.end())
+            return {{}, left_out_error(pos, it->second.name, it->second.refusal)};
         const auto [offset, err] = this->image.offset(entry);
         if (err) return {{}, err};
         if (offset.byte + telem::pdo_required_bytes(offset.bit, entry.bit_length) >

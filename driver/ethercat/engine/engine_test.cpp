@@ -48,7 +48,7 @@ const pdo::Entry OUT_U4(0, 0x7000, 4, 4, false, x::telem::UINT8_T);
 
 /// @brief why a slave in the specs refuses SAFE-OP.
 const slave::Refusal REFUSAL{.reason = "refused SAFE-OP: Inconsistent settings"};
-/// @brief a refusal that needs master::DC_SYNC_ADVICE.
+/// @brief a refusal that needs slave::DC_SYNC_ADVICE.
 const slave::Refusal DC_SYNC_REFUSAL{
     .reason = "refused SAFE-OP: Invalid DC SYNC configuration",
     .dc_sync_invalid = true,
@@ -989,12 +989,12 @@ TEST_F(EngineTest, ActivationErrorPropagates) {
 /// @brief it should discover the slaves again while the bus is stopped, and not while
 /// it runs.
 TEST_F(EngineTest, RediscoverOnlyWhileStopped) {
-    ASSERT_NIL_P(this->engine->discover(true));
+    ASSERT_NIL_P(this->engine->rediscover());
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
-    ASSERT_NIL_P(this->engine->discover(true));
+    ASSERT_NIL_P(this->engine->rediscover());
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
 }
 
@@ -1072,7 +1072,7 @@ TEST_F(EngineTest, ReaderOnASlaveThatRefusedDCSyncGetsAdvice) {
         "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid DC SYNC "
         "configuration. Fix the device, then stop every task on the network to try it "
         "again. " +
-            std::string(master::DC_SYNC_ADVICE)
+            std::string(slave::DC_SYNC_ADVICE)
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }
@@ -1126,7 +1126,7 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOfALeftOutSlave) {
         res.second.data,
         "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
         "Invalid DC SYNC configuration. " +
-            std::string(master::DC_SYNC_ADVICE)
+            std::string(slave::DC_SYNC_ADVICE)
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
 }
@@ -1148,7 +1148,7 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOnce) {
         "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
         "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
         "refused SAFE-OP: Invalid DC SYNC configuration. " +
-            std::string(master::DC_SYNC_ADVICE)
+            std::string(slave::DC_SYNC_ADVICE)
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
 }
@@ -1161,7 +1161,7 @@ TEST_F(EngineTest, StartFailsWithTheDCSyncAdviceWhenEverySlaveRefuses) {
     EXPECT_EQ(
         res.second.data,
         "failed to reach SAFE-OP: refused SAFE-OP: Invalid DC SYNC configuration. " +
-            std::string(master::DC_SYNC_ADVICE)
+            std::string(slave::DC_SYNC_ADVICE)
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }
@@ -1696,7 +1696,7 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
     Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
-    const auto slaves = ASSERT_NIL_P(pool.discover_slaves("eth0"));
+    const auto slaves = ASSERT_NIL_P(pool.discover("eth0"));
     ASSERT_EQ(slaves.size(), 2);
     EXPECT_EQ(slaves[0].properties.position, 0);
     EXPECT_EQ(slaves[1].properties.position, 1);
@@ -1711,7 +1711,7 @@ TEST(PoolTest, DiscoverSlavesTakesNoRTCore) {
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
     Pool pool(std::move(manager), NO_SLAVE_CONFIGS, rt);
-    ASSERT_NIL_P(pool.discover_slaves("eth0"));
+    ASSERT_NIL_P(pool.discover("eth0"));
     EXPECT_EQ(rt->available_cores(), rt->total_cores());
 }
 
@@ -1728,7 +1728,7 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
         engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
     EXPECT_TRUE(engine->running());
-    const auto slaves = ASSERT_NIL_P(pool.discover_slaves("eth0"));
+    const auto slaves = ASSERT_NIL_P(pool.discover("eth0"));
     ASSERT_EQ(slaves.size(), 2);
     EXPECT_EQ(slaves[0].properties.position, 0);
     EXPECT_EQ(slaves[1].properties.position, 1);
@@ -1743,9 +1743,9 @@ TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
     Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
-    ASSERT_OCCURRED_AS_P(pool.discover_slaves("eth0"), errors::MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(pool.discover("eth0"), errors::MASTER_INIT_ERROR);
     master->clear_injected_errors();
     master->add_slave(io_slave(0));
-    EXPECT_EQ(ASSERT_NIL_P(pool.discover_slaves("eth0")).size(), 1);
+    EXPECT_EQ(ASSERT_NIL_P(pool.discover("eth0")).size(), 1);
 }
 }

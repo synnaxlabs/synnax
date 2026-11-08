@@ -64,17 +64,17 @@ std::vector<slave::Health> Pool::health(const std::string &key) const {
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
-Pool::discover_slaves(const std::string &key) {
+Pool::discover(const std::string &key) {
     auto [engine, err] = this->acquire(key);
     if (err) return {{}, err};
     return engine->discover();
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
-Pool::rediscover_slaves(const std::string &key) {
+Pool::rediscover(const std::string &key) {
     auto [engine, err] = this->acquire(key);
     if (err) return {{}, err};
-    return engine->discover(true);
+    return engine->rediscover();
 }
 
 }
