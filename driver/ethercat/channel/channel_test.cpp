@@ -555,6 +555,21 @@ TEST(Output, SkipsTheStopValueCheckOnADisabledChannel) {
     ASSERT_FALSE(ch->enabled);
 }
 
+/// @brief it should reject a fractional stop value on an integer entry.
+TEST(Output, RejectsAFractionalStopValueOnAnIntegerEntry) {
+    auto j = write_entry(0x7000, 3, "uint32");
+    j["stop_value"] = 1.5;
+    auto parser = x::json::Parser(j);
+    output(wide_output_slave(), parser);
+    const auto [path, message] = only_error(parser);
+    ASSERT_EQ(path, "stop_value");
+    ASSERT_EQ(
+        message,
+        "stop value 1.5 does not fit entry 0x7000:03 on slave EL2252. Pick a whole "
+        "number from 0 to 16777215."
+    );
+}
+
 /// @brief it should reject a stop value outside the finite range of a float32 entry.
 TEST(Output, ReportsAFloat32StopValueOutsideItsRange) {
     auto j = write_entry(0x7000, 2, "float32");
