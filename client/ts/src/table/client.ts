@@ -12,6 +12,7 @@ import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { group } from "@/group";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -71,6 +72,8 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Table> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Table>;
+  /** Builds requests that move tables between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Table, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -100,12 +103,15 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (table, req) => matches(table, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (table, req) => matches(group.MEMBER_LINES, table, req.where),
+        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/table/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 

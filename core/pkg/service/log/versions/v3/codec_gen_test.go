@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -105,6 +106,7 @@ var _ = Describe("Codec", func() {
 				ChannelNamesHidden: true,
 				TimestampsHidden:   false,
 				TimeZone:           telem.TimeZone("local"),
+				Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 			}),
 			Entry("zero values", v3.Log{
 				Key:                uuid.Nil(),
@@ -114,6 +116,7 @@ var _ = Describe("Codec", func() {
 				ChannelNamesHidden: false,
 				TimestampsHidden:   false,
 				TimeZone:           telem.TimeZone(""),
+				Group:              nil,
 			}),
 			Entry("empty collections", v3.Log{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -123,6 +126,7 @@ var _ = Describe("Codec", func() {
 				ChannelNamesHidden: true,
 				TimestampsHidden:   false,
 				TimeZone:           telem.TimeZone("local"),
+				Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 			}),
 		)
 	})
@@ -186,6 +190,7 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 		ChannelNamesHidden: true,
 		TimestampsHidden:   false,
 		TimeZone:           telem.TimeZone("local"),
+		Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -295,6 +300,7 @@ func FuzzDecodeLog(f *testing.F) {
 			ChannelNamesHidden: true,
 			TimestampsHidden:   false,
 			TimeZone:           telem.TimeZone("local"),
+			Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -311,6 +317,7 @@ func FuzzDecodeLog(f *testing.F) {
 			ChannelNamesHidden: false,
 			TimestampsHidden:   false,
 			TimeZone:           telem.TimeZone(""),
+			Group:              nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -327,6 +334,7 @@ func FuzzDecodeLog(f *testing.F) {
 			ChannelNamesHidden: true,
 			TimestampsHidden:   false,
 			TimeZone:           telem.TimeZone("local"),
+			Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

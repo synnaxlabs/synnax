@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0_test
+package batch_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Validate", func() {
-	It("Should accept a named group", func() {
-		Expect(v0.Group{Name: "Named"}.Validate()).To(Succeed())
-	})
-	It("Should reject an empty name", func() {
-		Expect(v0.Group{}.Validate()).To(MatchError(ContainSubstring("name: required")))
-	})
-})
+func TestBatch(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "API Batch Suite", SuiteConfig())
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

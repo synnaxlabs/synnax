@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/synnax/node"
 import "schemas/synnax/status"
 import "schemas/x/control"
@@ -24,7 +25,6 @@ Key uint32 {
         key (first 12 bits) and a local key (last 20 bits), enabling distributed
         assignment while maintaining global uniqueness.
     """
-    @go hand
     @go output    "core/pkg/service/channel"
     @key
     @ts to_number
@@ -37,7 +37,6 @@ LocalKey uint20 {
         channel key within a node. Combined with a node.Key to form the global channel
         Key.
     """
-    @go hand
     @go output "core/pkg/service/channel"
     @py omit
 }
@@ -160,6 +159,10 @@ Channel struct {
             automatically configured as virtual.
         """
     }
+    group       group.Key?          {
+        @doc value     "is the group the channel sits in, if any."
+        @ref on_delete detach
+    }
 
     @cpp hand
     @doc value     """
@@ -256,6 +259,10 @@ APIChannel struct {
         @doc value "is the current operational status of the channel."
         @include
     }
+    group       group.Key?          {
+        @cpp omit
+        @doc value "is the group the channel sits in, if any."
+    }
 
     @cpp name      "Channel"
     @create
@@ -279,11 +286,19 @@ Where filter Channel {
     data_type
     is_index
     internal
-    virtual     bool {
+    virtual     bool        {
         @doc value """
             matches virtual channels that are not calculated, or every other channel
             when false.
         """
+    }
+    groups      group.Key[] {
+        @cpp omit
+        @doc value "matches the channels in any of the given groups."
+    }
+    grouped     bool        {
+        @cpp omit
+        @doc value "matches the channels in a group, or in no group when false."
     }
 
     @doc value         "is a filter that selects channels."

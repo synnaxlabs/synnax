@@ -13,9 +13,11 @@ package v3_test
 
 import (
 	"testing"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/testutil"
@@ -39,6 +41,7 @@ var _ = Describe("Codec", func() {
 				Embedded:     true,
 				Integrations: []string{"test_4"},
 				Version:      new(string("test_5")),
+				Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 			}),
 			Entry("zero values", v3.Rack{
 				Key:          v3.Key(0),
@@ -46,6 +49,7 @@ var _ = Describe("Codec", func() {
 				Embedded:     false,
 				Integrations: []string{},
 				Version:      nil,
+				Group:        nil,
 			}),
 			Entry("empty collections", v3.Rack{
 				Key:          v3.Key(2),
@@ -53,6 +57,7 @@ var _ = Describe("Codec", func() {
 				Embedded:     true,
 				Integrations: []string{},
 				Version:      new(string("test_5")),
+				Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 			}),
 		)
 	})
@@ -65,6 +70,7 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 		Embedded:     true,
 		Integrations: []string{"test_4"},
 		Version:      new(string("test_5")),
+		Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -89,6 +95,7 @@ func FuzzDecodeRack(f *testing.F) {
 			Embedded:     true,
 			Integrations: []string{"test_4"},
 			Version:      new(string("test_5")),
+			Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -103,6 +110,7 @@ func FuzzDecodeRack(f *testing.F) {
 			Embedded:     false,
 			Integrations: []string{},
 			Version:      nil,
+			Group:        nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -117,6 +125,7 @@ func FuzzDecodeRack(f *testing.F) {
 			Embedded:     true,
 			Integrations: []string{},
 			Version:      new(string("test_5")),
+			Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

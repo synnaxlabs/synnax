@@ -138,8 +138,8 @@ var _ = Describe("ImEx", func() {
 				LoadEnvelope("versions/testdata/import_v1.json"),
 				imex.ImportOptions{},
 			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("parent")),
-				MatchError(ContainSubstring("required")),
+				MatchError(ContainSubstring(`parent: must be a project, got ""`)),
+				MatchError(ContainSubstring("validation error")),
 			))
 		})
 

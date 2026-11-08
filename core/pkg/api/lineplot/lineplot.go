@@ -12,16 +12,20 @@ package lineplot
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -90,10 +94,32 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{{Type: resource.TypeLineplot}},
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	var stored []lineplot.LinePlot
+	if err := s.internal.NewRetrieve().
+		Where(lineplot.MatchKeys(lo.Map(
+			req.LinePlots,
+			func(e lineplot.LinePlot, _ int) lineplot.Key { return e.Key },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return CreateResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.CreateObjects(
+			req.LinePlots,
+			stored,
+			func(e lineplot.LinePlot) *group.Key { return e.Group },
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -166,4 +192,40 @@ func (s *Service) Delete(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+}
+
+// SetGroupRequest moves line plots into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key     `json:"group" msgpack:"group"`
+	Keys  []lineplot.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the line plots with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	var plots []lineplot.LinePlot
+	if err := s.internal.NewRetrieve().
+		Where(lineplot.MatchKeys(req.Keys...)).
+		Entries(&plots).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(
+			lineplot.ResourceIDs(req.Keys),
+			lo.Map(
+				plots,
+				func(e lineplot.LinePlot, _ int) *group.Key { return e.Group },
+			),
+			req.Group,
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

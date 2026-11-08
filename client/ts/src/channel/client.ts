@@ -125,6 +125,8 @@ export class Channel {
   readonly concurrency: control.Concurrency;
   /** The status of the channel. */
   readonly status?: status.Status;
+  /** The group the channel sits in, if any. */
+  readonly group?: group.Key;
 
   constructor({
     dataType,
@@ -141,6 +143,7 @@ export class Channel {
     expression = "",
     operations = [],
     concurrency = control.Concurrency.exclusive,
+    group: groupKey,
   }: New & { frameClient?: framer.Client }) {
     this.key = zod.parse(keyZ, key, { label: "channel key" });
     this.name = name;
@@ -156,6 +159,7 @@ export class Channel {
       label: "channel operations",
     });
     this.concurrency = concurrency;
+    this.group = groupKey;
     if (argsStatus != null)
       this.status = zod.parse(statusZ, argsStatus, { label: "channel status" });
     this.frameClient = frameClient ?? null;
@@ -188,6 +192,7 @@ export class Channel {
         status: this.status,
         operations: this.operations,
         concurrency: this.concurrency,
+        group: this.group,
       },
       { label: "channel payload" },
     );
@@ -242,10 +247,6 @@ const aliasedRetrieveRequestZ = z.object({
 export type RetrieveOptions = Pick<RetrieveMultipleParams, "rangeKey">;
 
 const retrieveResZ = z.object({ channels: payloadZ.array().default(() => []) });
-
-const retrieveGroupReqZ = z.object({});
-
-const retrieveGroupResZ = z.object({ group: group.groupZ });
 
 /** Names one channel. Give a `rangeKey` to resolve its alias in that range. */
 export type RetrieveSingleParams = { key: Key; rangeKey?: ranger.Key };
@@ -318,6 +319,8 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   readonly writer: Writer;
   readonly store: query.Table<Key, Channel>;
+  /** Builds requests that move channels between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly byName: query.LookupIndex<Key, Channel>;
 
   constructor(cfg: ClientConfig) {
@@ -410,6 +413,10 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = writer;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/channel/set-group", (keys, to) => {
+      const rollbacks = keys.map((key) => this.moveThrough(key, to));
+      return () => rollbacks.forEach((rollback) => rollback());
+    });
     this.byName = byName;
   }
 
@@ -622,6 +629,20 @@ export class Client extends query.Retriever<
     rename();
   }
 
+  /**
+   * Sets the group of the cached channel, skipping when absent. Returns a rollback that
+   * restores only the group.
+   */
+  private moveThrough(key: Key, to?: group.Key): destructor.Destructor {
+    const prev = this.store.get(key)?.group;
+    const set = (g?: group.Key) =>
+      this.store.set(key, (p) =>
+        p == null ? undefined : this.sugar({ ...p.payload, group: g }),
+      );
+    set(to);
+    return () => set(prev);
+  }
+
   /** Renames the cached channel, skipping when absent. Returns a rollback. */
   private renameThrough(key: Key, name: string): destructor.Destructor {
     return this.store.set(key, (p) =>
@@ -636,16 +657,6 @@ export class Client extends query.Retriever<
     if (Array.isArray(payloads))
       return payloads.map((p) => new Channel({ ...p, frameClient }));
     return new Channel({ ...payloads, frameClient });
-  }
-
-  async retrieveGroup(): Promise<group.Group> {
-    const res = await this.cfg.unary.send(
-      "/channel/retrieve-group",
-      {},
-      retrieveGroupReqZ,
-      retrieveGroupResZ,
-    );
-    return res.group;
   }
 
   /** Rebuilds a cached channel with its cached status attached. */

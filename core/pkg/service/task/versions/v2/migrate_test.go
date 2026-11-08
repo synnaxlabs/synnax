@@ -64,7 +64,6 @@ var _ = Describe("Migrations", func() {
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
 				Ontology:     otg,
-				Group:        g,
 				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
 				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
@@ -116,7 +115,6 @@ var _ = Describe("Migrations", func() {
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    g,
 				Rack:     rackSvc,
 				Status:   stat,
 				ImEx:     imex.NewService(),
@@ -181,7 +179,6 @@ var _ = Describe("Migrations", func() {
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
 				Ontology:     otg,
-				Group:        g,
 				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
 				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
@@ -318,7 +315,6 @@ var _ = Describe("Migrations", func() {
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    g,
 				Rack:     rackSvc,
 				Status:   stat,
 				ImEx:     imex.NewService(),

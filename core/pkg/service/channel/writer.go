@@ -46,7 +46,6 @@ type Writer struct {
 type createOptions struct {
 	retrieveIfNameExists                        bool
 	overwriteIfNameExistsAndDifferentProperties bool
-	createWithoutGroupRelationship              bool
 }
 
 // CreateOption configures the behavior of a Create or CreateMany call.
@@ -68,10 +67,12 @@ func OverwriteIfNameExistsAndDifferentProperties() CreateOption {
 	}
 }
 
-// CreateWithoutGroupRelationship returns a CreateOption that skips creating the
-// ontology relationship between the channel and its group.
-func CreateWithoutGroupRelationship() CreateOption {
-	return func(o *createOptions) { o.createWithoutGroupRelationship = true }
+// SetGroup moves the channels with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeChannel, nil); err != nil {
+		return err
+	}
+	return setGroup(w.svc.table, g, keys...).Exec(ctx, w.tx)
 }
 
 // Create creates a single channel, inferring the DataType if it is calculated.
@@ -202,8 +203,17 @@ func (w Writer) create(
 	opts createOptions,
 ) error {
 	channels := *_channels
-	for i := range channels {
-		if err := channels[i].Validate(); err != nil {
+	for i, ch := range channels {
+		if err := ch.Validate(); err != nil {
+			return validate.PathedError(err, strconv.Itoa(i))
+		}
+		if err := group.CheckMember(
+			ctx,
+			w.tx,
+			ch.Group,
+			resource.TypeChannel,
+			nil,
+		); err != nil {
 			return validate.PathedError(err, strconv.Itoa(i))
 		}
 	}
@@ -452,23 +462,10 @@ func (w Writer) create(
 
 	*_channels = channels
 
-	// Register ontology resources and the group parent relationship for the created
-	// channels.
 	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (resource.ID, bool) {
 		return ResourceID(ch.Key()), !ch.Internal
 	})
-	if err := w.otg.DefineResources(ctx, externalIDs...); err != nil {
-		return err
-	}
-	if opts.createWithoutGroupRelationship {
-		return nil
-	}
-	return w.otg.DefineRelationships(
-		ctx,
-		group.ResourceID(w.svc.group.Key),
-		ontology.RelationshipTypeParentOf,
-		externalIDs...,
-	)
+	return w.otg.DefineResources(ctx, externalIDs...)
 }
 
 // allocateAndWrite enforces the channel limit, then allocates keys and storage for the

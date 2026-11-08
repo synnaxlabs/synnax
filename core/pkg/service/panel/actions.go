@@ -23,6 +23,14 @@ func (CreatePayload) Handle(Panel) (Panel, error) {
 	)
 }
 
+// Handle rejects a client dispatch. The Core moves a panel into a group through its
+// writer and emits this action itself.
+func (SetGroupPayload) Handle(Panel) (Panel, error) {
+	return Panel{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a panel group change",
+	)
+}
+
 // Handle replaces the panel's name.
 func (p RenamePayload) Handle(state Panel) (Panel, error) {
 	state.Name = p.Name

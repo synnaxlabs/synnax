@@ -130,14 +130,12 @@ describe("Project Commands", () => {
     const imported = Session.Project.selectSelected(store.getState());
     const proj = await client.projects.retrieve(imported);
     expect(proj.name).toEqual(name);
-    const children = await client.ontology.retrieveChildren(
-      project.resourceID(imported),
-    );
-    expect(children).toHaveLength(1);
-    expect(children[0].name).toEqual("Propulsion");
-    expect(children[0].id.type).toEqual("group");
-    const grandChildren = await client.ontology.retrieveChildren(children[0].id);
-    expect(grandChildren.map(({ name }) => name)).toEqual(["Pressure"]);
+    const groups = await client.groups.retrieve({
+      parents: [project.resourceID(imported)],
+    });
+    expect(groups.map(({ name }) => name)).toEqual(["Propulsion"]);
+    const logs = await client.logs.retrieve({ groups: [groups[0].key] });
+    expect(logs.map(({ name }) => name)).toEqual(["Pressure"]);
   });
 
   it("should raise an error when the picked folder is not a bundle", async () => {

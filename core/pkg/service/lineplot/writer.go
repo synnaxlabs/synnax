@@ -15,12 +15,17 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Writer struct {
+	svc        *Service
 	tx         gorp.Tx
 	otg        ontology.Writer
 	table      *gorp.Table[Key, LinePlot]
@@ -34,7 +39,32 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
+// dispatch key of w when w has no transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		bound := w.svc.NewWriter(tx)
+		bound.dispatcher = w.dispatcher
+		return f(bound)
+	})
+}
+
+// Create creates the given line plot within the project provided. If the line plot
+// does not have a key, a new key will be generated. An existing line plot keeps its
+// group.
 func (w Writer) Create(
+	ctx context.Context,
+	projectKey project.Key,
+	lp *LinePlot,
+) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, projectKey, lp) })
+}
+
+func (w Writer) create(
 	ctx context.Context,
 	projectKey project.Key,
 	lp *LinePlot,
@@ -46,10 +76,26 @@ func (w Writer) Create(
 	if lp.Key == uuid.Nil() {
 		lp.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().
+		var stored LinePlot
+		err = w.table.NewRetrieve().
 			Where(gorp.MatchKeys[Key, LinePlot](lp.Key)).
-			Exists(ctx, w.tx)
-		if err != nil {
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		if exists = err == nil; exists {
+			lp.Group = stored.Group
+		}
+	}
+	if !exists {
+		if err = group.CheckMember(
+			ctx,
+			w.tx,
+			lp.Group,
+			resource.TypeLineplot,
+			nil,
+		); err != nil {
 			return err
 		}
 	}
@@ -85,6 +131,25 @@ func (w Writer) Create(
 		lp.Key,
 		NewCreateAction(CreatePayload{LinePlot: *lp}),
 	)
+	return nil
+}
+
+// SetGroup moves the line plots with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeLineplot, nil); err != nil {
+		return err
+	}
+	if err := setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetGroupAction(SetGroupPayload{Group: g}),
+		)
+	}
 	return nil
 }
 

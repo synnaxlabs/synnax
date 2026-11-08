@@ -12,6 +12,7 @@ import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { createOf, kindOf, reduceAll } from "@/panel/actions";
 import {
@@ -74,6 +75,8 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Panel> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Panel>;
+  /** Builds requests that move panels between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -103,9 +106,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchRequest(req),
         matches: (panel, req) =>
-          matches(panel, req.where) &&
+          matches(group.MEMBER_LINES, panel, req.where) &&
           (req.parent == null || this.isCachedChild(req.parent, panel.key)),
-        serverComputed: (req) => serverComputed(req.where),
+        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
         watch: [
           query.watch(ontologyClient.cache.relationships, (event, req: Request) => {
             if (req.parent == null) return null;
@@ -121,6 +124,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/panel/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 

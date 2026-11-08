@@ -11,12 +11,13 @@ import { describe } from "vitest";
 
 import { device } from "@/device";
 import { matches, serverComputed } from "@/device/where.gen";
+import { group } from "@/group";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
 
 describe("Where", () => {
   itMatchesVectors(
     readVectors("devices", device.deviceZ(), device.whereZ),
-    matches,
-    serverComputed,
+    (d, where) => matches(group.MEMBER_LINES, d, where),
+    (where) => serverComputed(group.MEMBER_LINES, where),
   );
 });

@@ -33,27 +33,26 @@ func TestSchematic(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	proj    project.Project
-	svc     *schematic.Service
-	imexSvc *imex.Service
+	db       *gorp.DB
+	groupSvc *group.Service
+	otg      *ontology.Ontology
+	proj     project.Project
+	svc      *schematic.Service
+	imexSvc  *imex.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	var (
-		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-	)
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	panelSvc := MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
 	imexSvc = imex.NewService()
 	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/group"
 import "schemas/synnax/ranger"
 import "schemas/x/color"
 import "schemas/x/filter"
@@ -319,6 +320,10 @@ LinePlot struct {
     rules    Rule[]       {
         @doc value "holds annotation rules drawn over the plot."
     }
+    group    group.Key?   {
+        @doc value     "is the group the line plot sits in, if any."
+        @ref on_delete detach
+    }
 
     action Create {
         line_plot LinePlot
@@ -333,6 +338,15 @@ LinePlot struct {
         name string
 
         @doc value "renames the line plot."
+    }
+
+    action SetGroup {
+        group group.Key?
+
+        @doc value """
+            moves the line plot into a group, or out of its group when group is empty.
+            Emitted by the Core when it moves the line plot; clients never dispatch it.
+        """
     }
 
     action SetTitleVisible {
@@ -611,6 +625,12 @@ LinePlot struct {
 
 Where filter LinePlot {
     key
+    groups  group.Key[] {
+        @doc value "matches the line plots in any of the given groups."
+    }
+    grouped bool        {
+        @doc value "matches the line plots in a group, or in no group when false."
+    }
 
     @doc value         "is a filter that selects line plots."
     @go request_output "core/pkg/api/lineplot"

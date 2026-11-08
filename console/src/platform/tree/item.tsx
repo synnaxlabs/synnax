@@ -18,6 +18,7 @@ import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { type Children } from "@/platform/tree/children";
 import { MatchGroup, useHighlight } from "@/platform/tree/search";
 import { type ContextMenu } from "@/platform/tree/types";
 
@@ -37,14 +38,38 @@ export interface ContentProps extends ItemProps {
 
 export interface Content extends FC<ContentProps> {}
 
-export interface MoveParams {
-  source: resource.ID;
-  destination: resource.ID;
-  ids: resource.ID[];
+export interface CanDropProps extends Haul.DraggingState {
+  /** The root of the tree. */
+  root: resource.ID;
+  /** The resource the items would drop onto. */
+  destination: ontology.Resource;
+  /** The tree ancestors of the destination, nearest first, ending with the root. */
+  ancestors: resource.ID[];
+  /** The tree items the drop would move. */
+  moved: Dropped[];
 }
 
-/** Move moves resources dropped onto a resource of the item's type. */
-export type Move = (client: Synnax, params: MoveParams) => Promise<void>;
+/** Decides whether a node accepts the dragged items. */
+export interface CanDrop {
+  (props: CanDropProps): boolean;
+}
+
+export interface Dropped {
+  id: resource.ID;
+  /** The tree ancestors of the item, nearest first, ending with the tree root. */
+  ancestors: resource.ID[];
+}
+
+export interface DropProps {
+  client: Synnax;
+  destination: ontology.Resource;
+  items: Dropped[];
+}
+
+/** Moves the dropped items into a node. */
+export interface Drop {
+  (props: DropProps): Promise<void>;
+}
 
 // Item renders a single resource row in the ontology tree. The component carries the
 // static, render-independent behavior for its resource type (children, drag, context
@@ -52,12 +77,12 @@ export type Move = (client: Synnax, params: MoveParams) => Promise<void>;
 export interface Item extends FC<ItemProps> {
   type: resource.Type;
   hasChildren: boolean;
-  canDrop: Haul.CanDrop;
+  children?: Children;
+  canDrop: CanDrop;
+  drop?: Drop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
   ContextMenu?: ContextMenu;
   visible?: (resource: ontology.Resource) => boolean;
-  /** move replaces the generic ontology move for drops onto this type. */
-  move?: Move;
 }
 
 export interface Items extends Partial<Record<resource.Type, Item>> {}
@@ -93,12 +118,16 @@ export interface CreateItemParams {
   type: resource.Type;
   icon?: Icon.ReactElement | ((resource: ontology.Resource) => Icon.ReactElement);
   useOnSelect?: () => (resource: ontology.Resource) => void;
+  /** Lists the children of a node of this type. */
+  children?: Children;
+  /** Whether a node of this type expands. Defaults to whether it lists children. */
   hasChildren?: boolean;
-  canDrop?: Haul.CanDrop;
+  canDrop?: CanDrop;
+  /** Moves dropped items into a node of this type. Required when canDrop can pass. */
+  drop?: Drop;
   haulItems?: (resource: ontology.Resource) => Haul.Item[];
   ContextMenu?: ContextMenu;
   visible?: (resource: ontology.Resource) => boolean;
-  move?: Move;
   Content?: Content;
 }
 
@@ -106,12 +135,13 @@ export const createItem = ({
   type,
   icon,
   useOnSelect = () => noop,
-  hasChildren = true,
+  children,
+  hasChildren = children != null,
   canDrop = () => false,
+  drop,
   haulItems = () => [],
   ContextMenu,
   visible,
-  move,
   Content: ContentComp,
 }: CreateItemParams): Item => {
   const Row = ContentComp ?? DefaultRow;
@@ -126,14 +156,15 @@ export const createItem = ({
   const item = Component as Item;
   item.type = type;
   item.hasChildren = hasChildren;
+  item.children = children;
   item.canDrop = canDrop;
+  item.drop = drop;
   item.haulItems = haulItems;
   item.ContextMenu = ContextMenu;
   item.visible = visible;
-  item.move = move;
   return item;
 };
 
 // DefaultItem is the fallback used for resource types with no registered Item: an
-// unadorned name row with expandable children and no drag or drop behavior.
+// unadorned name row with no children and no drag or drop behavior.
 export const DefaultItem: Item = createItem({ type: "builtin" });

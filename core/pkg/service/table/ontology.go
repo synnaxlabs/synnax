@@ -40,7 +40,11 @@ func ResourceIDsFromTables(tables []Table) []resource.ID {
 	return lo.Map(tables, func(t Table, _ int) resource.ID { return t.ResourceID() })
 }
 
-var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
+var schema = zyn.Object(map[string]zyn.Schema{
+	"key":   zyn.UUID(),
+	"name":  zyn.String(),
+	"group": zyn.UUID().Optional(),
+})
 
 func newResource(t Table) ontology.Resource {
 	return ontology.NewResource(schema, t.ResourceID(), t.Name, t)

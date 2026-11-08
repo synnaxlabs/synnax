@@ -12,6 +12,7 @@
 import { filter, type optional, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
@@ -50,6 +51,8 @@ export type Where = {
   model?: filter.String;
   location?: filter.String;
   rack?: filter.Set<typeof rack.keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -76,6 +79,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   location: filter.stringZ.optional(),
   /** rack selects by rack. */
   rack: filter.setZ(rack.keyZ).optional(),
+  /** groups matches the devices in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the devices in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
 });
 
 export interface DeviceSchemas<
@@ -103,6 +110,7 @@ export const deviceZ = <
     configured: z.boolean().default(false),
     properties: properties ?? record.unknownZ().default(() => ({})),
     status: statusZ.optional(),
+    group: group.keyZ.optional(),
     parent: resource.idZ.optional(),
   });
 export interface Device<
@@ -119,6 +127,7 @@ export interface Device<
   configured: boolean;
   properties: z.infer<Properties>;
   status?: Status;
+  group?: group.Key;
   parent?: resource.ID;
 }
 

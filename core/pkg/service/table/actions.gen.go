@@ -12,6 +12,7 @@
 package table
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/union"
 )
@@ -21,6 +22,8 @@ const (
 	ActionTypeCreate = "create"
 	// ActionTypeRename is the Type of an Action that carries RenamePayload.
 	ActionTypeRename = "rename"
+	// ActionTypeSetGroup is the Type of an Action that carries SetGroupPayload.
+	ActionTypeSetGroup = "set_group"
 	// ActionTypeAddRow is the Type of an Action that carries AddRowPayload.
 	ActionTypeAddRow = "add_row"
 	// ActionTypeRemoveRow is the Type of an Action that carries RemoveRowPayload.
@@ -60,6 +63,12 @@ type CreatePayload struct {
 // RenamePayload renames the table.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
+}
+
+// SetGroupPayload moves the table into a group, or out of its group when group is
+// empty. Emitted by the Core when it moves the table; clients never dispatch it.
+type SetGroupPayload struct {
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
 
 // AddRowPayload inserts a row with the given key at the given index. Three flows:
@@ -199,6 +208,7 @@ type Action struct {
 	Type       string             `json:"type" msgpack:"type"`
 	Create     *CreatePayload     `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename     *RenamePayload     `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetGroup   *SetGroupPayload   `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
 	AddRow     *AddRowPayload     `json:"add_row,omitzero" msgpack:"add_row,omitempty"`
 	RemoveRow  *RemoveRowPayload  `json:"remove_row,omitzero" msgpack:"remove_row,omitempty"`
 	AddCol     *AddColPayload     `json:"add_col,omitzero" msgpack:"add_col,omitempty"`
@@ -233,6 +243,11 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
+		case ActionTypeSetGroup:
+			if a.SetGroup == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetGroup.Handle(state)
 		case ActionTypeAddRow:
 			if a.AddRow == nil {
 				return state, union.MissingPayload(a.Type)
@@ -321,6 +336,11 @@ func NewCreateAction(p CreatePayload) Action {
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
+}
+
+// NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
+func NewSetGroupAction(p SetGroupPayload) Action {
+	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
 }
 
 // NewAddRowAction wraps a AddRowPayload in an Action envelope.

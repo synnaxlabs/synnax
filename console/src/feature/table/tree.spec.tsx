@@ -20,6 +20,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Project } from "@/feature/project";
 import { Table } from "@/feature/table";
 import { client, createPreloadedState, project } from "@/feature/table/testutil";
 import { Modals } from "@/platform/modals";
@@ -173,7 +174,7 @@ describe("table/ontology", () => {
       const { store } = await renderOntologyTree({
         client,
         root: clientProject.resourceID(await project()),
-        items: Table.TREE_ITEMS,
+        items: { ...Project.TREE_ITEMS, ...Table.TREE_ITEMS },
       });
       fireEvent.doubleClick(await findTreeRow(t.name));
       const tab = await resolveFocusedTab(store, client);

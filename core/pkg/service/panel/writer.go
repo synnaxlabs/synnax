@@ -15,10 +15,15 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Writer struct {
+	svc        *Service
 	tx         gorp.Tx
 	otg        ontology.Writer
 	table      *gorp.Table[Key, Panel]
@@ -32,18 +37,60 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
+// dispatch key of w when w has no transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		bound := w.svc.NewWriter(tx)
+		bound.dispatcher = w.dispatcher
+		return f(bound)
+	})
+}
+
 // Create creates a new panel. If the panel's key is uuid.Nil(), a new key is generated.
-// The panel is registered with the ontology.
+// An existing panel keeps its group. The panel is registered with the ontology.
 //
 // Set p.Parent to attach the panel to a parent resource in the ontology; when nil or
 // zero, the panel has no parent. Parent is not persisted on the record; parenthood
 // lives in the ontology graph.
-func (w Writer) Create(
+func (w Writer) Create(ctx context.Context, p *Panel) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, p) })
+}
+
+func (w Writer) create(
 	ctx context.Context,
 	p *Panel,
 ) (err error) {
+	var exists bool
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
+	} else {
+		var stored Panel
+		err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Panel](p.Key)).
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		if exists = err == nil; exists {
+			p.Group = stored.Group
+		}
+	}
+	if !exists {
+		if err := group.CheckMember(
+			ctx,
+			w.tx,
+			p.Group,
+			resource.TypePanel,
+			nil,
+		); err != nil {
+			return err
+		}
 	}
 	// Default a freshly-created panel to a single empty leaf so action dispatchers
 	// always operate against a well-formed tree.
@@ -79,6 +126,25 @@ func (w Writer) Create(
 		p.Key,
 		NewCreateAction(CreatePayload{Panel: *p}),
 	)
+	return nil
+}
+
+// SetGroup moves the panels with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypePanel, nil); err != nil {
+		return err
+	}
+	if err := setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetGroupAction(SetGroupPayload{Group: g}),
+		)
+	}
 	return nil
 }
 

@@ -16,7 +16,6 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 import synnax as sy
 from synnax import group, schematic
 from synnax.exceptions import NotFoundError
-from synnax.resource import ID
 from synnax.schematic import symbol
 from x import spatial
 from x.testutil import assert_eventually
@@ -350,59 +349,59 @@ class TestClient:
         assert client.schematics.retrieve(keys=[s1.key, s2.key]) == []
 
 
-def _symbol(name: str) -> symbol.Symbol:
+def _symbol(name: str, g: group.Group | None = None) -> symbol.Symbol:
     return symbol.Symbol(
-        name=name, data=symbol.Spec(svg="<svg></svg>", variant="static")
+        name=name,
+        data=symbol.Spec(svg="<svg></svg>", variant="static"),
+        group=g.key if g is not None else None,
     )
 
 
 @pytest.fixture
 def parent_group(client: sy.Synnax) -> group.Group:
-    root = client.schematics.symbols.retrieve_group()
-    return client.groups.create(group.resource_id(root.key), f"symbols-{uuid4()}")
-
-
-@pytest.fixture
-def parent(parent_group: group.Group) -> ID:
-    return group.resource_id(parent_group.key)
+    return client.groups.create(f"symbols-{uuid4()}", scope="schematic_symbol")
 
 
 @pytest.mark.schematic
 class TestSymbolClient:
-    def test_create(self, client: sy.Synnax, parent: ID) -> None:
+    def test_create(self, client: sy.Synnax, parent_group: group.Group) -> None:
         """Should create a single symbol."""
-        s = client.schematics.symbols.create(_symbol("Test Symbol"), parent=parent)
+        s = client.schematics.symbols.create(_symbol("Test Symbol", parent_group))
         assert s.name == "Test Symbol"
         assert s.data.svg == "<svg></svg>"
 
-    def test_create_multiple(self, client: sy.Synnax, parent: ID) -> None:
+    def test_create_multiple(
+        self, client: sy.Synnax, parent_group: group.Group
+    ) -> None:
         """Should create multiple symbols."""
         symbols = client.schematics.symbols.create(
-            [_symbol("Multi 1"), _symbol("Multi 2")], parent=parent
+            [_symbol("Multi 1", parent_group), _symbol("Multi 2", parent_group)]
         )
         assert [s.name for s in symbols] == ["Multi 1", "Multi 2"]
 
-    def test_retrieve_by_key(self, client: sy.Synnax, parent: ID) -> None:
+    def test_retrieve_by_key(
+        self, client: sy.Synnax, parent_group: group.Group
+    ) -> None:
         """Should retrieve a symbol by key."""
-        created = client.schematics.symbols.create(
-            _symbol("Retrieve Me"), parent=parent
-        )
+        created = client.schematics.symbols.create(_symbol("Retrieve Me", parent_group))
         retrieved = client.schematics.symbols.retrieve(key=created.key)
         assert retrieved.key == created.key
         assert retrieved.name == "Retrieve Me"
 
-    def test_retrieve_by_keys(self, client: sy.Synnax, parent: ID) -> None:
+    def test_retrieve_by_keys(
+        self, client: sy.Synnax, parent_group: group.Group
+    ) -> None:
         """Should retrieve multiple symbols by keys."""
         s1, s2 = client.schematics.symbols.create(
-            [_symbol("Symbol A"), _symbol("Symbol B")], parent=parent
+            [_symbol("Symbol A", parent_group), _symbol("Symbol B", parent_group)]
         )
         retrieved = client.schematics.symbols.retrieve(keys=[s1.key, s2.key])
         assert {s.key for s in retrieved} == {s1.key, s2.key}
 
-    def test_retrieve_where(self, client: sy.Synnax, parent: ID) -> None:
+    def test_retrieve_where(self, client: sy.Synnax, parent_group: group.Group) -> None:
         """Should keep the symbols that match the where and the other filters."""
         a, b = client.schematics.symbols.create(
-            [_symbol("A"), _symbol("B")], parent=parent
+            [_symbol("A", parent_group), _symbol("B", parent_group)]
         )
         where = symbol.Where(not_=symbol.Where(key=sy.filter.Set[symbol.Key](eq=a.key)))
         res = client.schematics.symbols.retrieve(
@@ -410,11 +409,25 @@ class TestSymbolClient:
         )
         assert [r.key for r in res] == [b.key]
 
-    def test_retrieve_with_search_term(self, client: sy.Synnax, parent: ID) -> None:
+    def test_retrieve_by_group(
+        self, client: sy.Synnax, parent_group: group.Group
+    ) -> None:
+        """Should keep the symbols in the given groups."""
+        a, _ = client.schematics.symbols.create(
+            [_symbol("In group", parent_group), _symbol("No group")]
+        )
+        res = client.schematics.symbols.retrieve(
+            where=symbol.Where(groups=[parent_group.key])
+        )
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_with_search_term(
+        self, client: sy.Synnax, parent_group: group.Group
+    ) -> None:
         """Should search for symbols by name."""
         prefix = f"searchable-symbol-{uuid4()}"
         client.schematics.symbols.create(
-            [_symbol(f"{prefix}-1"), _symbol(f"{prefix}-2")], parent=parent
+            [_symbol(f"{prefix}-1", parent_group), _symbol(f"{prefix}-2", parent_group)]
         )
 
         def check() -> None:
@@ -429,54 +442,49 @@ class TestSymbolClient:
         with pytest.raises(NotFoundError):
             client.schematics.symbols.retrieve(key=uuid4())
 
-    def test_retrieve_key_list(self, client: sy.Synnax, parent: ID) -> None:
+    def test_retrieve_key_list(
+        self, client: sy.Synnax, parent_group: group.Group
+    ) -> None:
         """Should return a list for a list of keys, even with one key."""
-        a = client.schematics.symbols.create(_symbol("A"), parent=parent)
+        a = client.schematics.symbols.create(_symbol("A", parent_group))
         res = client.schematics.symbols.retrieve(key=[a.key])
         assert [r.key for r in res] == [a.key]
 
     def test_retrieve_plain_key_beside_fields(
-        self, client: sy.Synnax, parent: ID
+        self, client: sy.Synnax, parent_group: group.Group
     ) -> None:
         """Should return one symbol for a plain key beside other fields."""
         symbols = client.schematics.symbols
-        a = symbols.create(_symbol("A"), parent=parent)
+        a = symbols.create(_symbol("A", parent_group))
         assert symbols.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
         with pytest.raises(NotFoundError, match=r"Found no symbol where .+"):
             symbols.retrieve(key=a.key, not_={"key": a.key})
 
-    def test_retrieve_or(self, client: sy.Synnax, parent: ID) -> None:
+    def test_retrieve_or(self, client: sy.Synnax, parent_group: group.Group) -> None:
         """Should retrieve the symbols that match any filter in or_."""
-        a = client.schematics.symbols.create(_symbol("A"), parent=parent)
-        b = client.schematics.symbols.create(_symbol("B"), parent=parent)
+        a = client.schematics.symbols.create(_symbol("A", parent_group))
+        b = client.schematics.symbols.create(_symbol("B", parent_group))
         res = client.schematics.symbols.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
         assert {r.key for r in res} == {a.key, b.key}
 
-    def test_rename(self, client: sy.Synnax, parent: ID) -> None:
+    def test_rename(self, client: sy.Synnax, parent_group: group.Group) -> None:
         """Should rename a symbol."""
-        s = client.schematics.symbols.create(_symbol("Before Rename"), parent=parent)
+        s = client.schematics.symbols.create(_symbol("Before Rename", parent_group))
         client.schematics.symbols.rename(s.key, "After Rename")
         assert client.schematics.symbols.retrieve(key=s.key).name == "After Rename"
 
-    def test_delete(self, client: sy.Synnax, parent: ID) -> None:
+    def test_delete(self, client: sy.Synnax, parent_group: group.Group) -> None:
         """Should delete symbols."""
         s1, s2 = client.schematics.symbols.create(
-            [_symbol("Delete 1"), _symbol("Delete 2")], parent=parent
+            [_symbol("Delete 1", parent_group), _symbol("Delete 2", parent_group)]
         )
         client.schematics.symbols.delete([s1.key, s2.key])
         with pytest.raises(NotFoundError):
             client.schematics.symbols.retrieve(key=s1.key)
 
-    def test_retrieve_group(self, client: sy.Synnax) -> None:
-        """Should retrieve the same symbol group on each call."""
-        g = client.schematics.symbols.retrieve_group()
-        assert client.schematics.symbols.retrieve_group().key == g.key
-
-    def test_delete_group(
-        self, client: sy.Synnax, parent_group: group.Group, parent: ID
-    ) -> None:
+    def test_delete_group(self, client: sy.Synnax, parent_group: group.Group) -> None:
         """Should delete a group and every symbol in it."""
-        s = client.schematics.symbols.create(_symbol("In Group"), parent=parent)
+        s = client.schematics.symbols.create(_symbol("In Group", parent_group))
         client.schematics.symbols.delete_group(parent_group.key)
         with pytest.raises(NotFoundError):
             client.schematics.symbols.retrieve(key=s.key)

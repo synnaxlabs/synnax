@@ -52,7 +52,7 @@ var _ = Describe("Where", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		// An Aspen database leases each record to its leaseholder, and the records sit
 		// on nodes that the mock cluster does not have.
-		cfg := serviceConfig(
+		cfg, _ := serviceConfig(
 			ctx,
 			testutil.NewNode(ctx),
 			DeferClose(gorp.Wrap(memkv.New())),

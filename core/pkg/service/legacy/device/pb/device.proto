@@ -56,9 +56,11 @@ message Device {
   google.protobuf.Struct properties = 8;
   // status is the current operational status of the device.
   optional .service.status.pb.Status status = 9;
+  // group is the group the device sits in, if any.
+  optional string group = 10;
   // parent is an optional parent resource ID for hierarchical device organization
   // (e.g., NI chassis containing modules).
-  optional .service.resource.pb.ID parent = 10;
+  optional .service.resource.pb.ID parent = 11;
 }
 message WhereList {
   repeated Where values = 1;
@@ -87,6 +89,9 @@ message RackKeySet {
   // in matches a value equal to an element of in.
   RackKeyList in = 2;
 }
+message GroupKeyList {
+  repeated string values = 1;
+}
 
 // Where is a filter that selects devices.
 message Where {
@@ -108,4 +113,8 @@ message Where {
   optional .x.filter.pb.String location = 8;
   // rack selects by rack.
   optional RackKeySet rack = 9;
+  // groups matches the devices in any of the given groups.
+  GroupKeyList groups = 10;
+  // grouped matches the devices in a group, or in no group when false.
+  optional bool grouped = 11;
 }

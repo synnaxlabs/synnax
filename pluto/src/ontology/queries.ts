@@ -9,7 +9,6 @@
 
 import { ontology, resource, type Synnax as Client } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
-import { type verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
@@ -96,29 +95,6 @@ export const useResourceList = Flux.createList<ListQuery, string, ontology.Resou
     client.ontology.onChange(resource.parseID(key), handler),
 });
 
-export interface MoveChildrenParams {
-  source: resource.ID;
-  destination: resource.ID;
-  ids: resource.ID[];
-}
-
-const MOVE_VERBS: verbs.Verbs = {
-  present: "move",
-  participle: "moving",
-  past: "moved",
-};
-
-export const { useUpdate: useMoveChildren } = Flux.createUpdate<MoveChildrenParams>({
-  name: PLURAL_RESOURCE_RESOURCE_NAME,
-  verbs: MOVE_VERBS,
-  update: async ({ client, data, onOptimisticComplete }) => {
-    const { source, destination, ids } = data;
-    await onOptimisticComplete(data);
-    await client.ontology.moveChildren(source, destination, ...ids);
-    return data;
-  },
-});
-
 export type RetrieveChildrenQuery = {
   [K in keyof ontology.RetrieveOptions]: ontology.RetrieveOptions[K];
 } & {
@@ -149,26 +125,4 @@ export const { use: useRootChildID } = Flux.createRetrieve<
     const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
     return res.find((r) => r.name === name)?.id;
   },
-});
-
-export const { useResult: useResultResources } = Flux.createRetrieve<
-  ListQuery,
-  ontology.Resource[]
->({
-  name: PLURAL_RESOURCE_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.ontology.retrieve(query),
-  onChange: ({ client, query }, handler) => client.ontology.onChange(query, handler),
-  getCached: ({ client, query }) => client.ontology.getCached(query),
-});
-
-export const { useResult: useResultAncestors } = Flux.createRetrieve<
-  ontology.AncestorParams,
-  ontology.Ancestry
->({
-  name: "resource ancestors",
-  retrieve: async ({ client, query }) =>
-    await client.ontology.ancestors.retrieve(query),
-  onChange: ({ client, query }, handler) =>
-    client.ontology.ancestors.onChange(query, handler),
-  getCached: ({ client, query }) => client.ontology.ancestors.getCached(query),
 });

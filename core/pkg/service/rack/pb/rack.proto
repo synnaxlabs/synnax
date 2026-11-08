@@ -36,6 +36,8 @@ message Rack {
   // version is the version of the Driver that runs the rack, written at each connect.
   // Absent until a Driver reports it.
   optional string version = 6;
+  // group is the group the rack sits in, if any.
+  optional string group = 7;
 }
 message WhereList {
   repeated Where values = 1;
@@ -61,6 +63,9 @@ message StringContains {
   // any matches an array that holds an element of any.
   StringList any = 1;
 }
+message GroupKeyList {
+  repeated string values = 1;
+}
 
 // Where is a filter that selects racks.
 message Where {
@@ -81,4 +86,8 @@ message Where {
   // host_is_node matches racks on the Core that serves the request, or racks on other
   // Cores when false.
   optional bool host_is_node = 8;
+  // groups matches the racks in any of the given groups.
+  GroupKeyList groups = 9;
+  // grouped matches the racks in a group, or in no group when false.
+  optional bool grouped = 10;
 }

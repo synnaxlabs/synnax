@@ -340,7 +340,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		HostProvider:    cfg.Distribution.Cluster,
 		Ontology:        l.Ontology,
-		Group:           l.Group,
 		Limit:           l.License.CheckChannelLimit,
 		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
@@ -496,7 +495,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Ontology:        l.Ontology,
 		Signals:         l.Signals,
-		Group:           l.Group,
 		User:            l.User,
 	}); !ok(err, l.RBAC) {
 		return nil, err
@@ -599,7 +597,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("rack"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        l.Ontology,
-		Group:           l.Group,
 		HostProvider:    cfg.Distribution.Cluster,
 		Status:          l.Status,
 		DriverRole:      l.RBAC.Builtin.DriverKey,
@@ -616,7 +613,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("device"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        l.Ontology,
-		Group:           l.Group,
 		Signals:         l.Signals,
 		Status:          l.Status,
 		Rack:            l.Rack,
@@ -703,7 +699,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("task"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        l.Ontology,
-		Group:           l.Group,
 		Channel:         l.Channel,
 		Rack:            l.Rack,
 		Status:          l.Status,
@@ -748,7 +743,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Signals:         l.Signals,
 			Ontology:        l.Ontology,
-			Group:           l.Group,
 		},
 	); !ok(err, l.View) {
 		return nil, err
@@ -763,7 +757,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			HostProvider:    cfg.Distribution.Cluster,
 			Storage:         cfg.Storage,
 			Group:           l.Group,
-			Ontology:        l.Ontology,
 		},
 	); !ok(err, l.Metrics) {
 		return nil, err

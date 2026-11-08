@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, rack, status, task } from "@synnaxlabs/client";
+import { group, rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep, id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -559,7 +559,7 @@ describe("queries", () => {
         config: { routingKey: "rk-original" },
       });
       const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "snapshot_parent",
       });
 
@@ -599,7 +599,7 @@ describe("queries", () => {
         config: { routingKey: "rk-2" },
       });
       const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "multi_snapshot_parent",
       });
 
@@ -645,7 +645,7 @@ describe("queries", () => {
         config: {},
       });
       const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "ontology_parent",
       });
 
@@ -687,7 +687,7 @@ describe("queries", () => {
         config: complexConfig,
       });
       const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "config_parent",
       });
 

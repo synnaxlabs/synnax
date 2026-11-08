@@ -179,6 +179,11 @@ const handlers: Handlers = {
     return { inverse: [], targets: [state.key] };
   },
 
+  setGroup: (state, payload) => {
+    state.group = payload.group;
+    return { inverse: [], targets: [] };
+  },
+
   setIcon: (state, payload) => {
     state.icon = payload.icon;
     return { inverse: [], targets: [state.key] };

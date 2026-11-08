@@ -97,7 +97,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           db,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 		HostProvider: node.Cluster,
 		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
@@ -106,7 +105,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
 		Rack:     rackSvc,
 		Status:   statusSvc,
 		ImEx:     imexSvc,
@@ -119,7 +117,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:           db,
 		HostProvider: node.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{

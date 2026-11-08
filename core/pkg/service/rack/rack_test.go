@@ -51,6 +51,7 @@ type stack struct {
 	xio.MultiCloser
 	rack       *rack.Service
 	status     *status.Service
+	group      *group.Service
 	otg        *ontology.Ontology
 	driverRole role.Key
 }
@@ -75,7 +76,6 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	}))
 	cfg.DB = db
 	cfg.Ontology = otg
-	cfg.Group = g
 	cfg.HostProvider = testutil.NewStaticHostProvider(1)
 	cfg.Status = stat
 	cfg.DriverRole = MustSucceed(racktestutil.CreateDriverRole(ctx, otg))
@@ -84,6 +84,7 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 		MultiCloser: xio.MultiCloser{otg, g, lbl, stat, svc},
 		rack:        svc,
 		status:      stat,
+		group:       g,
 		otg:         otg,
 		driverRole:  cfg.DriverRole,
 	}
@@ -1533,4 +1534,177 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 	})
+})
+
+var _ = Describe("Group", func() {
+	var (
+		s  stack
+		tx gorp.Tx
+		w  rack.Writer
+	)
+	BeforeEach(func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		s = DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
+		tx = DeferClose(db.OpenTx())
+		w = s.rack.NewWriter(tx)
+	})
+	createGroup := func(ctx context.Context, g group.Group) group.Group {
+		GinkgoHelper()
+		Expect(s.group.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+		return g
+	}
+	retrieveGroup := func(ctx context.Context, key rack.Key) *group.Key {
+		GinkgoHelper()
+		var r rack.Rack
+		Expect(s.rack.NewRetrieve().
+			Where(rack.MatchKeys(key)).
+			Entry(&r).
+			Exec(ctx, tx)).To(Succeed())
+		return r.Group
+	}
+
+	It(
+		"Should move a rack into a top-level device group and back out",
+		func(ctx SpecContext) {
+			g := createGroup(ctx, group.Group{Name: "Top", Scope: resource.TypeDevice})
+			r := rack.Rack{Name: "grouped"}
+			Expect(w.Create(ctx, &r)).To(Succeed())
+			Expect(w.SetGroup(ctx, &g.Key, r.Key)).To(Succeed())
+			Expect(retrieveGroup(ctx, r.Key)).To(Equal(&g.Key))
+			Expect(w.SetGroup(ctx, nil, r.Key)).To(Succeed())
+			Expect(retrieveGroup(ctx, r.Key)).To(BeNil())
+		},
+	)
+
+	It("Should reject a group under a rack", func(ctx SpecContext) {
+		g := createGroup(ctx, group.Group{
+			Name:   "Under rack",
+			Parent: new(s.rack.EmbeddedKey.ResourceID()),
+		})
+		r := rack.Rack{Name: "nested"}
+		Expect(w.Create(ctx, &r)).To(Succeed())
+		Expect(w.SetGroup(ctx, &g.Key, r.Key)).To(MatchError(
+			"group: a rack cannot sit in a group under rack " +
+				s.rack.EmbeddedKey.ResourceID().Key + ": validation error",
+		))
+		Expect(retrieveGroup(ctx, r.Key)).To(BeNil())
+	})
+
+	It(
+		"Should keep the stored group when a rack is created again",
+		func(ctx SpecContext) {
+			g := createGroup(ctx, group.Group{Name: "Kept", Scope: resource.TypeDevice})
+			r := rack.Rack{Name: "kept", Group: &g.Key}
+			Expect(w.Create(ctx, &r)).To(Succeed())
+			again := rack.Rack{Key: r.Key, Name: "kept again"}
+			Expect(w.Create(ctx, &again)).To(Succeed())
+			Expect(again.Group).To(Equal(&g.Key))
+			Expect(retrieveGroup(ctx, r.Key)).To(Equal(&g.Key))
+		},
+	)
+
+	It(
+		"Should reject a created rack in a group of another scope",
+		func(ctx SpecContext) {
+			g := createGroup(ctx, group.Group{
+				Name:  "Channels",
+				Scope: resource.TypeChannel,
+			})
+			r := rack.Rack{Name: "mismatch", Group: &g.Key}
+			Expect(w.Create(ctx, &r)).To(MatchError(
+				"group: a rack cannot sit in a channel group: validation error",
+			))
+		},
+	)
+})
+
+var _ = Describe("Writer with no transaction", func() {
+	var s stack
+	BeforeEach(func(ctx SpecContext) {
+		s = DeferClose(openStack(
+			ctx,
+			DeferClose(gorp.Wrap(memkv.New())),
+			rack.ServiceConfig{},
+		))
+	})
+	createGroup := func(ctx context.Context, g group.Group) group.Group {
+		GinkgoHelper()
+		Expect(s.group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		return g
+	}
+	retrieveGroup := func(ctx context.Context, key rack.Key) *group.Key {
+		GinkgoHelper()
+		var r rack.Rack
+		Expect(s.rack.NewRetrieve().
+			Where(rack.MatchKeys(key)).
+			Entry(&r).
+			Exec(ctx, nil)).To(Succeed())
+		return r.Group
+	}
+
+	It(
+		"Should keep the group that a move writes during concurrent creates",
+		func(ctx SpecContext) {
+			groups := make([]group.Group, 50)
+			for i := range groups {
+				groups[i] = createGroup(ctx, group.Group{
+					Name:  fmt.Sprintf("Concurrent %d", i),
+					Scope: resource.TypeDevice,
+				})
+			}
+			r := rack.Rack{Name: "concurrent"}
+			Expect(s.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			var (
+				wg    sync.WaitGroup
+				moved atomic.Bool
+			)
+			for range 4 {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					for !moved.Load() {
+						again := rack.Rack{Key: r.Key, Name: r.Name}
+						Expect(s.rack.NewWriter(nil).Create(ctx, &again)).To(Succeed())
+					}
+				})
+			}
+			wg.Go(func() {
+				defer GinkgoRecover()
+				defer moved.Store(true)
+				for _, g := range groups {
+					Expect(s.rack.NewWriter(nil).SetGroup(ctx, &g.Key, r.Key)).
+						To(Succeed())
+					Expect(retrieveGroup(ctx, r.Key)).To(Equal(&g.Key))
+				}
+			})
+			wg.Wait()
+			Expect(retrieveGroup(ctx, r.Key)).To(Equal(&groups[len(groups)-1].Key))
+		},
+	)
+
+	It(
+		"Should not put a rack in a group that moves under another rack at once",
+		func(ctx SpecContext) {
+			for range 30 {
+				g := createGroup(ctx, group.Group{
+					Name:  "Moving",
+					Scope: resource.TypeDevice,
+				})
+				r := rack.Rack{Name: "joining"}
+				Expect(s.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				var (
+					wg               sync.WaitGroup
+					joinErr, moveErr error
+				)
+				wg.Go(func() {
+					joinErr = s.rack.NewWriter(nil).SetGroup(ctx, &g.Key, r.Key)
+				})
+				wg.Go(func() {
+					moveErr = s.group.NewWriter(nil).
+						SetParent(ctx, new(s.rack.EmbeddedKey.ResourceID()), g.Key)
+				})
+				wg.Wait()
+				Expect([]error{joinErr, moveErr}).To(ContainElement(HaveOccurred()))
+			}
+		},
+	)
 })

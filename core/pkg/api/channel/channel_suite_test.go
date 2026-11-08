@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -40,6 +41,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	channelSvc *channel.Service
+	groupSvc   *group.Service
 	statusSvc  *status.Service
 	rbacSvc    *rbac.Service
 	rangeSvc   *ranger.Service
@@ -52,7 +54,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	svc := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
-	channelSvc, statusSvc, rbacSvc = svc.Channel, svc.Status, svc.RBAC
+	channelSvc, groupSvc, statusSvc, rbacSvc = svc.Channel, svc.Group, svc.Status, svc.RBAC
 	rangeSvc, aliasSvc, userSvc = svc.Ranger, svc.Alias, svc.User
 	apiSvc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
 		RBAC:    rbacSvc,

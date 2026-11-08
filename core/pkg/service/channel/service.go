@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -60,10 +59,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group is the channel group resources are parented under.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Limit enforces the cap on external (non-internal, non-virtual) channels.
 	//
 	// [OPTIONAL] - Defaults to no cap.
@@ -88,7 +83,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("host_provider", c.HostProvider)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	v.NotNil("limit", c.Limit)
 	v.NotNil("status", c.Status)
 	v.NotNil("validate_names", c.ValidateNames)
@@ -102,7 +96,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
@@ -117,7 +110,6 @@ type Service struct {
 	cfg     ServiceConfig
 	db      *gorp.DB
 	closer  io.MultiCloser
-	group   group.Group
 	table   *gorp.Table[Key, Channel]
 	indexes indexes
 	mu      struct {
@@ -145,13 +137,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Name:            tableName,
 		Migrations:      versions.Migrations,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
-		return nil, err
-	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx, "Channels", ontology.RootID,
-	); !ok(err, nil) {
 		return nil, err
 	}
 	// Seed the external/non-virtual key set by scanning the table once at startup. This
@@ -171,9 +159,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
-
-// Group returns the group under which the service's channels are created.
-func (s *Service) Group() group.Group { return s.group }
 
 // newRetrieve returns a Retrieve without the channel limit validator. The create,
 // delete, and rename paths use it because they hold the lock validateChannels blocks

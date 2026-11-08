@@ -23,6 +23,7 @@ import {
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { group } from "@/group";
 import { resource } from "@/resource";
 import { symbol } from "@/schematic/symbol";
 
@@ -239,6 +240,8 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -255,6 +258,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** groups matches the schematics in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the schematics in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
 });
 
 export const pipeEdgeConfigZ = segmentedEdgeConfigZ.extend({
@@ -3302,6 +3309,8 @@ export const schematicZ = z.object({
   configs: caseconv.preserveKeys(
     z.record(z.string(), elementConfigZ).default(() => ({})),
   ),
+  /** group is the group the schematic sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 export interface New extends z.input<typeof schematicZ> {}

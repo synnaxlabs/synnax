@@ -12,6 +12,7 @@
 package v3
 
 import (
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -42,6 +43,8 @@ type Rack struct {
 	// Version is the version of the Driver that runs the rack, written at each connect.
 	// Absent until a Driver reports it.
 	Version *string `json:"version,omitzero" msgpack:"version,omitempty"`
+	// Group is the group the rack sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

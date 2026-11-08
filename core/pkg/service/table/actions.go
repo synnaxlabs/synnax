@@ -76,6 +76,14 @@ func (CreatePayload) Handle(Table) (Table, error) {
 	)
 }
 
+// Handle rejects a client dispatch. The Core moves a table into a group through its
+// writer and emits this action itself.
+func (SetGroupPayload) Handle(Table) (Table, error) {
+	return Table{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a table group change",
+	)
+}
+
 // Handle replaces the table's name.
 func (p RenamePayload) Handle(state Table) (Table, error) {
 	state.Name = p.Name

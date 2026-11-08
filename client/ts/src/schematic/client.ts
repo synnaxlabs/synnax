@@ -12,7 +12,7 @@ import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { type group } from "@/group";
+import { group } from "@/group";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -88,6 +88,8 @@ export class Client extends query.Retriever<
   readonly symbols: symbol.Client;
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Schematic>;
+  /** Builds requests that move schematics between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Schematic, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -122,13 +124,16 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (schematic, req) => matches(schematic, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (schematic, req) => matches(group.MEMBER_LINES, schematic, req.where),
+        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.symbols = new symbol.Client(cfg);
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/schematic/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 

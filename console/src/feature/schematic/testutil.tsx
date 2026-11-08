@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type group,
   project,
-  type resource,
   schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -29,6 +29,7 @@ import {
   Suspense,
 } from "react";
 
+import { Project } from "@/feature/project";
 import { Schematic } from "@/feature/schematic";
 import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
@@ -171,7 +172,7 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
       </Triggers.Provider>
     </Console>
   );
-  const items = Schematic.TREE_ITEMS;
+  const items = { ...Project.TREE_ITEMS, ...Schematic.TREE_ITEMS };
   const result = render(
     <Tree.Provider items={items}>
       <Tree.Tree root={rootID} />
@@ -237,6 +238,6 @@ export const createSymbolPayload = (name: string) => ({
 export const createLegacySymbolFile = (name: string): string =>
   JSON.stringify({ version: 1, ...createSymbolPayload(name) });
 
-/** Returns the names of the resource's ontology children on the test Core. */
-export const childNames = async (id: resource.ID): Promise<string[]> =>
-  (await client.ontology.children.retrieve({ ids: id })).map((c) => c.name);
+/** Returns the names of the symbols in the group on the test Core. */
+export const symbolNames = async (key: group.Key): Promise<string[]> =>
+  (await client.schematics.symbols.retrieve({ groups: [key] })).map((s) => s.name);

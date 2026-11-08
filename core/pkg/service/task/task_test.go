@@ -78,7 +78,6 @@ var _ = Describe("Task", Ordered, func() {
 		rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
-			Group:               g,
 			HostProvider:        testutil.NewStaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
@@ -93,7 +92,6 @@ var _ = Describe("Task", Ordered, func() {
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    g,
 			Rack:     rackService,
 			Status:   stat,
 			ImEx:     imex.NewService(),
@@ -496,14 +494,14 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(data).To(HaveKeyWithValue("routing_key", "rk-copy"))
 			},
 		)
-		It(
-			"Should give an internal task a resource but no group parent",
-			func(ctx SpecContext) {
+		DescribeTable(
+			"Should give a task a resource but no group parent",
+			func(ctx SpecContext, internal bool) {
 				t := &task.Task{
 					Type:     testType,
 					Rack:     testRack.Key,
-					Name:     "Internal Resource Task",
-					Internal: true,
+					Name:     "Resource Task",
+					Internal: internal,
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				Expect(otg.NewRetrieve().
@@ -517,25 +515,8 @@ var _ = Describe("Task", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(parents).To(BeEmpty())
 			},
-		)
-		It(
-			"Should give a regular task a group parent",
-			func(ctx SpecContext) {
-				t := &task.Task{
-					Type: testType,
-					Rack: testRack.Key,
-					Name: "Parented Task",
-				}
-				Expect(w.Create(ctx, t)).To(Succeed())
-				var parents []ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(t.ResourceID()).
-					TraverseTo(ontology.ParentsTraverser).
-					Entries(&parents).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(parents).To(HaveLen(1))
-				Expect(parents[0].ID.Type).To(Equal(resource.TypeGroup))
-			},
+			Entry("internal", true),
+			Entry("regular", false),
 		)
 	})
 

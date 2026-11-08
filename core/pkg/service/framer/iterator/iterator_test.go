@@ -62,7 +62,6 @@ func openServices(
 		DB:           node.DB,
 		HostProvider: node.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	iteratorSvc := MustSucceed(iterator.NewService(iterator.ServiceConfig{

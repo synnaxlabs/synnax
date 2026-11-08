@@ -190,6 +190,12 @@ func MatchWhere(w Where) (Filter, error) {
 			fs = append(fs, MatchRacks(l.In...))
 		}
 	}
+	if l := w.Groups; l != nil {
+		fs = append(fs, MatchGroups(l...))
+	}
+	if l := w.Grouped; l != nil {
+		fs = append(fs, MatchGrouped(*l))
+	}
 	return And(fs...), nil
 }
 

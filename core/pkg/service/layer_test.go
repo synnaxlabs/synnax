@@ -22,14 +22,17 @@ import (
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+	panelv0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"golang.org/x/crypto/bcrypt"
@@ -204,6 +207,48 @@ var _ = Describe("Layer", func() {
 			Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Relationship]().
 				Where(gorp.MatchKeys[string, ontology.Relationship](rel.GorpKey())).
 				Exists(ctx, db))).To(BeTrue())
+		},
+	)
+
+	It(
+		"Should delete a group on a v0.58 Core that stores panels",
+		func(ctx SpecContext) {
+			node := testutil.NewNode(ctx)
+			tab := func(t resource.Type) panelv0.Tab {
+				return panelv0.Tab{Variant: panelv0.ResourceTab{
+					Key:      uuid.New(),
+					Resource: resource.ID{Type: t, Key: uuid.New().String()},
+				}}
+			}
+			Expect(gorp.WrapWriter[panelv0.Key, panelv0.Panel](node.DB).Set(
+				ctx,
+				panelv0.Panel{
+					Key:  uuid.New(),
+					Name: "Main",
+					Root: panelv0.Node{Variant: panelv0.SplitNode{
+						Direction: spatial.DirectionX,
+						Size:      0.5,
+						First: panelv0.Node{
+							Variant: panelv0.LeafNode{Tabs: []panelv0.Tab{
+								{Variant: panelv0.ViewTab{
+									Key:  uuid.New(),
+									Type: "docs",
+									Args: msgpack.EncodedJSON{"page": "intro"},
+								}},
+								tab(resource.TypeLog),
+							}},
+						},
+						Last: panelv0.Node{Variant: panelv0.LeafNode{
+							Tabs: []panelv0.Tab{tab(resource.TypeTable)},
+						}},
+					}},
+				},
+			)).To(Succeed())
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+			g := group.Group{Name: "Valves", Scope: resource.TypeChannel}
+			w := layer.Group.NewWriter(nil)
+			Expect(w.Create(ctx, &g)).To(Succeed())
+			Expect(w.Delete(ctx, g.Key)).To(Succeed())
 		},
 	)
 })

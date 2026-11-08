@@ -15,6 +15,7 @@ import {
 import { array, type destructor, filter, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { imex } from "@/imex";
 import { type ontology } from "@/ontology";
 import {
@@ -72,6 +73,8 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Project> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Project>;
+  /** Builds requests that move projects between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -89,12 +92,15 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (project, req) => matches(project, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (project, req) => matches(group.MEMBER_LINES, project, req.where),
+        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/project/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
   }
 
   async create(project: New, opts?: query.WriteOptions<Project[]>): Promise<Project>;

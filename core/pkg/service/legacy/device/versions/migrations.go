@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v2"
 )
 
 // MigrationsConfig configures the stored-device migration chain.
@@ -30,6 +31,8 @@ func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 			v1.HTTPHealthCheckMigration,
 			v1.EtherCATMakeMigration,
 			v1.EtherCATChannelMapMigration,
+			v2.Migration,
+			v2.MembersMigration,
 		},
 	)
 }

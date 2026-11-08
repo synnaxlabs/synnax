@@ -12,16 +12,20 @@ package schematic
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -89,10 +93,32 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{{Type: resource.TypeSchematic}},
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	var stored []schematic.Schematic
+	if err := s.internal.NewRetrieve().
+		Where(schematic.MatchKeys(lo.Map(
+			req.Schematics,
+			func(e schematic.Schematic, _ int) schematic.Key { return e.Key },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return CreateResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.CreateObjects(
+			req.Schematics,
+			stored,
+			func(e schematic.Schematic) *group.Key { return e.Group },
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -204,4 +230,40 @@ func (s *Service) Copy(
 		return CopyResponse{}, err
 	}
 	return res, nil
+}
+
+// SetGroupRequest moves schematics into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key      `json:"group" msgpack:"group"`
+	Keys  []schematic.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the schematics with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	var schematics []schematic.Schematic
+	if err := s.internal.NewRetrieve().
+		Where(schematic.MatchKeys(req.Keys...)).
+		Entries(&schematics).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(
+			schematic.ResourceIDs(req.Keys),
+			lo.Map(
+				schematics,
+				func(e schematic.Schematic, _ int) *group.Key { return e.Group },
+			),
+			req.Group,
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

@@ -63,7 +63,6 @@ var _ = Describe("Where", Ordered, func() {
 		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
-			Group:        g,
 			HostProvider: testutil.NewStaticHostProvider(1),
 			Status:       stat,
 			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
@@ -71,7 +70,6 @@ var _ = Describe("Where", Ordered, func() {
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    g,
 			Status:   stat,
 			Rack:     racks,
 		}))

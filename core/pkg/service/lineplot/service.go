@@ -102,7 +102,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, LinePlot]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Migrations:      migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -185,6 +187,7 @@ func (s *Service) Dispatch(
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
+		svc:        s,
 		tx:         tx,
 		otg:        s.cfg.Ontology.NewWriter(tx),
 		table:      s.table,

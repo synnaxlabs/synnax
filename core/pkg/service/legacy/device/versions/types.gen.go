@@ -11,20 +11,20 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v2"
 
 // Key is a unique identifier for the device
-type Key = v1.Key
+type Key = v2.Key
 
 // StatusDetails contains device-specific status details, including the rack the device
 // belongs to.
-type StatusDetails = v1.StatusDetails
+type StatusDetails = v2.StatusDetails
 
 // Status is device-specific status information including operational state and device
 // identification.
-type Status = v1.Status
+type Status = v2.Status
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.
 // Devices represent external equipment like LabJack, National Instruments, OPC UA
 // servers, or Modbus devices.
-type Device = v1.Device
+type Device = v2.Device

@@ -63,7 +63,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:           node.DB,
 		HostProvider: node.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	channelWriter = channelSvc.NewWriter(nil)

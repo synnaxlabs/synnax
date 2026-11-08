@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { channel } from "@/channel";
+import { group } from "@/group";
 import {
   aggregationZ,
   axisKeyZ,
@@ -46,6 +47,16 @@ export const renamePayloadZ = z.object({
 });
 
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
+
+/**
+ * SetGroup moves the line plot into a group, or out of its group when group is empty.
+ * Emitted by the Core when it moves the line plot; clients never dispatch it.
+ */
+export const setGroupPayloadZ = z.object({
+  group: group.keyZ.optional(),
+});
+
+export type SetGroupPayload = z.infer<typeof setGroupPayloadZ>;
 
 /** SetTitleVisible sets whether the plot title is shown above the plot. */
 export const setTitleVisiblePayloadZ = z.object({
@@ -347,6 +358,7 @@ export type RemoveRulePayload = z.infer<typeof removeRulePayloadZ>;
 export type Action =
   | { type: "create"; create: CreatePayload }
   | { type: "rename"; rename: RenamePayload }
+  | { type: "set_group"; setGroup: SetGroupPayload }
   | { type: "set_title_visible"; setTitleVisible: SetTitleVisiblePayload }
   | { type: "set_title_level"; setTitleLevel: SetTitleLevelPayload }
   | { type: "set_legend_hidden"; setLegendHidden: SetLegendHiddenPayload }
@@ -386,6 +398,7 @@ export type Action =
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
+  z.object({ type: z.literal("set_group"), setGroup: setGroupPayloadZ }),
   z.object({
     type: z.literal("set_title_visible"),
     setTitleVisible: setTitleVisiblePayloadZ,
@@ -473,6 +486,13 @@ export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
   rename: zod.parse(renamePayloadZ, payload, {
     label: "line plot rename action payload",
+  }),
+});
+
+export const setGroup = (payload: z.input<typeof setGroupPayloadZ>): Action => ({
+  type: "set_group",
+  setGroup: zod.parse(setGroupPayloadZ, payload, {
+    label: "line plot set_group action payload",
   }),
 });
 
@@ -749,6 +769,7 @@ export type ReduceAllResult = actions.ReduceAllResult<LinePlot, Action>;
 export interface Handlers {
   create: (state: Draft<LinePlot>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<LinePlot>, payload: RenamePayload) => HandlerResult;
+  setGroup: (state: Draft<LinePlot>, payload: SetGroupPayload) => HandlerResult;
   setTitleVisible: (
     state: Draft<LinePlot>,
     payload: SetTitleVisiblePayload,
@@ -835,6 +856,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
+      case "set_group":
+        return handlers.setGroup(state, action.setGroup);
       case "set_title_visible":
         return handlers.setTitleVisible(state, action.setTitleVisible);
       case "set_title_level":

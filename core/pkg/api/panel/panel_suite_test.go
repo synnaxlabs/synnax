@@ -39,6 +39,7 @@ func TestAPIPanel(t *testing.T) {
 
 var (
 	db       *gorp.DB
+	groupSvc *group.Service
 	otg      *ontology.Ontology
 	rbacSvc  *rbac.Service
 	panelSvc *panel.Service
@@ -52,7 +53,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
@@ -74,7 +75,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
 		User:     userSvc,
 	}))
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
@@ -89,7 +89,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
 	)
 	parentID = MustSucceed(
-		groupSvc.CreateOrRetrieve(ctx, "panel-parent", ontology.RootID),
+		groupSvc.CreateOrRetrieve(ctx, "panel-parent", resource.TypeProject),
 	).
 		ResourceID()
 })

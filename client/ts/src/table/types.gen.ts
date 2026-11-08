@@ -13,6 +13,7 @@ import { caseconv, color, filter, id, notation, text, uuid, zod } from "@synnaxl
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
@@ -139,6 +140,8 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -155,6 +158,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** groups matches the tables in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the tables in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
 });
 
 /**
@@ -190,6 +197,8 @@ export const tableZ = z.object({
    * orphaned and will be pruned on the next structural edit.
    */
   cells: caseconv.preserveKeys(z.record(z.string(), cellConfigZ).default(() => ({}))),
+  /** group is the group the table sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Table extends z.infer<typeof tableZ> {}
 

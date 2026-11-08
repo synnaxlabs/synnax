@@ -24,6 +24,7 @@ import {
   statusZ,
 } from "@/device/types.gen";
 import { matches, retrieveInputZ, serverComputed } from "@/device/where.gen";
+import { group } from "@/group";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { type status } from "@/status";
@@ -146,6 +147,11 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Device, "status">>;
+  /**
+   * Builds requests that move devices between groups. The group must sit under each
+   * device's rack.
+   */
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
@@ -190,8 +196,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
-        matches: (d, req) => matches(d, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (d, req) => matches(group.MEMBER_LINES, d, req.where),
+        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
         serverFields: SERVER_FIELDS,
         watch: [
           query.watch(statusStore, (event, q: RetrieveRequest) => {
@@ -206,6 +212,9 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/device/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
   }
 
   async retrieve<

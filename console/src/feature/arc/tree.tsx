@@ -183,14 +183,30 @@ const ENTRY_TYPES = new Set<resource.Type>(["arc", "arc_directory"]);
 const DirectoryItem = Tree.createItem({
   type: "arc_directory",
   icon: <Icon.Group />,
-  canDrop: ({ items }) =>
-    PTree.filterHaulItems(items).every(({ key }) =>
-      ENTRY_TYPES.has(resource.parseID(String(key)).type),
-    ),
+  children: ({ client, id }) => [
+    Tree.createOntologySource(client, id, [...ENTRY_TYPES]),
+  ],
+  canDrop: ({ moved }) => moved.every(({ id }) => ENTRY_TYPES.has(id.type)),
+  drop: async ({ client, destination, items }) => {
+    // Each item leaves its own directory: a selection can span several.
+    const bySource = new Map<string, resource.ID[]>();
+    items.forEach(({ id, ancestors: [source] }) => {
+      const key = resource.idToString(source);
+      bySource.set(key, [...(bySource.get(key) ?? []), id]);
+    });
+    await Promise.all(
+      [...bySource].map(
+        async ([source, ids]) =>
+          await client.arcs.directories.move(
+            resource.parseID(source),
+            destination.id,
+            ...ids,
+          ),
+      ),
+    );
+  },
   haulItems: ({ id }) => [id],
   ContextMenu: DirectoryContextMenu,
-  move: async (client, { source, destination, ids }) =>
-    await client.arcs.directories.move(source, destination, ...ids),
 });
 
 export const TREE_ITEMS = {

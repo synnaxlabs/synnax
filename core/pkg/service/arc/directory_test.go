@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/graph"
@@ -311,16 +312,20 @@ var _ = Describe("Directories", func() {
 
 	Describe("Ownership", func() {
 		It("Should refuse a generic writer moving an Arc", func(ctx SpecContext) {
-			g := MustSucceed(groupSvc.NewWriter(tx).Create(ctx, "g", ontology.RootID))
+			g := group.Group{Name: "g", Scope: resource.TypeChannel}
+			Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
 			a := createArc(ctx, "a", arc.TypeAutomation)
 			Expect(otg.NewWriter(tx).DefineRelationships(
 				ctx, g.ResourceID(), ontology.RelationshipTypeParentOf, a.ResourceID(),
 			)).To(MatchError(validate.ErrValidation))
 		})
 		It("Should refuse a group created in a directory", func(ctx SpecContext) {
-			Expect(groupSvc.NewWriter(tx).Create(
-				ctx, "g", directory.ResourceID(root),
-			)).Error().To(MatchError(validate.ErrValidation))
+			Expect(groupSvc.NewWriter(tx).Create(ctx, &group.Group{
+				Name:   "g",
+				Parent: new(directory.ResourceID(root)),
+			})).To(MatchError(ContainSubstring(
+				`must be a group, project, or rack, got "arc_directory"`,
+			)))
 		})
 	})
 })

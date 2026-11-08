@@ -12,7 +12,10 @@
 package pb
 
 import (
+	"uuid"
+
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	resourcepb "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
@@ -253,6 +256,12 @@ func WhereToPB(r device.Where) (*Where, error) {
 			return nil, err
 		}
 	}
+	if r.Groups != nil {
+		pb.Groups = &GroupKeyList{Values: lo.Map(r.Groups, func(u group.Key, _ int) string { return uuid.UUID(u).String() })}
+	}
+	if r.Grouped != nil {
+		pb.Grouped = r.Grouped
+	}
 	return pb, nil
 }
 
@@ -325,6 +334,26 @@ func WhereFromPB(pb *Where) (device.Where, error) {
 		}
 		r.Rack = &val
 	}
+	if pb.Groups != nil {
+		vals, err := func() ([]group.Key, error) {
+			result := make([]group.Key, len(pb.Groups.Values))
+			for i, s := range pb.Groups.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = group.Key(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return device.Where{}, err
+		}
+		r.Groups = xpb.ListValues(vals)
+	}
+	if pb.Grouped != nil {
+		r.Grouped = pb.Grouped
+	}
 	return r, nil
 }
 
@@ -380,6 +409,10 @@ func DeviceToPB(
 			return nil, err
 		}
 	}
+	if r.Group != nil {
+		v := r.Group.String()
+		pb.Group = &v
+	}
 	if r.Parent != nil {
 		var err error
 		pb.Parent, err = resourcepb.IDToPB(*r.Parent)
@@ -413,6 +446,13 @@ func DeviceFromPB(
 			return device.Device{}, err
 		}
 		r.Status = &val
+	}
+	if pb.Group != nil {
+		v, err := uuid.Parse(*pb.Group)
+		if err != nil {
+			return device.Device{}, err
+		}
+		r.Group = &v
 	}
 	if pb.Parent != nil {
 		val, err := resourcepb.IDFromPB(pb.Parent)

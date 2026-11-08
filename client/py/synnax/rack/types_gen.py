@@ -11,14 +11,16 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, TypedDict
+from typing import Any, TypeAlias, TypedDict
 from typing import override as _override
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from synnax import group as group_
 from synnax import status as status_
 from synnax.resource import ID
 from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = int
 
@@ -38,6 +40,8 @@ class Where(BaseModel):
         integrations: Selects by integrations.
         host_is_node: Matches racks on the Core that serves the request, or racks on
             other Cores when false.
+        groups: Matches the racks in any of the given groups.
+        grouped: Matches the racks in a group, or in no group when false.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -50,6 +54,13 @@ class Where(BaseModel):
     embedded: filter.Bool | None = None
     integrations: filter.Contains[str] | None = None
     host_is_node: bool | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -65,6 +76,8 @@ WhereInput = TypedDict(
         "embedded": filter.BoolInput,
         "integrations": filter.ContainsInput[str],
         "host_is_node": bool,
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
     },
     total=False,
 )
@@ -85,6 +98,7 @@ class Base(BaseModel):
             integrations.
         version: Is the version of the Driver that runs the rack, written at each
             connect. Absent until a Driver reports it.
+        group: Is the group the rack sits in, if any.
     """
 
     key: Key = Field(ge=0, le=4294967295)
@@ -93,6 +107,7 @@ class Base(BaseModel):
     status: Status | None = None
     integrations: list[str] = Field(default_factory=list)
     version: str | None = None
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:

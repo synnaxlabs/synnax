@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/synnax/rack"
 import "schemas/synnax/resource"
 import "schemas/synnax/status"
@@ -107,6 +108,11 @@ Device struct<
         @go marshal omit
         @include
     }
+    group      group.Key?   {
+        @cpp omit
+        @doc value     "is the group the device sits in, if any."
+        @ref on_delete detach
+    }
     parent     resource.ID? {
         @doc value  """
             is an optional parent resource ID for hierarchical device organization
@@ -136,6 +142,14 @@ Where filter Device {
     model
     location
     rack
+    groups   group.Key[] {
+        @cpp omit
+        @doc value "matches the devices in any of the given groups."
+    }
+    grouped  bool        {
+        @cpp omit
+        @doc value "matches the devices in a group, or in no group when false."
+    }
 
     @doc value         "is a filter that selects devices."
     @go request_output "core/pkg/api/device"
