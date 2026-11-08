@@ -135,7 +135,7 @@ describe("Access Queries", () => {
         username,
         password: "test",
         name: "test test",
-        roles: [r.key],
+        role: r.key,
       });
       const userClient = createTestClient({ username, password: "test" });
       const { result } = renderHook(
@@ -178,7 +178,7 @@ describe("Access Queries", () => {
           username,
           password: "test",
           name: "test test",
-          roles: [role.key],
+          role: role.key,
         });
       });
 

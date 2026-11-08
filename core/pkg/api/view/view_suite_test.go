@@ -48,15 +48,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 })
 
-// createUser creates a user with no role assignments.
+// createUser creates a user that can do nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
 
-// grantUpdateOn grants update on the objects to the subject through a new role.
+// grantUpdateOn grants update on the objects to the subject.
 func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))

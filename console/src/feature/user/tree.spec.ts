@@ -9,6 +9,7 @@
 
 import { access, NotFoundError, user } from "@synnaxlabs/client";
 import {
+  createEmptyRole,
   createTestClient,
   createTestClientWithPolicy,
   RoleClients,
@@ -38,8 +39,14 @@ const roles = new RoleClients(client);
 
 const Item = User.TREE_ITEMS.user;
 
-const createUser = async () =>
-  await client.users.create({ username: uniqueName("user"), password: "pwd12345" });
+const createUser = async () => {
+  const { key: role } = await createEmptyRole(client);
+  return await client.users.create({
+    username: uniqueName("user"),
+    password: "pwd12345",
+    role,
+  });
+};
 
 const userResource = (key: string, name: string, rootUser = false) =>
   createResource(user.resourceID(key), name, { root_user: rootUser });
@@ -127,7 +134,7 @@ describe("rename", () => {
       username,
       name: uniqueName("name"),
       password: "pwd12345",
-      roles: [role.key],
+      role: role.key,
     });
     await renderLiveTree({
       client,

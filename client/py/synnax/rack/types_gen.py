@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import group as group_
 from synnax import status as status_
-from synnax.access import role
+from synnax.access import role as role_
 from synnax.resource import ID
 from x import filter
 from x.filter import shorthand
@@ -100,7 +100,7 @@ class Base(BaseModel):
         version: Is the version of the Driver that runs the rack, written at each
             connect. Absent until a Driver reports it.
         group: Is the group the rack sits in, if any.
-        roles: Are the roles that grant the rack its permissions.
+        role: Is the role that grants the rack its permissions.
     """
 
     key: Key = Field(ge=0, le=4294967295)
@@ -110,7 +110,7 @@ class Base(BaseModel):
     integrations: list[str] = Field(default_factory=list)
     version: str | None = None
     group: group_.Key | None = None
-    roles: list[role.Key] = Field(default_factory=list)
+    role: role_.Key
 
     @_override
     def __hash__(self) -> int:
@@ -137,18 +137,31 @@ class RetrieveRequest(BaseModel):
     include_status: bool = False
 
 
-class Rack(Base):
+class Rack(BaseModel):
     """Contains parameters for creating a new rack.
 
     Attributes:
         key: Is the composite identifier for this rack.
+        name: Is a human-readable name for the rack.
         embedded: Is true if this rack is embedded within the Synnax server process.
-        roles: Are the roles that grant the rack its permissions.
+        status: Is the current operational status of the rack.
+        integrations: Is the list of hardware integrations this rack supports (e.g.,
+            "ni", "opc", "labjack"). An empty or nil list means the rack supports no
+            integrations.
+        version: Is the version of the Driver that runs the rack, written at each
+            connect. Absent until a Driver reports it.
+        group: Is the group the rack sits in, if any.
+        role: Is the role that grants the rack its permissions.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
+    name: str
     embedded: bool = Field(default=False, exclude=True)
-    roles: list[role.Key] = Field(default_factory=list, exclude=True)
+    status: Status | None = None
+    integrations: list[str] = Field(default_factory=list)
+    version: str | None = None
+    group: group_.Key | None = None
+    role: role_.Key | None = Field(default=None, exclude=True)
 
     @_override
     def __hash__(self) -> int:

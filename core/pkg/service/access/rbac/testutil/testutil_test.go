@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -50,8 +50,27 @@ var _ = Describe("Grant", func() {
 		})).RBAC
 	})
 
+	It("Should create a user that can do nothing", func(ctx SpecContext) {
+		u := MustSucceed(rbactestutil.CreateUser(
+			ctx,
+			rbacSvc,
+			users,
+			user.User{Name: "u"},
+		))
+		Expect(rbacSvc.NewEnforcer(nil).Enforce(ctx, access.Request{
+			Subject: u.ResourceID(),
+			Action:  access.ActionRetrieve,
+			Objects: []resource.ID{u.ResourceID()},
+		})).To(MatchError(access.ErrDenied))
+	})
+
 	It("Should let the user take the actions on the objects", func(ctx SpecContext) {
-		u := MustSucceed(users.NewWriter(nil).Create(ctx, user.User{Name: "u"}))
+		u := MustSucceed(rbactestutil.CreateUser(
+			ctx,
+			rbacSvc,
+			users,
+			user.User{Name: "u"},
+		))
 		req := access.Request{
 			Subject: u.ResourceID(),
 			Action:  access.ActionUpdate,
@@ -59,7 +78,7 @@ var _ = Describe("Grant", func() {
 		}
 		Expect(rbacSvc.NewEnforcer(nil).Enforce(ctx, req)).
 			To(MatchError(access.ErrDenied))
-		r := MustSucceed(rbactestutil.Grant(
+		p := MustSucceed(rbactestutil.Grant(
 			ctx,
 			rbacSvc,
 			users,
@@ -68,15 +87,68 @@ var _ = Describe("Grant", func() {
 			resource.ID{Type: resource.TypeChannel},
 		))
 		Expect(rbacSvc.NewEnforcer(nil).Enforce(ctx, req)).To(Succeed())
-		var stored user.User
-		Expect(users.NewRetrieve().
-			Where(user.MatchKeys(u.Key)).
-			Entry(&stored).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(stored.Roles).To(Equal([]role.Key{r}))
+		Expect(p.Role).To(Equal(u.Role))
 	})
 
-	It("Should return no role key when the user does not exist", func(ctx SpecContext) {
+	It("Should add up the grants to one user", func(ctx SpecContext) {
+		u := MustSucceed(rbactestutil.CreateUser(
+			ctx,
+			rbacSvc,
+			users,
+			user.User{Name: "u"},
+		))
+		for _, a := range []access.Action{access.ActionUpdate, access.ActionDelete} {
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				rbacSvc,
+				users,
+				u.Key,
+				[]access.Action{a},
+				resource.ID{Type: resource.TypeChannel},
+			))
+		}
+		for _, a := range []access.Action{access.ActionUpdate, access.ActionDelete} {
+			Expect(rbacSvc.NewEnforcer(nil).Enforce(ctx, access.Request{
+				Subject: u.ResourceID(),
+				Action:  a,
+				Objects: []resource.ID{{Type: resource.TypeChannel, Key: "1"}},
+			})).To(Succeed())
+		}
+	})
+
+	It(
+		"Should give a user that holds a shared role a role of its own",
+		func(ctx SpecContext) {
+			viewer := rbacSvc.Builtin.ViewerKey
+			u := MustSucceed(users.NewWriter(nil).Create(
+				ctx,
+				user.User{Name: "u", Role: viewer},
+			))
+			p := MustSucceed(rbactestutil.Grant(
+				ctx,
+				rbacSvc,
+				users,
+				u.Key,
+				[]access.Action{access.ActionUpdate},
+				resource.ID{Type: resource.TypeChannel},
+			))
+			Expect(p.Role).ToNot(Equal(viewer))
+			var stored user.User
+			Expect(users.NewRetrieve().
+				Where(user.MatchKeys(u.Key)).
+				Entry(&stored).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(stored.Role).To(Equal(p.Role))
+			var policies []policy.Policy
+			Expect(rbacSvc.Policy.NewRetrieve().
+				Where(policy.MatchRoles(viewer)).
+				Entries(&policies).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(policies).To(HaveLen(1))
+		},
+	)
+
+	It("Should return not found when the user does not exist", func(ctx SpecContext) {
 		Expect(rbactestutil.Grant(
 			ctx,
 			rbacSvc,
