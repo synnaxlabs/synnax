@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"time"
 
 	"github.com/cockroachdb/pebble/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +23,9 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -523,6 +526,96 @@ var _ = Describe("PebbleKV", func() {
 					disconnect()
 				},
 			)
+		})
+
+		It("Should deliver commits through the given observer", func(ctx SpecContext) {
+			pdb := MustSucceed(pebble.Open(GinkgoT().TempDir(), &pebble.Options{
+				Logger: pebblekv.NewNoopLogger(),
+			}))
+			observer := observe.New[kv.TxReader]()
+			db := DeferClose(pebblekv.Wrap(pdb, pebblekv.WithObserver(observer)))
+			var keys [][]byte
+			disconnect := observer.OnChange(func(_ context.Context, r kv.TxReader) {
+				for ch := range r {
+					keys = append(keys, ch.Key)
+				}
+			})
+			defer disconnect()
+			Expect(db.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+			Expect(keys).To(Equal([][]byte{[]byte("key")}))
+		})
+
+		It("Should notify the given observer in commit order", func(ctx SpecContext) {
+			pdb := MustSucceed(pebble.Open(GinkgoT().TempDir(), &pebble.Options{
+				Logger: pebblekv.NewNoopLogger(),
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer func() {
+				cancel()
+				Expect(sCtx.Wait()).To(Succeed())
+			}()
+			observer := observe.NewAsync[kv.TxReader](sCtx)
+			db := DeferClose(pebblekv.Wrap(pdb, pebblekv.WithObserver(observer)))
+			values := make(chan string, 2)
+			disconnect := observer.OnChange(func(_ context.Context, r kv.TxReader) {
+				for ch := range r {
+					values <- string(ch.Value)
+				}
+			})
+			defer disconnect()
+			var (
+				firstApplied = make(chan struct{})
+				secondDone   = make(chan struct{})
+			)
+			go func() {
+				defer GinkgoRecover()
+				defer close(secondDone)
+				<-firstApplied
+				Expect(db.Set(ctx, []byte("key"), []byte("second"))).To(Succeed())
+			}()
+			tx := db.OpenTx()
+			Expect(tx.Set(ctx, []byte("key"), []byte("first"))).To(Succeed())
+			// The second commit can apply before the first one notifies only when no
+			// lock orders them.
+			Expect(tx.Commit(ctx, kv.OnApplied(func() {
+				close(firstApplied)
+				select {
+				case <-secondDone:
+				case <-time.After(100 * time.Millisecond):
+				}
+			}))).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+			Eventually(secondDone).Should(BeClosed())
+			Eventually(values).Should(Receive(Equal("first")))
+			Eventually(values).Should(Receive(Equal("second")))
+		})
+
+		It("Should let async handlers read an empty commit", func(ctx SpecContext) {
+			pdb := MustSucceed(pebble.Open(GinkgoT().TempDir(), &pebble.Options{
+				Logger: pebblekv.NewNoopLogger(),
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer func() {
+				cancel()
+				Expect(sCtx.Wait()).To(Succeed())
+			}()
+			observer := observe.NewAsync[kv.TxReader](sCtx)
+			db := DeferClose(pebblekv.Wrap(pdb, pebblekv.WithObserver(observer)))
+			read := make(chan int, 2)
+			for range 2 {
+				defer observer.OnChange(func(_ context.Context, r kv.TxReader) {
+					n := 0
+					for range r {
+						n++
+					}
+					read <- n
+				})()
+			}
+			tx := db.OpenTx()
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+			Eventually(read).Should(Receive(BeZero()))
+			Eventually(read).Should(Receive(BeZero()))
 		})
 	})
 })

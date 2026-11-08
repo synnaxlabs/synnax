@@ -18,8 +18,6 @@ type (
 	// Node is a single Core of a Synnax cluster, identified by a Key and reachable at a
 	// network address.
 	Node = node.Node
-	// Change describes a single mutation to a Node's record.
-	Change = node.Change
 )
 
 const (

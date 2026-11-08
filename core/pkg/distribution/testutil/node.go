@@ -13,46 +13,62 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	transporttestutil "github.com/synnaxlabs/synnax/pkg/distribution/transport/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
+	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
 )
 
-// Node represents a single node in a cluster. It contains both the distribution layer
-// it uses to talk to other nodes and the storage layer it uses to persist data.
+// Node is a memory-backed Core: a distribution layer and the storage layer it persists
+// to.
 type Node struct {
-	// Layer is the distribution layer for the node. It routes channel and frames to the
-	// appropriate nodes in the cluster.
+	// Layer is the distribution layer of the node.
 	*distribution.Layer
-	// Storage is the storage layer for the node. It persists frame data to this node.
+	// Storage is the storage layer of the node.
 	Storage *storage.Layer
-	owner   *Cluster
+	stores  *storagetestutil.Cluster
 }
 
-// Close closes the node's distribution layer. For a Node returned by OpenNode it also
-// closes the underlying single-node cluster's storage. This intentionally shadows the
-// embedded Layer.Close so that OpenNode's caller can tear everything down through the
-// returned node.
+// Close closes the distribution layer, then the storage layer if the Node opened it. It
+// shadows the embedded Layer.Close.
 func (n Node) Close() error {
 	err := n.Layer.Close()
-	if n.owner != nil {
-		err = errors.Join(err, n.owner.storage.Close())
+	if n.stores != nil {
+		err = errors.Join(err, n.stores.Close())
 	}
 	return err
 }
 
-// NewNode opens a single-node in-memory cluster and registers its teardown via
-// testutil.DeferClose, returning the node. Like NewCluster, it must be called from
-// within a Ginkgo node; use OpenNode from plain Go tests and benchmarks.
-func NewNode(ctx context.Context) Node { return testutil.DeferClose(OpenNode(ctx)) }
+// NewNode opens a Node and registers its teardown via testutil.DeferClose. It must be
+// called from within a Ginkgo node; use OpenNode from plain Go tests and benchmarks.
+func NewNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
+	return testutil.DeferClose(OpenNode(ctx, overrides...))
+}
 
-// OpenNode opens a single-node in-memory cluster and returns its node. The caller owns
-// teardown: closing the returned node tears down the whole cluster, including its
-// storage.
-func OpenNode(ctx context.Context) Node {
-	c := OpenCluster(ctx, 1)
-	n := c.Nodes[node.KeyBootstrapper]
-	n.owner = c
+// OpenNode opens a Node. The overrides are layered on top of the base
+// distribution.LayerConfig. The Node opens its own storage layer unless an override
+// passes one, which the caller then closes. The caller closes the returned Node.
+func OpenNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
+	var n Node
+	for _, o := range overrides {
+		if o.Storage != nil {
+			n.Storage = o.Storage
+		}
+	}
+	if n.Storage == nil {
+		n.stores = storagetestutil.NewCluster()
+		n.Storage = n.stores.Provision(ctx)
+	}
+	addr := address.Address("localhost:0")
+	cfg := distribution.LayerConfig{
+		Storage:          n.Storage,
+		Transport:        transporttestutil.NewNetwork().New(addr, 1),
+		AdvertiseAddress: addr,
+	}
+	cfgs := append([]distribution.LayerConfig{cfg}, overrides...)
+	n.Layer = testutil.MustSucceed(distribution.OpenLayer(ctx, cfgs...))
+	n.Framer.SetFreeIndexResolver(nopFreeIndexResolver{})
 	return n
 }

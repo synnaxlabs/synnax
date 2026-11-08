@@ -20,7 +20,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/listener"
@@ -245,15 +244,11 @@ func BootupCore(
 	if !ok(nil, grpcClientPool) {
 		return ctx.Err()
 	}
-	var (
-		aspenTransport = aspentransport.New(grpcClientPool)
-		distTransport  = disttransport.New(grpcClientPool)
-	)
+	distTransport := disttransport.New(grpcClientPool)
 
 	distributionLayer, err := distribution.OpenLayer(ctx, distribution.LayerConfig{
 		Instrumentation:  cfg.Child("distribution"),
 		AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
-		AspenTransport:   aspenTransport,
 		Transport:        distTransport,
 		Storage:          storageLayer,
 	})
@@ -289,7 +284,6 @@ func BootupCore(
 		return err
 	}
 
-	// Configure the HTTP Layer AspenTransport.
 	var r *http.Router
 	if r, err = http.NewRouter(http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
@@ -331,7 +325,6 @@ func BootupCore(
 				},
 				&server.GRPCBranch{Transports: append(
 					transportLayer.GRPC,
-					aspenTransport,
 					distTransport,
 				)},
 				server.NewHTTPRedirectBranch(),

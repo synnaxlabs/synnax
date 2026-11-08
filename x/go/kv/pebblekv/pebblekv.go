@@ -19,6 +19,7 @@ package pebblekv
 import (
 	"context"
 	"io"
+	"sync"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/synnaxlabs/alamos"
@@ -34,6 +35,9 @@ import (
 type db struct {
 	observe.Observer[kv.TxReader]
 	*pebble.DB
+	// notifyMu orders the notifications of an injected observer by commit. It is nil
+	// for the default observer, whose handlers can commit inline.
+	notifyMu *sync.Mutex
 }
 
 var _ kv.DB = (*db)(nil)
@@ -52,7 +56,8 @@ func parseOpts(opts []any) *pebble.WriteOptions {
 }
 
 type openOptions struct {
-	enableObserver bool
+	observer observe.Observer[kv.TxReader]
+	injected bool
 }
 
 // OpenOption configures behavior when wrapping a pebble.DB.
@@ -63,20 +68,32 @@ type OpenOption func(*openOptions)
 // disabled, OnChange is a safe no-op: registered handlers are never invoked and the
 // returned Disconnect is a no-op as well.
 func DisableObservation() OpenOption {
-	return func(o *openOptions) { o.enableObserver = false }
+	return func(o *openOptions) { o.observer = nil }
+}
+
+// WithObserver sets the observer that delivers each commit to OnChange handlers. The DB
+// holds a lock from each apply through its notify, so handlers see commits in the order
+// they apply, and concurrent commits do not share a sync. A handler that the observer
+// runs inline must not write to the DB. The default observer runs the handlers on the
+// committing goroutine, before Commit returns, and gives no order across goroutines.
+func WithObserver(observer observe.Observer[kv.TxReader]) OpenOption {
+	return func(o *openOptions) {
+		o.observer = observer
+		o.injected = true
+	}
 }
 
 // Wrap wraps a pebble.DB to satisfy the kv.db interface.
 func Wrap(base *pebble.DB, opts ...OpenOption) kv.DB {
-	o := &openOptions{enableObserver: true}
+	o := &openOptions{observer: observe.New[kv.TxReader]()}
 	for _, opt := range opts {
 		opt(o)
 	}
-	wrapped := &db{DB: base}
-	if o.enableObserver {
-		wrapped.Observer = observe.New[kv.TxReader]()
+	d := &db{DB: base, Observer: o.observer}
+	if o.injected {
+		d.notifyMu = &sync.Mutex{}
 	}
-	return wrapped
+	return d
 }
 
 // OnChange implements kv.Observable. When observation has been disabled via
@@ -176,6 +193,10 @@ func (d db) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 }
 
 func (d db) apply(ctx context.Context, txn *tx, opts []any) error {
+	if d.notifyMu != nil {
+		d.notifyMu.Lock()
+		defer d.notifyMu.Unlock()
+	}
 	err := d.Apply(txn.Batch, nil)
 	if err != nil {
 		return translateError(err)
@@ -257,10 +278,13 @@ func (txn *tx) Close() error {
 	return nil
 }
 
-// NewReader implements kv.Writer.
+// NewReader implements kv.Writer. It reads the operations as they are when NewReader is
+// called. Readers that NewReader returns are safe to run on separate goroutines.
 func (txn *tx) NewReader() kv.TxReader {
+	// Batch.Reader sets up an empty batch, so it must not run on reader goroutines.
+	ops := txn.Reader()
 	return func(yield func(kv.Change) bool) {
-		r := txn.Reader()
+		r := ops
 		for {
 			kind, k, v, ok, err := r.Next()
 			if err != nil {

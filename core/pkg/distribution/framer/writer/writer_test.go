@@ -16,7 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -39,8 +38,6 @@ var _ = Describe("Writer", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func(context.Context) scenario{
 			gatewayOnlyScenario,
-			peerOnlyScenario,
-			mixedScenario,
 			freeWriterScenario,
 		}
 		for i, sF := range scenarios {
@@ -191,69 +188,6 @@ var _ = Describe("Writer", func() {
 				))
 			},
 		)
-		It(
-			"Should release peer control when the gateway writer fails to open",
-			func(ctx SpecContext) {
-				cluster := testutil.NewCluster(ctx, 2)
-				dist := cluster.Nodes[1]
-				peerCh := channel.Channel{
-					Name:        "cleanup_peer",
-					Virtual:     true,
-					DataType:    telem.Int64T,
-					Leaseholder: 2,
-				}
-				peerCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{peerCh}))[0]
-				Expect(dist.Framer.OpenWriter(ctx, writer.Config{
-					Keys:  []channel.Key{peerCh.Key(), channel.NewKey(1, 22)},
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				})).Error().To(MatchError(query.ErrNotFound))
-				// A lower-authority writer can only take control of the peer channel
-				// once the remote writer opened by the failed mixed open has released
-				// it, so an authorized write proves the peer stream was cleaned up.
-				w := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
-					Keys:        []channel.Key{peerCh.Key()},
-					Start:       10 * telem.SecondTS,
-					Sync:        new(true),
-					Authorities: []control.Authority{control.AuthorityAbsolute - 1},
-				}))
-				Eventually(func() (bool, error) {
-					return w.Write(frame.NewUnary(
-						peerCh.Key(),
-						telem.NewSeriesV[int64](1, 2, 3),
-					))
-				}).Should(BeTrue())
-				Expect(w.Close()).To(Succeed())
-			},
-		)
-	})
-
-	Describe("Frame Errors", Ordered, func() {
-		var s scenario
-		BeforeAll(func(ctx SpecContext) {
-			ShouldNotLeakGoroutines()
-			s = DeferClose(peerOnlyScenario(ctx))
-		})
-		It(
-			"Should return an error if a key is provided that is not in the list of keys provided to the writer",
-			func(ctx SpecContext) {
-				writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-					Keys:  s.keys,
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
-				Expect(writer.Write(frame.NewMulti(
-					append(s.keys, channel.NewKey(12, 22)),
-					[]telem.Series{
-						telem.NewSeriesV[int64](1, 2, 3),
-						telem.NewSeriesV[int64](3, 4, 5),
-						telem.NewSeriesV[int64](5, 6, 7),
-						telem.NewSeriesV[int64](5, 6, 7),
-					},
-				))).Error().To(MatchError(validate.ErrValidation))
-				Expect(writer.Close()).To(MatchError(validate.ErrValidation))
-			},
-		)
 	})
 
 	Describe("Free Write Group Propagation", func() {
@@ -375,29 +309,20 @@ var _ = Describe("Writer", func() {
 
 	Describe("End Domain", func() {
 		It(
-			"Should end the domains of indexes on each leaseholder",
+			"Should end the domain of an index",
 			func(ctx SpecContext) {
-				cluster := testutil.NewCluster(ctx, 2)
-				gw := cluster.Nodes[1]
-				createPair := func(name string, host node.Key) (channel.Key, channel.Key) {
-					GinkgoHelper()
-					idx := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
-						Name:        name + "_time",
-						IsIndex:     true,
-						DataType:    telem.TimestampT,
-						Leaseholder: host,
-					}}))[0]
-					data := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
-						Name:        name,
-						DataType:    telem.Int64T,
-						LocalIndex:  idx.LocalKey,
-						Leaseholder: host,
-					}}))[0]
-					return idx.Key(), data.Key()
-				}
-				localIdx, localData := createPair("local", 1)
-				peerIdx, peerData := createPair("peer", 2)
-				keys := channel.Keys{localIdx, localData, peerIdx, peerData}
+				gw := testutil.NewNode(ctx)
+				idx := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
+					Name:     "local_time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}}))[0]
+				data := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
+					Name:       "local",
+					DataType:   telem.Int64T,
+					LocalIndex: idx.LocalKey,
+				}}))[0]
+				keys := channel.Keys{idx.Key(), data.Key()}
 				frameAt := func(seconds ...telem.TimeStamp) frame.Frame {
 					stamps := make([]telem.TimeStamp, len(seconds))
 					values := make([]int64, len(seconds))
@@ -406,8 +331,6 @@ var _ = Describe("Writer", func() {
 						values[i] = int64(s)
 					}
 					return frame.NewMulti(keys, []telem.Series{
-						telem.NewSeries(stamps),
-						telem.NewSeries(values),
 						telem.NewSeries(stamps),
 						telem.NewSeries(values),
 					})
@@ -419,7 +342,7 @@ var _ = Describe("Writer", func() {
 				}))
 				Expect(w.Write(frameAt(10, 11))).To(BeTrue())
 				MustSucceed(w.Commit())
-				Expect(w.EndDomain(channel.Keys{localIdx, peerIdx})).To(BeTrue())
+				Expect(w.EndDomain(channel.Keys{idx.Key()})).To(BeTrue())
 				Expect(w.Write(frameAt(20, 21))).To(BeTrue())
 				MustSucceed(w.Commit())
 				fill := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
@@ -434,25 +357,16 @@ var _ = Describe("Writer", func() {
 				Expect(w.Close()).To(Succeed())
 			},
 		)
-		DescribeTable(
-			"Should return false when one node refuses",
-			func(ctx SpecContext, refusing int) {
-				gw := testutil.NewCluster(ctx, 2).Nodes[1]
+		It(
+			"Should return false when another writer holds control",
+			func(ctx SpecContext) {
+				gw := testutil.NewNode(ctx)
 				keys := channel.KeysFromChannels(
-					MustSucceed(gw.Channel.Create(ctx, []channel.Channel{
-						{
-							Name:        "gateway_time",
-							IsIndex:     true,
-							DataType:    telem.TimestampT,
-							Leaseholder: 1,
-						},
-						{
-							Name:        "peer_time",
-							IsIndex:     true,
-							DataType:    telem.TimestampT,
-							Leaseholder: 2,
-						},
-					})),
+					MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
+						Name:     "gateway_time",
+						IsIndex:  true,
+						DataType: telem.TimestampT,
+					}})),
 				)
 				w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
 					ControlSubject: control.Subject{Key: "low"},
@@ -463,24 +377,22 @@ var _ = Describe("Writer", func() {
 				}))
 				holder := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
 					ControlSubject: control.Subject{Key: "high"},
-					Keys:           channel.Keys{keys[refusing]},
+					Keys:           keys,
 					Start:          10 * telem.SecondTS,
 					Authorities:    []control.Authority{control.AuthorityAbsolute},
 					Sync:           new(true),
 				}))
 				Expect(holder.Write(frame.NewMulti(
-					channel.Keys{keys[refusing]},
+					keys,
 					[]telem.Series{telem.NewSeriesSecondsTSV(10)},
 				))).To(BeTrue())
 				Expect(w.EndDomain(keys)).To(BeFalse())
 				Expect(holder.Close()).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 			},
-			Entry("on the gateway", 0),
-			Entry("on a peer", 1),
 		)
 		It("Should report a commit that fails", func(ctx SpecContext) {
-			gw := testutil.NewCluster(ctx, 1).Nodes[1]
+			gw := testutil.NewNode(ctx)
 			idx := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
 				Name:        "time",
 				IsIndex:     true,
@@ -510,66 +422,6 @@ var _ = Describe("Writer", func() {
 			Expect(fill.Close()).To(MatchError(validate.ErrValidation))
 			Expect(live.Close()).To(Succeed())
 		})
-		DescribeTable(
-			"Should return no end when a node fails a commit that another node applies",
-			func(ctx SpecContext, failing int) {
-				gw := testutil.NewCluster(ctx, 2).Nodes[1]
-				keys := channel.KeysFromChannels(
-					MustSucceed(gw.Channel.Create(ctx, []channel.Channel{
-						{
-							Name:        "gateway_time",
-							IsIndex:     true,
-							DataType:    telem.TimestampT,
-							Leaseholder: 1,
-						},
-						{
-							Name:        "peer_time",
-							IsIndex:     true,
-							DataType:    telem.TimestampT,
-							Leaseholder: 2,
-						},
-					})),
-				)
-				live := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
-					Keys:  channel.Keys{keys[failing]},
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
-				// A peer opens its writer after OpenWriter returns.
-				MustSucceed(live.Commit())
-				fill := MustSucceed(gw.Framer.NewStreamWriter(ctx, writer.Config{
-					Keys:             keys,
-					Start:            1 * telem.SecondTS,
-					Mode:             ts.WriterModePersistOnly,
-					EnableAutoCommit: new(false),
-				}))
-				sCtx, cancel := signal.WithCancel(ctx)
-				defer cancel()
-				requests := confluence.NewStream[writer.Request](2)
-				responses := confluence.NewStream[writer.Response](1)
-				fill.InFrom(requests)
-				fill.OutTo(responses)
-				fill.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				requests.Inlet() <- writer.Request{
-					Command: writer.CommandWrite,
-					Frame: frame.NewMulti(keys, []telem.Series{
-						telem.NewSeriesSecondsTSV(1, 30),
-						telem.NewSeriesSecondsTSV(1, 30),
-					}),
-				}
-				requests.Inlet() <- writer.Request{Command: writer.CommandCommit}
-				var res writer.Response
-				Eventually(responses.Outlet()).Should(Receive(&res))
-				Expect(res.Command).To(Equal(writer.CommandCommit))
-				Expect(res.Err).To(MatchError(validate.ErrValidation))
-				Expect(res.End).To(BeZero())
-				requests.Close()
-				Expect(sCtx.Wait()).To(MatchError(validate.ErrValidation))
-				Expect(live.Close()).To(Succeed())
-			},
-			Entry("on the gateway", 0),
-			Entry("on a peer", 1),
-		)
 		It("Should acknowledge a writer of free channels", func(ctx SpecContext) {
 			s := freeWriterScenario(ctx)
 			defer func() { Expect(s.Close()).To(Succeed()) }()
@@ -585,24 +437,19 @@ var _ = Describe("Writer", func() {
 
 	Describe("Auto-Index", func() {
 		It(
-			"Should auto-stamp from the leaseholder when the data channel lives on a peer",
+			"Should stamp the index of a data channel",
 			func(ctx SpecContext) {
-				cluster := testutil.NewCluster(ctx, 2)
-				gw := cluster.Nodes[1]
-				peer := node.Key(2)
-
+				gw := testutil.NewNode(ctx)
 				idx := channel.Channel{
-					Name:        "auto_index_time",
-					IsIndex:     true,
-					DataType:    telem.TimestampT,
-					Leaseholder: peer,
+					Name:     "auto_index_time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
 				}
 				idx = MustSucceed(gw.Channel.Create(ctx, []channel.Channel{idx}))[0]
 				data := channel.Channel{
-					Name:        "auto_index_data",
-					DataType:    telem.Float64T,
-					LocalIndex:  idx.LocalKey,
-					Leaseholder: peer,
+					Name:       "auto_index_data",
+					DataType:   telem.Float64T,
+					LocalIndex: idx.LocalKey,
 				}
 				data = MustSucceed(gw.Channel.Create(ctx, []channel.Channel{data}))[0]
 
@@ -843,9 +690,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("Virtual Write Stamps", func() {
 		// writeAndReceive writes the series to the keys in one frame and returns the
-		// series streamed for each key with the instants that bound the write. Each
-		// streamer runs on the leaseholder of its keys: an open ack does not cover a
-		// peer tap, which drops frames written before it subscribes.
+		// series streamed for each key with the instants that bound the write.
 		writeAndReceive := func(
 			ctx SpecContext,
 			s scenario,
@@ -857,23 +702,15 @@ var _ = Describe("Writer", func() {
 			out := confluence.NewStream[framer.StreamerResponse](10)
 			sCtx, cancel := signal.WithCancel(ctx)
 			DeferCleanup(cancel)
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
+				Keys:        unique,
+				SendOpenAck: new(true),
+			}))
+			streamer.InFrom(confluence.NewStream[framer.StreamerRequest](1))
+			streamer.OutTo(out)
+			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
-			for lease, leased := range lo.GroupBy(unique, channel.Key.Lease) {
-				leaseholder, ok := s.nodes[lease]
-				if !ok {
-					leaseholder = s.dist
-				}
-				streamer := MustSucceed(
-					leaseholder.Framer.NewStreamer(framer.StreamerConfig{
-						Keys:        leased,
-						SendOpenAck: new(true),
-					}),
-				)
-				streamer.InFrom(confluence.NewStream[framer.StreamerRequest](1))
-				streamer.OutTo(out)
-				streamer.Flow(sCtx)
-				Eventually(out.Outlet()).Should(Receive(&res))
-			}
+			Eventually(out.Outlet()).Should(Receive(&res))
 			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  unique,
 				Start: 10 * telem.SecondTS,
@@ -929,8 +766,6 @@ var _ = Describe("Writer", func() {
 				}
 			},
 			Entry("Gateway", gatewayOnlyScenario),
-			Entry("Peer", peerOnlyScenario),
-			Entry("Gateway and peer", mixedScenario),
 			Entry("Free", freeWriterScenario),
 		)
 
@@ -1015,7 +850,6 @@ var _ = Describe("Writer", func() {
 				Expect(second).To(Equal(first.End.SpanRange(telem.Nanosecond)))
 			},
 			Entry("Gateway", gatewayOnlyScenario),
-			Entry("Peer", peerOnlyScenario),
 			Entry("Free", freeWriterScenario),
 		)
 
@@ -1101,10 +935,8 @@ func (r indexResolver) ResolveFreeIndexes(
 type scenario struct {
 	dist   testutil.Node
 	closer io.Closer
-	// nodes holds the cluster's nodes for a scenario that leases channels to peers.
-	nodes map[node.Key]testutil.Node
-	name  string
-	keys  channel.Keys
+	name   string
+	keys   channel.Keys
 }
 
 func (s scenario) Close() error { return s.closer.Close() }
@@ -1143,51 +975,10 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 	}
 }
 
-func peerOnlyScenario(ctx context.Context) scenario {
-	GinkgoHelper()
-	channels := newChannelSet()
-	cluster := testutil.OpenCluster(ctx, 4)
-	dist := cluster.Nodes[1]
-	for i, ch := range channels {
-		ch.Leaseholder = node.Key(i + 2)
-		channels[i] = ch
-	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
-	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:   "Peer Only",
-		keys:   keys,
-		dist:   dist,
-		nodes:  cluster.Nodes,
-		closer: cluster,
-	}
-}
-
-func mixedScenario(ctx context.Context) scenario {
-	GinkgoHelper()
-	channels := newChannelSet()
-	cluster := testutil.OpenCluster(ctx, 3)
-	dist := cluster.Nodes[1]
-	for i, ch := range channels {
-		ch.Leaseholder = node.Key(i + 1)
-		channels[i] = ch
-	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
-	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:   "Mixed Gateway and Peer",
-		keys:   keys,
-		dist:   dist,
-		nodes:  cluster.Nodes,
-		closer: cluster,
-	}
-}
-
 func freeWriterScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	cluster := testutil.OpenCluster(ctx, 3)
-	dist := cluster.Nodes[1]
+	dist := testutil.OpenNode(ctx)
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true
@@ -1195,5 +986,5 @@ func freeWriterScenario(ctx context.Context) scenario {
 	}
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Free Writes", keys: keys, dist: dist, closer: cluster}
+	return scenario{name: "Free Writes", keys: keys, dist: dist, closer: dist}
 }

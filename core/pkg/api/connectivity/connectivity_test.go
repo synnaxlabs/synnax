@@ -53,8 +53,8 @@ var _ = Describe("Check", func() {
 
 	It("Should describe the Core", func(ctx SpecContext) {
 		res := check(ctx, openLicense(ctx))
-		Expect(res.ClusterKey).To(Equal(node.Cluster.Key().String()))
-		Expect(res.NodeKey).To(Equal(node.Cluster.HostKey()))
+		Expect(res.ClusterKey).To(Equal(node.Identity.Key.String()))
+		Expect(res.NodeKey).To(Equal(node.Identity.HostKey))
 		Expect(res.NodeVersion).To(Equal(version.Get()))
 	})
 

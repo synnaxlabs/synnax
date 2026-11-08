@@ -9,9 +9,8 @@ telemetry, optimized for real-time performance and distributed reliability.
   only. See `core/AGENTS.md` for the deep dive.
   - **Storage** — engine management on a single node: Cesium for telemetry frames,
     Pebble KV for metadata. No cluster awareness.
-  - **Distribution** — turns per-node storage into one cluster-transparent data plane:
-    node membership via Aspen, channels with node-aware keys, framer (reads/writes
-    routed to the nodes that lease the data).
+  - **Distribution** — turns storage into the data plane: the Core's identity, channels
+    with node-aware keys, and the framer (reads, writes, and streams).
   - **Service** — business logic on distributed primitives: resource search and names
     across types, groups, auth, access control, users, ranges, hardware
     (task/rack/device), arc automations, workspace items (schematic, lineplot, log,
@@ -72,7 +71,7 @@ Put code in the lowest package that can hold it without gaining a forbidden depe
 - `aspen` — cluster membership + distributed KV. No time-series data.
 - `arc` — the Arc language toolchain: parser, analyzer, compiler, LSP, runtime.
 - `oracle` — schema codegen CLI. Generators only, no runtime code.
-- `core` — the server: composes cesium + aspen under the 4-layer architecture (see
+- `core` — the server: composes cesium + gorp under the 4-layer architecture (see
   `core/AGENTS.md`).
 - `client/*` — cluster API clients, feature parity across languages. No UI, no hardware.
 - `drift` — multi-window Redux sync. Knows Tauri + Redux, nothing about Synnax.
@@ -88,22 +87,17 @@ Put code in the lowest package that can hold it without gaining a forbidden depe
 
 - Ingestion: Hardware → Driver → Server → Cesium → Distribution → Clients.
 - Control: Client → Server (validation) → Distribution → Driver → Hardware.
-- Cluster: nodes sync metadata via Aspen gossip; time-series data routed between Cesium
-  stores.
 
 ## Development guidelines
 
 - **Protocol agnostic** — use Freighter abstractions, never direct HTTP/gRPC.
 - **Multi-language API parity** across Go, TS, Python, C++.
-- **Real-time focus** — low latency, high frequency; design for horizontal scale.
-- Availability over consistency for metadata; strong consistency for telemetry.
+- **Real-time focus** — low latency, high frequency.
 
 ## Gotchas & performance
 
 - **Cesium**: overlapping time ranges cause write conflicts; structure queries for
   columnar reads.
-- **Aspen**: eventual consistency — metadata updates may take up to 1s to propagate
-  (gossip defaults to 1Hz).
 - **Pluto**: incremental rendering — avoid full re-renders on data updates.
 - **Freighter**: reuse pooled clients, don't construct new ones per call.
 - **Driver**: minimize blocking operations in real-time acquisition loops.

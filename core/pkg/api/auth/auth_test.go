@@ -89,8 +89,8 @@ var _ = Describe("Login", func() {
 			Expect(res.User.Key).To(Equal(root.Key))
 			session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
 			Expect(session.Subject).To(Equal(root.ResourceID()))
-			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Cluster.Key().String()))
-			Expect(res.ClusterInfo.NodeKey).To(Equal(node.Cluster.HostKey()))
+			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Identity.Key.String()))
+			Expect(res.ClusterInfo.NodeKey).To(Equal(node.Identity.HostKey))
 			Expect(res.ClusterInfo.NodeTime).ToNot(BeZero())
 		},
 	)
