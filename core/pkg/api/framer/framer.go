@@ -68,12 +68,12 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Records maps each channel whose samples describe records to the function that
-	// finds the record of a sample. A streamer sends such a sample only to a subject
-	// that can retrieve its record.
+	// Records maps each channel whose samples describe records to the Record that finds
+	// the record of a sample. A streamer sends such a sample only to a subject that can
+	// retrieve its record.
 	//
 	// [OPTIONAL]
-	Records map[channel.Key]signals.RecordOf
+	Records map[channel.Key]signals.Record
 }
 
 var (
@@ -108,7 +108,7 @@ type Service struct {
 	access   *rbac.Service
 	channel  *channel.Service
 	internal *framer.Service
-	records  map[channel.Key]signals.RecordOf
+	records  map[channel.Key]signals.Record
 	alamos.Instrumentation
 }
 
@@ -449,16 +449,15 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 	if err != nil {
 		return err
 	}
+	records, err := s.newRecordSender(sCtx, subject, stream)
+	if err != nil {
+		return err
+	}
 	var (
 		receiver = &freightfluence.Receiver[StreamerRequest]{Receiver: stream}
 		sender   = &freightfluence.Sender[StreamerResponse]{
 			Sender: freighter.SenderNopCloser[StreamerResponse]{
-				StreamSender: recordSender{
-					StreamSender: stream,
-					ctx:          sCtx,
-					subject:      subject,
-					service:      s,
-				},
+				StreamSender: records,
 			},
 			KeepAliveInterval: req.KeepAlive.Duration(),
 			NewKeepAlive: func() StreamerResponse {
