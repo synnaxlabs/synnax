@@ -19,8 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -50,15 +49,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 })
 
-// createUser creates a user with no role assignments.
+// createUser creates a user whose role allows nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
 
-// allow gives the subject the actions on the objects through a fresh role.
+// allow gives the subject the actions on the objects.
 func allow(
 	ctx SpecContext,
 	subject resource.ID,
@@ -66,14 +65,6 @@ func allow(
 	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(svc.RBAC.Role.NewWriter(nil, true).Create(ctx, r)).To(Succeed())
-	Expect(svc.RBAC.Policy.NewWriter(nil, true).Create(ctx, &policy.Policy{
-		Role:    r.Key,
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: actions,
-	})).To(Succeed())
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	Expect(svc.User.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
+	MustSucceed(rbactestutil.Grant(ctx, svc.RBAC, svc.User, key, actions, objects...))
 }

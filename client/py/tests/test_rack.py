@@ -26,6 +26,12 @@ class TestRackClient:
         rack = client.racks.create(name="test")
         assert rack.key != 0
 
+    def test_create_driver_role(self, client: sy.Synnax) -> None:
+        """Should give a new rack the Driver role."""
+        driver = client.access.roles.retrieve(name="Driver")
+        rack = client.racks.create(name="test")
+        assert client.racks.retrieve(key=rack.key).role == driver.key
+
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple racks"""
         r1 = sy.Rack(name="test1")

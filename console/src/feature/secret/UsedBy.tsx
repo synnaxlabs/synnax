@@ -85,7 +85,7 @@ const Unused = (): ReactElement => (
 );
 
 const Uses = ({ ids, onSelectCertificate }: UsesProps): ReactElement => {
-  // The uses are a snapshot, so a resource in them may since have been deleted.
+  // A resource in the uses can be deleted between the read of the uses and this read.
   const resources = Resource.useMultiple({ ids });
   if (resources.length === 0) return <Unused />;
   return (

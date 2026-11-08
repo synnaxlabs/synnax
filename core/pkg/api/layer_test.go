@@ -12,15 +12,21 @@ package api_test
 import (
 	"context"
 	"fmt"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -35,7 +41,7 @@ import (
 // newUser creates a user that may take every action on resources of types.
 func newUser(ctx context.Context, types ...resource.Type) user.User {
 	GinkgoHelper()
-	u := MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	u := MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 	objects := make([]resource.ID, len(types))
@@ -170,6 +176,64 @@ var _ = Describe("Layer", func() {
 				Entry(&stored).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(stored.Labels).To(Equal([]label.Key{l.Key}))
+		},
+	)
+
+	It(
+		"Should stream only the certificate changes that the subject can retrieve",
+		func(ctx SpecContext) {
+			newCertificate := func(name string) certificate.Certificate {
+				return certificate.Certificate{Variant: certificate.FileCertificate{
+					Base:            certificate.Base{Key: uuid.New(), Name: name},
+					CertificatePath: "/etc/" + name + ".pem",
+				}}
+			}
+			denied, readable := newCertificate("denied"), newCertificate("readable")
+			records := map[channel.Key]func([]byte) (resource.ID, error){
+				svc.Certificate.SetChannelKey():    certificate.SetRecord,
+				svc.Certificate.DeleteChannelKey(): certificate.DeleteRecord,
+			}
+			keys := channel.Keys{
+				svc.Certificate.SetChannelKey(),
+				svc.Certificate.DeleteChannelKey(),
+			}
+			u := MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+				Name: "user-" + uuid.New().String(),
+			}))
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				svc.RBAC,
+				svc.User,
+				u.Key,
+				[]access.Action{access.ActionRetrieve},
+				append(svcframer.ResourceIDs(keys), readable.ResourceID())...,
+			))
+			client, server := freightertestutil.NewStreams[
+				apiframer.StreamerRequest,
+				apiframer.StreamerResponse,
+			](ctx)
+			done := make(chan error, 1)
+			go func() { done <- apiLayer.Framer.Stream(AuthedCtx(ctx, u), server) }()
+			DeferCleanup(func() {
+				Expect(client.CloseSend()).To(Succeed())
+				Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
+			})
+			Expect(client.Send(apiframer.StreamerRequest{Keys: keys})).To(Succeed())
+			Expect(MustSucceed(client.Receive()).Frame.Empty()).To(BeTrue())
+			w := svc.Certificate.NewWriter(nil)
+			Expect(w.Create(ctx, &denied, nil)).To(Succeed())
+			Expect(w.Create(ctx, &readable, nil)).To(Succeed())
+			Expect(w.Delete(ctx, denied.Base().Key)).To(Succeed())
+			Expect(w.Delete(ctx, readable.Base().Key)).To(Succeed())
+			for _, key := range keys {
+				res := MustSucceed(client.Receive())
+				Expect(res.Frame.KeysSlice()).To(ConsistOf(key))
+				var received []resource.ID
+				for sample := range res.Frame.SeriesAt(0).Samples() {
+					received = append(received, MustSucceed(records[key](sample)))
+				}
+				Expect(received).To(Equal([]resource.ID{readable.ResourceID()}))
+			}
 		},
 	)
 })

@@ -172,8 +172,7 @@ class Task:
         Tasks that need to update device properties (LabJack, Modbus, OPC UA)
         should override this method in their respective classes.
 
-        Returns:
-            None - base implementation performs no updates.
+        :returns: None - base implementation performs no updates.
         """
         return None
 
@@ -185,7 +184,7 @@ class Task:
 
         :param type_: The type of command to execute.
         :param args: The arguments to pass to the command.
-        :return: The unique key assigned to the command.
+        :returns: The unique key assigned to the command.
         """
         w = self._frame_client.open_writer(channels=_TASK_CMD_CHANNEL)
         cmd = Command(
@@ -260,11 +259,8 @@ class Protocol(BaseProtocol):
         their configuration with device properties (e.g., Modbus, OPC UA, LabJack).
         The default implementation does nothing.
 
-        Args:
-            device_client: Client for accessing device operations
-
-        Returns:
-            The updated device, or None if no update was performed.
+        :param device_client: Client for accessing device operations
+        :returns: The updated device, or None if no update was performed.
         """
         return None
 
@@ -645,7 +641,7 @@ class Client:
         default rack. Excludes internal system tasks (scanner tasks and rack state).
 
         :param rack: The rack key to list tasks from. If None, uses the default rack.
-        :return: A list of all user-created tasks on the specified rack.
+        :returns: A list of all user-created tasks on the specified rack.
         """
         if rack is None:
             if self._default_rack is None:
@@ -684,7 +680,7 @@ class Client:
         :param snapshot: Whether the copy is a snapshot of the task.
         :param range_key: The key of the range that a snapshot copy sits in. Only a
             snapshot copy can sit in a range.
-        :return: The newly created task.
+        :returns: The newly created task.
         """
         req = _CopyRequest(key=key, name=name, snapshot=snapshot, range=range_key)
         res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)

@@ -106,6 +106,13 @@ var _ = Describe("Start", func() {
 			Expect(MustSucceed(os.Stat(path)).Mode().Perm()).To(Equal(xfs.UserRW))
 		})
 
+		It("Should create the secrets key file in the data directory", func() {
+			data := GinkgoT().TempDir()
+			startCore("--mem=false", "--data", data)
+			Expect(MustSucceed(os.Stat(filepath.Join(data, "secrets.key"))).Mode().
+				Perm()).To(Equal(xfs.UserRW))
+		})
+
 		It("Should use the secrets key before the secrets key file", func() {
 			key := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32))
 			startCore("--secrets-key", key, "--secrets-key-file", path)

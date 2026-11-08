@@ -154,6 +154,8 @@ func migrateConfigsToRecords(
 			err = rec.Write(ctx, tx)
 		}
 		if err != nil {
+			// The resolve hook's writes stay, so what it made from the task, such as a
+			// secret, outlives the quarantine.
 			if err := store.Delete(ctx, tx, t.Key); err != nil {
 				return err
 			}
