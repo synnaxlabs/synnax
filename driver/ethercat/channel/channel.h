@@ -10,6 +10,9 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
+#include <format>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -99,6 +102,19 @@ protected:
                 "data type " + data_type.name() + " is " + bytes(data_type.density()) +
                     " but " + entry + " holds " + bytes(pdo->byte_length()) + ". " +
                     pick + "type."
+            );
+            return;
+        }
+        // Only the 24-bit write turns a float type into an integer of a narrower entry.
+        const auto bits = data_type.density() * 8;
+        if (!this->is_input &&
+            data_type.matches({x::telem::FLOAT32_T, x::telem::FLOAT64_T}) &&
+            pdo->bit_length < bits && pdo->bit_length != 24) {
+            parser.field_err(
+                path + "data_type",
+                "data type " + data_type.name() + " needs a " + std::to_string(bits) +
+                    " bit entry, but " + entry + " holds " +
+                    std::to_string(pdo->bit_length) + " bits. Pick an integer type."
             );
             return;
         }
@@ -203,6 +219,8 @@ struct Output final : Channel {
     synnax::channel::Key state_key;
     /// @brief the state channel, bound by the owning task when state_key is set.
     std::optional<synnax::channel::Channel> state;
+    /// @brief the value the entry takes when the task stops.
+    double stop_value = 0;
 
     Output(
         const ::synnax::ethercat::EntryWriteChannel &cfg,
@@ -212,8 +230,10 @@ struct Output final : Channel {
     ):
         Channel(slave, false, cfg.disabled, cfg.device),
         command_key(cfg.cmd_channel),
-        state_key(cfg.state_channel) {
+        state_key(cfg.state_channel),
+        stop_value(cfg.stop_value) {
         this->bind_entry(cfg.index, cfg.sub_index, cfg.data_type, slave, parser, path);
+        this->check_stop_value(slave, parser, path);
     }
 
     Output(
@@ -226,6 +246,70 @@ struct Output final : Channel {
         command_key(cfg.cmd_channel),
         state_key(cfg.state_channel) {
         this->reject_unresolved(cfg.pdo, slave, parser, path);
+    }
+
+private:
+    /// @brief accumulates a field error under path when the stop value does not fit the
+    /// bound entry.
+    void check_stop_value(
+        const slave::Properties &slave,
+        const x::json::Parser &parser,
+        const std::string &path
+    ) const {
+        if (!this->enabled) return;
+        const double v = this->stop_value;
+        const auto reject = [&](const std::string &range) {
+            parser.field_err(
+                path + "stop_value",
+                std::format(
+                    "stop value {} does not fit entry {} on slave {}. Pick {}.",
+                    v,
+                    telem::format_index_sub_index(this->index, this->sub_index),
+                    slave.name,
+                    range
+                )
+            );
+        };
+        const bool is_float = this->data_type.matches(
+            {x::telem::FLOAT32_T, x::telem::FLOAT64_T}
+        );
+        // A float32 type on a 24-bit entry holds an unsigned integer.
+        const bool narrow_float = is_float &&
+                                  this->bit_length < this->data_type.density() * 8;
+        if (!narrow_float && this->data_type == x::telem::FLOAT32_T) {
+            constexpr float MAX = std::numeric_limits<float>::max();
+            if (std::abs(v) > MAX)
+                reject(std::format("a value from {} to {}", -MAX, MAX));
+            return;
+        }
+        static const std::vector SIGNED_TYPES = {
+            x::telem::INT64_T,
+            x::telem::INT32_T,
+            x::telem::INT16_T,
+            x::telem::INT8_T,
+        };
+        static const std::vector UNSIGNED_TYPES = {
+            x::telem::UINT64_T,
+            x::telem::UINT32_T,
+            x::telem::UINT16_T,
+            x::telem::UINT8_T,
+        };
+        if (!narrow_float && !this->data_type.matches(SIGNED_TYPES) &&
+            !this->data_type.matches(UNSIGNED_TYPES))
+            return;
+        // An entry under 8 bits reads back unsigned, whatever its data type.
+        const bool is_signed = this->bit_length >= 8 &&
+                               this->data_type.matches(SIGNED_TYPES);
+        // A double rounds whole numbers of magnitude 2^53 and above, so a larger stop
+        // value may not be the one the user entered.
+        constexpr int DIGITS = std::numeric_limits<double>::digits;
+        constexpr int64_t EXACT = (int64_t{1} << DIGITS) - 1;
+        const int bits = is_signed ? this->bit_length - 1 : this->bit_length;
+        const int64_t max = bits >= DIGITS ? EXACT : (int64_t{1} << bits) - 1;
+        const int64_t min = is_signed ? std::max(-EXACT, -max - 1) : 0;
+        if (v < static_cast<double>(min) || v > static_cast<double>(max) ||
+            v != std::trunc(v))
+            reject(std::format("a whole number from {} to {}", min, max));
     }
 };
 
