@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/observe"
 	"go.uber.org/zap"
 )
 
@@ -28,7 +29,12 @@ func Wrap(
 	kv kv.DB,
 	opts ...Option,
 ) *DB {
-	return &DB{DB: kv, options: newOptions(opts), registry: newRegistry()}
+	return &DB{
+		DB:       kv,
+		options:  newOptions(opts),
+		registry: newRegistry(),
+		delivery: delivery{observer: observe.New[Commit]()},
+	}
 }
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
@@ -47,6 +53,8 @@ type DB struct {
 	registry *registry
 	// lock is the write lock that each open transaction holds.
 	lock sync.Mutex
+	// delivery delivers each commit to the readers of Observe.
+	delivery delivery
 }
 
 var _ Tx = (*DB)(nil)
@@ -106,9 +114,9 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	return err
 }
 
-// OnCommit runs fn after tx commits and releases the write lock, and never when tx
-// closes without a commit. When tx is a DB used directly, its writes have already
-// committed, so fn runs at once.
+// OnCommit runs fn after tx commits, releases the write lock, and delivers to the
+// readers of DB.Observe. It never runs fn when tx closes without a commit. When tx is a
+// DB used directly, its writes have already committed, so fn runs at once.
 func OnCommit(tx Tx, fn func()) {
 	state := tx.txIdentity()
 	if state == nil {
@@ -252,6 +260,8 @@ type tx struct {
 	unlock func()
 	// db is the DB that opened the transaction.
 	db *DB
+	// ticket is the place of the commit in the delivery order of db.
+	ticket ticket
 }
 
 // txDB returns the DB of tx, or nil when tx is neither a DB nor one of its
@@ -274,13 +284,15 @@ func (t *tx) txIdentity() *txState { return &t.state }
 // Commit commits the transaction and releases the write lock. Hooks registered via
 // state.OnCleanup run before the release, with committed=true on success and
 // committed=false otherwise. The release comes before the store notifies observers,
-// because an observer can open a transaction.
+// because an observer can open a transaction. Then the readers of DB.Observe run, and
+// then the OnCommit hooks.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	t.state.committing.Store(true)
 	applied := kv.OnApplied(func() { t.end(true) })
 	err := t.Tx.Commit(ctx, append(slices.Clip(opts), applied)...)
 	t.end(err == nil)
 	t.state.committing.Store(false)
+	t.db.delivery.run(ctx, t.ticket, &t.state.changes)
 	if err == nil {
 		t.state.runCommits()
 	}
@@ -296,13 +308,16 @@ func (t *tx) Close() error {
 	return err
 }
 
-// end runs the cleanups of the transaction and releases the write lock. Calls after the
-// first do nothing.
+// end runs the cleanups of the transaction, numbers a commit that changed a record, and
+// releases the write lock. Calls after the first do nothing.
 func (t *tx) end(committed bool) {
 	if t.unlock == nil {
 		return
 	}
 	t.state.runCleanups(committed)
+	if committed && t.state.changes.changed() {
+		t.ticket = t.db.delivery.take()
+	}
 	t.unlock()
 	t.unlock = nil
 }

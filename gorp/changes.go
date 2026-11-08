@@ -121,20 +121,32 @@ func (l *changeList) entry(s slot) *changeEntry {
 func (l *changeList) list() Changes {
 	var out Changes
 	for _, e := range l.entries {
-		c := Change{Record: e.record, Value: e.value}
-		switch {
-		case e.present && e.existed:
-			c.Kind = ChangeUpdate
-		case e.present:
-			c.Kind = ChangeCreate
-		case e.existed:
-			c.Kind = ChangeDelete
-		default:
-			continue
+		if kind := e.kind(); kind != 0 {
+			out = append(out, Change{Record: e.record, Kind: kind, Value: e.value})
 		}
-		out = append(out, c)
 	}
 	return out
+}
+
+// changed reports whether the transaction changed a record.
+func (l *changeList) changed() bool {
+	return slices.ContainsFunc(l.entries, func(e changeEntry) bool {
+		return e.kind() != 0
+	})
+}
+
+// kind returns what the transaction did to the record of e, or zero when the record is
+// as it was before the transaction.
+func (e changeEntry) kind() ChangeKind {
+	switch {
+	case e.present && e.existed:
+		return ChangeUpdate
+	case e.present:
+		return ChangeCreate
+	case e.existed:
+		return ChangeDelete
+	}
+	return 0
 }
 
 // keyExists reports whether key holds a value in tx.
