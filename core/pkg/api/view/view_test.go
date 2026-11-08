@@ -91,6 +91,21 @@ var _ = Describe("Create", func() {
 		})).Error().To(denied(u, access.ActionCreate, v.ResourceID()))
 		Expect(exists(ctx, v.GorpKey())).To(BeFalse())
 	})
+	It("Should need update on a stored view that it overwrites", func(ctx SpecContext) {
+		u := createUser(ctx)
+		v := createView(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionCreate, resource.ID{
+			Type: resource.TypeView,
+		})
+		v = v.WithName("After")
+		req := apiview.CreateRequest{Views: []view.View{v}}
+		Expect(create(AuthedCtx(ctx, u), req)).Error().
+			To(denied(u, access.ActionUpdate, v.ResourceID()))
+		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, v.ResourceID())
+		MustSucceed(create(AuthedCtx(ctx, u), req))
+		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("After"))
+	})
 })
 
 var _ = Describe("Delete", func() {
@@ -110,6 +125,14 @@ var _ = Describe("Delete", func() {
 			Keys: []view.Key{v.GorpKey()},
 		})).Error().To(denied(u, access.ActionDelete, v.ResourceID()))
 		Expect(exists(ctx, v.GorpKey())).To(BeTrue())
+	})
+	It("Should need no access to delete a key that matches no view", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		MustSucceed(del(AuthedCtx(ctx, u), apiview.DeleteRequest{
+			Keys: []view.Key{uuid.New()},
+		}))
 	})
 })
 

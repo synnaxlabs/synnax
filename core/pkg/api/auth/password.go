@@ -84,9 +84,10 @@ func (s *Service) PrepareSetPassword(
 	}); err != nil {
 		return password.Hash{}, err
 	}
-	proof := auth.PasswordProof{}
-	proof.Username = current.Username
-	proof.Password = req.CurrentPassword
+	proof := auth.PasswordProof{
+		Username: current.Username,
+		Password: req.CurrentPassword,
+	}
 	return s.password.HashProven(ctx, proof, req.Password)
 }
 

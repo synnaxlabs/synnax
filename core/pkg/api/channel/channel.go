@@ -280,7 +280,8 @@ func (r AliasedRetrieveRequest) Named() []resource.ID {
 }
 
 // Retrieve retrieves the channels that the request selects and that the subject can
-// retrieve. It fills only the aliases that the subject can retrieve.
+// retrieve. A channel that the top level of Where names by exact name needs retrieve,
+// as a named key does. It fills only the aliases that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -317,20 +318,49 @@ func (s *Service) retrieve(
 	snap bind.Snapshot,
 	req AliasedRetrieveRequest,
 ) ([]channel.Channel, error) {
+	if !namesByName(req.Request.Where) {
+		return s.match(ctx, snap, req, bind.Filter(snap, channel.Match))
+	}
+	res, err := s.match(ctx, snap, req, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err = snap.Enforce(channel.ResourceIDsFromChannels(res)...); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// match returns the channels that req selects and that filter keeps. A nil filter keeps
+// every channel.
+func (s *Service) match(
+	ctx context.Context,
+	snap bind.Snapshot,
+	req AliasedRetrieveRequest,
+	filter channel.Filter,
+) ([]channel.Channel, error) {
 	r := req.Request
-	allowed := bind.Filter(snap, channel.Match)
 	if req.RangeKey == nil || r.SearchTerm == "" {
 		var res []channel.Channel
 		q, err := ApplyRetrieve(r, s.internal.NewRetrieve().Entries(&res))
 		if err != nil {
 			return nil, err
 		}
-		return res, q.Where(allowed).Exec(ctx, snap)
+		if filter != nil {
+			q = q.Where(filter)
+		}
+		if err = q.Exec(ctx, snap); err != nil {
+			return nil, err
+		}
+		return res, nil
 	}
 	// The alias search pages the merged list, so the query carries only the where.
 	q, err := ApplyRetrieve(RetrieveRequest{Where: r.Where}, s.internal.NewRetrieve())
 	if err != nil {
 		return nil, err
+	}
+	if filter != nil {
+		q = q.Where(filter)
 	}
 	var limit int
 	if r.Limit != nil {
@@ -343,13 +373,20 @@ func (s *Service) retrieve(
 	rng := *req.RangeKey
 	return s.alias.NewReader(snap).SearchChannels(
 		ctx,
-		q.Where(allowed),
+		q,
 		rng,
 		r.SearchTerm,
 		func(ch channel.Key) bool { return snap.Allowed(alias.ResourceID(rng, ch)) },
 		limit,
 		int(r.Offset),
 	)
+}
+
+// namesByName reports whether the top level of where names channels by exact name.
+// Clients name channels by name as they do by key, so each match needs retrieve.
+func namesByName(where *channel.Where) bool {
+	return where != nil && where.Name != nil &&
+		(where.Name.Eq != nil || len(where.Name.In) > 0)
 }
 
 // fillAliases sets the alias on the range of each channel that has one the subject can

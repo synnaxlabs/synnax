@@ -21,8 +21,10 @@ import (
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -122,6 +124,24 @@ var _ = Describe("Import", func() {
 				importEnvelope(fctx, env),
 			)
 			Expect(id.Key).To(Equal("Legacy State"))
+		},
+	)
+
+	It(
+		"Should need no access on a parent that the importer does not write",
+		func(ctx SpecContext) {
+			u := MustSucceed(
+				rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+					Name: "parentless-" + uuid.New().String(),
+				}),
+			)
+			fctx := subjectCtx(ctx, u)
+			fctx.Set("params", fmt.Sprintf(
+				`{"file_name":"Metrics Log.json","parent":"project:%s"}`,
+				uuid.New(),
+			))
+			id := MustSucceed(importEnvelope(fctx, testEnvelope("ignored-parent")))
+			Expect(id.Key).To(Equal("ignored-parent"))
 		},
 	)
 
@@ -232,6 +252,24 @@ var _ = Describe("Import", func() {
 			return importEnvelope(fctx, env)
 		}
 		symbolType := resource.ID{Type: resource.TypeSchematicSymbol}
+		importLog := func(ctx SpecContext) (resource.ID, error) {
+			var env imex.Envelope
+			Expect(json.Unmarshal(fmt.Appendf(nil,
+				`{"version":2,"type":"log","name":"Pressures",`+
+					`"channels":[{"channel":%d}]}`,
+				ch,
+			), &env)).To(Succeed())
+			fctx := subjectCtx(ctx, u)
+			fctx.Set("params", fmt.Sprintf(
+				`{"file_name":"Pressures.json","parent":"project:%s"}`, proj.Key,
+			))
+			return importEnvelope(fctx, env)
+		}
+		grantLogImport := func(ctx SpecContext) {
+			GinkgoHelper()
+			grant(ctx, access.ActionCreate, resource.ID{Type: resource.TypeLog})
+			grant(ctx, access.ActionUpdate, project.ResourceID(proj.Key))
+		}
 
 		It(
 			"Should import the record with create on it and update on its group",
@@ -265,6 +303,26 @@ var _ = Describe("Import", func() {
 					"%s cannot update %s",
 					u.ResourceID(),
 					g.ResourceID(),
+				)),
+			))
+		})
+		It("Should import a log with retrieve on the channel it uses", func(
+			ctx SpecContext,
+		) {
+			grantLogImport(ctx)
+			grant(ctx, access.ActionRetrieve, channel.ResourceID(ch))
+			Expect(MustSucceed(importLog(ctx)).Type).To(Equal(resource.TypeLog))
+		})
+		It("Should reject a log without retrieve on the channel it uses", func(
+			ctx SpecContext,
+		) {
+			grantLogImport(ctx)
+			Expect(importLog(ctx)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"%s cannot retrieve %s",
+					u.ResourceID(),
+					channel.ResourceID(ch),
 				)),
 			))
 		})

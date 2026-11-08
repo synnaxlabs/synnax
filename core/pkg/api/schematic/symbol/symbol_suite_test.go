@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
@@ -131,6 +132,19 @@ func createGroup(ctx SpecContext, name string) group.Group {
 		return groupSvc.NewWriter(tx).Create(ctx, &g)
 	})).To(Succeed())
 	return g
+}
+
+// groupSymbols returns the resource IDs of the symbols in the group with the given key.
+func groupSymbols(ctx SpecContext, key group.Key) []resource.ID {
+	GinkgoHelper()
+	var symbols []symbol.Symbol
+	Expect(symbolSvc.NewRetrieve().
+		Where(symbol.MatchGroups(key)).
+		Entries(&symbols).
+		Exec(ctx, db)).To(Succeed())
+	return lo.Map(symbols, func(sym symbol.Symbol, _ int) resource.ID {
+		return sym.ResourceID()
+	})
 }
 
 // newSymbol returns an unsaved symbol a create request can carry.

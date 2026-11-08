@@ -244,7 +244,10 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	return res, q.Where(bind.Filter(snap, user.Match)).Exec(ctx, snap)
+	if err = q.Where(bind.Filter(snap, user.Match)).Exec(ctx, snap); err != nil {
+		return RetrieveResponse{}, err
+	}
+	return res, nil
 }
 
 type DeleteRequest struct {

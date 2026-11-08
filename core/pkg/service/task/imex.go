@@ -94,7 +94,7 @@ func (*Service) Match(map[string]any) bool { return false }
 // Console export at version zero.
 //
 // opts.Parent is ignored: a task always parents under its config record and the task
-// group. The API layer still enforces update access on the parent the caller declared.
+// group.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,

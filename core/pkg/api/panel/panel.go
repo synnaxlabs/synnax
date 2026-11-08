@@ -118,7 +118,10 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	return res, q.Where(bind.Filter(snap, panel.Match)).Exec(ctx, snap)
+	if err = q.Where(bind.Filter(snap, panel.Match)).Exec(ctx, snap); err != nil {
+		return RetrieveResponse{}, err
+	}
+	return res, nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single panel.

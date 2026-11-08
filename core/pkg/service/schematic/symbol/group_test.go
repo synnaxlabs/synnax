@@ -96,44 +96,6 @@ var _ = Describe("DeleteGroup", func() {
 	})
 })
 
-var _ = Describe("RetrieveGroupSymbols", func() {
-	It("Should return the group's symbols", func(ctx SpecContext) {
-		g := createGroup(ctx, nil)
-		sym := createSymbol(ctx, g)
-		tx := DeferClose(db.OpenTx())
-		Expect(svc.RetrieveGroupSymbols(ctx, tx, g.Key)).
-			To(ConsistOf(symbol.ResourceID(sym.Key)))
-	})
-	It("Should return nothing for an empty group", func(ctx SpecContext) {
-		g := createGroup(ctx, nil)
-		tx := DeferClose(db.OpenTx())
-		Expect(svc.RetrieveGroupSymbols(ctx, tx, g.Key)).To(BeEmpty())
-	})
-	It("Should skip a child that is not a schematic symbol", func(ctx SpecContext) {
-		g := createGroup(ctx, nil)
-		createGroup(ctx, &g)
-		sym := createSymbol(ctx, g)
-		tx := DeferClose(db.OpenTx())
-		Expect(svc.RetrieveGroupSymbols(ctx, tx, g.Key)).
-			To(ConsistOf(symbol.ResourceID(sym.Key)))
-	})
-	It("Should return not found for a missing group", func(ctx SpecContext) {
-		tx := DeferClose(db.OpenTx())
-		Expect(svc.RetrieveGroupSymbols(ctx, tx, uuid.New())).Error().
-			To(MatchError(query.ErrNotFound))
-	})
-	It("Should return the group's symbols through a snapshot", func(ctx SpecContext) {
-		g := createGroup(ctx, nil)
-		sym := createSymbol(ctx, g)
-		var ids []resource.ID
-		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-			ids, err = svc.RetrieveGroupSymbols(ctx, snap, g.Key)
-			return err
-		})).To(Succeed())
-		Expect(ids).To(ConsistOf(symbol.ResourceID(sym.Key)))
-	})
-})
-
 var _ = Describe("Writer in concurrent transactions", func() {
 	It(
 		"Should keep the group that a move writes during concurrent creates",
