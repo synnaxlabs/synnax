@@ -74,9 +74,10 @@ var _ = Describe("Go Query Plugin", func() {
 							"func (r Retrieve) Entries(es *[]Foo) Retrieve",
 							"func (r Retrieve) Limit(limit int) Retrieve",
 							"func (r Retrieve) Offset(offset int) Retrieve",
-							"func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error",
-							"func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error)",
-							"func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error)",
+							"func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error",
+							"return r.gorp.Exec(ctx, gorp.OverrideSnapshot(r.baseTX, snap))",
+							"func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error)",
+							"func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error)",
 						).
 						ToNotContain(
 							"Search(",
@@ -842,7 +843,7 @@ var _ = Describe("Go Query Plugin", func() {
 							"func MatchKeys(keys ...uint32) Filter",
 							"func (r Retrieve) Entry(e *Rack) Retrieve",
 							"func (r Retrieve) Entries(es *[]Rack) Retrieve",
-							"func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error",
+							"func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error",
 							"func (r Retrieve) Search(term string) Retrieve",
 						).
 						ToNotContain("type Retrieve struct")
