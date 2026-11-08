@@ -359,7 +359,6 @@ master::Activation Master::op_error(const std::vector<uint16_t> &pending) {
     std::string msg;
     for (const auto pos: pending) {
         const auto &name = this->cached_slaves[pos - 1].properties.name;
-        if (!msg.empty()) msg += "; ";
         ec_slave_info_t info{};
         if (const int ret = this->api->master_get_slave(
                 this->ec_master,
@@ -367,6 +366,7 @@ master::Activation Master::op_error(const std::vector<uint16_t> &pending) {
                 &info
             );
             ret != 0) {
+            if (!msg.empty()) msg += "; ";
             msg += std::format(
                 "slave {} ({}): failed to read its state: {}",
                 pos,
@@ -376,6 +376,9 @@ master::Activation Master::op_error(const std::vector<uint16_t> &pending) {
             continue;
         }
         const auto state = slave::from_al_state(info.al_state);
+        // The slave can reach OP after the last poll and before this read.
+        if (state == slave::State::OP) continue;
+        if (!msg.empty()) msg += "; ";
         msg += std::format(
             "slave {} ({}) is in {}",
             pos,
@@ -386,6 +389,7 @@ master::Activation Master::op_error(const std::vector<uint16_t> &pending) {
         msg += " with an AL error";
         activation.refusals[pos] = {.reason = "refused " + next_state(state)};
     }
+    if (msg.empty()) return activation;
     activation.err = x::errors::Error(
         activation.refusals.empty() ? errors::STATE_CHANGE_ERROR
                                     : errors::STATE_CHANGE_REFUSED,

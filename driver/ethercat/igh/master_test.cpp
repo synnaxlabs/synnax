@@ -229,7 +229,6 @@ TEST_F(IGHMasterTest, ScanFailsWhenASlaveCannotBeRead) {
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
     EXPECT_EQ(err.data, "failed to read slave 2: Input/output error");
-    EXPECT_EQ(err.data, "failed to read slave 2: Input/output error");
     EXPECT_TRUE(this->api->released);
 }
 
@@ -419,6 +418,17 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveStaysBelowOP) {
         activation.err.data,
         "failed to reach OP within 10s: slave 1 (TestSlave) is in SAFE-OP"
     );
+    EXPECT_TRUE(activation.refusals.empty());
+}
+
+/// @brief it should start when a slave whose configuration state it cannot read is in
+/// OP.
+TEST_F(IGHMasterTest, ActivateStartsWhenAnUnreadableSlaveIsInOP) {
+    this->api->add_slave().state_unreadable = true;
+    ASSERT_NIL_P(this->master.scan());
+    this->api->slaves[0].info.al_state = EC_AL_STATE_OP;
+    const auto activation = this->activate();
+    ASSERT_NIL(activation.err);
     EXPECT_TRUE(activation.refusals.empty());
 }
 

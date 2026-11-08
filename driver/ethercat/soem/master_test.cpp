@@ -540,9 +540,9 @@ TEST_F(SOEMMasterTest, CoEDiscoveryReadsTheSIIWithoutSyncManagerTypes) {
     EXPECT_TRUE(slaves[0].status.pdo_discovery_error.empty());
 }
 
-/// @brief it should report why a CoE slave failed to give its PDO layout, and not read
-/// its SII in place of it.
-TEST_F(SOEMMasterTest, CoEDiscoveryReportsAFailedRead) {
+/// @brief it should read the PDOs in the SII of a CoE slave that fails to give its PDO
+/// layout, as SOEM maps the slave from its SII.
+TEST_F(SOEMMasterTest, CoEDiscoveryFallsBackToTheSIIOnAFailedRead) {
     MockSlaveInfo slave;
     slave.state = EC_STATE_PRE_OP;
     slave.mbx_proto = ECT_MBXPROT_COE;
@@ -561,6 +561,29 @@ TEST_F(SOEMMasterTest, CoEDiscoveryReportsAFailedRead) {
         {8, 0, 0x00, 0x1A, 1, 3, 0, 0, 0, 0, 0x00, 0x60, 1, 0, 0x03, 16, 0, 0};
     for (size_t i = 0; i < category.size(); ++i)
         this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves[0].properties.input_pdos.size(), 1);
+    EXPECT_EQ(slaves[0].properties.input_pdos[0].index, 0x6000);
+    EXPECT_TRUE(slaves[0].status.pdo_discovery_error.empty());
+}
+
+/// @brief it should report why a CoE slave failed to give its PDO layout when its SII
+/// lists no PDOs either.
+TEST_F(SOEMMasterTest, CoEDiscoveryReportsAFailedReadWithoutSIIPDOs) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    this->add_slave(slave);
+    this->mock->slave_infos[0].sdo_objects = {
+        {{0x1C00, 0}, 4},
+        {{0x1C00, 3}, 3},
+        {{0x1C00, 4}, 4},
+        {{ECT_SDO_RXPDOASSIGN, 0}, 0},
+        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+    };
 
     const auto slaves = ASSERT_NIL_P(this->master->scan());
 

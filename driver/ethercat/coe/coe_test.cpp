@@ -135,12 +135,14 @@ TEST(ReadLayoutTest, FailsOnAnAssignedPDOThatIsMissing) {
     );
 }
 
-/// @brief it should fail when the slave counts more sync managers than the master
-/// configures.
-TEST(ReadLayoutTest, FailsOnTooManySyncManagers) {
-    const auto res = read_layout(reader(with(LAYOUT, {{{0x1C00, 0}, 9}})), 8);
-    ASSERT_OCCURRED_AS_P(res, errors::PDO_DISCOVERY_ERROR);
-    EXPECT_EQ(res.second.data, "0x1C00:00 counts 9 entries, above the maximum of 8");
+/// @brief it should read only the sync managers the master configures when the slave
+/// counts more.
+TEST(ReadLayoutTest, ReadsOnlyTheSyncManagersTheMasterConfigures) {
+    const auto syncs = ASSERT_NIL_P(
+        read_layout(reader(with(LAYOUT, {{{0x1C00, 0}, 9}})), 4)
+    );
+    ASSERT_EQ(syncs.size(), 2);
+    EXPECT_EQ(syncs[1].index, 3);
 }
 
 /// @brief it should read SM2 as outputs and SM3 as inputs when the slave gives them
