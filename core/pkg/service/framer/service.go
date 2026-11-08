@@ -191,14 +191,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 
 // OpenWriter opens a buffered Writer for the channels in cfg starting at cfg.Start. The
 // caller must Close the returned Writer to release its control over the written region.
-// It returns an error if cfg is invalid or any channel in cfg.Keys cannot be resolved.
+// It returns an error if cfg is invalid, any channel in cfg.Keys cannot be resolved, or
+// any channel in cfg.Keys is reserved.
 func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	return s.writer.Open(ctx, cfg)
 }
 
 // NewStreamWriter opens a StreamWriter for the channels in cfg, driven through
-// confluence inlet requests and outlet responses. It returns an error if cfg is invalid
-// or any channel in cfg.Keys cannot be resolved.
+// confluence inlet requests and outlet responses. It returns an error if cfg is
+// invalid, any channel in cfg.Keys cannot be resolved, or any channel in cfg.Keys is
+// reserved.
 func (s *Service) NewStreamWriter(
 	ctx context.Context, cfg WriterConfig,
 ) (StreamWriter, error) {
