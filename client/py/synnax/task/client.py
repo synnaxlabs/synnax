@@ -22,6 +22,7 @@ from pydantic_core import to_jsonable_python
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import rack as rack_
+from synnax import ranger
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.framer import Client as FrameClient
@@ -65,6 +66,7 @@ class _CopyRequest(BaseModel):
     key: Key
     name: str
     snapshot: bool
+    range: ranger.Key | None = None
 
 
 class _CopyResponse(BaseModel):
@@ -170,8 +172,7 @@ class Task:
         Tasks that need to update device properties (LabJack, Modbus, OPC UA)
         should override this method in their respective classes.
 
-        Returns:
-            None - base implementation performs no updates.
+        :returns: None - base implementation performs no updates.
         """
         return None
 
@@ -183,7 +184,7 @@ class Task:
 
         :param type_: The type of command to execute.
         :param args: The arguments to pass to the command.
-        :return: The unique key assigned to the command.
+        :returns: The unique key assigned to the command.
         """
         w = self._frame_client.open_writer(channels=_TASK_CMD_CHANNEL)
         cmd = Command(
@@ -236,9 +237,8 @@ class Task:
                     try:
                         status = Status.model_validate(sample)
                     except ValidationError:
-                        # The status channel carries statuses for all tasks and
-                        # racks. Rack statuses have a different schema, so
-                        # validation failures are expected and should be skipped.
+                        # The channel carries every status in the cluster, and a status
+                        # that no task owns can carry other details.
                         continue
                     if status.details is not None and status.details.cmd == key:
                         return status
@@ -259,11 +259,8 @@ class Protocol(BaseProtocol):
         their configuration with device properties (e.g., Modbus, OPC UA, LabJack).
         The default implementation does nothing.
 
-        Args:
-            device_client: Client for accessing device operations
-
-        Returns:
-            The updated device, or None if no update was performed.
+        :param device_client: Client for accessing device operations
+        :returns: The updated device, or None if no update was performed.
         """
         return None
 
@@ -470,6 +467,8 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -489,6 +488,8 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -508,6 +509,8 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -530,6 +533,8 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -573,6 +578,8 @@ class Client:
             false.
         :param snapshot: Keeps only snapshot tasks when true, or only live tasks when
             false.
+        :param ranges: Keeps the snapshots in any of these ranges.
+        :param arcs: Keeps the tasks that run any of these Arcs.
         :param and_: Keeps tasks that match every filter in the list.
         :param or_: Keeps tasks that match any filter in the list.
         :param not_: Keeps tasks that do not match the filter.
@@ -634,7 +641,7 @@ class Client:
         default rack. Excludes internal system tasks (scanner tasks and rack state).
 
         :param rack: The rack key to list tasks from. If None, uses the default rack.
-        :return: A list of all user-created tasks on the specified rack.
+        :returns: A list of all user-created tasks on the specified rack.
         """
         if rack is None:
             if self._default_rack is None:
@@ -643,17 +650,38 @@ class Client:
 
         return self.retrieve(rack=rack, internal=False)
 
+    @overload
+    def copy(
+        self, key: Key, name: str, *, snapshot: Literal[False] = False
+    ) -> Task: ...
+
+    @overload
     def copy(
         self,
         key: Key,
         name: str,
+        *,
+        snapshot: Literal[True],
+        range_key: ranger.Key | None = None,
+    ) -> Task: ...
+
+    def copy(
+        self,
+        key: Key,
+        name: str,
+        *,
+        snapshot: bool = False,
+        range_key: ranger.Key | None = None,
     ) -> Task:
         """Copies an existing task with a new name.
 
         :param key: The key of the task to copy.
         :param name: The name for the new task.
-        :return: The newly created task.
+        :param snapshot: Whether the copy is a snapshot of the task.
+        :param range_key: The key of the range that a snapshot copy sits in. Only a
+            snapshot copy can sit in a range.
+        :returns: The newly created task.
         """
-        req = _CopyRequest(key=key, name=name, snapshot=False)
+        req = _CopyRequest(key=key, name=name, snapshot=snapshot, range=range_key)
         res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]

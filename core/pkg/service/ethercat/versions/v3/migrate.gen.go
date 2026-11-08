@@ -32,12 +32,18 @@ func autoMigrateReadConfig(ctx context.Context, old v2.ReadConfig) (ReadConfig, 
 	}, nil
 }
 
-func autoMigrateWriteConfig(_ context.Context, old v2.WriteConfig) (WriteConfig, error) {
+func autoMigrateWriteConfig(ctx context.Context, old v2.WriteConfig) (WriteConfig, error) {
+	channels, err := lo.MapErr(old.Channels, func(v v2.WriteChannel, _ int) (WriteChannel, error) {
+		return MigrateWriteChannel(ctx, v)
+	})
+	if err != nil {
+		return WriteConfig{}, err
+	}
 	return WriteConfig{
 		PersistConfig: old.PersistConfig,
 		StateRate:     old.StateRate,
 		ExecutionRate: old.ExecutionRate,
-		Channels:      old.Channels,
+		Channels:      channels,
 	}, nil
 }
 
@@ -59,5 +65,26 @@ func autoMigrateReadChannel(_ context.Context, old v2.ReadChannel) (ReadChannel,
 		}}, nil
 	default:
 		return ReadChannel{}, errors.Newf("unknown ReadChannel variant %T", variant)
+	}
+}
+
+func autoMigrateWriteChannel(_ context.Context, old v2.WriteChannel) (WriteChannel, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return WriteChannel{}, nil
+	case v2.EntryWriteChannel:
+		return WriteChannel{Variant: EntryWriteChannel{
+			BaseWriteChannel: variant.BaseWriteChannel,
+			Index:            variant.Index,
+			SubIndex:         variant.SubIndex,
+			DataType:         variant.DataType,
+		}}, nil
+	case v2.UnresolvedWriteChannel:
+		return WriteChannel{Variant: UnresolvedWriteChannel{
+			BaseWriteChannel: variant.BaseWriteChannel,
+			Pdo:              variant.Pdo,
+		}}, nil
+	default:
+		return WriteChannel{}, errors.Newf("unknown WriteChannel variant %T", variant)
 	}
 }

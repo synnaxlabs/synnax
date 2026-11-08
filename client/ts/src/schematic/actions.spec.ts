@@ -1098,8 +1098,8 @@ describe("schematic reducer inverses", () => {
           n1: cfg({ variant: "tank", label: { level: "p" }, strokeColor: "#ff0000" }),
         },
       });
-      // Each dispatch carries the FULL form values, matching IndividualConfig's
-      // onChange: ({ values }) => dispatch(schematic.setConfig({ key, config: values })).
+      // Each dispatch carries the FULL form values, as the onChange of IndividualConfig
+      // does: ({ values }) => dispatch(schematic.setConfig({ key, config: values })).
       const r1 = schematic.reduceAll(initial, [
         schematic.setConfig({
           key: "n1",
@@ -1117,5 +1117,59 @@ describe("schematic reducer inverses", () => {
       const restored = schematic.reduceAll(r2.next, mergedInverse).next;
       expect(restored.configs.n1).toEqual(initial.configs.n1);
     });
+  });
+});
+
+describe("setGroup", () => {
+  const G1 = "11111111-1111-4111-8111-111111111111";
+  const G2 = "22222222-2222-4222-8222-222222222222";
+  it("should move the document into the group", () => {
+    const doc = empty();
+    expect(
+      schematic.reduceAll(doc, [schematic.setGroup({ group: G1 })]).next.group,
+    ).toEqual(G1);
+  });
+  it("should move the document out of its group", () => {
+    const doc = empty({ group: G1 });
+    expect(
+      schematic.reduceAll(doc, [schematic.setGroup({})]).next.group,
+    ).toBeUndefined();
+  });
+  it("should restore the previous group through its inverse", () => {
+    const doc = empty({ group: G1 });
+    const { next, inverse } = schematic.reduceAll(doc, [
+      schematic.setGroup({ group: G2 }),
+    ]);
+    expect(schematic.reduceAll(next, inverse).next.group).toEqual(G1);
+  });
+  it("should target nothing, so it never enters the undo stack", () => {
+    const doc = empty();
+    expect(
+      schematic.reduceAll(doc, [schematic.setGroup({ group: G1 })]).targets,
+    ).toEqual([]);
+  });
+});
+
+describe("setProject", () => {
+  const P1 = "11111111-1111-4111-8111-111111111111";
+  const P2 = "22222222-2222-4222-8222-222222222222";
+  it("should move the document into the project", () => {
+    const doc = empty({ project: P1 });
+    expect(
+      schematic.reduceAll(doc, [schematic.setProject({ project: P2 })]).next.project,
+    ).toEqual(P2);
+  });
+  it("should restore the previous project through its inverse", () => {
+    const doc = empty({ project: P1 });
+    const { next, inverse } = schematic.reduceAll(doc, [
+      schematic.setProject({ project: P2 }),
+    ]);
+    expect(schematic.reduceAll(next, inverse).next.project).toEqual(P1);
+  });
+  it("should target nothing, so it never enters the undo stack", () => {
+    const doc = empty();
+    expect(
+      schematic.reduceAll(doc, [schematic.setProject({ project: P1 })]).targets,
+    ).toEqual([]);
   });
 });

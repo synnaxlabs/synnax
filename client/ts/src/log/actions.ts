@@ -26,6 +26,8 @@ import {
   setChannels,
   setChannelTimestampFormat,
   setChannelTimestampTz,
+  setGroup,
+  setProject,
   setTimestampPrecision,
   setTimestampsHidden,
   setTimeZone,
@@ -47,6 +49,19 @@ const handlers: Handlers = {
     const oldName = state.name;
     state.name = payload.name;
     return { inverse: [rename({ name: oldName })], targets: [state.key] };
+  },
+
+  setGroup: (state, payload) => {
+    const oldGroup = state.group;
+    state.group = payload.group;
+    return { inverse: [setGroup({ group: oldGroup })], targets: [] };
+  },
+
+  setProject: (state, payload) => {
+    const oldProject = state.project;
+    state.project = payload.project;
+    const inverse = oldProject == null ? [] : [setProject({ project: oldProject })];
+    return { inverse, targets: [] };
   },
 
   addChannel: (state, payload) => {

@@ -10,7 +10,7 @@
 import {
   NotFoundError,
   panel,
-  project,
+  type project,
   query,
   type resource,
   UnexpectedError,
@@ -39,28 +39,23 @@ export const { use, useEnsure, useInvalidate, useResult, createSelector } =
 
 export type RetrieveKeysByProjectQuery = { project: project.Key };
 
-const childrenOf = (projectKey: project.Key): panel.RetrieveMultipleParams => ({
-  parent: project.resourceID(projectKey),
-});
-
 const keysOf = (panels: panel.Panel[]): panel.Key[] => panels.map(({ key }) => key);
 
-// A panel's parent lives in the ontology graph and is absent from the panel record, so
-// membership is resolved through the project's children. The answer carries keys alone:
-// consumers read each panel's own fields, so a rename must not re-answer the query.
+// The answer carries keys alone: consumers read each panel's own fields, so a rename
+// must not re-answer the query.
 export const { use: useKeysByProject } = Flux.createRetrieve<
   RetrieveKeysByProjectQuery,
   panel.Key[]
 >({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { project: projectKey } }) =>
-    keysOf(await client.panels.retrieve(childrenOf(projectKey))),
+    keysOf(await client.panels.retrieve({ projects: [projectKey] })),
   onChange: ({ client, query: { project: projectKey } }, handler) =>
-    client.panels.onChange(childrenOf(projectKey), (result) =>
+    client.panels.onChange({ projects: [projectKey] }, (result) =>
       handler(query.isLive(result) ? keysOf(result) : undefined),
     ),
   getCached: ({ client, query: { project: projectKey } }) => {
-    const cached = client.panels.getCached(childrenOf(projectKey));
+    const cached = client.panels.getCached({ projects: [projectKey] });
     return query.isLive(cached) ? keysOf(cached) : undefined;
   },
   equal: (prev, next) => compare.primitiveArrays(prev, next) === compare.EQUAL,
@@ -92,9 +87,9 @@ const requireTab = (root: panel.Node, { key, tabKey }: TabContentParams) => {
   return tab;
 };
 
-// bindTabHook lifts a hook needing both a panel key and a tab key into one whose keys are
-// sourced from the surrounding Panel and Tab scopes; either may be overridden explicitly.
-// The two-level analogue of scope.bindHook.
+// bindTabHook lifts a hook needing both a panel key and a tab key into one whose keys
+// are sourced from the surrounding Panel and Tab scopes; either may be overridden
+// explicitly. The two-level analogue of scope.bindHook.
 type BoundTabHook<Args extends TabContentParams, R> = optional.Arg<
   optional.Optional<Args, "key" | "tabKey">,
   R

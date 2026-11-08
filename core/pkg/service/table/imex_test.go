@@ -10,12 +10,15 @@
 package table_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
@@ -37,8 +40,8 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export a table as a versioned envelope", func(ctx SpecContext) {
-			t := table.Table{Name: "exported"}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &t)).To(Succeed())
+			t := table.Table{Project: &proj.Key, Name: "exported"}
+			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, table.ResourceID(t.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("table"))
@@ -133,13 +136,38 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
+		It(
+			"Should refuse a group that is not in the parent project",
+			func(ctx SpecContext) {
+				other := project.Project{Name: "other"}
+				Expect(projectSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+				g := group.Group{
+					Name:   "in other",
+					Parent: new(project.ResourceID(other.Key)),
+				}
+				Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+				Expect(imexSvc.Import(ctx, db,
+					LoadEnvelope("versions/testdata/import_v1.json"),
+					imex.ImportOptions{Parent: proj.ResourceID(), Group: &g.Key},
+				)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"group: group %s is not in project %s", g.Key, proj.Key,
+					))),
+					MatchError(ContainSubstring("validation error")),
+				))
+				Expect(svc.NewRetrieve().
+					Where(table.MatchGroups(g.Key)).
+					Count(ctx, db)).To(BeZero())
+			},
+		)
+
 		It("Should reject a zero parent", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
 				LoadEnvelope("versions/testdata/import_v1.json"),
 				imex.ImportOptions{},
 			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("parent")),
-				MatchError(ContainSubstring("required")),
+				MatchError(ContainSubstring(`parent: must be a project, got ""`)),
+				MatchError(ContainSubstring("validation error")),
 			))
 		})
 
@@ -177,12 +205,13 @@ var _ = Describe("ImEx", func() {
 			"Should preserve table content through export then import",
 			func(ctx SpecContext) {
 				original := table.Table{
+					Project: &proj.Key,
 					Name:    "round-trip",
 					Rows:    []table.Row{{Key: "r0", Size: 42, Cells: []string{"c1"}}},
 					Columns: []table.Column{{Key: "c0", Size: 77}},
 				}
 				Expect(
-					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
+					svc.NewWriter(nil).Create(ctx, &original),
 				).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, table.ResourceID(original.Key)))
 				id := MustSucceed(imexSvc.Import(

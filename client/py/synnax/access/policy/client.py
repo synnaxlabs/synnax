@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax.access import role
 from synnax.access.policy.payload import Policy
 from synnax.access.policy.types_gen import (
     Key,
@@ -83,6 +84,7 @@ class Client:
         key: Key,
         internal: filter.BoolInput = ...,
         subjects: ID | list[ID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -98,6 +100,7 @@ class Client:
         key: filter.SetInput[Key] = ...,
         internal: filter.BoolInput = ...,
         subjects: ID | list[ID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -114,6 +117,7 @@ class Client:
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         internal: filter.BoolInput = ...,
         subjects: ID | list[ID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -145,6 +149,7 @@ class Client:
         :param internal: Keeps policies with this internal flag.
         :param subjects: Keeps the policies of the roles that any of these subjects
             hold.
+        :param roles: Keeps the policies of any of these roles.
         :param and_: Keeps policies that match every filter in the list.
         :param or_: Keeps policies that match any filter in the list.
         :param not_: Keeps policies that do not match the filter.

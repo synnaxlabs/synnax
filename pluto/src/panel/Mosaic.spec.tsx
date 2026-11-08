@@ -9,7 +9,7 @@
 
 import { access, panel, project, type resource, user } from "@synnaxlabs/client";
 import {
-  createPanelParent,
+  createPanelProject,
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
@@ -38,10 +38,10 @@ const client = createTestClient();
 // must pick up through the action channel.
 const writer = createTestClient();
 
-// Panel creation requires a parent; every panel here shares one throwaway project.
-let defaultParent: resource.ID;
+// Every panel here shares one throwaway project.
+let defaultProject: project.Key;
 beforeAll(async () => {
-  defaultParent = await createPanelParent(client);
+  defaultProject = await createPanelProject(client);
 });
 
 const ROUND_TRIP = { timeout: 5000 };
@@ -66,10 +66,21 @@ const selectorTab = (): panel.Tab => ({
   type: "selector",
 });
 
+const createPlots = async (tabs: panel.Tab[]): Promise<void> => {
+  for (const tab of tabs)
+    if (tab.variant === "resource")
+      await client.lineplots.create({
+        key: tab.resource.key,
+        name: `mosaic-${tab.resource.key}`,
+        project: defaultProject,
+      });
+};
+
 const createPanel = async (...tabs: panel.Tab[]): Promise<panel.Panel> => {
+  await createPlots(tabs);
   const created = await client.panels.create({
     name: `mosaic-${uuid.create()}`,
-    parent: defaultParent,
+    project: defaultProject,
   });
   if (tabs.length > 0)
     await client.panels.dispatch(
@@ -134,8 +145,8 @@ const TabNameProbe = (): ReactElement => {
   return <span>{`name:${type}`}</span>;
 };
 
-// TabKeyNameProbe renders a per-tab clickable name from the tab key in scope, so gesture
-// specs can target an individual tab's handle by its visible text.
+// TabKeyNameProbe renders a per-tab clickable name from the tab key in scope, so
+// gesture specs can target an individual tab's handle by its visible text.
 const TabKeyNameProbe = (): ReactElement => {
   const tabKey = Panel.TabScope.use();
   return <span>{`name:${tabKey}`}</span>;
@@ -811,6 +822,11 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(tab))).toBeTruthy());
 
       const resource = { type: "lineplot", key: uuid.create() } as const;
+      await client.lineplots.create({
+        key: resource.key,
+        name: `mosaic-${resource.key}`,
+        project: defaultProject,
+      });
       await writer.panels.retrieve(p.key);
       await writer.panels.dispatch(p.key, [
         panel.setTabResource({ key: tab.key, resource }),

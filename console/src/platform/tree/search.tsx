@@ -9,12 +9,12 @@
 
 import "@/platform/tree/search.css";
 
-import { type ontology, resource } from "@synnaxlabs/client";
+import { group, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Tree as Base } from "@synnaxlabs/lyra/tree";
-import { type Flux, Ontology } from "@synnaxlabs/pluto";
+import { type Flux, Group } from "@synnaxlabs/pluto";
 import { type state } from "@synnaxlabs/x";
 import {
   createContext,
@@ -27,6 +27,8 @@ import {
 
 import { CSS } from "@/platform/css";
 import { Toolbar } from "@/platform/toolbar";
+import { toResource } from "@/platform/tree/children";
+import { type Resource } from "@/platform/tree/types";
 
 /** How a search shows its matches: in one list, or inside their groups. */
 export type SearchLayout = "flat" | "groups";
@@ -36,8 +38,6 @@ export interface SearchQuery {
   term: string;
   /** The tree root. A match outside it does not show. */
   root: resource.ID;
-  /** The folder types and the types the toolbar searches for. */
-  types: resource.Type[];
   /** The most matches a source returns. */
   limit: number;
 }
@@ -45,7 +45,7 @@ export interface SearchQuery {
 /** The matches one source found, in rank order. */
 export type Matches =
   | { variant: "loading" }
-  | { variant: "success"; ids: resource.ID[] }
+  | { variant: "success"; resources: Resource[] }
   | { variant: "error"; description?: string };
 
 /**
@@ -59,38 +59,101 @@ export interface UseMatches {
 /** Converts a Flux result into the matches of one source. */
 export const toMatches = <T extends state.State>(
   result: Flux.Result<T[]>,
-  toID: (item: T) => resource.ID,
+  convert: (item: T) => Resource,
 ): Matches => {
   if (result.variant === "success")
-    return { variant: "success", ids: result.data.map(toID) };
+    return { variant: "success", resources: result.data.map(convert) };
   if (result.variant === "error")
     return { variant: "error", description: result.status.description };
   return { variant: "loading" };
 };
 
-const resourceID = ({ id }: ontology.Resource): resource.ID => id;
-
-/** Matches the resources of the query types under the root by name. */
-export const useOntologyMatches: UseMatches = (query) => {
-  const result = Ontology.useResultResources(
+/**
+ * Matches groups by name. A root that names a type keeps the groups of that scope; the
+ * search places the matches and drops the ones outside the root.
+ */
+export const useGroupMatches: UseMatches = (query) => {
+  const result = Group.useResultList(
     query == null
       ? null
       : {
           searchTerm: query.term,
-          root: query.root,
-          types: query.types,
           limit: query.limit,
+          ...(query.root.key === "" ? { scope: query.root.type } : {}),
         },
   );
-  return [toMatches(result, resourceID)];
+  return [toMatches(result, toResource("group"))];
+};
+
+const groupOf = ({ id, data }: Resource): group.Key | undefined => {
+  if (id.type !== "group") return group.keyZ.optional().parse(data?.group);
+  const parent = resource.idZ.optional().parse(data?.parent);
+  return parent?.type === "group" ? parent.key : undefined;
+};
+
+/** Names what a result row shows of a match, so a change to it rebuilds the results. */
+export const matchKey = (r: Resource): string =>
+  [r.key, r.name, groupOf(r) ?? ""].join("\t");
+
+/** Returns the keys of the groups that hold the resources. */
+export const groupsAbove = (resources: Resource[]): group.Key[] => [
+  ...new Set(resources.map(groupOf).filter((key) => key != null)),
+];
+
+// Whether a resource with no group above it sits at the top of the tree under root.
+const atTop = (r: Resource, root: resource.ID): boolean => {
+  if (r.id.type !== "group") return root.key === "";
+  const parent = resource.idZ.optional().parse(r.data?.parent);
+  if (parent != null) return resource.idsEqual(parent, root);
+  return root.key === "" && r.data?.scope === root.type;
+};
+
+/** Where the search places its matches. */
+export interface Placement {
+  /** The groups between the matches and the root. */
+  resources: Resource[];
+  /** The groups from the root down to the parent of each match, keyed by match key. */
+  paths: Record<string, resource.ID[][]>;
+}
+
+/**
+ * Places each resource under its groups, reading the group of a member and the parent
+ * of a group. A resource outside the root gets no path.
+ * @param groups - holds every group above the resources.
+ */
+export const placeInGroups = (
+  resources: Resource[],
+  groups: group.Group[],
+  root: resource.ID,
+): Placement => {
+  const byKey = new Map(groups.map((g) => [g.key, toResource("group")(g)]));
+  const pathOf = (r: Resource): Resource[] | null => {
+    const path: Resource[] = [];
+    let top = r;
+    for (let key = groupOf(r); key != null; key = groupOf(top)) {
+      if (root.type === "group" && key === root.key) return path;
+      const g = byKey.get(key);
+      if (g == null) return null;
+      path.unshift(g);
+      top = g;
+    }
+    return atTop(top, root) ? path : null;
+  };
+  const paths: Record<string, resource.ID[][]> = {};
+  const used = new Map<string, Resource>();
+  resources.forEach((r) => {
+    const path = pathOf(r);
+    if (path == null) return;
+    path.forEach((g) => used.set(g.key, g));
+    paths[r.key] = [path.map(({ id }) => id)];
+  });
+  return { resources: [...used.values()], paths };
 };
 
 export interface CreateSearchParams {
   /** What the search finds, in the plural, such as "channels". */
   noun: string;
-  /** The types the search finds along with the folders, such as "arc". */
-  types?: resource.Type[];
-  /** Defaults to {@link useOntologyMatches}. */
+  /** Defaults to {@link useGroupMatches}. */
   useMatches?: UseMatches;
 }
 
@@ -101,8 +164,10 @@ export interface ResultNodes {
   fixed: Set<string>;
   /** Groups to open on arrival, so the matches inside them show. */
   expanded: string[];
-  /** The parent of each node at the top of the results. */
-  parents: Map<string, resource.ID>;
+  /** The groups above each node at the top of the results, nearest first. */
+  paths: Map<string, resource.ID[]>;
+  /** The resource of each node. */
+  resources: Map<string, Resource>;
   /** The keys of every group above each match, over all of its paths. */
   ancestors: Map<string, Set<string>>;
 }

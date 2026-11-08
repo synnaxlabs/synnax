@@ -450,6 +450,18 @@ export class Space<
   }
 
   /**
+   * Refetches each maintained answer whose params satisfy the predicate. An answer with
+   * no subscriber refetches on its next read or subscribe instead.
+   */
+  refetchMatching(predicate: (params: P) => boolean): void {
+    this.queries.forEach((query) => {
+      if (query.teardown == null || !predicate(query.params)) return;
+      if (query.handlers.size === 0) this.markStale(query);
+      else this.scheduleRefetch(query);
+    });
+  }
+
+  /**
    * Resets every answer to unfetched and notifies subscribers that their answer was
    * invalidated, so the next read refetches. Maintenance subscriptions stay mounted.
    * Called by the cache when the cluster behind the connection is replaced.
@@ -980,8 +992,8 @@ export class Space<
    * Applies membership rechecks for the given keys against the table's current entries,
    * without notifying. Admissions append in iteration order up to the query's limit. In
    * a single space, evicting the last member flips the query to deleted or unfetched,
-   * and admitting a second member flips it to unfetched. A deleted answer admits like an
-   * empty one. Returns whether the answer changed: membership moved, or a member's
+   * and admitting a second member flips it to unfetched. A deleted answer admits like
+   * an empty one. Returns whether the answer changed: membership moved, or a member's
    * content was touched.
    */
   private applyRechecks(query: Query<P, K, D, V>, keys: Iterable<K>): boolean {

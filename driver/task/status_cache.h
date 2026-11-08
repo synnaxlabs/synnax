@@ -21,7 +21,8 @@
 
 namespace driver::task {
 /// @brief writes task statuses to the Core and keeps the latest status of each task, so
-/// it can send them again. Safe for concurrent use.
+/// it can send them again. Finds the task of a status by its owner. Safe for concurrent
+/// use.
 class StatusCache {
     /// @brief the latest status of one task, with no command key.
     struct Entry {
@@ -38,10 +39,10 @@ class StatusCache {
     /// @brief guards entries and released. Never held during a write, so a task never
     /// waits on the write of another task.
     std::mutex mu;
-    std::unordered_map<synnax::task::Key, std::shared_ptr<Entry>> entries;
+    std::unordered_map<synnax::resource::ID, std::shared_ptr<Entry>> entries;
     /// @brief the tasks that left this Driver and were not claimed again.
-    std::unordered_set<synnax::task::Key> released;
-    std::atomic<bool> stale_ = false;
+    std::unordered_set<synnax::resource::ID> released;
+    std::atomic<bool> is_stale = false;
 
     /// @brief returns the entry of the task of status, creating it with status if
     /// absent. Returns null for a released task.
@@ -54,6 +55,8 @@ public:
 
     /// @brief writes the status and keeps it as the latest status of its task, unless
     /// the task left this Driver.
+    /// @param status a status whose owner is its task. Throws std::bad_optional_access
+    /// when it has no owner.
     /// @returns the error of the write, or NIL for a task that left this Driver.
     [[nodiscard]] x::errors::Error set(synnax::task::Status &status);
 
@@ -67,7 +70,7 @@ public:
 
     /// @brief returns true when a write failed, a re-send included, and no re-send has
     /// started since.
-    [[nodiscard]] bool stale() const { return this->stale_; }
+    [[nodiscard]] bool stale() const { return this->is_stale; }
 
     /// @brief returns the latest status of the task, with no command key, or nullopt
     /// when the task has none or left this Driver. Waits for a write of the task's own

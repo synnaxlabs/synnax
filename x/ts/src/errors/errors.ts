@@ -37,9 +37,9 @@ export interface Matchable {
 }
 
 /**
- * An error that has a network-portable type, allowing it to be encoded/decoded into
- * a JSON representation. Also allows for simpler matching using @method matches instead of using
- * instanceof, which has a number of caveats.
+ * An error that has a network-portable type, allowing it to be encoded/decoded into a
+ * JSON representation. Also allows for simpler matching using @method matches instead
+ * of using instanceof, which has a number of caveats.
  */
 export interface Typed extends Error, Matchable {
   discriminator: typeof ERROR_DISCRIMINATOR;

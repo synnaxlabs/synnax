@@ -18,18 +18,18 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -63,43 +63,30 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = testutil.NewNode(ctx)
 	db = node.DB
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: node.DB,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: otg,
-		DB:       node.DB,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: node.DB,
+	}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB: node.DB,
 	}))
 	rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           node.DB,
-		Ontology:     otg,
-		Group:        groupSvc,
 		HostProvider: hostProvider,
 		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Status:   statusSvc,
-		Rack:     rackService,
+		DB:     node.DB,
+		Status: statusSvc,
+		Rack:   rackService,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
@@ -116,26 +103,35 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: node.DB}))
 	configs := MustSucceed(taskconfig.NewRegistry(pd.Stores()...))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Rack:     rackService,
-		Status:   statusSvc,
-		Channel:  channelSvc,
-		ImEx:     imex.NewService(),
-		Configs:  configs,
+		DB:      node.DB,
+		Rack:    rackService,
+		Status:  statusSvc,
+		Channel: channelSvc,
+		ImEx:    imex.NewService(),
+		Configs: configs,
 	}))
 	taskWriter = taskService.NewWriter(nil)
 })
 
-// retrieveStatus returns the status stored under key, or the zero status when none is
-// stored.
-func retrieveStatus[D any](ctx context.Context, key status.Key) status.Status[D] {
+// createTask stores t so that it can own a status. It skips task.Writer, which writes
+// a status of its own, so a spec sees only the statuses the code under test writes.
+func createTask(ctx context.Context, t task.Task) {
+	GinkgoHelper()
+	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+		To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+	})
+}
+
+// retrieveStatus returns the status that owner holds, or the zero status when it holds
+// none.
+func retrieveStatus[D any](ctx context.Context, owner resource.ID) status.Status[D] {
 	GinkgoHelper()
 	var stat status.Status[D]
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[D]().
-			Where(status.MatchKeys[D](key)).
+			Where(status.MatchOwners[D](owner)).
 			Entry(&stat).
 			Exec(ctx, nil),
 		query.ErrNotFound,
@@ -184,7 +180,7 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 	details.Cmd = cmdKey
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
-			Key:         t.ResourceID().String(),
+			Owner:       new(t.ResourceID()),
 			Name:        t.Name,
 			Time:        telem.Now(),
 			Variant:     status.VariantError,

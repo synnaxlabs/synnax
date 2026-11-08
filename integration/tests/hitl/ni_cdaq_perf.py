@@ -97,7 +97,7 @@ class CDAQAnalogReadRate(CDAQAnalogRead):
             assert self.tsk is not None
             with self.tsk.run():
                 started = sy.TimeStamp.now()
-                sy.sleep(_ACQUISITION_S)
+                sy.sleep(_ACQUISITION_S)  # noqa: TID251 fixed sample window
                 stopping = sy.TimeStamp.now()
             problems = self._read_until_stopped(statuses)
         stamps = (
@@ -133,11 +133,11 @@ class CDAQAnalogReadRate(CDAQAnalogRead):
                     status = sy.task.Status.model_validate(raw)
                 except ValidationError:
                     continue
-                if status.details is None or status.details.task != self.tsk.key:
+                if status.owner != sy.task.resource_id(self.tsk.key):
                     continue
                 if status.variant in ("warning", "error"):
                     problems.append(f"{status.variant}: {status_text(status)}")
-                if not status.details.running:
+                if status.details is not None and not status.details.running:
                     stopped = True
         if not stopped:
             self.fail(f"No stop status in {_STOP_STATUS_TIMEOUT_S} s")

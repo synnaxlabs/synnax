@@ -28,8 +28,6 @@ var _ = Describe("ServiceConfig", func() {
 	BeforeEach(func() {
 		cfg = user.ServiceConfig{
 			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
 			Password: passwordSvc,
 		}
 	})
@@ -39,8 +37,6 @@ var _ = Describe("ServiceConfig", func() {
 			func() {
 				result := user.ServiceConfig{}.Override(cfg)
 				Expect(result.DB).To(Equal(db))
-				Expect(result.Ontology).To(Equal(otg))
-				Expect(result.Group).To(Equal(groupSvc))
 				Expect(result.Password).To(Equal(passwordSvc))
 			},
 		)
@@ -49,8 +45,6 @@ var _ = Describe("ServiceConfig", func() {
 			func() {
 				result := cfg.Override(user.ServiceConfig{})
 				Expect(result.DB).To(Equal(db))
-				Expect(result.Ontology).To(Equal(otg))
-				Expect(result.Group).To(Equal(groupSvc))
 				Expect(result.Password).To(Equal(passwordSvc))
 			},
 		)
@@ -69,16 +63,6 @@ var _ = Describe("ServiceConfig", func() {
 				"db",
 				func(c *user.ServiceConfig) { c.DB = nil },
 				"db: must be non-nil",
-			),
-			Entry(
-				"ontology",
-				func(c *user.ServiceConfig) { c.Ontology = nil },
-				"ontology: must be non-nil",
-			),
-			Entry(
-				"group",
-				func(c *user.ServiceConfig) { c.Group = nil },
-				"group: must be non-nil",
 			),
 			Entry(
 				"password",

@@ -66,11 +66,11 @@ describe("Device.useFindModal", () => {
     });
     await client.statuses.set(
       createTaskStatus({
-        key: task.statusKey(scanner.key),
+        owner: task.resourceID(scanner.key),
         variant: "warning",
         message: "Failed to scan for devices",
         description: "Cannot open en1 for raw Ethernet access.",
-        details: { task: scanner.key, running: true, rack: rack.key },
+        details: { running: true, rack: rack.key },
       }),
     );
     await renderModalOpener(Device.useFindModal, [{ hardware }], { client });

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -37,12 +38,19 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	svc    *service.Layer
 	apiSvc *apipolicy.Service
+	root   user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
-	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
+	creds := auth.Credentials{Username: "root", Password: "p"}
+	svc = MustOpen(svctestutil.OpenLayer(
+		ctx,
+		node,
+		service.LayerConfig{RootCredentials: creds},
+	))
+	root, _ = MustSucceed2(user.ProvisionRoot(ctx, svc.User, svc.Password, creds))
 	apiSvc = MustSucceed(apipolicy.NewService(apipolicy.ServiceConfig{RBAC: svc.RBAC}))
 })
 
@@ -54,7 +62,15 @@ func createUser(ctx SpecContext) user.User {
 	}))
 }
 
-// grantOn grants the action on the objects to the subject through a fresh role, and
+// createRole creates a role that is not built in.
+func createRole(ctx SpecContext) role.Role {
+	GinkgoHelper()
+	r := role.Role{Name: "role-" + uuid.New().String()}
+	Expect(svc.RBAC.Role.NewWriter(nil, false).Create(ctx, &r)).To(Succeed())
+	return r
+}
+
+// grantOn grants the action on the objects to the subject through a new role, and
 // returns the policy that holds the grant.
 func grantOn(
 	ctx SpecContext,
@@ -63,17 +79,15 @@ func grantOn(
 	objects ...resource.ID,
 ) policy.Policy {
 	GinkgoHelper()
-	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
+	r := createRole(ctx)
 	p := policy.Policy{
+		Role:    r.Key,
 		Name:    "policy-" + uuid.New().String(),
 		Objects: objects,
 		Actions: []access.Action{action},
 	}
-	Expect(policyWriter.Create(ctx, &p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	Expect(svc.RBAC.Policy.NewWriter(nil, true).Create(ctx, &p)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	Expect(svc.User.NewWriter(nil).AssignRole(ctx, r.Key, key)).To(Succeed())
 	return p
 }

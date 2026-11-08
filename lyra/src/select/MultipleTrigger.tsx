@@ -92,7 +92,9 @@ export interface MultipleTriggerProps<
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
 
-/** @returns whether a drag carries at least one entry of the type not already selected. */
+/**
+ * @returns whether a drag carries at least one entry of the type not already selected.
+ */
 export const staticCanDrop = <K extends record.Key>(
   { items: entities }: Haul.DraggingState,
   haulType: string,

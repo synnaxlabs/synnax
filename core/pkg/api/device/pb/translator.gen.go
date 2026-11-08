@@ -22,7 +22,6 @@ func RetrieveRequestToPB(r device.RetrieveRequest) (*RetrieveRequest, error) {
 		SearchTerm:    r.SearchTerm,
 		Offset:        r.Offset,
 		IncludeStatus: r.IncludeStatus,
-		IncludeParent: r.IncludeParent,
 	}
 	if r.Where != nil {
 		var err error
@@ -46,7 +45,6 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (device.RetrieveRequest, error) 
 	r.SearchTerm = pb.SearchTerm
 	r.Offset = pb.Offset
 	r.IncludeStatus = pb.IncludeStatus
-	r.IncludeParent = pb.IncludeParent
 	if pb.Where != nil {
 		val, err := devicepb.WhereFromPB(pb.Where)
 		if err != nil {

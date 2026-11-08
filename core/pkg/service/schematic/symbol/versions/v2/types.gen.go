@@ -128,7 +128,6 @@ func (s *Symbol) ApplyDefaults() {
 // schema constraints.
 func (s Symbol) Validate() error {
 	v := validate.New("Symbol")
-	v.NotEmptyString("name", s.Name)
 	v.Exec(func() error { return validate.PathedError(s.Data.Validate(), "data") })
 	return v.Error()
 }

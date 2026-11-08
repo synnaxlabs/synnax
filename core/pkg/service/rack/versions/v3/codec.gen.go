@@ -11,7 +11,11 @@
 
 package v3
 
-import "github.com/synnaxlabs/x/encoding/orc"
+import (
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	"github.com/synnaxlabs/x/encoding/orc"
+	"uuid"
+)
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (rv Rack) EncodeOrc(w *orc.Writer) error {
@@ -30,6 +34,19 @@ func (rv Rack) EncodeOrc(w *orc.Writer) error {
 		w.String(*rv.Version)
 	} else {
 		w.Bool(false)
+	}
+	if rv.Group != nil {
+		w.Bool(true)
+		w.Write((*rv.Group)[:])
+	} else {
+		w.Bool(false)
+	}
+	w.Bool(rv.Roles != nil)
+	if rv.Roles != nil {
+		w.Uint32(uint32(len(rv.Roles)))
+		for i := range rv.Roles {
+			w.Write(rv.Roles[i][:])
+		}
 	}
 	return nil
 }
@@ -79,6 +96,37 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			rv.Version = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv group.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			rv.Group = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rv.Roles = make([]uuid.UUID, n)
+			for i := range rv.Roles {
+				if _, err := r.Read(rv.Roles[i][:]); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

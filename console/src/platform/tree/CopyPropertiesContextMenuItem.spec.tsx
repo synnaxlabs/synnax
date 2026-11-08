@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, resource } from "@synnaxlabs/client";
+import { resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
@@ -27,7 +28,7 @@ const client = createTestClient();
 
 const renderCopyItem = async (
   ids: resource.ID[],
-  resources: ontology.Resource[],
+  resources: Tree.Resource[],
 ): Promise<void> => {
   const store = await createTestStore();
   const props: Tree.ContextMenuProps = {
@@ -58,6 +59,19 @@ describe("CopyPropertiesContextMenuItem", () => {
     fireEvent.click(screen.getByText("Copy properties"));
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(JSON.stringify(properties)),
+    );
+  });
+
+  it("should copy properties that hold a timestamp", async () => {
+    const rackID = resource.idZ.parse("rack:65537");
+    const rack = createResource(rackID, "my_rack", {
+      key: 65537,
+      status: { time: new TimeStamp(1000n) },
+    });
+    await renderCopyItem([rackID], [rack]);
+    fireEvent.click(screen.getByText("Copy properties"));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith('{"key":65537,"status":{"time":"1000"}}'),
     );
   });
 

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { group } from "@/group";
 import { type Lines } from "@/rack/where.gen";
 
 /** The typed lines of a rack Where. Only the Core can check hostIsNode. */
-export const LINES: Lines = { hostIsNode: null };
+export const LINES: Lines = { ...group.MEMBER_LINES, hostIsNode: null };

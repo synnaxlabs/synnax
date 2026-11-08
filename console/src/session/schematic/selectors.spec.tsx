@@ -316,7 +316,8 @@ const setup = async ({
   userClient = client,
   scoped = true,
 }: SetupParams) => {
-  const created = await client.schematics.create(projectKey, {
+  const created = await client.schematics.create({
+    project: projectKey,
     key: uuid.create(),
     name: id.create(),
     snapshot,
