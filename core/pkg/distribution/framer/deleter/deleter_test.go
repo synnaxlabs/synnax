@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
@@ -119,6 +120,22 @@ var _ = Describe("Deleter", Ordered, func() {
 						Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(3)))
 					},
 				)
+				It("Should skip free channels", func(ctx SpecContext) {
+					free := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{{
+						Name:        "free",
+						DataType:    telem.Float32T,
+						Leaseholder: node.KeyFree,
+						Virtual:     true,
+					}}))
+					keys := channel.Keys{s.keys[0], free[0].Key()}
+					Expect(
+						s.dist.Framer.DeleteTimeRange(ctx, keys, telem.TimeRangeMax),
+					).To(Succeed())
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+					Expect(i.Value().Get(s.keys[0]).Len()).To(BeZero())
+					Expect(i.Value().Get(s.keys[1]).Len()).To(Equal(int64(3)))
+				})
 				It(
 					"Should be a no-op when no keys are provided",
 					func(ctx SpecContext) {
