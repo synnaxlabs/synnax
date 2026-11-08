@@ -227,10 +227,6 @@ struct Properties {
     uint32_t serial{};
     /// @brief human-readable name of the slave device.
     std::string name;
-    /// @brief total input size in bits.
-    uint32_t input_bits{};
-    /// @brief total output size in bits.
-    uint32_t output_bits{};
     /// @brief discovered input PDOs (TxPDO, slave→master).
     std::vector<pdo::Properties> input_pdos;
     /// @brief discovered output PDOs (RxPDO, master→slave).
@@ -303,8 +299,6 @@ struct Properties {
         props["name"] = this->name;
         props["network"] = network;
         props["position"] = this->position;
-        props["input_bits"] = this->input_bits;
-        props["output_bits"] = this->output_bits;
         props["enabled"] = this->enabled;
 
         nlohmann::json op_modes = nlohmann::json::array();
