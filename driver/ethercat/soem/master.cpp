@@ -124,16 +124,11 @@ Master::Master(std::unique_ptr<API> api, std::string interface_name, Config cfg)
     iface_name(std::move(interface_name)),
     api(std::move(api)),
     cfg(std::move(cfg)),
-    iomap(DEFAULT_IOMAP_SIZE, 0),
-    input_sz(0),
-    output_sz(0),
-    initialized(false),
-    activated(false),
-    expected_wkc(0) {}
+    iomap(DEFAULT_IOMAP_SIZE, 0) {}
 
 // NOLINTNEXTLINE(bugprone-exception-escape): its strings throw only past max_size.
 Master::~Master() {
-    if (this->activated || this->initialized) this->deactivate();
+    if (this->session || this->initialized) this->deactivate();
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() {
@@ -208,9 +203,9 @@ bool Master::write_startup_parameters(
     }
     std::lock_guard lock(this->mu);
     if (failure.empty())
-        this->startup_failures.erase(pos);
+        this->session->startup_failures.erase(pos);
     else
-        this->startup_failures[pos] = failure;
+        this->session->startup_failures[pos] = failure;
     return failure.empty();
 }
 
@@ -218,60 +213,56 @@ master::Activation Master::activate(
     const master::Plan &plan,
     const std::function<void(const master::Image &)> &start_cycle
 ) {
-    {
-        std::lock_guard lock(this->mu);
-        this->start_refusals.clear();
-        this->start_dc_sync_refused = false;
-    }
-    auto err = this->start(plan, start_cycle);
+    if (!this->initialized)
+        return {
+            .err = x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized")
+        };
+    if (this->session)
+        return {
+            .err = x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                "master already activated"
+            )
+        };
+    this->session.emplace().plan = plan;
+    auto err = this->start(start_cycle);
     std::lock_guard lock(this->mu);
     return {
         .err = std::move(err),
-        .refusals = this->start_refusals,
-        .dc_sync_refused = this->start_dc_sync_refused,
+        .refusals = this->session->refusals,
+        .dc_sync_refused = this->session->dc_sync_refused,
     };
 }
 
-x::errors::Error Master::start(
-    const master::Plan &plan,
-    const std::function<void(const master::Image &)> &start_cycle
-) {
-    if (!this->initialized)
-        return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
-    if (this->activated)
-        return x::errors::Error(errors::ACTIVATION_ERROR, "master already activated");
-    {
-        std::lock_guard lock(this->mu);
-        this->disabled_slaves.clear();
-        this->chosen_modes.clear();
-        this->startup_parameters.clear();
-        for (const auto &[position, config]: plan.slaves) {
-            if (!config.enabled) this->disabled_slaves.insert(position);
-            if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
-            this->startup_parameters[position] = config.startup_parameters;
-        }
-    }
-    auto [dc_setups, dc_err] = this->resolve_dc(plan.period);
+slave::Config Master::config(const uint16_t pos) const {
+    const auto &slaves = this->session->plan.slaves;
+    const auto it = slaves.find(pos);
+    return it == slaves.end() ? slave::Config{} : it->second;
+}
+
+x::errors::Error
+Master::start(const std::function<void(const master::Image &)> &start_cycle) {
+    auto &session = *this->session;
+    auto [dc_setups, dc_err] = this->resolve_dc();
     if (dc_err) return dc_err;
-    this->dc_setups = std::move(dc_setups);
+    session.dc_setups = std::move(dc_setups);
 
     std::vector<uint16_t> parameterized;
-    {
-        std::lock_guard lock(this->mu);
-        this->startup_failures.clear();
-        for (int i = 1; i <= this->api->context.slavecount; ++i) {
-            const bool off = this->disabled_slaves.contains(i);
-            this->slave(i).group = off ? DISABLED_GROUP : ENABLED_GROUP;
-            const auto it = this->startup_parameters.find(i);
-            if (off || it == this->startup_parameters.end() || it->second.empty()) {
-                this->api->set_PO2SOconfig(i, nullptr);
-                continue;
-            }
-            parameterized.push_back(static_cast<uint16_t>(i));
-            this->api->set_PO2SOconfig(i, [this, params = it->second](uint16_t pos) {
-                this->write_startup_parameters(pos, params);
-            });
+    for (int i = 1; i <= this->api->context.slavecount; ++i) {
+        const auto pos = static_cast<uint16_t>(i);
+        auto config = this->config(pos);
+        this->slave(pos).group = config.enabled ? ENABLED_GROUP : DISABLED_GROUP;
+        if (!config.enabled || config.startup_parameters.empty()) {
+            this->api->set_PO2SOconfig(pos, nullptr);
+            continue;
         }
+        parameterized.push_back(pos);
+        this->api->set_PO2SOconfig(
+            pos,
+            [this, params = std::move(config.startup_parameters)](uint16_t p) {
+                this->write_startup_parameters(p, params);
+            }
+        );
     }
 
     if (const auto err = this->clear_dc_activation()) return err;
@@ -300,7 +291,7 @@ x::errors::Error Master::start(
     {
         std::lock_guard lock(this->mu);
         std::string msg;
-        for (const auto &[pos, failure]: this->startup_failures)
+        for (const auto &[pos, failure]: session.startup_failures)
             msg += (msg.empty() ? "" : "; ") + std::string("slave ") +
                    std::to_string(pos) + " (" + this->slave(pos).name + ") " + failure;
         if (!msg.empty()) return x::errors::Error(errors::STARTUP_PARAMETER_ERROR, msg);
@@ -318,22 +309,19 @@ x::errors::Error Master::start(
     auto &group = this->api->context.grouplist[ENABLED_GROUP];
     group.hasdc = this->slave(0).hasdc;
     group.DCnext = this->slave(0).DCnext;
-    this->has_dc = group.hasdc != 0;
-
-    this->input_sz = group.Ibytes;
-    this->output_sz = group.Obytes;
-
-    this->expected_wkc = (group.outputsWKC * 2) + group.inputsWKC;
-    this->activated = true;
+    session.has_dc = group.hasdc != 0;
+    session.input_sz = group.Ibytes;
+    session.output_sz = group.Obytes;
+    session.expected_wkc = (group.outputsWKC * 2) + group.inputsWKC;
     // A slave can stop its process data task for good when the master reads its inputs
     // while it moves to SAFE-OP.
-    this->process_data_held.store(true, std::memory_order_release);
+    session.process_data_held.store(true, std::memory_order_release);
     start_cycle(this->image());
     if (auto err = this->start_dc()) return err;
 
     const int timeout = micros(this->cfg.state_change_timeout);
     if (auto err = this->request_state(EC_STATE_SAFE_OP, timeout)) return err;
-    this->process_data_held.store(false, std::memory_order_release);
+    session.process_data_held.store(false, std::memory_order_release);
     // A slave with outputs refuses OP with a sync manager watchdog error until a frame
     // passes it in SAFE-OP.
     if (!this->wait_for_frame(
@@ -348,25 +336,13 @@ x::errors::Error Master::start(
 }
 
 void Master::deactivate() {
-    if (this->activated) {
+    if (this->session) {
         this->request_state(EC_STATE_INIT, micros(this->cfg.init_timeout));
         // INIT leaves the DC activation as it is.
         if (const auto err = this->clear_dc_activation())
             LOG(WARNING) << "[ethercat] " << err.data;
-        this->dc_setups.clear();
-        this->last_dc_time = NO_DC_FRAME;
-        this->host_dc_offset.store(NO_DC_FRAME, std::memory_order_relaxed);
-        {
-            std::lock_guard lock(this->mu);
-            this->dc_restore_errors.clear();
-        }
-        this->activated = false;
-        this->expected_wkc = 0;
-        this->has_dc = false;
-        this->input_sz = 0;
-        this->output_sz = 0;
+        this->session.reset();
     }
-
     if (this->initialized) {
         this->api->close();
         this->initialized = false;
@@ -375,31 +351,32 @@ void Master::deactivate() {
 }
 
 x::errors::Error Master::receive() {
-    if (!this->activated)
+    if (!this->session)
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
+    auto &session = *this->session;
 
-    if (this->held_err) return this->held_err;
+    if (session.held_err) return session.held_err;
     const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
 
     if (wkc < 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed");
     this->frames.fetch_add(1, std::memory_order_release);
 
-    if (wkc != this->expected_wkc)
+    if (wkc != session.expected_wkc)
         return x::errors::Error(
             errors::WORKING_COUNTER_ERROR,
-            "working counter mismatch: expected " + std::to_string(this->expected_wkc) +
-                ", got " + std::to_string(wkc)
+            "working counter mismatch: expected " +
+                std::to_string(session.expected_wkc) + ", got " + std::to_string(wkc)
         );
 
     // SOEM takes the DC time without the working counter of its datagram. A lost
     // reference clock gives a frozen time, and a reset one goes back. The frame read
     // the time as it went out, which can be a bus period before this receive.
     if (const int64_t dc = this->api->context.DCtime;
-        this->has_dc && dc > this->last_dc_time) {
-        this->last_dc_time = dc;
-        const x::telem::TimeSpan sent_at(this->sent_at.time_since_epoch());
-        this->host_dc_offset.store(
+        session.has_dc && dc > session.last_dc_time) {
+        session.last_dc_time = dc;
+        const x::telem::TimeSpan sent_at(session.sent_at.time_since_epoch());
+        session.host_dc_offset.store(
             dc - sent_at.nanoseconds(),
             std::memory_order_relaxed
         );
@@ -408,21 +385,22 @@ x::errors::Error Master::receive() {
 }
 
 x::errors::Error Master::send() {
-    if (!this->activated)
+    if (!this->session)
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
+    auto &session = *this->session;
 
-    this->held_err = x::errors::NIL;
-    if (this->process_data_held.load(std::memory_order_acquire)) {
-        if (this->has_dc &&
+    session.held_err = x::errors::NIL;
+    if (session.process_data_held.load(std::memory_order_acquire)) {
+        if (session.has_dc &&
             this->api->sync_dc(ENABLED_GROUP, PROCESSDATA_TIMEOUT) <= 0) {
-            this->held_err = x::errors::Error(
+            session.held_err = x::errors::Error(
                 errors::CYCLIC_ERROR,
                 "reference clock frame failed"
             );
-            return this->held_err;
+            return session.held_err;
         }
-        if (this->has_dc) this->frames.fetch_add(1, std::memory_order_release);
-        this->held_err = x::errors::Error(
+        if (session.has_dc) this->frames.fetch_add(1, std::memory_order_release);
+        session.held_err = x::errors::Error(
             errors::WORKING_COUNTER_ERROR,
             "no process data passes the slaves until they reach SAFE-OP"
         );
@@ -433,12 +411,12 @@ x::errors::Error Master::send() {
 
     if (result <= 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
-    this->sent_at = sent_at;
+    session.sent_at = sent_at;
     return x::errors::NIL;
 }
 
 std::optional<x::telem::TimeStamp> Master::dc_time() const {
-    if (!this->has_dc) return std::nullopt;
+    if (!this->session || !this->session->has_dc) return std::nullopt;
     return master::DC_EPOCH + x::telem::TimeSpan(this->api->context.DCtime);
 }
 
@@ -461,13 +439,13 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
             h.al_status = ec_ALstatuscode2string(this->slave(i).ALstatuscode);
         {
             std::lock_guard lock(this->mu);
-            if (const auto it = this->dc_restore_errors.find(i);
-                it != this->dc_restore_errors.end()) {
+            if (const auto it = this->session->dc_restore_errors.find(i);
+                it != this->session->dc_restore_errors.end()) {
                 h.faulted = true;
                 h.dc_restore_error = it->second;
             }
-            if (const auto it = this->startup_failures.find(i);
-                it != this->startup_failures.end()) {
+            if (const auto it = this->session->startup_failures.find(i);
+                it != this->session->startup_failures.end()) {
                 h.faulted = true;
                 h.startup_error = it->second;
             }
@@ -486,7 +464,7 @@ void Master::update_lost(const uint16_t pos) {
 void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
     {
         std::lock_guard lock(this->mu);
-        if (this->startup_failures.contains(pos)) return;
+        if (this->session->startup_failures.contains(pos)) return;
     }
     const uint16_t state = this->slave(pos).state;
     if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
@@ -498,13 +476,7 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
                                                            : EC_STATE_OPERATIONAL;
         this->api->writestate(pos);
     } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
-        std::vector<slave::StartupParameter> params;
-        {
-            std::lock_guard lock(this->mu);
-            if (const auto it = this->startup_parameters.find(pos);
-                it != this->startup_parameters.end())
-                params = it->second;
-        }
+        auto params = this->config(pos).startup_parameters;
         const bool has_dc = this->slave(pos).hasdc != 0;
         if (has_dc || !params.empty())
             this->api->set_PO2SOconfig(
@@ -514,15 +486,15 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
                     const auto err = this->restore_dc(pos, breaker);
                     std::lock_guard lock(this->mu);
                     if (err)
-                        this->dc_restore_errors[pos] = err.data;
+                        this->session->dc_restore_errors[pos] = err.data;
                     else
-                        this->dc_restore_errors.erase(pos);
+                        this->session->dc_restore_errors.erase(pos);
                 }
             );
         this->api->reconfig_slave(pos, RECOVERY_TIMEOUT);
         this->api->set_PO2SOconfig(pos, nullptr);
         std::lock_guard lock(this->mu);
-        if (this->startup_failures.contains(pos)) {
+        if (this->session->startup_failures.contains(pos)) {
             this->slave(pos).state = EC_STATE_PRE_OP;
             this->api->writestate(pos);
         }
@@ -555,11 +527,12 @@ slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
 }
 
 master::Image Master::image() {
+    const auto &session = *this->session;
     master::Image image{
-        .inputs = {this->iomap.data() + this->output_sz, this->input_sz},
-        .outputs = {this->iomap.data(), this->output_sz},
+        .inputs = {this->iomap.data() + session.output_sz, session.input_sz},
+        .outputs = {this->iomap.data(), session.output_sz},
     };
-    for (const auto &[pos, regs]: this->dc_setups)
+    for (const auto &[pos, regs]: session.dc_setups)
         if (regs.sync0_cycle > 0 && (regs.assign_activate & dc::PDI_SYNC_UNIT) == 0)
             image.dc_sync.push_back(regs);
     std::lock_guard lock(this->mu);
@@ -575,7 +548,7 @@ master::Image Master::image() {
                                        : 0;
         const size_t input_offset = inputs != nullptr
                                       ? static_cast<size_t>(inputs - base) -
-                                            this->output_sz
+                                            session.output_sz
                                       : 0;
         const auto input_bits = pdo::total_bits(props.input_pdos);
         const auto output_bits = pdo::total_bits(props.output_pdos);
@@ -869,19 +842,17 @@ x::errors::Error Master::clear_dc_activation() {
     return x::errors::Error(errors::ACTIVATION_ERROR, failed);
 }
 
-std::pair<std::vector<Master::DCSetup>, x::errors::Error>
-Master::resolve_dc(const x::telem::TimeSpan period) const {
+std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() const {
+    const auto period = this->session->plan.period;
     std::vector<DCSetup> setups;
     std::vector<x::telem::TimeSpan> cycles;
     std::string events;
     std::lock_guard lock(this->mu);
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
-        if (this->disabled_slaves.contains(props.position)) continue;
-        std::optional<dc::Choice> choice;
-        if (const auto it = this->chosen_modes.find(props.position);
-            it != this->chosen_modes.end())
-            choice = it->second;
+        const auto config = this->config(props.position);
+        if (!config.enabled) continue;
+        const auto &choice = config.op_mode;
         const auto [mode, select_err] = dc::select(props.op_modes, choice);
         if (select_err)
             return {
@@ -1003,14 +974,15 @@ x::errors::Error Master::wait_for_dc_settle(
 }
 
 x::errors::Error Master::start_dc() {
-    if (this->dc_setups.empty()) return x::errors::NIL;
+    const auto &setups = this->session->dc_setups;
+    if (setups.empty()) return x::errors::NIL;
     std::vector<uint16_t> positions;
-    positions.reserve(this->dc_setups.size());
-    for (const auto &setup: this->dc_setups)
+    positions.reserve(setups.size());
+    for (const auto &setup: setups)
         positions.push_back(setup.position);
     if (auto err = this->wait_for_dc_settle(positions, [] { return false; }))
         return err;
-    for (const auto &setup: this->dc_setups)
+    for (const auto &setup: setups)
         if (auto err = this->start_sync(setup)) return err;
     return x::errors::NIL;
 }
@@ -1086,7 +1058,9 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
                                this->slave(other).pdelay;
         return this->write_dc_register(pos, ECT_REG_DCSYSOFFSET, system - local);
     }
-    const int64_t offset = this->host_dc_offset.load(std::memory_order_relaxed);
+    const int64_t offset = this->session->host_dc_offset.load(
+        std::memory_order_relaxed
+    );
     if (offset == NO_DC_FRAME)
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
@@ -1113,8 +1087,9 @@ Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
             return !breaker.running();
         }))
         return err;
-    const auto setup = std::ranges::find(this->dc_setups, pos, &DCSetup::position);
-    if (setup == this->dc_setups.end()) return x::errors::NIL;
+    const auto &setups = this->session->dc_setups;
+    const auto setup = std::ranges::find(setups, pos, &DCSetup::position);
+    if (setup == setups.end()) return x::errors::NIL;
     return this->start_sync(*setup);
 }
 
@@ -1153,7 +1128,7 @@ bool Master::al_error(const uint16_t pos) const {
 
 bool Master::restore_failed(const uint16_t pos) const {
     std::lock_guard lock(this->mu);
-    return this->dc_restore_errors.contains(pos);
+    return this->session->dc_restore_errors.contains(pos);
 }
 
 bool Master::wait_for_frame(
@@ -1200,8 +1175,8 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     }
     {
         std::lock_guard lock(this->mu);
-        this->start_refusals = refusing;
-        this->start_dc_sync_refused = dc_sync_refused;
+        this->session->refusals = refusing;
+        this->session->dc_sync_refused = dc_sync_refused;
     }
     return x::errors::Error(
         refusing.empty() ? errors::STATE_CHANGE_ERROR : errors::STATE_CHANGE_REFUSED,

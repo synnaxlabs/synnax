@@ -64,65 +64,64 @@ class Master final : public master::Master {
     Config cfg;
     /// @brief IOmap buffer for PDO exchange.
     std::vector<uint8_t> iomap;
-    /// @brief input size in bytes (TxPDO, slave->master).
-    size_t input_sz;
-    /// @brief output size in bytes (RxPDO, master->slave).
-    size_t output_sz;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> slave_list;
-    /// @brief slave positions that are disabled (excluded from cyclic exchange).
-    std::set<uint16_t> disabled_slaves;
-    /// @brief the mode the user chose for each slave that has a choice, keyed by
-    /// position.
-    std::map<uint16_t, dc::Choice> chosen_modes;
-    /// @brief why each slave refused a state in the last activate(), keyed by position.
-    std::map<uint16_t, slave::Refusal> start_refusals;
-    /// @brief whether a slave that failed the last activate() reports "Invalid DC SYNC
-    /// configuration".
-    bool start_dc_sync_refused = false;
-    /// @brief CoE objects written to each slave before SAFE-OP, keyed by position.
-    std::map<uint16_t, std::vector<slave::StartupParameter>> startup_parameters;
-    /// @brief why each slave rejected a startup parameter at its latest move to
-    /// SAFE-OP, keyed by position.
-    std::map<uint16_t, std::string> startup_failures;
-    /// @brief protects slave state queries.
+    /// @brief protects slave_list and the maps of the session that recovery writes.
     mutable std::mutex mu;
-    /// @brief whether the master has been initialized.
-    bool initialized;
-    /// @brief whether the master has been activated.
-    bool activated;
-    /// @brief expected working counter value for cyclic exchange.
-    int expected_wkc;
-    /// @brief whether the enabled slaves' frames carry the reference clock time.
-    bool has_dc = false;
+    /// @brief whether scan() opened the interface and found slaves.
+    bool initialized = false;
     /// @brief the frames that came back to the master.
     std::atomic<uint64_t> frames{0};
     /// @brief last_dc_time and host_dc_offset before a frame carries a DC time.
     static constexpr int64_t NO_DC_FRAME = std::numeric_limits<int64_t>::min();
-    /// @brief the latest DC time that moved forward, in nanoseconds.
-    int64_t last_dc_time = NO_DC_FRAME;
-    /// @brief the Config::clock time of the last process data send.
-    std::chrono::steady_clock::time_point sent_at;
-    /// @brief the DC time minus the Config::clock time, in nanoseconds, at the send of
-    /// the frame that gave last_dc_time.
-    std::atomic<int64_t> host_dc_offset{NO_DC_FRAME};
-    /// @brief whether the cycle holds process data back. A frame then carries only the
-    /// reference clock time.
-    std::atomic<bool> process_data_held{false};
-    /// @brief what receive returns after a send that held process data back, or NIL
-    /// after a send that did not. Only the cycle uses it.
-    x::errors::Error held_err;
 
     /// @brief the DC registers of one slave that runs in a DC mode.
     struct DCSetup {
         uint16_t position = 0;
         dc::Registers registers;
     };
-    /// @brief the DC setup of each enabled slave in a DC mode, set at activation.
-    std::vector<DCSetup> dc_setups;
-    /// @brief why the master could not restore the distributed clock of a slave that
-    /// came back, keyed by position.
-    std::unordered_map<uint16_t, std::string> dc_restore_errors;
+
+    /// @brief the state of one bus run, from activate() to deactivate().
+    struct Session {
+        /// @brief the plan that activate() got.
+        master::Plan plan;
+        /// @brief input size in bytes (TxPDO, slave->master).
+        size_t input_sz = 0;
+        /// @brief output size in bytes (RxPDO, master->slave).
+        size_t output_sz = 0;
+        /// @brief the working counter of a frame that every enabled slave handled.
+        int expected_wkc = 0;
+        /// @brief whether the enabled slaves' frames carry the reference clock time.
+        bool has_dc = false;
+        /// @brief the DC setup of each enabled slave in a DC mode.
+        std::vector<DCSetup> dc_setups;
+        /// @brief why each slave refused a state, keyed by position.
+        std::map<uint16_t, slave::Refusal> refusals;
+        /// @brief whether a slave that failed a state reports "Invalid DC SYNC
+        /// configuration".
+        bool dc_sync_refused = false;
+        /// @brief why each slave rejected a startup parameter at its latest move to
+        /// SAFE-OP, keyed by position.
+        std::map<uint16_t, std::string> startup_failures;
+        /// @brief why the master could not restore the distributed clock of a slave
+        /// that came back, keyed by position.
+        std::unordered_map<uint16_t, std::string> dc_restore_errors;
+        /// @brief the latest DC time that moved forward, in nanoseconds.
+        int64_t last_dc_time = NO_DC_FRAME;
+        /// @brief the Config::clock time of the last process data send.
+        std::chrono::steady_clock::time_point sent_at;
+        /// @brief the DC time minus the Config::clock time, in nanoseconds, at the send
+        /// of the frame that gave last_dc_time.
+        std::atomic<int64_t> host_dc_offset{NO_DC_FRAME};
+        /// @brief whether the cycle holds process data back. A frame then carries only
+        /// the reference clock time.
+        std::atomic<bool> process_data_held{false};
+        /// @brief what receive returns after a send that held process data back, or
+        /// NIL after a send that did not. Only the cycle uses it.
+        x::errors::Error held_err;
+    };
+    /// @brief the current bus run, or nullopt between deactivate() and activate().
+    std::optional<Session> session;
 
 public:
     /// @brief constructs a SOEM master with injected API, interface name, and config.
@@ -172,12 +171,12 @@ private:
     /// @brief reads the identity and PDO layout of the slave at a position.
     slave::DiscoveryResult discover_slave(uint16_t pos);
 
-    /// @brief runs activate() and returns its error. The refusals land in
-    /// start_refusals.
-    x::errors::Error start(
-        const master::Plan &plan,
-        const std::function<void(const master::Image &)> &start_cycle
-    );
+    /// @brief returns the settings that the session plan gives the slave at pos.
+    [[nodiscard]] slave::Config config(uint16_t pos) const;
+
+    /// @brief runs activate() in the new session and returns its error.
+    x::errors::Error
+    start(const std::function<void(const master::Image &)> &start_cycle);
 
     /// @brief returns the process data of the mapped enabled slaves.
     master::Image image();
@@ -232,8 +231,7 @@ private:
     /// when a mode gives values the registers cannot hold, or when the SYNC0 cycles
     /// that mark process data share no dc::MIN_EVENT_CYCLE grid or longer with the
     /// period.
-    std::pair<std::vector<DCSetup>, x::errors::Error>
-    resolve_dc(x::telem::TimeSpan period) const;
+    std::pair<std::vector<DCSetup>, x::errors::Error> resolve_dc() const;
 
     /// @brief waits until a frame carries the reference clock to the slaves, then until
     /// the clock of each slave at positions is within 10 µs of the reference clock.
@@ -307,9 +305,7 @@ private:
 
     /// @brief builds the error for enabled slaves that did not reach a state. It is a
     /// refusal when a slave refuses the state with an AL status code that a new start
-    /// cannot clear. Records each such slave in start_refusals, and records in
-    /// start_dc_sync_refused whether a failed slave reports "Invalid DC SYNC
-    /// configuration".
+    /// cannot clear. Records the refusals in the session.
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
 };
 
