@@ -12,6 +12,7 @@ package ranger_test
 import (
 	"context"
 	"encoding/json/v2"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,11 +22,17 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -524,6 +531,119 @@ var _ = Describe("Delete", func() {
 				To(denied(u, access.ActionUpdate, childID()))
 			Expect(rangeExists(ctx, child.Key)).To(BeTrue())
 		},
+	)
+})
+
+// held is a record in a range that a range delete cascades into.
+type held struct {
+	id     resource.ID
+	exists func(ctx SpecContext) bool
+}
+
+var _ = Describe("Delete cascades", func() {
+	var (
+		u user.User
+		r ranger.Range
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = createUser(ctx)
+		r = createRange(ctx)
+	})
+	deleteRange := func(ctx SpecContext) (struct{}, error) {
+		return del(
+			AuthedCtx(ctx, u),
+			apiranger.DeleteRequest{Keys: []ranger.Key{r.Key}},
+		)
+	}
+	createChild := func(ctx SpecContext) held {
+		child := ranger.Range{
+			Name:      "Child",
+			TimeRange: telem.NewRangeSeconds(1, 5),
+			Parent:    &r.Key,
+		}
+		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+		return held{
+			id:     child.ResourceID(),
+			exists: func(ctx SpecContext) bool { return rangeExists(ctx, child.Key) },
+		}
+	}
+	createAlias := func(ctx SpecContext) held {
+		ch := channel.Channel{
+			Name:     "aliased_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
+			DataType: telem.Float64T,
+			Virtual:  true,
+		}
+		Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(svc.Alias.NewWriter(nil).Set(ctx, r.Key, ch.Key(), "alias")).
+			To(Succeed())
+		return held{
+			id: alias.ResourceID(r.Key, ch.Key()),
+			exists: func(ctx SpecContext) bool {
+				_, err := svc.Alias.NewReader(nil).Resolve(ctx, r.Key, "alias")
+				Expect(errors.Skip(err, query.ErrNotFound)).To(Succeed())
+				return err == nil
+			},
+		}
+	}
+	createLinePlot := func(ctx SpecContext) held {
+		lp := lineplot.LinePlot{Name: "Plot", Range: &r.Key}
+		Expect(svc.LinePlot.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
+		return held{
+			id: lineplot.ResourceID(lp.Key),
+			exists: func(ctx SpecContext) bool {
+				return MustSucceed(svc.LinePlot.NewRetrieve().
+					Where(lineplot.MatchKeys(lp.Key)).
+					Exists(ctx, nil))
+			},
+		}
+	}
+	createSnapshot := func(ctx SpecContext) held {
+		t := task.Task{
+			Type:     pagerduty.AlertTaskType,
+			Rack:     svc.Rack.EmbeddedKey,
+			Name:     "Snapshot",
+			Snapshot: true,
+			Range:    &r.Key,
+		}
+		Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+		grant(
+			ctx,
+			access.ActionUpdate,
+			u.ResourceID(),
+			t.ResourceID(),
+			svc.Rack.EmbeddedKey.ResourceID(),
+		)
+		grant(ctx, access.ActionDelete, u.ResourceID(), resource.ID{
+			Type: resource.TypeStatus,
+		})
+		return held{
+			id: t.ResourceID(),
+			exists: func(ctx SpecContext) bool {
+				return MustSucceed(svc.Task.NewRetrieve().
+					Where(task.MatchKeys(t.Key)).
+					Exists(ctx, nil))
+			},
+		}
+	}
+	DescribeTable(
+		"Should need delete on each record that the range holds",
+		func(ctx SpecContext, create func(ctx SpecContext) held) {
+			h := create(ctx)
+			grant(ctx, access.ActionDelete, u.ResourceID(), r.ResourceID())
+			grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
+			Expect(deleteRange(ctx)).Error().
+				To(denied(u, access.ActionDelete, h.id))
+			Expect(rangeExists(ctx, r.Key)).To(BeTrue())
+			Expect(h.exists(ctx)).To(BeTrue())
+			grant(ctx, access.ActionDelete, u.ResourceID(), h.id)
+			MustSucceed(deleteRange(ctx))
+			Expect(rangeExists(ctx, r.Key)).To(BeFalse())
+			Expect(h.exists(ctx)).To(BeFalse())
+		},
+		Entry("a nested range", createChild),
+		Entry("an alias", createAlias),
+		Entry("a line plot", createLinePlot),
+		Entry("a snapshot task", createSnapshot),
 	)
 })
 
