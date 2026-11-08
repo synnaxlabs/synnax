@@ -206,13 +206,13 @@ func (s *Service) NewRetrieve() Retrieve {
 func (s *Service) RetrieveParentKey(
 	ctx context.Context,
 	key Key,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 ) (Key, error) {
 	var r Range
 	if err := s.NewRetrieve().
 		Where(MatchKeys(key)).
 		Entry(&r).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		return uuid.Nil(), err
 	}
 	if r.Parent == nil {

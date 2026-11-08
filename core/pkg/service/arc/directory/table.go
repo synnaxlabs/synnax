@@ -178,7 +178,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Directory](keys...)).
 		Guard(func(ctx gorp.Context, d Directory) error {
-			deps, err := w.table.Dependents(ctx, ctx.Tx, d.Key)
+			deps, err := w.table.Dependents(ctx, ctx.Snapshot, d.Key)
 			if err != nil {
 				return err
 			}

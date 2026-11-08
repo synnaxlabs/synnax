@@ -294,6 +294,15 @@ var _ = Describe("SearchIndex", func() {
 			})).Keys).To(Equal([]int32{1}))
 		})
 
+		It("Should search by scanning through a snapshot", func(ctx SpecContext) {
+			var res search.Result[int32]
+			Expect(failing.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				res, err = failed.Search(ctx, snap, search.Query[int32]{Term: "analog"})
+				return err
+			})).To(Succeed())
+			Expect(res.Keys).To(Equal([]int32{3, 1, 4}))
+		})
+
 		It("Should retrieve the matches closest match first", func(ctx SpecContext) {
 			Expect(retrieveIDs(ctx, failing, gorp.NewRetrieve[int32, indexedEntry]().
 				Where(failed.Filter("analog")))).To(Equal([]int32{3, 1, 4}))
