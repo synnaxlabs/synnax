@@ -1488,7 +1488,7 @@ func analyze(
 		if c.Kind != symbol.KindFunction || c.AST == nil {
 			continue
 		}
-		// Format-string fns compile from their raw body as fmt$ synthetics.
+		// Format-string fns compile as fmt$ synthetics from the stored placeholders.
 		if expr, ok := c.AST.(parser.IExpressionContext); ok && parser.IsLiteral(expr) {
 			continue
 		}
