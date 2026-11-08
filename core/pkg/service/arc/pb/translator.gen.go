@@ -37,6 +37,10 @@ func BaseToPB(r arc.Base) (*Base, error) {
 		Key:    r.Key.String(),
 		Source: sourceVal,
 	}
+	if r.Directory != nil {
+		v := r.Directory.String()
+		pb.Directory = &v
+	}
 	return pb, nil
 }
 
@@ -62,6 +66,13 @@ func BaseFromPB(pb *Base) (arc.Base, error) {
 		}
 	}
 	r.Name = pb.Name
+	if pb.Directory != nil {
+		v, err := uuid.Parse(*pb.Directory)
+		if err != nil {
+			return arc.Base{}, err
+		}
+		r.Directory = &v
+	}
 	defaults.FillGroups(&r)
 	return r, nil
 }
@@ -202,6 +213,9 @@ func WhereToPB(r arc.Where) (*Where, error) {
 			return nil, err
 		}
 	}
+	if r.Directories != nil {
+		pb.Directories = &UuidList{Values: lo.Map(r.Directories, func(u uuid.UUID, _ int) string { return uuid.UUID(u).String() })}
+	}
 	return pb, nil
 }
 
@@ -245,6 +259,23 @@ func WhereFromPB(pb *Where) (arc.Where, error) {
 			return arc.Where{}, err
 		}
 		r.Name = &val
+	}
+	if pb.Directories != nil {
+		vals, err := func() ([]uuid.UUID, error) {
+			result := make([]uuid.UUID, len(pb.Directories.Values))
+			for i, s := range pb.Directories.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = uuid.UUID(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return arc.Where{}, err
+		}
+		r.Directories = xpb.ListValues(vals)
 	}
 	return r, nil
 }

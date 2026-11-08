@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "client/cpp/label/types.gen.h"
+#include "client/cpp/resource/id.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
@@ -47,12 +48,12 @@ using Key = std::string;
 
 /// @brief Status is a standardized message used to communicate state across the Synnax
 /// platform. Statuses support different severity variants and can carry
-/// component-specific details. A status is uniquely identified by a key and may carry a
-/// human-readable name and labels for categorization and filtering.
+/// component-specific details. A status is uniquely identified by a key, may name the
+/// resource that owns it, and may carry a human-readable name and labels.
 template<typename Details = std::monostate>
 struct Status {
-    /// @brief key is a unique identifier for this status, auto-generated if not
-    /// provided.
+    /// @brief key is a unique identifier for this status. The Core assigns a UUID when
+    /// a status has no key and its owner holds no status.
     Key key;
     /// @brief name is the name of what the status is about, such as a task, device, or
     /// rack. Empty when the status is not about a named thing.
@@ -73,8 +74,12 @@ struct Status {
     /// @brief details contains optional component-specific custom details for the
     /// status.
     Details details;
-    /// @brief labels contains optional labels for categorization and filtering.
-    std::optional<std::vector<::synnax::label::Label>> labels;
+    /// @brief labels are the keys of the labels attached to the status.
+    std::vector<::synnax::label::Key> labels = {};
+    /// @brief owner is the resource the status reports on, such as a task, device, or
+    /// rack. An owner holds at most one status. Empty for a status that no resource
+    /// owns.
+    std::optional<::synnax::resource::ID> owner;
 
     static Status parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -100,6 +105,8 @@ struct Where {
     ::x::filter::Field<::x::filter::Set<std::string>> variant;
     /// @brief labels matches statuses that have any of the given labels.
     ::x::filter::List<::synnax::label::Key> labels;
+    /// @brief owners matches the statuses that the given resources own.
+    ::x::filter::List<::synnax::resource::ID> owners;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {
@@ -159,8 +166,6 @@ struct RetrieveOptions {
     std::optional<std::uint32_t> limit;
     /// @brief offset is the number of matching statuses to skip.
     std::uint32_t offset = 0;
-    /// @brief include_labels includes the labels of each record.
-    bool include_labels = false;
 };
 
 /// @brief RetrieveRequest is a request to retrieve statuses.
@@ -174,8 +179,6 @@ struct RetrieveRequest {
     std::optional<std::uint32_t> limit;
     /// @brief offset is the number of matching statuses to skip.
     std::uint32_t offset = 0;
-    /// @brief include_labels includes the labels of each record.
-    bool include_labels = false;
 
     /// @brief returns a request for the records that where selects.
     static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
@@ -184,7 +187,6 @@ struct RetrieveRequest {
             .search_term = options.search_term,
             .limit = options.limit,
             .offset = options.offset,
-            .include_labels = options.include_labels,
         };
     }
 
@@ -197,4 +199,10 @@ struct RetrieveRequest {
     static std::pair<RetrieveRequest, x::errors::Error>
     from_proto(const ::api::status::pb::RetrieveRequest &pb);
 };
+
+const synnax::resource::ID TYPE_RESOURCE_ID("status", "");
+
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("status", key);
+}
 }

@@ -75,6 +75,7 @@ jobs:
       head: ${{ steps.pr.outputs.head }}
       base: ${{ steps.pr.outputs.base }}
       skip: ${{ steps.skip.outputs.skip }}
+      carried: ${{ steps.carry.outputs.carried }}
       check: ${{ steps.check.outputs.id }}
     steps:
       - name: Read the pull request
@@ -107,55 +108,24 @@ jobs:
               "key=\(.number):\(.base.ref)"
             ' >> "$GITHUB_OUTPUT"
 
-      # A fork's code never reaches a runner. Sessions often ask again for a review of a
-      # head that has one. The reviews of one pull request take turns, so a head needs
-      # no other review when its last review for this pull request and base succeeded.
-      # The check run's external ID names the pull request and base.
+      - name: Check out the scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
       - name: Decide whether to review
         id: skip
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ steps.pr.outputs.head }}
-          FORK: ${{ steps.pr.outputs.fork }}
           KEY: ${{ steps.pr.outputs.key }}
-          REPEAT: ${{ inputs.repeat || inputs.replay }}
+          FORK: ${{ steps.pr.outputs.fork }}
+          REPEAT: ${{ inputs.repeat }}
+          REPLAY: ${{ inputs.replay }}
         run: |
-          skip=$FORK
-          if [ "$skip" = false ] && [ "$REPEAT" != true ]; then
-            runs="repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs"
-            skip=$(gh api -X GET "$runs" -f check_name="Sedosaur Review" -f filter=all \
-              -f per_page=100 --jq '
-                [.check_runs[] | select(.app.slug == "sedosaur")
-                  | select(.external_id == env.KEY)]
-                | max_by(.started_at) | .conclusion == "success"')
-          fi
+          skip=$(.github/scripts/sedosaur_skip.sh)
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
-
-      - name: Assume the runner start role
-        if: steps.skip.outputs.skip == 'false'
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
-        with:
-          role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
-          aws-region: us-east-1
-
-      # Idle runners stop themselves, so a review starts one stopped runner. Only one of
-      # two concurrent starts sees an instance's previous state as stopped, so the other
-      # tries again. The job waits for any runner when none is stopped.
-      - name: Start a stopped runner
-        if: steps.skip.outputs.skip == 'false'
-        run: |
-          for _ in 1 2 3; do
-            ids=$(aws ec2 describe-instances --output text \
-              --filters Name=tag:project,Values=synnax-agents \
-              Name=tag:pool,Values=review Name=instance-state-name,Values=stopped \
-              --query 'Reservations[].Instances[].InstanceId')
-            if [ -z "$ids" ]; then exit 0; fi
-            read -ra stopped <<< "$ids"
-            id=$(shuf -n 1 -e "${stopped[@]}")
-            previous=$(aws ec2 start-instances --instance-ids "$id" --output text \
-              --query 'StartingInstances[0].PreviousState.Name')
-            if [ "$previous" = stopped ]; then exit 0; fi
-          done
 
       - name: Mint the GitHub App token
         id: app
@@ -165,6 +135,8 @@ jobs:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
+          permission-contents: read
+          permission-pull-requests: read
 
       # The check run shows on the pull request while the runner boots.
       - name: Queue the check run
@@ -179,6 +151,51 @@ jobs:
             -f name="Sedosaur Review" -f head_sha="$HEAD_SHA" -f external_id="$KEY" \
             -f status=queued -f details_url="$RUN_URL" --jq .id)
           echo "id=$id" >> "$GITHUB_OUTPUT"
+
+      # A push that leaves the diff the same, as a merge of the base does, gets the last
+      # review of the diff instead of a new one. A carry only saves a review, so when it
+      # fails, the review runs.
+      - name: Carry the last review
+        id: carry
+        if: steps.skip.outputs.skip == 'false' && !inputs.replay && !inputs.repeat
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+          PR: ${{ inputs.pr }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          BASE_SHA: ${{ steps.pr.outputs.base }}
+          KEY: ${{ steps.pr.outputs.key }}
+          CHECK_RUN: ${{ steps.check.outputs.id }}
+        run: |
+          carried=$(python3 -m review carry || echo false)
+          echo "carried=$carried" >> "$GITHUB_OUTPUT"
+
+      - name: Assume the runner start role
+        if: steps.skip.outputs.skip == 'false' && steps.carry.outputs.carried != 'true'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
+        with:
+          role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # Idle runners stop themselves, so a review starts one stopped runner. Only one of
+      # two concurrent starts sees an instance's previous state as stopped, so the other
+      # tries again. The job waits for any runner when none is stopped.
+      - name: Start a stopped runner
+        if: steps.skip.outputs.skip == 'false' && steps.carry.outputs.carried != 'true'
+        run: |
+          for _ in 1 2 3; do
+            ids=$(aws ec2 describe-instances --output text \
+              --filters Name=tag:project,Values=synnax-agents \
+              Name=tag:pool,Values=review Name=instance-state-name,Values=stopped \
+              --query 'Reservations[].Instances[].InstanceId')
+            if [ -z "$ids" ]; then exit 0; fi
+            read -ra stopped <<< "$ids"
+            id=$(shuf -n 1 -e "${stopped[@]}")
+            previous=$(aws ec2 start-instances --instance-ids "$id" --output text \
+              --query 'StartingInstances[0].PreviousState.Name')
+            if [ "$previous" = stopped ]; then exit 0; fi
+          done
 
   # A job of its own, so a deleted comment cannot stop the review.
   react:
@@ -195,7 +212,6 @@ jobs:
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
-      # Greptile reacts with eyes, so Sedosaur reacts with a rocket.
       - name: React with a rocket
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
@@ -206,7 +222,7 @@ jobs:
 
   review:
     needs: start
-    if: needs.start.outputs.skip == 'false'
+    if: needs.start.outputs.skip == 'false' && needs.start.outputs.carried != 'true'
     name: Review
     runs-on: [self-hosted, review]
     timeout-minutes: 30
@@ -237,6 +253,18 @@ jobs:
         run: |
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
             -f status=in_progress --silent
+
+      # Eyes on the pull request description show that Sedosaur is reviewing it. The
+      # unwatch job takes them away. They are only a signal, so a failure here does not
+      # stop the review.
+      - name: Watch the pull request
+        if: ${{ !inputs.replay }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/reactions" \
+            -f content=eyes --silent
 
       # The runner keeps the clone between jobs, so each fetch is small. This checkout
       # holds the scripts and the policy: the pull request and its base are not trusted.
@@ -323,11 +351,43 @@ jobs:
           BOT: ${{ steps.app.outputs.app-slug }}
         run: python3 -m review post "$RUNNER_TEMP/review.json"
 
+  # Takes the eyes away however the review ends, even when its runner is lost.
+  unwatch:
+    needs: [start, review]
+    if: >-
+      always() && needs.start.outputs.skip == 'false' && needs.start.outputs.carried !=
+      'true' && !inputs.replay
+    name: Unwatch the pull request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
+      - name: Take the eyes away
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          LOGIN: ${{ steps.app.outputs.app-slug }}[bot]
+          PR: ${{ inputs.pr }}
+        run: |
+          reactions="repos/$GITHUB_REPOSITORY/issues/$PR/reactions"
+          ids=$(gh api --paginate "$reactions?content=eyes&per_page=100" \
+            --jq '.[] | select(.user.login == env.LOGIN) | .id')
+          for id in $ids; do
+            gh api -X DELETE "$reactions/$id" --silent
+          done
+
   # A review that never gets a runner cannot close its own check run, so a hosted job
   # closes it whenever the review did not succeed.
   end:
     needs: [start, review]
-    if: always() && needs.start.outputs.check != '' && needs.review.result != 'success'
+    if: >-
+      always() && needs.start.outputs.check != '' && needs.review.result != 'success' &&
+      needs.start.outputs.carried != 'true'
     name: End the check run
     runs-on: ubuntu-latest
     steps:
@@ -343,7 +403,9 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           CHECK_RUN: ${{ needs.start.outputs.check }}
-          STATUS: ${{ needs.review.result }}
+          STATUS:
+            ${{ needs.start.result != 'success' && needs.start.result ||
+            needs.review.result }}
         run: |
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
             -f status=completed -f conclusion="$STATUS" \

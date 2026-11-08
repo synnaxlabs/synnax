@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, ontology } from "@synnaxlabs/client";
+import { access, resource } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
 import { array, deep, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -20,8 +20,9 @@ const PLURAL_RESOURCE_NAME = "policies";
 export const formSchema = z.object({
   key: z.uuid().optional(),
   name: z.string().min(1, "Name is required"),
-  objects: ontology.idZ.array(),
+  objects: resource.idZ.array(),
   actions: access.actionZ.array(),
+  role: access.role.keyZ,
 });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
@@ -94,6 +95,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     name: "",
     objects: [],
     actions: [],
+    role: "",
   },
   retrieve: async ({ client, query: { key } }) =>
     await client.access.policies.retrieve(key),

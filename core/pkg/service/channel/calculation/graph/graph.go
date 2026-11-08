@@ -218,7 +218,7 @@ func (g *Graph) retrieveStatus(
 ) (calculation.Status, bool, error) {
 	var stored calculation.Status
 	err := g.status.NewRetrieve[struct{}]().
-		Where(status.MatchKeys[struct{}](calculation.StatusKey(key))).
+		Where(status.MatchOwners[struct{}](channel.ResourceID(key))).
 		Entry(&stored).
 		Exec(ctx, tx)
 	if errors.Is(err, query.ErrNotFound) {
@@ -245,7 +245,7 @@ func (g *Graph) writeStatus(
 		)
 		return nil
 	}
-	stat.Key = calculation.StatusKey(key)
+	stat.Owner = new(channel.ResourceID(key))
 	return g.status.NewWriter(tx).Set(ctx, stat)
 }
 
@@ -276,8 +276,12 @@ func (g *Graph) clearRuntimeStatus(ctx context.Context, key channel.Key) error {
 		return nil
 	}
 	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return g.status.NewWriter(tx).Delete(ctx, calculation.StatusKey(key))
+		return g.deleteStatus(ctx, tx, key)
 	})
+}
+
+func (g *Graph) deleteStatus(ctx context.Context, tx gorp.Tx, key channel.Key) error {
+	return g.status.NewWriter(tx).DeleteOwned(ctx, channel.ResourceID(key))
 }
 
 // Close disconnects the graph from the channel observable.
@@ -516,8 +520,7 @@ func (g *Graph) setNodeStatus(
 }
 
 func (g *Graph) clearNodeStatus(ctx context.Context, tx gorp.Tx, key channel.Key) {
-	if err := g.status.NewWriter(tx).
-		Delete(ctx, calculation.StatusKey(key)); err != nil {
+	if err := g.deleteStatus(ctx, tx, key); err != nil {
 		g.L.Warn(
 			"failed to clear status for channel",
 			zap.Stringer("channel", key),

@@ -57,7 +57,6 @@ var _ = Describe("Retrieve", func() {
 			},
 			SearchTerm:    "cDAQ",
 			IncludeStatus: true,
-			IncludeParent: true,
 		}
 		MustSucceed(client.Exec(ctx, &grpcdevice.RetrieveRequest{
 			Request: MustSucceed(pb.RetrieveRequestToPB(msg)),

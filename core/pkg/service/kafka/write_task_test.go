@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -50,7 +51,7 @@ var _ = Describe("Write task", func() {
 		cfg kafka.WriteConfig,
 	) (driver.Task, task.Task) {
 		GinkgoHelper()
-		t := newTask(kafka.WriteTaskType, cfg)
+		t := newTask(ctx, kafka.WriteTaskType, cfg)
 		dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).
@@ -238,7 +239,7 @@ var _ = Describe("Write task", func() {
 		func(ctx SpecContext) {
 			_, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, kafka.Properties{Brokers: []string{"127.0.0.1:1"}})
-			t := newTask(kafka.WriteTaskType, kafka.WriteConfig{
+			t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
 				Device:   dev.Key,
 				Topic:    uniqueTopic(),
 				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
@@ -247,10 +248,56 @@ var _ = Describe("Write task", func() {
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 			Expect(dt.Exec(ctx, task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",
-			})).To(MatchError(ContainSubstring("connecting to cluster")))
+			})).To(Succeed())
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Description).To(ContainSubstring("connecting to cluster"))
 			Expect(stat.Details.Running).To(BeFalse())
+			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+		},
+	)
+
+	It("Should return the error from Exec for a start it could not answer",
+		func(ctx SpecContext) {
+			_, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    uniqueTopic(),
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(dt.Exec(hookkv.WithHook(ctx, refuse), task.Command{
+				Task: t.Key, Type: "start", Key: "cmd-2",
+			})).To(MatchError(errCommit))
+		},
+	)
+
+	It("Should return no error from Exec for a start answered before ctx ended",
+		func(ctx SpecContext) {
+			_, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, kafka.Properties{Brokers: []string{"127.0.0.1:1"}})
+			t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    uniqueTopic(),
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			})
+			cmdCtx, cancel := context.WithCancel(ctx)
+			cmdCtx = hookkv.WithHook(cmdCtx, func(commit func() error) error {
+				err := commit()
+				cancel()
+				return err
+			})
+			f = newFactory(kafka.FactoryConfig{PingTimeout: 100 * telem.Millisecond})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(dt.Exec(cmdCtx, task.Command{
+				Task: t.Key, Type: "start", Key: "cmd-2",
+			})).To(Succeed())
+			Expect(cmdCtx.Err()).To(MatchError(context.Canceled))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Message).To(Equal("Failed to start task"))
 			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 		},
 	)
@@ -262,7 +309,7 @@ var _ = Describe("Write task", func() {
 			Topic:    "t",
 			Channels: []kafka.WriteChannel{{Key: "c1", Channel: 999999}},
 		}
-		Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
+		Expect(f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1")).
 			Error().To(MatchError(query.ErrNotFound))
 	})
 
@@ -276,11 +323,14 @@ var _ = Describe("Write task", func() {
 				Record:   rec,
 				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
 			}
-			Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(msg)),
-			))
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
 		},
 		Entry(
 			"a channel pointer equal to the value pointer",
@@ -533,13 +583,16 @@ var _ = Describe("Write task", func() {
 					{Key: "c1", Channel: data.Key(), JSONType: jsonType},
 				},
 			}
-			Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(fmt.Sprintf(
-					`channel "c1": data type %s only serializes as a string`, dt,
-				))),
-			))
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(fmt.Sprintf(
+						`channel "c1": data type %s only serializes as a string`, dt,
+					))),
+				))
 		},
 		Entry("a string as a number", telem.StringT, http.JSONTypeNumber),
 		Entry("a UUID as a boolean", telem.UUIDT, http.JSONTypeBoolean),
@@ -555,11 +608,14 @@ var _ = Describe("Write task", func() {
 				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
 			})
 			cfg["record"].(map[string]any)["value_pointer"] = ""
-			Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("value_pointer")),
-			))
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("value_pointer")),
+				))
 		},
 	)
 
@@ -573,11 +629,14 @@ var _ = Describe("Write task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			cfg := build(data)
 			cfg.Device = dev.Key
-			Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(msg)),
-			))
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
 		},
 		Entry("empty topic", func(data channel.Channel) kafka.WriteConfig {
 			return kafka.WriteConfig{
