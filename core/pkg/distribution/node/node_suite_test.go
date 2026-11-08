@@ -21,3 +21,5 @@ func TestNode(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Distribution Node Suite", SuiteConfig())
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
