@@ -91,6 +91,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// CHANNEL
 	t.ChannelRename = noop.UnaryServer[apichannel.RenameRequest, struct{}]{}
+	t.ChannelDispatch = noop.UnaryServer[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]{}
 
 	// FRAME
 	t.FrameRead = noop.UnaryServer[apiframer.ReadRequest, apiframer.ReadResponse]{}

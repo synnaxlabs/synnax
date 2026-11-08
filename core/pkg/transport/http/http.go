@@ -137,6 +137,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/channel/rename",
 		),
+		ChannelDispatch: unary[channel.DispatchRequest, channel.DispatchResponse](
+			router,
+			"/api/v1/channel/dispatch",
+		),
 
 		// CONNECTIVITY
 		ConnectivityCheck: unary[struct{}, connectivity.CheckResponse](

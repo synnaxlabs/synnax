@@ -56,8 +56,12 @@ var (
 		apichannel.CreateRequest,
 		apichannel.CreateResponse,
 	]
-	deleteChannels   freighter.UnaryHandler[apichannel.DeleteRequest, struct{}]
-	renameChannels   freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
+	deleteChannels freighter.UnaryHandler[apichannel.DeleteRequest, struct{}]
+	renameChannels freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
+	dispatch       freighter.UnaryHandler[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]
 	setGroup         freighter.UnaryHandler[apichannel.SetGroupRequest, struct{}]
 	retrieveChannels freighter.UnaryHandler[
 		apichannel.AliasedRetrieveRequest,
@@ -85,6 +89,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	createChannels = bind.Write(binder, apiSvc.Create)
 	deleteChannels = bind.Write(binder, apiSvc.Delete)
 	renameChannels = bind.Write(binder, apiSvc.Rename)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	retrieveChannels = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(

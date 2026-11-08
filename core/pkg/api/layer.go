@@ -88,6 +88,8 @@ type Transport struct {
 	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
 	ChannelRename   freighter.UnaryServer[channel.RenameRequest, struct{}]
+	// ChannelDispatch applies actions to a channel.
+	ChannelDispatch freighter.UnaryServer[channel.DispatchRequest, channel.DispatchResponse]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[struct{}, connectivity.CheckResponse]
 	// LICENSE
@@ -363,6 +365,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ChannelRetrieve,
 		t.ChannelDelete,
 		t.ChannelRename,
+		t.ChannelDispatch,
 
 		// FRAME
 		t.FrameWriter,
@@ -600,6 +603,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
 	t.ChannelRename.BindHandler(bind.Write(l.binder, l.Channel.Rename))
+	t.ChannelDispatch.BindHandler(bind.Write(l.binder, l.Channel.Dispatch))
 
 	// FRAME
 	t.FrameWriter.BindHandler(l.Framer.Write)

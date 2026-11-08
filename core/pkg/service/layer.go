@@ -401,6 +401,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[channel.Key, channel.Action]{
+			Name:     "sy_channel_action_set",
+			Actions:  l.Channel.Actions(),
+			Resource: channel.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if closer, err := history.Publish(ctx, history.Config{
 		Instrumentation: cfg.Child("framer_history"),
 		Framer:          cfg.Distribution.Framer,
