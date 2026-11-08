@@ -71,15 +71,31 @@ func (d *delivery) OnChange(reader func(context.Context, Commit)) observe.Discon
 }
 
 // take gives the next number to a commit that changed a record or carries a value. The
-// caller holds the write lock.
+// caller holds the write lock. The commit joins the delivery order while a reader is
+// connected or an earlier commit has not delivered, so a reader that connects in
+// between misses no number.
 func (d *delivery) take() ticket {
 	d.seq++
 	t := ticket{seq: d.seq}
-	if d.connected.Load() > 0 {
+	if d.connected.Load() > 0 || d.pending() {
 		t.prev, t.done = d.tail, make(chan struct{})
 		d.tail = t.done
 	}
 	return t
+}
+
+// pending reports whether the last commit in the delivery order has not delivered. The
+// caller holds the write lock.
+func (d *delivery) pending() bool {
+	if d.tail == nil {
+		return false
+	}
+	select {
+	case <-d.tail:
+		return false
+	default:
+		return true
+	}
 }
 
 // run delivers the transaction of state as the commit of t, after the commit before t

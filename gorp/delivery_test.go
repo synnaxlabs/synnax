@@ -12,7 +12,6 @@ package gorp_test
 import (
 	"context"
 	"sync/atomic"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -75,6 +74,31 @@ var _ = Describe("Delivery", func() {
 				commits = append(commits, c)
 			}))
 			return &commits
+		}
+		// holdFirstCommit holds the first commit until release closes. The hold is
+		// after the store applies the commit, which is after the release of the write
+		// lock and before delivery. secondApplied closes when the store applies the
+		// second commit,
+		// which has its number by then.
+		holdFirstCommit = func(
+			release <-chan struct{},
+		) (firstApplied, secondApplied chan struct{}) {
+			GinkgoHelper()
+			firstApplied, secondApplied = make(chan struct{}), make(chan struct{})
+			var applied atomic.Int32
+			DeferCleanup(db.OnChange(func(ctx context.Context, _ kv.TxReader) {
+				switch applied.Add(1) {
+				case 1:
+					close(firstApplied)
+					select {
+					case <-release:
+					case <-ctx.Done():
+					}
+				case 2:
+					close(secondApplied)
+				}
+			}))
+			return firstApplied, secondApplied
 		}
 		open = func(ctx context.Context, store kv.DB) {
 			db = DeferClose(gorp.Wrap(store, gorp.WithCodec(msgpack.Codec)))
@@ -183,41 +207,50 @@ var _ = Describe("Delivery", func() {
 	It(
 		"Should deliver commits that race in the order they commit",
 		func(ctx SpecContext) {
-			delivered := make(chan gorp.Commit, 2)
+			delivered := make(chan uint64, 2)
 			DeferCleanup(db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
-				delivered <- c
+				delivered <- c.Seq
 			}))
-			var (
-				waited       atomic.Bool
-				firstApplied = make(chan struct{})
-				secondDone   = make(chan struct{})
-			)
-			// The store runs this observer after the release of the write lock, so the
-			// second commit can deliver first only when nothing orders the deliveries.
-			DeferCleanup(db.OnChange(func(context.Context, kv.TxReader) {
-				if waited.Swap(true) {
-					return
-				}
-				close(firstApplied)
-				select {
-				case <-secondDone:
-				case <-time.After(100 * time.Millisecond):
-				}
+			release := make(chan struct{})
+			firstApplied, secondApplied := holdFirstCommit(release)
+			first := make(chan error, 1)
+			go func() { first <- create(ctx, 1)(db) }()
+			Eventually(firstApplied).Should(BeClosed())
+			second := make(chan error, 1)
+			go func() { second <- create(ctx, 2)(db) }()
+			Eventually(secondApplied).Should(BeClosed())
+			close(release)
+			Eventually(first).Should(Receive(Succeed()))
+			Eventually(second).Should(Receive(Succeed()))
+			Eventually(delivered).Should(Receive(Equal(uint64(1))))
+			Eventually(delivered).Should(Receive(Equal(uint64(2))))
+		},
+	)
+
+	It(
+		"Should deliver every number to a reader that connects while a commit waits",
+		func(ctx SpecContext) {
+			disconnect := db.Observe().OnChange(func(context.Context, gorp.Commit) {})
+			release := make(chan struct{})
+			firstApplied, secondApplied := holdFirstCommit(release)
+			first := make(chan error, 1)
+			go func() { first <- create(ctx, 1)(db) }()
+			Eventually(firstApplied).Should(BeClosed())
+			disconnect()
+			second := make(chan error, 1)
+			go func() { second <- create(ctx, 2)(db) }()
+			Eventually(secondApplied).Should(BeClosed())
+			delivered := make(chan uint64, 3)
+			DeferCleanup(db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
+				delivered <- c.Seq
 			}))
-			go func() {
-				defer GinkgoRecover()
-				defer close(secondDone)
-				Eventually(firstApplied).Should(BeClosed())
-				Expect(create(ctx, 2)(db)).To(Succeed())
-			}()
-			Expect(create(ctx, 1)(db)).To(Succeed())
-			Eventually(secondDone).Should(BeClosed())
-			Eventually(delivered).Should(Receive(Equal(
-				gorp.Commit{Seq: 1, Changes: gorp.Changes{created(1)}},
-			)))
-			Eventually(delivered).Should(Receive(Equal(
-				gorp.Commit{Seq: 2, Changes: gorp.Changes{created(2)}},
-			)))
+			close(release)
+			Eventually(first).Should(Receive(Succeed()))
+			Eventually(second).Should(Receive(Succeed()))
+			Expect(create(ctx, 3)(db)).To(Succeed())
+			Eventually(delivered).Should(Receive(Equal(uint64(1))))
+			Eventually(delivered).Should(Receive(Equal(uint64(2))))
+			Eventually(delivered).Should(Receive(Equal(uint64(3))))
 		},
 	)
 
