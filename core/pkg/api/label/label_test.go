@@ -89,7 +89,7 @@ var _ = Describe("Create", func() {
 				Type: resource.TypeLabel,
 			})
 			rec := &Recorder[label.Key, label.Action]{}
-			DeferCleanup(svc.Label.ObserveActions().OnChange(rec.Record))
+			DeferCleanup(svc.Label.Actions().OnChange(rec.Record))
 			res := MustSucceed(
 				apiSvc.Create(AuthedCtx(ctx, u), nil, apilabel.CreateRequest{
 					Labels:      []label.Label{{Name: "Created"}},

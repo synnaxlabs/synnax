@@ -182,6 +182,35 @@ var _ = Describe("AlertTask", func() {
 			},
 		)
 
+		It("Should send one event for each of two quick changes, in order",
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
+					pd.Alert{Status: "quick-blocker"},
+					pd.Alert{Status: "quick-flap"},
+				))
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
+				release := sender.hold()
+				setStatus(ctx, "quick-blocker", status.VariantError, "Busy", nil)
+				setStatus(ctx, "quick-flap", status.VariantError, "Broke", nil)
+				setStatus(ctx, "quick-flap", status.VariantSuccess, "Fixed", nil)
+				release()
+				Eventually(func() int { return len(sender.getEvents()) }).
+					WithTimeout(2 * time.Second).
+					Should(Equal(3))
+				Expect(sender.getEvents()).To(HaveExactElements(
+					HaveField("DedupKey", "quick-blocker"),
+					And(
+						HaveField("DedupKey", "quick-flap"),
+						HaveField("Action", "trigger"),
+					),
+					And(
+						HaveField("DedupKey", "quick-flap"),
+						HaveField("Action", "resolve"),
+					),
+				))
+			},
+		)
+
 		It("Should ignore status changes for unwatched keys",
 			func(ctx context.Context) {
 				tsk := configureAndStart(ctx, validConfig(

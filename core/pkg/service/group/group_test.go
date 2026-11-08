@@ -404,19 +404,19 @@ var _ = Describe("Group", Ordered, func() {
 		})
 	})
 
-	Describe("Observe", func() {
-		It("Should notify when a group is created", func(ctx SpecContext) {
-			tx := db.OpenTx()
-			defer func() { Expect(tx.Close()).To(Succeed()) }()
-			called := false
-			svc.Observe().
-				OnChange(func(context.Context, gorp.TxReader[group.Key, group.Group]) {
-					called = true
-				})
+	Describe("Changes", func() {
+		It("Should return the group that a commit creates", func(ctx SpecContext) {
+			var names []string
+			DeferCleanup(
+				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+					for ch := range svc.Changes(ctx, c) {
+						names = append(names, ch.Value.Name)
+					}
+				}),
+			)
 			g := group.Group{Name: "observe-test", Scope: resource.TypeChannel}
-			Expect(svc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
-			Expect(called).To(BeTrue())
+			Expect(svc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+			Expect(names).To(Equal([]string{"observe-test"}))
 		})
 	})
 

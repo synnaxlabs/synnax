@@ -11,7 +11,6 @@ package project
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -80,11 +79,10 @@ func OpenService(
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	var sig io.Closer
-	if sig, err = cfg.Signals.PublishFromGorp(
+	if err = cfg.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigUUID(s.table.Observe()),
-	); !ok(err, sig) {
+		signals.TableConfig[Key, Project]{Changes: s.table.Changes},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil

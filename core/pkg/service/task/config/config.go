@@ -23,7 +23,6 @@ import (
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -78,10 +77,10 @@ type Store interface {
 	// Version returns the current version of the store's config type, stamped on
 	// exported envelopes.
 	Version() imex.Version
-	// ObserveDetaches returns an observable that notifies the key of each record that a
-	// delete of one of its targets detached. Handlers run synchronously after the
-	// delete's transaction commits.
-	ObserveDetaches() observe.Observable[uuid.UUID]
+	// OnDetach sets the hook that runs in the transaction of each delete that detaches
+	// a target from a record, with the key of the record. An error from the hook fails
+	// the delete. Set it before the store serves deletes.
+	OnDetach(hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error)
 }
 
 // Record is a validated configuration record that is not written yet. Only a Store
@@ -173,6 +172,8 @@ func (c ServiceConfig[E]) Validate() error {
 type Service[E gorp.Entry[uuid.UUID]] struct {
 	cfg   ServiceConfig[E]
 	table *gorp.Table[uuid.UUID, E]
+	// onDetach is nil until OnDetach sets it.
+	onDetach func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error
 }
 
 // OpenService opens a Service for one task type. The service must be closed by
@@ -185,7 +186,8 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{
+	s := &Service[E]{cfg: cfg}
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{
 		DB:   cfg.DB,
 		Name: TableName(cfg.Type),
 		Migrations: append(
@@ -196,12 +198,17 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 			[]gorp.Reference[uuid.UUID, E]{newTaskReference[E]()},
 			cfg.References...,
 		),
+		OnDetach: func(ctx context.Context, tx gorp.Tx, e E) error {
+			if s.onDetach == nil {
+				return nil
+			}
+			return s.onDetach(ctx, tx, e.GorpKey())
+		},
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
-	return &Service[E]{cfg: cfg, table: table}, nil
+	return s, nil
 }
 
 // TableName returns the name of the table that stores the config records of taskType.
@@ -375,14 +382,11 @@ func (s *Service[E]) Normalize(
 // Version implements Store.
 func (s *Service[E]) Version() imex.Version { return s.cfg.Ladder.Latest }
 
-// ObserveDetaches implements Store.
-func (s *Service[E]) ObserveDetaches() observe.Observable[uuid.UUID] {
-	return observe.Translator[E, uuid.UUID]{
-		Observable: s.table.ObserveDetaches(),
-		Translate: func(_ context.Context, e E) (uuid.UUID, bool) {
-			return e.GorpKey(), true
-		},
-	}
+// OnDetach implements Store.
+func (s *Service[E]) OnDetach(
+	hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error,
+) {
+	s.onDetach = hook
 }
 
 // Copy implements Store.

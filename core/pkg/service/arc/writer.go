@@ -47,7 +47,6 @@ type Writer struct {
 	status      *status.Service
 	table       *gorp.Table[Key, Arc]
 	dispatcher  actions.Dispatcher[Key, Action]
-	publish     func(context.Context, Key)
 	sweeper     textSweeper
 	taskSync    *debounce.Keyed[Key]
 }
@@ -69,9 +68,26 @@ func validateType(stored, next Type) error {
 	)
 }
 
+// inTx calls f with w, or with a copy of w on a transaction of its own when w has no
+// transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		w.tx = tx
+		return f(w)
+	})
+}
+
 // Create creates the given Arc. If the Arc does not have a key,
 // a new key will be generated.
 func (w Writer) Create(ctx context.Context, a *Arc) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, a) })
+}
+
+func (w Writer) create(ctx context.Context, a *Arc) error {
 	if a.Variant == nil {
 		return errors.Wrap(
 			validate.ErrValidation, "an Arc must be an automation or a module",
@@ -137,8 +153,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 			return err
 		}
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		b.Key,
 		NewCreateAction(CreatePayload{Arc: *a}),

@@ -11,7 +11,6 @@ package arc
 
 import (
 	"context"
-	"io"
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
@@ -304,34 +303,36 @@ func OpenService(
 		}
 	}
 	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishActions(
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:    "sy_arc_set",
+			Actions: s.state,
+			Table:   tableName,
+		}); !ok(err, nil) {
+			return nil, err
+		}
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Arc]{
+			Changes:     s.table.Changes,
+			SetDisabled: new(true),
+		}); !ok(err, nil) {
+			return nil, err
+		}
+		if err = cfg.Signals.PublishTable(
 			ctx,
-			signals.ActionPublisherConfig[Key, Action]{
-				Observable: s.state,
-				Name:       "arc",
+			signals.TableConfig[directory.Key, directory.Directory]{
+				Changes:    s.directories.Changes,
+				SetName:    directory.SetChannelName,
+				DeleteName: directory.DeleteChannelName,
 			},
-		); !ok(err, sig) {
-			return nil, err
-		}
-		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-		deleteCfg.DisableSet = true
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
-			return nil, err
-		}
-		dirCfg := signals.GorpPublisherConfigUUID(s.directories.Observe())
-		dirCfg.SetName = directory.SetChannelName
-		dirCfg.DeleteName = directory.DeleteChannelName
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, dirCfg); !ok(err, sig) {
+		); !ok(err, nil) {
 			return nil, err
 		}
 	}
 	return s, nil
 }
 
-// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
-// handler runs synchronously inside Dispatch after the underlying transaction commits.
-// The returned Disconnect removes the handler.
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
@@ -352,7 +353,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		status:      s.cfg.Status,
 		table:       s.table,
 		dispatcher:  s.state.Dispatcher(),
-		publish:     s.publish,
 		sweeper:     s.sweeper,
 		taskSync:    s.taskSync,
 	}

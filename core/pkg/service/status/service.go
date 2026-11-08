@@ -101,6 +101,14 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Status[any]]] 
 	return s.table.Observe()
 }
 
+// Changes returns the changes that c made to statuses.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Status[any]] {
+	return s.table.Changes(ctx, c)
+}
+
 // ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key
 // match over name matches. Read-only; callers enforce access on and write the result.
 func (s *Service) ResolveKeyOrName(

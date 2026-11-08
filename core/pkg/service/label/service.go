@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label/versions"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -95,16 +94,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close must be called when the service is no longer needed to prevent resource leaks.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// Observe returns an observable that notifies callers of changes to label entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Label]] {
-	return s.table.Observe()
+// Changes returns the changes that c made to labels.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Label] {
+	return s.table.Changes(ctx, c)
 }
 
-// ObserveActions returns an observable of the actions that Dispatch and Writer emit.
-// Handlers run synchronously after the transaction that applied the actions commits.
-func (s *Service) ObserveActions() observe.Observable[actions.Scoped[Key, Action]] {
-	return s.state
-}
+// Actions returns the action batches that Dispatch and Writer attach to their
+// transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // Dispatch applies the actions atomically to the label with the given key. Dispatches
 // for the same label run one at a time, each in its own transaction, and the actions

@@ -12,6 +12,7 @@ package pagerduty
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/PagerDuty/go-pagerduty"
@@ -86,37 +87,63 @@ func newAlertTask(
 }
 
 func (t *alertTask) open(context.Context) (func(context.Context) error, error) {
-	disconnect := t.factoryCfg.Status.Observe().OnChange(t.handleStatusChange)
+	// A reader of a commit must not wait for PagerDuty, so the run sends the events. It
+	// sends one event per change, in commit order, so a quick error still pages.
+	var (
+		mu      sync.Mutex
+		pending []status.Status[any]
+		wake    = make(chan struct{}, 1)
+	)
+	disconnect := t.factoryCfg.Status.Observe().OnChange(func(
+		_ context.Context,
+		r gorp.TxReader[status.Key, status.Status[any]],
+	) {
+		var changed []status.Status[any]
+		for ch := range r {
+			if _, ok := t.alertsByStatus[ch.Key]; ok &&
+				ch.Variant == change.VariantSet {
+				changed = append(changed, ch.Value)
+			}
+		}
+		if len(changed) == 0 {
+			return
+		}
+		mu.Lock()
+		pending = append(pending, changed...)
+		mu.Unlock()
+		select {
+		case wake <- struct{}{}:
+		default:
+		}
+	})
 	return func(ctx context.Context) error {
-		<-ctx.Done()
-		disconnect()
-		return nil
+		defer disconnect()
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-wake:
+			}
+			mu.Lock()
+			stats := pending
+			pending = nil
+			mu.Unlock()
+			for _, s := range stats {
+				t.sendStatusEvent(ctx, s)
+			}
+		}
 	}, nil
 }
 
-func (t *alertTask) handleStatusChange(
-	ctx context.Context,
-	reader gorp.TxReader[status.Key, status.Status[any]],
-) {
-	for ch := range reader {
-		if ch.Variant == change.VariantDelete {
-			continue
-		}
-		alertCfg, ok := t.alertsByStatus[ch.Key]
-		if !ok {
-			continue
-		}
-		s := ch.Value
-		switch s.Variant {
-		case status.VariantError, status.VariantWarning, status.VariantInfo:
-			event := t.buildTriggerEvent(s, alertCfg)
-			t.sendEvent(ctx, event)
-		case status.VariantSuccess:
-			event := t.buildResolveEvent(s.Key)
-			t.sendEvent(ctx, event)
-		default:
-			// loading, disabled — skip
-		}
+// sendStatusEvent sends the event for s, if its variant has one.
+func (t *alertTask) sendStatusEvent(ctx context.Context, s status.Status[any]) {
+	switch s.Variant {
+	case status.VariantError, status.VariantWarning, status.VariantInfo:
+		t.sendEvent(ctx, t.buildTriggerEvent(s, t.alertsByStatus[s.Key]))
+	case status.VariantSuccess:
+		t.sendEvent(ctx, t.buildResolveEvent(s.Key))
+	default:
+		// Loading and disabled statuses send no event.
 	}
 }
 

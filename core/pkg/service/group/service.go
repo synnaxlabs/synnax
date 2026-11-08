@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -131,9 +130,12 @@ func (s *Service) CreateOrRetrieve(
 	return g, nil
 }
 
-// Observe returns an observable that notifies callers of changes to group entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Group]] {
-	return s.table.Observe()
+// Changes returns the changes that c made to groups.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Group] {
+	return s.table.Changes(ctx, c)
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

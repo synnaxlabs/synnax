@@ -11,7 +11,6 @@ package table
 
 import (
 	"context"
-	stdio "io"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -111,19 +110,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		var sig stdio.Closer
-		if sig, err = cfg.Signals.PublishActions(
-			ctx,
-			signals.ActionPublisherConfig[Key, Action]{
-				Observable: s.state,
-				Name:       "table",
-			},
-		); !ok(err, sig) {
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:    "sy_table_set",
+			Actions: s.state,
+			Table:   tableName,
+		}); !ok(err, nil) {
 			return nil, err
 		}
-		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-		deleteCfg.DisableSet = true
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Table]{
+			Changes:     s.table.Changes,
+			SetDisabled: new(true),
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -135,9 +132,9 @@ func (s *Service) Close() error {
 	return s.closer.Close()
 }
 
-// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
-// handler runs synchronously inside Dispatch after the underlying transaction commits.
-// The returned Disconnect removes the handler.
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {

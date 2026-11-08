@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -94,9 +93,12 @@ func (t *Table) NewWriter(tx gorp.Tx) Writer {
 	return Writer{tx: gorp.OverrideTx(t.db, tx), table: t.table}
 }
 
-// Observe returns an observable of the changes to directories.
-func (t *Table) Observe() observe.Observable[gorp.TxReader[Key, Directory]] {
-	return t.table.Observe()
+// Changes returns the changes that c made to directories.
+func (t *Table) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Directory] {
+	return t.table.Changes(ctx, c)
 }
 
 // Resources returns the resource.Provider of directories.

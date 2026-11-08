@@ -14,7 +14,6 @@ package ranger
 
 import (
 	"context"
-	"io"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -107,45 +106,37 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Group:           cfg.Group,
 			Instrumentation: cfg.Instrumentation,
 		}),
+		// A label delete detaches the label from each range that holds it, which no
+		// range write does, so the service sets the labels that the range keeps.
+		OnDetach: func(_ context.Context, tx gorp.Tx, r Range) error {
+			s.state.Dispatcher().Attach(tx, r.Key, labelsAction(r.Labels))
+			return nil
+		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	// A label delete detaches the label from each range that holds it, which no range
-	// write does, so the service publishes the labels the range keeps.
-	detaches := s.table.ObserveDetaches()
-	disconnect := detaches.OnChange(func(ctx context.Context, r Range) {
-		s.state.Dispatcher().Notify(ctx, r.Key, labelsAction(r.Labels))
-	})
-	s.closer = append(s.closer, xio.CloserFunc(func() error {
-		disconnect()
-		return nil
-	}))
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	var sig io.Closer
-	if sig, err = cfg.Signals.PublishFromGorp(
+	if err = cfg.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigUUID(s.table.Observe()),
-	); !ok(err, sig) {
+		signals.TableConfig[Key, Range]{Changes: s.table.Changes},
+	); !ok(err, nil) {
 		return nil, err
 	}
-	if sig, err = cfg.Signals.PublishActions(
-		ctx,
-		signals.ActionPublisherConfig[Key, Action]{
-			Observable: s.state,
-			Name:       "range_action",
-		},
-	); !ok(err, sig) {
+	if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+		Name:    "sy_range_action_set",
+		Actions: s.state,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
 }
 
-// OnAction subscribes the given handler to the actions that Dispatch and Writer emit.
-// The handler runs synchronously after the transaction that applied the actions
-// commits. The returned Disconnect removes the handler.
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {

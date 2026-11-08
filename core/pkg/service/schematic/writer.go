@@ -97,8 +97,7 @@ func (w Writer) create(ctx context.Context, s *Schematic) (err error) {
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		s.Key,
 		NewCreateAction(CreatePayload{Schematic: *s}),
@@ -117,7 +116,7 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 		if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
 			return err
 		}
-		w.notifyGroup(ctx, g, keys)
+		w.attachGroup(g, keys)
 		if p == nil {
 			return nil
 		}
@@ -132,21 +131,24 @@ func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) erro
 		if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
 			return err
 		}
-		w.notifyGroup(ctx, nil, keys)
+		w.attachGroup(nil, keys)
 		return w.setProject(ctx, p, keys...)
 	})
 }
 
-// setProject moves the schematics with keys into the project p, and notifies a project
-// change for each one that was not in p.
+// setProject moves the schematics with keys that are not in the project p into p, and
+// attaches a set project action for each one.
 func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) error {
 	var moved []Key
 	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Schematic](keys...)).
+		Where(gorp.And(
+			gorp.MatchKeys[Key, Schematic](keys...),
+			gorp.Match(func(_ gorp.Context, e *Schematic) (bool, error) {
+				return e.Project == nil || *e.Project != p, nil
+			}),
+		)).
 		ChangeErr(func(_ gorp.Context, e Schematic) (Schematic, error) {
-			if e.Project == nil || *e.Project != p {
-				moved = append(moved, e.Key)
-			}
+			moved = append(moved, e.Key)
 			e.Project = &p
 			return e, project.ValidateOwner(e.Project, e.Range)
 		}).
@@ -154,8 +156,7 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 		return err
 	}
 	for _, k := range moved {
-		w.dispatcher.NotifyOnCommit(
-			ctx,
+		w.dispatcher.Attach(
 			w.tx,
 			k,
 			NewSetProjectAction(SetProjectPayload{Project: p}),
@@ -164,10 +165,9 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
-func (w Writer) notifyGroup(ctx context.Context, g *group.Key, keys []Key) {
+func (w Writer) attachGroup(g *group.Key, keys []Key) {
 	for _, k := range keys {
-		w.dispatcher.NotifyOnCommit(
-			ctx,
+		w.dispatcher.Attach(
 			w.tx,
 			k,
 			NewSetGroupAction(SetGroupPayload{Group: g}),

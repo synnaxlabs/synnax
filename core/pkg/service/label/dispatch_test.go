@@ -46,7 +46,7 @@ var _ = Describe("Dispatch", func() {
 	})
 	record := func() *Recorder[label.Key, label.Action] {
 		rec := &Recorder[label.Key, label.Action]{}
-		DeferCleanup(svc.ObserveActions().OnChange(rec.Record))
+		DeferCleanup(svc.Actions().OnChange(rec.Record))
 		return rec
 	}
 	set := func(path []string, value any) label.Action {

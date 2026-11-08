@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/coalesce"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -33,6 +34,9 @@ import (
 
 // Changes is a batch of channel changes the Graph reconciles as a unit.
 type Changes = gorp.TxReader[channel.Key, channel.Channel]
+
+// channelChange is one change to a channel.
+type channelChange = change.Change[channel.Key, channel.Channel]
 
 type node struct {
 	channel.Channel
@@ -54,7 +58,10 @@ type Graph struct {
 	status     *status.Service
 	obs        observe.Observer[Changes]
 	disconnect observe.Disconnect
-	mu         struct {
+	// changed reconciles the latest change to each channel that commits change, since a
+	// reader of a commit must not commit.
+	changed *coalesce.Worker[channel.Key, channelChange]
+	mu      struct {
 		nodes            map[channel.Key]node
 		dependents       map[channel.Key]set.Set[channel.Key]
 		unresolvedByName map[string]set.Set[channel.Key]
@@ -131,7 +138,17 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	}); err != nil {
 		return nil, err
 	}
-	g.disconnect = cfg.Channel.Observe().OnChange(g.handleChanges)
+	if g.changed, err = coalesce.Open(coalesce.Config[channel.Key, channelChange]{
+		Instrumentation: cfg.Instrumentation,
+		Handle:          g.handleChanges,
+	}); err != nil {
+		return nil, err
+	}
+	g.disconnect = cfg.Channel.Observe().OnChange(func(_ context.Context, r Changes) {
+		for ch := range r {
+			g.changed.Add(ch.Key, ch)
+		}
+	})
 	return g, nil
 }
 
@@ -286,10 +303,8 @@ func (g *Graph) deleteStatus(ctx context.Context, tx gorp.Tx, key channel.Key) e
 
 // Close disconnects the graph from the channel observable.
 func (g *Graph) Close() error {
-	if g.disconnect != nil {
-		g.disconnect()
-	}
-	return nil
+	g.disconnect()
+	return g.changed.Close()
 }
 
 func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
@@ -400,18 +415,22 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 	return nil
 }
 
-func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
+// handleChanges reconciles the Graph with the latest change to each channel.
+func (g *Graph) handleChanges(
+	ctx context.Context,
+	latest map[channel.Key]channelChange,
+) {
 	var (
 		updates []channel.Channel
 		valid   []channel.Channel
-		batch   []change.Change[channel.Key, channel.Channel]
+		batch   []channelChange
 	)
 	g.mu.Lock()
 	err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
 		analyzer := g.newAnalyzer(tx)
 		queued := make(set.Set[channel.Key])
 		var unresolvedNames []string
-		for chg := range reader {
+		for _, chg := range latest {
 			batch = append(batch, chg)
 			ch := chg.Value
 			if chg.Variant == change.VariantDelete {

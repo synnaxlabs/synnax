@@ -143,18 +143,6 @@ func (db *DB) WithSnapshot(_ context.Context, f func(Snapshot) error) error {
 	return f(snapshot{Reader: db.DB, Decoder: db.Codec})
 }
 
-// OnCommit runs fn after tx commits, releases the write lock, and delivers to the
-// readers of DB.Observe. It never runs fn when tx closes without a commit. When tx is a
-// DB used directly, its writes have already committed, so fn runs at once.
-func OnCommit(tx Tx, fn func()) {
-	state := tx.txIdentity()
-	if state == nil {
-		fn()
-		return
-	}
-	state.onCommit(fn)
-}
-
 // OverrideTx replaces the given Tx with the DB if the given Tx is nil. This
 // method is useful for allowing a caller to execute directly against the underlying
 // DB if they choose to do so, or to execute against a transaction if they provide one.
@@ -237,14 +225,11 @@ func newContext(ctx context.Context, snap Snapshot) Context {
 // otherwise; they fire after the underlying commit attempt completes and
 // before the transaction releases the write lock.
 type txState struct {
-	// mu guards cleanups and commits.
+	// mu guards cleanups.
 	mu sync.Mutex
 	// cleanups is the list of hooks to invoke when the owning tx
 	// commits or closes, in registration order.
 	cleanups []func(committed bool)
-	// commits is the list of hooks to invoke after the owning tx commits and
-	// releases the write lock, in registration order.
-	commits []func()
 	// committing is true during a commit attempt.
 	committing atomic.Bool
 	// changes is what the typed writes through the transaction changed. Only the
@@ -279,24 +264,6 @@ func (s *txState) runCleanups(committed bool) {
 	s.mu.Unlock()
 	for _, h := range hooks {
 		h(committed)
-	}
-}
-
-func (s *txState) onCommit(fn func()) {
-	s.mu.Lock()
-	s.commits = append(s.commits, fn)
-	s.mu.Unlock()
-}
-
-// runCommits invokes every hook that onCommit registered, in registration order, and
-// then clears the list.
-func (s *txState) runCommits() {
-	s.mu.Lock()
-	hooks := s.commits
-	s.commits = nil
-	s.mu.Unlock()
-	for _, h := range hooks {
-		h()
 	}
 }
 
@@ -338,8 +305,7 @@ func (t *tx) txIdentity() *txState { return &t.state }
 // Commit commits the transaction and releases the write lock. Hooks registered via
 // state.OnCleanup run before the release, with committed=true on success and
 // committed=false otherwise. The release comes before the store notifies observers,
-// because an observer can open a transaction. Then the readers of DB.Observe run, and
-// then the OnCommit hooks.
+// because an observer can open a transaction. Then the readers of DB.Observe run.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	t.state.committing.Store(true)
 	applied := kv.OnApplied(func() { t.end(true) })
@@ -347,9 +313,6 @@ func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	t.end(err == nil)
 	t.state.committing.Store(false)
 	t.db.delivery.run(ctx, t.ticket, &t.state)
-	if err == nil {
-		t.state.runCommits()
-	}
 	return err
 }
 

@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -872,6 +873,296 @@ var _ = Describe("Driver", func() {
 			Expect(taskWriter.Delete(ctx, t.Key, false)).To(Succeed())
 			Eventually(func() bool { return stopped.Load() }).Should(BeTrue())
 		})
+
+		It(
+			"should stop each task that a commit deletes while a stop blocks",
+			func(ctx SpecContext) {
+				var (
+					mu         sync.Mutex
+					stopped    = make(set.Set[task.Key])
+					configured = make(set.Set[task.Key])
+					blocked    atomic.Value
+					released   = make(chan struct{})
+					release    = sync.OnceFunc(func() { close(released) })
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						mu.Lock()
+						configured.Add(t.Key)
+						mu.Unlock()
+						return &mockTask{
+							key: t.Key,
+							stopFunc: func(bool) error {
+								if t.Key == blocked.Load() {
+									<-released
+								}
+								mu.Lock()
+								defer mu.Unlock()
+								stopped.Add(t.Key)
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				// Runs before Close, which waits for the blocked stop.
+				DeferCleanup(release)
+				tasks := make([]task.Task, 3)
+				for i := range tasks {
+					tasks[i] = newTask(embeddedRackKey(ctx))
+					Expect(taskWriter.Create(ctx, &tasks[i])).To(Succeed())
+					writeCommand(ctx, task.Command{
+						Task: tasks[i].Key,
+						Type: "start",
+						Key:  fmt.Sprintf("cmd-%d", i),
+					})
+				}
+				// The Driver also configures the tasks that earlier specs left, so wait
+				// for the keys of these tasks.
+				Eventually(func(g Gomega) {
+					mu.Lock()
+					defer mu.Unlock()
+					for _, t := range tasks {
+						g.Expect(configured.Contains(t.Key)).To(BeTrue())
+					}
+				}).Should(Succeed())
+				blocked.Store(tasks[0].Key)
+				for _, t := range tasks {
+					Expect(taskWriter.Delete(ctx, t.Key, false)).To(Succeed())
+				}
+				release()
+				Eventually(func() set.Set[task.Key] {
+					mu.Lock()
+					defer mu.Unlock()
+					return stopped.Copy()
+				}).Should(Equal(set.New(tasks[0].Key, tasks[1].Key, tasks[2].Key)))
+			},
+		)
+
+		It(
+			"should stop a deleted task that is created again before its stop runs",
+			func(ctx SpecContext) {
+				var (
+					mu         sync.Mutex
+					stopped    = make(set.Set[task.Key])
+					configured = make(set.Set[task.Key])
+					blocked    atomic.Value
+					blocking   = make(chan struct{})
+					released   = make(chan struct{})
+					release    = sync.OnceFunc(func() { close(released) })
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						mu.Lock()
+						configured.Add(t.Key)
+						mu.Unlock()
+						return &mockTask{
+							key: t.Key,
+							stopFunc: func(bool) error {
+								if t.Key == blocked.Load() {
+									close(blocking)
+									<-released
+								}
+								mu.Lock()
+								defer mu.Unlock()
+								stopped.Add(t.Key)
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				// Runs before Close, which waits for the blocked stop.
+				DeferCleanup(release)
+				blocker := newTask(embeddedRackKey(ctx))
+				recreated := newTask(embeddedRackKey(ctx))
+				for i, t := range []*task.Task{&blocker, &recreated} {
+					Expect(taskWriter.Create(ctx, t)).To(Succeed())
+					writeCommand(ctx, task.Command{
+						Task: t.Key,
+						Type: "start",
+						Key:  fmt.Sprintf("cmd-%d", i),
+					})
+				}
+				Eventually(func(g Gomega) {
+					mu.Lock()
+					defer mu.Unlock()
+					g.Expect(configured.Contains(blocker.Key)).To(BeTrue())
+					g.Expect(configured.Contains(recreated.Key)).To(BeTrue())
+				}).Should(Succeed())
+				blocked.Store(blocker.Key)
+				Expect(taskWriter.Delete(ctx, blocker.Key, false)).To(Succeed())
+				Eventually(blocking).Should(BeClosed())
+				Expect(taskWriter.Delete(ctx, recreated.Key, false)).To(Succeed())
+				again := recreated
+				Expect(taskWriter.Create(ctx, &again)).To(Succeed())
+				release()
+				Eventually(func() set.Set[task.Key] {
+					mu.Lock()
+					defer mu.Unlock()
+					return stopped.Copy()
+				}).Should(Equal(set.New(blocker.Key, recreated.Key)))
+			},
+		)
+
+		It(
+			"should keep a deleted task that is created and started again before its "+
+				"stop runs",
+			func(ctx SpecContext) {
+				var (
+					mu         sync.Mutex
+					stops      = make(map[task.Key]int)
+					configures = make(map[task.Key]int)
+					blocked    atomic.Value
+					blocking   = make(chan struct{})
+					released   = make(chan struct{})
+					release    = sync.OnceFunc(func() { close(released) })
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						mu.Lock()
+						configures[t.Key]++
+						mu.Unlock()
+						return &mockTask{
+							key: t.Key,
+							stopFunc: func(bool) error {
+								if t.Key == blocked.Load() {
+									close(blocking)
+									<-released
+								}
+								mu.Lock()
+								defer mu.Unlock()
+								stops[t.Key]++
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				// Runs before Close, which waits for the blocked stop.
+				DeferCleanup(release)
+				blocker := newTask(embeddedRackKey(ctx))
+				recreated := newTask(embeddedRackKey(ctx))
+				for i, t := range []*task.Task{&blocker, &recreated} {
+					Expect(taskWriter.Create(ctx, t)).To(Succeed())
+					writeCommand(ctx, task.Command{
+						Task: t.Key,
+						Type: "start",
+						Key:  fmt.Sprintf("cmd-%d", i),
+					})
+				}
+				Eventually(func(g Gomega) {
+					mu.Lock()
+					defer mu.Unlock()
+					g.Expect(configures[blocker.Key]).To(Equal(1))
+					g.Expect(configures[recreated.Key]).To(Equal(1))
+				}).Should(Succeed())
+				blocked.Store(blocker.Key)
+				Expect(taskWriter.Delete(ctx, blocker.Key, false)).To(Succeed())
+				Eventually(blocking).Should(BeClosed())
+				Expect(taskWriter.Delete(ctx, recreated.Key, false)).To(Succeed())
+				again := recreated
+				Expect(taskWriter.Create(ctx, &again)).To(Succeed())
+				writeCommand(ctx, task.Command{
+					Task: recreated.Key,
+					Type: "start",
+					Key:  "cmd-again",
+				})
+				Eventually(func(g Gomega) {
+					mu.Lock()
+					defer mu.Unlock()
+					g.Expect(configures[recreated.Key]).To(Equal(2))
+					g.Expect(stops[recreated.Key]).To(Equal(1))
+				}).Should(Succeed())
+				release()
+				Eventually(func() int {
+					mu.Lock()
+					defer mu.Unlock()
+					return stops[blocker.Key]
+				}).Should(Equal(1))
+				Consistently(func() int {
+					mu.Lock()
+					defer mu.Unlock()
+					return stops[recreated.Key]
+				}).Should(Equal(1))
+			},
+		)
+
+		It(
+			"should deploy a recreated task only after its deleted instance stops",
+			func(ctx SpecContext) {
+				var (
+					mu         sync.Mutex
+					configures = make(map[task.Key]int)
+					armed      atomic.Bool
+					blocking   = make(chan struct{})
+					released   = make(chan struct{})
+					release    = sync.OnceFunc(func() { close(released) })
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						mu.Lock()
+						configures[t.Key]++
+						mu.Unlock()
+						return &mockTask{
+							key: t.Key,
+							stopFunc: func(bool) error {
+								if armed.CompareAndSwap(true, false) {
+									close(blocking)
+									<-released
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				// Runs before Close, which waits for the blocked stop.
+				DeferCleanup(release)
+				recreated := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &recreated)).To(Succeed())
+				writeCommand(ctx, task.Command{
+					Task: recreated.Key,
+					Type: "start",
+					Key:  "cmd-first",
+				})
+				configured := func() int {
+					mu.Lock()
+					defer mu.Unlock()
+					return configures[recreated.Key]
+				}
+				Eventually(configured).Should(Equal(1))
+				armed.Store(true)
+				Expect(taskWriter.Delete(ctx, recreated.Key, false)).To(Succeed())
+				Eventually(blocking).Should(BeClosed())
+				again := recreated
+				Expect(taskWriter.Create(ctx, &again)).To(Succeed())
+				writeCommand(ctx, task.Command{
+					Task: recreated.Key,
+					Type: "start",
+					Key:  "cmd-again",
+				})
+				Consistently(configured).Should(Equal(1))
+				release()
+				Eventually(configured).Should(Equal(2))
+			},
+		)
 
 		It(
 			"should not resurrect the status of a deleted task",
