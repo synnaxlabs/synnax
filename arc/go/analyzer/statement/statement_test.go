@@ -232,10 +232,24 @@ var _ = Describe("Statement", func() {
 						Name: "s1", Kind: symbol.KindStage,
 					}))
 					statement.AnalyzeBlock(ctx)
+					Expect(*ctx.Diagnostics).To(HaveLen(2))
+					Expect(
+						(*ctx.Diagnostics)[0].Message,
+					).To(Equal("undefined symbol: undefined_name"))
+					Expect(
+						(*ctx.Diagnostics)[1].Message,
+					).To(ContainSubstring("name x conflicts with existing variable"))
+				},
+			)
+
+			It(
+				"should detect an undefined symbol in a stateful initializer",
+				func(bCtx SpecContext) {
+					ctx := analyzeInStage(bCtx, `y $= undefined_name`)
 					Expect(*ctx.Diagnostics).To(HaveLen(1))
 					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(ContainSubstring("name x conflicts with existing variable"))
+					).To(Equal("undefined symbol: undefined_name"))
 				},
 			)
 

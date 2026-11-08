@@ -444,6 +444,9 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 		ctx.AST.Type_(),
 	)
 	if !varType.IsValid() {
+		if expr != nil {
+			expression.Analyze(ctx.Child(expr))
+		}
 		if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 			Name: name,
 			Kind: symbol.KindStatefulVariable,
