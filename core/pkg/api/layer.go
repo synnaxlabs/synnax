@@ -804,6 +804,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Password: cfg.Service.Password,
 		APIKey:   cfg.Service.APIKey,
 		User:     cfg.Service.User,
+		RBAC:     cfg.Service.RBAC,
 		Identity: cfg.Distribution.Identity,
 	}); err != nil {
 		return nil, err

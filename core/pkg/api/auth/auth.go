@@ -14,6 +14,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -60,6 +61,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	User *user.Service
+	// RBAC checks update on the user whose password another caller sets.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
 	// Identity names the Core in responses.
 	//
 	// [REQUIRED]
@@ -78,6 +83,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Password = override.Nil(c.Password, other.Password)
 	c.APIKey = override.Nil(c.APIKey, other.APIKey)
 	c.User = override.Nil(c.User, other.User)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Identity = override.If(
 		c.Identity,
 		other.Identity,
@@ -93,6 +99,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("password", c.Password)
 	v.NotNil("api_key", c.APIKey)
 	v.NotNil("user", c.User)
+	v.NotNil("rbac", c.RBAC)
 	v.Ternary("identity.key", c.Identity.Key == uuid.Nil(), "must be set")
 	v.NonZero("identity.host_key", c.Identity.HostKey)
 	return v.Error()
@@ -104,6 +111,7 @@ type Service struct {
 	password *password.Service
 	apiKey   *apikey.Service
 	user     *user.Service
+	access   *rbac.Service
 	identity cluster.Identity
 }
 
@@ -117,6 +125,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		password: cfg.Password,
 		apiKey:   cfg.APIKey,
 		user:     cfg.User,
+		access:   cfg.RBAC,
 		identity: cfg.Identity,
 	}, nil
 }

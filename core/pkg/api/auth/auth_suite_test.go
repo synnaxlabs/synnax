@@ -109,6 +109,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Password: passwordSvc,
 		APIKey:   apiKeySvc,
 		User:     userSvc,
+		RBAC:     rbacSvc,
 		Identity: node.Identity,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
