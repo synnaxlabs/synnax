@@ -556,6 +556,7 @@ var _ = Describe("Delete cascades", func() {
 		)
 	}
 	createChild := func(ctx SpecContext) held {
+		GinkgoHelper()
 		child := ranger.Range{
 			Name:      "Child",
 			TimeRange: telem.NewRangeSeconds(1, 5),
@@ -563,11 +564,15 @@ var _ = Describe("Delete cascades", func() {
 		}
 		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
 		return held{
-			id:     child.ResourceID(),
-			exists: func(ctx SpecContext) bool { return rangeExists(ctx, child.Key) },
+			id: child.ResourceID(),
+			exists: func(ctx SpecContext) bool {
+				GinkgoHelper()
+				return rangeExists(ctx, child.Key)
+			},
 		}
 	}
 	createAlias := func(ctx SpecContext) held {
+		GinkgoHelper()
 		ch := channel.Channel{
 			Name:     "aliased_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
 			DataType: telem.Float64T,
@@ -579,6 +584,7 @@ var _ = Describe("Delete cascades", func() {
 		return held{
 			id: alias.ResourceID(r.Key, ch.Key()),
 			exists: func(ctx SpecContext) bool {
+				GinkgoHelper()
 				_, err := svc.Alias.NewReader(nil).Resolve(ctx, r.Key, "alias")
 				Expect(errors.Skip(err, query.ErrNotFound)).To(Succeed())
 				return err == nil
@@ -586,11 +592,13 @@ var _ = Describe("Delete cascades", func() {
 		}
 	}
 	createLinePlot := func(ctx SpecContext) held {
+		GinkgoHelper()
 		lp := lineplot.LinePlot{Name: "Plot", Range: &r.Key}
 		Expect(svc.LinePlot.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
 		return held{
 			id: lineplot.ResourceID(lp.Key),
 			exists: func(ctx SpecContext) bool {
+				GinkgoHelper()
 				return MustSucceed(svc.LinePlot.NewRetrieve().
 					Where(lineplot.MatchKeys(lp.Key)).
 					Exists(ctx, nil))
@@ -598,6 +606,7 @@ var _ = Describe("Delete cascades", func() {
 		}
 	}
 	createSnapshot := func(ctx SpecContext) held {
+		GinkgoHelper()
 		t := task.Task{
 			Type:     pagerduty.AlertTaskType,
 			Rack:     svc.Rack.EmbeddedKey,
@@ -619,6 +628,7 @@ var _ = Describe("Delete cascades", func() {
 		return held{
 			id: t.ResourceID(),
 			exists: func(ctx SpecContext) bool {
+				GinkgoHelper()
 				return MustSucceed(svc.Task.NewRetrieve().
 					Where(task.MatchKeys(t.Key)).
 					Exists(ctx, nil))
