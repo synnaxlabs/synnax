@@ -403,6 +403,19 @@ describe("actions.Controller", () => {
     });
   });
 
+  describe("hold", () => {
+    it("keeps a doc with pending edits through a trim", async () => {
+      const { send, calls } = createHeldSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k");
+      prime(docs, "other");
+      void controller.dispatch("k", [set("a", 1)]);
+      await expect.poll(() => calls.length).toBe(1);
+      docs.trim(docs.size);
+      expect(docs.trim(0)).toEqual(["other"]);
+    });
+  });
+
   describe("prepareUndo", () => {
     it("returns null when the stack is empty", () => {
       const { docs, controller } = setupStore();
@@ -1226,6 +1239,18 @@ describe("actions.Controller", () => {
         expect(fetch).toHaveBeenCalledTimes(2);
         controller.applyRemote("k", 3, "f-3", [set("a", 3)]);
         expect(docs.get("k")?.values).toEqual({ name: 1, a: 3 });
+      });
+
+      it("applies a frame to a doc that another read cached during the fetch", async () => {
+        const first = Promise.withResolvers<Array<Doc & { key: string }>>();
+        const fetch = vi.fn(async () => await first.promise);
+        const { docs, controller } = setupStore({ fetch, listed });
+        controller.applyRemote("k", 1, "f-1", [set("name", 1)]);
+        await expect.poll(() => fetch.mock.calls.length).toBe(1);
+        docs.set("k", { values: { name: 1 } });
+        controller.applyRemote("k", 2, "f-2", [set("a", 2)]);
+        expect(docs.get("k")?.values).toEqual({ name: 1, a: 2 });
+        first.resolve([{ key: "k", values: { name: 1 } }]);
       });
 
       it("ignores a doc deleted before its fetch", async () => {

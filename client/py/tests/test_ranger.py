@@ -10,7 +10,7 @@
 import re
 from collections.abc import Callable
 from typing import cast, override
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import numpy as np
 import pydantic
@@ -37,7 +37,7 @@ class TestWhere:
             name=sy.filter.String(eq="a"),
             labels=[key],
             or_=[
-                ranger.Where(key=sy.filter.Set[UUID](in_=[key])),
+                ranger.Where(key=sy.filter.Set[ranger.Key](in_=[key])),
                 ranger.Where(name=sy.filter.String(starts_with="b")),
             ],
         )
@@ -788,6 +788,30 @@ class TestRangeRetrieveFilters:
         first = client.ranges.retrieve(overlaps_with=window, limit=2)
         assert len(first) == 2
         assert {r.key for r in first} <= {r.key for r in window_ranges}
+
+    def test_order_and_after(
+        self,
+        client: sy.Synnax,
+        window: sy.TimeRange,
+        window_ranges: list[sy.Range],
+    ) -> None:
+        """Should page through the matching ranges in order from a cursor"""
+        order = ranger.Order(field="name")
+        pages: list[list[sy.Range]] = []
+        after: ranger.Cursor | None = None
+        while True:
+            page = client.ranges.retrieve(
+                overlaps=window, order=order, after=after, limit=2
+            )
+            if len(page) == 0:
+                break
+            pages.append(page)
+            after = ranger.Cursor(key=page[-1].key, name=page[-1].name)
+        assert len(pages) == 2
+        # The Core orders text without regard to case.
+        assert [r.name for p in pages for r in p] == sorted(
+            (r.name for r in window_ranges), key=str.lower
+        )
 
     def test_search_term(
         self, client: sy.Synnax, window_ranges: list[sy.Range]

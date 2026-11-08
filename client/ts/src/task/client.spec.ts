@@ -199,15 +199,19 @@ describe("task.Client", () => {
         }),
       );
       await expect.poll(cachedMessage).toBe("Task not deployed");
-      stream.push(
-        new framer.Frame({
-          [status.SET_CHANNEL_NAME]: new Series(
-            Array.from({ length: 11 }, () =>
-              createStatus(uuid.create(), "Other", TimeStamp.now(), uuid.create()),
+      const pushStatuses = (n: number) =>
+        stream.push(
+          new framer.Frame({
+            [status.SET_CHANNEL_NAME]: new Series(
+              Array.from({ length: n }, () =>
+                createStatus(uuid.create(), "Other", TimeStamp.now(), uuid.create()),
+              ),
             ),
-          ),
-        }),
-      );
+          }),
+        );
+      pushStatuses(11);
+      await expect.poll(() => statuses.store.size).toBe(12);
+      pushStatuses(1);
       await expect.poll(() => statuses.store.size).toBe(9);
       expect(statuses.ownedBy(task.resourceID(key))?.message).toBe("Task not deployed");
     });

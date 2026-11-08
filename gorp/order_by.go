@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"cmp"
+	"iter"
 
 	"github.com/synnaxlabs/gorp/internal/index"
 )
@@ -29,10 +30,11 @@ const (
 // OrderQuery is an opaque ordering handle produced by SortedIndex.Ordered and
 // consumed by Retrieve.OrderBy.
 type OrderQuery[K Key, E Entry[K]] interface {
-	// walker returns a function that yields the next n keys of the walk on each call,
-	// and no keys once the walk ends. An n of 0 yields every remaining key. When keys
-	// is non-nil, the walk visits only those keys.
-	walker(keys []K) func(n int) []K
+	// walk yields the keys of the walk in order, each with a check that reports whether
+	// an entry read at the key still holds the value the walk found it at. It takes
+	// batch keys from the index at a time, or every key at once when batch is 0. A
+	// non-nil keys limits the walk to those keys.
+	walk(keys []K, batch int) iter.Seq2[K, func(e *E) bool]
 }
 
 // SortedQuery is the handle returned by SortedIndex.Ordered. Pass it to
@@ -63,38 +65,35 @@ func (q SortedQuery[K, E, V]) After(value V, key K) SortedQuery[K, E, V] {
 	return q
 }
 
-// walker does not see uncommitted tx writes. Entries staged via a write tx (stageSet /
+// walk does not see uncommitted tx writes. Entries staged via a write tx (stageSet /
 // stageDelete) are invisible to ordered iteration; only SortedIndex.Filter merges the
 // per-tx delta. A failed populate leaves the index empty for the walk.
 //
 //nolint:unused
-func (q SortedQuery[K, E, V]) walker(keys []K) func(n int) []K {
+func (q SortedQuery[K, E, V]) walk(keys []K, batch int) iter.Seq2[K, func(e *E) bool] {
 	desc := q.dir == DirectionDesc
-	if keys != nil {
-		ordered := q.sorted.store.Order(keys, desc, q.after)
-		return func(n int) []K {
-			if n == 0 || n > len(ordered) {
-				n = len(ordered)
+	return func(yield func(K, func(e *E) bool) bool) {
+		emit := func(entries []index.Entry[K, V]) bool {
+			for _, entry := range entries {
+				holds := func(e *E) bool {
+					return cmp.Compare(q.sorted.extract(e), entry.Value) == 0
+				}
+				if !yield(entry.Key, holds) {
+					return false
+				}
 			}
-			next := ordered[:n]
-			ordered = ordered[n:]
-			return entryKeys(next)
+			return true
 		}
-	}
-	after := q.after
-	return func(n int) []K {
-		next := q.sorted.store.Walk(desc, after, n)
-		if len(next) > 0 {
+		if keys != nil {
+			emit(q.sorted.store.Order(keys, desc, q.after))
+			return
+		}
+		for after := q.after; ; {
+			next := q.sorted.store.Walk(desc, after, batch)
+			if len(next) == 0 || !emit(next) || batch == 0 {
+				return
+			}
 			after = &next[len(next)-1]
 		}
-		return entryKeys(next)
 	}
-}
-
-func entryKeys[K Key, V cmp.Ordered](entries []index.Entry[K, V]) []K {
-	keys := make([]K, len(entries))
-	for i, e := range entries {
-		keys[i] = e.Key
-	}
-	return keys
 }

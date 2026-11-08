@@ -8,14 +8,15 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Literal, overload
-from uuid import UUID
 
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.access.role.types_gen import (
+    Cursor,
     Key,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Role,
@@ -35,7 +36,7 @@ _CreateResponse = _CreateRequest
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[UUID]
+    keys: list[Key]
 
 
 class Client:
@@ -73,7 +74,7 @@ class Client:
         return res.roles[0] if is_single else res.roles
 
     @overload
-    def retrieve(self, key: UUID) -> Role: ...
+    def retrieve(self, key: Key) -> Role: ...
 
     @overload
     def retrieve(
@@ -116,7 +117,7 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         one: Literal[True],
     ) -> Role: ...
@@ -132,9 +133,11 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Role]: ...
 
@@ -143,9 +146,11 @@ class Client:
         key: filter.SetInput[Key] | None = None,
         *,
         where: Where | None = None,
-        keys: list[UUID] | None = None,
+        keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Role | list[Role]:
@@ -165,6 +170,9 @@ class Client:
         :param keys: Keeps roles with one of these keys.
         :param search_term: A fuzzy search term matched against role names.
         :param limit: The maximum number of roles to retrieve.
+        :param order: The order of the roles. Defaults to key order.
+        :param after: Retrieves the roles past this position in the order: the key of
+            the last role of the page before, and its value of the order field.
         :param one: Returns one role for any filter.
         :returns: One role for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of roles. The list leaves out keys that do not exist.
@@ -176,15 +184,17 @@ class Client:
         if key is not None:
             fields["key"] = key
         single = returns_one(fields, one, limit)
-        flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
         )
         res = self._client.send("/access/role/retrieve", req, RetrieveResponse)
         return sole("role", req, res.roles) if single else res.roles
 
-    def delete(self, keys: UUID | list[UUID]) -> None:
+    def delete(self, keys: Key | list[Key]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         self._client.send("/access/role/delete", req, Empty)

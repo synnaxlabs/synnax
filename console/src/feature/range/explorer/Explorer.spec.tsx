@@ -19,6 +19,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -78,6 +79,23 @@ const revealRange = async (name: string): Promise<HTMLElement> => {
   return await screen.findByText(name);
 };
 
+const searchRanges = async (term: string): Promise<void> => {
+  await enableEditing();
+  const search = await waitFor(() =>
+    screen.getByPlaceholderText<HTMLInputElement>("Search ranges..."),
+  );
+  fireEvent.change(search, { target: { value: term } });
+};
+
+const createRangeAt = async (name: string, start: TimeStamp): Promise<ranger.Range> =>
+  await client.ranges.create({
+    name,
+    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(30))),
+  });
+
+const listedNames = (word: string): Array<string | null> =>
+  screen.queryAllByText(new RegExp(word)).map((el) => el.textContent);
+
 const rowOf = (el: HTMLElement): HTMLElement => {
   const row = el.closest<HTMLElement>(".lyra-list__item");
   if (row == null) throw new Error("list item not found");
@@ -102,6 +120,33 @@ describe("range/Explorer", () => {
     const rng = await createTestRange(client);
     await renderExplorer();
     expect(await revealRange(rng.name)).toBeTruthy();
+  });
+
+  it("lists to-do ranges, then in-progress ranges, then completed ones", async () => {
+    const word = uniqueRangeName("stage");
+    const now = TimeStamp.now();
+    await createRangeAt(`${word} past`, now.sub(TimeSpan.hours(1)));
+    await createRangeAt(`${word} current`, now.sub(TimeSpan.seconds(1)));
+    await createRangeAt(`${word} future`, now.add(TimeSpan.hours(1)));
+    await renderExplorer();
+    await searchRanges(word);
+    await waitFor(() =>
+      expect(listedNames(word)).toEqual([
+        `${word} future`,
+        `${word} current`,
+        `${word} past`,
+      ]),
+    );
+  });
+
+  it("lists a range that starts after the explorer opens as in progress", async () => {
+    const word = uniqueRangeName("stage");
+    await createRangeAt(`${word} future`, TimeStamp.now().add(TimeSpan.hours(1)));
+    await renderExplorer();
+    await searchRanges(word);
+    await waitFor(() => expect(listedNames(word)).toEqual([`${word} future`]));
+    await createRangeAt(word, TimeStamp.now());
+    await waitFor(() => expect(listedNames(word)).toEqual([`${word} future`, word]));
   });
 
   it("opens the create range modal from the toolbar button", async () => {

@@ -99,14 +99,12 @@ describe("table path actions", () => {
     expect(table.reduceAll(next, inverse).next).toEqual(state);
   });
 
-  it("should throw for a path to a field outside the patchable fields", () => {
-    expect(() => table.reduceAll(create(), [set(["rows"], [])])).toThrow(
-      "rows is not inside a field of name, group, project",
-    );
-  });
-
   it("should not classify a set of the name as a cell edit", () => {
     expect(table.kindOf([set(["name"], "Other")])).toEqual("set");
+  });
+
+  it("should not classify a nested set outside the cells as a cell edit", () => {
+    expect(table.kindOf([set(["layout", "a"], 1)])).toEqual("set");
   });
 });
 

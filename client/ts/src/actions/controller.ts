@@ -982,7 +982,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * entries, and marks its targets as remote-touched.
    */
   applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
-    if (this.listing.has(key)) {
+    // Until the fetch caches the doc, a frame only marks that the Core may answer from
+    // before it.
+    if (this.listing.has(key) && this.docs.get(key) == null) {
       this.listing.set(key, true);
       return;
     }

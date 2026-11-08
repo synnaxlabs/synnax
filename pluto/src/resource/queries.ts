@@ -22,10 +22,13 @@ export interface ListQuery {
  * mounted.
  */
 export const useList = (
-  params: Omit<Flux.UseListParams<ListQuery, resource.Resource>, "item" | "name"> = {},
+  params: Omit<
+    Flux.UseListParams<ListQuery, resource.Resource>,
+    "itemQuery" | "name"
+  > = {},
 ): Flux.UseListReturn<string, resource.Resource> =>
   Flux.useList((client) => client.resources, {
     ...params,
     name: "resources",
-    item: resource.parseID,
+    itemQuery: resource.parseID,
   });

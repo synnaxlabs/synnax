@@ -9,14 +9,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload, override
-from uuid import UUID
+from typing import TYPE_CHECKING, Any, Literal, overload, override
 
 from pydantic import PrivateAttr
 
 from freighter import UnaryClient
-from synnax import framer, node
-from synnax import group as group_
+from synnax import framer, group as group_, node
 from synnax.channel.payload import (
     Key,
     Params,
@@ -24,7 +22,9 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import Retriever, params_where
 from synnax.channel.types_gen import (
+    Cursor,
     Operation,
+    Order,
     Payload,
     RetrieveRequest,
     Status,
@@ -47,6 +47,10 @@ from synnax.util import request_where, returns_one, sole
 from x import control, filter
 from x.lists import normalize
 
+# synnax.ranger imports synnax.channel at load time.
+if TYPE_CHECKING:
+    from synnax import ranger
+
 
 class Channel(Payload):
     """A channel is a logical collection of samples emitted by or representing the
@@ -64,7 +68,7 @@ class Channel(Payload):
         data_type: CrudeDataType,
         is_index: bool = False,
         index: Key = 0,
-        leaseholder: int = 0,
+        leaseholder: node.Key = 0,
         key: Key = 0,
         virtual: bool | None = None,
         internal: bool = False,
@@ -249,7 +253,7 @@ class Client:
         name: str = "",
         index: Key = 0,
         is_index: bool = False,
-        leaseholder: int = 0,
+        leaseholder: node.Key = 0,
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
@@ -275,7 +279,7 @@ class Client:
         name: str = "",
         is_index: bool = False,
         index: Key = 0,
-        leaseholder: int = 0,
+        leaseholder: node.Key = 0,
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
@@ -374,9 +378,9 @@ class Client:
         where: Where | None = ...,
         data_types: list[CrudeDataType] | None = ...,
         not_data_types: list[CrudeDataType] | None = ...,
-        node_key: int | None = ...,
+        node_key: node.Key | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
+        range_key: ranger.Key | None = ...,
         include_status: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
@@ -399,7 +403,7 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
+        range_key: ranger.Key | None = ...,
         include_status: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
@@ -422,7 +426,7 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
+        range_key: ranger.Key | None = ...,
         include_status: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
@@ -447,9 +451,9 @@ class Client:
         where: Where | None = ...,
         data_types: list[CrudeDataType] | None = ...,
         not_data_types: list[CrudeDataType] | None = ...,
-        node_key: int | None = ...,
+        node_key: node.Key | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
+        range_key: ranger.Key | None = ...,
         include_status: bool = ...,
         one: Literal[True],
     ) -> Channel: ...
@@ -474,10 +478,12 @@ class Client:
         where: Where | None = ...,
         data_types: list[CrudeDataType] | None = ...,
         not_data_types: list[CrudeDataType] | None = ...,
-        node_key: int | None = ...,
+        node_key: node.Key | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
+        range_key: ranger.Key | None = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Channel]: ...
@@ -489,10 +495,12 @@ class Client:
         where: Where | None = None,
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
-        node_key: int | None = None,
+        node_key: node.Key | None = None,
         search_term: str = "",
-        range_key: UUID | None = None,
+        range_key: ranger.Key | None = None,
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -528,6 +536,9 @@ class Client:
             whose alias in the range matches come first.
         :param range_key: Sets each channel's alias from this range.
         :param limit: The maximum number of channels to retrieve.
+        :param order: The order of the channels. Defaults to key order.
+        :param after: Retrieves the channels past this position in the order: the key of
+            the last channel of the page before, and its value of the order field.
         :param include_status: Attaches each channel's status. A channel with no
             status gets None.
         :param one: Returns one channel for any filter.
@@ -568,6 +579,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._retriever.filter(req, range_key)

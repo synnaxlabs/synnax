@@ -180,7 +180,7 @@ export class Client extends query.Retriever<
       compose: (record) => this.compose(record, true),
       watch: [query.deriveWatch(statusStore, (event) => affectedDeviceKeys(event))],
     });
-    statuses.holdOwned([store, composed], resourceID);
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<SingleQuery, Device, Key, Device>({
       name: "device",
       table: composed,
@@ -205,10 +205,14 @@ export class Client extends query.Retriever<
         serverComputed: (req) => serverComputed(LINES, req.where),
         serverFields: SERVER_FIELDS,
         watch: [
-          query.watch(statusStore, (event, q: RetrieveRequest) => {
-            if (q.includeStatus !== true) return null;
-            return affectedDeviceKeys(event);
-          }),
+          query.watch(
+            statusStore,
+            (event, q: RetrieveRequest) => {
+              if (q.includeStatus !== true) return null;
+              return affectedDeviceKeys(event);
+            },
+            { contentOnly: true },
+          ),
         ],
       },
       compose: (record, q) =>

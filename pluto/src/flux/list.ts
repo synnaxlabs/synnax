@@ -63,8 +63,8 @@ export interface UseListParams<Q, E extends record.Keyed<record.Key>, I = E["key
   pageSize?: number;
   /** How long a search term waits before the list reads it. */
   searchDebounce?: CrudeTimeSpan;
-  /** The read of a record outside the list. Defaults to its key. */
-  item?: (key: E["key"]) => I;
+  /** Maps a key to the read of a record outside the list. Defaults to the key. */
+  itemQuery?: (key: E["key"]) => I;
 }
 
 /** Return value for a list hook. Spread it into a `List.Frame`. */
@@ -80,6 +80,8 @@ export type UseListReturn<K extends record.Key, E extends record.Keyed<K>> = Omi
    * for this.
    */
   answered: boolean;
+  /** Whether the list holds every record that matches. */
+  complete: boolean;
   /** Reads a record of the list, or any other record of the domain that is cached. */
   getItem: GetItem<K, E>;
   /**
@@ -117,7 +119,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     filter,
     pageSize = DEFAULT_PAGE_SIZE,
     searchDebounce = DEFAULT_SEARCH_DEBOUNCE,
-    item = keyItem,
+    itemQuery = keyItem,
   }: UseListParams<NoInfer<Q>, E, I>,
 ): UseListReturn<E["key"], E> => {
   type K = E["key"];
@@ -153,29 +155,30 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   // A new query, such as a new search term, shows the last answer until its own lands.
   const [last, setLast] = useState(current);
   if (current != null && current !== last) setLast(current);
-  const window = list == null ? undefined : (current ?? last);
   const [status, setStatus] = useState<Result<null>>(() => loadingResult<null>(op));
-  const reading = useRef<Promise<void> | null>(null);
+  // A failed read shows no records from an earlier query.
+  const window =
+    list == null ? undefined : status.variant === "error" ? current : (current ?? last);
+  const reading = useRef<object | null>(null);
 
-  const read = (step: string, run: () => Promise<unknown>): void => {
+  const read = async (step: string, run: () => Promise<unknown>): Promise<void> => {
+    const token = {};
+    reading.current = token;
     setStatus(loadingResult<null>(step));
-    const promise: Promise<void> = run().then(
-      () => {
-        if (reading.current === promise) setStatus(successResult<null>(step, null));
-      },
-      (error: unknown) => {
-        if (reading.current === promise) setStatus(errorResult(step, error));
-      },
-    );
-    reading.current = promise;
-    void promise.finally(() => {
-      if (reading.current === promise) reading.current = null;
-    });
+    let next: Result<null> = successResult<null>(step, null);
+    try {
+      await run();
+    } catch (error) {
+      next = errorResult(step, error);
+    }
+    if (reading.current !== token) return;
+    reading.current = null;
+    setStatus(next);
   };
 
   useEffect(() => {
     if (list == null || !started) return;
-    read(op, async () => await list.retrieve());
+    void read(op, async () => await list.retrieve());
     return () => {
       reading.current = null;
     };
@@ -184,7 +187,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   const more = () => {
     if (!started) return setStarted(true);
     if (list == null || reading.current != null || current?.end == null) return;
-    read(`retrieve more ${name}`, async () => await list.more(pageSize));
+    void read(`retrieve more ${name}`, async () => await list.more(pageSize));
   };
 
   const search = (next: string) => debouncedSearch(next);
@@ -198,7 +201,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     const member = members.get(key);
     if (member != null) return keep(member);
     if (retriever == null || primitive.isZero(key)) return undefined;
-    const cached = retriever.getCached(item(key));
+    const cached = retriever.getCached(itemQuery(key));
     return keep(query.isLive(cached) ? cached : undefined);
   };
   const getItem = ((keys: K | K[]) => {
@@ -208,7 +211,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
 
   const subscribe = (callback: () => void, key: K): destructor.Destructor => {
     if (retriever == null || primitive.isZero(key)) return noop;
-    const params = item(key);
+    const params = itemQuery(key);
     const release = retriever.onChange(params, () => callback());
     if (retriever.getCached(params) === undefined)
       retriever.retrieve(params).then(callback, (error: unknown) => {
@@ -222,7 +225,15 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     (records ?? []).filter((r) => filter == null || filter(r)).map((r) => r.key),
   ) as K[];
 
-  const rest = { data, answered: window != null, getItem, subscribe, more, search };
+  const rest = {
+    data,
+    answered: window != null,
+    complete: window != null && window.end == null,
+    getItem,
+    subscribe,
+    more,
+    search,
+  };
   if (client == null) return { ...nullClientResult<K[]>(op), ...rest };
   if (listQuery == null) return { ...noQueryResult<K[]>(op), ...rest };
   return { ...status, ...rest };

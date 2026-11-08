@@ -37,11 +37,8 @@ import {
 
 const NO_OP: HandlerResult = { inverse: [], targets: [] };
 
-// The Core alone sets the group and the project.
-const FIELDS = ["name", "group", "project"];
-
 const applyPath = (state: Draft<Panel>, action: patch.Action): HandlerResult =>
-  actions.applyFieldPath(state, action, FIELDS, panelZ);
+  actions.applyPath(state, action, panelZ);
 
 const walkLeaf = (root: Draft<Node>, pathKey: number): Draft<LeafNode> | null => {
   const n = findNode(root, pathKey);

@@ -353,7 +353,7 @@ export class Client extends query.Retriever<
       equal: (a, b) => deep.equal(a.payload, b.payload),
       watch: [query.deriveWatch(statusStore, (event) => affectedChannelKeys(event))],
     });
-    statuses.holdOwned([store, composed], resourceID);
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
       table: composed,
@@ -398,8 +398,11 @@ export class Client extends query.Retriever<
             const decoded = decodeDeleteChange(event.key);
             return decoded.range === query.rangeKey ? [decoded.channel] : null;
           }),
-          query.watch(statusStore, (event, query: RetrieveMultipleParams) =>
-            query.includeStatus === true ? affectedChannelKeys(event) : null,
+          query.watch(
+            statusStore,
+            (event, query: RetrieveMultipleParams) =>
+              query.includeStatus === true ? affectedChannelKeys(event) : null,
+            { contentOnly: true },
           ),
         ],
       },

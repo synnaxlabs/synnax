@@ -13,10 +13,11 @@ from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, FileTransport, UnaryClient
-from synnax import group as group_
-from synnax import imex
+from synnax import group as group_, imex
 from synnax.project.types_gen import (
+    Cursor,
     Key,
+    Order,
     Project,
     RetrieveRequest,
     RetrieveResponse,
@@ -209,6 +210,8 @@ class Client:
         keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Project]: ...
 
@@ -219,6 +222,8 @@ class Client:
         keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Project | list[Project]:
@@ -238,6 +243,9 @@ class Client:
         :param keys: Keeps projects with one of these keys.
         :param search_term: A fuzzy search term matched against project names.
         :param limit: The maximum number of projects to retrieve.
+        :param order: The order of the projects. Defaults to key order.
+        :param after: Retrieves the projects past this position in the order: the key of
+            the last project of the page before, and its value of the order field.
         :param one: Returns one project for any filter.
         :returns: One project for a plain ``key`` or when ``one`` is set, otherwise a
             list of projects. The list leaves out keys that do not exist.
@@ -252,6 +260,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
         )
         res = self._client.send("/project/retrieve", req, RetrieveResponse)
         return sole("project", req, res.projects) if single else res.projects

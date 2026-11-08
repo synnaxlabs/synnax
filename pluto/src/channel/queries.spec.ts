@@ -66,6 +66,35 @@ describe("queries", () => {
       expect(result.current.internal.data).not.toContain(ch.key);
     });
 
+    it("should update the alias of a listed channel when a range alias is set", async () => {
+      const range = await client.ranges.create({
+        name: id.create(),
+        timeRange: new TimeRange({ start: 1n, end: 1000n }),
+      });
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      await client.ranges.setAlias(range.key, ch.key, "alias");
+      const { result } = renderHook(
+        () =>
+          Channel.useList({
+            query: { rangeKey: range.key, where: { name: { eq: ch.name } } },
+          }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([ch.key]));
+      expect(result.current.getItem(ch.key)?.alias).toEqual("alias");
+      await act(async () => {
+        await client.ranges.setAlias(range.key, ch.key, "new_alias");
+      });
+      await waitFor(() =>
+        expect(result.current.getItem(ch.key)?.alias).toEqual("new_alias"),
+      );
+    });
+
     it("should resolve the alias of a channel outside the list", async () => {
       const range = await client.ranges.create({
         name: id.create(),

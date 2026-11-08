@@ -1774,7 +1774,7 @@ describe("delete rollback", () => {
       .poll(() => onError.mock.calls[0]?.[0])
       .toEqual(
         expect.objectContaining({
-          message: "failed to fetch restored entries",
+          message: "failed to refetch entries",
           cause: expect.objectContaining({ message: "boom" }),
         }),
       );
@@ -2267,6 +2267,7 @@ describe("trim", () => {
     const table = newTable();
     table.set([doc("a"), doc("b"), doc("c")]);
     table.get("a");
+    table.trim(table.size);
     expect(table.trim(1)).toEqual(["b", "c"]);
     expect(table.keys()).toEqual(["a"]);
   });
@@ -2276,6 +2277,7 @@ describe("trim", () => {
     table.set([doc("a"), doc("b"), doc("c")]);
     table.hold({ held: () => ["a"] });
     table.subscribe(vi.fn(), "b");
+    table.trim(table.size);
     expect(table.trim(0)).toEqual(["c"]);
     expect(table.size).toBe(2);
   });
@@ -2288,6 +2290,7 @@ describe("trim", () => {
     const drop = vi.fn();
     table.hold({ held: () => [], drop });
     const version = table.version();
+    table.trim(table.size);
     table.trim(1);
     expect(subscriber).not.toHaveBeenCalled();
     expect(table.version()).toBe(version);
@@ -2300,7 +2303,27 @@ describe("trim", () => {
     table.set([doc("a")]);
     const release = table.hold({ held: () => ["a"] });
     release();
+    table.trim(table.size);
     expect(table.trim(0)).toEqual(["a"]);
+  });
+
+  it("should keep the entries read or written since the last trim", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b")]);
+    table.trim(table.size);
+    table.set(doc("c"));
+    table.get("a");
+    expect(table.trim(0)).toEqual(["b"]);
+  });
+
+  it("should not let an older fetch restore a dropped entry", () => {
+    const table = newTable();
+    const since = table.stamp();
+    table.set({ key: "a", name: "new" });
+    table.trim(table.size);
+    table.trim(0);
+    table.ingest([{ key: "a", name: "old" }], { since });
+    expect(table.get("a")).toBeUndefined();
   });
 
   it("should drop nothing at or under the size", () => {

@@ -110,7 +110,7 @@ export const useList = ({
             ...query,
             where: { internal: { eq: false }, ...query?.where },
           },
-    item: (key) => ({ ...BASE_QUERY, key }),
+    itemQuery: (key) => ({ ...BASE_QUERY, key }),
   });
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<

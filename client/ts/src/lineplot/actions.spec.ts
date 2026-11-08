@@ -71,11 +71,6 @@ describe("lineplot reducer", () => {
       const { targets } = lineplot.reduceAll(createEmpty(), [setName("x")]);
       expect(targets).toEqual(["name"]);
     });
-    it("should throw on a path to a field outside the patchable fields", () => {
-      expect(() =>
-        apply(createEmpty(), lineplot.set({ path: ["title", "visible"], value: true })),
-      ).toThrow("title.visible is not inside a field of name, group, project");
-    });
   });
 
   describe("setTitleVisible", () => {

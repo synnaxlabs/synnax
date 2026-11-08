@@ -36,7 +36,7 @@ export const useList = ({
     ...rest,
     name: PLURAL_RESOURCE_NAME,
     query: query === null ? null : { ...BASE_QUERY, ...query },
-    item: (key) => ({ ...BASE_QUERY, key }),
+    itemQuery: (key) => ({ ...BASE_QUERY, key }),
   });
 
 export const { use, useResult, useEnsure, createSelector } = Flux.createRetrieve<

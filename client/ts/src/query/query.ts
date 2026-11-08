@@ -111,12 +111,18 @@ export interface Watch<P extends Params, K extends record.Key> {
   ) => destructor.Destructor;
   /** The watched table's {@link Table.version}. */
   version: () => number;
+  /**
+   * Whether the table's changes leave the matches of every query as they were, so a
+   * change composes the members again instead of fetching the matches.
+   */
+  contentOnly?: boolean;
 }
 
 /**
  * Declares that events on the given table affect answers in this space.
  * `affects` maps an event to the primary keys whose membership or content it
- * touches, "refetch" to invalidate wholesale, or null when unaffected.
+ * touches, "refetch" to invalidate wholesale, or null when unaffected. Set
+ * `contentOnly` when no query matches on the table's records.
  */
 export const watch = <
   P extends Params,
@@ -129,6 +135,7 @@ export const watch = <
     event: TableEvent<ForeignKey, ForeignValue>,
     params: P,
   ) => K[] | "refetch" | null,
+  { contentOnly = false }: { contentOnly?: boolean } = {},
 ): Watch<P, K> => ({
   attach: (params, onEvent) =>
     // Batched so one foreign write fires onEvent once: a refetch verdict for any event
@@ -144,6 +151,7 @@ export const watch = <
       if (keys.length > 0) onEvent(keys);
     }),
   version: () => table.version(),
+  contentOnly,
 });
 
 /**
@@ -398,7 +406,7 @@ export class Space<
         case "deleted":
           return Promise.reject(new NotFoundError(`${this.config.name} was deleted`));
       }
-    void this.startStreaming();
+    void startStreaming(this.hooks, (exc) => this.report(exc));
     return this.fetch(query, options);
   }
 
@@ -463,7 +471,7 @@ export class Space<
    * quick remount skips the reconfirm refetch. Returns a destructor that unsubscribes.
    */
   onChange(params: P, handler: ChangeHandler<D>): destructor.Destructor {
-    void this.startStreaming();
+    void startStreaming(this.hooks, (exc) => this.report(exc));
     const query = this.ensure(params);
     query.handlers.add(handler);
     query.idleSince = undefined;
@@ -600,10 +608,6 @@ export class Space<
       this.queries.set(hashed, query);
     }
     return query;
-  }
-
-  private async startStreaming(): Promise<void> {
-    await startStreaming(this.hooks, (exc) => this.report(exc));
   }
 
   private report(
@@ -963,8 +967,9 @@ export class Space<
       watches?.forEach((w) =>
         teardown.push(
           w.attach(params, (result) => {
-            this.scheduleRefetch(query);
-            if (result !== "refetch") this.touchMembers(query, result);
+            if (result === "refetch") return this.scheduleRefetch(query);
+            if (w.contentOnly !== true) this.scheduleRefetch(query);
+            this.touchMembers(query, result);
           }),
         ),
       );

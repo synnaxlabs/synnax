@@ -95,6 +95,8 @@ export const bindDerived = <
       ),
     ),
     ...(watch ?? []).map((w) => w.attach(recompose)),
+    // A record the derived table needs is needed in the source, which composes it.
+    source.hold({ held: () => into.held() }),
   ];
   recompose("all");
   return () => detach.forEach((d) => d());

@@ -628,11 +628,6 @@ describe("set of the name", () => {
     expect(targets).toEqual(["name"]);
     expect(panel.reduceAll(next, inverse).next).toEqual(doc);
   });
-  it("should throw on a path to a field outside the patchable fields", () => {
-    expect(() =>
-      panel.reduceAll(state(leaf()), [panel.set({ path: ["icon"], value: "x" })]),
-    ).toThrow("icon is not inside a field of name, group, project");
-  });
 });
 
 describe("group and project patches", () => {

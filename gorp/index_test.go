@@ -1058,6 +1058,23 @@ var _ = Describe("Index", func() {
 			})
 
 			It(
+				"Should skip an entry that moved after the walk found it",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 1, Score: 500}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+						Limit(3).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(scoresOf(res)).To(Equal([]int64{0, 20, 30}))
+				},
+			)
+
+			It(
 				"Should run validators on the ordered result set",
 				func(ctx SpecContext) {
 					var (

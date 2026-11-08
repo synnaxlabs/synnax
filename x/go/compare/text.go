@@ -12,6 +12,5 @@ package compare
 import "strings"
 
 // TextKey returns the key that orders s among other text: its Unicode simple lower
-// case. Keys compare by code point. The TypeScript compare.text orders text the same
-// way, and x/testdata/compare/text.json pins the two together.
+// case. Keys compare by code point. x/testdata/compare/text.json pins the order.
 func TextKey(s string) string { return strings.ToLower(s) }

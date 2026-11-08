@@ -14,8 +14,10 @@ from pydantic import BaseModel
 from freighter import Empty, UnaryClient
 from synnax.exceptions import ValidationError
 from synnax.label.types_gen import (
+    Cursor,
     Key,
     Label,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Where,
@@ -23,8 +25,7 @@ from synnax.label.types_gen import (
 )
 from synnax.resource import ID, CrudeID
 from synnax.util import request_where, returns_one, sole
-from x import color as color_
-from x import filter
+from x import color as color_, filter
 from x.lists import normalize
 
 
@@ -153,6 +154,8 @@ class Client:
         names: list[str] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Label]: ...
 
@@ -164,6 +167,8 @@ class Client:
         names: list[str] | None = None,
         search_term: str = "",
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Label | list[Label]:
@@ -182,6 +187,9 @@ class Client:
         :param names: Keeps labels with one of these names.
         :param search_term: A fuzzy search term matched against label names.
         :param limit: The maximum number of labels to retrieve.
+        :param order: The order of the labels. Defaults to key order.
+        :param after: Retrieves the labels past this position in the order: the key of
+            the last label of the page before, and its value of the order field.
         :param one: Returns one label for any filter.
         :returns: One label for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of labels. The list leaves out keys that do not exist.
@@ -199,6 +207,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
         )
         res = self._client.send("/label/retrieve", req, RetrieveResponse)
         return sole("label", req, res.labels) if single else res.labels

@@ -14,11 +14,12 @@ from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import group as group_
-from synnax import rack as rack_
+from synnax import group as group_, rack as rack_
 from synnax.device.types_gen import (
+    Cursor,
     Device,
     Key,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Where,
@@ -42,7 +43,7 @@ class _RenameRequest(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[str]
+    keys: list[Key]
 
 
 class _SetGroupRequest(BaseModel):
@@ -67,7 +68,7 @@ class Client:
     def create(
         self,
         *,
-        key: str = "",
+        key: Key = "",
         location: str = "",
         rack: rack_.Key = 0,
         name: str = "",
@@ -95,7 +96,7 @@ class Client:
         self,
         devices: list[Device] | Device | None = None,
         *,
-        key: str = "",
+        key: Key = "",
         location: str = "",
         rack: rack_.Key = 0,
         name: str = "",
@@ -129,7 +130,7 @@ class Client:
         res = self._client.send("/device/create", req, _CreateResponse)
         return res.devices[0] if is_single else res.devices
 
-    def delete(self, keys: list[str]) -> None:
+    def delete(self, keys: list[Key]) -> None:
         req = _DeleteRequest(keys=keys)
         self._client.send("/device/delete", req, Empty)
 
@@ -266,12 +267,12 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[str] | None = ...,
+        keys: list[Key] | None = ...,
         names: list[str] | None = ...,
         makes: list[str] | None = ...,
         models: list[str] | None = ...,
         locations: list[str] | None = ...,
-        racks: list[int] | None = ...,
+        racks: list[rack_.Key] | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
         one: Literal[True],
@@ -296,12 +297,12 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[str] | None = ...,
+        keys: list[Key] | None = ...,
         names: list[str] | None = ...,
         makes: list[str] | None = ...,
         models: list[str] | None = ...,
         locations: list[str] | None = ...,
-        racks: list[int] | None = ...,
+        racks: list[rack_.Key] | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
         one: Literal[True],
@@ -326,14 +327,16 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[str] | None = ...,
+        keys: list[Key] | None = ...,
         names: list[str] | None = ...,
         makes: list[str] | None = ...,
         models: list[str] | None = ...,
         locations: list[str] | None = ...,
-        racks: list[int] | None = ...,
+        racks: list[rack_.Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Device]: ...
@@ -342,14 +345,16 @@ class Client:
         self,
         *,
         where: Where | None = None,
-        keys: list[str] | None = None,
+        keys: list[Key] | None = None,
         names: list[str] | None = None,
         makes: list[str] | None = None,
         models: list[str] | None = None,
         locations: list[str] | None = None,
-        racks: list[int] | None = None,
+        racks: list[rack_.Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         ignore_not_found: bool = False,
@@ -384,6 +389,9 @@ class Client:
             group when False.
         :param search_term: A fuzzy search term matched against device names.
         :param limit: The maximum number of devices to retrieve.
+        :param order: The order of the devices. Defaults to key order.
+        :param after: Retrieves the devices past this position in the order: the key of
+            the last device of the page before, and its value of the order field.
         :param include_status: Whether to populate each device's status.
         :param one: Returns one device for any filter.
         :param ignore_not_found: Returns None instead of raising when one device is
@@ -410,6 +418,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._client.send("/device/retrieve", req, RetrieveResponse)

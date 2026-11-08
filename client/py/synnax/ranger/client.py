@@ -13,22 +13,20 @@ from __future__ import annotations
 import functools
 from collections.abc import Callable, Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Literal, cast, overload, override
-from uuid import UUID
 
 import numpy as np
 from pydantic import BaseModel, PrivateAttr
 
-import synnax.channel.payload as channel
 from freighter import UnaryClient
-from synnax import framer, label
-from synnax.channel.retrieve import Retriever as ChannelRetriever
+from synnax import channel, framer, label, node
 from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
-from synnax.ranger import alias as alias_
-from synnax.ranger import kv
+from synnax.ranger import alias as alias_, kv
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
+    Cursor,
     Key,
+    Order,
     Payload,
     RetrieveRequest,
     Where,
@@ -47,8 +45,7 @@ from synnax.telem import (
     TimeRange,
 )
 from synnax.util import request_where, returns_one, sole
-from x import color as color_
-from x import filter
+from x import color as color_, filter
 from x.interop import ArrayOperators
 from x.lists import normalize
 from x.params import require_named_params
@@ -56,8 +53,7 @@ from x.uuid import NIL
 
 # synnax.task imports this module through its range field.
 if TYPE_CHECKING:
-    from synnax.task import Client as TaskClient
-    from synnax.task import Task
+    from synnax.task import Client as TaskClient, Task
 
 _RANGE_SET_CHANNEL = "sy_range_set"
 
@@ -219,7 +215,7 @@ class ScopedChannel(ArrayOperators):
         return self._internal[0].index
 
     @property
-    def leaseholder(self) -> int:
+    def leaseholder(self) -> node.Key:
         self._guard()
         return self._internal[0].leaseholder
 
@@ -249,7 +245,7 @@ class Range(Payload):
 
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read and write operations."""
-    _channels: ChannelRetriever | None = PrivateAttr(None)
+    _channels: channel.Retriever | None = PrivateAttr(None)
     """For retrieving channels from the cluster."""
     _kv: kv.Client | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
@@ -268,12 +264,12 @@ class Range(Payload):
         *,
         name: str,
         time_range: TimeRange,
-        key: UUID = NIL,
+        key: Key = NIL,
         color: color_.Crude | None = None,
         labels: Sequence[label.Key] = (),
         parent: Key | Payload | None = None,
         _frame_client: framer.Client | None = None,
-        _channel_retriever: ChannelRetriever | None = None,
+        _channel_retriever: channel.Retriever | None = None,
         _kv: kv.Client | None = None,
         _aliaser: alias_.Client | None = None,
         _client: Client | None = None,
@@ -409,7 +405,7 @@ class Range(Payload):
         return self._cached_label_client
 
     @property
-    def _channel_retriever(self) -> ChannelRetriever:
+    def _channel_retriever(self) -> channel.Retriever:
         if self._channels is None:
             raise _RANGE_NOT_CREATED
         return self._channels
@@ -517,7 +513,7 @@ class Range(Payload):
 
 class Client:
     _frame_client: framer.Client
-    _channels: ChannelRetriever
+    _channels: channel.Retriever
     _retriever: Retriever
     _writer: Writer
     _unary_client: UnaryClient
@@ -532,7 +528,7 @@ class Client:
         frame_client: framer.Client,
         writer: Writer,
         retriever: Retriever,
-        channel_retriever: ChannelRetriever,
+        channel_retriever: channel.Retriever,
         signals: Registry,
         tasks: TaskClient,
         labels: label.Client,
@@ -735,6 +731,8 @@ class Client:
         has_labels: list[label.Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Range]: ...
 
@@ -749,6 +747,8 @@ class Client:
         has_labels: list[label.Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Range | list[Range]:
@@ -773,6 +773,9 @@ class Client:
         :param has_labels: Keeps ranges that have one of these labels.
         :param search_term: A fuzzy search term matched against range names.
         :param limit: The maximum number of ranges to retrieve.
+        :param order: The order of the ranges. Defaults to key order.
+        :param after: Retrieves the ranges past this position in the order: the key of
+            the last range of the page before, and its value of the order field.
         :param one: Returns one range for any filter.
         :returns: One range for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of ranges. The list leaves out keys that do not exist.
@@ -792,6 +795,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
         )
         ranges = self._sugar(self._retriever.retrieve(req))
         return sole("range", req, ranges) if single else ranges

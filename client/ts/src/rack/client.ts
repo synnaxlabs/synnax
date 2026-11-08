@@ -144,7 +144,7 @@ export class Client extends query.Retriever<
       equal: (a, b) => deep.equal(a.payload, b.payload),
       watch: [query.deriveWatch(statusStore, (event) => affectedRackKeys(event))],
     });
-    statuses.holdOwned([store, composed], resourceID);
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<SingleQuery, Rack, Key, Rack>({
       name: "rack",
       table: composed,
@@ -167,10 +167,14 @@ export class Client extends query.Retriever<
         matches: (r, req) => matches(LINES, r, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
         watch: [
-          query.watch(statusStore, (event, q: RetrieveRequest) => {
-            if (q.includeStatus !== true) return null;
-            return affectedRackKeys(event);
-          }),
+          query.watch(
+            statusStore,
+            (event, q: RetrieveRequest) => {
+              if (q.includeStatus !== true) return null;
+              return affectedRackKeys(event);
+            },
+            { contentOnly: true },
+          ),
         ],
       },
       compose: (record, q) =>

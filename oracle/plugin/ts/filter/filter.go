@@ -379,7 +379,7 @@ func generateFile(
 			),
 		}
 		switch {
-		case sort.Text:
+		case sort.Textual:
 			od.Compare = "compare.text"
 		case sort.Type.Name == "telem.TimeStamp":
 			od.Compare = "telem.TimeStamp.sort"
