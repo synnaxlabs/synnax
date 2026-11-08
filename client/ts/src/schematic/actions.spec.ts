@@ -149,14 +149,26 @@ describe("schematic reducer", () => {
       expect(out.nodes).toEqual([node("n2", 1, 1)]);
       expect(out.configs).toEqual({ n2: tank("Tank") });
     });
-    it("should leave existing edges intact even when they reference the removed node", () => {
+    it("should remove the edges that connect to the node and their configs", () => {
       const state = empty({
-        nodes: [node("n1", 0, 0), node("n2", 1, 1)],
-        edges: [edge("e1", "n1", "out", "n2", "in")],
+        nodes: [node("n1", 0, 0), node("n2", 1, 1), node("n3", 2, 2)],
+        edges: [
+          edge("e1", "n1", "out", "n2", "in"),
+          edge("e2", "n3", "out", "n1", "in"),
+          edge("e3", "n2", "out", "n3", "in"),
+        ],
+        configs: {
+          e1: cfg({ variant: "pipe" }),
+          e2: cfg({ variant: "pipe" }),
+          e3: cfg({ variant: "electric" }),
+        },
       });
-      const out = apply(state, schematic.removeNode({ key: "n1" }));
-      expect(out.edges).toHaveLength(1);
-      expect(out.edges[0].source.node).toBe("n1");
+      const { next, targets } = schematic.reduceAll(state, [
+        schematic.removeNode({ key: "n1" }),
+      ]);
+      expect(next.edges).toEqual([edge("e3", "n2", "out", "n3", "in")]);
+      expect(next.configs).toEqual({ e3: cfg({ variant: "electric" }) });
+      expect(targets).toEqual(["n1", "e1", "e2"]);
     });
     it("should be a no-op when the key does not match any node", () => {
       const state = empty({
@@ -424,7 +436,10 @@ describe("schematic reducer", () => {
 
   describe("setEdge", () => {
     it("should append an edge whose key is not yet present", () => {
-      const state = empty({ edges: [edge("e1", "a", "o", "b", "i")] });
+      const state = empty({
+        nodes: [node("a", 0, 0), node("b", 1, 1), node("c", 2, 2)],
+        edges: [edge("e1", "a", "o", "b", "i")],
+      });
       const out = apply(
         state,
         schematic.addEdge({ edge: edge("e2", "b", "o", "c", "i") }),
@@ -450,15 +465,28 @@ describe("schematic reducer", () => {
       expect(out.edges[1]).toEqual(original);
       expect(out.edges[2].key).toBe("e3");
     });
+    it.each([
+      ["source", edge("e1", "ghost", "o", "a", "i")],
+      ["target", edge("e1", "a", "o", "ghost", "i")],
+    ])("should be a no-op when the %s node does not exist", (_, e) => {
+      const state = empty({ nodes: [node("a", 0, 0)] });
+      const { next, inverse } = schematic.reduceAll(state, [
+        schematic.addEdge({ edge: e }),
+      ]);
+      expect(next).toBe(state);
+      expect(inverse).toEqual([]);
+    });
   });
 
   describe("removeEdge", () => {
-    it("should remove the matching edge", () => {
+    it("should remove the matching edge and its config", () => {
       const state = empty({
         edges: [edge("e1", "a", "o", "b", "i"), edge("e2", "b", "o", "c", "i")],
+        configs: { e1: cfg({ variant: "pipe" }), e2: cfg({ variant: "electric" }) },
       });
       const out = apply(state, schematic.removeEdge({ key: "e1" }));
       expect(out.edges).toEqual([edge("e2", "b", "o", "c", "i")]);
+      expect(out.configs).toEqual({ e2: cfg({ variant: "electric" }) });
     });
     it("should be a no-op when the key does not match any edge", () => {
       const state = empty({ edges: [edge("e1", "a", "o", "b", "i")] });
@@ -470,7 +498,7 @@ describe("schematic reducer", () => {
   describe("setConfig", () => {
     it("should write the config entry under the given key", () => {
       const out = apply(
-        empty(),
+        empty({ nodes: [node("n1", 0, 0)] }),
         schematic.setConfig({
           key: "n1",
           config: { variant: "tank", label: { label: "Pump" } },
@@ -480,6 +508,7 @@ describe("schematic reducer", () => {
     });
     it("should replace an existing config entry whole", () => {
       const state = empty({
+        nodes: [node("n1", 0, 0)],
         configs: { n1: tank("Old", "#ff0000") },
       });
       const out = apply(
@@ -492,22 +521,27 @@ describe("schematic reducer", () => {
       expect(out.configs).toEqual({ n1: tank("New") });
     });
     it("should replace an entry with one of another variant", () => {
-      const state = empty({ configs: { e1: cfg({ variant: "pipe" }) } });
+      const state = empty({
+        nodes: [node("a", 0, 0), node("b", 1, 1)],
+        edges: [edge("e1", "a", "o", "b", "i")],
+        configs: { e1: cfg({ variant: "pipe" }) },
+      });
       const out = apply(
         state,
         schematic.setConfig({ key: "e1", config: { variant: "electric" } }),
       );
       expect(out.configs).toEqual({ e1: cfg({ variant: "electric" }) });
     });
-    it("should accept a key that does not match any node or edge", () => {
-      const out = apply(
-        empty(),
+    it("should be a no-op when no node or edge has the key", () => {
+      const state = empty({ nodes: [node("n1", 0, 0)] });
+      const { next, inverse } = schematic.reduceAll(state, [
         schematic.setConfig({
-          key: "orphan",
+          key: "ghost",
           config: { variant: "tank", label: { label: "Floating" } },
         }),
-      );
-      expect(out.configs).toEqual({ orphan: tank("Floating") });
+      ]);
+      expect(next).toBe(state);
+      expect(inverse).toEqual([]);
     });
   });
 
@@ -515,7 +549,7 @@ describe("schematic reducer", () => {
     const set = (path: string[], value: unknown) => schematic.set({ path, value });
 
     it("should set a field of an element config from its wire form", () => {
-      const state = empty({ configs: { n1: tank("Pump") } });
+      const state = empty({ nodes: [node("n1", 0, 0)], configs: { n1: tank("Pump") } });
       const { next, targets } = schematic.reduceAll(state, [
         set(["configs", "n1", "label", "max_inline_size"], 200),
       ]);
@@ -526,7 +560,7 @@ describe("schematic reducer", () => {
     });
 
     it("should return a wire-form inverse that restores the config", () => {
-      const state = empty({ configs: { n1: tank("Pump") } });
+      const state = empty({ nodes: [node("n1", 0, 0)], configs: { n1: tank("Pump") } });
       const { next, inverse } = schematic.reduceAll(state, [
         set(["configs", "n1", "label", "max_inline_size"], 200),
       ]);
@@ -540,16 +574,32 @@ describe("schematic reducer", () => {
     });
 
     it("should keep the other element configs by identity", () => {
-      const state = empty({ configs: { n1: tank("Pump"), n2: tank("Valve") } });
+      const state = empty({
+        nodes: [node("n1", 0, 0), node("n2", 1, 1)],
+        configs: { n1: tank("Pump"), n2: tank("Valve") },
+      });
       const out = apply(state, set(["configs", "n1", "label", "label"], "Tank"));
       expect(out.configs.n2).toBe(state.configs.n2);
     });
 
     it("should remove an element config", () => {
-      const state = empty({ configs: { n1: tank("Pump") } });
+      const state = empty({ nodes: [node("n1", 0, 0)], configs: { n1: tank("Pump") } });
       const out = apply(state, schematic.remove({ path: ["configs"], key: "n1" }));
       expect(out.configs).toEqual({});
     });
+
+    it.each([
+      ["a field", ["configs", "ghost", "label", "label"], "Tank"],
+      ["a whole config", ["configs", "ghost"], { variant: "tank" }],
+    ])(
+      "should do nothing to %s of a node or edge that does not exist",
+      (_, path, value) => {
+        const state = empty({ nodes: [node("n1", 0, 0)] });
+        const { next, inverse } = schematic.reduceAll(state, [set(path, value)]);
+        expect(next).toBe(state);
+        expect(inverse).toEqual([]);
+      },
+    );
 
     it("should throw for a path outside the element configs", () => {
       expect(() => apply(empty(), set(["name"], "Other"))).toThrow(
@@ -564,7 +614,10 @@ describe("schematic reducer", () => {
 
     it("should keep an edit to another field that base does not hold", () => {
       const base = tank("Pump");
-      const state = empty({ configs: { n1: tank("Pump", "#ff0000") } });
+      const state = empty({
+        nodes: [node("n1", 0, 0)],
+        configs: { n1: tank("Pump", "#ff0000") },
+      });
       const actions = schematic.setChanged({ key: "n1", base, next: tank("Valve") });
       const out = apply(state, ...encoded(state, actions));
       expect(out.configs.n1).toEqual(tank("Valve", "#ff0000"));
@@ -587,7 +640,7 @@ describe("schematic reducer", () => {
 
     it("should remove a field that next does not hold", () => {
       const base = tank("Pump", "#ff0000");
-      const state = empty({ configs: { n1: base } });
+      const state = empty({ nodes: [node("n1", 0, 0)], configs: { n1: base } });
       const actions = schematic.setChanged({ key: "n1", base, next: tank("Pump") });
       expect(apply(state, ...encoded(state, actions)).configs.n1).toEqual(tank("Pump"));
     });
@@ -595,7 +648,7 @@ describe("schematic reducer", () => {
     it("should replace the config when the symbol changes variant", () => {
       const base = tank("Pump");
       const next = cfg({ variant: "valve" });
-      const state = empty({ configs: { n1: base } });
+      const state = empty({ nodes: [node("n1", 0, 0)], configs: { n1: base } });
       const actions = schematic.setChanged({ key: "n1", base, next });
       expect(apply(state, ...encoded(state, actions)).configs.n1).toEqual(next);
     });
@@ -693,7 +746,7 @@ describe("schematic reducer", () => {
       });
     });
 
-    it("should drop config but keep dangling edges when a node is removed and re-added", () => {
+    it("should drop the config and edges of a node that is removed and re-added", () => {
       const state = empty({
         nodes: [node("n1", 0, 0), node("n2", 1, 1)],
         edges: [edge("e1", "n1", "o", "n2", "i")],
@@ -707,8 +760,7 @@ describe("schematic reducer", () => {
       expect(out.nodes).toHaveLength(2);
       expect(out.nodes[1]).toEqual(node("n1", 50, 50));
       expect(out.configs).toEqual({});
-      expect(out.edges).toHaveLength(1);
-      expect(out.edges[0].source.node).toBe("n1");
+      expect(out.edges).toEqual([]);
     });
 
     it("should converge an idempotent action sequence to the same state as a single application", () => {
@@ -794,22 +846,6 @@ describe("schematic reducer inverses", () => {
     const { next, inverse } = schematic.reduceAll(state, actions);
     const restored = schematic.reduceAll(next, inverse).next;
     expect(restored).toEqual(state);
-  };
-
-  // Acknowledges the gap in setConfig's inverse: no action removes a config entry, so
-  // a key the batch newly introduced persists on the restored state. Asserts that nodes
-  // and edges round-trip cleanly, and that every config key present in the original is
-  // restored to its original value.
-  const expectUserVisibleRoundTrip = (
-    state: schematic.Schematic,
-    actions: schematic.Action[],
-  ) => {
-    const { next, inverse } = schematic.reduceAll(state, actions);
-    const restored = schematic.reduceAll(next, inverse).next;
-    expect(restored.nodes).toEqual(state.nodes);
-    expect(restored.edges).toEqual(state.edges);
-    for (const [k, v] of Object.entries(state.configs))
-      expect(restored.configs[k]).toEqual(v);
   };
 
   describe("rename", () => {
@@ -903,6 +939,28 @@ describe("schematic reducer inverses", () => {
         schematic.removeNode({ key: "ghost" }),
       ]);
       expect(inverse).toEqual([]);
+    });
+    it("should restore the connected edges and their configs", () => {
+      const state = empty({
+        nodes: [node("n2", 1, 1), node("n1", 0, 0)],
+        edges: [edge("e1", "n1", "out", "n2", "in")],
+        configs: { n1: tank("Pump"), e1: cfg({ variant: "pipe" }) },
+      });
+      expectRoundTrip(state, [schematic.removeNode({ key: "n1" })]);
+    });
+    it("should restore an edge between two nodes removed in one batch", () => {
+      const state = empty({
+        nodes: [node("n1", 0, 0), node("n2", 1, 1)],
+        edges: [edge("e1", "n1", "out", "n2", "in")],
+        configs: { e1: cfg({ variant: "pipe" }) },
+      });
+      const { next, inverse } = schematic.reduceAll(state, [
+        schematic.removeNode({ key: "n1" }),
+        schematic.removeNode({ key: "n2" }),
+      ]);
+      const restored = schematic.reduceAll(next, inverse).next;
+      expect(restored.edges).toEqual(state.edges);
+      expect(restored.configs).toEqual(state.configs);
     });
   });
 
@@ -1001,19 +1059,26 @@ describe("schematic reducer inverses", () => {
 
   describe("addEdge / removeEdge", () => {
     it("should invert addEdge with removeEdge", () => {
-      const state = empty();
+      const state = empty({ nodes: [node("a", 0, 0), node("b", 1, 1)] });
       expectRoundTrip(state, [
         schematic.addEdge({ edge: edge("e1", "a", "o", "b", "i") }),
       ]);
     });
-    it("should invert removeEdge with addEdge", () => {
-      const state = empty({ edges: [edge("e1", "a", "o", "b", "i")] });
+    it("should invert removeEdge with addEdge and restore its config", () => {
+      const state = empty({
+        nodes: [node("a", 0, 0), node("b", 1, 1)],
+        edges: [edge("e1", "a", "o", "b", "i")],
+        configs: { e1: cfg({ variant: "pipe" }) },
+      });
       expectRoundTrip(state, [schematic.removeEdge({ key: "e1" })]);
     });
     it("should produce an empty inverse for a duplicate addEdge", () => {
-      const state = empty({ edges: [edge("e1", "a", "o", "b", "i")] });
+      const state = empty({
+        nodes: [node("a", 0, 0), node("b", 1, 1)],
+        edges: [edge("e1", "a", "o", "b", "i")],
+      });
       const { inverse } = schematic.reduceAll(state, [
-        schematic.addEdge({ edge: edge("e1", "x", "y", "z", "w") }),
+        schematic.addEdge({ edge: edge("e1", "b", "o", "a", "i") }),
       ]);
       expect(inverse).toEqual([]);
     });
@@ -1022,6 +1087,7 @@ describe("schematic reducer inverses", () => {
   describe("setConfig", () => {
     it("should restore the prior entry whole", () => {
       const state = empty({
+        nodes: [node("n1", 0, 0)],
         configs: { n1: tank("Old", "#ff0000") },
       });
       const { next, inverse } = schematic.reduceAll(state, [
@@ -1037,7 +1103,7 @@ describe("schematic reducer inverses", () => {
       expect(restored.configs.n1).toEqual(tank("Old", "#ff0000"));
     });
     it("should produce an empty inverse when the key had no entry", () => {
-      const { inverse } = schematic.reduceAll(empty(), [
+      const { inverse } = schematic.reduceAll(empty({ nodes: [node("n1", 0, 0)] }), [
         schematic.setConfig({ key: "n1", config: tank("New") }),
       ]);
       expect(inverse).toEqual([]);
@@ -1045,10 +1111,8 @@ describe("schematic reducer inverses", () => {
   });
 
   describe("multi-action transactions", () => {
-    it("should invert a build sequence (nodes and edges restored; phantom edge config persists)", () => {
-      // Inverse cannot strip the e1 config that setConfig added — see
-      // expectUserVisibleRoundTrip's docstring for the limitation.
-      expectUserVisibleRoundTrip(empty(), [
+    it("should invert a build sequence", () => {
+      expectRoundTrip(empty(), [
         schematic.setNode({ node: node("pump", 0, 0) }),
         schematic.setNode({ node: node("valve", 100, 0) }),
         schematic.addEdge({ edge: edge("e1", "pump", "out", "valve", "in") }),

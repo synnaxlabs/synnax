@@ -233,11 +233,24 @@ var _ = Describe("Reducer", func() {
 			},
 		)
 		It(
-			"Should leave existing edges intact even when they reference the removed node",
+			"Should remove the edges that connect to the node and their configs",
 			func() {
 				state := schematic.Schematic{
-					Nodes: []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
-					Edges: []schematic.Edge{edge("e1", "n1", "out", "n2", "in")},
+					Nodes: []schematic.Node{
+						node("n1", 0, 0),
+						node("n2", 1, 1),
+						node("n3", 2, 2),
+					},
+					Edges: []schematic.Edge{
+						edge("e1", "n1", "out", "n2", "in"),
+						edge("e2", "n3", "out", "n1", "in"),
+						edge("e3", "n2", "out", "n3", "in"),
+					},
+					Configs: map[string]schematic.ElementConfig{
+						"e1": pipeCfg("#ffffff"),
+						"e2": pipeCfg("#000000"),
+						"e3": pipeCfg("#ff0000"),
+					},
 				}
 				out := MustSucceed(
 					schematic.Reduce(
@@ -247,8 +260,12 @@ var _ = Describe("Reducer", func() {
 						}),
 					),
 				)
-				Expect(out.Edges).To(HaveLen(1))
-				Expect(out.Edges[0].Source.Node).To(Equal("n1"))
+				Expect(out.Edges).To(Equal([]schematic.Edge{
+					edge("e3", "n2", "out", "n3", "in"),
+				}))
+				Expect(out.Configs).To(Equal(map[string]schematic.ElementConfig{
+					"e3": pipeCfg("#ff0000"),
+				}))
 			},
 		)
 		It("Should be a no-op when the key does not match any node", func() {
@@ -480,6 +497,11 @@ var _ = Describe("Reducer", func() {
 	Describe("AddEdge", func() {
 		It("Should append an edge whose key is not yet present", func() {
 			state := schematic.Schematic{
+				Nodes: []schematic.Node{
+					node("a", 0, 0),
+					node("b", 1, 1),
+					node("c", 2, 2),
+				},
 				Edges: []schematic.Edge{edge("e1", "a", "o", "b", "i")},
 			}
 			out := MustSucceed(
@@ -508,6 +530,21 @@ var _ = Describe("Reducer", func() {
 			)
 			Expect(out.Edges).To(Equal(state.Edges))
 		})
+		DescribeTable(
+			"Should be a no-op when a node the edge connects does not exist",
+			func(e schematic.Edge) {
+				state := schematic.Schematic{Nodes: []schematic.Node{node("a", 0, 0)}}
+				out := MustSucceed(
+					schematic.Reduce(
+						state,
+						schematic.NewAddEdgeAction(schematic.AddEdgePayload{Edge: e}),
+					),
+				)
+				Expect(out.Edges).To(BeEmpty())
+			},
+			Entry("missing source", edge("e1", "ghost", "o", "a", "i")),
+			Entry("missing target", edge("e1", "a", "o", "ghost", "i")),
+		)
 	})
 
 	Describe("RemoveEdge", func() {
@@ -559,7 +596,7 @@ var _ = Describe("Reducer", func() {
 
 	Describe("SetConfig", func() {
 		It("Should write the config entry under the given key", func() {
-			state := schematic.Schematic{}
+			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
 			out := MustSucceed(
 				schematic.Reduce(
 					state,
@@ -572,9 +609,12 @@ var _ = Describe("Reducer", func() {
 			Expect(out.Configs["n1"]).To(Equal(tankCfg("Pump", "")))
 		})
 		It("Should replace an existing config entry whole", func() {
-			state := schematic.Schematic{Configs: map[string]schematic.ElementConfig{
-				"n1": tankCfg("Old", "#ff0000"),
-			}}
+			state := schematic.Schematic{
+				Nodes: []schematic.Node{node("n1", 0, 0)},
+				Configs: map[string]schematic.ElementConfig{
+					"n1": tankCfg("Old", "#ff0000"),
+				},
+			}
 			out := MustSucceed(
 				schematic.Reduce(
 					state,
@@ -587,9 +627,11 @@ var _ = Describe("Reducer", func() {
 			Expect(out.Configs["n1"]).To(Equal(tankCfg("New", "")))
 		})
 		It("Should replace an entry with one of another variant", func() {
-			state := schematic.Schematic{Configs: map[string]schematic.ElementConfig{
-				"e1": pipeCfg("#000000"),
-			}}
+			state := schematic.Schematic{
+				Nodes:   []schematic.Node{node("a", 0, 0), node("b", 1, 1)},
+				Edges:   []schematic.Edge{edge("e1", "a", "o", "b", "i")},
+				Configs: map[string]schematic.ElementConfig{"e1": pipeCfg("#000000")},
+			}
 			out := MustSucceed(
 				schematic.Reduce(
 					state,
@@ -616,18 +658,18 @@ var _ = Describe("Reducer", func() {
 				MatchError(ContainSubstring("names no variant")),
 			))
 		})
-		It("Should accept a key that does not match any node or edge", func() {
-			state := schematic.Schematic{}
+		It("Should be a no-op when no node or edge has the key", func() {
+			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
 			out := MustSucceed(
 				schematic.Reduce(
 					state,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
-						Key:    "orphan",
+						Key:    "ghost",
 						Config: tankCfg("Floating", ""),
 					}),
 				),
 			)
-			Expect(out.Configs["orphan"]).To(Equal(tankCfg("Floating", "")))
+			Expect(out.Configs).To(BeEmpty())
 		})
 	})
 
@@ -689,7 +731,7 @@ var _ = Describe("Reducer", func() {
 		})
 
 		It(
-			"Should drop config but keep dangling edges when a node is removed and re-added",
+			"Should drop the config and edges of a node that is removed and re-added",
 			func() {
 				state := schematic.Schematic{
 					Nodes: []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
@@ -710,8 +752,7 @@ var _ = Describe("Reducer", func() {
 				Expect(out.Nodes).To(HaveLen(2))
 				Expect(out.Nodes[1]).To(Equal(node("n1", 50, 50)))
 				Expect(out.Configs).ToNot(HaveKey("n1"))
-				Expect(out.Edges).To(HaveLen(1))
-				Expect(out.Edges[0].Source.Node).To(Equal("n1"))
+				Expect(out.Edges).To(BeEmpty())
 			},
 		)
 
@@ -944,6 +985,7 @@ var _ = Describe("Path actions", func() {
 		cfg.ApplyDefaults()
 		state = schematic.Schematic{
 			Name:    "Engine",
+			Nodes:   []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
 			Configs: map[string]schematic.ElementConfig{"n1": cfg},
 		}
 	})
@@ -1027,6 +1069,20 @@ var _ = Describe("Path actions", func() {
 				MatchError(ContainSubstring(`config for "n2" names no variant`)),
 			))
 		})
+
+		DescribeTable(
+			"Should do nothing to the config of a node or edge that does not exist",
+			func(path []string, value any) {
+				next := MustSucceed(schematic.Reduce(state, set(path, value)))
+				Expect(next).To(Equal(state))
+			},
+			Entry("a field", []string{"configs", "ghost", "label", "label"}, "T2"),
+			Entry(
+				"a whole config",
+				[]string{"configs", "ghost"},
+				map[string]any{"variant": "tank"},
+			),
+		)
 	})
 
 	Describe("RemovePayload", func() {
