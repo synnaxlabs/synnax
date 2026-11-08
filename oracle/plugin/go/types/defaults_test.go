@@ -1453,6 +1453,33 @@ var _ = Describe("Decode-time default generation", func() {
 		Entry("in an optional field", "items Base?"),
 	)
 
+	DescribeTable(
+		"Should reject an embedded type with defaults that an inline variant field "+
+			"holds",
+		func(ctx SpecContext, field string) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+			Shape union on type {
+				box { ` + field + ` }
+				dot {}
+			}
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"BoxShape.items: Base has defaults and another struct embeds it, so " +
+					"it cannot be held in a slice, a map, or an optional field",
+			)))
+		},
+		Entry("in a slice", "items Base[]"),
+		Entry("in a map value", "items map<string, Base>"),
+		Entry("in an optional field", "items Base?"),
+	)
+
 	It(
 		"Should accept an embedded type without defaults that a field holds",
 		func(ctx SpecContext) {

@@ -274,6 +274,9 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 					inherited, pform.Fields, data.table,
 				)
 				for _, f := range inlineFields {
+					if err := checkHeldEmbedded(vd.TypeName, f, data); err != nil {
+						return unionData{}, err
+					}
 					if !defaultOnly.Contains(f.Name) {
 						vd.Fields = append(vd.Fields, processField(f, data))
 					}
