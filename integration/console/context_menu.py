@@ -11,8 +11,7 @@
 
 import time
 
-from playwright.sync_api import Locator, Page
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 # Menu items may carry a keyboard-trigger badge whose letters join the label in
 # textContent ("Rename" renders as "RenameE"), so label matching must strip it.
