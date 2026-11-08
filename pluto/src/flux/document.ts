@@ -46,6 +46,8 @@ const COALESCE_WINDOW = TimeSpan.milliseconds(200);
 
 /** The value that an edit writes at a path. */
 interface Write {
+  /** The action that writes the value. */
+  action: patch.Action;
   value: unknown;
   /** Whether the value passes its field schema. */
   valid: boolean;
@@ -229,11 +231,11 @@ class DocumentStore<
     }
     if (deep.equal(whole, target.node)) return;
     const guards = patch.guards(this.params.schema, target.path, values);
-    this.write(
-      target.path.join(deep.SEPARATOR),
-      { type: "set", set: { path: target.path, value: whole, guards } },
-      { value: whole, valid },
-    );
+    this.write(target.path.join(deep.SEPARATOR), {
+      action: { type: "set", set: { path: target.path, value: whole, guards } },
+      value: whole,
+      valid,
+    });
   };
 
   remove = (formPath: string): void => {
@@ -323,9 +325,9 @@ class DocumentStore<
     return target.path;
   }
 
-  private write(at: string, action: patch.Action, write: Write): void {
+  private write(at: string, write: Write): void {
     if (this.removed) return;
-    const prefixed = patch.prefix(action, this.params.path);
+    const prefixed = patch.prefix(write.action, this.params.path);
     if (this.batched != null) {
       this.batched.add(prefixed);
       return;
@@ -337,11 +339,22 @@ class DocumentStore<
       edit = { tx: this.params.domain.beginTransaction(this.key), writes: new Map() };
       this.edits.push(edit);
     }
-    edit.tx.add(prefixed);
     // A write replaces every earlier write below its path.
-    for (const p of [...edit.writes.keys()])
-      if (deep.pathsMatch(p, at)) edit.writes.delete(p);
+    const replaced = [...edit.writes.keys()].filter((p) => deep.pathsMatch(p, at));
+    for (const p of replaced) edit.writes.delete(p);
     edit.writes.set(at, write);
+    if (replaced.length === 0) edit.tx.add(prefixed);
+    else {
+      // The Core applies each action of a dispatch, so a replaced value that fails its
+      // schema would fail the dispatch.
+      edit.tx.abort();
+      edit.tx = this.params.domain.beginTransaction(this.key);
+      edit.tx.add(
+        [...edit.writes.values()].map(({ action }) =>
+          patch.prefix(action, this.params.path),
+        ),
+      );
+    }
     clearTimeout(edit.timer);
     const scheduled = edit;
     edit.timer = setTimeout(

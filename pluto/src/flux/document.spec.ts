@@ -80,6 +80,16 @@ const fetchStored = async (key: task.Key): Promise<task.Task> =>
 const countDispatches = (send: ReturnType<typeof spyOnSend>): number =>
   send.mock.calls.filter(([target]) => target === "/task/dispatch").length;
 
+const dispatchedActions = (send: ReturnType<typeof spyOnSend>): unknown[] =>
+  send.mock.calls
+    .filter(([target]) => target === "/task/dispatch")
+    .map(([, req]) => (req as { actions: unknown[] }).actions);
+
+const setRoutingKey = (value: string) => ({
+  type: "set",
+  set: expect.objectContaining({ path: ["config", "routing_key"], value }),
+});
+
 describe("createDocumentForm", () => {
   let testRack: rack.Rack;
   let wrapper: FC<PropsWithChildren>;
@@ -150,6 +160,7 @@ describe("createDocumentForm", () => {
       result.current.form.set(path.config.routingKey, "cat");
     });
     await waitFor(() => expect(countDispatches(send)).toBe(1));
+    expect(dispatchedActions(send)).toEqual([[setRoutingKey("cat")]]);
     await formClient.tasks.settled(t.key);
     expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "cat" });
   });
@@ -247,7 +258,7 @@ describe("createDocumentForm", () => {
     expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "dog" });
     act(() => result.current.form.set(path.config.routingKey, "cat"));
     await act(async () => expect(await result.current.flush()).toBe(true));
-    expect(countDispatches(send)).toBe(1);
+    expect(dispatchedActions(send)).toEqual([[setRoutingKey("cat")]]);
     expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "cat" });
   });
 
