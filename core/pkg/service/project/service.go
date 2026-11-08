@@ -99,13 +99,13 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 }
 
 // Children returns the ID of every record that references the project with key, as seen
-// by tx: the groups directly under it and every visualization it owns.
+// by snap: the groups directly under it and every visualization it owns.
 func (s *Service) Children(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	key Key,
 ) ([]resource.ID, error) {
-	return resource.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), s.table, key)
+	return resource.Dependents(ctx, gorp.OverrideSnapshot(s.cfg.DB, snap), s.table, key)
 }
 
 func (s *Service) NewRetrieve() Retrieve {

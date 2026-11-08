@@ -140,6 +140,17 @@ var _ = Describe("Service", func() {
 					Expect(ret).To(ConsistOf(u))
 				},
 			)
+			It("Should match the user through a snapshot", func(ctx SpecContext) {
+				Expect(tx.Commit(ctx)).To(Succeed())
+				var ret []user.User
+				Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+					return svc.NewRetrieve().
+						Where(user.MatchUsernames(username)).
+						Entries(&ret).
+						Exec(ctx, snap)
+				})).To(Succeed())
+				Expect(ret).To(ConsistOf(u))
+			})
 			It("Should match nothing for an unknown username", func(ctx SpecContext) {
 				var ret []user.User
 				Expect(svc.NewRetrieve().
