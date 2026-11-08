@@ -13,13 +13,12 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -27,10 +26,6 @@ import (
 
 // ServiceConfig is the configuration for the panel API service.
 type ServiceConfig struct {
-	// RBAC checks the access of retrieve requests.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Panel stores and retrieves panels.
 	//
 	// [REQUIRED]
@@ -45,7 +40,6 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Panel = override.Nil(c.Panel, other.Panel)
 	return c
 }
@@ -53,7 +47,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.panel")
-	v.NotNil("rbac", c.RBAC)
 	v.NotNil("panel", c.Panel)
 	return v.Error()
 }
@@ -61,7 +54,6 @@ func (c ServiceConfig) Validate() error {
 // Service is the API-layer panel service. Its write handlers run in the transaction
 // of the write binder, which checks their access.
 type Service struct {
-	access   *rbac.Service
 	internal *panel.Service
 }
 
@@ -71,7 +63,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.RBAC,
 		internal: cfg.Panel,
 	}, nil
 }
@@ -105,8 +96,21 @@ func (s *Service) Create(
 	return CreateResponse{Panels: req.Panels}, nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the panels that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, panel.ResourceID)
+}
+
+// Retrieve returns the panels that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -114,17 +118,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: panel.ResourceIDsFromPanels(res.Panels),
-	}); err != nil {
-		return RetrieveResponse{}, err
-	}
-	return res, nil
+	return res, q.Where(bind.Filter(snap, panel.Match)).Exec(ctx, snap)
 }
 
 // DispatchRequest carries an action sequence to apply to a single panel.

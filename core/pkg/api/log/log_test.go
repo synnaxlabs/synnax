@@ -63,7 +63,7 @@ var _ = Describe("Retrieve", func() {
 	) {
 		r := log.Log{Project: &proj.Key, Name: "unretrievable"}
 		Expect(svc.Log.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apilog.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, author), apilog.RetrieveRequest{
 			Where: &log.Where{Key: &filter.Set[log.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})

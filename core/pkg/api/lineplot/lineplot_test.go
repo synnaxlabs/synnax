@@ -52,7 +52,7 @@ var _ = Describe("Retrieve", func() {
 	) {
 		r := lineplot.LinePlot{Project: &proj.Key, Name: "unretrievable"}
 		Expect(svc.LinePlot.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apilineplot.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, author), apilineplot.RetrieveRequest{
 			Where: &lineplot.Where{Key: &filter.Set[lineplot.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})

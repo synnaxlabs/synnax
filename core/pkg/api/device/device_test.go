@@ -395,7 +395,7 @@ var _ = Describe("Retrieve", func() {
 			ctx, access.ActionRetrieve, u.ResourceID(),
 			withStatus.ResourceID(), withoutStatus.ResourceID(),
 		)
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, u),
 			apidevice.RetrieveRequest{
 				Where: &device.Where{Key: &filter.Set[device.Key]{
@@ -429,7 +429,7 @@ var _ = Describe("Retrieve", func() {
 			Parent:   &chassis.Key,
 		}
 		Expect(svc.Device.NewWriter(nil).Create(ctx, &module)).To(Succeed())
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, u),
 			apidevice.RetrieveRequest{
 				Where: &device.Where{Parents: []device.Key{chassis.Key}},
@@ -438,7 +438,7 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Devices).To(HaveLen(1))
 		Expect(res.Devices[0].Key).To(Equal(module.Key))
 		Expect(res.Devices[0].Parent).To(Equal(&chassis.Key))
-		res = MustSucceed(apiSvc.Retrieve(
+		res = MustSucceed(retrieve(
 			AuthedCtx(ctx, u),
 			apidevice.RetrieveRequest{Where: &device.Where{
 				Key: &filter.Set[device.Key]{
@@ -454,8 +454,14 @@ var _ = Describe("Retrieve", func() {
 	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
 		u := createUser(ctx)
 		d := createDevice(ctx, "present_device")
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), d.ResourceID())
-		res := MustSucceed(apiSvc.Retrieve(
+		grant(
+			ctx,
+			access.ActionRetrieve,
+			u.ResourceID(),
+			d.ResourceID(),
+			device.ResourceID("missing_device"),
+		)
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, u),
 			apidevice.RetrieveRequest{
 				Where: &device.Where{Key: &filter.Set[device.Key]{
@@ -469,7 +475,7 @@ var _ = Describe("Retrieve", func() {
 
 	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
 		u := createUser(ctx)
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apidevice.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, u), apidevice.RetrieveRequest{
 			Where: &device.Where{Make: &filter.String{Regex: new("(a")}},
 		})).Error().To(SatisfyAll(
 			BeAssignableToTypeOf(validate.PathError{}),

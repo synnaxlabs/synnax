@@ -177,7 +177,7 @@ var _ = Describe("Retrieve", func() {
 	) {
 		u := createUser(ctx)
 		r := grantOn(ctx, u.ResourceID(), access.ActionRetrieve, roleType)
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirole.RetrieveRequest{
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apirole.RetrieveRequest{
 			Where: &role.Where{Key: &filter.Set[role.Key]{Eq: &r.Key}},
 		}))
 		Expect(res.Roles).To(HaveExactElements(HaveField("Key", r.Key)))
@@ -187,7 +187,7 @@ var _ = Describe("Retrieve", func() {
 		ctx SpecContext,
 	) {
 		r := createRole(ctx)
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, createUser(ctx)), apirole.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, createUser(ctx)), apirole.RetrieveRequest{
 			Where: &role.Where{Key: &filter.Set[role.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})

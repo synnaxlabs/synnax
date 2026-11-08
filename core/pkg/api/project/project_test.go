@@ -36,7 +36,7 @@ var _ = Describe("Retrieve", func() {
 	) {
 		u := createUser(ctx)
 		p := createProject(ctx, "unretrievable")
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apiproject.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, u), apiproject.RetrieveRequest{
 			Where: &project.Where{Key: &filter.Set[project.Key]{Eq: &p.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})

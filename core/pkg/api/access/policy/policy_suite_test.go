@@ -42,9 +42,13 @@ var (
 	svc    *service.Layer
 	apiSvc *apipolicy.Service
 	root   user.User
-	// create and del run their routes as the API layer binds them.
-	create freighter.UnaryHandler[apipolicy.CreateRequest, apipolicy.CreateResponse]
-	del    freighter.UnaryHandler[apipolicy.DeleteRequest, struct{}]
+	// create, del, and retrieve run their routes as the API layer binds them.
+	create   freighter.UnaryHandler[apipolicy.CreateRequest, apipolicy.CreateResponse]
+	del      freighter.UnaryHandler[apipolicy.DeleteRequest, struct{}]
+	retrieve freighter.UnaryHandler[
+		apipolicy.RetrieveRequest,
+		apipolicy.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -70,6 +74,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 // createUser creates a user that can do nothing.

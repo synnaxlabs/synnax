@@ -48,7 +48,7 @@ var _ = Describe("Retrieve", func() {
 	) {
 		r := table.Table{Project: &proj.Key, Name: "unretrievable"}
 		Expect(svc.Table.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apitable.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, author), apitable.RetrieveRequest{
 			Where: &table.Where{Key: &filter.Set[table.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})

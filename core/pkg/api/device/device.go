@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -139,12 +140,12 @@ func (s *Service) attachReadableStatuses(
 
 func (s *Service) attachStatuses(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	devices []device.Device,
 ) error {
 	statuses, err := s.status.Join[device.StatusDetails](
 		ctx,
-		tx,
+		snap,
 		device.ResourceIDsFromDevices(devices),
 	)
 	if err != nil {
@@ -156,8 +157,21 @@ func (s *Service) attachStatuses(
 	return nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the devices that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, device.ResourceID)
+}
+
+// Retrieve returns the devices that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -165,20 +179,13 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
+	if err := q.Where(bind.Filter(snap, device.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if req.IncludeStatus {
-		if err := s.attachStatuses(ctx, nil, res.Devices); err != nil {
+		if err := s.attachStatuses(ctx, snap, res.Devices); err != nil {
 			return RetrieveResponse{}, err
 		}
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: device.ResourceIDsFromDevices(res.Devices),
-	}); err != nil {
-		return RetrieveResponse{}, err
 	}
 	return res, nil
 }

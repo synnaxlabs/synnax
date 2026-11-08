@@ -42,15 +42,50 @@ var _ = Describe("Retrieve", func() {
 			TimeRange: telem.TimeRange{Start: 1, End: 2},
 		}
 		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
-		res := MustSucceed(apiSvc.Retrieve(
+		missing := uuid.New()
+		grant(
+			ctx,
+			access.ActionRetrieve,
+			u.ResourceID(),
+			r.ResourceID(),
+			ranger.ResourceID(missing),
+		)
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, u),
 			apiranger.RetrieveRequest{Where: &ranger.Where{
-				Key: &filter.Set[apiranger.Key]{In: []apiranger.Key{r.Key, uuid.New()}},
+				Key: &filter.Set[apiranger.Key]{In: []apiranger.Key{r.Key, missing}},
 			}},
 		))
 		Expect(res.Ranges).To(HaveExactElements(HaveField("Key", r.Key)))
 	})
+
+	DescribeTable("Should keep a child range only when its parent passes", func(
+		ctx SpecContext,
+		parentGranted bool,
+	) {
+		u := createUser(ctx)
+		parent := createRange(ctx)
+		child := ranger.Range{
+			Name:      "child",
+			TimeRange: telem.NewRangeSeconds(1, 5),
+			Parent:    &parent.Key,
+		}
+		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), child.ResourceID())
+		if parentGranted {
+			grant(ctx, access.ActionRetrieve, u.ResourceID(), parent.ResourceID())
+		}
+		res := MustSucceed(retrieve(
+			AuthedCtx(ctx, u),
+			apiranger.RetrieveRequest{Where: &ranger.Where{
+				Parents: []ranger.Key{parent.Key},
+			}},
+		))
+		Expect(len(res.Ranges) == 1).To(Equal(parentGranted))
+	},
+		Entry("with the parent granted", true),
+		Entry("with the parent denied", false),
+	)
 
 	It("Should return no range for a zero limit", func(ctx SpecContext) {
 		u := createUser(ctx)
@@ -61,7 +96,7 @@ var _ = Describe("Retrieve", func() {
 		}
 		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, u),
 			apiranger.RetrieveRequest{
 				Where: &ranger.Where{Key: &filter.Set[apiranger.Key]{Eq: &r.Key}},
@@ -75,7 +110,7 @@ var _ = Describe("Retrieve", func() {
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apiranger.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, u), apiranger.RetrieveRequest{
 			Where: &ranger.Where{Name: &filter.String{Regex: new("(a")}},
 		})).Error().To(SatisfyAll(
 			BeAssignableToTypeOf(validate.PathError{}),
@@ -542,7 +577,7 @@ var _ = Describe("Retrieve", func() {
 		}
 		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
 		createRange(ctx)
-		res := MustSucceed(apiSvc.Retrieve(authed(ctx), apiranger.RetrieveRequest{
+		res := MustSucceed(retrieve(authed(ctx), apiranger.RetrieveRequest{
 			Where: &ranger.Where{Parents: []ranger.Key{parent.Key}},
 		}))
 		Expect(keysOf(res.Ranges)).To(Equal([]ranger.Key{child.Key}))
@@ -565,7 +600,7 @@ var _ = Describe("Retrieve", func() {
 				AddLabels(ctx, withB.Key, []label.Key{b.Key}),
 		).
 			To(Succeed())
-		res := MustSucceed(apiSvc.Retrieve(authed(ctx), apiranger.RetrieveRequest{
+		res := MustSucceed(retrieve(authed(ctx), apiranger.RetrieveRequest{
 			Where: &ranger.Where{Labels: []label.Key{a.Key, b.Key}},
 		}))
 		Expect(keysOf(res.Ranges)).To(ConsistOf(withA.Key, withB.Key))

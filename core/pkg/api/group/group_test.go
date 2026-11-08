@@ -402,7 +402,7 @@ var _ = Describe("Group", func() {
 		) apigroup.RetrieveResponse {
 			GinkgoHelper()
 			u := newUser(ctx, grant([]access.Action{access.ActionRetrieve}, groups))
-			return MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), req))
+			return MustSucceed(retrieveGroups(AuthedCtx(ctx, u), req))
 		}
 		all := func() []group.Key { return []group.Key{top.Key, nested.Key, devices.Key} }
 
@@ -440,7 +440,7 @@ var _ = Describe("Group", func() {
 			"Should reject the request when retrieve is not granted on a match",
 			func(ctx SpecContext) {
 				u := newUser(ctx)
-				Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apigroup.RetrieveRequest{
+				Expect(retrieveGroups(AuthedCtx(ctx, u), apigroup.RetrieveRequest{
 					Where: &group.Where{Key: &filter.Set[group.Key]{Eq: &top.Key}},
 				})).Error().To(MatchError(access.ErrDenied))
 			},

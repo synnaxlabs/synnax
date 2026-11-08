@@ -623,7 +623,7 @@ var _ = Describe("Service.Retrieve", func() {
 
 	It("Should omit a missing key instead of failing", func(ctx SpecContext) {
 		s := createStatus(ctx, "api_partial_"+uuid.New().String())
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, author),
 			apistatus.RetrieveRequest{Where: &status.Where{
 				Key: &filter.Set[status.Key]{
@@ -637,7 +637,7 @@ var _ = Describe("Service.Retrieve", func() {
 	It(
 		"Should return an empty result when every requested key is missing",
 		func(ctx SpecContext) {
-			res := MustSucceed(apiSvc.Retrieve(
+			res := MustSucceed(retrieve(
 				AuthedCtx(ctx, author),
 				apistatus.RetrieveRequest{Where: &status.Where{
 					Key: &filter.Set[status.Key]{Eq: new(uuid.New().String())},
@@ -651,7 +651,7 @@ var _ = Describe("Service.Retrieve", func() {
 		"Should return the statuses whose name matches the search term",
 		func(ctx SpecContext) {
 			s := createStatus(ctx, "cryostat pressure")
-			res := MustSucceed(apiSvc.Retrieve(
+			res := MustSucceed(retrieve(
 				AuthedCtx(ctx, author),
 				apistatus.RetrieveRequest{SearchTerm: "cryostat"},
 			))
@@ -662,7 +662,7 @@ var _ = Describe("Service.Retrieve", func() {
 	It("Should return a path error under where for an invalid where", func(
 		ctx SpecContext,
 	) {
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apistatus.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, author), apistatus.RetrieveRequest{
 			Where: &status.Where{
 				Variant: &filter.Set[status.Variant]{Eq: new(status.Variant("bogus"))},
 			},

@@ -180,7 +180,7 @@ var _ = Describe("Service", func() {
 				p := createPanel(ctx, "retrievable")
 				grant(ctx, author.ResourceID(), access.ActionRetrieve, p.ResourceID())
 				res := MustSucceed(
-					apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
+					retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 						Where: &panel.Where{
 							Key: &filter.Set[panel.Key]{In: []panel.Key{p.Key}},
 						},
@@ -196,7 +196,7 @@ var _ = Describe("Service", func() {
 			"Should reject the request when the subject cannot retrieve a matched panel",
 			func(ctx SpecContext) {
 				p := createPanel(ctx, "forbidden")
-				Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
+				Expect(retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 					Where: &panel.Where{
 						Key: &filter.Set[panel.Key]{In: []panel.Key{p.Key}},
 					},
@@ -212,7 +212,7 @@ var _ = Describe("Service", func() {
 				grant(ctx, author.ResourceID(), access.ActionRetrieve,
 					panel.ResourceID(p.Key), panel.ResourceID(missing))
 				res := MustSucceed(
-					apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
+					retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 						Where: &panel.Where{
 							Key: &filter.Set[panel.Key]{
 								In: []panel.Key{p.Key, missing},
@@ -228,10 +228,13 @@ var _ = Describe("Service", func() {
 		It(
 			"Should return an empty result when every requested key is missing",
 			func(ctx SpecContext) {
+				missing := uuid.New()
+				grant(ctx, author.ResourceID(), access.ActionRetrieve,
+					panel.ResourceID(missing))
 				res := MustSucceed(
-					apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
+					retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 						Where: &panel.Where{
-							Key: &filter.Set[panel.Key]{In: []panel.Key{uuid.New()}},
+							Key: &filter.Set[panel.Key]{In: []panel.Key{missing}},
 						},
 					}),
 				)
@@ -243,7 +246,7 @@ var _ = Describe("Service", func() {
 			p := createPanel(ctx, "in-project")
 			grant(ctx, author.ResourceID(), access.ActionRetrieve, p.ResourceID())
 			res := MustSucceed(
-				apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
+				retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 					Where: &panel.Where{
 						Key:      &filter.Set[panel.Key]{Eq: &p.Key},
 						Projects: []project.Key{proj.Key},
@@ -252,7 +255,7 @@ var _ = Describe("Service", func() {
 			)
 			Expect(res.Panels).To(HaveLen(1))
 			res = MustSucceed(
-				apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
+				retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 					Where: &panel.Where{
 						Key:      &filter.Set[panel.Key]{Eq: &p.Key},
 						Projects: []project.Key{uuid.New()},
@@ -268,7 +271,7 @@ var _ = Describe("Service", func() {
 			grant(ctx, author.ResourceID(), access.ActionRetrieve,
 				a.ResourceID(), b.ResourceID())
 			res := MustSucceed(
-				apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
+				retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 					Where: &panel.Where{
 						Key: &filter.Set[panel.Key]{In: []panel.Key{a.Key, b.Key}},
 					},

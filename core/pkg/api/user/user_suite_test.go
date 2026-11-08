@@ -44,9 +44,13 @@ var (
 	apiSvc      *apiuser.Service
 	rbacSvc     *rbac.Service
 	root        user.User
-	// rename and setRole run their routes as the API layer binds them.
-	rename  freighter.UnaryHandler[apiuser.RenameRequest, struct{}]
-	setRole freighter.UnaryHandler[apiuser.SetRoleRequest, struct{}]
+	// rename, setRole, and retrieve run their routes as the API layer binds them.
+	rename   freighter.UnaryHandler[apiuser.RenameRequest, struct{}]
+	setRole  freighter.UnaryHandler[apiuser.SetRoleRequest, struct{}]
+	retrieve freighter.UnaryHandler[
+		apiuser.RetrieveRequest,
+		apiuser.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -91,6 +95,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
 	rename = bind.Write(binder, apiSvc.Rename)
 	setRole = bind.Write(binder, apiSvc.SetRole)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 func login(ctx context.Context, username, pwd string) (auth.Identity, error) {

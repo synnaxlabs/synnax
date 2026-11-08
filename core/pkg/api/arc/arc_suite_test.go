@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -57,7 +58,7 @@ var (
 	arcSvc  *arc.Service
 	taskSvc *task.Service
 	apiSvc  *apiarc.Service
-	// The write routes, bound as the API layer binds them.
+	// The routes, bound as the API layer binds them.
 	create     freighter.UnaryHandler[apiarc.CreateRequest, apiarc.CreateResponse]
 	del        freighter.UnaryHandler[apiarc.DeleteRequest, struct{}]
 	dispatch   freighter.UnaryHandler[apiarc.DispatchRequest, struct{}]
@@ -72,9 +73,17 @@ var (
 	renameDirectory freighter.UnaryHandler[apiarc.RenameDirectoryRequest, struct{}]
 	deleteDirectory freighter.UnaryHandler[apiarc.DeleteDirectoryRequest, struct{}]
 	move            freighter.UnaryHandler[apiarc.MoveRequest, struct{}]
-	author          user.User
-	rackSvc         *rack.Service
-	testRack        *rack.Rack
+	retrieve        freighter.UnaryHandler[
+		apiarc.RetrieveRequest,
+		apiarc.RetrieveResponse,
+	]
+	retrieveDirectories freighter.UnaryHandler[
+		apiarcdirectory.RetrieveRequest,
+		apiarcdirectory.RetrieveResponse,
+	]
+	author   user.User
+	rackSvc  *rack.Service
+	testRack *rack.Rack
 	// root is the directory that holds every Arc.
 	root directory.Key
 )
@@ -145,7 +154,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:       imexSvc,
 	}))
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
-		RBAC:   rbacSvc,
 		Arc:    arcSvc,
 		Status: statusSvc,
 	}))
@@ -158,6 +166,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	renameDirectory = bind.Write(binder, apiSvc.RenameDirectory)
 	deleteDirectory = bind.Write(binder, apiSvc.DeleteDirectory)
 	move = bind.Write(binder, apiSvc.Move)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	retrieveDirectories = bind.Read(binder, apiSvc.RetrieveDirectories)
 	var r directory.Directory
 	Expect(arcSvc.NewDirectoryRetrieve().
 		Where(directory.MatchNested(false)).

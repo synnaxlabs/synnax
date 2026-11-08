@@ -39,12 +39,16 @@ var (
 	node   testutil.Node
 	svc    *service.Layer
 	apiSvc *apitask.Service
-	// create, copyTask, dispatch, and rename run their routes as the API layer binds
-	// them.
+	// create, copyTask, dispatch, rename, and retrieve run their routes as the API
+	// layer binds them.
 	create   freighter.UnaryHandler[apitask.CreateRequest, apitask.CreateResponse]
 	copyTask freighter.UnaryHandler[apitask.CopyRequest, apitask.CopyResponse]
 	dispatch freighter.UnaryHandler[apitask.DispatchRequest, apitask.DispatchResponse]
 	rename   freighter.UnaryHandler[apitask.RenameRequest, struct{}]
+	retrieve freighter.UnaryHandler[
+		apitask.RetrieveRequest,
+		apitask.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -66,6 +70,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	copyTask = bind.Write(binder, apiSvc.Copy)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	rename = bind.Write(binder, apiSvc.Rename)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 // createUser creates a user that can do nothing.

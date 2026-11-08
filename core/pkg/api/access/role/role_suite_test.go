@@ -39,9 +39,13 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	svc    *service.Layer
 	apiSvc *apirole.Service
-	// create and del run their routes as the API layer binds them.
-	create freighter.UnaryHandler[apirole.CreateRequest, apirole.CreateResponse]
-	del    freighter.UnaryHandler[apirole.DeleteRequest, struct{}]
+	// create, del, and retrieve run their routes as the API layer binds them.
+	create   freighter.UnaryHandler[apirole.CreateRequest, apirole.CreateResponse]
+	del      freighter.UnaryHandler[apirole.DeleteRequest, struct{}]
+	retrieve freighter.UnaryHandler[
+		apirole.RetrieveRequest,
+		apirole.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -55,6 +59,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 // createUser creates a user that can do nothing.

@@ -19,13 +19,12 @@ import (
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -44,10 +43,6 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// RBAC checks the access of retrieve requests.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Arc stores and runs Arc automations.
 	//
 	// [REQUIRED]
@@ -67,7 +62,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
@@ -76,14 +70,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.arc")
-	v.NotNil("rbac", c.RBAC)
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *arc.Service
 	status   *status.Service
 	alamos.Instrumentation
@@ -95,7 +87,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access:          cfg.RBAC,
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Arc,
 		status:          cfg.Status,
@@ -193,8 +184,21 @@ func (s *Service) UpdateTask(
 	return UpdateTaskResponse{Task: tsk}, nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the Arcs that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, arc.ResourceID)
+}
+
+// Retrieve returns the Arcs that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -202,14 +206,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: arc.ResourceIDsFromArcs(res.Arcs),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, arc.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	// Raw is derived from the replicated document and not stored, so materialize it

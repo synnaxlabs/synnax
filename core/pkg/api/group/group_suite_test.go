@@ -46,6 +46,11 @@ var (
 	del       freighter.UnaryHandler[apigroup.DeleteRequest, struct{}]
 	rename    freighter.UnaryHandler[apigroup.RenameRequest, struct{}]
 	setParent freighter.UnaryHandler[apigroup.SetParentRequest, struct{}]
+	// retrieveGroups runs the retrieve route as the API layer binds it.
+	retrieveGroups freighter.UnaryHandler[
+		apigroup.RetrieveRequest,
+		apigroup.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -62,6 +67,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	del = bind.Write(binder, apiSvc.Delete)
 	rename = bind.Write(binder, apiSvc.Rename)
 	setParent = bind.Write(binder, apiSvc.SetParent)
+	retrieveGroups = bind.Read(binder, apiSvc.Retrieve)
 })
 
 // grant returns a policy that allows actions on objects.

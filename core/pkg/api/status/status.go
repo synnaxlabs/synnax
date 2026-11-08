@@ -15,9 +15,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -34,10 +32,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC checks the access of set and retrieve requests.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -49,7 +43,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -57,12 +50,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.status")
 	v.NotNil("status", c.Status)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *status.Service
 }
 
@@ -73,16 +64,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Status,
-		access:   cfg.RBAC,
 	}, nil
-}
-
-func statusAccessResourceIDs(statuses []status.Status[any]) []resource.ID {
-	ids := make([]resource.ID, len(statuses))
-	for i, s := range statuses {
-		ids[i] = s.ResourceID()
-	}
-	return ids
 }
 
 func decodeDetails[D any](details any) error {
@@ -197,8 +179,21 @@ func (s *Service) SetByKeyOrName(
 	}, nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the statuses that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, status.ResourceID)
+}
+
+// Retrieve returns the statuses that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	res := RetrieveResponse{Statuses: []status.Status[any]{}}
@@ -206,18 +201,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	// A status holds only the keys of its labels, so a read needs no label access.
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: statusAccessResourceIDs(res.Statuses),
-	}); err != nil {
-		return RetrieveResponse{}, err
-	}
-	return res, nil
+	return res, q.Where(bind.Filter(snap, status.Match[any])).Exec(ctx, snap)
 }
 
 // RenameRequest names the status to rename and the name to give it.

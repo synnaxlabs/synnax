@@ -195,7 +195,7 @@ var _ = Describe("Retrieve", func() {
 			symbol.ResourceID(first.Key),
 			symbol.ResourceID(second.Key),
 		)
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
 				Where: &symbol.Where{
 					Key: &filter.Set[symbol.Key]{
@@ -211,15 +211,17 @@ var _ = Describe("Retrieve", func() {
 	It("Should return the symbols the search term matches", func(ctx SpecContext) {
 		sym := createSymbol(ctx, createGroup(ctx, "searchable"), "Pyrometer")
 		grantRetrieveOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
-		Eventually(apiSvc.Retrieve).WithArguments(
+		Eventually(retrieve).WithArguments(
 			AuthedCtx(ctx, author),
 			apisymbol.RetrieveRequest{SearchTerm: "Pyrometer"},
 		).Should(HaveField("Symbols", ConsistOf(HaveField("Key", sym.Key))))
 	})
 	It("Should return no symbols when a key names no symbol", func(ctx SpecContext) {
+		missing := uuid.New()
+		grantRetrieveOn(ctx, author.ResourceID(), symbol.ResourceID(missing))
 		res := MustSucceed(
-			apiSvc.Retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
-				Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: new(uuid.New())}},
+			retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
+				Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: &missing}},
 			}),
 		)
 		Expect(res.Symbols).To(BeEmpty())
@@ -229,7 +231,7 @@ var _ = Describe("Retrieve", func() {
 	) {
 		g := createGroup(ctx, "unretrievable")
 		sym := createSymbol(ctx, g, "Inlet")
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
 			Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: &sym.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})

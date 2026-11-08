@@ -51,7 +51,7 @@ var _ = Describe("Retrieve by snapshot and page", func() {
 			req.Where = &schematic.Where{}
 		}
 		req.Where.Projects = []project.Key{paged.Key}
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), req))
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), req))
 		return lo.Map(res.Schematics, func(s schematic.Schematic, _ int) string {
 			return s.Name
 		})

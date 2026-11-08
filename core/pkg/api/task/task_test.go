@@ -360,7 +360,7 @@ var _ = Describe("Retrieve", func() {
 			ctx, access.ActionRetrieve, u.ResourceID(),
 			withStatus.ResourceID(), withoutStatus.ResourceID(),
 		)
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
 			Where: &task.Where{Key: &filter.Set[task.Key]{
 				In: []task.Key{withoutStatus.Key, withStatus.Key},
 			}},
@@ -392,7 +392,7 @@ var _ = Describe("Retrieve", func() {
 		update := arc.TaskUpdate{Rack: new(svc.Rack.EmbeddedKey)}
 		tsk := MustSucceed(w.UpdateTask(ctx, deployed.Base().Key, update))
 		MustSucceed(w.UpdateTask(ctx, other.Base().Key, update))
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
 			Where: &task.Where{Arcs: []uuid.UUID{deployed.Base().Key}},
 		}))
 		Expect(res.Tasks).To(HaveLen(1))
@@ -402,10 +402,17 @@ var _ = Describe("Retrieve", func() {
 	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), t.ResourceID())
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+		missing := uuid.New()
+		grant(
+			ctx,
+			access.ActionRetrieve,
+			u.ResourceID(),
+			t.ResourceID(),
+			task.ResourceID(missing),
+		)
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
 			Where: &task.Where{Key: &filter.Set[task.Key]{
-				In: []task.Key{t.Key, uuid.New()},
+				In: []task.Key{t.Key, missing},
 			}},
 		}))
 		Expect(res.Tasks).To(HaveLen(1))
@@ -428,7 +435,7 @@ var _ = Describe("Retrieve", func() {
 			ctx, access.ActionRetrieve, u.ResourceID(),
 			match.ResourceID(), other.ResourceID(),
 		)
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
 			SearchTerm: "cryostat",
 		}))
 		Expect(res.Tasks).To(HaveExactElements(HaveField("Key", match.Key)))
@@ -436,7 +443,7 @@ var _ = Describe("Retrieve", func() {
 
 	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
 		u := createUser(ctx)
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
 			Where: &task.Where{Type: &filter.String{Regex: new("(a")}},
 		})).Error().To(SatisfyAll(
 			BeAssignableToTypeOf(validate.PathError{}),
@@ -824,7 +831,7 @@ var _ = Describe("Copy", func() {
 		res := MustSucceed(copyAs(ctx))
 		Expect(res.Task.Range).To(Equal(&r.Key))
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), res.Task.ResourceID())
-		found := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+		found := MustSucceed(retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
 			Where: &task.Where{Ranges: []ranger.Key{r.Key}},
 		}))
 		Expect(found.Tasks).To(HaveLen(1))

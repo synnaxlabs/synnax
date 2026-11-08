@@ -13,9 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -41,10 +39,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC checks the access of retrieve requests.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -58,7 +52,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Label = override.Nil(c.Label, other.Label)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -68,12 +61,10 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("label", c.Label)
 	v.NotNil("ranger", c.Ranger)
 	v.NotNil("status", c.Status)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *label.Service
 	ranger   *ranger.Service
 	status   *status.Service
@@ -88,7 +79,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		internal: cfg.Label,
 		ranger:   cfg.Ranger,
 		status:   cfg.Status,
-		access:   cfg.RBAC,
 	}, nil
 }
 
@@ -139,8 +129,21 @@ func (s *Service) Dispatch(
 		Apply(ctx, req.Key, req.Actions...)
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the labels that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, label.ResourceID)
+}
+
+// Retrieve returns the labels that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -148,21 +151,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	objects := make([]resource.ID, len(res.Labels))
-	for i, l := range res.Labels {
-		objects[i] = l.ResourceID()
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: objects,
-	}); err != nil {
-		return RetrieveResponse{}, err
-	}
-	return res, nil
+	return res, q.Where(bind.Filter(snap, label.Match)).Exec(ctx, snap)
 }
 
 type DeleteRequest struct {

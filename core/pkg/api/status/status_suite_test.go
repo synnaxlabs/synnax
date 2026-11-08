@@ -60,6 +60,10 @@ var (
 		apistatus.SetByKeyOrNameRequest,
 		apistatus.SetByKeyOrNameResponse,
 	]
+	retrieve freighter.UnaryHandler[
+		apistatus.RetrieveRequest,
+		apistatus.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -90,13 +94,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc, rackSvc = svcs.RBAC, svcs.Rack
 	apiSvc = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
 		Status: statusSvc,
-		RBAC:   rbacSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
 	setStatuses = bind.Write(binder, apiSvc.Set)
 	del = bind.Write(binder, apiSvc.Delete)
 	rename = bind.Write(binder, apiSvc.Rename)
 	setByKeyOrName = bind.Write(binder, apiSvc.SetByKeyOrName)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)

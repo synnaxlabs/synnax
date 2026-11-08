@@ -13,10 +13,10 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbacrole "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -87,9 +87,21 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-// Retrieve retrieves the roles that the request selects.
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the roles that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, rbacrole.ResourceID)
+}
+
+// Retrieve returns the roles that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -97,17 +109,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: rbacrole.ResourceIDsFromRoles(res.Roles),
-	}); err != nil {
-		return RetrieveResponse{}, err
-	}
-	return res, nil
+	return res, q.Where(bind.Filter(snap, rbacrole.Match)).Exec(ctx, snap)
 }
 
 // DeleteRequest holds the keys of the roles to delete.

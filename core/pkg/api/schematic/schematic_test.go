@@ -99,7 +99,7 @@ var _ = Describe("Service", func() {
 				grantOn(ctx, author.ResourceID(), access.ActionRetrieve,
 					schematic.ResourceID(s.Key), schematic.ResourceID(missing))
 				res := MustSucceed(
-					apiSvc.Retrieve(
+					retrieve(
 						AuthedCtx(ctx, author),
 						apischematic.RetrieveRequest{
 							Where: &schematic.Where{
@@ -118,13 +118,16 @@ var _ = Describe("Service", func() {
 		It(
 			"Should return an empty result when every requested key is missing",
 			func(ctx SpecContext) {
+				missing := uuid.New()
+				grantOn(ctx, author.ResourceID(), access.ActionRetrieve,
+					schematic.ResourceID(missing))
 				res := MustSucceed(
-					apiSvc.Retrieve(
+					retrieve(
 						AuthedCtx(ctx, author),
 						apischematic.RetrieveRequest{
 							Where: &schematic.Where{
 								Key: &filter.Set[schematic.Key]{
-									In: []schematic.Key{uuid.New()},
+									In: []schematic.Key{missing},
 								},
 							},
 						},

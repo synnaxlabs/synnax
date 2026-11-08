@@ -39,8 +39,8 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	svc    *service.Layer
 	apiSvc *apiranger.Service
-	// create, del, dispatch, renameRange, and setRangeEnd run their routes as the API
-	// layer binds them.
+	// create, del, dispatch, renameRange, setRangeEnd, and retrieve run their routes as
+	// the API layer binds them.
 	create freighter.UnaryHandler[
 		apiranger.CreateRequest,
 		apiranger.CreateResponse,
@@ -49,6 +49,10 @@ var (
 	dispatch    freighter.UnaryHandler[apiranger.DispatchRequest, struct{}]
 	renameRange freighter.UnaryHandler[apiranger.RenameRequest, struct{}]
 	setRangeEnd freighter.UnaryHandler[apiranger.SetEndRequest, struct{}]
+	retrieve    freighter.UnaryHandler[
+		apiranger.RetrieveRequest,
+		apiranger.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -56,7 +60,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apiranger.NewService(apiranger.ServiceConfig{
-		RBAC:   svc.RBAC,
 		Ranger: svc.Ranger,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
@@ -68,6 +71,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	renameRange = bind.Write(binder, apiSvc.Rename)
 	setRangeEnd = bind.Write(binder, apiSvc.SetEnd)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 // createUser creates a user that can do nothing.

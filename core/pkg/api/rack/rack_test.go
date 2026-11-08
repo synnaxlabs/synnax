@@ -364,7 +364,7 @@ var _ = Describe("Retrieve", func() {
 			ctx, access.ActionRetrieve, u.ResourceID(),
 			withStatus.ResourceID(), withoutStatus.ResourceID(),
 		)
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
 			Where: &rack.Where{Key: &filter.Set[rack.Key]{
 				In: []rack.Key{withoutStatus.Key, withStatus.Key},
 			}},
@@ -381,10 +381,17 @@ var _ = Describe("Retrieve", func() {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Present"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
+		missing := rack.NewKey(9, 9)
+		grant(
+			ctx,
+			access.ActionRetrieve,
+			u.ResourceID(),
+			r.ResourceID(),
+			missing.ResourceID(),
+		)
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
 			Where: &rack.Where{Key: &filter.Set[rack.Key]{
-				In: []rack.Key{r.Key, rack.NewKey(9, 9)},
+				In: []rack.Key{r.Key, missing},
 			}},
 		}))
 		Expect(res.Racks).To(HaveLen(1))
@@ -393,7 +400,7 @@ var _ = Describe("Retrieve", func() {
 
 	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
 		u := createUser(ctx)
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
 			Where: &rack.Where{Name: &filter.String{Regex: new("(a")}},
 		})).Error().To(SatisfyAll(
 			BeAssignableToTypeOf(validate.PathError{}),
@@ -421,7 +428,7 @@ var _ = Describe("Retrieve", func() {
 					Details: "not an object",
 				}}},
 			)).Error().To(MatchError(ContainSubstring("statuses.0.details")))
-			retrieved := MustSucceed(apiSvc.Retrieve(
+			retrieved := MustSucceed(retrieve(
 				AuthedCtx(ctx, u),
 				apirack.RetrieveRequest{
 					Where:         &rack.Where{Key: &filter.Set[rack.Key]{Eq: &r.Key}},

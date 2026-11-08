@@ -46,13 +46,17 @@ var (
 	panelSvc *panel.Service
 	userSvc  *user.Service
 	apiSvc   *apipanel.Service
-	// create, del, dispatch, setGroup, and setProject run their routes as the API
-	// layer binds them.
+	// create, del, dispatch, setGroup, setProject, and retrieve run their routes as the
+	// API layer binds them.
 	create     freighter.UnaryHandler[apipanel.CreateRequest, apipanel.CreateResponse]
 	del        freighter.UnaryHandler[apipanel.DeleteRequest, struct{}]
 	dispatch   freighter.UnaryHandler[apipanel.DispatchRequest, struct{}]
 	setGroup   freighter.UnaryHandler[apipanel.SetGroupRequest, struct{}]
 	setProject freighter.UnaryHandler[apipanel.SetProjectRequest, struct{}]
+	retrieve   freighter.UnaryHandler[
+		apipanel.RetrieveRequest,
+		apipanel.RetrieveResponse,
+	]
 	author     user.User
 	proj       project.Project
 	projectSvc *project.Service
@@ -90,7 +94,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	apiSvc = MustSucceed(apipanel.NewService(apipanel.ServiceConfig{
-		RBAC:  rbacSvc,
 		Panel: panelSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
@@ -99,6 +102,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	setProject = bind.Write(binder, apiSvc.SetProject)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)

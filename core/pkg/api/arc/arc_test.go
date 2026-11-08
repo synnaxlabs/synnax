@@ -95,7 +95,7 @@ var _ = Describe("Service", func() {
 				})
 				grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
 				res := MustSucceed(
-					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+					retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
 						Where: &arc.Where{
 							Key: &filter.Set[arc.Key]{In: []arc.Key{a.Base().Key}},
 						},
@@ -143,7 +143,7 @@ var _ = Describe("Service", func() {
 					module.ResourceID(),
 				)
 				res := MustSucceed(
-					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+					retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
 						Where: &arc.Where{
 							Key: &filter.Set[arc.Key]{
 								In: []arc.Key{automation.Base().Key, module.Base().Key},
@@ -170,17 +170,19 @@ var _ = Describe("Service", func() {
 			"Should omit missing keys from a multi-key retrieve instead of failing",
 			func(ctx SpecContext) {
 				a := createArc(ctx, "partial-survivor")
+				missing := uuid.New()
 				grantOn(
 					ctx,
 					author.ResourceID(),
 					access.ActionRetrieve,
 					arc.ResourceID(a.Base().Key),
+					arc.ResourceID(missing),
 				)
 				res := MustSucceed(
-					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+					retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
 						Where: &arc.Where{
 							Key: &filter.Set[arc.Key]{
-								In: []arc.Key{a.Base().Key, uuid.New()},
+								In: []arc.Key{a.Base().Key, missing},
 							},
 						},
 					}),
@@ -193,10 +195,17 @@ var _ = Describe("Service", func() {
 		It(
 			"Should return an empty result when every requested key is missing",
 			func(ctx SpecContext) {
+				missing := uuid.New()
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionRetrieve,
+					arc.ResourceID(missing),
+				)
 				res := MustSucceed(
-					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+					retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
 						Where: &arc.Where{
-							Key: &filter.Set[arc.Key]{In: []arc.Key{uuid.New()}},
+							Key: &filter.Set[arc.Key]{In: []arc.Key{missing}},
 						},
 					}),
 				)
@@ -215,7 +224,7 @@ var _ = Describe("Service", func() {
 				}}}
 				Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 				key := a.Base().Key
-				Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+				Expect(retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
 					Where:          &arc.Where{Key: &filter.Set[arc.Key]{Eq: &key}},
 					IncludeProgram: true,
 				})).Error().To(MatchError(access.ErrDenied))
