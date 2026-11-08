@@ -21,6 +21,7 @@ import (
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -494,8 +495,10 @@ var _ = Describe("Service", func() {
 			It("Should require retrieve access on the aliases it fills", func(
 				ctx SpecContext,
 			) {
-				reader := MustSucceed(userSvc.NewWriter(nil).Create(
+				reader := MustSucceed(rbactestutil.CreateUser(
 					ctx,
+					rbacSvc,
+					userSvc,
 					user.User{Name: "reader-" + uuid.New().String()},
 				))
 				grantOn(

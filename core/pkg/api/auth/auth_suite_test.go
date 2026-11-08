@@ -55,7 +55,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB: db, Password: passwordSvc,
 	}))
-	root, _ = MustSucceed2(user.ProvisionRoot(ctx, userSvc, passwordSvc, creds))
 	apiKeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
@@ -65,6 +64,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:   userSvc,
 		Status: statusSvc,
 	}))
+	root, _ = MustSucceed2(user.ProvisionRoot(
+		ctx,
+		userSvc,
+		passwordSvc,
+		creds,
+		access.RBAC.Builtin.OwnerKey,
+	))
 	rbacSvc, rackSvc = access.RBAC, access.Rack
 	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 		DB: db,
