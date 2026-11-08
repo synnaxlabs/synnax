@@ -1317,9 +1317,7 @@ describe("queries", () => {
     });
 
     it("should fail to delete an internal channel", async () => {
-      const [internal] = await client.channels.retrieve({
-        where: { internal: { eq: true } },
-      });
+      const [internal] = await client.channels.retrieve({ internal: true });
       const { result } = renderHook(() => Channel.useDelete(), { wrapper });
       await act(async () => {
         expect(await result.current.updateAsync(internal.key)).toBe(false);
