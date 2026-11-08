@@ -10,7 +10,7 @@
 import { secret, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
-import { deep } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import {
   act,
   cleanup,
@@ -54,11 +54,18 @@ interface FixtureProps {
   value: string;
   defaultName: string;
   onChange: (key: string) => void;
+  mode?: Form.Mode;
 }
 
-const Fixture = ({ value, defaultName, onChange }: FixtureProps): ReactElement => {
+const Fixture = ({
+  value,
+  defaultName,
+  onChange,
+  mode,
+}: FixtureProps): ReactElement => {
   const form = Form.use({
     schema,
+    mode,
     values: { secret: value },
     onChange: ({ values }) => onChange(values.secret),
   });
@@ -78,13 +85,19 @@ interface RenderedField {
 const renderField = async (
   value: string = "",
   as: Client = client,
+  mode?: Form.Mode,
 ): Promise<RenderedField> => {
   const defaultName = uniqueName("default");
   const onChange = vi.fn<(key: string) => void>();
   const { wrapper } = await createConsoleWrapper({ client: as });
   render(
     <>
-      <Fixture value={value} defaultName={defaultName} onChange={onChange} />
+      <Fixture
+        value={value}
+        defaultName={defaultName}
+        onChange={onChange}
+        mode={mode}
+      />
       <Modals.Stack />
     </>,
     { wrapper },
@@ -116,6 +129,26 @@ describe("Secret.Field", () => {
     await open("Select a secret");
     const option = await findOption(s);
     within(option).getByText(Validity.describeSecret(s));
+  });
+
+  it("shows no prompt to pick a secret in preview", async () => {
+    await renderField("", client, "preview");
+    await screen.findByText("None");
+    expect(screen.queryByText("Select a secret")).toBeNull();
+  });
+
+  it("shows that the secret is not found after it is deleted", async () => {
+    const s = await createSecret(client, created);
+    await renderField(s.key);
+    await findDialogTriggerByText(s.name);
+    await client.secrets.delete(s.key);
+    await findDialogTriggerByText("Secret not found");
+    expect(screen.queryByText("Select a secret")).toBeNull();
+  });
+
+  it("shows that the secret is not found for a key that names none", async () => {
+    await renderField(uuid.create());
+    await findDialogTriggerByText("Secret not found");
   });
 
   it("sets the value to the key of the picked secret", async () => {

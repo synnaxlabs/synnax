@@ -33,7 +33,7 @@ export const useList = Flux.createList<ListQuery, secret.Key, secret.Secret>({
 
 export type RetrieveQuery = secret.RetrieveSingleParams;
 
-export const { use } = Flux.createRetrieve<RetrieveQuery, secret.Secret>({
+export const { use, useResult } = Flux.createRetrieve<RetrieveQuery, secret.Secret>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.secrets.retrieve(query),
   onChange: ({ client, query }, handler) => client.secrets.onChange(query, handler),
