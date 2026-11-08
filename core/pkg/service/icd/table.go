@@ -69,7 +69,11 @@ func parseXLSX(data []byte) (messages []Message, err error) {
 	if err != nil {
 		return nil, dataErrorf("invalid workbook: %s", err)
 	}
-	defer func() { err = errors.Join(err, f.Close()) }()
+	defer func() {
+		if err = errors.Join(err, f.Close()); err != nil {
+			messages = nil
+		}
+	}()
 	sheets := f.GetSheetList()
 	if len(sheets) == 0 {
 		return nil, dataErrorf("workbook has no sheets")
@@ -91,8 +95,8 @@ func readRows(f *excelize.File, sheet string) (table [][]string, err error) {
 	}
 	// Without a temporary file, Close returns rows.Error, which err already holds.
 	defer func() {
-		if closeErr := rows.Close(); err == nil {
-			err = closeErr
+		if closeErr := rows.Close(); err == nil && closeErr != nil {
+			table, err = nil, closeErr
 		}
 	}()
 	for row := 1; rows.Next(); row++ {
