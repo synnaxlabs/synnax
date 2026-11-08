@@ -71,15 +71,18 @@ var _ = Describe("DB", func() {
 		},
 	)
 
-	It("Should run the hook of the context before a key hook", func(ctx SpecContext) {
-		var keyed bool
-		db.HookKey([]byte("mark"), func(commit func() error) error {
-			keyed = true
-			return commit()
-		})
-		Expect(set(hookkv.WithHook(ctx, refuse), db, "mark")).To(MatchError(errRefused))
-		Expect(keyed).To(BeFalse())
-	})
+	It("Should run only the hook of the context when a key hook matches",
+		func(ctx SpecContext) {
+			var keyed bool
+			db.HookKey([]byte("mark"), func(commit func() error) error {
+				keyed = true
+				return commit()
+			})
+			Expect(set(hookkv.WithHook(ctx, refuse), db, "mark")).
+				To(MatchError(errRefused))
+			Expect(keyed).To(BeFalse())
+		},
+	)
 
 	Describe("Hold", func() {
 		It("Should hold the first commit until release, and pass later commits",

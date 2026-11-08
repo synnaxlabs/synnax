@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package hookkv provides a kv.DB whose transaction commits a test can intercept. Open
-// every store of a test on one DB, so they share the indexes and write lock that a
-// second store over the same kv.DB would not.
+// Package hookkv provides a kv.DB whose transaction commits a test can intercept.
 package hookkv
 
 import (
