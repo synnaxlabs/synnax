@@ -90,6 +90,28 @@ var _ = Describe("KV", Ordered, func() {
 		Expect(pairs).To(Equal([]kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}))
 	})
 
+	It("Should list key-value pairs through a snapshot", func(ctx SpecContext) {
+		r := &ranger.Range{
+			Name: "Range",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+		Expect(
+			kvSvc.NewWriter(tx).
+				SetMany(ctx, []kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}),
+		).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var pairs []kv.Pair
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			pairs, err = kvSvc.NewReader(snap).List(ctx, r.Key)
+			return err
+		})).To(Succeed())
+		Expect(pairs).To(Equal([]kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}))
+	})
+
 	It(
 		"Should be able to retrieve key-value pairs from a range",
 		func(ctx SpecContext) {

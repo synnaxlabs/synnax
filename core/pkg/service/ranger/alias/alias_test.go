@@ -202,6 +202,42 @@ var _ = Describe("Alias", Ordered, func() {
 		Expect(a).To(Equal("Alias"))
 	})
 
+	It("Should resolve, list, and search aliases through a snapshot", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx)
+		r := ranger.Range{
+			Name: "Range",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(rangerSvc.NewWriter(db).Create(ctx, &r)).To(Succeed())
+		Expect(aliasSvc.NewWriter(db).Set(ctx, r.Key, ch.Key(), "snapshot alias")).
+			To(Succeed())
+		var (
+			resolved channel.Key
+			listed   map[channel.Key]string
+			found    []channel.Key
+		)
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			reader := aliasSvc.NewReader(snap)
+			resolved, err = reader.Resolve(ctx, r.Key, "snapshot alias")
+			if err != nil {
+				return err
+			}
+			if listed, err = reader.List(ctx, r.Key); err != nil {
+				return err
+			}
+			found, err = reader.Search(ctx, r.Key, "snapshot")
+			return err
+		})).To(Succeed())
+		Expect(resolved).To(Equal(ch.Key()))
+		Expect(listed).To(Equal(map[channel.Key]string{ch.Key(): "snapshot alias"}))
+		Expect(found).To(Equal([]channel.Key{ch.Key()}))
+	})
+
 	Describe("Delete", func() {
 		It("Should delete an alias for a channel on a range", func(ctx SpecContext) {
 			ch := createChannel(ctx)
@@ -441,6 +477,18 @@ var _ = Describe("Alias", Ordered, func() {
 		) {
 			Expect(search(ctx, both(), 0, 0)).
 				To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
+		})
+
+		It("Should search the channels through a snapshot", func(ctx SpecContext) {
+			var chs []channel.Channel
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				chs, err = aliasSvc.NewReader(snap).
+					SearchChannels(ctx, both(), r.Key, term, 0, 0)
+				return err
+			})).To(Succeed())
+			Expect(lo.Map(chs, func(ch channel.Channel, _ int) channel.Key {
+				return ch.Key()
+			})).To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
 		})
 
 		It("Should page the merged channels", func(ctx SpecContext) {
