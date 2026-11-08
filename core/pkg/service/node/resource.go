@@ -21,7 +21,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Resources returns the resource.Provider of the host node. The free node always exists.
+// Resources returns the resource.Provider of the host node. The free node always
+// exists.
 func (s *Service) Resources() resource.Provider { return provider{svc: s} }
 
 type provider struct{ svc *Service }
