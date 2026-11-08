@@ -491,6 +491,23 @@ var _ = Describe("Codec", func() {
 				Expect(err).To(MatchError(validate.ErrValidation))
 			},
 		)
+		It(
+			"Should reject a frame with a key the decoder does not know",
+			func(ctx SpecContext) {
+				dataTypes := []telem.DataType{telem.Int32T, telem.Int32T, telem.Int32T}
+				enc := codec.NewStatic(channel.Keys{1, 2, 3}, dataTypes)
+				dec := codec.NewStatic(channel.Keys{1, 2}, dataTypes[:2])
+				encoded := MustSucceed(enc.Encode(ctx, frame.NewMulti(
+					channel.Keys{1, 3},
+					[]telem.Series{
+						telem.NewSeriesV[int32](1),
+						telem.NewSeriesV[int32](2),
+					},
+				)))
+				Expect(dec.Decode(encoded)).Error().
+					To(MatchError("unknown channel key: 3"))
+			},
+		)
 	})
 
 	Describe("Extended Flags", func() {

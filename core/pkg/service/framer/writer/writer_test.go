@@ -131,19 +131,22 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return an error when a frame key is not in the writer's key set",
 			func(ctx SpecContext) {
-				ch := createVirtual(ctx)
+				ch, other := createVirtual(ctx), createVirtual(ctx)
 				w := MustSucceed(writerSvc.Open(ctx, writer.Config{
 					Keys:  channel.Keys{ch.Key()},
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
 				}))
 				Expect(w.Write(frame.NewMulti(
-					[]channel.Key{ch.Key(), distchannel.NewKey(12, 22)},
+					[]channel.Key{ch.Key(), other.Key()},
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
 						telem.NewSeriesV[int64](4, 5, 6),
 					},
-				))).Error().To(MatchError(validate.ErrValidation))
+				))).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("invalid key")),
+				))
 				Expect(w.Close()).To(MatchError(validate.ErrValidation))
 			},
 		)

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -68,6 +69,57 @@ var _ = Describe("Service", func() {
 			Expect(svc.NewArcSymbolResolver(nil).Search(ctx, ch.Name)).
 				To(ContainElement(HaveField("Name", ch.Name)))
 		})
+	})
+
+	Describe("CalculationInputs", func() {
+		create := func(ctx SpecContext, expression string) channel.Channel {
+			GinkgoHelper()
+			ch := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: expression,
+			}
+			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+			return ch
+		}
+		It(
+			"Should return the channels a calculation reads through other calculations",
+			func(ctx SpecContext) {
+				base := create(ctx, "")
+				inner := create(ctx, "return "+base.Name+" * 2")
+				outer := create(ctx, "return "+inner.Name+" + 1")
+				Expect(svc.CalculationInputs(ctx, channel.Keys{outer.Key()})).
+					To(ConsistOf(inner.Key(), base.Key()))
+			},
+		)
+		It("Should return nothing for a channel that is not calculated", func(
+			ctx SpecContext,
+		) {
+			base := create(ctx, "")
+			Expect(svc.CalculationInputs(ctx, channel.Keys{base.Key()})).To(BeEmpty())
+		})
+		It("Should leave out the requested keys", func(ctx SpecContext) {
+			base := create(ctx, "")
+			calc := create(ctx, "return "+base.Name+" * 2")
+			Expect(svc.CalculationInputs(ctx, channel.Keys{calc.Key(), base.Key()})).
+				To(BeEmpty())
+		})
+		It("Should return nothing for a calculation that fails analysis", func(
+			ctx SpecContext,
+		) {
+			base := create(ctx, "")
+			calc := create(ctx, "return "+base.Name+" * 2")
+			Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
+			Expect(svc.CalculationInputs(ctx, channel.Keys{calc.Key()})).To(BeEmpty())
+		})
+		It(
+			"Should return nothing for a key that has no channel",
+			func(ctx SpecContext) {
+				missing := distchannel.NewKey(1, 99999)
+				Expect(svc.CalculationInputs(ctx, channel.Keys{missing})).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("NewRetrieve", func() {

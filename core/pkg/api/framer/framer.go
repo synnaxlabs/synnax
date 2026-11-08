@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -225,7 +226,8 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 			"a read cannot take latest or earliest with a reduction",
 		)
 	}
-	if err := s.enforceRetrieve(ctx, req.Keys); err != nil {
+	subject := auth.GetSubject(ctx)
+	if err := s.enforceRetrieve(ctx, subject, req.Keys); err != nil {
 		return ReadResponse{}, err
 	}
 	var channels []channel.Channel
@@ -246,7 +248,7 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 	// An encoder writes every index it receives, so an index the caller never named
 	// still needs its own check.
 	if len(indexKeys) > 0 {
-		if err := s.enforceRetrieve(ctx, indexKeys); err != nil {
+		if err := s.enforceRetrieve(ctx, subject, indexKeys); err != nil {
 			return ReadResponse{}, err
 		}
 	}
@@ -272,13 +274,21 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 	}, nil
 }
 
-// enforceRetrieve reports whether the request's subject may retrieve every given
-// channel.
-func (s *Service) enforceRetrieve(ctx context.Context, keys channel.Keys) error {
+// enforceRetrieve reports whether subject may retrieve every given channel and every
+// channel the calculated ones among them read.
+func (s *Service) enforceRetrieve(
+	ctx context.Context,
+	subject resource.ID,
+	keys channel.Keys,
+) error {
+	inputs, err := s.channel.CalculationInputs(ctx, keys)
+	if err != nil {
+		return err
+	}
 	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+		Subject: subject,
 		Action:  access.ActionRetrieve,
-		Objects: framer.ResourceIDs(keys),
+		Objects: framer.ResourceIDs(append(slices.Clone(keys), inputs...)),
 	})
 }
 
@@ -390,11 +400,7 @@ func (s *Service) openIterator(
 	if err != nil {
 		return nil, err
 	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: framer.ResourceIDs(req.Keys),
-	}); err != nil {
+	if err = s.enforceRetrieve(ctx, auth.GetSubject(ctx), req.Keys); err != nil {
 		return nil, err
 	}
 	iter, err := s.internal.NewStreamIterator(ctx, framer.IteratorConfig{
@@ -437,8 +443,16 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 		return err
 	}
 	var (
-		receiver = &freightfluence.Receiver[StreamerRequest]{Receiver: stream}
-		sender   = &freightfluence.Sender[StreamerResponse]{
+		receiver = &freightfluence.TransformReceiver[StreamerRequest, StreamerRequest]{
+			Receiver: stream,
+			Transform: func(
+				ctx context.Context,
+				req StreamerRequest,
+			) (StreamerRequest, bool, error) {
+				return req, true, s.enforceRetrieve(ctx, subject, req.Keys)
+			},
+		}
+		sender = &freightfluence.Sender[StreamerResponse]{
 			Sender: freighter.SenderNopCloser[StreamerResponse]{
 				StreamSender: recordSender{
 					StreamSender: stream,
@@ -481,11 +495,7 @@ func (s *Service) openStreamer(
 	if err != nil {
 		return nil, req, err
 	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionRetrieve,
-		Objects: framer.ResourceIDs(req.Keys),
-	}); err != nil {
+	if err = s.enforceRetrieve(ctx, subject, req.Keys); err != nil {
 		return nil, req, err
 	}
 	// The ack fires only after the relay applies this streamer's demands, so a write

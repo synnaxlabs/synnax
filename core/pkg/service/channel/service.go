@@ -209,6 +209,44 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return &symbolResolver{svc: s, tx: tx}
 }
 
+// CalculationInputs returns the channels that the calculated channels among keys read,
+// directly or through other calculated channels. A calculated channel whose expression
+// fails analysis adds nothing, since it cannot run.
+func (s *Service) CalculationInputs(ctx context.Context, keys Keys) (Keys, error) {
+	analyzer := NewCalculationAnalyzer(s.NewArcSymbolResolver(nil), parser.Config{
+		AllowDashedNames: !s.ShouldValidateNames(),
+	})
+	var (
+		inputs  Keys
+		visited = set.New(keys...)
+	)
+	for len(keys) > 0 {
+		var calculated []Channel
+		if err := s.NewRetrieve().
+			Where(MatchKeys(keys...)).
+			Where(MatchCalculated()).
+			Entries(&calculated).
+			Exec(ctx, nil); err != nil {
+			return nil, err
+		}
+		keys = nil
+		for _, ch := range calculated {
+			result, err := analyzer.Analyze(ctx, ch)
+			if err != nil {
+				continue
+			}
+			for _, dep := range result.Deps {
+				if !visited.Contains(dep) {
+					visited.Add(dep)
+					inputs = append(inputs, dep)
+					keys = append(keys, dep)
+				}
+			}
+		}
+	}
+	return inputs, nil
+}
+
 // freeIndexResolver adapts the Service to the distribution framer writer's
 // FreeIndexResolver interface without exposing resolution on the Service itself.
 type freeIndexResolver struct{ svc *Service }

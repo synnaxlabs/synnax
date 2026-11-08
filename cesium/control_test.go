@@ -567,6 +567,59 @@ var _ = Describe("Control", func() {
 					)
 				})
 
+				Describe("Refused open", func() {
+					It(
+						"Should refuse a held virtual channel and free the rest",
+						func(ctx SpecContext) {
+							var (
+								freeKey = GenerateChannelKey()
+								heldKey = GenerateChannelKey()
+							)
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Name:     "free",
+									Key:      freeKey,
+									DataType: telem.Uint8T,
+									Virtual:  true,
+								},
+								cesium.Channel{
+									Name:     "held",
+									Key:      heldKey,
+									DataType: telem.Uint8T,
+									Virtual:  true,
+								},
+							)).To(Succeed())
+							holder := MustSucceed(
+								db.OpenWriter(ctx, cesium.WriterConfig{
+									ControlSubject: xcontrol.Subject{Name: "Holder"},
+									Channels:       []cesium.ChannelKey{heldKey},
+									Authorities: []xcontrol.Authority{
+										xcontrol.AuthorityAbsolute,
+									},
+								}),
+							)
+							Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+								ControlSubject: xcontrol.Subject{Name: "Refused"},
+								Channels: []cesium.ChannelKey{
+									freeKey,
+									heldKey,
+								},
+								Authorities:       []xcontrol.Authority{100},
+								ErrOnUnauthorized: new(true),
+							})).Error().To(MatchError(xcontrol.ErrUnauthorized))
+							next := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								ControlSubject:    xcontrol.Subject{Name: "Next"},
+								Channels:          []cesium.ChannelKey{freeKey},
+								Authorities:       []xcontrol.Authority{1},
+								ErrOnUnauthorized: new(true),
+							}))
+							Expect(next.Close()).To(Succeed())
+							Expect(holder.Close()).To(Succeed())
+						},
+					)
+				})
+
 				// A writer that writes both a data channel and its index must
 				// gain control of the index when SetAuthority names only the
 				// data channel, since a data sample cannot be written without
