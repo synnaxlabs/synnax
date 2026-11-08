@@ -177,6 +177,7 @@ func NewHost(
 	builder = bindF32(builder, s)
 	builder = bindF64(builder, s)
 	builder = bindBool(builder, s)
+	builder = bindCreateEmpty(builder, s, "str", telem.StringT)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle uint32) uint64 {
 			if ser, ok := s.Get(handle); ok {

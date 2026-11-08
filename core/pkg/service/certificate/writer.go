@@ -15,8 +15,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
@@ -27,13 +25,11 @@ import (
 
 // Writer creates, renames, and deletes certificates.
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	table     *gorp.Table[Key, Certificate]
-	now       func() telem.TimeStamp
-	secrets   secret.Writer
-	statuses  status.Writer
-	group     group.Group
+	tx       gorp.Tx
+	table    *gorp.Table[Key, Certificate]
+	now      func() telem.TimeStamp
+	secrets  secret.Writer
+	statuses status.Writer
 }
 
 // Create creates the certificate, or replaces the one with the same key, and writes its
@@ -100,26 +96,14 @@ func (w Writer) Create(ctx context.Context, c *Certificate, privateKey []byte) e
 			return err
 		}
 	}
-	otgID := c.OntologyID()
-	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if err = w.otgWriter.DefineRelationships(
-		ctx,
-		w.group.OntologyID(),
-		ontology.RelationshipTypeParentOf,
-		otgID,
-	); err != nil {
-		return err
-	}
 	return w.writeStatus(ctx, *c)
 }
 
 func (w Writer) writeStatus(ctx context.Context, c Certificate) error {
 	if st, ok := expiryStatus(c, w.now()); ok {
-		return w.statuses.SetWithParent(ctx, &st, c.OntologyID())
+		return w.statuses.Set(ctx, &st)
 	}
-	return w.statuses.Delete(ctx, statusKey(c.Base().Key))
+	return w.statuses.DeleteOwned(ctx, c.ResourceID())
 }
 
 func (w Writer) prepareStored(
@@ -206,13 +190,6 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...); err != nil {
-		return err
-	}
-	statusKeys := lo.Map(keys, func(k Key, _ int) status.Key { return statusKey(k) })
-	if err := w.statuses.Delete(ctx, statusKeys...); err != nil {
-		return err
-	}
 	privateKeys := lo.FilterMap(certs, func(c Certificate, _ int) (secret.Key, bool) {
 		key := privateKey(c)
 		return lo.FromPtr(key), key != nil
@@ -221,4 +198,11 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return nil
 	}
 	return w.secrets.Delete(ctx, privateKeys...)
+}
+
+func privateKey(c Certificate) *secret.Key {
+	if stored, ok := c.Variant.(StoredCertificate); ok {
+		return stored.PrivateKey
+	}
+	return nil
 }

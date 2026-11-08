@@ -8,8 +8,8 @@ linter checks, and turn the clearest ones into blocking lint rules.
 
 1. `CLAUDE.md`, `CONTRIBUTING.md`, `scripts/CLAUDE.md`, `docs/claude/testing.md`, and
    `docs/claude/toolchains/{go,typescript,python,cpp}.md`. Follow them.
-2. The other prose rules: package `CLAUDE.md` files, `docs/claude/**`,
-   `.claude/skills/**/SKILL.md`, and `.greptile/`.
+2. The other prose rules: package `CLAUDE.md` files, `docs/claude/**`, and
+   `.claude/skills/**/SKILL.md`.
 3. The lint setup:
    - Go: the root `.golangci.yaml`, the custom analyzers in `x/go/analyzers`, and the
      `.custom-gcl.yaml` of each module. `golangci-lint custom` builds `./custom-gcl`.
@@ -41,7 +41,7 @@ List conventions that are:
 
 Rank them by how often the code breaks the rule today (count the violations) and how
 often reviewers flag it. To measure review signal, read all review comments of the last
-30 days, Greptile's included, page by page:
+30 days, the bots' included, page by page:
 `gh api --paginate "repos/{owner}/{repo}/pulls/comments?since=<date 30 days ago>&per_page=100"`.
 Skip a candidate that already has an open PR or Linear issue.
 

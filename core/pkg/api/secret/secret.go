@@ -13,11 +13,12 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/x/config"
@@ -138,7 +139,7 @@ func (s *Service) Create(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeSecret}},
+		Objects: []resource.ID{{Type: resource.TypeSecret}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -149,7 +150,7 @@ func (s *Service) Create(
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionUpdate,
-		Objects: secret.OntologyIDsFromSecrets(replaced),
+		Objects: secret.ResourceIDsFromSecrets(replaced),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -211,7 +212,7 @@ func (s *Service) Retrieve(
 	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: secret.OntologyIDsFromSecrets(res.Secrets),
+		Objects: secret.ResourceIDsFromSecrets(res.Secrets),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -227,35 +228,24 @@ func (s *Service) Retrieve(
 // read. A secret with no readable uses gets empty uses, so the response tells it apart
 // from a secret whose uses were not asked for.
 func (s *Service) fillUses(ctx context.Context, secrets []Secret) error {
-	keys := make([]Key, len(secrets))
-	resources := make(map[Key][]ontology.ID, len(secrets))
-	for i, sec := range secrets {
-		keys[i] = sec.Base().Key
-		resources[keys[i]] = []ontology.ID{}
-	}
-	uses, err := s.internal.Uses(ctx, nil, keys...)
+	allowed, err := s.access.NewEnforcer(nil).Allowed(
+		ctx,
+		auth.GetSubject(ctx),
+		access.ActionRetrieve,
+	)
 	if err != nil {
 		return err
 	}
-	enforcer := s.access.NewEnforcer(nil)
-	subject := auth.GetSubject(ctx)
-	for _, use := range uses {
-		err := enforcer.Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{use.Resource},
-		})
-		if errors.Is(err, access.ErrDenied) {
-			continue
-		}
+	for i := range secrets {
+		base := secrets[i].Base()
+		uses, err := s.internal.Uses(ctx, nil, base.Key)
 		if err != nil {
 			return err
 		}
-		resources[use.Secret] = append(resources[use.Secret], use.Resource)
-	}
-	for i := range secrets {
-		base := secrets[i].Base()
-		base.Uses = resources[base.Key]
+		base.Uses = lo.Filter(
+			uses,
+			func(id resource.ID, _ int) bool { return allowed(id) },
+		)
 		secrets[i].SetBase(base)
 	}
 	return nil
@@ -278,7 +268,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{secret.OntologyID(req.Key)},
+		Objects: []resource.ID{secret.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -300,7 +290,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: secret.OntologyIDs(req.Keys),
+		Objects: secret.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -311,7 +301,7 @@ func (s *Service) Delete(
 // anything on the subject uses them.
 type GrantCreateRequest struct {
 	// Subject is the subject that may read the secrets. It must be a rack.
-	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Secrets are the secrets the subject may read.
 	Secrets []Key `json:"secrets" msgpack:"secrets"`
 }
@@ -343,21 +333,21 @@ var errGrantSubject = errors.Wrap(access.ErrDenied, "only a user can grant secre
 
 func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx, keys []Key) error {
 	subject := auth.GetSubject(ctx)
-	if subject.Type != ontology.ResourceTypeUser {
+	if subject.Type != resource.TypeUser {
 		return errGrantSubject
 	}
 	enforcer := s.access.NewEnforcer(tx)
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
+		Objects: []resource.ID{{Type: resource.TypeDevice}},
 	}); err != nil {
 		return err
 	}
 	return enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionRetrieve,
-		Objects: secret.OntologyIDs(keys),
+		Objects: secret.ResourceIDs(keys),
 	})
 }
 
@@ -392,7 +382,7 @@ func (s *Service) Resolve(
 	req ResolveRequest,
 ) (ResolveResponse, error) {
 	subject := auth.GetSubject(ctx)
-	if subject.Type != ontology.ResourceTypeRack {
+	if subject.Type != resource.TypeRack {
 		return ResolveResponse{}, errResolveSubject
 	}
 	values, err := s.internal.Resolve(ctx, nil, subject, req.Grant, req.Keys...)

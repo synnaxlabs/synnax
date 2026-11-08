@@ -299,7 +299,7 @@ describe("Secret", () => {
         source: "stored",
         value: "abc",
       });
-      const params = { subject: rack.ontologyID(r.key), secrets: [s.key] };
+      const params = { subject: rack.resourceID(r.key), secrets: [s.key] };
       const first = await client.secrets.grant(params);
       const second = await client.secrets.grant(params);
       expect(first).toHaveLength(36);
@@ -311,7 +311,7 @@ describe("Secret", () => {
       const r = await client.racks.create({ name: "Grant rack" });
       const key = uuid.create();
       const grant = client.secrets.grant({
-        subject: rack.ontologyID(r.key),
+        subject: rack.resourceID(r.key),
         secrets: [key],
       });
       await expect(grant).rejects.toThrow(NotFoundError);

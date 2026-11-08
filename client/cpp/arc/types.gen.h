@@ -18,7 +18,7 @@
 #include <variant>
 #include <vector>
 
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/resource/id.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
@@ -59,6 +59,8 @@ struct Where {
     ::x::filter::Field<::x::filter::Set<Key>> key;
     /// @brief name selects by name.
     ::x::filter::Field<::x::filter::String> name;
+    /// @brief directories matches the Arcs in any of the given directories.
+    ::x::filter::List<x::uuid::UUID> directories;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {
@@ -137,6 +139,18 @@ to_proto(const Source &value);
 std::pair<Source, x::errors::Error>
 source_from_proto(const ::service::arc::pb::Source &pb);
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the arcs that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most arcs to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching arcs to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_program includes the program of each record.
+    bool include_program = false;
+};
+
 /// @brief RetrieveRequest is a request to retrieve arcs.
 struct RetrieveRequest {
     /// @brief where selects the arcs to retrieve. An absent where selects all of them.
@@ -149,6 +163,17 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     /// @brief include_program includes the program of each record.
     bool include_program = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_program = options.include_program,
+        };
+    }
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -168,6 +193,8 @@ struct Base {
     std::string name;
     /// @brief source is the Arc's source code, written as text or drawn as a graph.
     Source source = TextSource{};
+    /// @brief directory is the key of the directory that holds the Arc.
+    std::optional<x::uuid::UUID> directory;
 
     static Base parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -241,9 +268,9 @@ struct RetrieveResponse {
     from_proto(const ::api::arc::pb::RetrieveResponse &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("arc", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("arc", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("arc", key.to_string());
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("arc", key.to_string());
 }
 }

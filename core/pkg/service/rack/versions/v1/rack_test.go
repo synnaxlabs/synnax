@@ -31,9 +31,9 @@ var _ = Describe("Rack", func() {
 			Expect(v1.Rack{Key: key}.SetOptions()).To(Equal([]any{node.Key(3)}))
 		})
 	})
-	Describe("OntologyID", func() {
-		It("Should return the rack ontology identifier", func() {
-			Expect(v1.Rack{Key: key}.OntologyID()).To(Equal(key.OntologyID()))
+	Describe("ResourceID", func() {
+		It("Should return the rack resource identifier", func() {
+			Expect(v1.Rack{Key: key}.ResourceID()).To(Equal(key.ResourceID()))
 		})
 	})
 })

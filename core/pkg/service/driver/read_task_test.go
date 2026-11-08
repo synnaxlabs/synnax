@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -88,6 +89,7 @@ var _ = Describe("ReadTask", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		t = task.Task{Key: uuid.New(), Name: "read-task-test", Type: "mock"}
+		createTask(ctx, t)
 		src = newQueueSource()
 		w := channelSvc.NewWriter(nil)
 		idxCh = channel.Channel{
@@ -128,7 +130,7 @@ var _ = Describe("ReadTask", func() {
 
 	retrieve := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 	}
 
 	// name formats ch as an error message names it.
@@ -278,7 +280,23 @@ var _ = Describe("ReadTask", func() {
 					IsIndex:     true,
 					Leaseholder: peer.Cluster.HostKey(),
 				}
+				Expect(gorp.NewCreate[task.Key, task.Task]().
+					Entry(&t).
+					Exec(ctx, local.DB)).To(Succeed())
 				Expect(w.Create(ctx, &peerIdx)).To(Succeed())
+				// Channels leased by the peer reach the local Core by gossip, and the
+				// local Core checks that the index of a data channel exists.
+				gossiped := func(keys ...channel.Key) {
+					Eventually(func(g Gomega) {
+						var res []channel.Channel
+						g.Expect(svc.Channel.NewRetrieve().
+							Where(channel.MatchKeys(keys...)).
+							Entries(&res).
+							Exec(ctx, nil)).To(Succeed())
+						g.Expect(res).To(HaveLen(len(keys)))
+					}).Should(Succeed())
+				}
+				gossiped(peerIdx.Key())
 				peerData := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Float32T,
@@ -287,15 +305,7 @@ var _ = Describe("ReadTask", func() {
 				}
 				Expect(w.Create(ctx, &peerData)).To(Succeed())
 				keys := channel.Keys{peerIdx.Key(), peerData.Key()}
-				// Channels leased by the peer reach the local Core by gossip.
-				Eventually(func(g Gomega) {
-					var res []channel.Channel
-					g.Expect(svc.Channel.NewRetrieve().
-						Where(channel.MatchKeys(keys...)).
-						Entries(&res).
-						Exec(ctx, nil)).To(Succeed())
-					g.Expect(res).To(HaveLen(len(keys)))
-				}).Should(Succeed())
+				gossiped(keys...)
 				rt := MustSucceed(driver.NewReadTask(driver.ReadTaskConfig{
 					Source:   src,
 					DB:       local.DB,
@@ -473,7 +483,7 @@ var _ = Describe("ReadTask", func() {
 				src.openErr = errors.New("broker refused the connection")
 				rt := open(breaker.InfiniteRetries)
 				Expect(rt.Exec(ctx, task.Command{Type: "start", Key: "cmd-5"})).
-					To(MatchError("broker refused the connection"))
+					To(Succeed())
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to start task"))

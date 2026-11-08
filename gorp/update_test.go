@@ -48,6 +48,25 @@ var _ = Describe("update", func() {
 		Expect(res).To(Equal(entry{ID: 0, Data: "new data"}))
 	})
 
+	It("Should pass the result of each change into the next", func(ctx SpecContext) {
+		Expect(gorp.NewUpdate[int32, entry]().
+			Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
+			Change(func(_ gorp.Context, e entry) entry {
+				e.Data = "first"
+				return e
+			}).
+			ChangeErr(func(_ gorp.Context, e entry) (entry, error) {
+				e.Data += " second"
+				return e, nil
+			}).Exec(ctx, tx)).To(Succeed())
+		var res entry
+		Expect(gorp.NewRetrieve[int32, entry]().
+			Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
+			Entry(&res).
+			Exec(ctx, tx)).To(Succeed())
+		Expect(res.Data).To(Equal("first second"))
+	})
+
 	It(
 		"Should return an error if no change function was specified",
 		func(ctx SpecContext) {

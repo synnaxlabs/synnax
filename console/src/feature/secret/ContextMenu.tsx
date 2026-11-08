@@ -53,11 +53,11 @@ export const SecretMenu = ({
   onUsedBy,
   onRename,
 }: SecretMenuProps): ReactElement => {
-  const id = secret.ontologyID(s.key);
+  const id = secret.resourceID(s.key);
   const canUpdate = Access.useUpdateGranted(id);
   const canDelete = Access.useDeleteGranted(id);
   // The Core replaces a value as a create that overwrites the secret.
-  const canReplace = Access.useCreateGranted(secret.TYPE_ONTOLOGY_ID) && canUpdate;
+  const canReplace = Access.useCreateGranted(secret.TYPE_RESOURCE_ID) && canUpdate;
   const openReplace = useCreateModal();
   const handleDelete = useDeleteSecret();
   return (
@@ -95,7 +95,7 @@ export const CertificateMenu = ({
   certificate: c,
   onRename,
 }: CertificateMenuProps): ReactElement => {
-  const id = certificate.ontologyID(c.key);
+  const id = certificate.resourceID(c.key);
   const canUpdate = Access.useUpdateGranted(id);
   const canDelete = Access.useDeleteGranted(id);
   const handleDelete = useDeleteCertificate();

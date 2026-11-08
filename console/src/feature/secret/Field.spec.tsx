@@ -141,9 +141,9 @@ describe("Secret.Field", () => {
   it("offers no new secret to a user who cannot create secrets", async () => {
     const s = await createSecret(client, created);
     const reader = await createTestClientWithGrants(client, {
-      retrieve: [secret.TYPE_ONTOLOGY_ID],
+      retrieve: [secret.TYPE_RESOURCE_ID],
     });
-    await awaitGranted(reader, secret.TYPE_ONTOLOGY_ID, "retrieve");
+    await awaitGranted(reader, secret.TYPE_RESOURCE_ID, "retrieve");
     await renderField("", reader);
     await open("Select a secret");
     await findOption(s);

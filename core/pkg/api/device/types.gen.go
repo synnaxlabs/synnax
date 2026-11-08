@@ -11,12 +11,12 @@
 
 package device
 
-import service "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+import legacydevice "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 
 // RetrieveRequest is a request to retrieve devices.
 type RetrieveRequest struct {
 	// Where selects the devices to retrieve. An absent where selects all of them.
-	Where *service.Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	Where *legacydevice.Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the devices that match the term, closest match first.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// Limit is the most devices to return.
@@ -25,12 +25,10 @@ type RetrieveRequest struct {
 	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeStatus includes the status of each record.
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
-	// IncludeParent includes the parent of each record.
-	IncludeParent bool `json:"include_parent" msgpack:"include_parent"`
 }
 
 // RetrieveResponse holds the devices a RetrieveRequest selects.
 type RetrieveResponse struct {
 	// Devices are the devices the request selects.
-	Devices []service.Device `json:"devices" msgpack:"devices"`
+	Devices []legacydevice.Device `json:"devices" msgpack:"devices"`
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,11 +37,11 @@ var _ = Describe("Label", func() {
 			Expect(v0.Label{}.SetOptions()).To(BeNil())
 		})
 	})
-	Describe("OntologyID", func() {
-		It("Should return the label ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the label resource identifier", func() {
 			k := uuid.New()
-			Expect(v0.Label{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeLabel, Key: k.String(),
+			Expect(v0.Label{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeLabel, Key: k.String(),
 			}))
 		})
 	})

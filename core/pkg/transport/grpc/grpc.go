@@ -16,7 +16,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
 	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
@@ -27,11 +29,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
-	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
+	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
@@ -91,7 +93,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// CHANNEL
 	t.ChannelRename = noop.UnaryServer[apichannel.RenameRequest, struct{}]{}
-	t.ChannelRetrieveGroup = noop.UnaryServer[apichannel.RetrieveGroupRequest, apichannel.RetrieveGroupResponse]{}
 
 	// FRAME
 	t.FrameRead = noop.UnaryServer[apiframer.ReadRequest, apiframer.ReadResponse]{}
@@ -102,18 +103,40 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.UserCreate = noop.UnaryServer[user.CreateRequest, user.CreateResponse]{}
 	t.UserDelete = noop.UnaryServer[user.DeleteRequest, struct{}]{}
 	t.UserRetrieve = noop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}
+	t.UserSetRoles = noop.UnaryServer[user.SetRolesRequest, struct{}]{}
 
-	// ONTOLOGY
-	t.OntologyRetrieve = noop.UnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse]{}
-	t.OntologyAddChildren = noop.UnaryServer[ontology.AddChildrenRequest, struct{}]{}
-	t.OntologyRemoveChildren = noop.UnaryServer[ontology.RemoveChildrenRequest, struct{}]{}
-	t.OntologyMoveChildren = noop.UnaryServer[ontology.MoveChildrenRequest, struct{}]{}
+	// RESOURCE
+	t.ResourceSearch = noop.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]{}
+	t.ResourceRetrieve = noop.UnaryServer[apiresource.RetrieveRequest, apiresource.RetrieveResponse]{}
 
 	// GROUP
 	t.GroupCreate = noop.UnaryServer[group.CreateRequest, group.CreateResponse]{}
 	t.GroupDelete = noop.UnaryServer[group.DeleteRequest, struct{}]{}
 	t.GroupRename = noop.UnaryServer[group.RenameRequest, struct{}]{}
 	t.GroupRetrieve = noop.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]{}
+	t.GroupRetrieveAncestors = noop.UnaryServer[
+		group.RetrieveAncestorsRequest,
+		group.RetrieveAncestorsResponse,
+	]{}
+
+	// GROUP MEMBERSHIP
+	t.GroupSetParent = noop.UnaryServer[group.SetParentRequest, struct{}]{}
+	t.ChannelSetGroup = noop.UnaryServer[apichannel.SetGroupRequest, struct{}]{}
+	t.DeviceSetGroup = noop.UnaryServer[apidevice.SetGroupRequest, struct{}]{}
+	t.RackSetGroup = noop.UnaryServer[apirack.SetGroupRequest, struct{}]{}
+	t.ProjectSetGroup = noop.UnaryServer[project.SetGroupRequest, struct{}]{}
+	t.SchematicSetGroup = noop.UnaryServer[schematic.SetGroupRequest, struct{}]{}
+	t.SchematicSymbolSetGroup = noop.UnaryServer[symbol.SetGroupRequest, struct{}]{}
+	t.LinePlotSetGroup = noop.UnaryServer[lineplot.SetGroupRequest, struct{}]{}
+	t.LogSetGroup = noop.UnaryServer[log.SetGroupRequest, struct{}]{}
+	t.TableSetGroup = noop.UnaryServer[table.SetGroupRequest, struct{}]{}
+	t.PanelSetGroup = noop.UnaryServer[panel.SetGroupRequest, struct{}]{}
+	t.SchematicSetProject = noop.UnaryServer[schematic.SetProjectRequest, struct{}]{}
+	t.LinePlotSetProject = noop.UnaryServer[lineplot.SetProjectRequest, struct{}]{}
+	t.LogSetProject = noop.UnaryServer[log.SetProjectRequest, struct{}]{}
+	t.TableSetProject = noop.UnaryServer[table.SetProjectRequest, struct{}]{}
+	t.PanelSetProject = noop.UnaryServer[panel.SetProjectRequest, struct{}]{}
+	t.Batch = noop.UnaryServer[batch.ExecRequest, batch.ExecResponse]{}
 
 	// PROJECT
 	t.ProjectCreate = noop.UnaryServer[project.CreateRequest, project.CreateResponse]{}
@@ -148,7 +171,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SchematicSymbolRetrieve = noop.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]{}
 	t.SchematicSymbolDelete = noop.UnaryServer[symbol.DeleteRequest, struct{}]{}
 	t.SchematicSymbolRename = noop.UnaryServer[symbol.RenameRequest, struct{}]{}
-	t.SchematicSymbolRetrieveGroup = noop.UnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse]{}
 	t.SchematicSymbolExportGroup = noop.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]{}
 	t.SchematicSymbolImportGroup = noop.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]{}
 	t.SchematicSymbolDeleteGroup = noop.UnaryServer[symbol.DeleteGroupRequest, struct{}]{}
@@ -197,8 +219,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.AccessCreateRole = noop.UnaryServer[role.CreateRequest, role.CreateResponse]{}
 	t.AccessDeleteRole = noop.UnaryServer[role.DeleteRequest, struct{}]{}
 	t.AccessRetrieveRole = noop.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]{}
-	t.AccessAssignRole = noop.UnaryServer[role.AssignRequest, struct{}]{}
-	t.AccessUnassignRole = noop.UnaryServer[role.UnassignRequest, struct{}]{}
 
 	// SECRET
 	t.SecretCreate = noop.UnaryServer[apisecret.CreateRequest, apisecret.CreateResponse]{}
@@ -221,6 +241,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// ARC
 	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, struct{}]{}
 	t.ArcUpdateTask = noop.UnaryServer[apiarc.UpdateTaskRequest, apiarc.UpdateTaskResponse]{}
+	t.ArcRetrieveDirectory = noop.UnaryServer[
+		apiarcdirectory.RetrieveRequest,
+		apiarcdirectory.RetrieveResponse,
+	]{}
 	t.ArcCreateDirectory = noop.UnaryServer[
 		apiarc.CreateDirectoryRequest,
 		apiarc.CreateDirectoryResponse,
