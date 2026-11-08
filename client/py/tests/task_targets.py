@@ -22,7 +22,7 @@ class TaskTargets:
     def __init__(self, client: sy.Synnax) -> None:
         self._client = client
         self._rack = client.racks.create(name=random_name()).key
-        self._channels: dict[int, int] = {}
+        self._channels: dict[sy.channel.Key, sy.channel.Key] = {}
 
     def attach(self, config: BaseModel) -> None:
         """Points each channel field of config at a new virtual channel, one for each
@@ -44,14 +44,14 @@ class TaskTargets:
             elif name == "status" and isinstance(value, str):
                 self._status(value)
 
-    def _channel(self, key: int) -> int:
+    def _channel(self, key: sy.channel.Key) -> sy.channel.Key:
         if key not in self._channels:
             self._channels[key] = self._client.channels.create(
                 name=random_name(), virtual=True, data_type=sy.DataType.FLOAT32
             ).key
         return self._channels[key]
 
-    def _device(self, key: str) -> None:
+    def _device(self, key: sy.device.Key) -> None:
         self._client.devices.create(
             sy.Device(
                 key=key,
@@ -63,7 +63,7 @@ class TaskTargets:
             )
         )
 
-    def _status(self, key: str) -> None:
+    def _status(self, key: sy.status.Key) -> None:
         self._client.statuses.set(
             sy.Status(key=key, name=key, variant=sy.status.VARIANT_INFO, message=key)
         )
