@@ -360,10 +360,9 @@ var _ = Describe("Service", func() {
 		)
 
 		Describe("an Arc with a task", func() {
-			// grantAllButTaskDelete grants what deleting a deployed Arc needs, except
-			// delete on its task: delete on the Arc and the status of the task, update
-			// on
-			// the directory, on the task that holds the status, and on the rack.
+			// grantAllButTaskDelete grants what deleting a deployed Arc needs except
+			// delete on its task: delete on the Arc and the task's status, and update
+			// on the directory, the task that holds the status, and the rack.
 			grantAllButTaskDelete := func(ctx SpecContext, a arc.Arc) {
 				GinkgoHelper()
 				grantOn(
@@ -390,7 +389,9 @@ var _ = Describe("Service", func() {
 				grantAllButTaskDelete(ctx, a)
 				Expect(del(AuthedCtx(ctx, author), apiarc.DeleteRequest{
 					Keys: []arc.Key{a.Base().Key},
-				})).Error().To(denied(author, access.ActionDelete, task.ResourceID(tsk.Key)))
+				})).Error().To(
+					denied(author, access.ActionDelete, task.ResourceID(tsk.Key)),
+				)
 				Expect(taskSvc.NewRetrieve().
 					Where(task.MatchKeys(tsk.Key)).
 					Exists(ctx, nil)).To(BeTrue())
