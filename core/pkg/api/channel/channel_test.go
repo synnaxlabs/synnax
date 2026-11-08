@@ -96,8 +96,10 @@ var _ = Describe("Service", func() {
 			)
 		}
 		BeforeEach(func(ctx SpecContext) {
-			u = MustSucceed(userSvc.NewWriter(nil).Create(
+			u = MustSucceed(rbactestutil.CreateUser(
 				ctx,
+				rbacSvc,
+				userSvc,
 				user.User{Name: "calculations-" + uuid.New().String()},
 			))
 			public = createChannel(ctx, telem.Float32T)
