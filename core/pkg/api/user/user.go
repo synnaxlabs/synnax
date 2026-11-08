@@ -29,7 +29,8 @@ import (
 
 // ServiceConfig is the configuration for the user API service.
 type ServiceConfig struct {
-	// RBAC checks the access of retrieve requests.
+	// RBAC checks the access of retrieve requests, and of the user writes that it must
+	// check before they run.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -239,12 +240,16 @@ type DeleteRequest struct {
 }
 
 // Delete deletes the users with the provided keys, with their passwords, API keys, and
-// sessions.
+// sessions. It returns access.ErrDenied when the subject cannot delete the users, and
+// an error when a user is a root user.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
+	if err := s.enforceOnUsers(ctx, access.ActionDelete, req.Keys); err != nil {
+		return struct{}{}, err
+	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -255,13 +260,16 @@ type SetRoleRequest struct {
 }
 
 // SetRole gives a role to the users with the provided keys in one transaction. It
-// returns a validation error when a user is a root user, and query.ErrNotFound when a
-// user does not exist.
+// returns access.ErrDenied when the subject cannot update the users, a validation error
+// when a user is a root user, and query.ErrNotFound when a user does not exist.
 func (s *Service) SetRole(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRoleRequest,
 ) (struct{}, error) {
+	if err := s.enforceOnUsers(ctx, access.ActionUpdate, req.Keys); err != nil {
+		return struct{}{}, err
+	}
 	guard := func(u user.User) error {
 		if !u.RootUser {
 			return nil
@@ -274,4 +282,18 @@ func (s *Service) SetRole(
 	}
 	return struct{}{}, s.internal.NewWriter(tx).
 		SetRole(ctx, req.Role, guard, req.Keys...)
+}
+
+// enforceOnUsers checks the action on the users with the provided keys before a write
+// reads them, so a subject without access learns nothing from the root-user guard.
+func (s *Service) enforceOnUsers(
+	ctx context.Context,
+	action access.Action,
+	keys []user.Key,
+) error {
+	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  action,
+		Objects: user.ResourceIDsFromKeys(keys),
+	})
 }

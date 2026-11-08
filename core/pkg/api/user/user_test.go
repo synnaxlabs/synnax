@@ -637,13 +637,16 @@ var _ = Describe("Service", func() {
 			Expect(roleOf(ctx, root.Key)).To(Equal(rbacSvc.Builtin.OwnerKey))
 		})
 		It(
-			"Should refuse to change the role of the root user before checking access",
+			"Should not reveal the root user to a subject that cannot update it",
 			func(ctx SpecContext) {
-				fctx, _ := nonRootCtx(ctx)
+				fctx, u := nonRootCtx(ctx)
 				Expect(setRole(fctx, apiuser.SetRoleRequest{
 					Keys: []user.Key{root.Key},
 					Role: rbacSvc.Builtin.ViewerKey,
-				})).Error().To(MatchError(validate.ErrValidation))
+				})).Error().To(SatisfyAll(
+					denied(u, access.ActionUpdate, root.ResourceID()),
+					Not(MatchError(ContainSubstring("root user"))),
+				))
 			},
 		)
 		It(
@@ -789,6 +792,18 @@ var _ = Describe("Service", func() {
 				userSvc.NewRetrieve().Where(user.MatchKeys(root.Key)).Exists(ctx, nil),
 			).To(BeTrue())
 		})
+		It(
+			"Should not reveal the root user to a subject that cannot delete it",
+			func(ctx SpecContext) {
+				fctx, u := nonRootCtx(ctx)
+				Expect(del(fctx, apiuser.DeleteRequest{
+					Keys: []user.Key{root.Key},
+				})).Error().To(SatisfyAll(
+					denied(u, access.ActionDelete, root.ResourceID()),
+					Not(MatchError(ContainSubstring("root user"))),
+				))
+			},
+		)
 	})
 })
 
