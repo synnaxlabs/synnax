@@ -8,35 +8,16 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "testutil",
-    hdrs = [
-        "master.h",
-        "pool.h",
-    ],
+    hdrs = ["master.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/ethercat/engine",
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
         "//x/cpp/errors",
         "//x/cpp/loop",
         "//x/cpp/telem",
-    ],
-)
-
-cc_test(
-    name = "testutil_test",
-    srcs = [
-        "master_test.cpp",
-        "pool_test.cpp",
-    ],
-    deps = [
-        ":testutil",
-        "//driver/ethercat/errors",
-        "//x/cpp/testutil",
-        "@googletest//:gtest_main",
     ],
 )

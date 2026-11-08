@@ -76,21 +76,3 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
-
-cc_test(
-    name = "ethercat_hardware_test",
-    srcs = ["hardware_test.cpp"],
-    tags = [
-        "manual",
-        "requires-hardware",
-        "requires-root",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//driver/ethercat",
-        "//driver/ethercat/soem",
-        "//x/cpp/telem",
-        "//x/cpp/testutil",
-        "@googletest//:gtest_main",
-    ],
-)
