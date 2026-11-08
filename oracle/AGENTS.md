@@ -34,7 +34,7 @@ or generator logic and schemas disagree.
   type was removed at N. The versions directory is the sole version authority: there is
   no `@go version` tag; the current version is the highest vN file, and membership in it
   marks a type persisted. Version-owned content: fields, optionality, docs, `@key`, and
-  the `@go` persistence set (`marshal` incl. field-level `omit`, `wire`, `hand`,
+  the `@go` persistence set (`marshal` incl. field-level `omit`, `wire`, `json`, `hand`,
   `migrate`, `imex`). Codecs are explicit: a struct or union gets one iff its
   declaration carries `@go marshal`; references never pull a codec in.
   `@go marshal hand` marks hand-written codec methods: nothing generates, references
@@ -218,7 +218,10 @@ when most types need it, declare it file-level and omit the exceptions.
 `@patch` marks a field of a document (a struct with `action Set extends patch.Set`) that
 path actions may edit. A path to any other field fails, so a Core-owned field such as
 `labels` gets no tag. Go generates a `Patch` method for the document and for every
-struct that a `@patch` field reaches, in the version package that declares the struct.
+struct that a `@patch` field reaches, in the version package that declares the struct. A
+struct with a hand-written Go JSON decoder, such as `color.Color`, declares
+`@go json hand` and gets no `Patch` method. Only a whole set changes it, and that set
+runs the decoder.
 
 ## Rules
 

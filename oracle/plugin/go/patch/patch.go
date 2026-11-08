@@ -10,7 +10,7 @@
 // Package patch provides an Oracle plugin that generates the Patch methods that apply
 // path actions to typed documents. A document is a struct with @patch fields, and
 // path actions edit only those fields. Every struct that a @patch field reaches gets a
-// Patch method over all of its fields.
+// Patch method over all of its fields, unless it is marked @go json hand.
 package patch
 
 import (
@@ -205,7 +205,7 @@ func patchable(f resolution.Field, table *resolution.Table) (resolution.Type, bo
 		return resolution.Type{}, false
 	}
 	typ, _, ok := resolution.Dealias(f.Type, table)
-	if !ok || omit.IsSkipped(typ, "go") {
+	if !ok || omit.IsSkipped(typ, "go") || handJSON(typ) {
 		return resolution.Type{}, false
 	}
 	form, ok := typ.Form.(resolution.StructForm)
@@ -213,6 +213,12 @@ func patchable(f resolution.Field, table *resolution.Table) (resolution.Type, bo
 		return resolution.Type{}, false
 	}
 	return typ, true
+}
+
+// handJSON reports whether t has a hand-written Go JSON decoder. Only a whole set runs
+// the decoder, so a path cannot go into t.
+func handJSON(t resolution.Type) bool {
+	return domain.GetStringFromType(t, "go", "json") == "hand"
 }
 
 func wireOmitted(f resolution.Field) bool {

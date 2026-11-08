@@ -24,15 +24,7 @@ func (r *Range) Patch(c patch.Cursor) error {
 		}
 		return r.TimeRange.Patch(c)
 	case "color":
-		if c = c.Next(); c.Done() || r.Color == nil {
-			return patch.OptionalValue(&r.Color, c)
-		}
-		next := *r.Color
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		r.Color = &next
-		return nil
+		return patch.OptionalValue(&r.Color, c.Next())
 	case "parent":
 		return patch.OptionalValue(&r.Parent, c.Next())
 	default:

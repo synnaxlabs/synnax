@@ -103,7 +103,7 @@ func (c Cursor) UnknownField() error {
 // path cannot go into because it holds a value.
 func Value[T any](dst *T, c Cursor) error {
 	if !c.Done() {
-		return notContainer(c.path[:c.depth])
+		return intoValue(c.path[:c.depth])
 	}
 	return whole(dst, c)
 }
@@ -116,7 +116,7 @@ func OptionalValue[T any](dst **T, c Cursor) error {
 		return optional(dst, c)
 	}
 	if *dst != nil {
-		return notContainer(c.path[:c.depth])
+		return intoValue(c.path[:c.depth])
 	}
 	if c.kind == kindRemove || c.kind == kindMove {
 		return nil
@@ -283,6 +283,16 @@ func setInteger[I types.Integer](dst *I, v any, lo, hi float64) bool {
 	}
 	*dst = I(f)
 	return true
+}
+
+// intoValue returns the error for a path that goes into a field that only a whole set
+// changes.
+func intoValue(path []string) error {
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"%s: the value takes only a whole set",
+		format(path),
+	)
 }
 
 func required(path []string) error {

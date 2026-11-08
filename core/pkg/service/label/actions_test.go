@@ -49,6 +49,16 @@ var _ = Describe("Actions", func() {
 			"[color]: decoding value",
 		),
 		Entry(
+			"an alpha above the 0-255 scale",
+			set([]string{"color"}, map[string]any{"r": 255, "g": 0, "b": 0, "a": 300}),
+			"alpha 300 is above the 0-255 scale",
+		),
+		Entry(
+			"a path into the color",
+			set([]string{"color", "a"}, 128),
+			"[color]: the value takes only a whole set",
+		),
+		Entry(
 			"an insert into a list the label does not declare",
 			label.NewInsertAction(label.InsertPayload{
 				Path:  []string{"tags"},
@@ -94,6 +104,16 @@ var _ = Describe("Actions", func() {
 			Expect(res.Color).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
 			Expect(res.Name).To(Equal(base.Name))
 		})
+		DescribeTable("Should lift a legacy alpha", func(alpha, want float64) {
+			res := MustSucceed(label.Reduce(base, set(
+				[]string{"color"},
+				map[string]any{"r": 255, "g": 0, "b": 0, "a": alpha},
+			)))
+			Expect(res.Color.A).To(BeNumerically("~", want))
+		},
+			Entry("just above 1", 1.5, 1.0),
+			Entry("on the 0-255 scale", 128.0, 128.0/255),
+		)
 	})
 
 	Describe("RemovePayload", func() {
