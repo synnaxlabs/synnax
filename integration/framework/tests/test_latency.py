@@ -58,8 +58,8 @@ class TestWaitFor:
         stop = threading.Event()
 
         def push() -> None:
-            for _ in range(100):
-                if stop.wait(0.02):
+            for _ in range(200):
+                if stop.wait(0.005):
                     return
                 stream.push(frame(0.0))
 
@@ -67,11 +67,11 @@ class TestWaitFor:
         pusher.start()
         start = time.perf_counter()
         try:
-            assert not latency.wait_for(stream, CHANNEL, 1.0, timeout_s=0.2)
+            assert not latency.wait_for(stream, CHANNEL, 1.0, timeout_s=0.05)
         finally:
             stop.set()
             pusher.join()
-        assert 0.2 <= time.perf_counter() - start < 1
+        assert 0.05 <= time.perf_counter() - start < 0.5
 
 
 class TestCheck:
