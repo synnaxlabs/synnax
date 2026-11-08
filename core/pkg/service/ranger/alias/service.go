@@ -33,7 +33,7 @@ type ParentRetriever interface {
 	RetrieveParentKey(
 		ctx context.Context,
 		key ranger.Key,
-		tx gorp.Tx,
+		snap gorp.Snapshot,
 	) (ranger.Key, error)
 }
 
@@ -123,9 +123,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 }
 
 // NewReader opens a new Reader to retrieve aliases.
-func (s *Service) NewReader(tx gorp.Tx) Reader {
+func (s *Service) NewReader(snap gorp.Snapshot) Reader {
 	return Reader{
-		tx:              gorp.OverrideTx(s.cfg.DB, tx),
+		snap:            gorp.OverrideSnapshot(s.cfg.DB, snap),
 		parentRetriever: s.cfg.ParentRetriever,
 		table:           s.table,
 	}

@@ -156,6 +156,6 @@ func MatchOwners[D any](owners ...resource.ID) Filter[D] {
 
 // Exec executes the query and fills the results into the provided Status or slice of
 // Statuses.
-func (r Retrieve[D]) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+func (r Retrieve[D]) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, gorp.OverrideSnapshot(r.baseTX, snap))
 }

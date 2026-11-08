@@ -104,6 +104,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 }
 
 // NewReader opens a new Reader to retrieve key-value pairs.
-func (s *Service) NewReader(tx gorp.Tx) Reader {
-	return Reader{tx: gorp.OverrideTx(s.cfg.DB, tx), table: s.table}
+func (s *Service) NewReader(snap gorp.Snapshot) Reader {
+	return Reader{snap: gorp.OverrideSnapshot(s.cfg.DB, snap), table: s.table}
 }
