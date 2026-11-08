@@ -16,7 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
@@ -25,7 +24,6 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
@@ -2041,28 +2039,21 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable(
-			"Should warn on a comparison with math.nan",
+			"Should reject a comparison with math.nan",
 			func(ctx SpecContext, expr, message string) {
 				ast := MustSucceed(parser.Parse(body("a := " + expr)))
 				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(extras))
 				analyzer.AnalyzeProgram(aCtx)
-				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-				warnings := lo.Filter(
-					*aCtx.Diagnostics,
-					func(d diagnostics.Diagnostic, _ int) bool {
-						return d.Code == codes.NaNComparison
-					},
-				)
 				if message == "" {
-					Expect(warnings).To(BeEmpty())
+					Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 					return
 				}
-				Expect(warnings).To(HaveLen(1))
-				Expect(
-					warnings[0].Severity,
-				).To(Equal(protocol.DiagnosticSeverityWarning))
-				Expect(warnings[0].Message).To(ContainSubstring(message))
-				Expect(warnings[0].Message).To(ContainSubstring("math.is_nan"))
+				Expect(*aCtx.Diagnostics).To(HaveLen(1), aCtx.Diagnostics.String())
+				d := (*aCtx.Diagnostics)[0]
+				Expect(d.Code).To(Equal(codes.NaNComparison))
+				Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityError))
+				Expect(d.Message).To(ContainSubstring(message))
+				Expect(d.Message).To(ContainSubstring("math.is_nan"))
 			},
 			Entry("==", "v == math.nan", "== with math.nan is always false"),
 			Entry("!=", "v != math.nan", "!= with math.nan is always true"),
@@ -2107,15 +2098,9 @@ var _ = Describe("Expressions", func() {
 					[]symbol.Symbol{custom},
 				))
 				analyzer.AnalyzeProgram(aCtx)
-				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-				warnings := lo.Filter(
-					*aCtx.Diagnostics,
-					func(d diagnostics.Diagnostic, _ int) bool {
-						return d.Code == codes.NaNComparison
-					},
-				)
-				Expect(warnings).To(HaveLen(1))
-				Expect(warnings[0].Message).To(Equal(message))
+				Expect(*aCtx.Diagnostics).To(HaveLen(1), aCtx.Diagnostics.String())
+				Expect((*aCtx.Diagnostics)[0].Code).To(Equal(codes.NaNComparison))
+				Expect((*aCtx.Diagnostics)[0].Message).To(Equal(message))
 			},
 			Entry(
 				"an import alias",

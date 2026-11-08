@@ -3503,11 +3503,7 @@ var _ = Describe("Flow variables from module constants", func() {
 			"sequence main {\n limit := math.nan\n stage a {\n }\n}\nx => main",
 			"",
 		),
-		Entry(
-			"an expression on a constant",
-			"limit := math.inf * 2.0",
-			"'limit' cannot be initialized from math.inf*2.0 outside a function",
-		),
+		Entry("an expression on a constant", "limit := math.inf * 2.0", ""),
 		Entry("a channel read", "limit := x * math.inf", ""),
 		Entry(
 			"a function",

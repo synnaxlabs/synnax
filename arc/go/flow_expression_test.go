@@ -81,4 +81,26 @@ var _ = Describe("Literal expressions in flows", func() {
 		Entry("f32", "v f32 := 0.0", "1.5 * 2.0", types.F32(), 3.0),
 		Entry("stateful f32", "v f32 $= 0.0", "1.5 * 2.0", types.F32(), 3.0),
 	)
+
+	It("Should type a literal in each format string placeholder", func(ctx SpecContext) {
+		h := newRuntimeHarness(ctx, `
+		func f() {a f32} {
+			b f64 := 2.0
+			log = f"{a + 1.5} {b + 1.5}"
+		}
+		x -> f()`, channelSymbols(map[string]channelDef{
+			"x":   {types.F32(), 100},
+			"log": {types.String(), 101},
+		}),
+			channels.Digest{Key: 100, DataType: telem.Float32T},
+			channels.Digest{Key: 101, DataType: telem.StringT},
+		)
+		defer h.Close(ctx)
+		h.Ingest(100, telem.NewSeriesV[float32](1))
+		h.Tick(ctx, telem.Millisecond)
+		out, _ := h.Flush()
+		series := out.Get(101).Series
+		Expect(series).ToNot(BeEmpty())
+		Expect(series[len(series)-1].Unmarshal[string]()).To(ConsistOf("2.5 3.5"))
+	})
 })

@@ -30,7 +30,7 @@ In the messages below, `<name>` stands for a value that changes.
 
 <Problem.Item
   code="ARC2004"
-  severity="warning"
+  severity="error"
   message={[
     "<op> with <name> is always false, use <check> instead",
     "!= with <name> is always true, use <check> instead",
@@ -183,11 +183,13 @@ This section lists the most common diagnostics without a code, not all of them.
   <Problem.Cause>A top-level variable is a constant.</Problem.Cause>
   <Problem.Fix>Assign it inside a sequence, a stage, or a function.</Problem.Fix>
 </Problem.Item>
-<Problem.Item message={"'<name>' cannot be initialized from <expr> outside a function"}>
+<Problem.Item
+  message={"cannot use '<name>' in a flow: its initializer is not a compile-time constant"}
+>
   <Problem.Cause>
-    A top-level or sequence variable reads an expression on a module constant, such as
-    `math.inf * 2.0`, and no channel. A constant on its own, such as `-math.inf`, is
-    allowed.
+    A flow uses a top-level or sequence variable whose initializer computes a value and
+    reads no channel, such as `1.0 * 2.0` or `math.inf * 2.0`. A literal or a module
+    constant on its own, such as `-math.inf`, is allowed.
   </Problem.Cause>
   <Problem.Fix>
     Use the expression in a function, or in an expression that reads a channel.

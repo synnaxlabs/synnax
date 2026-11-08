@@ -340,14 +340,14 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 		types.InferRelational,
 		anyOperand,
 	)
-	warnNaNComparison(ctx, relExpressions, getEqualityOperator(ctx.AST))
+	checkNaNComparison(ctx, relExpressions, getEqualityOperator(ctx.AST))
 }
 
-// warnNaNComparison warns when a comparison with operator op has the NaN constant as
+// checkNaNComparison rejects a comparison with operator op that has the NaN constant as
 // one of the operands the compiler runs, the first two of a chain. Such a comparison
-// always has the same result. The warning names the constant as the code wrote it, and
+// always has the same result. The error names the constant as the code wrote it, and
 // the module's is_nan when the module has one.
-func warnNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
+func checkNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
 	ctx context.Context[T],
 	operands []O,
 	op string,
@@ -368,7 +368,7 @@ func warnNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
 				check = head + ".is_nan"
 			}
 		}
-		ctx.Diagnostics.Add(diagnostics.Warningf(
+		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"%s with %s is always %t, use %s instead",
 			op,
@@ -392,7 +392,7 @@ func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext])
 		types.InferAdditive,
 		numericOperand,
 	)
-	warnNaNComparison(ctx, additives, getRelationalOperator(ctx.AST))
+	checkNaNComparison(ctx, additives, getRelationalOperator(ctx.AST))
 }
 
 func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {

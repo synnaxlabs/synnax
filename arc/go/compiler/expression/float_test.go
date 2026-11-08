@@ -105,7 +105,7 @@ var _ = Describe("Float checks and constants", func() {
 	})
 
 	It("Should write a real f32 NaN", func(ctx SpecContext) {
-		bytecode, _ := compileWithAnalyzer(ctx, "a == math.nan", channels)
+		bytecode, _ := compileWithAnalyzer(ctx, "a + math.nan", channels)
 		i := len(bytecode) - 6
 		Expect(Opcode(bytecode[i])).To(Equal(OpF32Const))
 		bits := binary.LittleEndian.Uint32(bytecode[i+1:])
