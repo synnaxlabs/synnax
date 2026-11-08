@@ -38,11 +38,11 @@ func (a Arc) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (a *Arc) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "automation":
 		var v AutomationArc
 		if err := v.Base.DecodeOrc(r); err != nil {
@@ -126,11 +126,11 @@ func (s Source) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (s *Source) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "text":
 		var v TextSource
 		if err = v.Text.DecodeOrc(r); err != nil {
