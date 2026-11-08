@@ -10,7 +10,6 @@
 import {
   type group,
   NotFoundError,
-  type ontology,
   resource,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -76,6 +75,7 @@ import {
   type BaseProps,
   type ContextMenuProps,
   type GetResource,
+  type Resource,
   type TreeState,
 } from "@/platform/tree/types";
 import { useResources } from "@/platform/tree/useResource";
@@ -132,7 +132,7 @@ const SelectionContextMenu = ({ menu: M, ...props }: SelectionContextMenuProps) 
 const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
   const { itemKey } = rest;
   const id = resource.parseID(itemKey);
-  const ontologyResource = List.useItem<string, ontology.Resource>(itemKey);
+  const treeResource = List.useItem<string, Resource>(itemKey);
   const Item = useItems()[id.type] ?? DefaultItem;
   const { onDrop, subscribeLoading, getLoading, onDragStart, onDragEnd } =
     useContext("Tree.itemRenderProp");
@@ -166,7 +166,7 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
 
   // The virtualizer has already reserved this row's slot. Rendering nothing would
   // leave a gap, so the row stays empty until the resource loads.
-  if (ontologyResource == null) return <Base.Item {...rest} />;
+  if (treeResource == null) return <Base.Item {...rest} />;
 
   return (
     <Item
@@ -177,7 +177,7 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
       {...onDropDrops}
       onDragLeave={() => setDraggingOver(false)}
       onDragEnd={onDragEnd}
-      resource={ontologyResource}
+      resource={treeResource}
       loading={loading}
     />
   );
@@ -252,7 +252,7 @@ const updateChildren = (
 interface Watch {
   sources: Source[];
   /** The latest answer of each source, undefined until the source answers. */
-  answers: Array<ontology.Resource[] | undefined>;
+  answers: Array<Resource[] | undefined>;
   /** The keys of the latest whole list. */
   keys: Set<string>;
   /** The keys of the visible children of the latest whole list, in sorted order. */
@@ -262,7 +262,7 @@ interface Watch {
 }
 
 interface Answer {
-  resources: ontology.Resource[];
+  resources: Resource[];
   /** The source that lists each key. */
   sources: Map<string, Source>;
 }
@@ -341,9 +341,9 @@ const useOwners = (seed: Watch | null, rootKey: string): Owners => {
 // Reads the resource of every node once, since a sort compares each one many times.
 const readResources = (
   nodes: Base.Node<string>[],
-  read: (key: string) => ontology.Resource | undefined,
-): Map<string, ontology.Resource> => {
-  const resources = new Map<string, ontology.Resource>();
+  read: (key: string) => Resource | undefined,
+): Map<string, Resource> => {
+  const resources = new Map<string, Resource>();
   const visit = (level: Base.Node<string>[]) =>
     level.forEach(({ key, children }) => {
       const res = read(key);
@@ -355,9 +355,9 @@ const readResources = (
 };
 
 const filterVisible = (
-  resources: ontology.Resource[],
+  resources: Resource[],
   resolveItem: (type: resource.Type) => Item,
-): ontology.Resource[] =>
+): Resource[] =>
   resources.filter((r) => {
     const { visible } = resolveItem(r.id.type);
     return visible == null || visible(r);
@@ -404,7 +404,7 @@ const keepWatchedChildren = (
   );
 
 const toNodes = (
-  resources: ontology.Resource[],
+  resources: Resource[],
   resolveItem: (type: resource.Type) => Item,
 ): Base.Node<string>[] =>
   filterVisible(resources, resolveItem).map((r) => ({
@@ -413,7 +413,7 @@ const toNodes = (
   }));
 
 // Folders come first, then resources by name.
-const compareResources = (a: ontology.Resource, b: ontology.Resource): number => {
+const compareResources = (a: Resource, b: Resource): number => {
   const aFolder = FOLDER_TYPES.has(a.id.type);
   const bFolder = FOLDER_TYPES.has(b.id.type);
   if (aFolder !== bFolder) return aFolder ? -1 : 1;
@@ -439,7 +439,7 @@ const Internal = ({
   const rootKey = resource.idToString(root);
   // Placeholder resources back tree items (e.g. a just-created group awaiting its
   // inline rename) before the Core delivers the real resource.
-  const placeholders = List.useMapData<string, ontology.Resource>();
+  const placeholders = List.useMapData<string, Resource>();
 
   const listChildren = (client: Client, id: resource.ID): Source[] => {
     if (listRoot != null && resource.idsEqual(id, root)) return listRoot(client);
@@ -470,7 +470,7 @@ const Internal = ({
   );
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
 
-  const getResourceByKey = (key: string): ontology.Resource | undefined =>
+  const getResourceByKey = (key: string): Resource | undefined =>
     owners.ownerOf(key)?.get(key) ??
     placeholders.getItem(key) ??
     results?.resources.get(key);
@@ -680,9 +680,8 @@ const Internal = ({
     return resources;
   }) as GetResource;
 
-  const getItem = List.createGetItem<string, ontology.Resource>(
-    getResourceByKey,
-    (keys) => keys.map(getResourceByKey).filter((r) => r != null),
+  const getItem = List.createGetItem<string, Resource>(getResourceByKey, (keys) =>
+    keys.map(getResourceByKey).filter((r) => r != null),
   );
 
   const sorted = readResources(nodes, getResourceByKey);
@@ -901,7 +900,7 @@ const Internal = ({
   return (
     <Context value={contextValue}>
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
-      <Base.Tree<string, ontology.Resource>
+      <Base.Tree<string, Resource>
         {...treeProps}
         showRules
         shape={shape}
@@ -945,7 +944,7 @@ const foldersFirst = (nodes: Base.Node<string>[]): Base.Node<string>[] =>
   );
 
 interface BuildResultsParams {
-  matches: ontology.Resource[];
+  matches: Resource[];
   ancestry: Placement;
   layout: SearchLayout;
   hasChildren: (id: resource.ID) => boolean;

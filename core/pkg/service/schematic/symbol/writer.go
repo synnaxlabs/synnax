@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -26,10 +25,9 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	svc       *Service
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	table     *gorp.Table[Key, Symbol]
+	svc   *Service
+	tx    gorp.Tx
+	table *gorp.Table[Key, Symbol]
 }
 
 // inTx calls f with w, or with a Writer on a transaction of its own when w has no
@@ -80,10 +78,7 @@ func (w Writer) create(ctx context.Context, s *Symbol) error {
 			return err
 		}
 	}
-	if err := w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DefineResources(ctx, s.ResourceID())
+	return w.table.NewCreate().Entry(s).Exec(ctx, w.tx)
 }
 
 // CreateMany creates the given symbols. If symbols with the same key already exist,
@@ -124,10 +119,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 
 // Delete deletes the symbols with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Symbol](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
+		Exec(ctx, w.tx)
 }

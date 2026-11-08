@@ -22,7 +22,7 @@ import {
   expandTreeRow,
   findModalButton,
   findTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import { assertDefined, queryIcon, uniqueName } from "@/testutil";
@@ -39,7 +39,7 @@ const createRole = async () =>
 const roleResource = (key: string, name: string, internal: boolean) =>
   createResource(access.role.resourceID(key), name, { internal });
 
-describe("role ontology service", () => {
+describe("role tree item", () => {
   it("should expose rename and delete for a non-internal role", async () => {
     const role = await createRole();
     assertDefined(RoleItem.ContextMenu);
@@ -154,7 +154,7 @@ describe("role ontology service", () => {
         password: "password",
         roles: held.map(({ key }) => key),
       });
-      await renderOntologyTree({
+      await renderLiveTree({
         client,
         root: access.role.TYPE_RESOURCE_ID,
         listRoot: Access.Role.listTreeRoot,
@@ -189,7 +189,7 @@ describe("role ontology service", () => {
 
   it("should render each built-in role's icon and fall back for custom roles", async () => {
     const role = await createRole();
-    await renderOntologyTree({
+    await renderLiveTree({
       client,
       root: access.role.TYPE_RESOURCE_ID,
       listRoot: Access.Role.listTreeRoot,
@@ -208,7 +208,7 @@ describe("role ontology service", () => {
   });
 });
 
-describe("policy ontology service", () => {
+describe("policy tree item", () => {
   it("should stay hidden in the tree and declare no children", () => {
     expect(PolicyItem.type).toBe("policy");
     expect(

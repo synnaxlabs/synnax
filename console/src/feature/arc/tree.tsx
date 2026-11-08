@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, ontology, resource } from "@synnaxlabs/client";
+import { arc, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Arc, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
@@ -126,6 +125,10 @@ const useDeleteDirectory = Tree.createUseDelete({
   convertKey: String,
 });
 
+// The root directory is the one directory that no directory holds.
+const isRootDirectory = ({ data }: Tree.Resource): boolean =>
+  data != null && (data as Partial<arc.directory.Directory>).parent == null;
+
 const DirectoryContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
@@ -144,10 +147,7 @@ const DirectoryContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDeleteDirectory(props);
   const handleLink = Core.useCopyLinkToClipboard();
   const isSingle = ids.length === 1;
-  // The root directory sits at depth zero of a tree rooted at the ontology root.
-  const isRoot =
-    PTree.getDepth(resource.idToString(firstID), state.shape) === 0 &&
-    resource.idsEqual(rootID, ontology.ROOT_ID);
+  const isRoot = isRootDirectory(state.getResource(firstID));
   return (
     <ContextMenu.Menu>
       {isSingle && hasCreatePermission && (
@@ -184,7 +184,12 @@ const DirectoryItem = Tree.createItem({
   type: "arc_directory",
   icon: <Icon.Group />,
   children: ({ client, id }) => [
-    Tree.createOntologySource(client, id, [...ENTRY_TYPES]),
+    Tree.createSource(
+      client.arcs.directories,
+      { parents: [id.key] },
+      Tree.toResource("arc_directory"),
+    ),
+    Tree.createSource(client.arcs, { directories: [id.key] }, Tree.toResource("arc")),
   ],
   canDrop: ({ moved }) => moved.every(({ id }) => ENTRY_TYPES.has(id.type)),
   drop: async ({ client, destination, items }) => {

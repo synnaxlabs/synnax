@@ -13,7 +13,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
@@ -21,8 +20,6 @@ import (
 type Config struct {
 	// User holds the roles of each user.
 	User *user.Service
-	// Ontology holds the legacy group relationships of users.
-	Ontology *ontology.Ontology
 	// Roles is the set of provisioned built-in roles.
 	Roles builtin.ProvisionResult
 }
@@ -31,9 +28,8 @@ type Config struct {
 func New(cfg Config) []gorp.Migration {
 	return []gorp.Migration{
 		v0.NewMigration(v0.MigrationConfig{
-			User:     cfg.User,
-			Ontology: cfg.Ontology,
-			Roles:    cfg.Roles,
+			User:  cfg.User,
+			Roles: cfg.Roles,
 		}),
 	}
 }

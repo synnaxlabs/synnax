@@ -14,7 +14,6 @@ import { z } from "zod";
 import { role } from "@/access/role";
 import { type connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
-import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { Current } from "@/user/current";
@@ -115,7 +114,6 @@ const singleIdentifier = (params: SingleParams): string =>
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
   connection: connection.Client;
   /** Carries the user after each login, and undefined when the credentials change. */
   identity: observe.Observable<User | undefined>;
@@ -206,10 +204,7 @@ export class Client extends query.Retriever<
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     await query.optimistic({
-      rollbacks: [
-        query.partialUpdate(this.store, key, { name }),
-        this.cfg.ontology.cache.renameResource(resourceID(key), name),
-      ],
+      rollbacks: [query.partialUpdate(this.store, key, { name })],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
         await this.cfg.unary.send(
@@ -252,10 +247,7 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(resourceID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

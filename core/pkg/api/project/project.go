@@ -192,9 +192,9 @@ type (
 	ExportResponse = zip.Files
 )
 
-// Export exports the project and its ontology descendants as a bundle. It requires
-// retrieve access on the project, which it enforces before it reads a member, and on
-// every document, panel, and group the bundle carries.
+// Export exports the project and the records it owns as a bundle. It requires retrieve
+// access on the project, which it enforces before it reads a member, and on every
+// document, panel, and group the bundle carries.
 func (s *Service) Export(
 	ctx context.Context,
 	req ExportRequest,

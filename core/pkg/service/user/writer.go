@@ -17,7 +17,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -29,7 +28,6 @@ import (
 type Writer struct {
 	svc   *Service
 	tx    gorp.Tx
-	otg   ontology.Writer
 	table *gorp.Table[Key, User]
 }
 
@@ -64,9 +62,6 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 		)
 	}
 	if err := w.table.NewCreate().Entry(&u).Exec(ctx, w.tx); err != nil {
-		return User{}, err
-	}
-	if err := w.otg.DefineResources(ctx, u.ResourceID()); err != nil {
 		return User{}, err
 	}
 	return u, nil
@@ -142,14 +137,11 @@ func (w Writer) setRootUser(ctx context.Context, key Key, root bool) error {
 // Delete removes the users with the given keys from the key-value store.
 // Deleting a root user is rejected.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, User](keys...)).
+	return w.table.NewDelete().Where(gorp.MatchKeys[Key, User](keys...)).
 		Guard(func(_ gorp.Context, u User) error {
 			if u.RootUser {
 				return errors.New("cannot delete root user")
 			}
 			return nil
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otg.DeleteResources(ctx, ResourceIDsFromKeys(keys)...)
+		}).Exec(ctx, w.tx)
 }

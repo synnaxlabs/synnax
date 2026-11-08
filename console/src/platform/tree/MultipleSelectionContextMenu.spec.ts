@@ -18,11 +18,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import {
-  createScopeTree,
-  getTreeRow,
-  renderOntologyTree,
-} from "@/platform/tree/testutil";
+import { createScopeTree, getTreeRow, renderLiveTree } from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
   commitTextEdit,
@@ -54,7 +50,7 @@ const setupMixedSelection = async (as: Client = client): Promise<MixedSelection>
     virtual: true,
     group: container.key,
   });
-  await renderOntologyTree({
+  await renderLiveTree({
     client: as,
     projectClient: client,
     root: channel.TYPE_RESOURCE_ID,

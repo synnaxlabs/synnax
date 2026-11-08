@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
 	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
+	arcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -27,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
-	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
@@ -196,24 +196,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ControlRetrieve: unary[control.RetrieveRequest, control.RetrieveResponse](
 			router,
 			"/api/v1/control/retrieve",
-		),
-
-		// ONTOLOGY
-		OntologyRetrieve: unary[ontology.RetrieveRequest, ontology.RetrieveResponse](
-			router,
-			"/api/v1/ontology/retrieve",
-		),
-		OntologyAddChildren: unary[ontology.AddChildrenRequest, struct{}](
-			router,
-			"/api/v1/ontology/add-children",
-		),
-		OntologyRemoveChildren: unary[ontology.RemoveChildrenRequest, struct{}](
-			router,
-			"/api/v1/ontology/remove-children",
-		),
-		OntologyMoveChildren: unary[ontology.MoveChildrenRequest, struct{}](
-			router,
-			"/api/v1/ontology/move-children",
 		),
 
 		// RESOURCE
@@ -649,6 +631,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/arc/update-task",
 		),
+		ArcRetrieveDirectory: unary[
+			arcdirectory.RetrieveRequest,
+			arcdirectory.RetrieveResponse,
+		](router, "/api/v1/arc/directory/retrieve"),
 		ArcCreateDirectory: unary[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse](
 			router,
 			"/api/v1/arc/directory/create",

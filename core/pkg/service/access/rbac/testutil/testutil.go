@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -33,8 +32,6 @@ import (
 type Config struct {
 	// DB holds the roles, policies, users, and racks.
 	DB *gorp.DB
-	// Ontology is where the services define their resources.
-	Ontology *ontology.Ontology
 	// User is the user service that holds the roles of each user.
 	User *user.Service
 	// Status is the status service that racks write to.
@@ -60,15 +57,13 @@ func Open(ctx context.Context, cfg Config) (s *Services, err error) {
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	roles, err := rbac.OpenRoles(ctx, rbac.RolesConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
+		DB: cfg.DB,
 	})
 	if !ok(err, roles) {
 		return nil, err
 	}
 	if s.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           cfg.DB,
-		Ontology:     cfg.Ontology,
 		HostProvider: disttestutil.NewStaticHostProvider(1),
 		Status:       cfg.Status,
 		DriverRole:   roles.Builtin.DriverKey,
@@ -76,11 +71,10 @@ func Open(ctx context.Context, cfg Config) (s *Services, err error) {
 		return nil, err
 	}
 	if s.RBAC, err = rbac.NewService(ctx, rbac.ServiceConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-		Roles:    roles,
-		User:     cfg.User,
-		Rack:     s.Rack,
+		DB:    cfg.DB,
+		Roles: roles,
+		User:  cfg.User,
+		Rack:  s.Rack,
 	}); err != nil {
 		return nil, err
 	}

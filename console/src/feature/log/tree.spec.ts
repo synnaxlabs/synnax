@@ -18,7 +18,7 @@ import {
   createResource,
   findModalButton,
   findTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import { assertDefined, resolveFocusedTab, uniqueName } from "@/testutil";
@@ -38,7 +38,7 @@ const createLog = async () => {
 const logResource = (key: string, name: string) =>
   createResource(log.resourceID(key), name);
 
-describe("log ontology service", () => {
+describe("log tree item", () => {
   it("should offer Reload Console", async () => {
     const l = await createLog();
     assertDefined(Item.ContextMenu);
@@ -85,7 +85,7 @@ describe("log ontology service", () => {
       name: uniqueName("project"),
     });
     const l = await client.logs.create({ project: proj.key, name: uniqueName("log") });
-    const { store } = await renderOntologyTree({
+    const { store } = await renderLiveTree({
       client,
       root: project.resourceID(proj.key),
       items: { ...Project.TREE_ITEMS, ...Log.TREE_ITEMS },

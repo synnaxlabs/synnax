@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -26,7 +25,6 @@ import (
 type Writer struct {
 	svc        *Service
 	tx         gorp.Tx
-	otg        ontology.Writer
 	table      *gorp.Table[Key, Panel]
 	dispatcher actions.Dispatcher[Key, Action]
 }
@@ -102,9 +100,6 @@ func (w Writer) create(
 		return err
 	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	if err := w.otg.DefineResources(ctx, p.ResourceID()); err != nil {
 		return err
 	}
 	w.dispatcher.NotifyOnCommit(
@@ -196,15 +191,12 @@ func (w Writer) CreateMany(ctx context.Context, ps *[]Panel) error {
 	return nil
 }
 
-// Delete deletes the panels with the given keys and removes their ontology entries.
+// Delete deletes the panels with the given keys.
 func (w Writer) Delete(
 	ctx context.Context,
 	keys ...Key,
 ) error {
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Panel](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otg.DeleteResources(ctx, ResourceIDs(keys)...)
+		Exec(ctx, w.tx)
 }

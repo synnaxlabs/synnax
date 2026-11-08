@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -37,7 +36,6 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db           *gorp.DB
-	otg          *ontology.Ontology
 	svc          *project.Service
 	groupSvc     *group.Service
 	schematicSvc *schematic.Service
@@ -53,39 +51,31 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	db = node.DB
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	svc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	writer = svc.NewWriter(nil)
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		ImEx:     imex.NewService(),
+		DB:    db,
+		Group: groupSvc,
+		ImEx:  imex.NewService(),
 	}))
 	lineplotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		ImEx:     imex.NewService(),
+		DB:   db,
+		ImEx: imex.NewService(),
 	}))
 	logSvc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		ImEx:     imex.NewService(),
+		DB:   db,
+		ImEx: imex.NewService(),
 	}))
 	tableSvc = MustOpen(table.OpenService(ctx, table.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		ImEx:     imex.NewService(),
+		DB:   db,
+		ImEx: imex.NewService(),
 	}))
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 })

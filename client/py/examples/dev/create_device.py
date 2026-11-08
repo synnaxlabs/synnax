@@ -59,9 +59,9 @@ client.devices.create(
     ]
 )
 
-# Create a cDAQ chassis with nested modules to demonstrate parent ontology
-# relationships. The chassis appears as an expandable node in the Console's
-# resource tree with the modules nested underneath it.
+# Create a cDAQ chassis with nested modules to demonstrate device parents. The chassis
+# appears as an expandable node in the Console's resource tree with the modules nested
+# underneath it.
 chassis = client.devices.create(
     sy.device.Device(
         key="sim-cdaq-9178",

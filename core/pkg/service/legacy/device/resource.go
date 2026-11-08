@@ -9,7 +9,10 @@
 
 package device
 
-import "github.com/synnaxlabs/synnax/pkg/service/resource"
+import (
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+)
 
 // Resources returns the resource.Provider of devices.
 func (s *Service) Resources() *resource.TableProvider[Key, Device] {
@@ -20,4 +23,24 @@ func (s *Service) Resources() *resource.TableProvider[Key, Device] {
 		Key:    func(id resource.ID) (Key, error) { return id.Key, nil },
 		Name:   func(d *Device) string { return d.Name },
 	})
+}
+
+// ResourceID returns the resource ID of the device.
+func ResourceID(key Key) resource.ID {
+	return resource.ID{Type: resource.TypeDevice, Key: key}
+}
+
+// ResourceIDsFromDevices returns the resource IDs for the given devices.
+func ResourceIDsFromDevices(devices []Device) []resource.ID {
+	return lo.Map(devices, func(d Device, _ int) resource.ID { return d.ResourceID() })
+}
+
+// ResourceIDs returns the resource IDs for the given keys.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
+}
+
+// KeysFromResourceIDs returns the keys for the given resource IDs.
+func KeysFromResourceIDs(ids []resource.ID) []Key {
+	return lo.Map(ids, func(id resource.ID, _ int) Key { return id.Key })
 }

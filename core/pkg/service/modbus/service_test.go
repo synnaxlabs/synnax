@@ -21,7 +21,6 @@ import (
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
@@ -52,26 +51,22 @@ var _ = Describe("Service", func() {
 		tasks      *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		channelSvc = MustOpen(svcchannel.OpenService(ctx, svcchannel.ServiceConfig{
 			Channel:      node.Channel,
 			DB:           db,
 			HostProvider: node.Cluster,
-			Ontology:     otg,
 			Status:       statusSvc,
 		}))
 		svc = MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{
 			DB: db,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
-			DB:       db,
-			Ontology: otg,
-			Status:   statusSvc,
-			Stores:   svc.Stores(),
+			DB:     db,
+			Status: statusSvc,
+			Stores: svc.Stores(),
 		}))
 	})
 
@@ -348,10 +343,8 @@ var _ = Describe("Service", func() {
 				ctx SpecContext,
 			) {
 				stored := testutil.NewNode(ctx)
-				otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: stored.DB}))
 				statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-					DB:       stored.DB,
-					Ontology: otg,
+					DB: stored.DB,
 				}))
 				channelSvc := MustOpen(svcchannel.OpenService(
 					ctx,
@@ -359,15 +352,13 @@ var _ = Describe("Service", func() {
 						Channel:      stored.Channel,
 						DB:           stored.DB,
 						HostProvider: stored.Cluster,
-						Ontology:     otg,
 						Status:       statusSvc,
 					},
 				))
 				targets := MustOpen(
 					tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
-						DB:       stored.DB,
-						Ontology: otg,
-						Status:   statusSvc,
+						DB:     stored.DB,
+						Status: statusSvc,
 					}),
 				)
 				ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type ontology, resource } from "@synnaxlabs/client";
+import { group, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -53,7 +53,7 @@ const beforeUpdate = async ({
   const newIDString = resource.idToString(newID);
   const prevNodes = PTree.deepCopy(nodes);
   rollbacks.push(() => setNodes(prevNodes));
-  const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
+  const res: Tree.Resource = { key: newIDString, id: newID, name: "" };
   setResource(res);
   // The new group shows where the selection shows. In flat search results, that is the
   // top of the tree, while the real parent is a group.

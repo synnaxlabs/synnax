@@ -17,12 +17,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/synnaxlabs/x/zyn"
 )
 
 const keySeparator = "---"
@@ -66,21 +64,6 @@ func ResourceIDs(r ranger.Key, chs []channel.Key) []resource.ID {
 	return lo.Map(chs, func(ch channel.Key, _ int) resource.ID {
 		return ResourceID(r, ch)
 	})
-}
-
-var schema = zyn.Object(map[string]zyn.Schema{
-	"range":   zyn.UUID(),
-	"channel": zyn.Uint32().Coerce(),
-	"alias":   zyn.String(),
-})
-
-func newResource(a Alias) ontology.Resource {
-	return ontology.NewResource(
-		schema,
-		ResourceID(a.Range, a.Channel),
-		a.Alias,
-		a,
-	)
 }
 
 func newSearchIndex() *gorp.SearchIndex[string, Alias] {

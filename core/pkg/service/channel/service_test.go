@@ -31,7 +31,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should report false when name validation is disabled",
 			func(ctx SpecContext) {
-				noValidateSvc, _ := openService(
+				noValidateSvc := openService(
 					ctx,
 					testutil.NewNode(ctx),
 					channel.ServiceConfig{

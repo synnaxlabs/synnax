@@ -68,7 +68,6 @@ export { modbus } from "@/modbus";
 export { mqtt } from "@/mqtt";
 export { ni } from "@/ni";
 export { node } from "@/node";
-export { ontology } from "@/ontology";
 export { opcua } from "@/opcua";
 export { pagerduty } from "@/pagerduty";
 export { panel } from "@/panel";

@@ -11,7 +11,6 @@ package v8
 
 import (
 	"context"
-	"crypto/sha1"
 	"slices"
 	"strconv"
 	"strings"
@@ -27,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	xuuid "github.com/synnaxlabs/x/uuid"
 )
 
 // lineNamespace is the UUID namespace that line keys are derived in.
@@ -38,14 +38,7 @@ var lineNamespace = uuid.MustParse("a708aa30-81f8-4cf6-82fd-146c35663a6b")
 func LineKey(plot Key, yAxis YAxisKey, yChannel, xChannel channel.Key) string {
 	name := plot.String() + "---" + string(yAxis) + "---" + yChannel.String() + "---" +
 		xChannel.String()
-	h := sha1.New()
-	h.Write(lineNamespace[:])
-	h.Write([]byte(name))
-	var id uuid.UUID
-	copy(id[:], h.Sum(nil))
-	id[6] = (id[6] & 0x0f) | 0x50
-	id[8] = (id[8] & 0x3f) | 0x80
-	return id.String()
+	return xuuid.NewV5(lineNamespace, name).String()
 }
 
 var yAxisKeys = []YAxisKey{YAxisKeyY1, YAxisKeyY2, YAxisKeyY3, YAxisKeyY4}

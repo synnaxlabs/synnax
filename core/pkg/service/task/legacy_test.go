@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -39,7 +38,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -437,27 +435,17 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
 		db := node.DB
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
+			DB: db,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
-			Ontology:            otg,
 			HostProvider:        testutil.NewStaticHostProvider(1),
 			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
@@ -466,12 +454,11 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			),
 		}))
 		deviceSvc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Status:   statusSvc,
-			Rack:     rackSvc,
+			DB:     db,
+			Status: statusSvc,
+			Rack:   rackSvc,
 		}))
-		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db, Ontology: otg}))
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		// The Arcs the Arc fixtures run.
 		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entries(&[]arc.Arc{
 			{Variant: arc.AutomationArc{Base: arc.Base{
@@ -489,7 +476,6 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Channel:      node.Channel,
 			DB:           db,
 			HostProvider: node.Cluster,
-			Ontology:     otg,
 			Status:       statusSvc,
 		}))
 		toCreated = createFixtureTargets(
@@ -549,12 +535,11 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		configs = MustSucceed(config.NewRegistry(stores...))
 		imexSvc = imex.NewService()
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Rack:     rackSvc,
-			Status:   statusSvc,
-			ImEx:     imexSvc,
-			Configs:  configs,
+			DB:      db,
+			Rack:    rackSvc,
+			Status:  statusSvc,
+			ImEx:    imexSvc,
+			Configs: configs,
 		}))
 	})
 
@@ -616,7 +601,6 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		var env imex.Envelope
 		Expect(json.Unmarshal(raw, &env)).To(Succeed())
 		id := MustSucceed(imexSvc.Import(ctx, nil, env, imex.ImportOptions{
-			Parent:   ontology.RootID,
 			FileName: name + ".json",
 		}))
 		var imported task.Task

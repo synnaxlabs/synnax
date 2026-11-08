@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, NotFoundError, type schematic } from "@synnaxlabs/client";
+import { type group, NotFoundError, type schematic } from "@synnaxlabs/client";
 import { errors } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -37,7 +37,7 @@ const createSymbolGroup = async (
 
 const groupExists = async (key: group.Key): Promise<boolean> => {
   try {
-    await client.ontology.retrieve(group.resourceID(key));
+    await client.groups.retrieve(key);
     return true;
   } catch (e) {
     if (NotFoundError.matches(e)) return false;

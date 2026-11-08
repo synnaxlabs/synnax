@@ -27,13 +27,11 @@ import {
   type Log,
   logZ,
   type New,
-  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/log/types.gen";
 import { type Lines, matches, retrieveInputZ, serverComputed } from "@/log/where.gen";
-import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
 
@@ -67,7 +65,6 @@ const emptyResZ = z.object({});
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Log> {
@@ -154,10 +151,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
       query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(resourceID(key), name);
       return () => {
         query.partialUpdate(this.store, key, { name: prev });
-        resource();
       };
     };
     const rollback = rename();
@@ -228,10 +223,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(resourceID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

@@ -22,6 +22,9 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
+// Type implements imex.ImportExporter.
+func (s *Service) Type() resource.Type { return resource.TypeTable }
+
 // Match reports whether body is a legacy Console table state, which persists the
 // structural model inline under layout and cells. The markers are frozen historical
 // file shapes.

@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
@@ -27,7 +27,7 @@ var _ = Describe("ServiceConfig", func() {
 			Auth:     &auth.Service{},
 			Password: &password.Service{},
 			APIKey:   &apikey.Service{},
-			Ontology: &ontology.Ontology{},
+			Rack:     &rack.Service{},
 			User:     &user.Service{},
 			RBAC:     &rbac.Service{},
 			Cluster:  node.Cluster,
@@ -62,9 +62,9 @@ var _ = Describe("ServiceConfig", func() {
 				"api_key: must be non-nil",
 			),
 			Entry(
-				"ontology",
-				func(c *apiauth.ServiceConfig) { c.Ontology = nil },
-				"ontology: must be non-nil",
+				"rack",
+				func(c *apiauth.ServiceConfig) { c.Rack = nil },
+				"rack: must be non-nil",
 			),
 			Entry(
 				"user",

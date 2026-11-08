@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	policy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
@@ -29,9 +29,6 @@ import (
 type MigrationConfig struct {
 	// User retrieves the users whose legacy permission flags are converted.
 	User *user.Service
-	// Ontology holds the legacy group relationships of users, which the migration
-	// deletes.
-	Ontology *ontology.Ontology
 	// Roles is the set of provisioned built-in roles to assign.
 	Roles builtin.ProvisionResult
 }
@@ -66,31 +63,25 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 				policyByUser[m.UserResourceID.String()] = m.Policies
 			}
 
+			userGroups, err := ontology.RetrieveRelationships(
+				ctx,
+				tx,
+				func(r ontology.Relationship) bool {
+					return r.Type == ontology.RelationshipTypeParentOf &&
+						r.From.Type == resource.TypeGroup &&
+						r.To.Type == resource.TypeUser
+				},
+			)
+			if err != nil {
+				return err
+			}
+			if err = ontology.DeleteRelationships(ctx, tx, userGroups...); err != nil {
+				return err
+			}
 			userWriter := cfg.User.NewWriter(tx)
-			otgWriter := cfg.Ontology.NewWriter(tx)
 			for _, u := range users {
-				userResourceID := u.ResourceID()
-				policies := policyByUser[userResourceID.String()]
+				policies := policyByUser[u.ResourceID().String()]
 				roleKey := determineRole(u, policies, cfg.Roles)
-				var groups []ontology.Resource
-				if err = cfg.Ontology.NewRetrieve().
-					WhereIDs(userResourceID).
-					TraverseTo(ontology.ParentsTraverser).
-					WhereTypes(resource.TypeGroup).
-					ExcludeFieldData(true).
-					Entries(&groups).
-					Exec(ctx, tx); err != nil {
-					return err
-				}
-				for _, g := range groups {
-					if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
-						From: g.ID,
-						Type: ontology.RelationshipTypeParentOf,
-						To:   userResourceID,
-					}); err != nil {
-						return err
-					}
-				}
 				if err = userWriter.AssignRole(ctx, roleKey, u.Key); err != nil {
 					return err
 				}

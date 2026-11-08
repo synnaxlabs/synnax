@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -32,8 +31,6 @@ import (
 type Writer struct {
 	svc        *Service
 	tx         gorp.Tx
-	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
 	tbl        *gorp.Table[Key, Table]
 	dispatcher actions.Dispatcher[Key, Action]
 }
@@ -105,12 +102,6 @@ func (w Writer) create(ctx context.Context, t *Table) error {
 	}
 	if err = w.tbl.NewCreate().Entry(t).Exec(ctx, w.tx); err != nil {
 		return err
-	}
-	if !exists {
-		otgID := t.ResourceID()
-		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-			return err
-		}
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,
@@ -203,11 +194,8 @@ func (w Writer) CreateMany(ctx context.Context, tables *[]Table) error {
 
 // Delete deletes the tables with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.tbl.NewDelete().
-		Where(gorp.MatchKeys[Key, Table](keys...)).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
+	return w.tbl.NewDelete().
+		Where(gorp.MatchKeys[Key, Table](keys...)).Exec(ctx, w.tx)
 }
 
 func validateUniqueKeys(t Table) error {

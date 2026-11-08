@@ -27,7 +27,7 @@ import {
   createSelection,
   createState,
   findTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 
@@ -65,7 +65,7 @@ describe("Schematic.TREE_ITEMS", () => {
   describe("onSelect", () => {
     it("retrieves the schematic and opens it as a tab when double-clicked", async () => {
       const s = await createSchematic();
-      const { store } = await renderOntologyTree({
+      const { store } = await renderLiveTree({
         client,
         root: project.resourceID(await testProjectKey()),
         items: { ...Project.TREE_ITEMS, ...Schematic.TREE_ITEMS },

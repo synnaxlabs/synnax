@@ -10,6 +10,7 @@
 package panel
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -22,4 +23,32 @@ func (s *Service) Resources() *resource.TableProvider[Key, Panel] {
 		Key:    resource.ParseUUIDKey,
 		Name:   func(p *Panel) string { return p.Name },
 	})
+}
+
+// ResourceID returns the resource ID of the panel with key k.
+func ResourceID(k Key) resource.ID {
+	return resource.ID{Type: resource.TypePanel, Key: k.String()}
+}
+
+// ResourceIDs returns the resource ID of the panel with each key.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
+}
+
+// ResourceIDsFromPanels returns the resource ID of each panel.
+func ResourceIDsFromPanels(panels []Panel) []resource.ID {
+	return lo.Map(panels, func(p Panel, _ int) resource.ID { return p.ResourceID() })
+}
+
+// KeysFromResourceIDs returns the key of the panel that each ID names. A malformed key
+// is a validation error.
+func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
+	keys := make([]Key, len(ids))
+	var err error
+	for i, id := range ids {
+		if keys[i], err = resource.ParseUUIDKey(id); err != nil {
+			return nil, err
+		}
+	}
+	return keys, nil
 }

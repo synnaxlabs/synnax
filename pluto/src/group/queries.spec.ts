@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group } from "@synnaxlabs/client";
+import { group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -221,8 +221,8 @@ describe("Group queries", () => {
         expect(result.current.data?.name).toBe("created-group");
       });
 
-      const retrieved = await client.ontology.retrieve(
-        group.resourceID(result.current.data?.key as string),
+      const retrieved = await client.groups.retrieve(
+        result.current.data?.key as string,
       );
       expect(retrieved.name).toBe("created-group");
     });
@@ -247,7 +247,7 @@ describe("Group queries", () => {
         });
       });
 
-      const retrieved = await client.ontology.retrieve(group.resourceID(g.key));
+      const retrieved = await client.groups.retrieve(g.key);
       expect(retrieved.name).toBe("updated-name");
     });
   });
@@ -273,7 +273,7 @@ describe("Group queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.ontology.retrieve(group.resourceID(testGroup.key));
+      const retrieved = await client.groups.retrieve(testGroup.key);
       expect(retrieved.name).toBe("new-name");
     });
   });
@@ -299,9 +299,9 @@ describe("Group queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      await expect(
-        client.ontology.retrieve(group.resourceID(testGroup.key)),
-      ).rejects.toThrow();
+      await expect(client.groups.retrieve(testGroup.key)).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should run afterOptimistic before the delete commits", async () => {

@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -46,11 +45,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between racks and other resources
-	// in the Synnax cluster.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Status is used to define and process statuses for racks.
 	//
 	// [REQUIRED]
@@ -87,7 +81,6 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.DriverRole = override.UUID(c.DriverRole, other.DriverRole)
@@ -103,7 +96,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("rack")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("host", c.HostProvider)
 	v.NotNil("status", c.Status)
 	v.Ternary("driver_role", c.DriverRole == uuid.Nil(), "must be set")
@@ -167,7 +159,6 @@ func OpenService(
 	if err = s.loadEmbeddedRack(ctx); !ok(err, nil) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if s.monitor, err = openMonitor(ctx, s.Child("monitor"), s); !ok(err, s.monitor) {
 		return nil, err
 	}
@@ -255,7 +246,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		svc:        s,
 		tx:         tx,
-		otg:        s.Ontology.NewWriter(tx),
 		newKey:     s.newKey,
 		status:     s.Status.NewWriter(tx),
 		statuses:   s.Status,

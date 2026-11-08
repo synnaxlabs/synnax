@@ -11,6 +11,7 @@ package node
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"slices"
 	"strconv"
@@ -30,11 +31,21 @@ type provider struct{ svc *Service }
 
 // Search implements resource.Provider.
 func (p provider) Search(
-	ctx context.Context,
-	tx gorp.Tx,
+	_ context.Context,
+	_ gorp.Tx,
 	q search.Query[resource.ID],
 ) (search.Result[resource.ID], error) {
-	return p.svc.Search(ctx, tx, q)
+	nodes := p.svc.cfg.Cluster.CopyState().Nodes
+	idx := search.New[Key]()
+	for _, key := range slices.Sorted(maps.Keys(nodes)) {
+		idx.Set(key, name(key))
+	}
+	res := idx.Search(search.Query[Key]{
+		Term:   q.Term,
+		Except: func(key Key) bool { return q.Except != nil && q.Except(ResourceID(key)) },
+		Limit:  q.Limit,
+	})
+	return search.MapKeys(res, ResourceID), nil
 }
 
 // Retrieve implements resource.Provider.
@@ -84,3 +95,10 @@ func (p provider) List(
 	}
 	return resources, nil
 }
+
+// ResourceID returns the resource ID of the node with key.
+func ResourceID(key Key) resource.ID {
+	return resource.ID{Type: resource.TypeNode, Key: strconv.Itoa(int(key))}
+}
+
+func name(key Key) string { return fmt.Sprintf("Node %v", key) }

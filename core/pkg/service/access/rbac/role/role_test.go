@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -58,39 +57,6 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).To(Equal(key))
-		})
-
-		It("Should define role in ontology", func(ctx SpecContext) {
-			r := &role.Role{
-				Name:        "engineer",
-				Description: "Engineering role",
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(r.ResourceID()).
-				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res.ID.Key).To(Equal(r.Key.String()))
-			Expect(res.Name).To(Equal(r.Name))
-		})
-
-		It("Should not put the role in a group", func(ctx SpecContext) {
-			r := &role.Role{
-				Name:        "operator",
-				Description: "Operator role",
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(r.ResourceID()).
-				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes("group").
-				Entries(&parents).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).To(BeEmpty())
 		})
 
 		It(
@@ -373,45 +339,10 @@ var _ = Describe("Search", func() {
 	})
 })
 
-var _ = Describe("Ontology Integration", func() {
+var _ = Describe("Resources", func() {
 	var tx gorp.Tx
 	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
 	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
-
-	Describe("Type", func() {
-		It("Should return correct ontology type", func(ctx SpecContext) {
-			Expect(svc.Type()).To(Equal(resource.TypeRole))
-		})
-	})
-
-	Describe("RetrieveResource", func() {
-		It("Should retrieve a role as an ontology resource", func(ctx SpecContext) {
-			w := svc.NewWriter(tx, true)
-			r := &role.Role{
-				Name:        "resource-test",
-				Description: "Resource test role",
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-
-			res := MustSucceed(svc.RetrieveResource(ctx, r.Key.String(), tx))
-			Expect(res.ID.Key).To(Equal(r.Key.String()))
-			Expect(res.Name).To(Equal(r.Name))
-		})
-
-		It("Should return error for invalid UUID", func(ctx SpecContext) {
-			Expect(
-				svc.RetrieveResource(ctx, "invalid-uuid", tx),
-			).Error().
-				To(MatchError("invalid uuid"))
-		})
-
-		It("Should return error for non-existent role", func(ctx SpecContext) {
-			Expect(
-				svc.RetrieveResource(ctx, uuid.New().String(), tx),
-			).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-	})
 
 	Describe("Search", func() {
 		It(
@@ -423,7 +354,7 @@ var _ = Describe("Ontology Integration", func() {
 				}
 				Expect(svc.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
 				q := search.Query[resource.ID]{Term: "turbopump", Limit: 10}
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{r.ResourceID()}))
 			},
 		)

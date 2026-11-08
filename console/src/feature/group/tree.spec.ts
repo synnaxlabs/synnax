@@ -34,7 +34,7 @@ import {
   createScopeTree,
   findTreeRow,
   itemName,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
   retrieveChildGroupKeys,
   searchTree,
@@ -75,7 +75,7 @@ const groupResource = (g: group.Group) =>
 
 const nodeKey = (g: group.Group) => resource.idToString(group.resourceID(g.key));
 
-describe("group ontology service", () => {
+describe("group tree item", () => {
   it("should accept groups and the member types of its scope, and haul its own id", () => {
     const source: Haul.Item = { key: "tree", type: PTree.HAUL_TYPE };
     const res = groupResource({ key: uuid.create(), name: "g", scope: "channel" });
@@ -337,7 +337,7 @@ describe("a group and its child selected in flat search results", () => {
     const outerID = group.resourceID(outer.key);
     const inner = await client.groups.create({ parent: outerID, name: `${tok} inner` });
     const sibling = await createGroup(outer.key);
-    await renderOntologyTree({
+    await renderLiveTree({
       client,
       root: channel.TYPE_RESOURCE_ID,
       items: { group: Item },

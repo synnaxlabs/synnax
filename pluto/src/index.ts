@@ -26,7 +26,6 @@ export { LinePlot } from "@/lineplot";
 export { Log } from "@/log";
 export { Mosaic } from "@/mosaic";
 export { Notation } from "@/notation";
-export { Ontology } from "@/ontology";
 export { OS } from "@/os";
 export { Panel } from "@/panel";
 export { Pluto } from "@/pluto";

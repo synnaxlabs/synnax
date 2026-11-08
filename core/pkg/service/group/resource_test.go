@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -30,10 +29,8 @@ var _ = Describe("Resources", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 	})
 
@@ -72,4 +69,38 @@ var _ = Describe("Resources", func() {
 		Expect(svc.Resources().List(ctx, db, 10, nil)).
 			To(Equal([]resource.Resource{{ID: g.ResourceID(), Name: g.Name}}))
 	})
+})
+
+var _ = Describe("ResourceIDsFromGroups", func() {
+	It("Should map a slice of groups to resource IDs", func() {
+		a := group.Group{Key: uuid.New(), Name: "a"}
+		b := group.Group{Key: uuid.New(), Name: "b"}
+		Expect(group.ResourceIDsFromGroups([]group.Group{a, b})).
+			To(ConsistOf(a.ResourceID(), b.ResourceID()))
+	})
+})
+
+var _ = Describe("KeyFromResourceID", func() {
+	It("Should return the key of a group ID", func() {
+		key := uuid.New()
+		Expect(group.KeyFromResourceID(group.ResourceID(key))).To(Equal(key))
+	})
+	DescribeTable("Should reject an ID that is not a group",
+		func(id resource.ID, msg string) {
+			Expect(group.KeyFromResourceID(id)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(msg)),
+			))
+		},
+		Entry("a project",
+			resource.ID{Type: resource.TypeProject, Key: uuid.New().String()},
+			`must be a group, got "project"`),
+		Entry("a zero ID", resource.ID{}, `must be a group, got ""`),
+		Entry("a group whose key is not a UUID",
+			resource.ID{Type: resource.TypeGroup, Key: "not-a-uuid"},
+			`invalid group key "not-a-uuid"`),
+		Entry("a group with an empty key",
+			resource.ID{Type: resource.TypeGroup},
+			`invalid group key ""`),
+	)
 })

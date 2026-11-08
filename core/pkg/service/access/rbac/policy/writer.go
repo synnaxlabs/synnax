@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -24,7 +23,6 @@ import (
 type Writer struct {
 	svc           *Service
 	tx            gorp.Tx
-	otg           ontology.Writer
 	allowInternal bool
 	table         *gorp.Table[Key, Policy]
 	roles         *role.Service
@@ -68,10 +66,7 @@ func (w Writer) create(ctx context.Context, p *Policy) error {
 			return err
 		}
 	}
-	if err := w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otg.DefineResources(ctx, p.ResourceID())
+	return w.table.NewCreate().Entry(p).Exec(ctx, w.tx)
 }
 
 // CreateMany creates the given policies. If policies with the same key already exist,

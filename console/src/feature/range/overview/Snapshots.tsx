@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, resource, schematic, task } from "@synnaxlabs/client";
+import { resource, schematic, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -24,11 +24,10 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
-import { Tree } from "@/platform/tree";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;
-  const entry = List.useItem<string, ontology.Resource>(itemKey);
+  const entry = List.useItem<string, resource.Resource>(itemKey);
   const services = Range.useSnapshotServices();
   const openTab = Panel.useOpenTab();
   const client = Synnax.use();
@@ -87,7 +86,7 @@ export interface SnapshotsProps {
 const useResources = <K extends string, E extends record.Keyed<K>>(
   type: resource.Type,
   source: Pick<List.FrameProps<K, E>, "data" | "getItem" | "subscribe">,
-  toNamed: (entry: E) => record.KeyedNamed,
+  toName: (entry: E) => string,
 ) =>
   List.useTransformedData({
     source,
@@ -96,7 +95,10 @@ const useResources = <K extends string, E extends record.Keyed<K>>(
       const parsed = resource.parseID(id);
       return parsed.type === type ? (parsed.key as K) : null;
     },
-    transform: (entry) => Tree.toResource(type)(toNamed(entry)),
+    transform: (entry): resource.Resource => {
+      const id: resource.ID = { type, key: entry.key };
+      return { key: resource.idToString(id), id, name: toName(entry) };
+    },
   });
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
@@ -106,15 +108,15 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   const schematicList = Schematic.useList({
     query: { where: { ranges: [rangeKey], snapshot: { eq: true } } },
   });
-  const tasks = useResources(task.TYPE_RESOURCE_ID.type, taskList, (t) => t.payload);
+  const tasks = useResources(task.TYPE_RESOURCE_ID.type, taskList, (t) => t.name);
   const schematics = useResources(
     schematic.TYPE_RESOURCE_ID.type,
     schematicList,
-    (s) => s,
+    (s) => s.name,
   );
   const taskPager = List.usePager({ retrieve: taskList.retrieve });
   const schematicPager = List.usePager({ retrieve: schematicList.retrieve });
-  const combined = List.useCombinedData<string, ontology.Resource>({
+  const combined = List.useCombinedData<string, resource.Resource>({
     first: tasks,
     second: schematics,
   });

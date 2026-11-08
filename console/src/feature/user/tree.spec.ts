@@ -22,7 +22,7 @@ import {
   createResource,
   findModalButton,
   openTreeRowContextMenu,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import {
@@ -54,7 +54,7 @@ const renderMenu = async (
   });
 };
 
-describe("user ontology service", () => {
+describe("user tree item", () => {
   it("should expose rename, role, and delete actions for another user", async () => {
     const u = await createUser();
     await renderMenu([userResource(u.key, u.name)]);
@@ -129,7 +129,7 @@ describe("rename", () => {
       password: "pwd12345",
       roles: [role.key],
     });
-    await renderOntologyTree({
+    await renderLiveTree({
       client,
       root: access.role.resourceID(role.key),
       items: { ...Access.TREE_ITEMS, ...User.TREE_ITEMS },

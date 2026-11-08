@@ -55,12 +55,11 @@ import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { group } from "@/group";
-import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { type ranger } from "@/ranger";
 import { createKey, decodeDeleteChange } from "@/ranger/alias/payload";
 import { keyZ as rangerKeyZ } from "@/ranger/types.gen";
-import { resource } from "@/resource";
+import { type resource } from "@/resource";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -300,7 +299,6 @@ export interface ClientConfig {
   statuses: status.Client;
   ranges: ranger.Client;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 /**
@@ -584,12 +582,7 @@ export class Client extends query.Retriever<
     const { normalized, variant } = analyzeParams(params);
     if (variant === "keys") {
       const keys = normalized;
-      const ids = resourceID(keys);
-      const drop = () => [
-        this.cfg.ontology.cache.deleteRelationships(ids),
-        this.store.delete(keys),
-        this.cfg.ontology.cache.resources.delete(resource.idToString(ids)),
-      ];
+      const drop = () => [this.store.delete(keys)];
       await query.optimistic({
         rollbacks: drop(),
         onOptimistic: opts.onOptimistic,
@@ -613,14 +606,7 @@ export class Client extends query.Retriever<
   ): Promise<void> {
     const keysArr = array.toArray(keys);
     const namesArr = array.toArray(names);
-    const rename = () =>
-      keysArr.flatMap((key, i) => {
-        const name = namesArr[i];
-        return [
-          this.renameThrough(key, name),
-          this.cfg.ontology.cache.renameResource(resourceID(key), name),
-        ];
-      });
+    const rename = () => keysArr.map((key, i) => this.renameThrough(key, namesArr[i]));
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,

@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -29,18 +29,25 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
+var rootID = resource.ID{Type: resource.TypeBuiltin, Key: "root"}
+
+func parentOf(from, to resource.ID) ontology.Relationship {
+	return ontology.Relationship{
+		From: from,
+		Type: ontology.RelationshipTypeParentOf,
+		To:   to,
+	}
+}
+
 var _ = Describe("Migration", func() {
 	var (
 		db   *gorp.DB
-		otg  *ontology.Ontology
 		gSvc *group.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		gSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 	})
 	// createLegacyGroup creates a group and the parent edge a pre-v0.54 Core wrote for
@@ -54,11 +61,8 @@ var _ = Describe("Migration", func() {
 		GinkgoHelper()
 		g := group.Group{Name: name, Scope: resource.TypeBuiltin}
 		Expect(gSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
-		Expect(otg.NewWriter(tx).DefineRelationships(
-			ctx,
-			parent,
-			ontology.RelationshipTypeParentOf,
-			g.ResourceID(),
+		Expect(gorp.WrapWriter[string, ontology.Relationship](tx).Set(
+			ctx, parentOf(parent, g.ResourceID()),
 		)).To(Succeed())
 		return g
 	}
@@ -68,8 +72,7 @@ var _ = Describe("Migration", func() {
 			DB:        db,
 			Namespace: "Range",
 			Migrations: v0.NewMigrations(v0.MigrationConfig{
-				Ontology: otg,
-				Group:    gSvc,
+				Group: gSvc,
 			}),
 		})).To(Succeed())
 	}
@@ -86,10 +89,10 @@ var _ = Describe("Migration", func() {
 			tx := db.OpenTx()
 
 			// Create the "Ranges" group and a subgroup.
-			tlg := createLegacyGroup(ctx, tx, "Ranges", ontology.RootID)
+			tlg := createLegacyGroup(ctx, tx, "Ranges", rootID)
 			subGroup := createLegacyGroup(ctx, tx, "Subgroup", tlg.ResourceID())
 
-			// Create two ranges and their ontology resources under the subgroup.
+			// Create two ranges and their resources under the subgroup.
 			r1 := v0.Range{
 				Key:  uuid.New(),
 				Name: "Range1",
@@ -109,20 +112,13 @@ var _ = Describe("Migration", func() {
 			Expect(bareTable.NewCreate().Entry(&r1).Exec(ctx, tx)).To(Succeed())
 			Expect(bareTable.NewCreate().Entry(&r2).Exec(ctx, tx)).To(Succeed())
 
-			otgWriter := otg.NewWriter(tx)
-			Expect(otgWriter.DefineResources(ctx, r1.ResourceID())).To(Succeed())
-			Expect(otgWriter.DefineResources(ctx, r2.ResourceID())).To(Succeed())
-			Expect(otgWriter.DefineRelationships(
-				ctx,
-				subGroup.ResourceID(),
-				ontology.RelationshipTypeParentOf,
-				r1.ResourceID(),
+			Expect(ontology.DefineResources(
+				ctx, tx, r1.ResourceID(), r2.ResourceID(),
 			)).To(Succeed())
-			Expect(otgWriter.DefineRelationships(
+			Expect(gorp.WrapWriter[string, ontology.Relationship](tx).Set(
 				ctx,
-				subGroup.ResourceID(),
-				ontology.RelationshipTypeParentOf,
-				r2.ResourceID(),
+				parentOf(subGroup.ResourceID(), r1.ResourceID()),
+				parentOf(subGroup.ResourceID(), r2.ResourceID()),
 			)).To(Succeed())
 
 			Expect(tx.Commit(ctx)).To(Succeed())
@@ -163,22 +159,16 @@ var _ = Describe("Migration", func() {
 				End:   telem.TimeStamp(25 * telem.Second),
 			}))
 
-			// The parent range should have r1 and r2 as children in the ontology.
-			var children []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(parentRange.ResourceID()).
-				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(resource.TypeRange).
-				ExcludeFieldData(true).
-				Entries(&children).
-				Exec(ctx, nil)).To(Succeed())
-			var childIDs []resource.ID
-			for _, c := range children {
-				childIDs = append(childIDs, c.ID)
-			}
-			Expect(childIDs).To(ConsistOf(
-				r1.ResourceID(),
-				r2.ResourceID(),
+			// The parent range should have r1 and r2 as children.
+			Expect(ontology.RetrieveRelationships(
+				ctx,
+				db,
+				func(r ontology.Relationship) bool {
+					return r.From == parentRange.ResourceID()
+				},
+			)).To(ConsistOf(
+				parentOf(parentRange.ResourceID(), r1.ResourceID()),
+				parentOf(parentRange.ResourceID(), r2.ResourceID()),
 			))
 		},
 	)
@@ -189,7 +179,7 @@ var _ = Describe("Migration", func() {
 				ctx, []byte("sy_ranger_migration_performed"), []byte{1},
 			)).To(Succeed())
 			tx := db.OpenTx()
-			tlg := createLegacyGroup(ctx, tx, "Ranges", ontology.RootID)
+			tlg := createLegacyGroup(ctx, tx, "Ranges", rootID)
 			createLegacyGroup(ctx, tx, "Subgroup", tlg.ResourceID())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())

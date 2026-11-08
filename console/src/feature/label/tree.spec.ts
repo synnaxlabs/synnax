@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
@@ -17,11 +16,13 @@ import { Label } from "@/feature/label";
 import { Range } from "@/feature/range";
 import { Status } from "@/feature/status";
 import { createTestRange } from "@/platform/range/testutil";
+import { Tree } from "@/platform/tree";
 import {
   createHostItems,
   expandTreeRow,
   findTreeRow,
-  renderOntologyTree,
+  HOST_ID,
+  renderLiveTree,
 } from "@/platform/tree/testutil";
 import { uniqueName } from "@/testutil";
 
@@ -46,14 +47,16 @@ describe("label/tree", () => {
         message: "labeled",
         labels: [lbl.key],
       });
-      await renderOntologyTree({
+      await renderLiveTree({
         client,
-        root: ontology.ROOT_ID,
+        root: HOST_ID,
         items: {
           ...Label.TREE_ITEMS,
           ...Range.TREE_ITEMS,
           ...Status.TREE_ITEMS,
-          ...createHostItems([label.resourceID(lbl.key)]),
+          ...createHostItems((c) => [
+            Tree.createSource(c.labels, [lbl.key], Tree.toResource("label")),
+          ]),
         },
       });
       await findTreeRow(lbl.name);

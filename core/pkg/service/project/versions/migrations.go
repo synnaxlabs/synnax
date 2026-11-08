@@ -19,14 +19,9 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 )
 
-// MigrationsConfig configures the stored-project migration chain.
-type MigrationsConfig = v1.MigrationsConfig
-
-// NewMigrations returns the ordered migration chain for stored projects.
-func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
-	return slices.Concat(
-		[]gorp.Migration{v0.NormalizeKeys, v0.Migration},
-		v1.NewMigrations(cfg),
-		[]gorp.Migration{v2.Migration, v3.Migration, v3.MembersMigration},
-	)
-}
+// Migrations is the ordered migration chain for stored projects.
+var Migrations = slices.Concat(
+	[]gorp.Migration{v0.NormalizeKeys, v0.Migration},
+	v1.Migrations,
+	[]gorp.Migration{v2.Migration, v3.Migration, v3.MembersMigration},
+)

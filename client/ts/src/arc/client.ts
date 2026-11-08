@@ -36,8 +36,8 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/arc/types.gen";
+import { LINES } from "@/arc/where";
 import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/arc/where.gen";
-import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { type status } from "@/status";
@@ -121,7 +121,6 @@ const arcKeyOf = (t: Pick<task.Task, "type" | "config">): Key | undefined => {
 export interface ClientConfig {
   unary: UnaryClient;
   stream: StreamClient;
-  ontology: ontology.Client;
   tasks: task.Client;
   cache: query.Cache;
   statuses: status.Client;
@@ -182,16 +181,13 @@ export class Client extends query.Retriever<
         schema: retrieveMultiParamsZ,
         fetch: async (req) =>
           (await this.execRetrieve(req)).map((a) => this.hydrate(a)),
-        matches: (a, req) => matches(a, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (a, req) => matches(LINES, a, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
       single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
-    this.directories = new directory.Client({
-      unary: cfg.unary,
-      ontology: cfg.ontology,
-    });
+    this.directories = new directory.Client({ unary: cfg.unary, cache, arcs: store });
     this.store = store;
     this.dispatcher = dispatcher;
     const composedTasks = cache.derive<task.Key, Omit<task.Task, "status">, task.Task>({

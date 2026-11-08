@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -24,8 +23,7 @@ import (
 var _ = Describe("OpenTable", func() {
 	It("Should open a table that stores Arcs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db, Ontology: otg}))
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		a := newAutomation(arc.Base{
 			Key:    uuid.New(),
 			Name:   "stored",
@@ -41,17 +39,8 @@ var _ = Describe("OpenTable", func() {
 		Expect(stored.Base().Name).To(Equal("stored"))
 	})
 
-	DescribeTable(
-		"Should reject an invalid config",
-		func(ctx SpecContext, cfg func() arc.TableConfig, msg string) {
-			Expect(arc.OpenTable(ctx, cfg())).Error().
-				To(MatchError(ContainSubstring(msg)))
-		},
-		Entry("with no DB", func() arc.TableConfig {
-			return arc.TableConfig{}
-		}, "db: must be non-nil"),
-		Entry("with no ontology", func() arc.TableConfig {
-			return arc.TableConfig{DB: DeferClose(gorp.Wrap(memkv.New()))}
-		}, "ontology: must be non-nil"),
-	)
+	It("Should reject a config with no DB", func(ctx SpecContext) {
+		Expect(arc.OpenTable(ctx, arc.TableConfig{})).Error().
+			To(MatchError(ContainSubstring("db: must be non-nil")))
+	})
 })

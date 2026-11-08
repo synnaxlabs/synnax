@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type ontology, rack, status, type Synnax } from "@synnaxlabs/client";
+import { device, rack, status, type Synnax } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Errors } from "@synnaxlabs/pluto";
@@ -23,6 +23,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
 import { Modals } from "@/platform/modals";
+import { type Tree } from "@/platform/tree";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
@@ -133,12 +134,12 @@ export const setTestDeviceStatus = async (
 };
 
 /**
- * Builds the ontology resource the tree hands to device context-menu items, carrying
+ * Builds the tree resource that the tree hands to device context-menu items, carrying
  * the configured flag in its data payload.
  */
 export const createDeviceResource = (
   dev: Pick<device.Device, "key" | "name"> & { configured?: boolean },
-): ontology.Resource =>
+): Tree.Resource =>
   createResource(device.resourceID(dev.key), dev.name, {
     configured: dev.configured ?? false,
   });

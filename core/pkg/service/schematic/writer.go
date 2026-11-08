@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -31,7 +30,6 @@ import (
 type Writer struct {
 	svc        *Service
 	tx         gorp.Tx
-	otgWriter  ontology.Writer
 	table      *gorp.Table[Key, Schematic]
 	dispatcher actions.Dispatcher[Key, Action]
 }
@@ -98,11 +96,6 @@ func (w Writer) create(ctx context.Context, s *Schematic) (err error) {
 	}
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
-	}
-	if !exists {
-		if err = w.otgWriter.DefineResources(ctx, s.ResourceID()); err != nil {
-			return err
-		}
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,
@@ -225,11 +218,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...Key,
 ) error {
-	err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Schematic](keys...)).
 		Exec(ctx, w.tx)
-	if err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
 }

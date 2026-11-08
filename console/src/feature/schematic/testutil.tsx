@@ -154,9 +154,9 @@ export const renderSchematic = async (
 
 /**
  * renderSchematicTree creates a schematic on the server under a fresh project and
- * mounts the real ontology tree rooted at that project with the schematic ontology
- * service registered, plus a live modal stack. Returns the created schematic, its
- * tree root, and the backing Redux store.
+ * mounts the real tree rooted at that project with the schematic tree item registered,
+ * plus a live modal stack. Returns the created schematic, its tree root, and the
+ * backing Redux store.
  */
 export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}) => {
   const proj = await client.projects.create({ name: id.create() });

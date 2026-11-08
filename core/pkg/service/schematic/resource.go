@@ -10,6 +10,7 @@
 package schematic
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -21,5 +22,24 @@ func (s *Service) Resources() *resource.TableProvider[Key, Schematic] {
 		ID:     ResourceID,
 		Key:    resource.ParseUUIDKey,
 		Name:   func(sc *Schematic) string { return sc.Name },
+	})
+}
+
+// ResourceID returns the resource ID of the schematic with key.
+func ResourceID(k Key) resource.ID {
+	return resource.ID{Type: resource.TypeSchematic, Key: k.String()}
+}
+
+// ResourceIDs returns the resource IDs of the schematics with keys.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(key Key, _ int) resource.ID {
+		return ResourceID(key)
+	})
+}
+
+// ResourceIDsFromSchematics returns the resource IDs of the schematics.
+func ResourceIDsFromSchematics(schematics []Schematic) []resource.ID {
+	return lo.Map(schematics, func(s Schematic, _ int) resource.ID {
+		return s.ResourceID()
 	})
 }

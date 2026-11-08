@@ -18,8 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -67,7 +66,7 @@ var _ = Describe("Writer", func() {
 			Expect(a.Base().Key).To(Equal(key))
 		})
 
-		It("Should parent the Arc under the root directory", func(ctx SpecContext) {
+		It("Should put the Arc in the root directory", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			a := newAutomation(
 				arc.Base{
@@ -76,15 +75,32 @@ var _ = Describe("Writer", func() {
 				},
 			)
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(a.ResourceID()).
-				TraverseTo(ontology.ParentsTraverser).
-				Entries(&parents).
+			root := rootDirectory(ctx, tx)
+			Expect(root.Name).To(Equal("Arcs"))
+			Expect(a.Base().Directory).To(HaveValue(Equal(root.Key)))
+		})
+
+		It("Should keep the directory of a moved Arc on update", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			w := svc.NewWriter(tx)
+			root := rootDirectory(ctx, tx).Key
+			lib := directory.Directory{Name: "lib"}
+			Expect(w.CreateDirectory(ctx, &lib, root)).To(Succeed())
+			a := newModule(
+				arc.Base{Name: "moved", Source: arc.Source{Variant: arc.TextSource{}}},
+			)
+			Expect(w.Create(ctx, &a)).To(Succeed())
+			Expect(w.Move(ctx, root, lib.Key, a.ResourceID())).To(Succeed())
+			b := a.Base()
+			b.Directory = nil
+			a.SetBase(b)
+			Expect(w.Create(ctx, &a)).To(Succeed())
+			var stored arc.Arc
+			Expect(svc.NewRetrieve().
+				Where(arc.MatchKeys(b.Key)).
+				Entry(&stored).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).To(HaveLen(1))
-			Expect(parents[0].ID.Type).To(Equal(resource.TypeArcDirectory))
-			Expect(parents[0].Name).To(Equal("Arcs"))
+			Expect(stored.Base().Directory).To(HaveValue(Equal(lib.Key)))
 		})
 
 		It("Should reject an Arc that is neither an automation nor a module", func(

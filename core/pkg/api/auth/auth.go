@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
@@ -57,14 +57,14 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	APIKey *apikey.Service
-	// Ontology resolves the resources that API keys belong to.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// User stores and retrieves users.
 	//
 	// [REQUIRED]
 	User *user.Service
+	// Rack retrieves the racks that API keys log in as.
+	//
+	// [REQUIRED]
+	Rack *rack.Service
 	// RBAC enforces access control on every request.
 	//
 	// [REQUIRED]
@@ -86,8 +86,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Auth = override.Nil(c.Auth, other.Auth)
 	c.Password = override.Nil(c.Password, other.Password)
 	c.APIKey = override.Nil(c.APIKey, other.APIKey)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.User = override.Nil(c.User, other.User)
+	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Cluster = override.Nil(c.Cluster, other.Cluster)
 	return c
@@ -99,8 +99,8 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("auth", c.Auth)
 	v.NotNil("password", c.Password)
 	v.NotNil("api_key", c.APIKey)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("user", c.User)
+	v.NotNil("rack", c.Rack)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("cluster", c.Cluster)
 	return v.Error()
@@ -111,8 +111,8 @@ type Service struct {
 	auth     *auth.Service
 	password *password.Service
 	apiKey   *apikey.Service
-	ontology *ontology.Ontology
 	user     *user.Service
+	rack     *rack.Service
 	access   *rbac.Service
 	cluster  cluster.Cluster
 }
@@ -126,8 +126,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		auth:     cfg.Auth,
 		password: cfg.Password,
 		apiKey:   cfg.APIKey,
-		ontology: cfg.Ontology,
 		user:     cfg.User,
+		rack:     cfg.Rack,
 		access:   cfg.RBAC,
 		cluster:  cfg.Cluster,
 	}, nil

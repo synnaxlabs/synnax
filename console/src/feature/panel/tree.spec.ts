@@ -16,11 +16,7 @@ import { describe, expect, it, vi } from "vitest";
 import { LinePlot } from "@/feature/lineplot";
 import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
-import {
-  expandTreeRow,
-  findTreeRow,
-  renderOntologyTree,
-} from "@/platform/tree/testutil";
+import { expandTreeRow, findTreeRow, renderLiveTree } from "@/platform/tree/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -34,7 +30,7 @@ const renderPanelTree = async (
     name: uniqueName("panel"),
     project: key,
   });
-  await renderOntologyTree({
+  await renderLiveTree({
     client,
     root: project.resourceID(key),
     items: { ...Project.TREE_ITEMS, ...Panel.TREE_ITEMS },
@@ -48,7 +44,7 @@ const findRowIcon = async (
 ): Promise<SVGElement | null> =>
   (await findTreeRow(pan.name)).querySelector<SVGElement>(`.lyra-icon--${icon}`);
 
-describe("panel ontology", () => {
+describe("panel tree item", () => {
   it("should draw the default panel icon for a panel with none", async () => {
     const pan = await renderPanelTree();
     expect(await findRowIcon(pan, "panel")).not.toBeNull();
@@ -94,7 +90,7 @@ describe("panel ontology", () => {
         ],
       },
     });
-    await renderOntologyTree({
+    await renderLiveTree({
       client,
       root: project.resourceID(key),
       items: { ...Project.TREE_ITEMS, ...Panel.TREE_ITEMS, ...LinePlot.TREE_ITEMS },
@@ -123,7 +119,7 @@ describe("panel ontology", () => {
         })),
       },
     });
-    await renderOntologyTree({
+    await renderLiveTree({
       client,
       root: project.resourceID(key),
       items: { ...Project.TREE_ITEMS, ...Panel.TREE_ITEMS, ...LinePlot.TREE_ITEMS },
@@ -162,7 +158,7 @@ describe("panel ontology", () => {
     // The panel row holds a live read of the panel, so the tab read finds it cached.
     const release = reader.panels.onChange(pan.key, () => {});
     await reader.panels.retrieve(pan.key);
-    await renderOntologyTree({
+    await renderLiveTree({
       client: reader,
       root: project.resourceID(key),
       items: { ...Project.TREE_ITEMS, ...Panel.TREE_ITEMS, ...LinePlot.TREE_ITEMS },
@@ -192,7 +188,7 @@ describe("panel ontology", () => {
       root: { variant: "leaf", tabs: [tab(shown)] },
     });
     const viewer = createTestClient();
-    await renderOntologyTree({
+    await renderLiveTree({
       client: viewer,
       projectClient: client,
       root: panel.resourceID(pan.key),

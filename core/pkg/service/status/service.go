@@ -16,7 +16,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
@@ -36,10 +35,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology serves statuses to ontology search and retrieval.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	alamos.Instrumentation
 }
 
@@ -48,7 +43,6 @@ var _ config.Config[ServiceConfig] = (*ServiceConfig)(nil)
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -57,7 +51,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.status")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -95,7 +88,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
 
@@ -185,9 +177,8 @@ func (s *Service) SetByKeyOrName(
 }
 
 // SetMissing writes each of statuses whose owner holds no status, under the key that
-// v2.MigrateKey derives from the owner, and defines its ontology resource. Each status
-// needs an owner. It skips reference checks, so only the migrations of the tables that
-// status owners live in may call it.
+// v2.MigrateKey derives from the owner. Each status needs an owner. It skips reference
+// checks, so only the migrations of the tables that status owners live in may call it.
 func (s *Service) SetMissing[D any](
 	ctx context.Context,
 	tx gorp.Tx,
@@ -204,10 +195,7 @@ func (s *Service) SetMissing[D any](
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	var (
-		w       = s.NewMigrationWriter(tx)
-		written []resource.ID
-	)
+	w := s.NewMigrationWriter(tx)
 	for _, st := range statuses {
 		if slices.ContainsFunc(held, func(h Status[D]) bool {
 			return *h.Owner == *st.Owner
@@ -218,9 +206,8 @@ func (s *Service) SetMissing[D any](
 		if err := w.Set(ctx, st.ToAny()); err != nil {
 			return err
 		}
-		written = append(written, st.ResourceID())
 	}
-	return s.cfg.Ontology.NewWriter(tx).DefineResources(ctx, written...)
+	return nil
 }
 
 // NewMigrationWriter returns a writer that skips reference checks, for the migrations
@@ -236,11 +223,10 @@ func (s *Service) NewMigrationWriter(tx gorp.Tx) *gorp.Writer[Key, Status[any]] 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		svc:       s,
-		tx:        tx,
-		table:     s.table,
-		indexes:   s.indexes,
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		svc:     s,
+		tx:      tx,
+		table:   s.table,
+		indexes: s.indexes,
 	}
 }
 

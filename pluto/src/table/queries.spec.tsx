@@ -204,7 +204,7 @@ describe("table queries", () => {
       const key = uuid.create();
       const { result } = renderHook(() => Table.useCreate(), { wrapper });
 
-      // Use a fake project key so the server-side ontology insert fails.
+      // A project key that names no project fails the create on the Core.
       await act(async () => {
         await result.current.updateAsync({
           key,

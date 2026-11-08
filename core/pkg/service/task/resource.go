@@ -10,6 +10,11 @@
 package task
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -23,5 +28,40 @@ func (s *Service) Resources() *resource.TableProvider[Key, Task] {
 		Key:    resource.ParseUUIDKey,
 		Name:   func(t *Task) string { return t.Name },
 		Hidden: func(t *Task) bool { return t.Internal },
+	})
+}
+
+// ResourceID returns the resource ID of the task with the given key.
+func ResourceID(key Key) resource.ID {
+	return resource.ID{Type: resource.TypeTask, Key: key.String()}
+}
+
+// ActionRecord returns the resource ID of the task that a sample of the action channel
+// edits.
+func ActionRecord(sample []byte) (resource.ID, error) {
+	var scoped actions.Scoped[Key, jsontext.Value]
+	if err := json.Unmarshal(sample, &scoped); err != nil {
+		return resource.ID{}, err
+	}
+	return ResourceID(scoped.Key), nil
+}
+
+// ResourceIDs returns the resource IDs for the given keys.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(key Key, _ int) resource.ID { return ResourceID(key) })
+}
+
+// ResourceIDsFromTasks returns the resource ID of each task.
+func ResourceIDsFromTasks(tasks []Task) []resource.ID {
+	return lo.Map(tasks, func(task Task, _ int) resource.ID {
+		return task.ResourceID()
+	})
+}
+
+// KeysFromResourceIDs returns the key of the task that each ID names. A malformed key
+// is a validation error.
+func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
+	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
+		return resource.ParseUUIDKey(id)
 	})
 }

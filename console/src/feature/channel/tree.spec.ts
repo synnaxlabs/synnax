@@ -12,7 +12,7 @@ import {
   DataType,
   lineplot,
   NotFoundError,
-  ontology,
+  query,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
@@ -30,12 +30,14 @@ import { describe, expect, it } from "vitest";
 import { Channel } from "@/feature/channel";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
+import { Tree } from "@/platform/tree";
 import {
   createHostItems,
   createResource,
   findTreeRow,
+  HOST_ID,
   openTreeRowContextMenu,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
@@ -61,24 +63,30 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
     ...overrides,
   });
 
-// Hosts the channels under the ontology root, outside any group.
+// Hosts the channels under the host root, outside any group.
 const hostChannels = (...channels: { key: channelClient.Key }[]) =>
-  createHostItems(channels.map((c) => channelClient.resourceID(c.key)));
+  createHostItems((c) => [
+    Tree.createSource(
+      c.channels,
+      query.keysRequest(channels.map((ch) => ch.key)),
+      (ch) => Tree.toResource("channel")(ch.payload),
+    ),
+  ]);
 
 const renderChannelTree = async (
   host: ReturnType<typeof hostChannels>,
   onCaughtError?: RenderOptions["onCaughtError"],
   extra?: ReactNode,
 ) =>
-  await renderOntologyTree({
+  await renderLiveTree({
     client,
-    root: ontology.ROOT_ID,
+    root: HOST_ID,
     items: { ...Channel.TREE_ITEMS, ...host },
     onCaughtError,
     extra,
   });
 
-describe("channel/ontology", () => {
+describe("channel/tree", () => {
   describe("haulItems", () => {
     it("hauls a regular channel as a channel item", async () => {
       const ch = await createChannel();

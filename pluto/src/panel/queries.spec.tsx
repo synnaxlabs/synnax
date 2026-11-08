@@ -19,10 +19,17 @@ import {
   within,
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+} from "vitest";
 
 import { Errors } from "@/errors";
-import { Ontology } from "@/ontology";
 import { Panel } from "@/panel";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -1627,13 +1634,9 @@ describe("Panel queries", () => {
       );
 
       const deleted: string[] = [];
-      renderHook(
-        () => {
-          Panel.useCloseResourceTabs();
-          Ontology.useResourceDeleteSynchronizer((id) => deleted.push(id.key));
-        },
-        { wrapper },
-      );
+      const off = client.ranges.onDelete((key) => deleted.push(key));
+      onTestFinished(off);
+      renderHook(() => Panel.useCloseResourceTabs(), { wrapper });
       await act(async () => {
         await writer.ranges.delete(resource.key);
       });
