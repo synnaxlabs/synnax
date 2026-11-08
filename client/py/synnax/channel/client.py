@@ -548,7 +548,7 @@ class Client:
         :raises MultipleFoundError: If one channel is wanted and more than one
             matches.
         :raises ValidationError: If a filter field is None, or if one channel is
-            wanted beside a limit.
+            wanted beside a limit or a cursor.
         """
         selected = Where()
         positional = False

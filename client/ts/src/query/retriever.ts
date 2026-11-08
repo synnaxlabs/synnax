@@ -104,7 +104,7 @@ export type RequestInput<Z extends z.ZodType> =
 /**
  * The query objects a request schema accepts that return one record: those with a plain
  * `key` or `name` value beside any other fields, and those that set `one`. Neither
- * takes a limit, since a page could hide a second match.
+ * takes a limit or a cursor, since a page could hide a second match.
  */
 export type OneInput<Z extends z.ZodType> =
   | (z.input<Z> extends infer I
@@ -113,14 +113,18 @@ export type OneInput<Z extends z.ZodType> =
         : "where" extends keyof I
           ? never
           : {
-              [F in ("key" | "name") & keyof I]: Omit<I, F | "limit"> & {
+              [F in ("key" | "name") & keyof I]: Omit<I, F | "limit" | "after"> & {
                 [P in F]: Extract<I[P], P extends "key" ? record.Key : string>;
-              } & { limit?: never };
+              } & { limit?: never; after?: never };
             }[("key" | "name") & keyof I]
       : never)
   | (RequestInput<Z> extends infer R
       ? R extends unknown
-        ? Omit<R, "one" | "limit"> & { one: true; limit?: never }
+        ? Omit<R, "one" | "limit" | "after"> & {
+            one: true;
+            limit?: never;
+            after?: never;
+          }
         : never
       : never);
 
@@ -154,13 +158,14 @@ export const addressesOne = (params: unknown): boolean =>
 
 /**
  * @returns params without the `one` option.
- * @throws {ValidationError} if params return one record beside a limit.
+ * @throws {ValidationError} if params return one record beside a limit or a cursor.
  */
 export const dropOne = <P>(params: P): P extends unknown ? Omit<P, "one"> : never => {
   if (!isObject(params)) return params as P extends unknown ? Omit<P, "one"> : never;
-  if (addressesOne(params) && params.limit != null)
+  if (addressesOne(params) && (params.limit != null || params.after != null))
     throw new ValidationError(
-      "a query for one record takes no limit, since a page could hide a second match",
+      "a query for one record takes no limit or cursor, since a page could hide a " +
+        "second match",
     );
   if (!("one" in params)) return params as P extends unknown ? Omit<P, "one"> : never;
   const { one: _, ...rest } = params;
@@ -529,7 +534,7 @@ export abstract class Retriever<
    * @throws {NotFoundError} if a single-record query matches nothing, the record was
    * deleted, or a key in a bare key list has no record.
    * @throws {MultipleFoundError} if a single-record query matches more than one record.
-   * @throws {ValidationError} if params set `one` beside a limit.
+   * @throws {ValidationError} if params set `one` beside a limit or a cursor.
    * @throws {zod.ParseError} if no schema of the domain accepts the params.
    */
   retrieve(

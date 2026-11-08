@@ -219,7 +219,7 @@ class Client:
         :raises NotFoundError: If one status is wanted and none matches.
         :raises MultipleFoundError: If one status is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one status is wanted
-            beside a limit.
+            beside a limit or a cursor.
 
         Retrieve the status of a task:
 

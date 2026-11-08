@@ -203,14 +203,14 @@ public:
     /// @param options the options of the retrieve.
     /// @returns the status, and an error that matches NOT_FOUND when no status
     /// matches, MULTIPLE_RESULTS when more than one does, or VALIDATION when options
-    /// set a limit.
+    /// set a limit or a cursor.
     template<typename Details = x::json::json>
     [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error> retrieve(
         const Where &where,
         x::filter::One,
         const RetrieveOptions &options = {}
     ) const {
-        if (options.limit.has_value())
+        if (options.limit.has_value() || options.after.has_value())
             return {synnax::status::Status<Details>{}, errors::paged_one_error()};
         auto [statuses, err] = this->retrieve<Details>(where, options);
         if (err) return {synnax::status::Status<Details>{}, err};

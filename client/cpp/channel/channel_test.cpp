@@ -342,8 +342,8 @@ TEST(TestChannel, testRetrieveRejectsPage) {
         ASSERT_MATCHES(err, x::errors::VALIDATION);
         ASSERT_EQ(
             err.data,
-            "a query for one record takes no limit, since a page could hide a "
-            "second match"
+            "a query for one record takes no limit or cursor, since a page could hide "
+            "a second match"
         );
     }
 }
