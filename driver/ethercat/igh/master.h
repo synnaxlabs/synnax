@@ -126,7 +126,8 @@ private:
     /// none has.
     master::Activation wait_for_op();
 
-    /// @brief builds the activation for the slaves at pending that did not reach OP.
+    /// @brief builds the activation for the slaves at pending that are still below OP,
+    /// or returns no error when all of them reached OP since the last poll.
     master::Activation op_error(const std::vector<uint16_t> &pending);
 
     /// @brief reads the PDO layout a slave holds after its startup parameters, since a

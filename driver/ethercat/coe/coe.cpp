@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+
 #include "driver/ethercat/coe/coe.h"
 
 namespace driver::ethercat::coe {
@@ -49,12 +51,14 @@ read_layout(const Read &read, const uint32_t max_syncs) {
             )
         };
     };
-    const auto [sm_count, count_err] = read_count(SM_TYPE_INDEX, max_syncs);
+    const auto [sm_count, count_err] = read(SM_TYPE_INDEX, 0);
     if (count_err.matches(OBJECT_MISSING)) return {{}, x::errors::NIL};
     if (count_err) return {{}, count_err};
     std::vector<pdo::Sync> syncs;
     uint32_t type_shift = 0;
-    for (uint32_t sm = FIRST_PROCESS_DATA_SM; sm < sm_count; sm++) {
+    // SOEM configures only the first max_syncs sync managers of a slave with more.
+    for (uint32_t sm = FIRST_PROCESS_DATA_SM; sm < std::min(sm_count, max_syncs);
+         sm++) {
         auto [type, type_err] = read(SM_TYPE_INDEX, static_cast<uint8_t>(sm + 1));
         if (type_err) return {{}, type_err};
         // SOEM reads the types that some slaves get wrong this way, and maps them so.
