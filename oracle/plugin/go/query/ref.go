@@ -45,6 +45,8 @@ type refInfo struct {
 	Tables []string
 	// OnDelete is "Restrict", "Cascade", or "Detach".
 	OnDelete string
+	// Kind is "Place" or "Use", or empty when the schema declares no kind.
+	Kind string
 	// Unique is true when at most one entry may hold each target.
 	Unique bool
 	// Acyclic is true when a chain of references within the table may not return to
@@ -141,6 +143,8 @@ var onDeleteNames = map[string]string{
 	"detach":   "Detach",
 }
 
+var kindNames = map[string]string{"place": "Place", "use": "Use"}
+
 // resourceTypes maps the qualified name of each resource key type to the resource
 // type it identifies, and holds every resource type name.
 type resourceTypes struct {
@@ -179,7 +183,10 @@ func newResourceTypes(table *resolution.Table) resourceTypes {
 }
 
 // refExpressions are the expressions a @ref domain may hold.
-var refExpressions = set.New("on_delete", "types", "unique", "acyclic")
+var refExpressions = set.New("on_delete", "kind", "types", "unique", "acyclic")
+
+// singleRefExpressions are the @ref expressions that hold one value.
+var singleRefExpressions = set.New("on_delete", "kind")
 
 // extractRef returns the reference that field of typ holds. inArray is true when a
 // detach can drop the array element that holds field.
@@ -210,6 +217,9 @@ func extractRef(
 		if !refExpressions.Contains(expr.Name) {
 			return fail("has unknown expression %s", expr.Name)
 		}
+		if singleRefExpressions.Contains(expr.Name) && len(expr.Values) > 1 {
+			return fail("needs one value for %s, not %d", expr.Name, len(expr.Values))
+		}
 	}
 	onDelete, ok := onDeleteNames[plugindomain.GetStringFromField(
 		field,
@@ -218,6 +228,10 @@ func extractRef(
 	)]
 	if !ok {
 		return fail("needs on_delete cascade, restrict, or detach")
+	}
+	kind, ok := kindNames[plugindomain.GetStringFromField(field, "ref", "kind")]
+	if !ok && plugindomain.HasExprFromField(field, "ref", "kind") {
+		return fail("needs kind place or use")
 	}
 	isOptional := field.Optional && !isSlice
 	var zero string
@@ -235,6 +249,7 @@ func extractRef(
 		GoName:      naming.GetFieldName(field),
 		StructField: naming.LowerFirst(naming.GetFieldName(field)),
 		OnDelete:    onDelete,
+		Kind:        kind,
 		Unique:      plugindomain.HasExprFromField(field, "ref", "unique"),
 		Acyclic:     plugindomain.HasExprFromField(field, "ref", "acyclic"),
 		IsOptional:  isOptional,
