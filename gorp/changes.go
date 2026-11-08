@@ -117,7 +117,10 @@ func (l *changeList) find(
 	if s.before, err = held(stored); err != nil {
 		return slot{}, errors.Combine(err, closer.Close())
 	}
-	return s, closer.Close()
+	if err = closer.Close(); err != nil {
+		return slot{}, err
+	}
+	return s, nil
 }
 
 // set merges a set of the record of s to value, which holds links. derived is true when

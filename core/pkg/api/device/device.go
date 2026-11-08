@@ -161,7 +161,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.device.NewRetrieve().Entries(&res.Devices))
+	q, err := ApplyRetrieve(req, s.device.NewRetrieve().Entries(&res.Devices))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}

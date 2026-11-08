@@ -83,8 +83,7 @@ and ssm:GetParameter on /runners/*.
 
 import argparse
 import os
-from concurrent.futures import Future, ThreadPoolExecutor
-from concurrent.futures import wait as futures_wait
+from concurrent.futures import Future, ThreadPoolExecutor, wait as futures_wait
 
 import synnax as sy
 

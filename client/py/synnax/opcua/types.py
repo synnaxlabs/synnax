@@ -13,8 +13,7 @@ from uuid import uuid4
 
 from pydantic import JsonValue
 
-from synnax import device, task
-from synnax import rack as rack_
+from synnax import device, rack as rack_, task
 from synnax.opcua.types_gen import ReadChannel, ReadConfig, WriteChannel, WriteConfig
 from synnax.telem import CrudeRate, Rate
 

@@ -79,16 +79,32 @@ describe("log", () => {
     });
 
     it("should allow the caller to delete logs with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [log.resourceID("")],
-        actions: ["delete", "retrieve"],
-      });
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [log.resourceID("")],
+          actions: ["delete", "retrieve"],
+        },
+        { name: "test", objects: [project.TYPE_RESOURCE_ID], actions: ["update"] },
+      ]);
       const proj = await client.projects.create({ name: "test" });
       const randomLog = await client.logs.create({ project: proj.key, name: "test" });
       await userClient.logs.delete(randomLog.key);
       await expect(userClient.logs.retrieve(randomLog.key)).rejects.toThrow(
         NotFoundError,
+      );
+    });
+
+    it("should deny deleting a log from a project the caller cannot update", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [log.resourceID("")],
+        actions: ["delete"],
+      });
+      const proj = await client.projects.create({ name: "test" });
+      const randomLog = await client.logs.create({ project: proj.key, name: "test" });
+      await expect(userClient.logs.delete(randomLog.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 

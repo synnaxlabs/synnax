@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
@@ -59,6 +60,23 @@ func (u unmapped) EncodeOrc(w *orc.Writer) error {
 
 func (u *unmapped) DecodeOrc(r *orc.Reader) (err error) {
 	u.Key, err = r.String()
+	return err
+}
+
+// taskConfig is a config record of the task that shares its key.
+type taskConfig struct{ Key string }
+
+func (taskConfig) CustomTypeName() string { return config.TableName("bind_spec") }
+
+func (c taskConfig) GorpKey() string { return c.Key }
+
+func (c taskConfig) EncodeOrc(w *orc.Writer) error {
+	w.String(c.Key)
+	return nil
+}
+
+func (c *taskConfig) DecodeOrc(r *orc.Reader) (err error) {
+	c.Key, err = r.String()
 	return err
 }
 
@@ -467,6 +485,22 @@ var _ = Describe("Write", func() {
 					access.ActionCreate,
 					alias.ResourceID(r.Key, ch.Key()),
 				},
+			}
+		}),
+		Entry("delete on the task of a deleted task config record", func(
+			ctx context.Context,
+		) rule {
+			k := uuid.New()
+			Expect(gorp.NewCreate[string, taskConfig]().
+				Entry(&taskConfig{Key: k.String()}).
+				Exec(ctx, db)).To(Succeed())
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					return gorp.NewDelete[string, taskConfig]().
+						Where(gorp.MatchKeys[string, taskConfig](k.String())).
+						Exec(ctx, tx)
+				},
+				needed: need{access.ActionDelete, task.ResourceID(k)},
 			}
 		}),
 	)
