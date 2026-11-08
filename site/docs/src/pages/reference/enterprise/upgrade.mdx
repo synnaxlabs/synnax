@@ -166,6 +166,13 @@ libraries warn and still connect. Upgrade the Core first, then the Console and D
 A Console older than 0.60 shows errors instead of the activation screen when a Core 0.60
 has no license, so upgrade the Console with the Core.
 
+Drivers after 0.60 number the EtherCAT modules on IgH from 1, as on the built-in master.
+If a Driver uses IgH, delete its
+[EtherCAT devices](/reference/hardware/ethercat/configure-device) after you upgrade it
+from 0.60 or earlier, and before you start a task. The next scan finds the modules
+again, and you configure them again. Until then, each module gets the saved settings of
+the module after it.
+
 <Note.Note variant="info">
   Synnax Desktop has its own Core, which updates with the app and backs up its metadata
   in the same way.
