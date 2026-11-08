@@ -24,6 +24,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -219,8 +221,7 @@ func (s *Service) CalculationInputs(
 	tx gorp.Tx,
 	channels []Channel,
 ) (Keys, error) {
-	resolver := &readErrorResolver{SymbolResolver: s.NewArcSymbolResolver(tx)}
-	analyzer := NewCalculationAnalyzer(resolver, parser.Config{
+	analyzer := NewCalculationAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
 		AllowDashedNames: !s.ShouldValidateNames(),
 	})
 	var (
@@ -234,11 +235,11 @@ func (s *Service) CalculationInputs(
 				continue
 			}
 			result, err := analyzer.Analyze(ctx, ch)
-			if resolver.err != nil {
-				return nil, resolver.err
+			if errors.As(err, new(*diagnostics.Diagnostics)) {
+				continue
 			}
 			if err != nil {
-				continue
+				return nil, err
 			}
 			reads := result.Deps
 			for _, op := range ch.Operations {

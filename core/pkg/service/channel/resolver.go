@@ -19,8 +19,6 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 // symbolResolver resolves cluster channels into Arc symbols by name or numeric key. It
@@ -118,22 +116,4 @@ func (r *consistentResolver) Resolve(
 	}
 	sym := *res.sym
 	return &sym, nil
-}
-
-// readErrorResolver records the errors of channel reads that fail for a reason other
-// than a missing channel.
-type readErrorResolver struct {
-	arc.SymbolResolver
-	err error
-}
-
-func (r *readErrorResolver) Resolve(
-	ctx context.Context,
-	name string,
-) (*symbol.Symbol, error) {
-	sym, err := r.SymbolResolver.Resolve(ctx, name)
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		r.err = errors.Combine(r.err, err)
-	}
-	return sym, err
 }

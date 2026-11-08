@@ -33,6 +33,7 @@ type resolver struct {
 		keys  map[int]*symbol.Symbol
 	}
 	unresolved set.Set[string]
+	readErr    error
 }
 
 // CalculationAnalyzer parses and type-checks calculated channel expressions. It caches
@@ -75,6 +76,8 @@ func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, er
 	sym, resolveErr := r.SymbolResolver.Resolve(ctx, name)
 	if errors.Is(resolveErr, query.ErrNotFound) {
 		r.unresolved.Add(name)
+	} else if resolveErr != nil && r.readErr == nil {
+		r.readErr = resolveErr
 	}
 	return sym, resolveErr
 }
@@ -96,19 +99,24 @@ type CalculationAnalysisResult struct {
 
 // Analyze parses the channel's expression, infers its return type, and extracts the set
 // of channel dependencies. The analyzed channel is cached so that subsequent calls can
-// reference it by name or key.
+// reference it by name or key. An expression that fails analysis returns
+// *diagnostics.Diagnostics. A channel read that fails returns its error.
 func (a *CalculationAnalyzer) Analyze(
 	ctx context.Context,
 	ch Channel,
 ) (CalculationAnalysisResult, error) {
 	a.resolver.SymbolResolver = NewConsistentResolver(a.symbols)
 	a.resolver.unresolved = make(set.Set[string])
+	a.resolver.readErr = nil
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression), a.cfg)
 	if err != nil {
 		return CalculationAnalysisResult{}, err
 	}
 	aCtx := acontext.NewRoot(ctx, t, arc.NewRoot(a.resolver)).WithConfig(a.cfg)
 	dataType := statement.AnalyzeFunctionBody(aCtx)
+	if a.resolver.readErr != nil {
+		return CalculationAnalysisResult{}, a.resolver.readErr
+	}
 	if !aCtx.Diagnostics.Ok() {
 		return CalculationAnalysisResult{
 			Unresolved: a.resolver.unresolved.Slice(),

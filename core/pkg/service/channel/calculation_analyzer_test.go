@@ -20,6 +20,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,13 +38,15 @@ func (failingResolver) Search(context.Context, string) ([]*symbol.Symbol, error)
 }
 
 var _ = Describe("Analyze", func() {
-	It("Should return an error of the resolver", func(ctx SpecContext) {
+	It("Should return the error of a failed read instead of diagnostics", func(
+		ctx SpecContext,
+	) {
 		a := channel.NewCalculationAnalyzer(failingResolver{})
 		res, err := a.Analyze(ctx, channel.Channel{
 			Name:       "calc",
 			Expression: "return sensor + 1",
 		})
-		Expect(err).To(MatchError(context.Canceled))
+		Expect(err).To(BeIdenticalTo(context.Canceled))
 		Expect(res.Unresolved).To(BeEmpty())
 	})
 
@@ -335,7 +338,10 @@ var _ = Describe("Analyze", func() {
 					Expression: "return nonexistent + 1",
 				}
 				res, err := a.Analyze(ctx, ch)
-				Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
+				Expect(err).To(And(
+					BeAssignableToTypeOf(&diagnostics.Diagnostics{}),
+					MatchError(ContainSubstring("undefined symbol")),
+				))
 				Expect(res.Unresolved).To(ConsistOf("nonexistent"))
 			},
 		)
