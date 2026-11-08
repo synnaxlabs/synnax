@@ -227,6 +227,7 @@ export class Client {
           if (unheld.length > 0) {
             this.searches.refetchMatching((q) => q.types?.includes(type) ?? true);
             this.byKey.refetchMatching((k) => unheld.includes(k));
+            this.byKeys.refetchMatching((ks) => ks.some((k) => unheld.includes(k)));
           }
           if (held.length > 0) await table.retrieve(held, { refresh: true });
         },
