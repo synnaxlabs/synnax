@@ -42,6 +42,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
 	channelSvc, framerSvc = svc.Channel, svc.Framer
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
+		DB:      db,
 		RBAC:    svc.RBAC,
 		Channel: svc.Channel,
 		Status:  svc.Status,

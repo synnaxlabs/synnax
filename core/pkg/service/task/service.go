@@ -256,7 +256,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes:   s.indexes,
-		baseTX:    s.cfg.DB,
 		gorp:      s.table.NewRetrieve(),
 		configs:   s.cfg.Configs,
 		matchArcs: s.cfg.MatchArcs,
@@ -282,19 +281,24 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 	if err != nil {
 		return err
 	}
-	var tasks []Task
-	if err := s.NewRetrieve().Where(MatchRacks(rackKey)).
-		Entries(&tasks).
-		Exec(ctx, nil); err != nil {
-		return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
-	}
-	reported, err := s.cfg.Status.Join[StatusDetails](
-		ctx,
-		nil,
-		ResourceIDsFromTasks(tasks),
+	var (
+		tasks    []Task
+		reported []*Status
 	)
-	if err != nil {
+	if err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if err = s.NewRetrieve().Where(MatchRacks(rackKey)).
+			Entries(&tasks).
+			Exec(ctx, snap); err != nil {
+			return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
+		}
+		reported, err = s.cfg.Status.Join[StatusDetails](
+			ctx,
+			snap,
+			ResourceIDsFromTasks(tasks),
+		)
 		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
+	}); err != nil {
+		return err
 	}
 	statuses := make([]Status, 0, len(tasks))
 	for i, tsk := range tasks {

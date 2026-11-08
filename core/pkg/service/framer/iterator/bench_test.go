@@ -72,6 +72,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	}
 
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
+		DB:      node.DB,
 		Framer:  node.Framer,
 		Channel: channelSvc,
 	})

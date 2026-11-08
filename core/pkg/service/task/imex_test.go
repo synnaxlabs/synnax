@@ -158,7 +158,7 @@ var _ = Describe("ImEx", Ordered, func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchKeys(uuid.MustParse(id.Key))).
 				Entry(&imported).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			return imported
 		}
 

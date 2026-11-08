@@ -55,6 +55,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Status:  statusSvc,
 		}))
 		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
+			DB:      node.DB,
 			Framer:  node.Framer,
 			Channel: channelSvc,
 		}))

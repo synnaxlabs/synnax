@@ -65,32 +65,6 @@ var _ = Describe("DB", func() {
 		)
 	})
 
-	Describe("OverrideTx", func() {
-		It("Should return the override transaction if it is not nil", func() {
-			tx := db.OpenTx()
-			Expect(gorp.OverrideTx(db, tx)).To(Equal(tx))
-			Expect(tx.Close()).To(Succeed())
-		})
-		It(
-			"Should return the base transaction if the override transaction is nil",
-			func() {
-				Expect(gorp.OverrideTx(db, nil)).To(Equal(db))
-			},
-		)
-	})
-
-	Describe("OverrideSnapshot", func() {
-		It("Should return the override snapshot if it is not nil", func() {
-			tx := db.OpenTx()
-			Expect(gorp.OverrideSnapshot(db, tx)).To(BeIdenticalTo(tx))
-			Expect(tx.Close()).To(Succeed())
-		})
-		It("Should return the base snapshot if the override is nil", func() {
-			var tx gorp.Tx
-			Expect(gorp.OverrideSnapshot(db, tx)).To(BeIdenticalTo(db))
-		})
-	})
-
 	Describe("Lock", func() {
 		var (
 			lockDB *gorp.DB

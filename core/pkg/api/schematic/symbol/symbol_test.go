@@ -70,7 +70,7 @@ func exists(ctx SpecContext, key symbol.Key) bool {
 	GinkgoHelper()
 	return MustSucceed(symbolSvc.NewRetrieve().
 		Where(symbol.MatchKeys(key)).
-		Exists(ctx, nil))
+		Exists(ctx, db))
 }
 
 var _ = Describe("Create", func() {
@@ -307,7 +307,7 @@ var _ = Describe("Rename", func() {
 		Expect(symbolSvc.NewRetrieve().
 			Where(symbol.MatchKeys(sym.Key)).
 			Entry(&renamed).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(renamed.Name).To(Equal("Outlet"))
 	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {

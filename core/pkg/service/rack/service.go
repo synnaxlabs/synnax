@@ -259,7 +259,6 @@ func (s *Service) newKey(ctx context.Context) (Key, error) {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes: s.indexes,
-		baseTX:  s.DB,
 		gorp:    s.table.NewRetrieve(),
 	}
 }

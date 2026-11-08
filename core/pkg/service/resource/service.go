@@ -25,10 +25,6 @@ import (
 
 // ServiceConfig is the configuration for opening a Service.
 type ServiceConfig struct {
-	// DB is the database that a nil transaction reads from.
-	//
-	// [REQUIRED]
-	DB *gorp.DB
 	// Providers searches and retrieves the records of each type.
 	//
 	// [REQUIRED]
@@ -39,7 +35,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.DB = override.Nil(c.DB, other.DB)
 	c.Providers = override.Nil(c.Providers, other.Providers)
 	return c
 }
@@ -47,7 +42,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("resource")
-	v.NotNil("db", c.DB)
 	v.NotNil("providers", c.Providers)
 	for t, p := range c.Providers {
 		v.NotNil(fmt.Sprintf("providers.%s", t), p)
@@ -99,8 +93,8 @@ type SearchQuery struct {
 
 // Search returns the resources that match q, closest match first. For an empty term,
 // it lists the resources in order of type, then in the order of each Provider. Search
-// reads through snap, or through the database when snap is nil. A limit or offset out
-// of bounds, or a type with no Provider, is a validation error.
+// reads through snap. A limit or offset out of bounds, or a type with no Provider, is a
+// validation error.
 func (s *Service) Search(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -117,7 +111,6 @@ func (s *Service) Search(
 	if err := v.Error(); err != nil {
 		return nil, err
 	}
-	snap = gorp.OverrideSnapshot(s.cfg.DB, snap)
 	limit := q.Limit
 	if limit == 0 {
 		limit = defaultSearchLimit
@@ -174,8 +167,7 @@ func (s *Service) list(
 
 // Retrieve returns the resources that ids name, in the order of ids. It leaves out each
 // ID that names no resource, and returns each resource once. Retrieve reads through
-// snap, or through the database when snap is nil. An ID of a type with no Provider is a
-// validation error.
+// snap. An ID of a type with no Provider is a validation error.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -188,7 +180,7 @@ func (s *Service) Retrieve(
 	if err := v.Error(); err != nil {
 		return nil, err
 	}
-	return s.retrieve(ctx, gorp.OverrideSnapshot(s.cfg.DB, snap), ids)
+	return s.retrieve(ctx, snap, ids)
 }
 
 func (s *Service) validateType(v *validate.Validator, field string, t Type) {

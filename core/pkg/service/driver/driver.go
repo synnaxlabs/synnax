@@ -282,10 +282,12 @@ const (
 // whose hash differs from the stored config's is refused.
 func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	var tsk task.Task
-	if err := d.cfg.Task.NewRetrieve().
-		Where(task.MatchKeys(cmd.Task)).
-		Entry(&tsk).
-		Exec(ctx, nil); err != nil {
+	if err := d.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return d.cfg.Task.NewRetrieve().
+			Where(task.MatchKeys(cmd.Task)).
+			Entry(&tsk).
+			Exec(ctx, snap)
+	}); err != nil {
 		// A not-found task was deleted: a status written now would recreate the
 		// one the delete removed. Other errors answer the start so the sender
 		// does not wait forever.
@@ -386,10 +388,12 @@ func (d *Driver) refuseCommand(
 	deployErr error,
 ) {
 	var tsk task.Task
-	if err := d.cfg.Task.NewRetrieve().
-		Where(task.MatchKeys(cmd.Task)).
-		Entry(&tsk).
-		Exec(ctx, nil); err != nil {
+	if err := d.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return d.cfg.Task.NewRetrieve().
+			Where(task.MatchKeys(cmd.Task)).
+			Entry(&tsk).
+			Exec(ctx, snap)
+	}); err != nil {
 		// A status written for a deleted task would recreate the one the delete
 		// removed.
 		if !errors.Is(err, query.ErrNotFound) {
@@ -405,10 +409,12 @@ func (d *Driver) refuseCommand(
 		description = deployErr.Error()
 	} else {
 		var stat task.Status
-		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchOwners[task.StatusDetails](tsk.ResourceID())).
-			Entry(&stat).
-			Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
+		if err := d.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return d.cfg.Status.NewRetrieve[task.StatusDetails]().
+				Where(status.MatchOwners[task.StatusDetails](tsk.ResourceID())).
+				Entry(&stat).
+				Exec(ctx, snap)
+		}); err != nil && !errors.Is(err, query.ErrNotFound) {
 			d.cfg.L.Error(
 				"failed to retrieve status for refused command",
 				zap.Error(err),
@@ -495,10 +501,12 @@ func (d *Driver) exec(ctx context.Context, t Task, cmd task.Command) {
 		)
 	}
 	var tsk task.Task
-	if err = d.cfg.Task.NewRetrieve().
-		Where(task.MatchKeys(cmd.Task)).
-		Entry(&tsk).
-		Exec(ctx, nil); err != nil {
+	if err = d.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return d.cfg.Task.NewRetrieve().
+			Where(task.MatchKeys(cmd.Task)).
+			Entry(&tsk).
+			Exec(ctx, snap)
+	}); err != nil {
 		// A status written for a deleted task would recreate the one the delete
 		// removed.
 		if !errors.Is(err, query.ErrNotFound) {
@@ -536,10 +544,12 @@ func unsupportedDescription(cmdType string) string {
 
 func (d *Driver) configureExistingTasks(ctx context.Context) {
 	var tasks []task.Task
-	if err := d.cfg.Task.NewRetrieve().
-		Where(task.And(task.MatchRacks(d.rack.Key), task.MatchSnapshot(false))).
-		Entries(&tasks).
-		Exec(ctx, nil); err != nil {
+	if err := d.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return d.cfg.Task.NewRetrieve().
+			Where(task.And(task.MatchRacks(d.rack.Key), task.MatchSnapshot(false))).
+			Entries(&tasks).
+			Exec(ctx, snap)
+	}); err != nil {
 		d.cfg.L.Error("failed to retrieve existing tasks", zap.Error(err))
 		return
 	}

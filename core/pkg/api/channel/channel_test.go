@@ -73,7 +73,7 @@ func retrieveChannel(ctx SpecContext, key channel.Key) channel.Channel {
 	Expect(channelSvc.NewRetrieve().
 		Where(channel.MatchKeys(key)).
 		Entry(&ch).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return ch
 }
 

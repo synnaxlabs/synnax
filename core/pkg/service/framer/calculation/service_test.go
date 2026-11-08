@@ -134,6 +134,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Status:  statusSvc,
 		}))
 		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
+			DB:      dist.DB,
 			Framer:  dist.Framer,
 			Channel: channelSvc,
 		}))
@@ -940,7 +941,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(statusSvc.NewRetrieve[struct{}]().
 					Where(status.MatchOwners[struct{}](owner)).
 					Entry(&st).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, dist.DB)).To(Succeed())
 				Expect(st.Variant).To(Equal(status.VariantError))
 				Expect(st.Name).To(Equal(calc.Name))
 				Expect(st.Message).To(Equal("Failed to request calculation"))
@@ -991,7 +992,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					g.Expect(statusSvc.NewRetrieve[struct{}]().
 						Where(status.MatchOwners[struct{}](owner)).
 						Entry(&st).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, dist.DB)).To(Succeed())
 					g.Expect(st.Variant).To(Equal(status.VariantError))
 					g.Expect(st.Message).To(Equal("Failed to compile calculation"))
 					g.Expect(st.Description).To(ContainSubstring(base.Name))
@@ -1025,7 +1026,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					err := statusSvc.NewRetrieve[struct{}]().
 						Where(status.MatchOwners[struct{}](dep.ResourceID())).
 						Entry(&st).
-						Exec(ctx, nil)
+						Exec(ctx, dist.DB)
 					return st, err
 				}
 				name := base.Name
@@ -1369,7 +1370,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						err := statusSvc.NewRetrieve[struct{}]().
 							Where(status.MatchOwners[struct{}](calc.ResourceID())).
 							Entry(&st).
-							Exec(ctx, nil)
+							Exec(ctx, dist.DB)
 						return st, err
 					}
 					Eventually(func() error {
@@ -1417,7 +1418,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(statusSvc.NewRetrieve[struct{}]().
 					Where(status.MatchOwners[struct{}](calc.ResourceID())).
 					Entry(&st).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, dist.DB)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -1452,7 +1453,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(statusSvc.NewRetrieve[struct{}]().
 					Where(status.MatchOwners[struct{}](owner)).
 					Entry(&st).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, dist.DB)).To(Succeed())
 				Expect(st.Owner).To(HaveValue(Equal(owner)))
 				Expect(rm.Close(ctx)).To(Succeed())
 			},

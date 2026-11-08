@@ -165,14 +165,14 @@ type Service struct {
 	deletes *gorp.Attachment[Key]
 }
 
-// NewRoot builds the production analysis root: the STL, status, and ranges modules,
-// the Core channel resolver, and the user modules below Arcs. tx is consulted for
-// lookups; nil uses the DB. A root resolves each channel name and module the same
-// way for its lifetime, so build one per analysis or compile.
-func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
-	channels := channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(tx))
+// NewRoot builds the production analysis root: the STL, status, and ranges modules, the
+// Core channel resolver, and the user modules below Arcs. The root looks up channels
+// and modules in snap. A root resolves each channel name and module the same way for
+// its lifetime, so build one per analysis or compile.
+func (s *Service) NewRoot(snap gorp.Snapshot) *symbol.Symbol {
+	channels := channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(snap))
 	modules := arctext.NewLoader(arctext.LoaderConfig{
-		Source:   s.moduleSource(tx),
+		Source:   s.moduleSource(snap),
 		Channels: channels,
 		Ambient:  standardSymbols,
 		Config:   parser.Config{AllowDashedNames: s.AllowDashedNames()},
@@ -186,8 +186,10 @@ func standardSymbols() []*symbol.Symbol {
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
-		Instrumentation:  s.cfg.Child("lsp"),
-		NewRoot:          func() *symbol.Symbol { return s.NewRoot(nil) },
+		Instrumentation: s.cfg.Child("lsp"),
+		// The LSP analyzes outside any scope the Core holds, so its roots read the DB
+		// with no snapshot.
+		NewRoot:          func() *symbol.Symbol { return s.NewRoot(s.cfg.DB) },
 		AllowDashedNames: s.AllowDashedNames(),
 		OnRename: func(
 			ctx context.Context,
@@ -230,7 +232,9 @@ func (s *Service) AllowDashedNames() bool { return !s.cfg.Channel.ShouldValidate
 // is a validation error.
 func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, error) {
 	var entry Arc
-	err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, nil)
+	err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, snap)
+	})
 	if err != nil {
 		return AutomationArc{}, err
 	}
@@ -244,12 +248,14 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 		)
 	}
 	var prog arc.Program
+	// Compilation reads the DB with no snapshot, so it delays no write.
+	root := s.NewRoot(s.cfg.DB)
 	switch src := automation.Source.Variant.(type) {
 	case TextSource:
-		prog, err = arc.CompileText(ctx, src.Text.Materialize(), s.NewRoot(nil),
+		prog, err = arc.CompileText(ctx, src.Text.Materialize(), root,
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	case GraphSource:
-		prog, err = arc.CompileGraph(ctx, src.Graph, s.NewRoot(nil),
+		prog, err = arc.CompileGraph(ctx, src.Graph, root,
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	}
 	if err != nil {
@@ -371,7 +377,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
 	}
 }

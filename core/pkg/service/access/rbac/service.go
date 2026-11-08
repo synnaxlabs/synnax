@@ -198,7 +198,6 @@ func (s *Service) RolesOf(
 	snap gorp.Snapshot,
 	subjects ...resource.ID,
 ) ([]role.Key, error) {
-	snap = gorp.OverrideSnapshot(s.cfg.DB, snap)
 	roles := make([]role.Key, 0, len(subjects))
 	for _, subject := range subjects {
 		r, err := s.roleOf(ctx, snap, subject)
@@ -285,7 +284,7 @@ type Enforcer struct {
 }
 
 func (s *Service) NewEnforcer(snap gorp.Snapshot) *Enforcer {
-	return &Enforcer{svc: s, snap: gorp.OverrideSnapshot(s.cfg.DB, snap)}
+	return &Enforcer{svc: s, snap: snap}
 }
 
 // Enforce allows the request when the policies of the subject's roles cover every

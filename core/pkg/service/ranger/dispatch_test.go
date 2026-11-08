@@ -35,7 +35,7 @@ var _ = Describe("Dispatch", func() {
 		Expect(svc.NewRetrieve().
 			Where(ranger.MatchKeys(key)).
 			Entry(&res).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return res
 	}
 	// Dispatch commits on its own, so its ranges commit too and are deleted after each

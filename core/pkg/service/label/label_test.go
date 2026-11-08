@@ -85,7 +85,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(w.Delete(ctx, l.Key)).To(Succeed())
 			Expect(
-				svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, nil),
+				svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, db),
 			).To(MatchError(query.ErrNotFound))
 		})
 		It("Should delete many labels", func(ctx SpecContext) {
@@ -103,7 +103,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(w.Delete(ctx, ls[0].Key, ls[1].Key)).To(Succeed())
 			for _, l := range ls {
 				Expect(
-					svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, nil),
+					svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, db),
 				).To(MatchError(query.ErrNotFound))
 			}
 		})
@@ -179,7 +179,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(svc.NewRetrieve().
 				Search("Searchable Critical").
 				Entries(&got).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(got).ToNot(BeEmpty())
 			Expect(got[0].Name).To(ContainSubstring("Searchable"))
 		})

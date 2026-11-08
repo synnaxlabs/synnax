@@ -158,7 +158,7 @@ func retrieveChannel(ctx context.Context, name string) channel.Channel {
 	Expect(channelSvc.NewRetrieve().
 		Where(channel.MatchNames(name)).
 		Entry(&ch).
-		Exec(ctx, nil),
+		Exec(ctx, db),
 	).To(Succeed())
 	return ch
 }

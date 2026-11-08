@@ -732,7 +732,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchKeys(key)).
 				Entry(&res).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			return res
 		}
 		expectUnchanged := func(ctx context.Context) {
@@ -802,7 +802,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchOwners[task.StatusDetails](alerts.ResourceID())).
 				Entry(&renamed).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(renamed.Name).To(Equal("Renamed"))
 		})
 
@@ -1735,7 +1735,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 				Entry(&got).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			return got
 		}
 
@@ -1770,7 +1770,7 @@ var _ = Describe("Task", Ordered, func() {
 					g.Expect(stat.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&taskStatus).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					g.Expect(taskStatus.Message).To(Equal("Task stopped responding"))
 					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
 					g.Expect(taskStatus.Name).To(Equal("Test Task"))
@@ -1832,7 +1832,7 @@ var _ = Describe("Task", Ordered, func() {
 							running.ResourceID(),
 						)).
 						Entry(&taskStatus).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					g.Expect(taskStatus.Message).To(Equal("Task stopped responding"))
 				}).Should(Succeed())
 

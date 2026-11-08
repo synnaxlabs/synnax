@@ -142,6 +142,7 @@ var _ = Describe("Writer", func() {
 			svc := MustSucceed(writer.NewService(writer.ServiceConfig{
 				Framer:   mockNode.Framer,
 				Channel:  channelSvc,
+				DB:       mockNode.DB,
 				Reserved: func(k channel.Key) bool { return k == ch.Key() },
 			}))
 			Expect(svc.NewStream(ctx, writer.Config{

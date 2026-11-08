@@ -114,7 +114,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	resourceSvc := MustSucceed(resource.NewService(resource.ServiceConfig{
-		DB: db,
 		Providers: map[resource.Type]resource.Provider{
 			resource.TypeGroup:   groupSvc.Resources(),
 			resource.TypeLog:     logSvc.Resources(),

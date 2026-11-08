@@ -43,7 +43,7 @@ func setBuiltinRole(ctx context.Context, subject user.Key, name string) {
 			return r.Name == name, nil
 		})).
 		Entry(&r).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return userSvc.NewWriter(tx).SetRole(ctx, r.Key, nil, subject)
 	})).To(Succeed())
@@ -258,7 +258,7 @@ var _ = Describe("API keys", func() {
 			Expect(passwordSvc.NewRetrieve().
 				Where(password.MatchSubjects(bob.ResourceID())).
 				Entry(&p).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(del(ctx, bobToken, p.Key)).To(Succeed())
 			MustSucceed(authSvc.Authenticate(ctx, bobToken))
 		})

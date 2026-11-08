@@ -112,14 +112,14 @@ var _ = Describe("User role migration", func() {
 		Expect(users.NewRetrieve().
 			Where(user.MatchKeys(u.Key)).
 			Entry(&stored).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return stored.Role
 	}
 	noAccessExists := func(ctx SpecContext) bool {
 		GinkgoHelper()
 		return MustSucceed(roles.NewRetrieve().
 			Where(role.MatchNames("No access")).
-			Exists(ctx, nil))
+			Exists(ctx, db))
 	}
 	noAccess := func(ctx SpecContext) role.Role {
 		GinkgoHelper()
@@ -127,7 +127,7 @@ var _ = Describe("User role migration", func() {
 		Expect(roles.NewRetrieve().
 			Where(role.MatchNames("No access")).
 			Entry(&r).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return r
 	}
 
@@ -200,7 +200,7 @@ var _ = Describe("User role migration", func() {
 			Expect(r.Internal).To(BeFalse())
 			Expect(policies.NewRetrieve().
 				Where(policy.MatchRoles(r.Key)).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 		},
 	)
 

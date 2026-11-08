@@ -215,7 +215,7 @@ func rangeExists(ctx SpecContext, key ranger.Key) bool {
 	GinkgoHelper()
 	return MustSucceed(svc.Ranger.NewRetrieve().
 		Where(ranger.MatchKeys(key)).
-		Exists(ctx, nil))
+		Exists(ctx, db))
 }
 
 func retrieveRange(ctx SpecContext, key ranger.Key) ranger.Range {
@@ -224,7 +224,7 @@ func retrieveRange(ctx SpecContext, key ranger.Key) ranger.Range {
 	Expect(svc.Ranger.NewRetrieve().
 		Where(ranger.MatchKeys(key)).
 		Entry(&r).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return r
 }
 
@@ -671,7 +671,7 @@ var _ = Describe("Delete cascades", func() {
 			id: alias.ResourceID(r.Key, ch.Key()),
 			exists: func(ctx SpecContext) bool {
 				GinkgoHelper()
-				_, err := svc.Alias.NewReader(nil).Resolve(ctx, r.Key, "alias")
+				_, err := svc.Alias.NewReader(db).Resolve(ctx, r.Key, "alias")
 				Expect(errors.Skip(err, query.ErrNotFound)).To(Succeed())
 				return err == nil
 			},
@@ -689,7 +689,7 @@ var _ = Describe("Delete cascades", func() {
 				GinkgoHelper()
 				return MustSucceed(svc.LinePlot.NewRetrieve().
 					Where(lineplot.MatchKeys(lp.Key)).
-					Exists(ctx, nil))
+					Exists(ctx, db))
 			},
 		}
 	}
@@ -721,7 +721,7 @@ var _ = Describe("Delete cascades", func() {
 				GinkgoHelper()
 				return MustSucceed(svc.Task.NewRetrieve().
 					Where(task.MatchKeys(t.Key)).
-					Exists(ctx, nil))
+					Exists(ctx, db))
 			},
 		}
 	}

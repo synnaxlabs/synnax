@@ -111,7 +111,7 @@ var _ = Describe("Create", func() {
 		Expect(svc.Log.NewRetrieve().
 			Where(log.MatchKeys(l.Key)).
 			Entry(&log.Log{}).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
 	It("Should refuse to overwrite a log without update on it", func(
 		ctx SpecContext,
@@ -193,7 +193,7 @@ var _ = Describe("Delete", func() {
 			Expect(svc.Log.NewRetrieve().
 				Where(log.MatchKeys(l.Key)).
 				Entry(&log.Log{}).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		},
 	)
 })
@@ -269,7 +269,7 @@ func retrieveLog(ctx SpecContext, key log.Key) log.Log {
 	Expect(svc.Log.NewRetrieve().
 		Where(log.MatchKeys(key)).
 		Entry(&l).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return l
 }
 

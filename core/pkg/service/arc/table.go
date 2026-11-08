@@ -102,10 +102,12 @@ func openRoot(
 	dirs *directory.Table,
 ) (directory.Key, error) {
 	var roots []directory.Directory
-	if err := dirs.NewRetrieve().
-		Where(directory.MatchNested(false)).
-		Entries(&roots).
-		Exec(ctx, nil); err != nil {
+	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return dirs.NewRetrieve().
+			Where(directory.MatchNested(false)).
+			Entries(&roots).
+			Exec(ctx, snap)
+	}); err != nil {
 		return uuid.Nil(), err
 	}
 	if len(roots) > 0 {

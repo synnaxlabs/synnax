@@ -109,7 +109,7 @@ func (e *benchEnv) openCalculator(
 	}); err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
-	mod, err := compiler.Compile(e.ctx, compiler.Config{
+	mod, err := compiler.Compile(e.ctx, e.node.DB, compiler.Config{
 		ChannelService: e.channelSvc,
 		Channel:        *calc,
 	})

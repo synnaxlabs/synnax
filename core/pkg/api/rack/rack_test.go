@@ -89,7 +89,7 @@ func statusOf(ctx SpecContext, r rack.Rack) resource.ID {
 	Expect(svc.Status.NewRetrieve[struct{}]().
 		Where(status.MatchOwners[struct{}](r.ResourceID())).
 		Entry(&st).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return st.ResourceID()
 }
 
@@ -99,7 +99,7 @@ func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
 	Expect(svc.Rack.NewRetrieve().
 		Where(rack.MatchKeys(key)).
 		Entry(&r).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return r
 }
 
@@ -162,7 +162,7 @@ var _ = Describe("Create", func() {
 			)).Error().To(denied(u, needs[refused].action, needs[refused].object))
 			Expect(svc.Rack.NewRetrieve().
 				Where(rack.MatchKeys(key)).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 		},
 		Entry("without create on the rack", 0, rack.NewKey(1, 60100)),
 		Entry(
@@ -561,7 +561,7 @@ var _ = Describe("Delete", func() {
 		GinkgoHelper()
 		return MustSucceed(svc.Rack.NewRetrieve().
 			Where(rack.MatchKeys(key)).
-			Exists(ctx, nil))
+			Exists(ctx, db))
 	}
 
 	It("Should refuse to delete a rack that holds a device", func(ctx SpecContext) {
@@ -637,7 +637,7 @@ var _ = Describe("Delete", func() {
 		Expect(svc.Status.NewRetrieve[struct{}]().
 			Where(status.MatchOwners[struct{}](t.ResourceID())).
 			Entry(&st).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		MustSucceed(del(
 			deleterOf(
 				ctx,
@@ -651,7 +651,7 @@ var _ = Describe("Delete", func() {
 		Expect(exists(ctx, r.Key)).To(BeFalse())
 		Expect(svc.Task.NewRetrieve().
 			Where(task.MatchKeys(t.Key)).
-			Exists(ctx, nil)).To(BeFalse())
+			Exists(ctx, db)).To(BeFalse())
 	})
 })
 

@@ -205,7 +205,7 @@ func labelExists(ctx context.Context, key label.Key) bool {
 	err := svc.Label.NewRetrieve().
 		Where(label.MatchKeys(key)).
 		Entry(&label.Label{}).
-		Exec(ctx, nil)
+		Exec(ctx, db)
 	Expect(errors.Skip(err, query.ErrNotFound)).To(Succeed())
 	return err == nil
 }

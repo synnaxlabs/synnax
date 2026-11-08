@@ -148,7 +148,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
 	}
@@ -208,7 +207,7 @@ func (s *Service) Children(
 	snap gorp.Snapshot,
 	key Key,
 ) ([]resource.ID, error) {
-	return resource.Dependents(ctx, gorp.OverrideSnapshot(s.cfg.DB, snap), s.table, key)
+	return resource.Dependents(ctx, snap, s.table, key)
 }
 
 func (s *Service) Close() error {

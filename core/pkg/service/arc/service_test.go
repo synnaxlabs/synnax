@@ -191,7 +191,7 @@ var _ = Describe("NewRoot", func() {
 	})
 
 	It("Should resolve a channel by the name it first had", func(ctx SpecContext) {
-		root := svc.NewRoot(nil)
+		root := svc.NewRoot(db)
 		Expect(root.Resolve(ctx, "new_root_ch")).To(HaveField("ID", int(ch.Key())))
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).
@@ -207,7 +207,7 @@ var _ = Describe("NewRoot", func() {
 				Rename(ctx, ch.Key(), "new_root_ch_3", false)
 		})).
 			To(Succeed())
-		root := svc.NewRoot(nil)
+		root := svc.NewRoot(db)
 		Expect(root.Resolve(ctx, "new_root_ch_3")).To(HaveField("ID", int(ch.Key())))
 		Expect(root.Resolve(ctx, "new_root_ch")).Error().
 			To(BeAssignableToTypeOf(&symbol.UndefinedSymbolError{}))

@@ -426,7 +426,7 @@ var _ = Describe("Open", func() {
 				GinkgoHelper()
 				return MustSucceed(keys.NewRetrieve().
 					Where(apikey.MatchSubjects(rackKey.ResourceID())).
-					Count(ctx, nil))
+					Count(ctx, db))
 			}
 			before := count()
 			Expect(driver.Open(ctx, driver.Config{

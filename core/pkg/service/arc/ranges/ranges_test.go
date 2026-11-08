@@ -111,7 +111,7 @@ func retrieveRange(ctx context.Context, key string) (ranger.Range, error) {
 		return ranger.Range{}, err
 	}
 	var r ranger.Range
-	err = rangeSvc.NewRetrieve().Where(ranger.MatchKeys(uid)).Entry(&r).Exec(ctx, nil)
+	err = rangeSvc.NewRetrieve().Where(ranger.MatchKeys(uid)).Entry(&r).Exec(ctx, db)
 	return r, err
 }
 
@@ -395,7 +395,7 @@ var _ = Describe("createNode.Next", func() {
 			Expect(rangeSvc.
 				NewRetrieve().
 				Where(ranger.MatchNames(name)).
-				Count(ctx, nil),
+				Count(ctx, db),
 			).To(Equal(0))
 
 			calls := rep.get()

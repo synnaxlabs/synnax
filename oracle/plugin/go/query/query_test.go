@@ -75,7 +75,7 @@ var _ = Describe("Go Query Plugin", func() {
 							"func (r Retrieve) Limit(limit int) Retrieve",
 							"func (r Retrieve) Offset(offset int) Retrieve",
 							"func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error",
-							"return r.gorp.Exec(ctx, gorp.OverrideSnapshot(r.baseTX, snap))",
+							"return r.gorp.Exec(ctx, snap)",
 							"func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error)",
 							"func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error)",
 						).

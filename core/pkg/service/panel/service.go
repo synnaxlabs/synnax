@@ -136,7 +136,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes: s.indexes,
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 	}
 }

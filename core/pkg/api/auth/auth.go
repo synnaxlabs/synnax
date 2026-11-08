@@ -45,6 +45,10 @@ type ClusterInfo struct {
 
 // ServiceConfig is the configuration for the auth API service.
 type ServiceConfig struct {
+	// DB opens the snapshots that access checks and user lookups read.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Auth logs subjects in and checks their session tokens.
 	//
 	// [REQUIRED]
@@ -79,6 +83,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Auth = override.Nil(c.Auth, other.Auth)
 	c.Password = override.Nil(c.Password, other.Password)
 	c.APIKey = override.Nil(c.APIKey, other.APIKey)
@@ -95,6 +100,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.auth")
+	v.NotNil("db", c.DB)
 	v.NotNil("auth", c.Auth)
 	v.NotNil("password", c.Password)
 	v.NotNil("api_key", c.APIKey)
@@ -107,6 +113,7 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
+	db       *gorp.DB
 	auth     *auth.Service
 	password *password.Service
 	apiKey   *apikey.Service
@@ -121,6 +128,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:       cfg.DB,
 		auth:     cfg.Auth,
 		password: cfg.Password,
 		apiKey:   cfg.APIKey,

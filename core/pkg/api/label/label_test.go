@@ -45,14 +45,14 @@ func retrieveLabel(ctx SpecContext, key label.Key) label.Label {
 	Expect(svc.Label.NewRetrieve().
 		Where(label.MatchKeys(key)).
 		Entry(&l).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return l
 }
 
 func labelExists(ctx SpecContext, key label.Key) bool {
 	GinkgoHelper()
 	return MustSucceed(
-		svc.Label.NewRetrieve().Where(label.MatchKeys(key)).Exists(ctx, nil),
+		svc.Label.NewRetrieve().Where(label.MatchKeys(key)).Exists(ctx, db),
 	)
 }
 
@@ -80,7 +80,7 @@ func rangeLabels(ctx SpecContext, key ranger.Key) []label.Key {
 	Expect(svc.Ranger.NewRetrieve().
 		Where(ranger.MatchKeys(key)).
 		Entry(&r).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return r.Labels
 }
 
@@ -109,7 +109,7 @@ func statusLabels(ctx SpecContext, key status.Key) []label.Key {
 	Expect(svc.Status.NewRetrieve[any]().
 		Where(status.MatchKeys[any](key)).
 		Entry(&s).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return s.Labels
 }
 

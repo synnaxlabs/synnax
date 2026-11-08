@@ -34,7 +34,7 @@ func createRange(ctx SpecContext) ranger.Range {
 
 func listPairs(ctx SpecContext, r ranger.Range) []kv.Pair {
 	GinkgoHelper()
-	return MustSucceed(svc.KV.NewReader(nil).List(ctx, r.Key))
+	return MustSucceed(svc.KV.NewReader(db).List(ctx, r.Key))
 }
 
 var _ = Describe("Set", func() {

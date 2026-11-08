@@ -80,7 +80,7 @@ const (
 // ServiceConfig is the configuration for opening a framer Service. All fields are
 // required except the embedded Instrumentation.
 type ServiceConfig struct {
-	// DB opens the transactions that calculation status writes run in.
+	// DB holds the channels, and stores the statuses of calculations.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -156,6 +156,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Instrumentation: cfg.Child("writer"),
 		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
+		DB:              cfg.DB,
 		Reserved:        cfg.Reserved,
 	}); !ok(err, nil) {
 		return nil, err
@@ -183,6 +184,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Instrumentation: cfg.Child("iterator"),
 		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
+		DB:              cfg.DB,
 	}); !ok(err, nil) {
 		return nil, err
 	}

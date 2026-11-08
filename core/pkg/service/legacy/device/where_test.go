@@ -31,6 +31,7 @@ import (
 
 var _ = Describe("Where", Ordered, func() {
 	var (
+		db  *gorp.DB
 		v   vectors.Vectors[device.Device, device.Where]
 		svc *device.Service
 	)
@@ -44,7 +45,7 @@ var _ = Describe("Where", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))
@@ -88,7 +89,7 @@ var _ = Describe("Where", Ordered, func() {
 				SkipMissingKeys().
 				Where(f).
 				Entries(&res).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(lo.Map(res, func(d device.Device, _ int) string {
 				return aliases[d.Key]
 			})).To(ConsistOf(c.Expected))

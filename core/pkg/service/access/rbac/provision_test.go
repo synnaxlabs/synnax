@@ -207,7 +207,7 @@ var _ = Describe("Provision", func() {
 					svc1.Role.NewRetrieve().
 						Where(role.MatchNames("Owner")).
 						Entry(&ownerBefore).
-						Exec(ctx, nil),
+						Exec(ctx, cfg.DB),
 				).To(Succeed())
 				Expect(svc1.Close()).To(Succeed())
 
@@ -217,7 +217,7 @@ var _ = Describe("Provision", func() {
 					svc2.Role.NewRetrieve().
 						Where(role.MatchNames("Owner")).
 						Entry(&ownerAfter).
-						Exec(ctx, nil),
+						Exec(ctx, cfg.DB),
 				).To(Succeed())
 				Expect(ownerAfter.Key).To(Equal(ownerBefore.Key))
 			},
@@ -232,12 +232,12 @@ var _ = Describe("Provision", func() {
 			Expect(svc1.Role.NewRetrieve().
 				Where(role.MatchNames("Driver")).
 				Entry(&driver).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, cfg.DB)).To(Succeed())
 			var edit policy.Policy
 			Expect(svc1.Policy.NewRetrieve().
 				Where(policy.MatchNames("Driver Edit Access")).
 				Entry(&edit).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, cfg.DB)).To(Succeed())
 			Expect(svc1.Close()).To(Succeed())
 			staleTx := cfg.DB.OpenTx()
 			Expect(gorp.NewUpdate[role.Key, role.Role]().
@@ -260,14 +260,14 @@ var _ = Describe("Provision", func() {
 			Expect(svc2.Role.NewRetrieve().
 				Where(role.MatchNames("Driver", "Host")).
 				Entries(&roles).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, cfg.DB)).To(Succeed())
 			Expect(roles).To(HaveLen(1))
 			Expect(roles[0].Name).To(Equal("Driver"))
 			var policies []policy.Policy
 			Expect(svc2.Policy.NewRetrieve().
 				Where(policy.MatchNames("Driver Edit Access", "Host Edit Access")).
 				Entries(&policies).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, cfg.DB)).To(Succeed())
 			Expect(policies).To(HaveLen(1))
 			Expect(policies[0].Key).To(Equal(edit.Key))
 			Expect(policies[0].Name).To(Equal("Driver Edit Access"))
@@ -290,7 +290,7 @@ var _ = Describe("Provision", func() {
 			Expect(svc2.Role.NewRetrieve().
 				Where(role.MatchKeys(custom.Key)).
 				Entry(&stored).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, cfg.DB)).To(Succeed())
 			Expect(stored.Internal).To(BeFalse())
 			Expect(stored.Description).To(Equal("custom"))
 		})
@@ -306,7 +306,7 @@ var _ = Describe("Provision", func() {
 				Expect(svc1.Policy.NewRetrieve().
 					Where(policy.MatchNames("Owner")).
 					Entry(&ownerPolicy).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, cfg.DB)).To(Succeed())
 				Expect(svc1.Close()).To(Succeed())
 				originalObjects := ownerPolicy.Objects
 				Expect(originalObjects).ToNot(BeEmpty())
@@ -328,7 +328,7 @@ var _ = Describe("Provision", func() {
 				Expect(svc2.Policy.NewRetrieve().
 					Where(policy.MatchNames("Owner")).
 					Entry(&updated).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, cfg.DB)).To(Succeed())
 				Expect(updated.Objects).To(Equal(originalObjects))
 			},
 		)

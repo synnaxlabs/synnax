@@ -267,14 +267,14 @@ func revokePasswordSessions(
 	sessions *auth.Service,
 	subject resource.ID,
 ) error {
-	var p password.Password
-	if err := passwords.NewRetrieve().
-		Where(password.MatchSubjects(subject)).
-		Entry(&p).
-		Exec(ctx, nil); err != nil {
-		return errors.Wrap(err, "load the root password")
-	}
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		var p password.Password
+		if err := passwords.NewRetrieve().
+			Where(password.MatchSubjects(subject)).
+			Entry(&p).
+			Exec(ctx, tx); err != nil {
+			return errors.Wrap(err, "load the root password")
+		}
 		return sessions.NewWriter(tx).RevokeCredential(ctx, p.Key)
 	})
 }
@@ -781,7 +781,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Resource, err = resource.NewService(resource.ServiceConfig{
-		DB: cfg.Distribution.DB,
 		Providers: map[resource.Type]resource.Provider{
 			resource.TypeArc:             l.Arc.Resources(),
 			resource.TypeArcDirectory:    l.Arc.DirectoryResources(),

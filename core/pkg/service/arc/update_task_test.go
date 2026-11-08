@@ -423,7 +423,7 @@ var _ = Describe("Task sync", func() {
 			if err := taskSvc.NewRetrieve().
 				Where(task.MatchKeys(key)).
 				Entry(&tsk).
-				Exec(ctx, nil); err != nil {
+				Exec(ctx, db); err != nil {
 				return ""
 			}
 			return tsk.ConfigHash
@@ -473,7 +473,7 @@ var _ = Describe("Task sync", func() {
 			if err := taskSvc.NewRetrieve().
 				Where(task.MatchKeys(key)).
 				Entry(&tsk).
-				Exec(ctx, nil); err != nil {
+				Exec(ctx, db); err != nil {
 				return ""
 			}
 			return tsk.Name
@@ -568,7 +568,7 @@ var _ = Describe("Task sync", func() {
 			g.Expect(taskSvc.NewRetrieve().
 				Where(task.MatchNames(unbound.Base().Name)).
 				Entries(&tasks).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			g.Expect(tasks).To(BeEmpty())
 		}
 		Consistently(

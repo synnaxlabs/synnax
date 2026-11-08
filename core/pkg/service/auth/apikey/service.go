@@ -90,7 +90,7 @@ func (s *Service) Close() error { return s.table.Close() }
 
 // NewRetrieve opens a query for stored API keys.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB, indexes: s.indexes}
+	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }
 
 // NewWriter opens a [Writer] that runs in tx.
@@ -120,10 +120,9 @@ func (s *Service) Authenticate(
 		return auth.Identity{}, auth.ErrInvalidCredentials
 	}
 	var k APIKey
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&k).
-		Exec(ctx, nil); err != nil {
+	if err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.NewRetrieve().Where(MatchKeys(key)).Entry(&k).Exec(ctx, snap)
+	}); err != nil {
 		if errors.Is(err, query.ErrNotFound) {
 			return auth.Identity{}, auth.ErrInvalidCredentials
 		}

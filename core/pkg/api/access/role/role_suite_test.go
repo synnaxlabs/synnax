@@ -101,6 +101,6 @@ func grantOn(
 	Expect(svc.RBAC.Role.NewRetrieve().
 		Where(role.MatchKeys(p.Role)).
 		Entry(&r).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return r
 }

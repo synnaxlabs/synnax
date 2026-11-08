@@ -388,7 +388,7 @@ var _ = Describe("Writer", func() {
 
 						var resChannels []channel.Channel
 						Expect(svc.NewRetrieve().Where(channel.MatchKeys(newCh.Key())).
-							Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
+							Entries(&resChannels).Exec(ctx, db)).To(Succeed())
 						Expect(resChannels).To(HaveLen(1))
 
 						Expect(resChannels[0].Virtual).To(BeTrue())
@@ -398,7 +398,7 @@ var _ = Describe("Writer", func() {
 							svc.NewRetrieve().
 								Where(channel.MatchKeys(originalKey)).
 								Entries(&resChannels).
-								Exec(ctx, nil),
+								Exec(ctx, db),
 						).To(MatchError(query.ErrNotFound))
 					},
 				)
@@ -437,7 +437,7 @@ var _ = Describe("Writer", func() {
 							svc.NewRetrieve().
 								Where(channel.MatchKeys(originalKey)).
 								Entries(&resChannels).
-								Exec(ctx, nil),
+								Exec(ctx, db),
 						).To(Succeed())
 						Expect(resChannels).To(HaveLen(1))
 						Expect(resChannels[0].IsIndex).To(BeTrue())
@@ -530,7 +530,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(indexName)).
 						Entries(&indexChannels).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(indexChannels).To(HaveLen(1))
 
 					indexCh := indexChannels[0]
@@ -666,7 +666,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames("calculated1_time", "calculated2_time")).
 						Entries(&indexChannels).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(indexChannels).To(HaveLen(2))
 				},
 			)
@@ -735,7 +735,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(name+"_time")).
 						Entries(&indexChannels).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(indexChannels).To(HaveLen(1))
 				},
 			)
@@ -885,7 +885,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(name+"_time")).
 						Entries(&indexChannels).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(indexChannels).To(HaveLen(1))
 					Expect(indexChannels[0].LocalKey).To(Equal(originalIndex))
 					Expect(replacement.LocalIndex).To(Equal(originalIndex))
@@ -911,7 +911,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(indexName)).
 						Entries(&indexChannels).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(indexChannels).To(HaveLen(1))
 					Expect(indexChannels[0].Internal).To(BeTrue())
 				},
@@ -962,7 +962,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(originalKey)).
 						Entry(&retrieved).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(retrieved.Expression).To(Equal("return sensor1 * 3.0 + 10"))
 					Expect(retrieved.Name).To(Equal(originalName))
 					Expect(retrieved.Key()).To(Equal(originalKey))
@@ -996,7 +996,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(originalKey)).
 						Entry(&retrieved).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 
 					Expect(retrieved.Expression).To(Equal("return 2.0"))
 					Expect(retrieved.DataType).To(Equal(telem.Float64T))
@@ -1039,7 +1039,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(channel.MatchKeys(ch.Key())).
 						Entries(&resChannels).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(resChannels).To(HaveLen(1))
 				Expect(resChannels[0].Name).To(Equal(newName))
@@ -1060,7 +1060,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(channel.MatchKeys(ch.Key())).
 							Entries(&resChannels).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(resChannels).To(HaveLen(1))
 					Expect(resChannels[0].Name).To(Equal(existingName))
@@ -1094,7 +1094,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(channel.MatchKeys(originalKey, nonVirtualCh.Key())).
 							Entries(&resChannels).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(resChannels).To(HaveLen(2))
 
@@ -1138,7 +1138,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(ch.Key())).
 						Entry(&retrieved).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(retrieved.Name).To(Equal("my channel with spaces"))
 				},
 			)
@@ -1159,7 +1159,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(ch.Key())).
 						Entry(&retrieved).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(retrieved.Name).To(Equal("sensor!@#$%"))
 				},
 			)
@@ -1180,7 +1180,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(ch.Key())).
 						Entry(&retrieved).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(retrieved.Name).To(Equal("1sensor"))
 				},
 			)
@@ -1220,7 +1220,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(ch.Key())).
 						Entry(&retrieved).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(retrieved.Name).To(Equal("new name with spaces!"))
 				},
 			)
@@ -1290,7 +1290,7 @@ var _ = Describe("Writer", func() {
 					exists := MustSucceed(
 						svc.NewRetrieve().
 							Where(channel.MatchKeys(ch.Key())).
-							Exists(ctx, nil),
+							Exists(ctx, db),
 					)
 					Expect(exists).To(BeFalse())
 				},
@@ -1353,7 +1353,7 @@ var _ = Describe("Writer", func() {
 					Expect(freshSvc.NewRetrieve().
 						Where(channel.MatchKeys(calc.Key())).
 						Entry(&stored).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, fresh.DB)).To(Succeed())
 					Expect(stored.LocalIndex).To(BeZero())
 				},
 			)
@@ -1413,7 +1413,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(prefix+"_a", prefix+"_b")).
 						Entries(&remaining).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(remaining).To(ConsistOf(HaveField("Name", prefix+"_b")))
 				},
 			)
@@ -1441,7 +1441,7 @@ var _ = Describe("Writer", func() {
 						To(MatchError(ContainSubstring("can't delete internal channel")))
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(internalCh.Key())).
-						Exists(ctx, nil)).To(BeTrue())
+						Exists(ctx, db)).To(BeTrue())
 				},
 			)
 			It(
@@ -1457,7 +1457,7 @@ var _ = Describe("Writer", func() {
 						To(MatchError(ContainSubstring("can't delete internal channel")))
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(internalCh.Name)).
-						Exists(ctx, nil)).To(BeTrue())
+						Exists(ctx, db)).To(BeTrue())
 				},
 			)
 			It(
@@ -1481,7 +1481,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(keys...)).
 						Entries(&remaining).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(remaining).To(HaveLen(2))
 				},
 			)
@@ -1493,7 +1493,7 @@ var _ = Describe("Writer", func() {
 					})).To(Succeed())
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(internalCh.Key())).
-						Exists(ctx, nil)).To(BeFalse())
+						Exists(ctx, db)).To(BeFalse())
 				},
 			)
 		})
@@ -1530,7 +1530,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Entry(&resCh).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(resCh.Name).To(Equal(name))
 			})
 			Context("new name is invalid", func() {
@@ -1601,7 +1601,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(channel.MatchKeys(keys...)).
 						Entries(&resChannels).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(channel.KeysFromChannels(resChannels)).To(Equal(keys))
 				Expect(resChannels[0].Name).To(Equal(names[0]))
@@ -1748,7 +1748,7 @@ var _ = Describe("Writer", func() {
 			Expect(
 				retrieve.Entries(&retrievedChannels).
 					Where(channel.MatchLeaseholders(1)).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).To(Succeed())
 			Expect(retrievedChannels).To(HaveLen(limit))
 
@@ -1757,7 +1757,7 @@ var _ = Describe("Writer", func() {
 			Expect(
 				retrieve.Where(channel.MatchKeys(createdChannels[0].Key())).
 					Entry(&singleChannel).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).To(Succeed())
 			Expect(singleChannel.Name).To(Equal(createdChannels[0].Name))
 		})
@@ -1881,7 +1881,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(channel.MatchKeys(base.Key())).
 						Entry(&retrieved).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(retrieved.DataType).To(Equal(telem.Float32T))
 			},
@@ -1914,7 +1914,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(channel.MatchKeys(ch.Key())).
 						Entry(&retrieved).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(retrieved.DataType).To(Equal(telem.Float64T))
 			},

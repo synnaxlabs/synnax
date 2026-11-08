@@ -39,6 +39,11 @@ type (
 
 // ServiceConfig is the configuration for the Arc API service.
 type ServiceConfig struct {
+	// DB holds the channels and modules that compilation reads. Compilation reads it
+	// with no snapshot, so it delays no write.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -61,6 +66,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
@@ -70,12 +76,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.arc")
+	v.NotNil("db", c.DB)
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
 type Service struct {
+	db       *gorp.DB
 	internal *arc.Service
 	status   *status.Service
 	alamos.Instrumentation
@@ -87,6 +95,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Arc,
 		status:          cfg.Status,
@@ -287,7 +296,7 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 		prog, err = arclang.CompileGraph(
 			ctx,
 			src.Graph,
-			s.internal.NewRoot(nil),
+			s.internal.NewRoot(s.db),
 			arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
 		)
 	}
@@ -309,7 +318,7 @@ func (s *Service) compileText(
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil), cfg)
+	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(s.db), cfg)
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}

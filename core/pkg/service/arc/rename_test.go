@@ -57,7 +57,7 @@ var _ = Describe("LSP Rename", func() {
 			var renamed channel.Channel
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchKeys(ch.Key())).
-				Entry(&renamed).Exec(ctx, nil)).To(Succeed())
+				Entry(&renamed).Exec(ctx, db)).To(Succeed())
 			Expect(renamed.Name).To(Equal("lsp_renamed_ch"))
 		},
 	)
@@ -92,7 +92,7 @@ var _ = Describe("LSP Rename", func() {
 		var original channel.Channel
 		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchKeys(ch.Key())).
-			Entry(&original).Exec(ctx, nil)).To(Succeed())
+			Entry(&original).Exec(ctx, db)).To(Succeed())
 		Expect(original.Name).To(Equal("lsp_rename_internal"))
 	})
 })

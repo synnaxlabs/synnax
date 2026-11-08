@@ -48,6 +48,10 @@ const (
 
 // ServiceConfig is the configuration for the framer API service.
 type ServiceConfig struct {
+	// DB opens the snapshots that access checks and channel lookups read.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -80,6 +84,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -91,6 +96,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.framer")
+	v.NotNil("db", c.DB)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("rbac", c.RBAC)
@@ -98,6 +104,7 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	db       *gorp.DB
 	access   *rbac.Service
 	channel  *channel.Service
 	internal *framer.Service
@@ -111,6 +118,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Framer,
 		channel:         cfg.Channel,
@@ -226,30 +234,31 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 			"a read cannot take latest or earliest with a reduction",
 		)
 	}
-	if err := s.enforceRetrieve(ctx, req.Keys); err != nil {
-		return ReadResponse{}, err
-	}
-	var channels []channel.Channel
-	if err := s.channel.NewRetrieve().
-		Entries(&channels).
-		Where(channel.MatchKeys(req.Keys...)).
-		Exec(ctx, nil); err != nil {
-		return ReadResponse{}, err
-	}
-	var indexes []channel.Channel
-	if req.TimestampsIncluded {
-		var err error
-		if indexes, err = s.retrieveMissingIndexes(ctx, channels); err != nil {
-			return ReadResponse{}, err
+	var channels, indexes []channel.Channel
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if err = s.enforceRetrieve(ctx, snap, req.Keys); err != nil {
+			return err
 		}
-	}
-	indexKeys := channel.KeysFromChannels(indexes)
-	// An encoder writes every index it receives, so an index the caller never named
-	// still needs its own check.
-	if len(indexKeys) > 0 {
-		if err := s.enforceRetrieve(ctx, indexKeys); err != nil {
-			return ReadResponse{}, err
+		if err = s.channel.NewRetrieve().
+			Entries(&channels).
+			Where(channel.MatchKeys(req.Keys...)).
+			Exec(ctx, snap); err != nil {
+			return err
 		}
+		if !req.TimestampsIncluded {
+			return nil
+		}
+		if indexes, err = s.retrieveMissingIndexes(ctx, snap, channels); err != nil {
+			return err
+		}
+		// An encoder writes every index it receives, so an index the caller never named
+		// still needs its own check.
+		if indexKeys := channel.KeysFromChannels(indexes); len(indexKeys) > 0 {
+			return s.enforceRetrieve(ctx, snap, indexKeys)
+		}
+		return nil
+	}); err != nil {
+		return ReadResponse{}, err
 	}
 	return ReadResponse{
 		Channels:  channels,
@@ -275,8 +284,12 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 
 // enforceRetrieve reports whether the request's subject may retrieve every given
 // channel.
-func (s *Service) enforceRetrieve(ctx context.Context, keys channel.Keys) error {
-	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+func (s *Service) enforceRetrieve(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	keys channel.Keys,
+) error {
+	return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: framer.ResourceIDs(keys),
@@ -287,6 +300,7 @@ func (s *Service) enforceRetrieve(ctx context.Context, keys channel.Keys) error 
 // are indexed by that is not already among them.
 func (s *Service) retrieveMissingIndexes(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	channels []channel.Channel,
 ) ([]channel.Channel, error) {
 	present := set.New(channel.KeysFromChannels(channels)...)
@@ -303,7 +317,7 @@ func (s *Service) retrieveMissingIndexes(
 	err := s.channel.NewRetrieve().
 		Entries(&indexes).
 		Where(channel.MatchKeys(missing.Unique()...)).
-		Exec(ctx, nil)
+		Exec(ctx, snap)
 	return indexes, err
 }
 
@@ -391,10 +405,8 @@ func (s *Service) openIterator(
 	if err != nil {
 		return nil, err
 	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: framer.ResourceIDs(req.Keys),
+	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.enforceRetrieve(ctx, snap, req.Keys)
 	}); err != nil {
 		return nil, err
 	}
@@ -482,10 +494,12 @@ func (s *Service) openStreamer(
 	if err != nil {
 		return nil, req, err
 	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionRetrieve,
-		Objects: framer.ResourceIDs(req.Keys),
+	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionRetrieve,
+			Objects: framer.ResourceIDs(req.Keys),
+		})
 	}); err != nil {
 		return nil, req, err
 	}
@@ -680,10 +694,12 @@ func (s *Service) openWriter(
 		return nil, err
 	}
 
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionCreate,
-		Objects: framer.ResourceIDs(req.Config.Keys),
+	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionCreate,
+			Objects: framer.ResourceIDs(req.Config.Keys),
+		})
 	}); err != nil {
 		return nil, err
 	}

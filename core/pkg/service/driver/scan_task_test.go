@@ -384,7 +384,7 @@ var _ = Describe("ScanTask", func() {
 			Expect(statusSvc.NewRetrieve[any]().
 				Where(status.MatchOwners[any](dev.ResourceID())).
 				Entry(&devStatus).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			DeferCleanup(hookedKV.HookKey([]byte(devStatus.Key), refuse))
 			st := open(time.Hour)
 			Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())

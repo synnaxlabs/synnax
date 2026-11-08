@@ -94,7 +94,7 @@ func hasDriverRole(ctx context.Context, s stack, key rack.Key) bool {
 	Expect(s.rack.NewRetrieve().
 		Where(rack.MatchKeys(key)).
 		Entry(&r).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, s.rack.DB)).To(Succeed())
 	return r.Role == s.driverRole
 }
 
@@ -153,14 +153,6 @@ func (t *failingTx) Commit(ctx context.Context, opts ...any) error {
 		return err
 	}
 	return t.Tx.Commit(ctx, opts...)
-}
-
-func retrieveStatus(
-	ctx context.Context,
-	stat *status.Service,
-	key rack.Key,
-) (rack.Status, error) {
-	return retrieveStatusTx(ctx, stat, nil, key)
 }
 
 func retrieveStatusTx(
@@ -897,7 +889,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(after.rack.NewRetrieve().
 					Where(rack.MatchEmbedded(true)).
 					Entries(&embedded).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, restartDB)).To(Succeed())
 				Expect(embedded).To(HaveLen(1))
 				Expect(embedded[0].Name).To(Equal("Renamed"))
 			},
@@ -929,7 +921,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(svc.NewRetrieve().
 					Where(rack.MatchKeys(r.Key)).
 					Entry(&res).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(res.Name).To(Equal("edited embedded"))
 				Expect(res.Embedded).To(BeTrue())
 				Expect(res.Integrations).To(Equal([]string{"arc"}))
@@ -955,7 +947,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &r)
 			})).To(Succeed())
-			s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+			s := MustSucceed(retrieveStatusTx(ctx, stat, db, r.Key))
 			Expect(s.Message).To(Equal("Rack status unknown"))
 			Expect(s.Variant).To(Equal(status.VariantWarning))
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
@@ -969,7 +961,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &a)
 				})).To(Succeed())
-				aKey := MustSucceed(retrieveStatus(ctx, stat, a.Key)).Key
+				aKey := MustSucceed(retrieveStatusTx(ctx, stat, db, a.Key)).Key
 				b := rack.Rack{Name: "rack b", Status: &rack.Status{
 					Key:     aKey,
 					Variant: status.VariantSuccess,
@@ -979,9 +971,9 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &b)
 				})).To(Succeed())
-				Expect(MustSucceed(retrieveStatus(ctx, stat, a.Key)).Message).
+				Expect(MustSucceed(retrieveStatusTx(ctx, stat, db, a.Key)).Message).
 					To(Equal("Rack status unknown"))
-				bStatus := MustSucceed(retrieveStatus(ctx, stat, b.Key))
+				bStatus := MustSucceed(retrieveStatusTx(ctx, stat, db, b.Key))
 				Expect(bStatus.Message).To(Equal("forged"))
 				Expect(bStatus.Key).ToNot(Equal(aKey))
 			},
@@ -1000,7 +992,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &r)
 				})).To(Succeed())
-				s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+				s := MustSucceed(retrieveStatusTx(ctx, stat, db, r.Key))
 				Expect(s.Message).To(Equal("Custom status message"))
 				Expect(s.Description).To(Equal("Custom description"))
 				Expect(s.Variant).To(Equal(status.VariantSuccess))
@@ -1146,7 +1138,7 @@ var _ = Describe("Rack", Ordered, func() {
 				})).To(Succeed())
 
 				Eventually(func(g Gomega) {
-					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+					s := MustSucceed(retrieveStatusTx(ctx, stat, db, r.Key))
 					g.Expect(s.Message).To(Equal("Driver not running"))
 					g.Expect(s.Variant).To(Equal(status.VariantWarning))
 					g.Expect(s.Time).
@@ -1185,7 +1177,7 @@ var _ = Describe("Rack", Ordered, func() {
 				})).To(Succeed())
 
 				Consistently(func(g Gomega) {
-					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+					s := MustSucceed(retrieveStatusTx(ctx, stat, db, r.Key))
 					g.Expect(s.Message).To(Equal("Running"))
 					g.Expect(s.Variant).To(Equal(status.VariantSuccess))
 					g.Expect(s.Description).To(BeEmpty())
@@ -1242,7 +1234,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Consistently(func(g Gomega) {
 					g.Expect(writes.Load()).To(BeZero())
 					g.Expect(alerts.Load()).To(BeZero())
-					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+					s := MustSucceed(retrieveStatusTx(ctx, stat, db, r.Key))
 					g.Expect(s.Variant).To(Equal(status.VariantError))
 				}, 100*time.Millisecond, 5*time.Millisecond).Should(Succeed())
 			},
@@ -1389,7 +1381,7 @@ var _ = Describe("Rack", Ordered, func() {
 				})).To(Succeed())
 				frozenNow.Store(int64(start.Add(12 * telem.Millisecond)))
 				Eventually(func(g Gomega) {
-					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+					s := MustSucceed(retrieveStatusTx(ctx, stat, db, r.Key))
 					g.Expect(s.Message).To(Equal("Driver not running"))
 					g.Expect(s.Name).To(Equal("renamed silent rack"))
 				}).Should(Succeed())
@@ -1433,7 +1425,7 @@ var _ = Describe("Rack", Ordered, func() {
 				frozenNow.Store(int64(start.Add(12 * telem.Millisecond)))
 				Expect(renameTx.Commit(ctx)).To(Succeed())
 				Eventually(func(g Gomega) {
-					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+					s := MustSucceed(retrieveStatusTx(ctx, stat, db, r.Key))
 					g.Expect(s.Message).To(Equal("Driver not running"))
 					g.Expect(s.Name).To(Equal("renamed"))
 				}).Should(Succeed())
@@ -1506,7 +1498,9 @@ var _ = Describe("Rack", Ordered, func() {
 					To(Succeed())
 				now.Store(int64(start.Add(12 * telem.Millisecond)))
 				Eventually(func(g Gomega) {
-					s := MustSucceed(retrieveStatus(ctx, failing.status, r.Key))
+					s := MustSucceed(
+						retrieveStatusTx(ctx, failing.status, failDB, r.Key),
+					)
 					g.Expect(s.Message).To(Equal("Driver not running"))
 					g.Expect(s.Name).To(Equal("renamed"))
 				}).Should(Succeed())
@@ -1524,7 +1518,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(before.status.NewRetrieve[any]().
 					Where(status.MatchOwners[any](owner)).
 					Entry(&held).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, restartDB)).To(Succeed())
 				Expect(before.Close()).To(Succeed())
 				// Migrations do not run again, so the status stays in this encoding.
 				Expect(gorp.NewCreate[status.Key, status.Status[any]]().
@@ -1543,7 +1537,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(after.status.NewRetrieve[any]().
 					Where(status.MatchOwners[any](owner)).
 					Entry(&res).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, restartDB)).To(Succeed())
 				Expect(res.Name).ToNot(Equal("stale name"))
 				Expect(res.Details).To(Equal(details))
 			},
@@ -1583,7 +1577,9 @@ var _ = Describe("Rack", Ordered, func() {
 					HealthCheckInterval: 10 * telem.Millisecond,
 				}))
 				Eventually(func(g Gomega) {
-					s := MustSucceed(retrieveStatus(ctx, after.status, r.Key))
+					s := MustSucceed(
+						retrieveStatusTx(ctx, after.status, restartDB, r.Key),
+					)
 					g.Expect(s.Variant).To(Equal(status.VariantWarning))
 					g.Expect(s.Message).To(Equal("Driver not running"))
 				}).Should(Succeed())
@@ -1697,7 +1693,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		Expect(s.rack.NewRetrieve().
 			Where(rack.MatchKeys(key)).
 			Entry(&r).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return r.Group
 	}
 

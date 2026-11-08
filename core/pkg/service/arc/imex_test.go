@@ -162,7 +162,7 @@ var _ = Describe("ImEx", func() {
 					"versions/testdata/import_v3.json",
 					imex.ImportOptions{Parent: testParent},
 				)
-				root := rootDirectory(ctx, nil)
+				root := rootDirectory(ctx, db)
 				Expect(root.Name).To(Equal("Arcs"))
 				Expect(res.Base().Directory).To(HaveValue(Equal(root.Key)))
 			},

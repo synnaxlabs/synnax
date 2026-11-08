@@ -616,7 +616,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		Expect(svc.NewRetrieve().
 			Where(task.MatchKeys(uuid.MustParse(id.Key))).
 			Entry(&imported).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return env, imported
 	}
 
@@ -646,7 +646,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Expect(json.Unmarshal(raw, &legacy)).To(Succeed())
 			delete(legacy, "type")
 			store := MustBeOk(configs.Store(env.Type))
-			expected := MustSucceed(store.Normalize(ctx, nil, 0, legacy))
+			expected := MustSucceed(store.Normalize(ctx, db, 0, legacy))
 			// The store assigns the key on write.
 			delete(expected, "key")
 			expectSubset(
@@ -657,12 +657,12 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 
 			// The rewrite and the ladder must leave their own output unchanged.
 			if reimportErr, ok := legacyReimportErrors[env.Type]; ok {
-				Expect(store.Normalize(ctx, nil, 0, imported.Config)).Error().
+				Expect(store.Normalize(ctx, db, 0, imported.Config)).Error().
 					To(MatchError(ContainSubstring(reimportErr)))
-				Expect(store.Normalize(ctx, nil, store.Version(), imported.Config)).
+				Expect(store.Normalize(ctx, db, store.Version(), imported.Config)).
 					To(Equal(imported.Config))
 			} else {
-				Expect(store.Normalize(ctx, nil, 0, imported.Config)).
+				Expect(store.Normalize(ctx, db, 0, imported.Config)).
 					To(Equal(imported.Config))
 			}
 

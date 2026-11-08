@@ -59,7 +59,7 @@ var _ = Describe("Grant", func() {
 			users,
 			user.User{Name: "u"},
 		))
-		Expect(rbacSvc.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Expect(rbacSvc.NewEnforcer(db).Enforce(ctx, access.Request{
 			Subject: u.ResourceID(),
 			Action:  access.ActionRetrieve,
 			Objects: []resource.ID{u.ResourceID()},
@@ -79,7 +79,7 @@ var _ = Describe("Grant", func() {
 			Action:  access.ActionUpdate,
 			Objects: []resource.ID{{Type: resource.TypeChannel, Key: "1"}},
 		}
-		Expect(rbacSvc.NewEnforcer(nil).Enforce(ctx, req)).
+		Expect(rbacSvc.NewEnforcer(db).Enforce(ctx, req)).
 			To(MatchError(access.ErrDenied))
 		p := MustSucceed(rbactestutil.Grant(
 			ctx,
@@ -90,7 +90,7 @@ var _ = Describe("Grant", func() {
 			[]access.Action{access.ActionUpdate},
 			resource.ID{Type: resource.TypeChannel},
 		))
-		Expect(rbacSvc.NewEnforcer(nil).Enforce(ctx, req)).To(Succeed())
+		Expect(rbacSvc.NewEnforcer(db).Enforce(ctx, req)).To(Succeed())
 		Expect(p.Role).To(Equal(u.Role))
 	})
 
@@ -114,7 +114,7 @@ var _ = Describe("Grant", func() {
 			))
 		}
 		for _, a := range []access.Action{access.ActionUpdate, access.ActionDelete} {
-			Expect(rbacSvc.NewEnforcer(nil).Enforce(ctx, access.Request{
+			Expect(rbacSvc.NewEnforcer(db).Enforce(ctx, access.Request{
 				Subject: u.ResourceID(),
 				Action:  a,
 				Objects: []resource.ID{{Type: resource.TypeChannel, Key: "1"}},
@@ -146,13 +146,13 @@ var _ = Describe("Grant", func() {
 			Expect(users.NewRetrieve().
 				Where(user.MatchKeys(u.Key)).
 				Entry(&stored).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(stored.Role).To(Equal(p.Role))
 			var policies []policy.Policy
 			Expect(rbacSvc.Policy.NewRetrieve().
 				Where(policy.MatchRoles(viewer)).
 				Entries(&policies).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(policies).To(HaveLen(1))
 		},
 	)

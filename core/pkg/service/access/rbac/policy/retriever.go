@@ -20,7 +20,6 @@ import (
 )
 
 type Retrieve struct {
-	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Policy]
 	indexes indexes
 	rolesOf RolesOf

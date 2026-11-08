@@ -126,7 +126,7 @@ func (e *benchEnv) owners(b *testing.B, key channel.Key) []channel.Channel {
 		Where(channel.MatchCalculated()).
 		Where(e.svc.MatchIndexes(key)).
 		Entries(&owners).
-		Exec(b.Context(), nil); err != nil {
+		Exec(b.Context(), db); err != nil {
 		b.Fatalf("failed to resolve owner: %v", err)
 	}
 	return owners
@@ -162,7 +162,7 @@ func BenchmarkMatchIndexes(b *testing.B) {
 				if err := env.svc.NewRetrieve().
 					Where(channel.MatchCalculated()).
 					Entries(&all).
-					Exec(b.Context(), nil); err != nil {
+					Exec(b.Context(), db); err != nil {
 					b.Fatalf("failed to scan: %v", err)
 				}
 				if len(all) != count {

@@ -127,7 +127,7 @@ var _ = Describe("AlertTask", func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Details.Cmd).To(Equal("cmd-again"))
 				Expect(stat.Details.Running).To(Equal(running))
 			},
@@ -463,7 +463,7 @@ var _ = Describe("AlertTask", func() {
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&stat).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					return stat
 				}
 				const (

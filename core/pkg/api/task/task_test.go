@@ -82,7 +82,7 @@ func statusOf(ctx SpecContext, t task.Task) resource.ID {
 	Expect(svc.Status.NewRetrieve[task.StatusDetails]().
 		Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 		Entry(&st).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, node.DB)).To(Succeed())
 	return st.ResourceID()
 }
 
@@ -116,7 +116,7 @@ func countInRange(ctx SpecContext, r ranger.Range) int {
 	GinkgoHelper()
 	return MustSucceed(svc.Task.NewRetrieve().
 		Where(task.MatchRanges(r.Key)).
-		Count(ctx, nil))
+		Count(ctx, node.DB))
 }
 
 func retrieveTask(ctx SpecContext, key task.Key) task.Task {
@@ -125,7 +125,7 @@ func retrieveTask(ctx SpecContext, key task.Key) task.Task {
 	Expect(svc.Task.NewRetrieve().
 		Where(task.MatchKeys(key)).
 		Entry(&t).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, node.DB)).To(Succeed())
 	return t
 }
 
@@ -332,7 +332,7 @@ var _ = Describe("Create", func() {
 			})).Error().To(denied(u, needs[refused].action, needs[refused].object))
 			Expect(svc.Task.NewRetrieve().
 				Where(task.MatchKeys(t.Key)).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, node.DB)).To(BeFalse())
 		},
 		Entry("without create on the task", 0),
 		Entry("without update on the task, which its status sits in", 2),
@@ -656,7 +656,7 @@ var _ = Describe("Delete", func() {
 		Expect(svc.Task.NewRetrieve().
 			Where(task.MatchKeys(key)).
 			Entry(&t).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Exec(ctx, node.DB)).To(MatchError(query.ErrNotFound))
 	}
 	It("Should release the channels of a running task", func(ctx SpecContext) {
 		t := createRunningTask(ctx, true)

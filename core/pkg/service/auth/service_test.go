@@ -170,12 +170,12 @@ var _ = Describe("Service", func() {
 				var stored auth.Session
 				Expect(
 					svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).Entry(&stored).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(stored).To(Equal(session))
 				var p password.Password
 				Expect(pw.NewRetrieve().Where(password.MatchSubjects(alice)).Entry(&p).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(session.Credential).To(Equal(p.Key))
 			},
 		)
@@ -184,7 +184,7 @@ var _ = Describe("Service", func() {
 			var stored auth.Session
 			Expect(
 				svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).Entry(&stored).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).To(Succeed())
 			Expect(stored.Hash).To(HaveLen(32))
 			Expect(stored.Hash).To(Equal(session.Hash))
@@ -291,7 +291,7 @@ var _ = Describe("Service", func() {
 				Expect(svc.Authenticate(ctx, token)).Error().
 					To(MatchError(auth.ErrInvalidToken))
 				Expect(svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).
-					Exists(ctx, nil)).To(BeFalse())
+					Exists(ctx, db)).To(BeFalse())
 			},
 		)
 		It(
@@ -313,7 +313,7 @@ var _ = Describe("Service", func() {
 			).Error().
 				To(MatchError(auth.ErrExpiredToken))
 			Expect(
-				svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).Exists(ctx, nil),
+				svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).Exists(ctx, db),
 			).
 				To(BeFalse())
 		})
@@ -330,7 +330,7 @@ var _ = Describe("Service", func() {
 				var stored auth.Session
 				Expect(
 					svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).Entry(&stored).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(stored.LastActive).To(Equal(touched.LastActive))
 			},
@@ -349,7 +349,7 @@ var _ = Describe("Service", func() {
 				Expect(
 					svc.NewRetrieve().
 						Where(auth.MatchKeys(session.Key)).
-						Exists(ctx, nil),
+						Exists(ctx, db),
 				).To(BeTrue())
 			},
 		)
@@ -422,7 +422,7 @@ var _ = Describe("Service", func() {
 				Expect(svc.Sweep(ctx)).To(Succeed())
 				Eventually(ended).Should(BeClosed())
 				Expect(
-					svc.NewRetrieve().Where(auth.MatchKeys(stale.Key)).Exists(ctx, nil),
+					svc.NewRetrieve().Where(auth.MatchKeys(stale.Key)).Exists(ctx, db),
 				).
 					To(BeFalse())
 			},
@@ -484,7 +484,7 @@ var _ = Describe("Service", func() {
 				Expect(svc.Sweep(ctx)).To(Succeed())
 				var refreshed auth.Session
 				Expect(svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).
-					Entry(&refreshed).Exec(ctx, nil)).To(Succeed())
+					Entry(&refreshed).Exec(ctx, db)).To(Succeed())
 				Expect(refreshed.LastActive).To(Equal(telem.NewTimeStamp(clock.Now())))
 				clock.Advance(idle + time.Second)
 				Expect(svc.Sweep(ctx)).To(Succeed())
@@ -511,7 +511,7 @@ var _ = Describe("Service", func() {
 				var stored auth.Session
 				Expect(
 					svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).Entry(&stored).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(stored.LastActive).To(Equal(seen))
 			},
@@ -525,14 +525,14 @@ var _ = Describe("Service", func() {
 				Expect(
 					svc.NewRetrieve().
 						Where(auth.MatchKeys(session.Key)).
-						Exists(ctx, nil),
+						Exists(ctx, db),
 				).To(BeTrue())
 				clock.Advance(idle / 4)
 				Expect(svc.Sweep(ctx)).To(Succeed())
 				Expect(
 					svc.NewRetrieve().
 						Where(auth.MatchKeys(session.Key)).
-						Exists(ctx, nil),
+						Exists(ctx, db),
 				).To(BeFalse())
 			},
 		)
@@ -556,7 +556,7 @@ var _ = Describe("Service", func() {
 					releaseEnded()
 					var stored auth.Session
 					Expect(svc.NewRetrieve().Where(auth.MatchKeys(kept.Key)).
-						Entry(&stored).Exec(ctx, nil)).To(Succeed())
+						Entry(&stored).Exec(ctx, db)).To(Succeed())
 					Expect(stored.LastActive).To(Equal(telem.NewTimeStamp(clock.Now())))
 				}
 			},
@@ -567,7 +567,7 @@ var _ = Describe("Service", func() {
 			fresh, freshToken := login(ctx)
 			clock.Advance(idle*3/4 + time.Second)
 			Expect(svc.Sweep(ctx)).To(Succeed())
-			Expect(svc.NewRetrieve().Where(auth.MatchKeys(stale.Key)).Exists(ctx, nil)).
+			Expect(svc.NewRetrieve().Where(auth.MatchKeys(stale.Key)).Exists(ctx, db)).
 				To(BeFalse())
 			Expect(svc.Authenticate(ctx, staleToken)).Error().
 				To(MatchError(auth.ErrInvalidToken))
@@ -592,7 +592,7 @@ var _ = Describe("Service", func() {
 					Expect(svc.Authenticate(ctx, token)).Error().
 						To(MatchError(auth.ErrInvalidToken))
 					Expect(svc.NewRetrieve().Where(auth.MatchSubjects(session.Subject)).
-						Exists(ctx, nil)).To(BeFalse())
+						Exists(ctx, db)).To(BeFalse())
 					Expect(pw.Authenticate(ctx, proof(username, "secret"))).Error().
 						To(MatchError(auth.ErrInvalidCredentials))
 					MustSucceed(svc.Authenticate(ctx, bobToken))
@@ -699,7 +699,7 @@ var _ = Describe("Service", func() {
 	It("Should not find a session by a stale retrieve", func(ctx SpecContext) {
 		Expect(
 			svc.NewRetrieve().Where(auth.MatchKeys(uuid.New())).Entry(&auth.Session{}).
-				Exec(ctx, nil),
+				Exec(ctx, db),
 		).To(MatchError(query.ErrNotFound))
 	})
 })

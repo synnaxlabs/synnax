@@ -319,7 +319,7 @@ var _ = Describe("Framer", func() {
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames("sy_range_set")).
 				Entry(&ch).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			client, server := newStreams(ctx)
 			Expect(client.Send(apiframer.WriterRequest{
 				Config: apiframer.WriterConfig{Keys: channel.Keys{ch.Key()}},
@@ -392,12 +392,12 @@ var _ = Describe("Framer", func() {
 				}))
 				return iter.SeekFirst()
 			}
-			Expect(apiSvc.Delete(rootCtx(ctx), nil, apiframer.DeleteRequest{
+			Expect(apiSvc.Delete(rootCtx(ctx), db, apiframer.DeleteRequest{
 				Names:  []string{index.Name + ".*", data.Name + ".*"},
 				Bounds: telem.TimeRangeMax,
 			})).Error().ToNot(HaveOccurred())
 			Expect(hasData()).To(BeTrue())
-			Expect(apiSvc.Delete(rootCtx(ctx), nil, apiframer.DeleteRequest{
+			Expect(apiSvc.Delete(rootCtx(ctx), db, apiframer.DeleteRequest{
 				Names:  []string{index.Name, data.Name},
 				Bounds: telem.TimeRangeMax,
 			})).Error().ToNot(HaveOccurred())
@@ -460,6 +460,7 @@ var _ = Describe("Framer", func() {
 			})).To(Succeed())
 			keys := channel.Keys{records.Key(), other.Key()}
 			svc := MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
+				DB:      db,
 				Framer:  framerSvc,
 				Channel: channelSvc,
 				RBAC:    rbacSvc,

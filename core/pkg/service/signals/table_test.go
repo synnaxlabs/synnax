@@ -220,7 +220,7 @@ var _ = Describe("Table", func() {
 			})).To(Succeed())
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(setName)).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 		})
 	})
 })

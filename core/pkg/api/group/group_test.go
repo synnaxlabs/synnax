@@ -55,7 +55,7 @@ func retrieve(ctx SpecContext, key group.Key) group.Group {
 	Expect(svc.Group.NewRetrieve().
 		Where(group.MatchKeys(key)).
 		Entry(&g).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return g
 }
 
@@ -63,7 +63,7 @@ func exists(ctx SpecContext, key group.Key) bool {
 	GinkgoHelper()
 	return MustSucceed(svc.Group.NewRetrieve().
 		Where(group.MatchKeys(key)).
-		Exists(ctx, nil))
+		Exists(ctx, db))
 }
 
 func newGroup(ctx SpecContext, scope resource.Type, parent *group.Group) group.Group {
@@ -366,7 +366,7 @@ var _ = Describe("Group", func() {
 					Expect(svc.Schematic.NewRetrieve().
 						Where(schematic.MatchKeys(sc.Key)).
 						Entry(&stored).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(stored.Project).To(Equal(&from.Key))
 				},
 				Entry("without update on the schematic", func() resource.ID {
@@ -395,7 +395,7 @@ var _ = Describe("Group", func() {
 					Expect(svc.Schematic.NewRetrieve().
 						Where(schematic.MatchKeys(sc.Key)).
 						Entry(&stored).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(stored.Project).To(Equal(&to.Key))
 				},
 			)

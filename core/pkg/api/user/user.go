@@ -30,6 +30,10 @@ import (
 
 // ServiceConfig is the configuration for the user API service.
 type ServiceConfig struct {
+	// DB opens the snapshots that access checks read.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// RBAC checks the user writes that it must check before they run.
 	//
 	// [REQUIRED]
@@ -52,6 +56,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.User = override.Nil(c.User, other.User)
 	c.Password = override.Nil(c.Password, other.Password)
@@ -61,6 +66,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.user")
+	v.NotNil("db", c.DB)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("user", c.User)
 	v.NotNil("password", c.Password)
@@ -69,6 +75,7 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
+	db       *gorp.DB
 	access   *rbac.Service
 	internal *user.Service
 	password *password.Service
@@ -82,6 +89,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:       cfg.DB,
 		access:   cfg.RBAC,
 		internal: cfg.User,
 		password: cfg.Password,
@@ -115,10 +123,12 @@ func (s *Service) PrepareCreate(
 	req CreateRequest,
 ) ([]password.Hash, error) {
 	// Each hash is slow, so a subject that cannot create users costs none.
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeUser}},
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: []resource.ID{{Type: resource.TypeUser}},
+		})
 	}); err != nil {
 		return nil, err
 	}
@@ -290,13 +300,14 @@ func (s *Service) SetRole(
 }
 
 // enforceOnUsers checks the action on the users with the provided keys before a write
-// reads them, so a subject without access learns nothing from the root-user guard.
+// reads them, so a subject without access learns nothing from the root-user guard. It
+// reads committed policies, so a policy staged in the same transaction grants nothing.
 func (s *Service) enforceOnUsers(
 	ctx context.Context,
 	action access.Action,
 	keys []user.Key,
 ) error {
-	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	return s.access.NewEnforcer(s.db).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  action,
 		Objects: user.ResourceIDsFromKeys(keys),

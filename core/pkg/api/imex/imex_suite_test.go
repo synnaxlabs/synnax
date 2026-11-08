@@ -117,7 +117,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	export = bind.Read(binder, apiSvc.Export)
 	Expect(userSvc.NewRetrieve().
 		Where(user.MatchRootUser(true)).
-		Entry(&root).Exec(ctx, nil)).To(Succeed())
+		Entry(&root).Exec(ctx, db)).To(Succeed())
 })
 
 // rootCtx returns a freighter.Context with the suite-level root user installed as the

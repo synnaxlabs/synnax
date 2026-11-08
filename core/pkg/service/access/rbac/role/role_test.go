@@ -320,7 +320,7 @@ var _ = Describe("Search", func() {
 		Expect(svc.NewRetrieve().
 			Search("quasar").
 			Entries(&rs).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(rs).To(HaveExactElements(HaveField("Key", r.Key)))
 	})
 
@@ -329,7 +329,7 @@ var _ = Describe("Search", func() {
 		Expect(svc.NewRetrieve().
 			Search("zzz-no-such-role").
 			Entries(&rs).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(rs).To(BeEmpty())
 	})
 })

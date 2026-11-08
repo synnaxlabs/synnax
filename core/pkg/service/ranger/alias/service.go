@@ -122,7 +122,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewReader opens a new Reader to retrieve aliases.
 func (s *Service) NewReader(snap gorp.Snapshot) Reader {
 	return Reader{
-		snap:            gorp.OverrideSnapshot(s.cfg.DB, snap),
+		snap:            snap,
 		parentRetriever: s.cfg.ParentRetriever,
 		table:           s.table,
 	}

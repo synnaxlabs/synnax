@@ -109,7 +109,6 @@ func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 // NewRetrieve opens a new Retrieve query to fetch labels.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
 	}

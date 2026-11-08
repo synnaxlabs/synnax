@@ -30,7 +30,7 @@ var _ = Describe("CreateDriverRole", func() {
 		Expect(roles.NewRetrieve().
 			Where(role.MatchKeys(k)).
 			Entry(&r).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(r.Name).To(Equal("Driver"))
 	})
 })

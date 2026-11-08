@@ -111,20 +111,20 @@ var _ = Describe("Ontology drop", func() {
 			Expect(layer.Group.NewRetrieve().
 				Where(group.MatchKeys(sensors.Key)).
 				Entry(&g).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, node.DB)).To(Succeed())
 			Expect(g.Scope).To(Equal(resource.TypeChannel))
 			Expect(g.Parent).To(BeNil())
 			var r ranger.Range
 			Expect(layer.Ranger.NewRetrieve().
 				Where(ranger.MatchKeys(child.Key)).
 				Entry(&r).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, node.DB)).To(Succeed())
 			Expect(r.Parent).To(HaveValue(Equal(parent.Key)))
 
 			By("Deleting the built-in root group")
 			Expect(layer.Group.NewRetrieve().
 				Where(group.MatchKeys(channels.Key)).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, node.DB)).To(BeFalse())
 
 			By("Deleting every resource and relationship")
 			Expect(resources(ctx, node.DB)).To(BeEmpty())
@@ -181,7 +181,7 @@ var _ = Describe("Ontology drop", func() {
 		layer := MustOpen(svctestutil.OpenLayer(ctx, node))
 		Expect(layer.Group.NewRetrieve().
 			Where(group.MatchKeys(builtin.Key)).
-			Exists(ctx, nil)).To(BeTrue())
+			Exists(ctx, node.DB)).To(BeTrue())
 		Expect(resources(ctx, node.DB)).To(HaveLen(1))
 		Expect(relationships(ctx, node.DB)).To(ConsistOf(rel))
 	})
@@ -193,13 +193,17 @@ var _ = Describe("Ontology drop", func() {
 			"sy_ontology_relationship_set",
 			"sy_ontology_relationship_delete",
 		}
-		retrieve := func(ctx SpecContext, l *service.Layer) []channel.Channel {
+		retrieve := func(
+			ctx SpecContext,
+			db *gorp.DB,
+			l *service.Layer,
+		) []channel.Channel {
 			GinkgoHelper()
 			var chs []channel.Channel
 			Expect(l.Channel.NewRetrieve().
 				Where(channel.MatchNames(names...)).
 				Entries(&chs).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			return chs
 		}
 
@@ -221,13 +225,13 @@ var _ = Describe("Ontology drop", func() {
 				Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return first.Channel.NewWriter(tx).CreateMany(ctx, &chs)
 				})).To(Succeed())
-				Expect(retrieve(ctx, first)).To(HaveLen(len(names)))
+				Expect(retrieve(ctx, n.DB, first)).To(HaveLen(len(names)))
 				Expect(first.Close()).To(Succeed())
 				second := MustSucceed(svctestutil.OpenLayer(ctx, n))
-				Expect(retrieve(ctx, second)).To(BeEmpty())
+				Expect(retrieve(ctx, n.DB, second)).To(BeEmpty())
 				Expect(second.Close()).To(Succeed())
 				By("Opening again with no channels to delete")
-				Expect(retrieve(ctx, MustOpen(svctestutil.OpenLayer(ctx, n)))).
+				Expect(retrieve(ctx, n.DB, MustOpen(svctestutil.OpenLayer(ctx, n)))).
 					To(BeEmpty())
 			},
 		)

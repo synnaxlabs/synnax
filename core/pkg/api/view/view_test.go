@@ -54,7 +54,7 @@ func exists(ctx SpecContext, key view.Key) bool {
 	GinkgoHelper()
 	return MustSucceed(svc.View.NewRetrieve().
 		Where(view.MatchKeys(key)).
-		Exists(ctx, nil))
+		Exists(ctx, db))
 }
 
 func retrieveView(ctx SpecContext, key view.Key) view.View {
@@ -63,7 +63,7 @@ func retrieveView(ctx SpecContext, key view.Key) view.View {
 	Expect(svc.View.NewRetrieve().
 		Where(view.MatchKeys(key)).
 		Entry(&v).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return v
 }
 

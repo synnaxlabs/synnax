@@ -104,7 +104,7 @@ var _ = Describe("Create", func() {
 		Expect(svc.LinePlot.NewRetrieve().
 			Where(lineplot.MatchKeys(lp.Key)).
 			Entry(&lineplot.LinePlot{}).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
 	It("Should refuse to overwrite a line plot without update on it", func(
 		ctx SpecContext,
@@ -197,7 +197,7 @@ var _ = Describe("Delete", func() {
 			Expect(svc.LinePlot.NewRetrieve().
 				Where(lineplot.MatchKeys(lp.Key)).
 				Entry(&lineplot.LinePlot{}).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		},
 	)
 })
@@ -297,7 +297,7 @@ func retrieveLinePlot(ctx SpecContext, key lineplot.Key) lineplot.LinePlot {
 	Expect(svc.LinePlot.NewRetrieve().
 		Where(lineplot.MatchKeys(key)).
 		Entry(&lp).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return lp
 }
 

@@ -142,7 +142,9 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 			}
 		}
 	}
-	enforcer := s.cfg.RBAC.NewEnforcer(nil)
+	// The write lock holds commits off, and committed policies decide, so a write
+	// cannot grant itself access.
+	enforcer := s.cfg.RBAC.NewEnforcer(s.cfg.DB)
 	for _, action := range access.AllActions {
 		objects := needs[action]
 		if len(objects) == 0 {

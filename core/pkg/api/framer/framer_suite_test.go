@@ -86,6 +86,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
 	apiSvc = MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
+		DB:      db,
 		Framer:  svc.Framer,
 		Channel: svc.Channel,
 		RBAC:    svc.RBAC,
@@ -94,7 +95,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(svc.User.NewRetrieve().
 		Where(user.MatchRootUser(true)).
 		Entry(&root).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 })
 
 // rootCtx returns a context with the suite's root user installed as the request

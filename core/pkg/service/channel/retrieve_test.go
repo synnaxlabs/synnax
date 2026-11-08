@@ -57,7 +57,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				NewRetrieve().
 				Where(channel.MatchLeaseholders(1)).
 				Entries(&resChannels).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(resChannels).To(HaveLen(len(created)))
 		})
 		It("Should correctly retrieve a channel by its key", func(ctx SpecContext) {
@@ -82,7 +82,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				NewRetrieve().
 				Where(channel.MatchKeys(created[0].Key())).
 				Entries(&resChannels).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Key()).To(Equal(created[0].Key()))
 		})
@@ -104,7 +104,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				NewRetrieve().
 				Where(channel.MatchNames(n)).
 				Entries(&resChannels).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Name).To(Equal(n))
 		})
@@ -116,7 +116,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					NewRetrieve().
 					Where(channel.MatchKeys(435)).
 					Entries(&resChannels).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 				).To(MatchError(ContainSubstring("Channels with keys [435] not found")))
 			},
 		)
@@ -141,7 +141,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				NewRetrieve().
 				Search("catalina").
 				Entries(&resChannels).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(resChannels).To(HaveExactElements(HaveField("Name", "catalina")))
 		})
 
@@ -153,7 +153,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					NewRetrieve().
 					Where(channel.MatchKeys(0)).
 					Entries(&resChannels).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 	})
@@ -182,7 +182,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				NewRetrieve().
 				Where(channel.MatchCalculated()).
 				Entries(&results).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			for _, ch := range results {
 				Expect(ch.IsCalculated()).To(BeTrue())
 			}
@@ -211,7 +211,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					NewRetrieve().
 					Where(channel.MatchCalculated()).
 					Entries(&results).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, fresh.DB)).To(Succeed())
 				Expect(results).To(BeEmpty())
 			},
 		)
@@ -251,7 +251,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(svc.NewRetrieve().
 				Where(svc.MatchIndexes(keys...)).
 				Entries(&results).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			return channel.KeysFromChannels(results)
 		}
 
@@ -334,7 +334,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchKeys(created[0].Key())).
-				Exists(ctx, nil),
+				Exists(ctx, db),
 			).To(BeTrue())
 		})
 	})

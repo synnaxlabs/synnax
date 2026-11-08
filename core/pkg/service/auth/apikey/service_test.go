@@ -91,7 +91,7 @@ var _ = Describe("Service", func() {
 			Expect(k.Created).ToNot(BeZero())
 			var stored apikey.APIKey
 			Expect(svc.NewRetrieve().Where(apikey.MatchKeys(k.Key)).Entry(&stored).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(stored.Hash).To(HaveLen(32))
 		})
 		It("Should reject an invalid subject", func(ctx SpecContext) {
@@ -141,10 +141,10 @@ var _ = Describe("Service", func() {
 	Describe("Version", func() {
 		It("Should return when the key was created", func(ctx SpecContext) {
 			k, _ := create(ctx, svc, subject(), "")
-			Expect(svc.Version(ctx, nil, k.Key)).To(Equal(k.Created))
+			Expect(svc.Version(ctx, db, k.Key)).To(Equal(k.Created))
 		})
 		It("Should return a not found error for an unknown key", func(ctx SpecContext) {
-			Expect(svc.Version(ctx, nil, uuid.New())).Error().
+			Expect(svc.Version(ctx, db, uuid.New())).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 	})
@@ -157,7 +157,7 @@ var _ = Describe("Service", func() {
 				return svc.NewWriter(tx).Delete(ctx, gone.Key)
 			})).To(Succeed())
 			Expect(svc.NewRetrieve().Where(apikey.MatchKeys(gone.Key)).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			Expect(svc.Authenticate(ctx, proof(goneToken))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 			MustSucceed(svc.Authenticate(ctx, proof(keptToken)))
@@ -179,7 +179,7 @@ var _ = Describe("Service", func() {
 			deleteSubject(ctx, gone)
 			var keys []apikey.APIKey
 			Expect(svc.NewRetrieve().Where(apikey.MatchSubjects(gone, kept)).
-				Entries(&keys).Exec(ctx, nil)).To(Succeed())
+				Entries(&keys).Exec(ctx, db)).To(Succeed())
 			Expect(keys).To(HaveLen(1))
 			Expect(keys[0].Subject).To(Equal(kept))
 		})

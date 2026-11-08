@@ -263,6 +263,7 @@ func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, snap Snapshot) error
 // Exists returns true if any record passes the filter. When every requested key must
 // have an entry (see SkipMissingKeys), it returns true only if every key exists.
 func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error) {
+	checkForNilTx("Retriever.Exists", snap)
 	if err := r.resolveFilter(ctx, snap); err != nil {
 		return false, err
 	}

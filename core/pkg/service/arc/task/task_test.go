@@ -196,7 +196,7 @@ var _ = Describe("Task", Ordered, func() {
 		GinkgoHelper()
 		return newFactoryWith(
 			func(ctx context.Context, key uuid.UUID) (svcarc.AutomationArc, error) {
-				resolver := channelSvc.NewArcSymbolResolver(nil)
+				resolver := channelSvc.NewArcSymbolResolver(db)
 				root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 				module, err := arc.CompileGraph(ctx, g, root)
 				if err != nil {
@@ -221,7 +221,7 @@ var _ = Describe("Task", Ordered, func() {
 		GinkgoHelper()
 		return newFactoryWith(
 			func(_ context.Context, _ uuid.UUID) (svcarc.AutomationArc, error) {
-				resolver := channelSvc.NewArcSymbolResolver(nil)
+				resolver := channelSvc.NewArcSymbolResolver(db)
 				root := arc.NewRoot(resolver, slices.Concat(
 					arcstatus.NewSymbols(), ranges.NewSymbols(),
 				)...)
@@ -516,7 +516,7 @@ var _ = Describe("Task", Ordered, func() {
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Entry(&stat).Exec(ctx, db)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(Equal("Failed to configure task"))
 			Expect(stat.Description).To(ContainSubstring("invalid uuid"))
@@ -544,7 +544,7 @@ var _ = Describe("Task", Ordered, func() {
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Entry(&stat).Exec(ctx, db)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(Equal("Failed to configure task"))
 			Expect(stat.Description).To(ContainSubstring("not found"))
@@ -578,7 +578,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -614,7 +614,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Name).To(Equal(svcTask.Name))
 				Expect(stat.Details.Cmd).To(Equal("cmd-start"))
 				Expect(stat.Details.Running).To(BeTrue())
@@ -651,7 +651,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
 				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
@@ -679,7 +679,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to start task"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
@@ -717,7 +717,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
 			},
@@ -746,7 +746,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -773,7 +773,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -803,7 +803,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("error"))
 				Expect(stat.Message).To(Equal("Failed to configure task"))
 				Expect(stat.Description).To(ContainSubstring("not found"))
@@ -838,7 +838,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -870,7 +870,7 @@ var _ = Describe("Task", Ordered, func() {
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Entry(&stat).Exec(ctx, db)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Started task"))
 			Expect(stat.Details.Running).To(BeTrue())
@@ -1065,7 +1065,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.MatchOwners[task.StatusDetails](
 						svcTask.ResourceID(),
 					)).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to start task"))
 				Expect(stat.Description).To(Equal(`unknown performance "unknown"`))
@@ -1115,7 +1115,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Message).To(Equal("Failed to start task"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-start"))
 			},
@@ -1241,7 +1241,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 						return s.Name == "ox_alarm", nil
 					})).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).Should(Succeed())
 		})
@@ -1294,7 +1294,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 						return s.Name == name, nil
 					})).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				return stat
 			}
 
@@ -1303,7 +1303,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 						return s.Name == base+"_d", nil
 					})).
-					Entry(&status.Status[struct{}]{}).Exec(ctx, nil)).To(Succeed())
+					Entry(&status.Status[struct{}]{}).Exec(ctx, db)).To(Succeed())
 			}).Should(Succeed())
 
 			Expect(byName(base + "_b").Variant).To(BeEquivalentTo("error"))
@@ -1359,7 +1359,7 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
-						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+						Entries(&rows).Exec(ctx, db)).To(Succeed())
 					g.Expect(rows).To(HaveLen(1))
 				}
 				Eventually(oneRow).Should(Succeed())
@@ -1422,7 +1422,7 @@ var _ = Describe("Task", Ordered, func() {
 					GinkgoHelper()
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Count(ctx, nil)).To(Equal(1))
+						Count(ctx, db)).To(Equal(1))
 				}
 				Eventually(oneRange).Should(Succeed())
 
@@ -1486,7 +1486,7 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
-						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+						Entries(&rows).Exec(ctx, db)).To(Succeed())
 					g.Expect(rows).To(HaveLen(1))
 				}
 				Eventually(oneRow).Should(Succeed())
@@ -1563,7 +1563,7 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
-						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+						Entries(&rows).Exec(ctx, db)).To(Succeed())
 					g.Expect(rows).To(HaveLen(1))
 				}
 				Eventually(oneRow).Should(Succeed())
@@ -1641,7 +1641,7 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
-						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+						Entries(&rows).Exec(ctx, db)).To(Succeed())
 					g.Expect(rows).To(HaveLen(1))
 				}
 				Eventually(oneRow).Should(Succeed())
@@ -1696,7 +1696,7 @@ var _ = Describe("Task", Ordered, func() {
 					return func(g Gomega) {
 						g.Expect(rangerSvc.NewRetrieve().
 							Where(ranger.MatchNames(name)).
-							Count(ctx, nil)).To(Equal(want))
+							Count(ctx, db)).To(Equal(want))
 					}
 				}
 
@@ -1769,7 +1769,7 @@ var _ = Describe("Task", Ordered, func() {
 					return func(g Gomega) {
 						g.Expect(rangerSvc.NewRetrieve().
 							Where(ranger.MatchNames(name)).
-							Count(ctx, nil)).To(Equal(want))
+							Count(ctx, db)).To(Equal(want))
 					}
 				}
 
@@ -1847,7 +1847,7 @@ var _ = Describe("Task", Ordered, func() {
 					return func(g Gomega) {
 						g.Expect(rangerSvc.NewRetrieve().
 							Where(ranger.MatchNames(name)).
-							Count(ctx, nil)).To(Equal(want))
+							Count(ctx, db)).To(Equal(want))
 					}
 				}
 
@@ -1926,7 +1926,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+						Entry(&rng).Exec(ctx, db)).To(Succeed())
 				}).Should(Succeed())
 				expected := rng.Key.String()
 
@@ -2003,7 +2003,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+						Entry(&rng).Exec(ctx, db)).To(Succeed())
 				}).Should(Succeed())
 				expected := rng.Key.String()
 
@@ -2079,7 +2079,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+						Entry(&rng).Exec(ctx, db)).To(Succeed())
 				}).Should(Succeed())
 				expected := rng.Key.String()
 
@@ -2189,7 +2189,7 @@ var _ = Describe("Task", Ordered, func() {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 					g.Expect(stat.Name).To(Equal("test-status-report"))
 					g.Expect(stat.Message).To(Equal("Found duplicate status names"))
@@ -3599,7 +3599,7 @@ var _ = Describe("Task", Ordered, func() {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 					g.Expect(stat.Message).To(Equal("Node failed"))
 					g.Expect(stat.Description).
@@ -3745,7 +3745,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 				g.Expect(stat.Description).
 					To(ContainSubstring("integer divide by zero"))

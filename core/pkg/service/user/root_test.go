@@ -40,7 +40,7 @@ func storedHash(ctx context.Context, username string) []byte {
 	Expect(passwordSvc.NewRetrieve().
 		Where(password.MatchUsernames(username)).
 		Entry(&p).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return p.Hash
 }
 
@@ -84,11 +84,11 @@ func findUser(ctx context.Context, username string) user.User {
 	Expect(passwordSvc.NewRetrieve().
 		Where(password.MatchUsernames(username)).
 		Entry(&p).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	key := MustSucceed(user.KeyFromResourceID(p.Subject))
 	var u user.User
 	Expect(svc.NewRetrieve().Where(user.MatchKeys(key)).Entry(&u).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return u
 }
 
@@ -98,7 +98,7 @@ func rootUsers(ctx context.Context) []user.User {
 	Expect(svc.NewRetrieve().
 		Where(user.MatchRootUser(true)).
 		Entries(&roots).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return roots
 }
 
@@ -107,7 +107,7 @@ func rootUsers(ctx context.Context) []user.User {
 func purgeUsers(ctx context.Context) {
 	GinkgoHelper()
 	var users []user.User
-	Expect(svc.NewRetrieve().Entries(&users).Exec(ctx, nil)).To(Succeed())
+	Expect(svc.NewRetrieve().Entries(&users).Exec(ctx, db)).To(Succeed())
 	keys := make([]user.Key, len(users))
 	for i, u := range users {
 		keys[i] = u.Key
@@ -115,7 +115,7 @@ func purgeUsers(ctx context.Context) {
 	Expect(gorp.WrapWriter[user.Key, user.User](db).Delete(ctx, keys...)).
 		To(Succeed())
 	var passwords []password.Password
-	Expect(passwordSvc.NewRetrieve().Entries(&passwords).Exec(ctx, nil)).To(Succeed())
+	Expect(passwordSvc.NewRetrieve().Entries(&passwords).Exec(ctx, db)).To(Succeed())
 	pwKeys := make([]password.Key, len(passwords))
 	for i, p := range passwords {
 		pwKeys[i] = p.Key

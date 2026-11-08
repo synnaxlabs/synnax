@@ -204,7 +204,7 @@ var _ = Describe("Service", func() {
 			var res schematic.Schematic
 			Expect(schematicSvc.NewRetrieve().
 				Where(schematic.MatchKeys(s.Key)).
-				Entry(&res).Exec(ctx, nil)).To(Succeed())
+				Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res.Project).To(HaveValue(Equal(dest.Key)))
 		})
 
@@ -287,7 +287,7 @@ var _ = Describe("Service", func() {
 					var res schematic.Schematic
 					Expect(schematicSvc.NewRetrieve().
 						Where(schematic.MatchKeys(s.Key)).
-						Entry(&res).Exec(ctx, nil)).To(Succeed())
+						Entry(&res).Exec(ctx, db)).To(Succeed())
 					Expect(res.Nodes).To(HaveLen(1))
 					Expect(res.Nodes[0].Position).To(Equal(spatial.XY{X: 1, Y: 2}))
 				},
@@ -366,7 +366,7 @@ var _ = Describe("Service", func() {
 					var res schematic.Schematic
 					Expect(schematicSvc.NewRetrieve().
 						Where(schematic.MatchKeys(s.Key)).
-						Entry(&res).Exec(ctx, nil)).To(Succeed())
+						Entry(&res).Exec(ctx, db)).To(Succeed())
 					Expect(res.Nodes).To(HaveLen(2))
 					Expect(res.Edges).To(HaveLen(1))
 				},
@@ -488,7 +488,7 @@ func retrieveSchematic(ctx SpecContext, key schematic.Key) schematic.Schematic {
 	Expect(schematicSvc.NewRetrieve().
 		Where(schematic.MatchKeys(key)).
 		Entry(&s).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return s
 }
 
@@ -744,7 +744,7 @@ var _ = Describe("Owner access", func() {
 		Expect(schematicSvc.NewRetrieve().
 			Where(schematic.MatchKeys(sc.Key)).
 			Entry(&schematic.Schematic{}).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should refuse to overwrite a schematic without update on it", func(
@@ -870,7 +870,7 @@ var _ = Describe("Delete", func() {
 			Expect(schematicSvc.NewRetrieve().
 				Where(schematic.MatchKeys(sc.Key)).
 				Entry(&schematic.Schematic{}).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		},
 	)
 })

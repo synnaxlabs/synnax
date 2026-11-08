@@ -645,7 +645,7 @@ var _ = Describe("CSV", func() {
 			Expect(channelSvc.NewRetrieve().
 				Entry(&calculatedIndex).
 				Where(svcchannel.MatchKeys(calculated.Index())).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			b := MustSucceed(framer.CSVEncoder.Encode(
 				ctx,
 				read(ctx, calculatedIndex, calculated),

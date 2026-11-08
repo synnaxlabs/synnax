@@ -104,7 +104,7 @@ var _ = Describe("StatusHandler", func() {
 		var stat task.Status
 		Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 			Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-			Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Entry(&stat).Exec(ctx, db)).To(Succeed())
 		return stat
 	}
 
@@ -575,7 +575,7 @@ var _ = Describe("StatusHandler", func() {
 				Expect(statusSvc.NewRetrieve[any]().
 					Where(status.MatchOwners[any](t.ResourceID())).
 					Entry(new(status.Status[any])).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 	})

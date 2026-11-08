@@ -39,7 +39,7 @@ func openStreamer(ctx context.Context, key channel.Key) (
 	Expect(channelSvc.NewRetrieve().
 		Where(channel.MatchNames("sy_history_change")).
 		Entry(&sigCh).
-		Exec(ctx, nil),
+		Exec(ctx, db),
 	).To(Succeed())
 	streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 		Keys:        channel.Keys{sigCh.Key()},

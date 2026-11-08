@@ -122,7 +122,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewRetrieve().
 				Where(symbol.MatchKeys(symNoTx.Key)).
 				Entry(&retrieved).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(retrieved.Key).To(Equal(symNoTx.Key))
 
 			// Clean up
