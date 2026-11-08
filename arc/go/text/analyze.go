@@ -2389,20 +2389,7 @@ func analyzeOutputRoutingTable(
 			}
 
 			node := result.node
-			edges = append(edges, ir.Edge{
-				Source: prevOutputHandle,
-				Target: node.input,
-				Kind:   edgeKinds[i],
-			})
-			for _, arg := range node.args {
-				edges = append(edges, ir.Edge{
-					Source: prevOutputHandle,
-					Target: ir.Handle{Node: arg.Key, Param: ir.DefaultInputParam},
-					Kind:   edgeKinds[i],
-				})
-				nodes = append(nodes, arg)
-			}
-
+			target := node.input
 			if isLast && targetParamName != "" {
 				if !node.node.Inputs.Has(targetParamName) {
 					ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -2413,7 +2400,20 @@ func analyzeOutputRoutingTable(
 					))
 					return nil, nil, nil, false
 				}
-				edges[len(edges)-1].Target.Param = targetParamName
+				target.Param = targetParamName
+			}
+			edges = append(edges, ir.Edge{
+				Source: prevOutputHandle,
+				Target: target,
+				Kind:   edgeKinds[i],
+			})
+			for _, arg := range node.args {
+				edges = append(edges, ir.Edge{
+					Source: prevOutputHandle,
+					Target: ir.Handle{Node: arg.Key, Param: ir.DefaultInputParam},
+					Kind:   edgeKinds[i],
+				})
+				nodes = append(nodes, arg)
 			}
 
 			if len(node.node.Outputs) > 0 {

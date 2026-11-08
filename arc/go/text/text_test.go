@@ -4581,6 +4581,52 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
+				"Should apply the entry param mapping to a call with a computed input",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "signal",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F64()),
+							ID:   10107,
+						},
+					}
+					source := `
+				func one() f64 {
+				    return 1.0
+				}
+
+				func scale(k f64) {a f64 = 0.0, b f64 = 0.0} f64 {
+				    return b * k
+				}
+
+				func mix() {b f64 = 0.0} {}
+
+				signal > 1.0 -> select() -> {
+				    true: 1.0 -> scale(k=one()): b
+				} -> mix()`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					k := MustBeOk(findNodeByKey(inter.Nodes, "scale_0").Inputs.Get("k"))
+					Expect(k.Type.Kind).To(Equal(types.KindVarRef))
+					constKey := findNodeByType(inter.Nodes, "constant").Key
+					call := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+						ir.Handle{Node: "scale_0", Param: "b"},
+					))
+					Expect(call.Source.Node).To(Equal(constKey))
+					arg := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+						ir.Handle{Node: k.Type.Name, Param: ir.DefaultInputParam},
+					))
+					Expect(arg.Source.Node).To(Equal(constKey))
+				},
+			)
+
+			It(
 				"Should reject an explicit target param the func does not have",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
