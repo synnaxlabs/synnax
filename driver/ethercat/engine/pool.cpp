@@ -46,13 +46,7 @@ Pool::acquire(const std::string &key) {
         return slave_configs(key);
     };
     cfg.start_timeout = this->start_timeout;
-    if (this->rt_manager != nullptr) {
-        x::thread::rt::Config base_rt;
-        base_rt.enabled = true;
-        cfg.rt_handle = std::make_shared<x::thread::rt::Handle>(
-            this->rt_manager->allocate(base_rt)
-        );
-    }
+    cfg.rt_manager = this->rt_manager;
     auto eng = std::make_shared<Engine>(std::move(m), cfg);
     this->engines[key] = eng;
     return {eng, x::errors::NIL};
