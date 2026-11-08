@@ -89,8 +89,7 @@ func (s *Service) Create(
 }
 
 // DispatchRequest carries an action sequence to apply to a single role. DispatchKey is
-// a
-// client-generated identifier for the batch, echoed on the broadcast so the sender
+// a client-generated identifier for the batch, echoed on the broadcast so the sender
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[rbacrole.Key, rbacrole.Action]
 

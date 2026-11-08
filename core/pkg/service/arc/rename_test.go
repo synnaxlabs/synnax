@@ -116,7 +116,7 @@ var _ = Describe("LSP Rename", func() {
 			return channelSvc.NewWriter(tx).Create(ctx, ch)
 		})).To(Succeed())
 
-		server := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: readAll}))
+		server := MustSucceed(svc.NewLSP(lspConfig))
 		server.SetClient(&lsptestutil.MockClient{})
 		DeferCleanup(
 			func(ctx SpecContext) { Expect(server.Shutdown(ctx)).To(Succeed()) },
