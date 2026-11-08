@@ -1210,7 +1210,7 @@ describe("dispatch", () => {
     await waitForStreamLive(local.connection);
     await local.ranges.retrieve(rng.key);
     const { responded, release } = holdResponses(local, "/range/retrieve");
-    const fetching = local.ranges.retrieve({ where: { name: { eq: rng.name } } });
+    const fetching = local.ranges.retrieve({ name: [rng.name] });
     await responded;
     await remote.ranges.dispatch(rng.key, rename("Cold flow"));
     await expect

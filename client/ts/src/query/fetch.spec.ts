@@ -43,7 +43,7 @@ const DOMAINS: Domain[] = [
         .key,
     del: async (key) => await writer.schematics.delete(key),
     retrieveKeys: async (reader, keys) =>
-      await reader.schematics.retrieve({ where: { key: { in: keys } } }),
+      await reader.schematics.retrieve({ key: keys }),
   },
   {
     name: "lineplot",
@@ -52,23 +52,21 @@ const DOMAINS: Domain[] = [
         .key,
     del: async (key) => await writer.lineplots.delete(key),
     retrieveKeys: async (reader, keys) =>
-      await reader.lineplots.retrieve({ where: { key: { in: keys } } }),
+      await reader.lineplots.retrieve({ key: keys }),
   },
   {
     name: "log",
     create: async () =>
       (await writer.logs.create({ project: proj.key, name: `log-${id.create()}` })).key,
     del: async (key) => await writer.logs.delete(key),
-    retrieveKeys: async (reader, keys) =>
-      await reader.logs.retrieve({ where: { key: { in: keys } } }),
+    retrieveKeys: async (reader, keys) => await reader.logs.retrieve({ key: keys }),
   },
   {
     name: "table",
     create: async () =>
       (await writer.tables.create({ project: proj.key, name: `t-${id.create()}` })).key,
     del: async (key) => await writer.tables.delete(key),
-    retrieveKeys: async (reader, keys) =>
-      await reader.tables.retrieve({ where: { key: { in: keys } } }),
+    retrieveKeys: async (reader, keys) => await reader.tables.retrieve({ key: keys }),
   },
   {
     name: "arc",
@@ -81,8 +79,7 @@ const DOMAINS: Domain[] = [
         })
       ).key,
     del: async (key) => await writer.arcs.delete(key),
-    retrieveKeys: async (reader, keys) =>
-      await reader.arcs.retrieve({ where: { key: { in: keys } } }),
+    retrieveKeys: async (reader, keys) => await reader.arcs.retrieve({ key: keys }),
   },
   {
     name: "panel",
@@ -94,8 +91,7 @@ const DOMAINS: Domain[] = [
         })
       ).key,
     del: async (key) => await writer.panels.delete(key),
-    retrieveKeys: async (reader, keys) =>
-      await reader.panels.retrieve({ where: { key: { in: keys } } }),
+    retrieveKeys: async (reader, keys) => await reader.panels.retrieve({ key: keys }),
   },
 ];
 
