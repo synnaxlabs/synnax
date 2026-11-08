@@ -57,8 +57,8 @@ fi
 # leaves the diff the same: the head then gets the last review, and changes of the base
 # outside the diff are left to CI. The newest review of this pull request and base
 # decides, since a commit can head two pull requests and a rerun must not be shadowed by
-# an earlier success. Only the Sedosaur app
-# can write its check runs, so the score in the title is its own.
+# an earlier success. Only the Sedosaur app can write its check runs, so the score in
+# the title is its own.
 export KEY="${PR}:${BASE}"
 RUNS="repos/${REPO}/commits/${HEAD}/check-runs"
 REVIEW=$("$GH_API" "${RUNS}?check_name=Sedosaur%20Review&filter=all&per_page=100" \
