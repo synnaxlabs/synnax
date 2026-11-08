@@ -17,14 +17,17 @@ import (
 	"github.com/synnaxlabs/x/observe"
 )
 
-// Commit is what one commit of a DB changed.
+// Commit is what one commit of a DB changed, with the values that callers attached to
+// it. Attachment.Of reads the values.
 type Commit struct {
 	// Seq is the number of the commit. The first commit of the DB that changes a record
-	// is 1, and each later one is one more. A commit that changes no record has none.
+	// or carries a value is 1, and each later one is one more. A commit with neither
+	// has none.
 	Seq uint64
 	// Changes is what the commit changed. The readers of a commit share it, so a reader
 	// must not modify it.
-	Changes Changes
+	Changes  Changes
+	attached []attached
 }
 
 // Observe returns an observable that delivers each Commit of the DB to its readers in
@@ -67,8 +70,8 @@ func (d *delivery) OnChange(reader func(context.Context, Commit)) observe.Discon
 	})
 }
 
-// take gives the next number to a commit that changed a record. The caller holds the
-// write lock.
+// take gives the next number to a commit that changed a record or carries a value. The
+// caller holds the write lock.
 func (d *delivery) take() ticket {
 	d.seq++
 	t := ticket{seq: d.seq}
@@ -79,8 +82,9 @@ func (d *delivery) take() ticket {
 	return t
 }
 
-// run delivers changes as the commit of t, after the commit before t delivers.
-func (d *delivery) run(ctx context.Context, t ticket, changes *changeList) {
+// run delivers the transaction of state as the commit of t, after the commit before t
+// delivers.
+func (d *delivery) run(ctx context.Context, t ticket, state *txState) {
 	if t.done == nil {
 		return
 	}
@@ -88,5 +92,9 @@ func (d *delivery) run(ctx context.Context, t ticket, changes *changeList) {
 	if t.prev != nil {
 		<-t.prev
 	}
-	d.observer.Notify(ctx, Commit{Seq: t.seq, Changes: changes.list()})
+	d.observer.Notify(ctx, Commit{
+		Seq:      t.seq,
+		Changes:  state.changes.list(),
+		attached: state.attached,
+	})
 }

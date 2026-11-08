@@ -119,6 +119,10 @@ var _ = Describe("Delivery", func() {
 		Entry("a raw key-value write", func(ctx context.Context, tx gorp.Tx) error {
 			return tx.Set(ctx, []byte("raw"), []byte("value"))
 		}),
+		Entry("an Add of no values", func(_ context.Context, tx gorp.Tx) error {
+			gorp.NewAttachment[string]().Add(tx)
+			return nil
+		}),
 		Entry(
 			"a create and a delete of one record",
 			func(ctx context.Context, tx gorp.Tx) error {

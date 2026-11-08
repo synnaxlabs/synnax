@@ -199,6 +199,9 @@ type txState struct {
 	// changes is what the typed writes through the transaction changed. Only the
 	// goroutine that writes through the transaction touches it.
 	changes changeList
+	// attached holds the values of each Attachment. Only the goroutine that writes
+	// through the transaction touches it.
+	attached []attached
 }
 
 // Committing reports whether a commit attempt is in flight.
@@ -292,7 +295,7 @@ func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	err := t.Tx.Commit(ctx, append(slices.Clip(opts), applied)...)
 	t.end(err == nil)
 	t.state.committing.Store(false)
-	t.db.delivery.run(ctx, t.ticket, &t.state.changes)
+	t.db.delivery.run(ctx, t.ticket, &t.state)
 	if err == nil {
 		t.state.runCommits()
 	}
@@ -308,14 +311,14 @@ func (t *tx) Close() error {
 	return err
 }
 
-// end runs the cleanups of the transaction, numbers a commit that changed a record, and
-// releases the write lock. Calls after the first do nothing.
+// end runs the cleanups of the transaction, numbers a commit that changed a record or
+// carries a value, and releases the write lock. Calls after the first do nothing.
 func (t *tx) end(committed bool) {
 	if t.unlock == nil {
 		return
 	}
 	t.state.runCleanups(committed)
-	if committed && t.state.changes.changed() {
+	if committed && (len(t.state.attached) > 0 || t.state.changes.changed()) {
 		t.ticket = t.db.delivery.take()
 	}
 	t.unlock()
