@@ -9,5 +9,3 @@
 
 export * from "@/compare/binary";
 export * from "@/compare/compare";
-export * from "@/compare/text";
-export * from "@/compare/uuid";
