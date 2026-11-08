@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = Project{}
 // GorpKey implements gorp.Entry.
 func (p Project) GorpKey() Key { return p.Key }
 
-// SetOptions implements gorp.Entry.
-func (Project) SetOptions() []any { return nil }
-
 // ResourceID returns the resource.ID of the resource.
 func (p Project) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeProject, Key: p.Key.String()}

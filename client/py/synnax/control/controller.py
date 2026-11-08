@@ -16,8 +16,7 @@ from typing import Any, Protocol, TypeAlias, cast, overload, override
 
 import numpy as np
 
-from synnax import channel as channel_
-from synnax import framer
+from synnax import channel as channel_, framer
 from synnax.exceptions import UnexpectedError, ValidationError
 from synnax.telem import CrudeSample, CrudeTimeSpan, TimeSpan, TimeStamp
 from synnax.timing import sleep

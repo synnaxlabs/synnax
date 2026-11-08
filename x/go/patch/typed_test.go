@@ -348,7 +348,7 @@ var _ = Describe("Patch", func() {
 			Entry(
 				"a set into a field",
 				set("x", "name", "y"),
-				"[name]: the value is not an object or a list",
+				"[name]: the value takes only a whole set",
 			),
 			Entry(
 				"a set into an absent struct",

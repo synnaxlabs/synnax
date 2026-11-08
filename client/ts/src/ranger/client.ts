@@ -216,7 +216,7 @@ export class Range {
   }
 
   async retrieveChildren(): Promise<Range[]> {
-    return await this.rangeClient.retrieve({ where: { parents: [this.key] } });
+    return await this.rangeClient.retrieve({ parents: [this.key] });
   }
 
   async read(channel: Key | Name): Promise<Series>;
@@ -228,7 +228,7 @@ export class Range {
   async retrieveLabels(): Promise<label.Label[]> {
     const { labels } = await this.rangeClient.retrieve(this.key);
     if (labels.length === 0) return [];
-    return await this.labelClient.retrieve({ where: { key: { in: labels } } });
+    return await this.labelClient.retrieve({ key: labels });
   }
 
   async addLabel(...labels: label.Key[]): Promise<void> {

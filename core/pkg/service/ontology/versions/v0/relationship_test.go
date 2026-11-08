@@ -32,11 +32,6 @@ var _ = Describe("Relationship", func() {
 			}.GorpKey()).To(Equal("channel:qux->parent->device:baz"))
 		})
 	})
-	Describe("SetOptions", func() {
-		It("Should return nil", func() {
-			Expect(v0.Relationship{}.SetOptions()).To(BeNil())
-		})
-	})
 })
 
 var _ = Describe("RelationshipNormalizeKeys", func() {

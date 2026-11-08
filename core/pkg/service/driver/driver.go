@@ -85,7 +85,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 
 	if d.rack, err = cfg.Rack.RetrieveOrCreateEmbedded(
 		ctx,
-		fmt.Sprintf("Node %d", cfg.Host.HostKey()),
+		fmt.Sprintf("Node %d", cfg.HostKey),
 		func(r *rack.Rack) {
 			r.Integrations = integrations
 			r.Version = new(version.Get())

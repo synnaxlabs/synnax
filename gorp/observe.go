@@ -22,18 +22,12 @@ import (
 	"go.uber.org/zap"
 )
 
-// newObservable wraps an upstream kv.TxReader observable into an entry-typed
-// observable that emits change.Change[K, E] for entries belonging to E's
-// gorp prefix. src is decoupled from db so the index observer pipeline can
-// route a single source through multiple typed observables (one per entry
-// type / index registration) without re-subscribing the underlying KV
-// observer.
-func (db *DB) newObservable[K Key, E Entry[K]](
-	src observe.Observable[kv.TxReader],
-) observe.Observable[iter.Seq[change.Change[K, E]]] {
+// Observe returns an observable that notifies its caller of each change to the entries
+// in the table.
+func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]] {
 	kCodec := key.NewCodec[K](key.Prefix[E]())
 	return observe.Translator[kv.TxReader, TxReader[K, E]]{
-		Observable: src,
+		Observable: t.db,
 		Translate: func(ctx context.Context, reader kv.TxReader) (TxReader[K, E], bool) {
 			var matched []kv.Change
 			for ch := range reader {
@@ -44,15 +38,9 @@ func (db *DB) newObservable[K Key, E Entry[K]](
 			if len(matched) == 0 {
 				return nil, false
 			}
-			return wrapMatchedChanges[K, E](ctx, matched, kCodec, db), true
+			return wrapMatchedChanges[K, E](ctx, matched, kCodec, t.db), true
 		},
 	}
-}
-
-// Observe returns an observable that notifies its caller whenever a change is made
-// to entries in this table.
-func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]] {
-	return t.db.newObservable[K, E](t.db)
 }
 
 // ObserveDetaches returns an observable that notifies each entry of the table, as

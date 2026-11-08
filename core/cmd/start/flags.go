@@ -20,7 +20,6 @@ import (
 
 // Flag names used for starting a Synnax Core.
 const (
-	FlagPeers                        = "peers"
 	FlagData                         = "data"
 	FlagMem                          = "mem"
 	FlagInsecure                     = "insecure"
@@ -44,12 +43,6 @@ const (
 func AddFlags(cmd *cobra.Command) {
 	cert.AddFlags(cmd)
 	listener.AddFlags(cmd)
-	cmd.Flags().StringSliceP(
-		FlagPeers,
-		"p",
-		nil,
-		"Addresses of additional peers in the cluster",
-	)
 	cmd.Flags().StringSlice(
 		FlagEnableIntegrations,
 		nil,

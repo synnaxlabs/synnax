@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import uuid
-from uuid import UUID
 
 import pytest
 
@@ -223,7 +222,9 @@ class TestRoleClient:
     def test_retrieve_where(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
         """Should keep roles that match a filter tree and the given keys."""
         where = sy.access.role.Where(
-            not_=sy.access.role.Where(key=filter.Set[UUID](eq=two_roles[0].key))
+            not_=sy.access.role.Where(
+                key=filter.Set[sy.access.role.Key](eq=two_roles[0].key)
+            )
         )
         roles = client.access.roles.retrieve(
             where=where, keys=[two_roles[0].key, two_roles[1].key]

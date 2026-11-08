@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
@@ -43,18 +43,18 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// Channel is the distribution-layer channel service the service drives to assign
-	// local keys and create, rename, and delete storage channels across the cluster.
+	// local keys and create, rename, and delete storage channels.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// DB is the cluster-wide metadata database backing the channel table.
+	// DB is the metadata database backing the channel table.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// HostProvider provides this node's key for default leaseholder assignment.
+	// HostKey is the key of the host node, the default leaseholder of new channels.
 	//
 	// [REQUIRED]
-	HostProvider cluster.HostProvider
+	HostKey node.Key
 	// Limit enforces the cap on external (non-internal, non-virtual) channels.
 	//
 	// [OPTIONAL] - Defaults to no cap.
@@ -77,7 +77,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
 	v.NotNil("channel", c.Channel)
 	v.NotNil("db", c.DB)
-	v.NotNil("host_provider", c.HostProvider)
+	v.NonZero("host_key", c.HostKey)
 	v.NotNil("limit", c.Limit)
 	v.NotNil("status", c.Status)
 	v.NotNil("validate_names", c.ValidateNames)
@@ -89,7 +89,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
@@ -142,7 +142,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	// Seed the external/non-virtual key set by scanning the table once at startup. This
 	// is the only call site that unavoidably walks the table — there is no index for
-	// (Internal, Virtual) and the cost is bounded by how many channels the cluster has
+	// (Internal, Virtual) and the cost is bounded by how many channels the Core has
 	// accumulated.
 	var externalNonVirtualChannels []Channel
 	if err = s.table.NewRetrieve().
@@ -202,9 +202,9 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 	return nil
 }
 
-// NewArcSymbolResolver returns a resolver that maps cluster channels to Arc symbols by
-// name or numeric key, for analyzing and compiling Arc expressions such as calculated
-// channels. tx scopes channel lookups; nil consults the service DB directly.
+// NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by name or
+// numeric key, for analyzing and compiling Arc expressions such as calculated channels.
+// tx scopes channel lookups; nil consults the service DB directly.
 func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return &symbolResolver{svc: s, tx: tx}
 }

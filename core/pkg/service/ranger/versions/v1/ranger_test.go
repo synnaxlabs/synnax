@@ -24,10 +24,4 @@ var _ = Describe("Range", func() {
 			Expect(v1.Range{Key: k}.GorpKey()).To(Equal(k))
 		})
 	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v1.Range{}.SetOptions()).To(BeNil())
-		})
-	})
 })

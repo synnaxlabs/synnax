@@ -678,8 +678,6 @@ type target struct{ Key uuid.UUID }
 
 func (t target) GorpKey() uuid.UUID { return t.Key }
 
-func (target) SetOptions() []any { return nil }
-
 const targetTable = "config_target"
 
 var _ = Describe("TableName", func() {

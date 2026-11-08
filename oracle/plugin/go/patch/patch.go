@@ -12,7 +12,7 @@
 // actions edit only those fields. A struct with @patch on the type is a document whose
 // fields all take path actions, and it also gets the HashContent methods that hash its
 // content. Every struct and union that a document reaches gets the methods over all of
-// its fields.
+// its fields, unless it is marked @go json hand.
 package patch
 
 import (
@@ -305,7 +305,7 @@ func patchable(
 		return resolution.Type{}, false
 	}
 	typ, _, ok := resolution.Dealias(ref, table)
-	if !ok || omit.IsSkipped(typ, "go") {
+	if !ok || omit.IsSkipped(typ, "go") || handJSON(typ) {
 		return resolution.Type{}, false
 	}
 	switch form := typ.Form.(type) {
@@ -361,6 +361,12 @@ func keyField(
 
 // keyName names the field that identifies a list entry. HashContent leaves it out.
 const keyName = "key"
+
+// handJSON reports whether t has a hand-written Go JSON decoder. Only a whole set runs
+// the decoder, so a path cannot go into t.
+func handJSON(t resolution.Type) bool {
+	return domain.GetStringFromType(t, "go", "json") == "hand"
+}
 
 func wireOmitted(f resolution.Field) bool {
 	return domain.GetStringFromField(f, "go", "wire") == "omit"

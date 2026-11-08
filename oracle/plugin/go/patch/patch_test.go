@@ -175,6 +175,42 @@ var _ = Describe("Go Patch Plugin", func() {
 		)
 
 		It(
+			"Should set a struct with a hand-written JSON decoder only as a whole",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/doc"
+
+				Tint struct {
+					r uint8
+					a float64
+
+					@go json hand
+				}
+
+				Doc struct {
+					tint Tint {
+						@patch
+					}
+					glow Tint? {
+						@patch
+					}
+
+					action Set extends patch.Set {}
+				}
+			`, "doc", loader, p)
+				ExpectContent(resp, "core/pkg/service/doc/patch.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"return patch.Value(&d.Tint, c.Next())",
+						"return patch.OptionalValue(&d.Glow, c.Next())",
+					).
+					ToNotContain("func (t *Tint) Patch(")
+			},
+		)
+
+		It(
 			"Should not generate for a struct without path actions",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, `

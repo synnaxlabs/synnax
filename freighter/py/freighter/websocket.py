@@ -13,15 +13,16 @@ from contextlib import ExitStack
 from typing import Any, Generic, Literal, Self, override
 
 from pydantic import BaseModel
-from websockets.asyncio.client import ClientConnection as AsyncClientConnection
-from websockets.asyncio.client import connect
-from websockets.exceptions import ConnectionClosedError as ConnectionClosedError
+from websockets.asyncio.client import ClientConnection as AsyncClientConnection, connect
 from websockets.exceptions import (
+    ConnectionClosedError as ConnectionClosedError,
     ConnectionClosedOK,
 )
-from websockets.sync.client import ClientConnection as SyncClientProtocol
-from websockets.sync.client import connect as sync_connect
-from websockets.sync.client import reconnect as SyncConnector
+from websockets.sync.client import (
+    ClientConnection as SyncClientProtocol,
+    connect as sync_connect,
+    reconnect as SyncConnector,
+)
 
 from freighter.context import Context
 from freighter.exceptions import EOF, StreamClosed
