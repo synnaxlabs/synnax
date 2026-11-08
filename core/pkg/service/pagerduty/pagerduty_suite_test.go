@@ -20,16 +20,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -43,35 +44,38 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db        *gorp.DB
-	otg       *ontology.Ontology
-	groupSvc  *group.Service
 	statusSvc *status.Service
+	tasks     *gorp.Table[task.Key, task.Task]
 	secretSvc *secret.Service
 	alertSvc  *pd.Service
 )
 
-// testRack is the rack that every stored task deploys to.
-const testRack rack.Key = 1 << 16
-
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB: db, Ontology: otg, Group: groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: db,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB: db, Ontology: otg, Label: labelSvc, Group: groupSvc,
+		DB: db,
 	}))
-	secretSvc = secrettestutil.OpenService(ctx, db, otg, groupSvc, pd.FindSecretUses)
+	// Task statuses and configs reference their task, so the task table must be open.
+	tasks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[task.Key, task.Task]{
+		DB:   db,
+		Name: string(resource.TypeTask),
+	}))
+	secretSvc = secrettestutil.OpenService(ctx, db)
 	alertSvc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 		DB:     db,
 		Secret: secretSvc,
 	}))
 })
+
+func createTask(ctx context.Context, t task.Task) task.Task {
+	GinkgoHelper()
+	Expect(tasks.NewCreate().Entry(&t).Exec(ctx, db)).To(Succeed())
+	return t
+}
 
 // createRoutingKey creates a stored secret that holds value and returns its key.
 func createRoutingKey(ctx context.Context, value string) secret.Key {
@@ -92,20 +96,32 @@ func replaceRoutingKey(ctx context.Context, key secret.Key, value string) {
 	Expect(secretSvc.NewWriter(nil).Create(ctx, &s, []byte(value))).To(Succeed())
 }
 
-// storeTask stores the config and the row of an alert task named name on testRack, as
-// the task service does, and returns the task as the Driver receives it.
+// storeTask stores the row and the config of an alert task named name, as the task
+// service does, and returns the task as the Driver receives it. It creates each status
+// that an alert watches and that does not exist yet.
 func storeTask(ctx context.Context, name string, cfg pd.TaskConfig) task.Task {
 	GinkgoHelper()
-	t := task.Task{Key: uuid.New(), Rack: testRack, Name: name, Type: pd.AlertTaskType}
-	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
-		To(Succeed())
-	t.Config = MustSucceed(alertSvc.Alert.Write(
-		ctx,
-		nil,
-		t.Key,
-		t.Name,
-		encodeConfig(cfg),
-	))
+	for _, a := range cfg.Alerts {
+		err := statusSvc.NewRetrieve[any]().
+			Where(status.MatchKeys[any](a.Status)).
+			Exec(ctx, nil)
+		if errors.Is(err, query.ErrNotFound) {
+			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Key:     a.Status,
+				Name:    a.Status,
+				Variant: status.VariantLoading,
+				Time:    telem.Now(),
+			})).To(Succeed())
+		} else {
+			Expect(err).ToNot(HaveOccurred())
+		}
+	}
+	t := createTask(ctx, task.Task{Key: uuid.New(), Name: name, Type: pd.AlertTaskType})
+	rec := MustSucceed(
+		alertSvc.Alert.Prepare(ctx, nil, t.Key, t.Name, encodeConfig(cfg)),
+	)
+	Expect(rec.Write(ctx, nil)).To(Succeed())
+	t.Config = rec.Data()
 	return t
 }
 

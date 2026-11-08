@@ -16,11 +16,22 @@ import {
   directoryZ,
   type Key,
   keyZ,
-  ontologyID,
+  retrieveRequestZ,
+  retrieveResponseZ,
 } from "@/arc/directory/types.gen";
-import { ontology } from "@/ontology";
-import { idZ as ontologyIDZ } from "@/ontology/payload";
+import { LINES } from "@/arc/directory/where";
+import {
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/arc/directory/where.gen";
+import { type Arc, type Key as ArcKey } from "@/arc/types.gen";
 import { query } from "@/query";
+import { resource } from "@/resource";
+
+export const SET_CHANNEL_NAME = "sy_arc_directory_set";
+export const DELETE_CHANNEL_NAME = "sy_arc_directory_delete";
 
 const createReqZ = z.object({
   parent: keyZ,
@@ -29,7 +40,16 @@ const createReqZ = z.object({
 const createResZ = z.object({ directory: directoryZ });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: z.array(keyZ) });
-const moveReqZ = z.object({ from: keyZ, to: keyZ, ids: z.array(ontologyIDZ) });
+const moveReqZ = z.object({ from: keyZ, to: keyZ, ids: z.array(resource.idZ) });
+const emptyResZ = z.object({});
+
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
+
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 export interface CreateParams {
   /** parent is the key of the directory to create the new directory in. */
@@ -42,21 +62,49 @@ export interface CreateParams {
 
 export interface ClientConfig {
   unary: UnaryClient;
-  ontology: ontology.Client;
+  cache: query.Cache;
+  /** arcs holds the cached Arcs, whose directory a move changes. */
+  arcs: query.Table<ArcKey, Arc>;
 }
 
-const parentRel = (from: ontology.ID, to: ontology.ID): ontology.Relationship => ({
-  from,
-  type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-  to,
-});
-
-/** Client creates, renames, deletes, and moves the directories that hold Arcs. */
-export class Client {
+/** Client retrieves, creates, renames, deletes, and moves the directories of Arcs. */
+export class Client extends query.Retriever<
+  typeof retrieveMultiParamsZ,
+  Key,
+  Directory
+> {
   private readonly cfg: ClientConfig;
+  private readonly store: query.Table<Key, Directory>;
 
   constructor(cfg: ClientConfig) {
+    const { cache } = cfg;
+    const store = cache.createTable<Key, Directory>({
+      name: "Arc directories",
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
+      listen: [
+        query.createSetListener(SET_CHANNEL_NAME, directoryZ),
+        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
+      ],
+    });
+    super(cache, {
+      name: "Arc directory",
+      table: store,
+      shortcut: shortcutZ,
+      request: {
+        schema: retrieveMultiParamsZ,
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (d, req) => matches(LINES, d, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
+      },
+    });
     this.cfg = cfg;
+    this.store = store;
+  }
+
+  /** Retrieves the directory that holds every other directory and Arc. */
+  async retrieveRoot(): Promise<Directory> {
+    const [root] = await this.retrieve({ where: { nested: false } });
+    return root;
   }
 
   /** Creates a directory in the directory parent. */
@@ -67,25 +115,22 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    const rel = parentRel(ontologyID(parent), ontologyID(res.directory.key));
-    this.cfg.ontology.cache.relationships.set(ontology.relationshipToString(rel), rel);
+    this.store.set(res.directory);
     return res.directory;
   }
 
   /** Renames the directory with key. */
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
+    const rename = () => query.partialUpdate(this.store, key, { name });
     await query.optimistic({
-      rollbacks: rename(),
+      rollbacks: [rename()],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
         await this.cfg.unary.send(
           "/arc/directory/rename",
           { key, name },
           renameReqZ,
-          z.object({}),
+          emptyResZ,
         ),
     });
     rename();
@@ -93,33 +138,23 @@ export class Client {
 
   /** Deletes the empty directories with keys. */
   async delete(keys: Key | Key[]): Promise<void> {
-    await this.cfg.unary.send(
-      "/arc/directory/delete",
-      { keys: array.toArray(keys) },
-      deleteReqZ,
-      z.object({}),
-    );
+    const payload = { keys: array.toArray(keys) };
+    await this.cfg.unary.send("/arc/directory/delete", payload, deleteReqZ, emptyResZ);
+    this.store.delete(payload.keys);
   }
 
-  /**
-   * Moves Arcs and directories from the directory from into the directory to. Takes
-   * the same arguments as {@link ontology.Client.moveChildren}.
-   */
+  /** Moves Arcs and directories from the directory from into the directory to. */
   async move(
-    from: ontology.ID,
-    to: ontology.ID,
-    ...children: ontology.ID[]
+    from: resource.ID,
+    to: resource.ID,
+    ...children: resource.ID[]
   ): Promise<void> {
-    const rels = this.cfg.ontology.cache.relationships;
-    const move = (): destructor.Destructor[] => [
-      ...children.map((child) =>
-        rels.delete(ontology.relationshipToString(parentRel(from, child))),
-      ),
-      ...children.map((child) => {
-        const rel = parentRel(to, child);
-        return rels.set(ontology.relationshipToString(rel), rel);
-      }),
-    ];
+    const move = (): destructor.Destructor[] =>
+      children.map(({ type, key }) =>
+        type === "arc"
+          ? query.partialUpdate(this.cfg.arcs, key, { directory: to.key })
+          : query.partialUpdate(this.store, key, { parent: to.key }),
+      );
     await query.optimistic({
       rollbacks: move(),
       commit: async () =>
@@ -127,9 +162,21 @@ export class Client {
           "/arc/move",
           { from: from.key, to: to.key, ids: children },
           moveReqZ,
-          z.object({}),
+          emptyResZ,
         ),
     });
     move();
+  }
+
+  private async execRetrieve(
+    req: z.input<typeof retrieveRequestZ>,
+  ): Promise<Directory[]> {
+    const res = await this.cfg.unary.send(
+      "/arc/directory/retrieve",
+      req,
+      retrieveRequestZ,
+      retrieveResponseZ,
+    );
+    return res.directories;
   }
 }

@@ -25,11 +25,6 @@ import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-// A routing key is the key of a secret. No spec here deploys a task, so neither key
-// names a secret that exists.
-const ROUTING_KEY = uuid.create();
-const OTHER_ROUTING_KEY = uuid.create();
-
 const alertZ = z.object({ key: z.string(), status: z.string() });
 
 const schema = z.object({
@@ -79,6 +74,13 @@ const useEntryForm = createForm(
 const client = createTestClient();
 const formClient = createTestClient();
 
+// A routing key is the key of a secret, which must exist when a config names it.
+const createRoutingKey = async (): Promise<string> =>
+  (await client.secrets.create({ name: "Routing key", source: "stored", value: "rk" }))
+    .key;
+const ROUTING_KEY = await createRoutingKey();
+const OTHER_ROUTING_KEY = await createRoutingKey();
+
 const fetchStored = async (key: task.Key): Promise<task.Task> =>
   await createTestClient().tasks.retrieve(key);
 
@@ -91,6 +93,15 @@ describe("createDocumentForm", () => {
 
   beforeAll(async () => {
     testRack = await client.racks.create({ name: "document-form" });
+    // The Core refuses an alert config that names a status it does not hold.
+    await client.statuses.set(
+      ["st-a", "st-b", "st-c", "st-0", "st-1"].map((key) => ({
+        key,
+        name: key,
+        variant: "info" as const,
+        message: key,
+      })),
+    );
   });
 
   beforeEach(async () => {
@@ -645,8 +656,8 @@ describe("createDocumentForm", () => {
 
   it("should edit the new document when the key changes", async () => {
     const first = await createTask();
-    const secondKey = uuid.create();
-    const editedKey = uuid.create();
+    const secondKey = await createRoutingKey();
+    const editedKey = await createRoutingKey();
     const second = await createTask(secondKey);
     await formClient.tasks.retrieve(second.key);
     const { result, rerender } = await renderForm(first.key);

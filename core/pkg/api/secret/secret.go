@@ -13,13 +13,15 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -37,6 +39,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
+	// Task maps a task config that uses a secret to its task.
+	//
+	// [REQUIRED]
+	Task *task.Service
 }
 
 var (
@@ -49,6 +55,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Task = override.Nil(c.Task, other.Task)
 	return c
 }
 
@@ -57,6 +64,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.secret")
 	v.NotNil("secret", c.Secret)
 	v.NotNil("rbac", c.RBAC)
+	v.NotNil("task", c.Task)
 	return v.Error()
 }
 
@@ -65,6 +73,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *secret.Service
+	tasks    *task.Service
 }
 
 // NewService opens a Service with the given configuration.
@@ -76,6 +85,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		access:   cfg.RBAC,
 		internal: cfg.Secret,
+		tasks:    cfg.Task,
 	}, nil
 }
 
@@ -138,7 +148,7 @@ func (s *Service) Create(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeSecret}},
+		Objects: []resource.ID{{Type: resource.TypeSecret}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -149,7 +159,7 @@ func (s *Service) Create(
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionUpdate,
-		Objects: secret.OntologyIDsFromSecrets(replaced),
+		Objects: secret.ResourceIDsFromSecrets(replaced),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -211,7 +221,7 @@ func (s *Service) Retrieve(
 	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: secret.OntologyIDsFromSecrets(res.Secrets),
+		Objects: secret.ResourceIDsFromSecrets(res.Secrets),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -224,38 +234,31 @@ func (s *Service) Retrieve(
 }
 
 // fillUses sets the uses of each secret, leaving out the resources the caller cannot
-// read. A secret with no readable uses gets empty uses, so the response tells it apart
-// from a secret whose uses were not asked for.
+// read. A task config that uses a secret appears as its task. A secret with no readable
+// uses gets empty uses, so the response tells it apart from a secret whose uses were
+// not asked for.
 func (s *Service) fillUses(ctx context.Context, secrets []Secret) error {
-	keys := make([]Key, len(secrets))
-	resources := make(map[Key][]ontology.ID, len(secrets))
-	for i, sec := range secrets {
-		keys[i] = sec.Base().Key
-		resources[keys[i]] = []ontology.ID{}
-	}
-	uses, err := s.internal.Uses(ctx, nil, keys...)
+	allowed, err := s.access.NewEnforcer(nil).Allowed(
+		ctx,
+		auth.GetSubject(ctx),
+		access.ActionRetrieve,
+	)
 	if err != nil {
 		return err
 	}
-	enforcer := s.access.NewEnforcer(nil)
-	subject := auth.GetSubject(ctx)
-	for _, use := range uses {
-		err := enforcer.Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{use.Resource},
-		})
-		if errors.Is(err, access.ErrDenied) {
-			continue
-		}
+	for i := range secrets {
+		base := secrets[i].Base()
+		uses, err := s.internal.Uses(ctx, nil, base.Key)
 		if err != nil {
 			return err
 		}
-		resources[use.Secret] = append(resources[use.Secret], use.Resource)
-	}
-	for i := range secrets {
-		base := secrets[i].Base()
-		base.Uses = resources[base.Key]
+		base.Uses = lo.FilterMap(uses, func(id resource.ID, _ int) (resource.ID, bool) {
+			target := gorp.Target{Table: string(id.Type), Key: id.Key}
+			if t, ok := s.tasks.ConfigTask(target); ok {
+				id = t
+			}
+			return id, allowed(id)
+		})
 		secrets[i].SetBase(base)
 	}
 	return nil
@@ -278,7 +281,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{secret.OntologyID(req.Key)},
+		Objects: []resource.ID{secret.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -300,7 +303,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: secret.OntologyIDs(req.Keys),
+		Objects: secret.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -311,7 +314,7 @@ func (s *Service) Delete(
 // anything on the subject uses them.
 type GrantCreateRequest struct {
 	// Subject is the subject that may read the secrets. It must be a rack.
-	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Secrets are the secrets the subject may read.
 	Secrets []Key `json:"secrets" msgpack:"secrets"`
 }
@@ -343,21 +346,21 @@ var errGrantSubject = errors.Wrap(access.ErrDenied, "only a user can grant secre
 
 func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx, keys []Key) error {
 	subject := auth.GetSubject(ctx)
-	if subject.Type != ontology.ResourceTypeUser {
+	if subject.Type != resource.TypeUser {
 		return errGrantSubject
 	}
 	enforcer := s.access.NewEnforcer(tx)
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
+		Objects: []resource.ID{{Type: resource.TypeDevice}},
 	}); err != nil {
 		return err
 	}
 	return enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionRetrieve,
-		Objects: secret.OntologyIDs(keys),
+		Objects: secret.ResourceIDs(keys),
 	})
 }
 
@@ -392,7 +395,7 @@ func (s *Service) Resolve(
 	req ResolveRequest,
 ) (ResolveResponse, error) {
 	subject := auth.GetSubject(ctx)
-	if subject.Type != ontology.ResourceTypeRack {
+	if subject.Type != resource.TypeRack {
 		return ResolveResponse{}, errResolveSubject
 	}
 	values, err := s.internal.Resolve(ctx, nil, subject, req.Grant, req.Keys...)

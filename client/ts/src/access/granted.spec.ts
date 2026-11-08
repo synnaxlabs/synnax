@@ -12,10 +12,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { allowRequest } from "@/access/enforce";
 import { type GrantedQuery } from "@/access/granted";
-import { policy } from "@/access/policy";
-import { role } from "@/access/role";
 import { ranger } from "@/ranger";
-import { createTestClient } from "@/testutil";
+import { createTestClient, type TestPolicy } from "@/testutil";
 import { user } from "@/user";
 
 vi.mock("@/access/enforce", async (importOriginal) => {
@@ -31,76 +29,50 @@ const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, 
 const client = createTestClient();
 
 const RETRIEVE_RANGES: GrantedQuery = {
-  objects: ranger.TYPE_ONTOLOGY_ID,
+  objects: ranger.TYPE_RESOURCE_ID,
   action: "retrieve",
 };
 
-const createSubjectWithPolicy = async (pol: policy.New) => {
-  const u = await client.users.create({
-    username: id.create(),
-    password: "test",
-    name: "test",
-  });
-  const p = await client.access.policies.create(pol);
+const createSubjectWithPolicy = async (pol: TestPolicy) => {
   const r = await client.access.roles.create({
     name: id.create(),
     description: "test",
   });
-  await client.ontology.addChildren(role.ontologyID(r.key), policy.ontologyID(p.key));
-  await client.access.roles.assign({ user: u.key, role: r.key });
-  return { subject: user.ontologyID(u.key), policy: p, role: r };
+  const p = await client.access.policies.create({ ...pol, role: r.key });
+  const u = await client.users.create({
+    username: id.create(),
+    password: "test",
+    name: "test",
+    roles: [r.key],
+  });
+  return { subject: user.resourceID(u.key), policy: p, role: r };
 };
 
 describe("Granted", () => {
-  it("answers a fetched question and warms role links", async () => {
+  it("answers a fetched question", async () => {
     const { subject } = await createSubjectWithPolicy({
       name: id.create(),
-      objects: [ranger.TYPE_ONTOLOGY_ID],
+      objects: [ranger.TYPE_RESOURCE_ID],
       actions: ["retrieve"],
     });
     expect(await client.access.granted.retrieve(subject, RETRIEVE_RANGES)).toBe(true);
     expect(
       await client.access.granted.retrieve(subject, {
-        objects: ranger.TYPE_ONTOLOGY_ID,
+        objects: ranger.TYPE_RESOURCE_ID,
         action: "delete",
       }),
     ).toBe(false);
-    const links = client.ontology.cache.relationships.get(
-      (r) => r.from.type === "role" && r.to.type === "policy",
-    );
-    expect(links.length).toBeGreaterThan(0);
-  });
-
-  it("warms role links with one batched request for every policy", async () => {
-    const { subject, role: r } = await createSubjectWithPolicy({
-      name: id.create(),
-      objects: [ranger.TYPE_ONTOLOGY_ID],
-      actions: ["retrieve"],
-    });
-    const extras = await client.access.policies.create([
-      { name: id.create(), objects: [user.TYPE_ONTOLOGY_ID], actions: ["retrieve"] },
-      { name: id.create(), objects: [user.TYPE_ONTOLOGY_ID], actions: ["create"] },
-    ]);
-    await client.ontology.addChildren(
-      role.ontologyID(r.key),
-      ...extras.map((p) => policy.ontologyID(p.key)),
-    );
-    const spy = vi.spyOn(client.ontology.parents, "retrieve");
-    const policies = await client.access.policies.retrieveForSubject(subject);
-    expect(policies.length).toBeGreaterThanOrEqual(3);
-    expect(spy).toHaveBeenCalledTimes(2);
-    spy.mockRestore();
   });
 
   it("evaluates a repeated query object once until the policies change", async () => {
     const { subject } = await createSubjectWithPolicy({
       name: id.create(),
-      objects: [ranger.TYPE_ONTOLOGY_ID],
+      objects: [ranger.TYPE_RESOURCE_ID],
       actions: ["retrieve"],
     });
     const q = { ...RETRIEVE_RANGES };
     const stop = client.access.granted.onChange(subject, q, () => {});
-    await client.access.policies.retrieveForSubject(subject);
+    await client.access.policies.retrieve({ where: { subjects: [subject] } });
     await expect
       .poll(() => client.access.granted.getCached(subject, q), { timeout: 5000 })
       .toBe(true);
@@ -119,12 +91,12 @@ describe("Granted", () => {
   it("re-evaluates the verdict when a policy is removed", async () => {
     const { subject, policy: p } = await createSubjectWithPolicy({
       name: id.create(),
-      objects: [ranger.TYPE_ONTOLOGY_ID],
+      objects: [ranger.TYPE_RESOURCE_ID],
       actions: ["retrieve"],
     });
     const q = { ...RETRIEVE_RANGES };
     const stop = client.access.granted.onChange(subject, q, () => {});
-    await client.access.policies.retrieveForSubject(subject);
+    await client.access.policies.retrieve({ where: { subjects: [subject] } });
     await expect
       .poll(() => client.access.granted.getCached(subject, q), { timeout: 5000 })
       .toBe(true);
@@ -136,14 +108,18 @@ describe("Granted", () => {
   });
 
   it("notifies only when the verdict flips", async () => {
-    const { subject, policy: p } = await createSubjectWithPolicy({
+    const {
+      subject,
+      policy: p,
+      role: r,
+    } = await createSubjectWithPolicy({
       name: id.create(),
-      objects: [ranger.TYPE_ONTOLOGY_ID],
+      objects: [ranger.TYPE_RESOURCE_ID],
       actions: ["retrieve"],
     });
     const handler = vi.fn();
     const stop = client.access.granted.onChange(subject, RETRIEVE_RANGES, handler);
-    await client.access.policies.retrieveForSubject(subject);
+    await client.access.policies.retrieve({ where: { subjects: [subject] } });
     await expect
       .poll(() => handler.mock.calls.length, { timeout: 5000 })
       .toBeGreaterThan(0);
@@ -151,8 +127,9 @@ describe("Granted", () => {
     const settled = handler.mock.calls.length;
     // Policy churn that cannot change the answer must not reach the handler.
     await client.access.policies.create({
+      role: r.key,
       name: id.create(),
-      objects: [user.TYPE_ONTOLOGY_ID],
+      objects: [user.TYPE_RESOURCE_ID],
       actions: ["create"],
     });
     await wait(500);

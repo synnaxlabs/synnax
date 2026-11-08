@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
 )
 
@@ -56,10 +56,10 @@ var _ = Describe("Secret", func() {
 		})
 	})
 
-	Describe("OntologyID", func() {
-		It("Should return a secret ontology ID with the key", func() {
-			Expect(stored.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeSecret,
+	Describe("ResourceID", func() {
+		It("Should return a secret resource ID with the key", func() {
+			Expect(stored.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeSecret,
 				Key:  key.String(),
 			}))
 		})

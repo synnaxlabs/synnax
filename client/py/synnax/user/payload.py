@@ -9,9 +9,11 @@
 
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from synnax import ontology
+from synnax import resource
+from synnax.access import role
+from synnax.user.types_gen import Key
 
 
 class New(BaseModel):
@@ -19,19 +21,21 @@ class New(BaseModel):
     password: str
     name: str = ""
     key: UUID | None = None
+    roles: list[role.Key] = Field(default_factory=list)
 
 
 class User(BaseModel):
     key: UUID
     name: str
+    roles: list[role.Key] = Field(default_factory=list)
 
     @property
-    def ontology_id(self) -> ontology.ID:
-        return _ontology_id(self.key)
+    def resource_id(self) -> resource.ID:
+        return _resource_id(self.key)
 
 
-_ONTOLOGY_TYPE = ontology.ID(type="user")
+_RESOURCE_TYPE = resource.ID(type="user")
 
 
-def _ontology_id(key: UUID) -> ontology.ID:
-    return ontology.ID(type=_ONTOLOGY_TYPE.type, key=str(key))
+def _resource_id(key: Key) -> resource.ID:
+    return resource.ID(type=_RESOURCE_TYPE.type, key=str(key))

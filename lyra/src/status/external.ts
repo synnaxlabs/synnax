@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/status/Aggregator";
-export * from "@/status/Chip";
 export * from "@/status/colors";
 export * from "@/status/errorHandler";
 export * from "@/status/Icons";

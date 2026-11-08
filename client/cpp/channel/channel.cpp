@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "client/cpp/channel/channel.h"
+#include "client/cpp/channel/json.gen.h"
 #include "client/cpp/channel/proto.gen.h"
 #include "client/cpp/errors/errors.h"
 #include "x/cpp/errors/errors.h"
@@ -80,49 +81,19 @@ x::errors::Error Client::create(std::vector<Channel> &channels) const {
     return x::errors::NIL;
 }
 
-std::pair<std::vector<Channel>, x::errors::Error>
-Client::retrieve(const RetrieveRequest &req) const {
-    auto [pb_req, pb_err] = req.to_proto();
-    if (pb_err) return {{}, pb_err};
-    grpc::channel::RetrieveRequest grpc_req;
-    *grpc_req.mutable_request() = pb_req;
-    auto [res, err] = this->retrieve_client->send("/channel/retrieve", grpc_req);
-    if (err) return {{}, err};
-    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
-    if (proto_err) return {{}, proto_err};
-    return {std::move(decoded.channels), x::errors::NIL};
+std::pair<Channel, x::errors::Error>
+Client::retrieve(const Key key, const RetrieveOptions &options) const {
+    return this->retrieve(Where{.key = key}, x::filter::one, options);
 }
 
-std::pair<Channel, x::errors::Error> Client::retrieve(const Key key) const {
-    auto [channels, err] = this->retrieve(
-        RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.eq = key}}}
-    );
-    if (err) return {Channel{}, err};
-    if (channels.empty())
-        return {
-            Channel{},
-            errors::not_found_error("channel", "key " + std::to_string(key))
-        };
-    return {std::move(channels[0]), x::errors::NIL};
-}
-
-std::pair<Channel, x::errors::Error> Client::retrieve(const std::string &name) const {
-    auto [channels, err] = this->retrieve(
-        RetrieveRequest{.where = Where{.name_patterns = std::vector{name}}}
-    );
-    if (err) return {Channel{}, err};
-    if (channels.empty())
-        return {Channel{}, errors::not_found_error("channel", "name " + name)};
-    if (channels.size() > 1)
-        return {Channel{}, errors::multiple_found_error("channels", "name " + name)};
-    return {std::move(channels[0]), x::errors::NIL};
+std::pair<Channel, x::errors::Error>
+Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
+    return this->retrieve(Where{.name = name}, x::filter::one, options);
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>
 Client::retrieve(const std::vector<Key> &keys) const {
-    auto [channels, err] = this->retrieve(
-        RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.in = keys}}}
-    );
+    auto [channels, err] = this->retrieve(Where{.key = keys});
     if (err) return {{}, err};
     // Callers bind the channels to keys by position, so a missing key is an error.
     std::unordered_set<Key> found;
@@ -142,8 +113,38 @@ Client::retrieve(const std::vector<Key> &keys) const {
     return {channels, x::errors::NIL};
 }
 
+std::pair<std::vector<Channel>, x::errors::Error> Client::retrieve(
+    const std::vector<std::string> &names,
+    const RetrieveOptions &options
+) const {
+    return this->retrieve(Where{.name = names}, options);
+}
+
 std::pair<std::vector<Channel>, x::errors::Error>
-Client::retrieve(const std::vector<std::string> &names) const {
-    return this->retrieve(RetrieveRequest{.where = Where{.name_patterns = names}});
+Client::retrieve(const Where &where, const RetrieveOptions &options) const {
+    auto [pb_req, pb_err] = RetrieveRequest::from(where, options).to_proto();
+    if (pb_err) return {{}, pb_err};
+    grpc::channel::RetrieveRequest grpc_req;
+    *grpc_req.mutable_request() = pb_req;
+    auto [res, err] = this->retrieve_client->send("/channel/retrieve", grpc_req);
+    if (err) return {{}, err};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {{}, proto_err};
+    return {std::move(decoded.channels), x::errors::NIL};
+}
+
+std::pair<Channel, x::errors::Error> Client::retrieve(
+    const Where &where,
+    x::filter::One,
+    const RetrieveOptions &options
+) const {
+    if (options.limit.has_value() || options.offset != 0)
+        return {Channel{}, errors::paged_one_error()};
+    auto [channels, err] = this->retrieve(where, options);
+    if (err) return {Channel{}, err};
+    if (const auto
+            one_err = errors::check_one("channel", where.to_json(), channels.size()))
+        return {Channel{}, one_err};
+    return {std::move(channels[0]), x::errors::NIL};
 }
 }

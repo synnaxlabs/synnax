@@ -129,7 +129,7 @@ const Picker = ({
     sort: byName,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
-  const canCreate = Access.useCreateGranted(secret.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   return (
     <Dialog.Frame variant="connected" grow>
       <Select.Frame<secret.Key, secret.Secret | undefined>

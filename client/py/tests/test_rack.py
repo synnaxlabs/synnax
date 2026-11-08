@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Callable
 from typing import assert_type
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -81,7 +82,7 @@ class TestRackClient:
         client.racks.create([rack.Rack(name=name), rack.Rack(name=name)])
         with pytest.raises(
             sy.MultipleFoundError,
-            match=rf"Expected one Rack matching .*{name}.*, but found 2",
+            match=rf"Expected one rack where .*{name}.*, but found 2",
         ):
             client.racks.retrieve(name=name)
 
@@ -106,20 +107,22 @@ class TestRackClient:
         )
         with pytest.raises(
             sy.ValidationError,
-            match="cannot delete rack when devices are still attached",
+            match="cannot delete rack test because device test uses it as its rack",
         ):
             client.racks.delete([rack.key])
 
-    def test_delete_task_attached(self, client: sy.Synnax) -> None:
+    def test_delete_task_attached(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should raise a validation error if tasks are attached to the rack"""
         rack = client.racks.create(name="test")
         client.tasks.create(
             name="test",
             rack=rack.key,
             type="pagerduty_alert",
-            config={"routing_key": str(uuid4())},
+            config={"routing_key": str(create_routing_key())},
         )
-        with pytest.raises(sy.ValidationError, match="tasks are still attached"):
+        with pytest.raises(sy.ValidationError, match="still holds tasks"):
             client.racks.delete([rack.key])
 
     def test_create_with_integrations(self, client: sy.Synnax) -> None:
@@ -193,8 +196,7 @@ class TestRackClient:
         assert client.racks.retrieve(key=rack.key).status is None
         res = client.racks.retrieve(key=rack.key, include_status=True)
         assert res.status is not None
-        assert res.status.details is not None
-        assert res.status.details.rack == rack.key
+        assert res.status.owner == sy.rack.resource_id(rack.key)
 
     def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
         """Should page through the matching racks."""
@@ -268,3 +270,23 @@ class TestRackClient:
             assert rack.key in {r.key for r in res}
 
         assert_eventually(check)
+
+
+@pytest.mark.rack
+class TestRackGroup:
+    def test_create_in_group(self, client: sy.Synnax) -> None:
+        """Should create a rack in a group and retrieve it by that group."""
+        g = client.groups.create(str(uuid4()), scope="device")
+        rack = client.racks.create(name=str(uuid4()), group=g.key)
+        assert rack.group == g.key
+        assert [r.key for r in client.racks.retrieve(groups=[g.key])] == [rack.key]
+
+    def test_set_group(self, client: sy.Synnax) -> None:
+        """Should move a rack into a group and back out of it."""
+        g = client.groups.create(str(uuid4()), scope="device")
+        rack = client.racks.create(name=str(uuid4()))
+        assert rack.group is None
+        client.racks.set_group([rack.key], g.key)
+        assert client.racks.retrieve(rack.key).group == g.key
+        client.racks.set_group(rack.key)
+        assert client.racks.retrieve(rack.key).group is None

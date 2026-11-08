@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/x/query"
@@ -28,14 +28,14 @@ import (
 var _ = Describe("Grants", func() {
 	var (
 		e        *env
-		rk, rk2  ontology.ID
+		rk, rk2  resource.ID
 		password secret.Secret
 		key      secret.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
 		e = newEnv(ctx)
-		rk = rack.Key(1).OntologyID()
-		rk2 = rack.Key(2).OntologyID()
+		rk = rack.Key(1).ResourceID()
+		rk2 = rack.Key(2).ResourceID()
 		password = e.createStored(ctx, "Password", "hunter2")
 		key = password.Base().Key
 	})
@@ -67,8 +67,8 @@ var _ = Describe("Grants", func() {
 		})
 		It("Should reject a grant for a subject that is not a rack",
 			func(ctx SpecContext) {
-				user := ontology.ID{
-					Type: ontology.ResourceTypeUser,
+				user := resource.ID{
+					Type: resource.TypeUser,
 					Key:  uuid.New().String(),
 				}
 				Expect(e.svc.Grant(ctx, nil, user, key)).Error().
