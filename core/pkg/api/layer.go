@@ -731,7 +731,9 @@ func (l *Layer) BindTo(t Transport) {
 	// TASK
 	t.TaskCreate.BindHandler(bind.Write(l.binder, l.Task.Create))
 	t.TaskRetrieve.BindHandler(bind.Read(l.binder, l.Task.Retrieve))
-	t.TaskDelete.BindHandler(l.Task.Delete)
+	t.TaskDelete.BindHandler(
+		bind.WritePrepared(l.binder, l.Task.PrepareDelete, l.Task.Delete),
+	)
 	t.TaskCopy.BindHandler(bind.Write(l.binder, l.Task.Copy))
 	t.TaskRename.BindHandler(bind.Write(l.binder, l.Task.Rename))
 	t.TaskDispatch.BindHandler(bind.Write(l.binder, l.Task.Dispatch))
