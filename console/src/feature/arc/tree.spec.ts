@@ -19,7 +19,7 @@ import {
   findTreeRow,
   getTreeRow,
   openTreeRowContextMenu,
-  renderOntologyTree,
+  renderLiveTree,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
@@ -49,11 +49,11 @@ const createArcInDirectory = async () => {
   return { arc, root, arcsID };
 };
 
-describe("arc/ontology", () => {
+describe("arc/tree", () => {
   describe("onSelect", () => {
     it("should open the Arc as a tab when the row is double-clicked", async () => {
       const { arc, root } = await createArcInDirectory();
-      const { store } = await renderOntologyTree({
+      const { store } = await renderLiveTree({
         client,
         root,
         items: Arc.TREE_ITEMS,
@@ -72,16 +72,13 @@ describe("arc/ontology", () => {
         parent: root.key,
         name: uniqueName("sub"),
       });
-      const subID = clientArc.directory.resourceID(sub.key);
-      await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
+      await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
       await findTreeRow(sub.name);
       fireEvent.dragStart(await findTreeRow(arc.name));
       fireEvent.drop(getTreeRow(sub.name));
       await waitFor(async () => {
-        const parents = await client.ontology.parents.retrieve({
-          ids: clientArc.resourceID(arc.key),
-        });
-        expect(parents.map((p) => p.id)).toEqual([subID]);
+        const res = await client.arcs.retrieve({ key: arc.key });
+        expect(res.directory).toBe(sub.key);
       });
     });
   });
@@ -89,14 +86,14 @@ describe("arc/ontology", () => {
   describe("context menu", () => {
     it("should offer Reload Console", async () => {
       const { arc, root } = await createArcInDirectory();
-      await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
+      await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
       await openTreeRowContextMenu(arc.name);
       expect(await screen.findByText("Reload Console")).toBeTruthy();
     });
 
     it("opens the Arc as a tab from Edit", async () => {
       const { arc, root } = await createArcInDirectory();
-      const { store } = await renderOntologyTree({
+      const { store } = await renderLiveTree({
         client,
         root,
         items: Arc.TREE_ITEMS,
@@ -116,7 +113,7 @@ describe("arc/ontology", () => {
         source: { mode: "text" },
       });
       await client.arcs.directories.move(arcsID, root, clientArc.resourceID(other.key));
-      await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
+      await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
       fireEvent.click(await findTreeRow(arc.name));
       withControlHeld(() => fireEvent.click(getTreeRow(other.name)));
       await openTreeRowContextMenu(other.name);
@@ -128,7 +125,7 @@ describe("arc/ontology", () => {
 
     it("renames the Arc in place without a confirmation prompt", async () => {
       const { arc, root } = await createArcInDirectory();
-      await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
+      await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
       await openTreeRowContextMenu(arc.name);
       fireEvent.click(await screen.findByText("Rename"));
       const editor = await awaitTextEditingElement();
@@ -142,7 +139,7 @@ describe("arc/ontology", () => {
 
     it("drops the editor state when the Arc is deleted", async () => {
       const { arc, root } = await createArcInDirectory();
-      const { store } = await renderOntologyTree({
+      const { store } = await renderLiveTree({
         client,
         root,
         items: Arc.TREE_ITEMS,

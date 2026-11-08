@@ -10,16 +10,11 @@
 import { id } from "@synnaxlabs/x";
 
 import type Synnax from "@/client";
-import { project } from "@/project";
-import { type resource } from "@/resource";
+import { type project } from "@/project";
 
 /**
- * Creates a throwaway project and returns its resource ID. Panel creation requires a
- * parent, so tests that mint panels directly parent them here.
+ * Creates a throwaway project and returns its key. A panel must belong to a project or
+ * a range, so tests that create panels directly put them here.
  */
-export const createPanelParent = async (client: Synnax): Promise<resource.ID> => {
-  const proj = await client.projects.create({
-    name: `project-${id.create()}`,
-  });
-  return project.resourceID(proj.key);
-};
+export const createPanelProject = async (client: Synnax): Promise<project.Key> =>
+  (await client.projects.create({ name: `project-${id.create()}` })).key;

@@ -13,16 +13,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
 )
 
 // MigrationConfig is the configuration for newMigration.
@@ -59,45 +55,18 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 				return nil
 			}
 
-			statusKeys := lo.Map(devices, func(d Device, _ int) status.Key {
-				return d.ResourceID().String()
-			})
-			var existingStatuses []status.Status[StatusDetails]
-			if err = cfg.Status.NewRetrieve[StatusDetails]().
-				Where(status.MatchKeys[StatusDetails](statusKeys...)).
-				Entries(&existingStatuses).
-				Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-				return err
-			}
-			existingKeys := make(set.Set[status.Key])
-			for _, stat := range existingStatuses {
-				existingKeys.Add(stat.Key)
-			}
-			var missingStatuses []status.Status[StatusDetails]
-			for _, d := range devices {
-				key := d.ResourceID().String()
-				if !existingKeys.Contains(key) {
-					missingStatuses = append(
-						missingStatuses,
-						status.Status[StatusDetails]{
-							Key:     key,
-							Name:    d.Name,
-							Time:    telem.Now(),
-							Variant: status.VariantWarning,
-							Message: fmt.Sprintf("%s state unknown", d.Name),
-							Details: StatusDetails{Rack: d.Rack, Device: d.Key},
-						},
-					)
+			statuses := make([]status.Status[StatusDetails], len(devices))
+			for i, d := range devices {
+				statuses[i] = status.Status[StatusDetails]{
+					Owner:   new(d.ResourceID()),
+					Name:    d.Name,
+					Time:    telem.Now(),
+					Variant: status.VariantWarning,
+					Message: fmt.Sprintf("%s state unknown", d.Name),
+					Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 				}
 			}
-			if len(missingStatuses) == 0 {
-				return nil
-			}
-			ins.L.Info(
-				"creating unknown statuses for existing devices",
-				zap.Int("count", len(missingStatuses)),
-			)
-			return cfg.Status.NewWriter(tx).SetMany(ctx, &missingStatuses)
+			return cfg.Status.SetMissing(ctx, tx, statuses)
 		},
 	)
 }

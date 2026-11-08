@@ -37,18 +37,13 @@ export const payloadZ = z.object({
    * interfaces.
    */
   color: color.colorZ.optional(),
+  /** labels are the keys of the labels attached to the range. */
+  labels: label.keyZ.array().default(() => []),
   /**
-   * labels contains optional labels attached to this range for categorization and
-   * filtering.
+   * parent is the key of the range this range is nested in. Empty for a top-level
+   * range.
    */
-  labels: zod.nullToUndefined(label.labelZ.array()),
-  /**
-   * parent is an optional parent range for hierarchical organization. Ranges can be
-   * nested within other ranges.
-   */
-  get parent(): z.ZodOptional<typeof payloadZ> {
-    return payloadZ.optional();
-  },
+  parent: keyZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
@@ -61,6 +56,7 @@ export type Where = {
   name?: filter.String;
   overlaps?: telem.TimeRange;
   labels?: label.Key[];
+  parents?: Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -83,6 +79,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   overlaps: telem.timeRangeZ.optional(),
   /** labels matches ranges that have any of the given labels. */
   labels: zod.nullToUndefined(label.keyZ.array()),
+  /** parents matches the ranges nested in any of the given ranges. */
+  parents: zod.nullToUndefined(keyZ.array()),
 });
 
 /** KeyRef is a range saved in the Core. */
@@ -119,12 +117,7 @@ export const REF_SCHEMAS: {
   window: windowRefZ,
 };
 
-export const newZ = payloadZ
-  .omit({ labels: true, parent: true })
-  .partial({ key: true })
-  .extend({
-    parent: payloadZ.pick({ key: true }).optional(),
-  });
+export const newZ = payloadZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 /** RetrieveResponse holds the ranges a RetrieveRequest selects. */
@@ -144,10 +137,6 @@ export const retrieveRequestZ = z.strictObject({
   limit: z.uint32().optional(),
   /** offset is the number of matching ranges to skip. */
   offset: z.uint32().optional(),
-  /** includeLabels includes the labels of each record. */
-  includeLabels: z.boolean().optional(),
-  /** includeParent includes the parent of each record. */
-  includeParent: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 

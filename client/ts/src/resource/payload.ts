@@ -71,3 +71,11 @@ export const idsEqual = (a: ID, b: ID) => a.type === b.type && a.key === b.key;
  */
 export const parseID = (id: unknown): ID =>
   zod.parse(idZ, id, { label: "resource ID" });
+
+/** Zod schema for {@link Resource}. */
+export const resourceZ = z
+  .object({ id: idZ, name: z.string() })
+  .transform((r) => ({ key: idToString(r.id), ...r }));
+
+/** The ID and name of a record of any type, keyed by the string form of its ID. */
+export interface Resource extends z.infer<typeof resourceZ> {}

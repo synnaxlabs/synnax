@@ -33,6 +33,7 @@ import (
 
 var _ = Describe("CompileProgram", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
 		a := newAutomation(arc.Base{
 			Name: "test-arc",
 			Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
@@ -63,6 +64,7 @@ var _ = Describe("CompileProgram", func() {
 	})
 
 	It("Should refuse a module, which never runs", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
 		m := newModule(arc.Base{
 			Name: "never_runs",
 			Source: arc.Source{
@@ -85,6 +87,7 @@ var _ = Describe("CompileProgram", func() {
 	})
 
 	It("Should return error when graph compilation fails", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
 		a := newAutomation(arc.Base{
 			Name: "invalid-arc",
 			Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{

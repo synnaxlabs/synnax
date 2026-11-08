@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, table } from "@synnaxlabs/client";
+import { resource, table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
@@ -30,11 +30,11 @@ describe("Panel.useOpenResource", () => {
   it("opens the resource's resource ID as a tab", async () => {
     const { wrapper, store } = await createConsoleWrapper({ client });
     const project = await selectTestProject(store, client);
-    const created = await client.tables.create(project, { name: uniqueName("table") });
+    const created = await client.tables.create({ project, name: uniqueName("table") });
     const { result } = renderHook(() => Panel.useOpenResource(), { wrapper });
     const id = table.resourceID(created.key);
     await act(async () => {
-      result.current(ontology.resourceZ.parse({ id, name: created.name }));
+      result.current(resource.resourceZ.parse({ id, name: created.name }));
     });
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
@@ -55,7 +55,7 @@ describe("Panel.useOpenResource", () => {
     // The id references nothing on the Core, so any retrieval fails loudly.
     const id = table.resourceID(uuid.create());
     await act(async () => {
-      result.current(ontology.resourceZ.parse({ id, name: uniqueName("ghost") }));
+      result.current(resource.resourceZ.parse({ id, name: uniqueName("ghost") }));
     });
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");

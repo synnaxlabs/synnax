@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { project, type Synnax } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -69,12 +69,12 @@ describe("Project.useCreateModal", () => {
 
     await waitFor(async () => {
       const panels = await client.panels.retrieve({
-        parent: project.resourceID(active),
+        projects: [active],
       });
       expect(panels).toHaveLength(1);
     });
     const [pan] = await client.panels.retrieve({
-      parent: project.resourceID(active),
+      projects: [active],
     });
     expect(pan.name).toBe("New panel");
     if (pan.root.variant !== "leaf") throw new Error("expected a leaf root");

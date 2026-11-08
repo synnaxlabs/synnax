@@ -7,8 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, project } from "@synnaxlabs/client";
+import {
+  group,
+  log,
+  NotFoundError,
+  project,
+  resource,
+  schematic,
+} from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { type Haul } from "@synnaxlabs/lyra/haul";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -17,7 +26,7 @@ import {
   createResource,
   findModalButton,
   findTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
@@ -53,7 +62,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("project ontology service", () => {
+describe("project tree item", () => {
   it("should offer Reload Console", async () => {
     const p = await createProject();
     assertDefined(Item.ContextMenu);
@@ -87,7 +96,7 @@ describe("project ontology service", () => {
   it("should export the clicked project rather than the active one", async () => {
     const p = await createProject();
     const logName = uniqueName("log");
-    await client.logs.create(p.key, { name: logName });
+    await client.logs.create({ project: p.key, name: logName });
     const active = await createProject();
     const downloads = captureBrowserDownloads();
     assertDefined(Item.ContextMenu);
@@ -145,12 +154,10 @@ describe("project ontology service", () => {
 
   it("should select the project when the row is double-clicked", async () => {
     const p = await createProject();
-    const [parent] = await client.ontology.parents.retrieve({
-      ids: project.resourceID(p.key),
-    });
-    const { store } = await renderOntologyTree({
+    const { store } = await renderLiveTree({
       client,
-      root: parent.id,
+      root: project.TYPE_RESOURCE_ID,
+      listRoot: Project.listTreeRoot,
       items: Project.TREE_ITEMS,
     });
     fireEvent.doubleClick(await findTreeRow(p.name));
@@ -159,16 +166,101 @@ describe("project ontology service", () => {
     );
   });
 
-  it("should only accept mosaic-compatible children on drop", () => {
-    const { canDrop } = Item;
-    const source = { key: "s", type: "t" };
-    expect(canDrop({ source, items: [{ key: "log:abc", type: "log" }] })).toBe(true);
-    expect(canDrop({ source, items: [{ key: "schematic:abc", type: "x" }] })).toBe(
-      true,
-    );
-    expect(canDrop({ source, items: [{ key: "channel:1", type: "channel" }] })).toBe(
-      false,
-    );
+  it("should only accept visualizations and groups on drop", () => {
+    const source: Haul.Item = { key: "tree", type: PTree.HAUL_TYPE };
+    const destination = projectResource("p1", "project");
+    const root = project.TYPE_RESOURCE_ID;
+    const canDrop = (key: string): boolean =>
+      Item.canDrop({
+        source,
+        items: [PTree.createHaulItem(key)],
+        root,
+        destination,
+        ancestors: [root],
+        moved: [{ id: resource.parseID(key), ancestors: [root] }],
+      });
+    expect(canDrop("log:abc")).toBe(true);
+    expect(canDrop("schematic:abc")).toBe(true);
+    expect(canDrop("group:abc")).toBe(true);
+    expect(canDrop("channel:1")).toBe(false);
+  });
+});
+
+describe("project tree children", () => {
+  it("should list the project's groups and ungrouped visualizations", async () => {
+    const p = await createProject();
+    const id = project.resourceID(p.key);
+    const g = await client.groups.create({ parent: id, name: uniqueName("group") });
+    const s = await client.schematics.create({
+      project: p.key,
+      name: uniqueName("schematic"),
+    });
+    const l = await client.logs.create({ project: p.key, name: uniqueName("log") });
+    await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
+    await client.lineplots.create({
+      project: (await createProject()).key,
+      name: "other",
+    });
+    assertDefined(Item.children);
+    const sources = Item.children({ client, id, root: project.TYPE_RESOURCE_ID });
+    const listed = await Promise.all(sources.map(async (src) => await src.retrieve()));
+    expect(listed.flat().map(({ name }) => name)).toEqual([g.name, s.name]);
+  });
+});
+
+describe("project tree drop", () => {
+  it("should move visualizations and groups dropped from another project", async () => {
+    const src = await createProject();
+    const dst = await createProject();
+    const srcID = project.resourceID(src.key);
+    const ancestors = [srcID, project.TYPE_RESOURCE_ID];
+    const s = await client.schematics.create({
+      project: src.key,
+      name: uniqueName("schematic"),
+    });
+    const g = await client.groups.create({ parent: srcID, name: uniqueName("group") });
+    const l = await client.logs.create({ project: src.key, name: uniqueName("log") });
+    await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
+    assertDefined(Item.drop);
+    await Item.drop({
+      client,
+      destination: projectResource(dst.key, dst.name),
+      items: [
+        { id: schematic.resourceID(s.key), ancestors },
+        { id: group.resourceID(g.key), ancestors },
+      ],
+    });
+    const [movedSchematic] = await client.schematics.retrieve({ projects: [dst.key] });
+    expect(movedSchematic.key).toBe(s.key);
+    const [movedLog] = await client.logs.retrieve({ projects: [dst.key] });
+    expect(movedLog.key).toBe(l.key);
+    expect(movedLog.group).toBe(g.key);
+    const [movedGroup] = await client.groups.retrieve({
+      parents: [project.resourceID(dst.key)],
+    });
+    expect(movedGroup?.key).toBe(g.key);
+  });
+
+  it("should leave visualizations dropped within their own project there", async () => {
+    const p = await createProject();
+    const id = project.resourceID(p.key);
+    const g = await client.groups.create({ parent: id, name: uniqueName("group") });
+    const l = await client.logs.create({ project: p.key, name: uniqueName("log") });
+    await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
+    assertDefined(Item.drop);
+    await Item.drop({
+      client,
+      destination: projectResource(p.key, p.name),
+      items: [
+        {
+          id: log.resourceID(l.key),
+          ancestors: [group.resourceID(g.key), id, project.TYPE_RESOURCE_ID],
+        },
+      ],
+    });
+    const [moved] = await client.logs.retrieve({ projects: [p.key] });
+    expect(moved.key).toBe(l.key);
+    expect(moved.group).toBeUndefined();
   });
 });
 

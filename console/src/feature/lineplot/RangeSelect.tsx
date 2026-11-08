@@ -9,7 +9,7 @@
 
 import "@/feature/lineplot/RangeSelect.css";
 
-import { lineplot, NotFoundError, ranger } from "@synnaxlabs/client";
+import { lineplot, NotFoundError, type ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -69,9 +69,7 @@ const windowKey = ({ window }: ranger.WindowRef): string =>
 
 const FavoriteItem = (props: List.ItemProps<string>): ReactElement | null => {
   const range = Range.useResolve(props.itemKey);
-  const { data: parent } = Ranger.useResultParent({
-    id: ranger.resourceID(props.itemKey),
-  });
+  const { data: parent } = Ranger.useResultParent({ key: props.itemKey });
   if (range == null || range.variant === "dynamic") return null;
   return (
     <Select.Item {...props} justify="between">

@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
@@ -26,14 +26,12 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
+var rootID = resource.ID{Type: resource.TypeBuiltin, Key: "root"}
+
 var _ = Describe("Migration", func() {
-	var (
-		db  *gorp.DB
-		otg *ontology.Ontology
-	)
+	var db *gorp.DB
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.View]{DB: db}))
 	})
 
@@ -45,15 +43,18 @@ var _ = Describe("Migration", func() {
 		for i, v := range views {
 			ids[i] = v.ResourceID()
 		}
-		w := otg.NewWriter(db)
-		Expect(w.DefineResources(ctx, ontology.RootID)).To(Succeed())
-		Expect(w.DefineResources(ctx, ids...)).To(Succeed())
-		Expect(w.DefineRelationships(
-			ctx,
-			ontology.RootID,
-			ontology.RelationshipTypeParentOf,
-			ids...,
-		)).To(Succeed())
+		Expect(ontology.DefineResources(ctx, db, append(ids, rootID)...)).
+			To(Succeed())
+		rels := make([]ontology.Relationship, len(ids))
+		for i, id := range ids {
+			rels[i] = ontology.Relationship{
+				From: rootID,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   id,
+			}
+		}
+		Expect(gorp.WrapWriter[string, ontology.Relationship](db).Set(ctx, rels...)).
+			To(Succeed())
 	}
 
 	run := func(ctx SpecContext) {
@@ -61,7 +62,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "View",
-			Migrations: []gorp.Migration{v1.NewMigration(otg)},
+			Migrations: []gorp.Migration{v1.Migration},
 		})).To(Succeed())
 	}
 
@@ -157,7 +158,7 @@ var _ = Describe("Migration", func() {
 			Expect(gorp.NewRetrieve[string, ontology.Relationship]().
 				Entries(&rels).Exec(ctx, db)).To(Succeed())
 			Expect(rels).To(ConsistOf(ontology.Relationship{
-				From: ontology.RootID,
+				From: rootID,
 				Type: ontology.RelationshipTypeParentOf,
 				To:   kept.ResourceID(),
 			}))

@@ -15,12 +15,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apilineplot "github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -36,6 +36,7 @@ func TestAPILinePlot(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apilineplot.Service
 	proj   project.Project
@@ -45,7 +46,9 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	svc = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apilineplot.NewService(apilineplot.ServiceConfig{
 		RBAC:     svc.RBAC,
 		LinePlot: svc.LinePlot,
@@ -57,23 +60,37 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 })
 
-// newCreator creates a user that may create line plots.
-func newCreator(ctx SpecContext) user.User {
+// newUser creates a user with no policies.
+func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	u := MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
-	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    "policy-" + uuid.New().String(),
-		Objects: []resource.ID{{Type: resource.TypeLineplot}},
-		Actions: []access.Action{access.ActionCreate},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, u.ResourceID(), r.Key)).To(Succeed())
+}
+
+// newCreator creates a user that may create line plots in the suite project.
+func newCreator(ctx SpecContext) user.User {
+	GinkgoHelper()
+	u := newUser(ctx)
+	grant(
+		ctx,
+		access.ActionCreate,
+		u.ResourceID(),
+		resource.ID{Type: resource.TypeLineplot},
+	)
+	grant(ctx, access.ActionUpdate, u.ResourceID(), project.ResourceID(proj.Key))
 	return u
+}
+
+// grant grants the action on the objects to the subject through a new role.
+func grant(
+	ctx SpecContext,
+	action access.Action,
+	subject resource.ID,
+	objects ...resource.ID,
+) {
+	GinkgoHelper()
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	actions := []access.Action{action}
+	MustSucceed(rbactestutil.Grant(ctx, svc.RBAC, svc.User, key, actions, objects...))
 }

@@ -11,34 +11,34 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 
 // Variant is the severity or type of a status message.
-type Variant = v1.Variant
+type Variant = v2.Variant
 
 const (
 	// VariantSuccess reports that an operation succeeded.
-	VariantSuccess Variant = v1.VariantSuccess
+	VariantSuccess Variant = v2.VariantSuccess
 	// VariantInfo reports general information.
-	VariantInfo Variant = v1.VariantInfo
+	VariantInfo Variant = v2.VariantInfo
 	// VariantWarning reports a condition that needs attention.
-	VariantWarning Variant = v1.VariantWarning
+	VariantWarning Variant = v2.VariantWarning
 	// VariantError reports a failure.
-	VariantError Variant = v1.VariantError
+	VariantError Variant = v2.VariantError
 	// VariantLoading reports an operation in progress.
-	VariantLoading Variant = v1.VariantLoading
+	VariantLoading Variant = v2.VariantLoading
 	// VariantDisabled reports that the subject is not active.
-	VariantDisabled Variant = v1.VariantDisabled
+	VariantDisabled Variant = v2.VariantDisabled
 )
 
 // Key is a unique identifier for a status.
-type Key = v1.Key
+type Key = v2.Key
 
 // Status is a standardized message used to communicate state across the Synnax
 // platform. Statuses support different severity variants and can carry
-// component-specific details. A status is uniquely identified by a key and may carry a
-// human-readable name and labels for categorization and filtering.
-type Status[Details any] = v1.Status[Details]
+// component-specific details. A status is uniquely identified by a key, may name the
+// resource that owns it, and may carry a human-readable name and labels.
+type Status[Details any] = v2.Status[Details]
 
 // Where is a filter that selects statuses.
-type Where = v1.Where
+type Where = v2.Where

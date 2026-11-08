@@ -11,10 +11,19 @@
 from synnax.access.role.client import Client
 from synnax.access.role.types_gen import (
     TYPE_RESOURCE_ID,
+    Key,
     Role,
     Where,
     WhereInput,
     resource_id,
 )
 
-__all__ = ["TYPE_RESOURCE_ID", "Client", "Role", "Where", "WhereInput", "resource_id"]
+__all__ = [
+    "TYPE_RESOURCE_ID",
+    "Client",
+    "Key",
+    "Role",
+    "Where",
+    "WhereInput",
+    "resource_id",
+]

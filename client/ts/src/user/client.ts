@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, filter, type observe } from "@synnaxlabs/x";
+import { array, filter, type observe, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { role } from "@/access/role";
 import { type connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
-import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { Current } from "@/user/current";
@@ -68,8 +68,34 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
+const setRolesReqZ = z.object({
+  keys: keyZ.array(),
+  add: role.keyZ.array(),
+  remove: role.keyZ.array(),
+});
+const setRolesResZ = z.object({});
 
-const LINES: Lines = { usernames: null };
+/** The roles that {@link Client.setRoles} adds to and removes from users. */
+export interface RoleChange {
+  /** The roles to add. Each one goes ahead of the roles a user keeps. */
+  add?: role.Key[];
+  /** The roles to remove. */
+  remove?: role.Key[];
+}
+
+const mergeRoles = (
+  held: role.Key[],
+  { add = [], remove = [] }: RoleChange,
+): role.Key[] => {
+  const kept = held.filter((r) => !remove.includes(r));
+  return [...unique.unique(add).filter((r) => !kept.includes(r)), ...kept];
+};
+
+// The username lives on the user's password, so only the Core can match it.
+const LINES: Lines = {
+  usernames: null,
+  roles: (u, roles) => u.roles.some((r) => roles.includes(r)),
+};
 
 export const SET_CHANNEL_NAME = "sy_user_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
@@ -88,7 +114,6 @@ const singleIdentifier = (params: SingleParams): string =>
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
   connection: connection.Client;
   /** Carries the user after each login, and undefined when the credentials change. */
   identity: observe.Observable<User | undefined>;
@@ -104,8 +129,9 @@ export class Client extends query.Retriever<
 > {
   /** The signed-in user. */
   readonly current: Current;
+  /** The users that the client holds, by key. */
+  readonly store: query.Table<Key, User>;
   private readonly cfg: ClientConfig;
-  private readonly store: query.Table<Key, User>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -178,10 +204,7 @@ export class Client extends query.Retriever<
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     await query.optimistic({
-      rollbacks: [
-        query.partialUpdate(this.store, key, { name }),
-        this.cfg.ontology.cache.renameResource(resourceID(key), name),
-      ],
+      rollbacks: [query.partialUpdate(this.store, key, { name })],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
         await this.cfg.unary.send(
@@ -193,12 +216,38 @@ export class Client extends query.Retriever<
     });
   }
 
+  /**
+   * Removes the roles in `change.remove` from the users with the given keys, then adds
+   * the roles in `change.add` that each user does not hold. The Core applies both in
+   * one transaction, and a role in both lists is held after the call.
+   */
+  async setRoles(
+    keys: Key | Key[],
+    change: RoleChange,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const keysArr = array.toArray(keys);
+    const { add = [], remove = [] } = change;
+    await query.optimistic({
+      rollbacks: keysArr.map((key) =>
+        this.store.set(key, (u) =>
+          u == null ? undefined : { ...u, roles: mergeRoles(u.roles, change) },
+        ),
+      ),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/user/set-roles",
+          { keys: keysArr, add, remove },
+          setRolesReqZ,
+          setRolesResZ,
+        ),
+    });
+  }
+
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(resourceID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

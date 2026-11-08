@@ -22,6 +22,9 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
+// Type implements imex.ImportExporter.
+func (s *Service) Type() resource.Type { return resource.TypeLog }
+
 // Match reports whether body is a legacy Console log state, which persists the channels
 // as an array. The markers are frozen historical file shapes.
 func (*Service) Match(body map[string]any) bool {
@@ -29,8 +32,9 @@ func (*Service) Match(body map[string]any) bool {
 	return ok
 }
 
-// Import decodes env into a Log created under opts.Parent, which must be a project. The
-// key on the wire is discarded so every import mints a new resource. An unknown
+// Import decodes env into a Log created under opts.Parent, which must be a project. A
+// group must be in the parent project. The key on the wire is discarded so every import
+// mints a new resource. The log drops each channel the Core does not hold. An unknown
 // envelope version is a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
@@ -42,11 +46,25 @@ func (s *Service) Import(
 	if err != nil {
 		return resource.ID{}, validate.PathedError(err, "parent")
 	}
+	if err = project.ValidateGroup(
+		ctx, tx, proj, opts.Group, resource.TypeLog,
+	); err != nil {
+		return resource.ID{}, err
+	}
 	l, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
 		return resource.ID{}, err
 	}
-	if err = s.NewWriter(tx).Create(ctx, proj, &l); err != nil {
+	l.Group, l.Project, l.Range = nil, nil, nil
+	if _, err = s.table.DropDangling(
+		ctx,
+		gorp.OverrideTx(s.cfg.DB, tx),
+		&l,
+	); err != nil {
+		return resource.ID{}, err
+	}
+	l.Group, l.Project = opts.Group, &proj
+	if err = s.NewWriter(tx).Create(ctx, &l); err != nil {
 		return resource.ID{}, err
 	}
 	return l.ResourceID(), nil

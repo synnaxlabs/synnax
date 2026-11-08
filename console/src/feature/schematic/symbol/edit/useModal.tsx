@@ -9,7 +9,7 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import { ontology, type resource, type schematic } from "@synnaxlabs/client";
+import { type group, type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -39,7 +39,8 @@ const path = Schematic.Symbol.formPath;
 export interface ModalParams {
   /** When provided, the modal edits the existing symbol with this key. */
   symbolKey?: Schematic.Symbol.FormQuery["key"];
-  parent?: resource.ID;
+  /** The group a new symbol joins. */
+  group?: group.Key;
   scale?: number;
   /// createKey, when set on a create-mode open, forces the new symbol to be
   /// persisted under this key. Used by the missing-symbol re-link flow so
@@ -54,7 +55,7 @@ const DEFAULT_REGION_KEY = "default";
 
 const Editor = ({
   symbolKey,
-  parent,
+  group,
   createKey,
   close,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
@@ -65,7 +66,7 @@ const Editor = ({
     initialValues: {
       key: createKey,
       name: "",
-      parent: parent ?? ontology.ROOT_ID,
+      group,
       data: {
         svg: "",
         previewViewport: { zoom: 1, position: { x: 0, y: 0 } },

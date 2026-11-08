@@ -29,12 +29,26 @@ import { Task } from "@/feature/task";
 import { User } from "@/feature/user";
 import { Tree } from "@/platform/tree";
 
+// The member types each group scope lists, wired here rather than by each feature.
+const GROUP_MEMBERS: Group.Members = {
+  channel: [Channel.GROUP_MEMBER],
+  device: [Rack.GROUP_MEMBER, Device.GROUP_MEMBER],
+  project: [
+    Project.GROUP_MEMBER,
+    Schematic.GROUP_MEMBER,
+    LinePlot.GROUP_MEMBER,
+    Log.GROUP_MEMBER,
+    Table.GROUP_MEMBER,
+    Panel.GROUP_MEMBER,
+  ],
+};
+
 const TREE_ITEMS: Tree.Items = {
   ...(DESKTOP ? {} : Access.TREE_ITEMS),
   ...Arc.TREE_ITEMS,
   ...Channel.TREE_ITEMS,
   ...Device.TREE_ITEMS,
-  ...Group.TREE_ITEMS,
+  ...Group.createTreeItems(GROUP_MEMBERS),
   ...Label.TREE_ITEMS,
   ...LinePlot.TREE_ITEMS,
   ...Log.TREE_ITEMS,

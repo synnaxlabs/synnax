@@ -12,56 +12,37 @@ import { filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { keyZ, type Label, type Where } from "@/label/types.gen";
-import { resource } from "@/resource";
-
-/**
- * Lines checks the typed lines of a Where against a record. A null entry marks a line
- * that only the Core can check.
- */
-export interface Lines {
-  for: ((record: Label, value: NonNullable<Where["for"]>) => boolean) | null;
-}
 
 /**
  * @returns whether the record matches where. An absent where matches every record.
- * @throws {Error} if where is server-computed, since only the Core can check it.
  */
-export const matches = (lines: Lines, record: Label, where?: Where): boolean => {
+export const matches = (record: Label, where?: Where): boolean => {
   if (where == null) return true;
-  if (where.and != null && !where.and.every((w) => matches(lines, record, w)))
-    return false;
-  if (where.or != null && !where.or.some((w) => matches(lines, record, w)))
-    return false;
-  if (where.not != null && matches(lines, record, where.not)) return false;
+  if (where.and != null && !where.and.every((w) => matches(record, w))) return false;
+  if (where.or != null && !where.or.some((w) => matches(record, w))) return false;
+  if (where.not != null && matches(record, where.not)) return false;
   if (where.key != null && !filter.matchesSet(where.key, record.key)) return false;
   if (where.name != null && !filter.matchesString(where.name, record.name))
     return false;
-  if (where.for != null) {
-    if (lines.for == null) throw new Error("only the Core can check for");
-    if (!lines.for(record, where.for)) return false;
-  }
   return true;
 };
 
 /**
- * @returns whether only the Core can check where, because it holds a regex or a line
- * whose entry in lines is null. An absent where is not server-computed.
+ * @returns whether only the Core can check where, because it holds a regex. An absent
+ * where is not server-computed.
  */
-export const serverComputed = (lines: Lines, where?: Where): boolean =>
+export const serverComputed = (where?: Where): boolean =>
   where != null &&
-  (where.and?.some((w) => serverComputed(lines, w)) === true ||
-    where.or?.some((w) => serverComputed(lines, w)) === true ||
-    (where.not != null && serverComputed(lines, where.not)) ||
-    where.name?.regex != null ||
-    (where.for != null && lines.for == null));
+  (where.and?.some((w) => serverComputed(w)) === true ||
+    where.or?.some((w) => serverComputed(w)) === true ||
+    (where.not != null && serverComputed(where.not)) ||
+    where.name?.regex != null);
 
 const inputs = {
   /** key selects by key. */
   key: filter.setInputZ(keyZ).exactOptional(),
   /** name selects by name. */
   name: filter.stringInputZ.exactOptional(),
-  /** for matches the labels attached to the given resource. */
-  for: resource.idZ.exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -98,9 +79,7 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ...inputs,
       ...options,
     })
-    .transform((input) =>
-      filter.split(input, ["and", "or", "not", "key", "name", "for"]),
-    );
+    .transform((input) => filter.split(input, ["and", "or", "not", "key", "name"]));
 
 /**
  * shortcutZ reads a key, a name, or a list of either into a request whose where holds

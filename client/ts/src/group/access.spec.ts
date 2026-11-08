@@ -12,7 +12,6 @@ import { describe, expect, it } from "vitest";
 
 import { group } from "@/group";
 import { AccessDeniedError } from "@/index";
-import { ontology } from "@/ontology";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -26,7 +25,7 @@ describe("group", () => {
         actions: ["create"],
       });
       await userClient.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-${id.create()}`,
       });
     });
@@ -39,7 +38,7 @@ describe("group", () => {
       });
       await expect(
         userClient.groups.create({
-          parent: ontology.ROOT_ID,
+          scope: "channel",
           name: `test-${id.create()}`,
         }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
@@ -52,7 +51,7 @@ describe("group", () => {
         actions: ["delete", "retrieve"],
       });
       const randomGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-${id.create()}`,
       });
       await userClient.groups.delete(randomGroup.key);
@@ -65,7 +64,7 @@ describe("group", () => {
         actions: [],
       });
       const randomGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-${id.create()}`,
       });
       await expect(userClient.groups.delete(randomGroup.key)).rejects.toSatisfy(
@@ -75,19 +74,19 @@ describe("group", () => {
 
     it("should retrieve a page of children past a child the caller cannot read", async () => {
       const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-${id.create()}`,
       });
       const parentID = group.resourceID(parent.key);
       await client.groups.create({ parent: parentID, name: "a" });
       await client.groups.create({ parent: parentID, name: "b" });
-      const [first] = await client.groups.retrieve({ parent: parentID, limit: 1 });
+      const [first] = await client.groups.retrieve({ parents: [parentID], limit: 1 });
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         objects: [group.resourceID(first.key)],
         actions: ["retrieve"],
       });
-      const page = await userClient.groups.retrieve({ parent: parentID, limit: 1 });
+      const page = await userClient.groups.retrieve({ parents: [parentID], limit: 1 });
       expect(page).toEqual([first]);
     });
   });

@@ -109,6 +109,12 @@ func MatchWhere(w Where) (Filter, error) {
 	if l := w.HostIsNode; l != nil {
 		fs = append(fs, MatchHostIsNode(*l))
 	}
+	if l := w.Groups; l != nil {
+		fs = append(fs, MatchGroups(l...))
+	}
+	if l := w.Grouped; l != nil {
+		fs = append(fs, MatchGrouped(*l))
+	}
 	return And(fs...), nil
 }
 

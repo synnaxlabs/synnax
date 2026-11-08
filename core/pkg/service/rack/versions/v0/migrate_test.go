@@ -17,11 +17,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -36,21 +35,11 @@ var _ = Describe("Migration", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB: db,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
-			Group:    groupSvc,
-			Label:    labelSvc,
+			DB: db,
 		}))
 	})
 
@@ -94,9 +83,11 @@ var _ = Describe("Migration", func() {
 
 		var restoredStatus status.Status[v0.StatusDetails]
 		Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
-			Where(status.MatchKeys[v0.StatusDetails](r.ResourceID().String())).
+			Where(status.MatchOwners[v0.StatusDetails](r.ResourceID())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
+		key, _ := statusv2.MigrateKey(r.ResourceID().String())
+		Expect(restoredStatus.Key).To(Equal(key))
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
 		Expect(restoredStatus.Message).To(Equal("Status unknown"))
 		Expect(restoredStatus.Details.Rack).To(Equal(r.Key))
@@ -167,21 +158,11 @@ var _ = Describe("Status backfill", func() {
 		"Should read a status whose rack key was stored as float64",
 		func(ctx SpecContext) {
 			db := DeferClose(OpenGorpMsgpackDB())
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    groupSvc,
+			MustOpen(label.OpenService(ctx, label.ServiceConfig{
+				DB: db,
 			}))
 			statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
-				Group:    groupSvc,
-				Label:    labelSvc,
+				DB: db,
 			}))
 
 			rackKey := v0.Key(1<<16 | 1)
@@ -193,7 +174,8 @@ var _ = Describe("Status backfill", func() {
 			// legacy data where the key was encoded as a MessagePack float64 instead of
 			// uint32.
 			legacyStatus := status.Status[any]{
-				Key:     rackKey.ResourceID().String(),
+				Key:     "legacy-rack-status",
+				Owner:   new(rackKey.ResourceID()),
 				Name:    "Legacy Rack Status",
 				Variant: status.VariantSuccess,
 				Message: "Started",
@@ -202,11 +184,10 @@ var _ = Describe("Status backfill", func() {
 					"rack": float64(rackKey),
 				},
 			}
-			Expect(
-				db.WithTx(ctx, func(tx gorp.Tx) error {
-					return statusSvc.NewWriter(tx).Set(ctx, &legacyStatus)
-				}),
-			).To(Succeed())
+			// The rack table is not open during its own migration, so the status skips
+			// reference checks.
+			Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, legacyStatus)).
+				To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would
 			// fail without the flex DecodeMsgpack on the Key type because the rack key
@@ -223,9 +204,10 @@ var _ = Describe("Status backfill", func() {
 			// Verify the status is readable with the correct typed key.
 			var restoredStatus status.Status[v0.StatusDetails]
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
-				Where(status.MatchKeys[v0.StatusDetails](rackKey.ResourceID().String())).
+				Where(status.MatchOwners[v0.StatusDetails](rackKey.ResourceID())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
+			Expect(restoredStatus.Key).To(Equal("legacy-rack-status"))
 			Expect(restoredStatus.Details.Rack).To(Equal(rackKey))
 		},
 	)
