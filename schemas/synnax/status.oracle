@@ -105,6 +105,15 @@ Status struct<Details?, V extends Variant = Variant> {
         @ref unique
     }
 
+    action Set {
+        status Status<any>
+
+        @doc value """
+            replaces the status with the given state. Emitted by the Core on every write
+            to the status; clients never dispatch it.
+        """
+    }
+
     @create
     @doc value         """
         is a standardized message used to communicate state across the Synnax platform.

@@ -454,6 +454,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
+	// The Driver reads sy_status_set as statuses, so actions take their own channel.
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[status.Key, status.Action]{
+			Name:     "sy_status_action_set",
+			Actions:  l.Status.Actions(),
+			Resource: status.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
 		Instrumentation: cfg.Child("control"),
 		Control:         cfg.Distribution.Control,
