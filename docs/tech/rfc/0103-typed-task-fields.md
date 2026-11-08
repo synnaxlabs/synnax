@@ -216,15 +216,14 @@ probe writes NI `Hardware` from DAQmx, so it needs no migration.
 
 Migration clamps a stored magnitude, so a task the user wrote keeps running: below the
 minimum becomes the minimum, or 0 with none, above the maximum becomes the maximum, and
-a fraction truncates, as the Driver's cast does. It logs the task, field, old value, and
-new value. An identifier (NI `port` and `line`, LabJack `neg_chan`) never clamps,
-because a clamped one picks a channel the user did not choose. Out of range, every
-migration path (the store migration, `Normalize`, and imports) sets the channel's
-`disabled` to true, keeps the stored value, and logs the task, channel, field, and old
-value. The log and the unchecked channel in the Console are the record, and the task
-runs its other channels. `@validate` rejects re-enabling it with the bad value, so the
-user fixes the number first. A `neg_chan` of 199 and a backlog count of 0 become absent.
-Each migration phase tests a clamp at both bounds and a disabled identifier.
+a fraction truncates, as the Driver's cast does. It logs the task, channel, field, old
+value, and new value. An out-of-range identifier (NI `port` and `line`, LabJack
+`neg_chan`) clamps the same way, so it names a real channel and passes `@validate`, and
+its channel also becomes disabled. The clamped value may not be the wiring the user
+meant, so re-enabling is the user's explicit choice. Every migration path (the store
+migration, `Normalize`, and imports) applies both rules. A `neg_chan` of 199 and a
+backlog count of 0 become absent. Each migration phase tests a clamp at both bounds and
+a clamped-and-disabled identifier.
 
 LabJack v2 shipped, so LabJack gets v3. NI v3 has not shipped, so NI changes it in place
 if it lands before a release, or else adds v4. Kafka v0 changes in place in Phase 7.
@@ -272,8 +271,8 @@ narrowing. Each drop is logged.
   reconcile.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
-string variant. Each field in §6 clamps or disables by its rule and logs. A released
-Core keeps reading v2, v3, and v0.58 to v0.59 envelopes.
+string variant. Each field in §6 clamps and logs, and an identifier also disables its
+channel. A released Core keeps reading v2, v3, and v0.58 to v0.59 envelopes.
 
 ## 8 Implementation phases
 
