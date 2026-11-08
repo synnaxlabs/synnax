@@ -256,12 +256,13 @@ func (s *Service) NewPolicyRetrieve() policy.Retrieve {
 	return s.Policy.NewRetrieve().ResolveRolesWith(s.RolesOf)
 }
 
-func (e *Enforcer) retrievePolicies(
+// Policies returns the policies of the subject's roles. A subject that does not exist
+// holds none.
+func (e *Enforcer) Policies(
 	ctx context.Context,
 	subject resource.ID,
 ) ([]policy.Policy, error) {
 	roles, err := e.svc.RolesOf(ctx, e.snap, subject)
-	// A subject that does not exist, such as a deleted user, holds no roles.
 	if errors.Is(err, query.ErrNotFound) {
 		return nil, nil
 	}
@@ -293,7 +294,7 @@ func (s *Service) NewEnforcer(snap gorp.Snapshot) *Enforcer {
 // object for the action, and returns an error wrapping access.ErrDenied otherwise. A
 // subject that does not exist holds no policies.
 func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
-	v, err := e.retrievePolicies(ctx, req.Subject)
+	v, err := e.Policies(ctx, req.Subject)
 	if err != nil {
 		return err
 	}
@@ -312,13 +313,21 @@ func (e *Enforcer) Allowed(
 	subject resource.ID,
 	action access.Action,
 ) (func(resource.ID) bool, error) {
-	policies, err := e.retrievePolicies(ctx, subject)
+	policies, err := e.Policies(ctx, subject)
 	if err != nil {
 		return nil, err
 	}
-	return func(obj resource.ID) bool {
-		return covers(subject, policies, action, obj)
-	}, nil
+	return Allows(subject, policies, action), nil
+}
+
+// Allows returns a function that reports whether policies, which the subject holds,
+// cover an object for the action.
+func Allows(
+	subject resource.ID,
+	policies []policy.Policy,
+	action access.Action,
+) func(resource.ID) bool {
+	return func(obj resource.ID) bool { return covers(subject, policies, action, obj) }
 }
 
 // firstDenied returns the first object in the request that no policy covers, and
