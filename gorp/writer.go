@@ -51,7 +51,7 @@ func wrapWriter[K Key, E Entry[K]](
 		prefix = key.Prefix[E]()
 	}
 	if indexes == nil {
-		indexes = openIndexes[K, E](tx, prefix)
+		indexes = openIndexes[K, E](txDB(tx), prefix)
 	}
 	return Writer[K, E]{
 		tx:       tx,
@@ -88,10 +88,9 @@ func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
 	})
 }
 
-// openIndexes returns the indexes of the open tables of E on the DB of tx that store
-// under prefix.
-func openIndexes[K Key, E Entry[K]](tx Tx, prefix []byte) []Index[K, E] {
-	db := txDB(tx)
+// openIndexes returns the indexes of the open tables of E on db that store under
+// prefix.
+func openIndexes[K Key, E Entry[K]](db *DB, prefix []byte) []Index[K, E] {
 	if db == nil {
 		return nil
 	}

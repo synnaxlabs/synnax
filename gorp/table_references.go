@@ -60,9 +60,10 @@ func (t *Table[K, E]) unregister() {
 }
 
 // writer returns a Writer that stages against the indexes of every open table of E on
-// the table's key prefix and checks the table's references when checked is true.
+// the table's DB and key prefix, whatever DB tx belongs to. It checks the table's
+// references when checked is true.
 func (t *Table[K, E]) writer(tx Tx, checked bool) Writer[K, E] {
-	w := wrapWriter[K, E](tx, t.keyPrefix, nil)
+	w := wrapWriter[K, E](tx, t.keyPrefix, openIndexes[K, E](t.db, t.keyPrefix))
 	if checked && len(t.references) > 0 {
 		w.table = t
 	}

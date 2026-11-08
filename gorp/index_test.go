@@ -376,13 +376,27 @@ var _ = Describe("Index", func() {
 		})
 
 		Describe("Maintenance", func() {
-			var nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
+			var (
+				nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
+				table   *gorp.Table[int32, indexedEntry]
+			)
 			BeforeEach(func(ctx SpecContext) {
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
+				table = DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
 			})
+
+			It(
+				"Should index writes through the table in a transaction of another DB",
+				func(ctx SpecContext) {
+					other := gorp.Wrap(idxDB.KV(), gorp.WithCodec(msgpack.Codec))
+					Expect(table.NewCreate().
+						Entry(&indexedEntry{ID: 21, Name: "eta"}).
+						Exec(ctx, other)).To(Succeed())
+					Expect(nameIdx.Get(ctx, nil, "eta")).To(Equal([]int32{21}))
+				},
+			)
 
 			It(
 				"Should index writes through another open table of the type",
