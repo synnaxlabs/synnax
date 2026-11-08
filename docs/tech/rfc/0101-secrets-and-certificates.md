@@ -144,8 +144,9 @@ with no check, because they run in the Core. A rack reads a secret when:
 2. The request carries a grant for that rack that names it.
 
 A user who saves a device or task that names a secret must be able to retrieve that
-secret, or the save fails. Otherwise a user could give a rack a secret the user cannot
-see. Phase 7 adds the first rule and this check, with the first Driver integration.
+secret, or the save fails. Otherwise a user could make a rack or a Core integration use
+a secret the user cannot see. Phase 4 adds this check for tasks, and Phase 6 for
+devices. Phase 7 adds the first rule, with the first Driver integration.
 
 A grant covers commands that run before a device is saved: a connect dialog's test and
 browse. A test reads secrets only with a grant, even for a saved device. The Console
@@ -274,7 +275,7 @@ the Driver change, so they are separate phases.
 | 1     | Add RFC 0101 for secrets and certificates              | `docs/tech/rfc`                                                                                                                                                                           | -          |
 | 2     | Add the secret service                                 | `schemas/synnax`, `core/pkg/service/secret`, `core/pkg/service/auth`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `core/cmd/start`, `client/ts`, `client/py`  | 1          |
 | 3     | Add the certificate service                            | `schemas/synnax`, `core/pkg/service/certificate`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `client/ts`, `client/py`                                        | 2          |
-| 4     | Pick secrets in the Console and move PagerDuty to them | `console/src/feature/secret`, `console/src/feature/pagerduty`, `core/pkg/service/pagerduty`, `schemas/synnax`                                                                             | 3          |
+| 4     | Pick secrets in the Console and move PagerDuty to them | `console/src/feature/secret`, `console/src/feature/pagerduty`, `core/pkg/service/pagerduty`, `core/pkg/service/task`, `core/pkg/api`, `schemas/synnax`                                    | 3          |
 | 5     | Add the file integration and remote file browser       | `driver/file`, `driver/rack`, `core/pkg/service/file`, `core/pkg/service/layer.go`, `console/src/feature/file`                                                                            | 4          |
 | 6     | Move Kafka and MQTT to secrets and certificates        | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `schemas/synnax`, `console/src/feature/kafka`, `console/src/feature/mqtt`, `client/py`                                                 | 4          |
 | 7     | Move OPC UA and HTTP to secrets and certificates       | `driver/opcua`, `driver/http`, `client/cpp`, `core/pkg/service/opcua`, `core/pkg/service/http`, `console/src/feature/opcua`, `console/src/feature/http`, `client/py`, `integration/tests` | 5          |
