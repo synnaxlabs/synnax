@@ -163,7 +163,7 @@ func (c LayerConfig) Validate() error {
 // The service layer wraps the distribution layer to provide the core services of
 // synnax that do not require network awareness.
 type Layer struct {
-	// Group is for grouping related resources in the cluster.
+	// Group is for grouping related resources.
 	Group *group.Service
 	// User is the service for registering and retrieving information about users.
 	User *user.Service
@@ -224,14 +224,13 @@ type Layer struct {
 	PagerDuty *pdruntime.Service
 	// MQTT owns the stored configuration records of the MQTT task types.
 	MQTT *mqtt.Service
-	// Framer is for reading, writing, and streaming frames of telemetry from channels
-	// across the cluster.
+	// Framer is for reading, writing, and streaming frames of telemetry from channels.
 	Framer *framer.Service
 	// Channel is the highest-level channel service and owns calculated channel
 	// behavior.
 	Channel *channel.Service
-	// Control reads the control state of channels across the cluster and publishes
-	// every transfer on the control channel.
+	// Control reads the control state of channels and publishes every transfer on the
+	// control channel.
 	Control *control.Service
 	// License holds the Core's license and gates the API on it.
 	License *license.Service
@@ -246,7 +245,7 @@ type Layer struct {
 	View *view.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
-	// Node serves the cluster's nodes as resources.
+	// Node serves the host node of the Core as a resource.
 	Node *node.Service
 	// Resource searches and names records of every type.
 	Resource *resource.Service

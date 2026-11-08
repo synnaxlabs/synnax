@@ -43,11 +43,11 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// Channel is the distribution-layer channel service the service drives to assign
-	// local keys and create, rename, and delete storage channels across the cluster.
+	// local keys and create, rename, and delete storage channels.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// DB is the cluster-wide metadata database backing the channel table.
+	// DB is the metadata database backing the channel table.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -142,7 +142,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	// Seed the external/non-virtual key set by scanning the table once at startup. This
 	// is the only call site that unavoidably walks the table — there is no index for
-	// (Internal, Virtual) and the cost is bounded by how many channels the cluster has
+	// (Internal, Virtual) and the cost is bounded by how many channels the Core has
 	// accumulated.
 	var externalNonVirtualChannels []Channel
 	if err = s.table.NewRetrieve().
@@ -202,9 +202,9 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 	return nil
 }
 
-// NewArcSymbolResolver returns a resolver that maps cluster channels to Arc symbols by
-// name or numeric key, for analyzing and compiling Arc expressions such as calculated
-// channels. tx scopes channel lookups; nil consults the service DB directly.
+// NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by name or
+// numeric key, for analyzing and compiling Arc expressions such as calculated channels.
+// tx scopes channel lookups; nil consults the service DB directly.
 func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return &symbolResolver{svc: s, tx: tx}
 }

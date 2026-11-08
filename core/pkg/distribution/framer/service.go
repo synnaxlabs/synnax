@@ -120,9 +120,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	return s, nil
 }
 
-// OpenIterator opens a new iterator for reading historical data from a Synnax cluster.
-// If the returned error is nil, the iterator must be closed after use. For information
-// on configuration parameters, see the IteratorConfig struct.
+// OpenIterator opens a new iterator for reading historical data from channels. If the
+// returned error is nil, the iterator must be closed after use. For information on
+// configuration parameters, see the IteratorConfig struct.
 //
 // The returned iterator uses a synchronous, method-based model. For a channel-based
 // iterator model, use NewStreamIterator.
@@ -133,10 +133,10 @@ func (s *Service) OpenIterator(
 	return s.iterator.Open(ctx, cfg)
 }
 
-// NewStreamIterator returns an iterator for reading historical data from a Synnax
-// cluster. The returned StreamIterator is a confluence.Segment that uses a
-// channel-based interface, where requests are sent through an input stream, and
-// responses are received through an output stream.
+// NewStreamIterator returns an iterator for reading historical data from channels. The
+// returned StreamIterator is a confluence.Segment that uses a channel-based interface,
+// where requests are sent through an input stream, and responses are received through
+// an output stream.
 func (s *Service) NewStreamIterator(
 	ctx context.Context,
 	cfg IteratorConfig,
@@ -144,8 +144,8 @@ func (s *Service) NewStreamIterator(
 	return s.iterator.NewStream(ctx, cfg)
 }
 
-// OpenWriter opens a new writer for writing data to a Synnax cluster. If the returned
-// error is nil, the writer must be closed after use. For information on configuration
+// OpenWriter opens a new writer for writing data to channels. If the returned error is
+// nil, the writer must be closed after use. For information on configuration
 // parameters, see the WriterConfig struct.
 //
 // The returned writer uses a synchronous, method-based model. For a channel-based
@@ -154,10 +154,9 @@ func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, er
 	return s.writer.Open(ctx, cfg)
 }
 
-// NewStreamWriter returns a writer for writing data to a Synnax cluster. The returned
-// writer is a confluence.Segment that uses a channel-based interface, where requests
-// are sent through an input stream, and responses are received through an output
-// stream.
+// NewStreamWriter returns a writer for writing data to channels. The returned writer is
+// a confluence.Segment that uses a channel-based interface, where requests are sent
+// through an input stream, and responses are received through an output stream.
 func (s *Service) NewStreamWriter(
 	ctx context.Context,
 	cfg WriterConfig,

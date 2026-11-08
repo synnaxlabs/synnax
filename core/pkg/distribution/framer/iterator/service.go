@@ -111,9 +111,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg}, nil
 }
 
-// Open opens a new iterator for reading historical data from a Synnax cluster.
-// If the returned error is nil, the iterator must be closed after use. For
-// information on configuration parameters, see the IteratorConfig struct.
+// Open opens a new iterator for reading historical data from channels. If the returned
+// error is nil, the iterator must be closed after use. For information on configuration
+// parameters, see the IteratorConfig struct.
 //
 // The returned iterator uses a synchronous, method-based model. For a channel-based
 // iterator model, use NewStream.
@@ -141,10 +141,10 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 	}}, nil
 }
 
-// NewStream returns an iterator for reading historical data from a Synnax cluster. The
-// returned StreamIterator is a confluence.Segment that uses a channel-based interface,
-// where requests are sent through an input stream, and responses are received through
-// an output stream.
+// NewStream returns an iterator for reading historical data from channels. The returned
+// StreamIterator is a confluence.Segment that uses a channel-based interface, where
+// requests are sent through an input stream, and responses are received through an
+// output stream.
 func (s *Service) NewStream(_ context.Context, cfg Config) (StreamIterator, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
