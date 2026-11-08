@@ -104,11 +104,10 @@ func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumen
 	if *cfg.Trace {
 		options = append(options, alamos.WithTracer(newTracer(serviceName())))
 		// The dev collector does not run during tests, so the final flush fails. The
-		// SDK
-		// still stops, which is all this cleanup needs.
+		// SDK still stops, which is all this cleanup needs.
 		ginkgo.DeferCleanup(func(ctx context.Context) {
 			if err := uptrace.Shutdown(ctx); err != nil {
-				zap.S().Warnw("failed to flush telemetry", "error", err)
+				ginkgo.GinkgoWriter.Printf("failed to flush telemetry: %v\n", err)
 			}
 		})
 	}

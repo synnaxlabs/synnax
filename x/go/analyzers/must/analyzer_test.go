@@ -19,6 +19,11 @@ import (
 )
 
 var _ = Describe("Analyzer", func() {
+	It("Should keep a nil-accepting matcher's meaning through Error()", func() {
+		succeed := func() (int, error) { return 1, nil }
+		Expect(succeed()).Error().To(Or(Succeed(), MatchError("unreachable")))
+	})
+
 	It("Should detect Expect(err).ToNot(HaveOccurred()) patterns", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(

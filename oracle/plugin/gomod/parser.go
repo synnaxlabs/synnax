@@ -28,7 +28,11 @@ func parseModuleName(modPath string) (name string, err error) {
 	if err != nil {
 		return "", err
 	}
-	defer func() { err = errors.Combine(err, file.Close()) }()
+	defer func() {
+		if err = errors.Combine(err, file.Close()); err != nil {
+			name = ""
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

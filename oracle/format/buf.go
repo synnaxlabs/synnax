@@ -39,7 +39,11 @@ func (b *BufFormat) Format(
 	if err != nil {
 		return nil, errors.Wrap(err, "create temp dir")
 	}
-	defer func() { err = errors.Combine(err, os.RemoveAll(dir)) }()
+	defer func() {
+		if err = errors.Combine(err, os.RemoveAll(dir)); err != nil {
+			out = nil
+		}
+	}()
 	tmpFile := filepath.Join(dir, filepath.Base(absPath))
 	if err := os.WriteFile(tmpFile, content, 0o644); err != nil {
 		return nil, errors.Wrap(err, "write temp proto")

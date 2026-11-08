@@ -319,8 +319,7 @@ func matchExpectErrSucceeds(expr ast.Expr) (string, bool) {
 	return expectedIdent(sel.X)
 }
 
-// errorMatchers are the matchers that fail on a nil error, so asserting them through
-// Expect(f()).Error() keeps the meaning of the original assertion.
+// errorMatchers are the matchers on a captured error that the check moves inline.
 var errorMatchers = set.New(
 	"MatchError",
 	"SatisfyAll",
@@ -407,7 +406,8 @@ func bindsOnlyError(pass *analysis.Pass, assign *ast.AssignStmt, errName string)
 
 // reportInlineDiagnostic reports an Expect(err) assertion on a captured error that
 // can assert on the call itself. A call with more than one result asserts through
-// Error(), which also checks that every other result is zero.
+// Error(), which checks that every other result is zero only when the error is not
+// nil.
 func reportInlineDiagnostic(
 	pass *analysis.Pass,
 	assign *ast.AssignStmt,
