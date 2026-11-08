@@ -51,7 +51,8 @@ type Changes []Change
 
 // ChangesOf returns what the typed writes through tx have changed so far, in the order
 // tx first wrote each record. Cascades and detaches are included, and raw key-value
-// writes are not. It panics when tx is a DB.
+// writes are not: a kind compares against the record at the first typed write to it.
+// It panics when tx is a DB.
 func ChangesOf(tx Tx) Changes {
 	state := tx.txIdentity()
 	if state == nil {
