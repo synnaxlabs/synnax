@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -42,11 +42,11 @@ type record struct {
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v      svctestutil.Vectors[record, channel.Where]
+		v      vectors.Vectors[record, channel.Where]
 		chSvc  *channel.Service
 		byName = make(map[string]string)
 	)
-	v = MustSucceed(svctestutil.ReadVectors[record, channel.Where]("channels"))
+	v = MustSucceed(vectors.Read[record, channel.Where]("channels"))
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -80,7 +80,7 @@ var _ = Describe("Where", Ordered, func() {
 
 	DescribeTable(
 		"Should match the case",
-		func(ctx SpecContext, c svctestutil.Case[channel.Where]) {
+		func(ctx SpecContext, c vectors.Case[channel.Where]) {
 			f := MustSucceed(channel.MatchWhere(c.Where))
 			var res []channel.Channel
 			Expect(chSvc.NewRetrieve().
@@ -92,7 +92,7 @@ var _ = Describe("Where", Ordered, func() {
 				return byName[ch.Name]
 			})).To(ConsistOf(c.Expected))
 		},
-		lo.Map(v.Cases, func(c svctestutil.Case[channel.Where], _ int) TableEntry {
+		lo.Map(v.Cases, func(c vectors.Case[channel.Where], _ int) TableEntry {
 			return Entry(c.Name, c)
 		}),
 	)
