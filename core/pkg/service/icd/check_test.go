@@ -241,6 +241,14 @@ var _ = Describe("Check", func() {
 				To(ConsistOf(overlapping(1, "a")))
 		})
 
+		It("Should report a field against the first field it overlaps", func() {
+			Expect(check(
+				binaryField("a", 0, 8),
+				binaryField("b", 8, 8),
+				binaryField("c", 4, 8),
+			)).To(ConsistOf(overlapping(2, "a")))
+		})
+
 		It("Should not find fields that only touch", func() {
 			Expect(check(binaryField("a", 0, 8), binaryField("b", 8, 8))).To(BeEmpty())
 		})
@@ -259,6 +267,17 @@ var _ = Describe("Check", func() {
 					mux,
 					binaryField("a", 8, 8),
 					multiplexed(binaryField("b", 8, 8), mux, 0),
+				)).To(ConsistOf(overlapping(2, "a")))
+			},
+		)
+
+		It(
+			"Should find a field that is always present over a multiplexed field",
+			func() {
+				Expect(check(
+					mux,
+					multiplexed(binaryField("a", 8, 8), mux, 0),
+					binaryField("b", 8, 8),
 				)).To(ConsistOf(overlapping(2, "a")))
 			},
 		)

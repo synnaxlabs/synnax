@@ -362,71 +362,122 @@ func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField
 }
 
 // checkOverlaps finds binary fields that read the same bits and can both be present in
-// one frame.
+// one frame. Each field is reported against the first earlier field it overlaps.
 func (c *checker) checkOverlaps(path []string, fields []BinaryField) {
-	bits := make([]set.Set[int], len(fields))
-	muxValues := make([]set.Set[int32], len(fields))
-	for i, f := range fields {
-		if validBitLength(f.BitLength) {
-			bits[i] = coveredBits(f)
+	// ids numbers the payload bits the fields read, so readers can be slices.
+	ids := make(map[int]int)
+	var all, plain readers
+	found := make([]int, len(fields))
+	bits := make([][]int, len(fields))
+	groups := make(map[muxValue][]int)
+	for j, f := range fields {
+		found[j] = noField
+		if !validBitLength(f.BitLength) {
+			continue
 		}
-		muxValues[i] = set.New(f.MultiplexValues...)
-	}
-	for j, b := range fields {
-		for i, a := range fields[:j] {
-			if coexist(a, b, muxValues[i], muxValues[j]) && overlap(bits[i], bits[j]) {
-				c.Addf(
-					pathOf(path, strconv.Itoa(j), "start_bit"),
-					"field overlaps the bits of field %q",
-					a.Name,
-				)
-				break
+		for _, b := range coveredBits(f) {
+			id, ok := ids[b]
+			if !ok {
+				id = len(ids)
+				ids[b] = id
+				all, plain = append(all, noField), append(plain, noField)
+			}
+			bits[j] = append(bits[j], id)
+		}
+		if f.Multiplexor == nil {
+			found[j] = all.claim(j, bits[j])
+			plain.claim(j, bits[j])
+			continue
+		}
+		found[j] = plain.earliest(bits[j])
+		all.claim(j, bits[j])
+		for _, v := range f.MultiplexValues {
+			k := muxValue{multiplexor: *f.Multiplexor, value: v}
+			if g := groups[k]; len(g) == 0 || g[len(g)-1] != j {
+				groups[k] = append(g, j)
 			}
 		}
+	}
+	// Fields under one multiplexor coexist only in the frames of a value they share.
+	shared := slices.Repeat(readers{noField}, len(ids))
+	for _, g := range groups {
+		if len(g) < 2 {
+			continue
+		}
+		for _, j := range g {
+			found[j] = min(found[j], shared.claim(j, bits[j]))
+		}
+		for _, j := range g {
+			shared.release(bits[j])
+		}
+	}
+	for j, i := range found {
+		if i != noField {
+			c.Addf(
+				pathOf(path, strconv.Itoa(j), "start_bit"),
+				"field overlaps the bits of field %q",
+				fields[i].Name,
+			)
+		}
+	}
+}
+
+// noField marks the absence of a field index.
+const noField = math.MaxInt
+
+type muxValue struct {
+	multiplexor FieldKey
+	value       int32
+}
+
+// readers holds the first field that reads each bit.
+type readers []int
+
+// claim records field i as a reader of bits and returns the first earlier field that
+// reads one of them, or noField.
+func (r readers) claim(i int, bits []int) int {
+	found := noField
+	for _, b := range bits {
+		if r[b] == noField {
+			r[b] = i
+		} else {
+			found = min(found, r[b])
+		}
+	}
+	return found
+}
+
+// earliest returns the first field that reads one of bits, or noField.
+func (r readers) earliest(bits []int) int {
+	found := noField
+	for _, b := range bits {
+		found = min(found, r[b])
+	}
+	return found
+}
+
+func (r readers) release(bits []int) {
+	for _, b := range bits {
+		r[b] = noField
 	}
 }
 
 // coveredBits returns the payload bits the field reads, each numbered 8*byte + bit,
 // where bit 0 is the least significant bit of its byte.
-func coveredBits(f BinaryField) set.Set[int] {
+func coveredBits(f BinaryField) []int {
 	start, length := int(f.StartBit), int(f.BitLength)
-	bits := make(set.Set[int], length)
+	bits := make([]int, 0, length)
 	if f.ByteOrder != ByteOrderBigEndian {
 		for i := start; i < start+length; i++ {
-			bits.Add(i)
+			bits = append(bits, i)
 		}
 		return bits
 	}
 	msb := 8*(start/8) + 7 - start%8
 	for i := msb; i < msb+length; i++ {
-		bits.Add(8*(i/8) + 7 - i%8)
+		bits = append(bits, 8*(i/8)+7-i%8)
 	}
 	return bits
-}
-
-func overlap[T comparable](a, b set.Set[T]) bool {
-	if len(b) < len(a) {
-		a, b = b, a
-	}
-	for v := range a {
-		if b.Contains(v) {
-			return true
-		}
-	}
-	return false
-}
-
-// coexist reports whether fields a and b, with the multiplex values aValues and
-// bValues, can both be present in one frame. Fields under different multiplexors may be
-// nested, so they count as exclusive.
-func coexist(a, b BinaryField, aValues, bValues set.Set[int32]) bool {
-	switch {
-	case a.Multiplexor == nil || b.Multiplexor == nil:
-		return true
-	case *a.Multiplexor != *b.Multiplexor:
-		return false
-	}
-	return overlap(aValues, bValues)
 }
 
 func validBitLength(n uint8) bool { return n >= 1 && n <= maxBitLength }
