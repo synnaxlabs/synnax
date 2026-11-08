@@ -61,6 +61,21 @@ var _ = Describe("Table", func() {
 		})
 	})
 
+	Describe("Changes", func() {
+		It("Should return the directory that a commit creates", func(ctx SpecContext) {
+			var names []string
+			DeferCleanup(
+				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+					for ch := range table.Changes(ctx, c) {
+						names = append(names, ch.Value.Name)
+					}
+				}),
+			)
+			create(ctx, "lib", nil)
+			Expect(names).To(Equal([]string{"lib"}))
+		})
+	})
+
 	Describe("Create", func() {
 		It("Should give a directory with no key a new key", func(ctx SpecContext) {
 			d := create(ctx, "lib", nil)

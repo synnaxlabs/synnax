@@ -10,6 +10,7 @@
 package label_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -215,5 +216,21 @@ var _ = Describe("Label", Ordered, func() {
 				).To(BeEmpty())
 			},
 		)
+	})
+
+	Describe("Changes", func() {
+		It("Should return the label that a commit creates", func(ctx SpecContext) {
+			var names []string
+			DeferCleanup(
+				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+					for ch := range svc.Changes(ctx, c) {
+						names = append(names, ch.Value.Name)
+					}
+				}),
+			)
+			Expect(w.Create(ctx, &label.Label{Name: "observed"})).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(names).To(Equal([]string{"observed"}))
+		})
 	})
 })
