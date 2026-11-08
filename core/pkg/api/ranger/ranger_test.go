@@ -100,6 +100,32 @@ var _ = Describe("Retrieve", func() {
 		Entry("with the parent denied", false),
 	)
 
+	It("Should deny a named child range whose parent the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		parent := createRange(ctx)
+		child := ranger.Range{
+			Name:      "named child",
+			TimeRange: telem.NewRangeSeconds(1, 5),
+			Parent:    &parent.Key,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &child)
+		})).To(Succeed())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), child.ResourceID())
+		Expect(retrieve(
+			AuthedCtx(ctx, u),
+			apiranger.RetrieveRequest{Where: &ranger.Where{
+				Key: &filter.Set[ranger.Key]{Eq: &child.Key},
+			}},
+		)).Error().To(MatchError(access.Denied(
+			u.ResourceID(),
+			access.ActionRetrieve,
+			parent.ResourceID(),
+		).Error()))
+	})
+
 	It("Should return no range for a zero limit", func(ctx SpecContext) {
 		u := createUser(ctx)
 		r := apiranger.Range{
