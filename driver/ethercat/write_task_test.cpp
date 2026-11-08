@@ -63,7 +63,7 @@ protected:
         mock_master = std::make_shared<testutil::Master>();
         mock_master->add_slave(
             slave::Properties{
-                .position = 0,
+                .position = 1,
                 .vendor_id = 0x1,
                 .product_code = 0x2,
                 .serial = SLAVE_SERIAL,
@@ -101,7 +101,7 @@ protected:
             {"revision", 1},
             {"name", "Test Slave"},
             {"network", NETWORK_INTERFACE},
-            {"position", 0},
+            {"position", 1},
             {"enabled", true},
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
@@ -502,7 +502,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     auto mismatched_master = std::make_shared<testutil::Master>();
     mismatched_master->add_slave(
         slave::Properties{
-            .position = 0,
+            .position = 1,
             .vendor_id = 0x99,
             .product_code = 0x2,
             .serial = SLAVE_SERIAL,
@@ -519,7 +519,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,
-        "slave 0 (Test Slave): expected vendor_id 0x00000001, found 0x00000099"
+        "slave 1 (Test Slave): expected vendor_id 0x00000001, found 0x00000099"
     );
 }
 
