@@ -271,8 +271,8 @@ func sameID(a, b *resource.ID) bool {
 
 // CreateObjects returns the groups that a create of records needs update access on.
 // stored holds the records that exist before the create. A new record joins the group
-// it carries. A create keeps an existing record in its stored group, so it adds
-// nothing.
+// it carries, and a nil group adds nothing. A create keeps an existing record in its
+// stored group, so it adds nothing.
 func CreateObjects[K comparable, E interface{ GorpKey() K }](
 	records []E,
 	stored []E,
@@ -282,24 +282,14 @@ func CreateObjects[K comparable, E interface{ GorpKey() K }](
 	for _, e := range stored {
 		exists.Add(e.GorpKey())
 	}
-	var joined []*Key
+	var objects []resource.ID
+	joined := set.New[Key]()
 	for _, e := range records {
-		if !exists.Contains(e.GorpKey()) {
-			joined = append(joined, groupOf(e))
+		if exists.Contains(e.GorpKey()) {
+			continue
 		}
-	}
-	return MoveObjects(nil, nil, joined...)
-}
-
-// MoveObjects returns the resources that moving the records with ids into the groups in
-// to needs update access on: the records, each group in from that holds one of them,
-// and each group in to. A nil group adds nothing.
-func MoveObjects(ids []resource.ID, from []*Key, to ...*Key) []resource.ID {
-	objects := slices.Clone(ids)
-	added := set.New[Key]()
-	for _, k := range slices.Concat(from, to) {
-		if k != nil && !added.Contains(*k) {
-			added.Add(*k)
+		if k := groupOf(e); k != nil && !joined.Contains(*k) {
+			joined.Add(*k)
 			objects = append(objects, ResourceID(*k))
 		}
 	}

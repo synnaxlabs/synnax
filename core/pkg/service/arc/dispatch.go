@@ -60,8 +60,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 					return a, err
 				}
 			}
-			// A rolled back edit stays recorded. That only delays a sweep, and the next
-			// dispatch must not sweep before the edit that this one commits.
+			// A rolled back edit stays recorded. That only delays a sweep, and the
+			// next dispatch must not sweep before the edit that this one commits.
 			if containsTextEdit(acts) {
 				w.sweeper.recordEdit(key)
 			}

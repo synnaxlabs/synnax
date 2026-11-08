@@ -103,7 +103,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewPolicyRetrieve().Entries(&res.Policies))
+	q, err := ApplyRetrieve(req, s.internal.NewPolicyRetrieve().Entries(&res.Policies))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}

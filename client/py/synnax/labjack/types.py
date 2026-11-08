@@ -11,8 +11,7 @@ import re
 from collections.abc import Sequence
 from typing import Final, Literal, TypeAlias, get_args, override
 
-from synnax import device, task
-from synnax import rack as rack_
+from synnax import device, rack as rack_, task
 from synnax.labjack.types_gen import (
     ReadChannel,
     ReadConfig,

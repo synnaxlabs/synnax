@@ -309,14 +309,14 @@ func (s *Service) retrieve(
 	allowed := bind.Filter(snap, channel.Match)
 	if req.RangeKey == nil || r.SearchTerm == "" {
 		var res []channel.Channel
-		q, err := r.Apply(s.internal.NewRetrieve().Entries(&res))
+		q, err := ApplyRetrieve(r, s.internal.NewRetrieve().Entries(&res))
 		if err != nil {
 			return nil, err
 		}
 		return res, q.Where(allowed).Exec(ctx, snap)
 	}
 	// The alias search pages the merged list, so the query carries only the where.
-	q, err := RetrieveRequest{Where: r.Where}.Apply(s.internal.NewRetrieve())
+	q, err := ApplyRetrieve(RetrieveRequest{Where: r.Where}, s.internal.NewRetrieve())
 	if err != nil {
 		return nil, err
 	}

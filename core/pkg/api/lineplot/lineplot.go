@@ -124,7 +124,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.LinePlots))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.LinePlots))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}

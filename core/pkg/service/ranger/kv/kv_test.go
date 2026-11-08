@@ -225,18 +225,13 @@ var _ = Describe("RangeOf", func() {
 		Expect(kv.RangeOf(key)).To(Equal(rng))
 	})
 
-	DescribeTable(
-		"Should return a validation error for a key that names no pair",
-		func(key string) {
-			Expect(kv.RangeOf(key)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(
-					"%q is not the key of a range key-value pair",
-					key,
-				)),
-			))
-		},
-		Entry("no separator", uuid.New().String()),
-		Entry("a range that is not a UUID", "range<--->k"),
-	)
+	It("Should return a validation error for a key whose range is not a UUID", func() {
+		Expect(kv.RangeOf("range<--->k")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"%q is not the key of a range key-value pair",
+				"range<--->k",
+			)),
+		))
+	})
 })

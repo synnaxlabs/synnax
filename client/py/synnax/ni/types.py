@@ -10,8 +10,7 @@
 from collections.abc import Sequence
 from uuid import uuid4
 
-from synnax import device, task
-from synnax import rack as rack_
+from synnax import device, rack as rack_, task
 from synnax.exceptions import ValidationError
 from synnax.ni.types_gen import (
     AIChannel,

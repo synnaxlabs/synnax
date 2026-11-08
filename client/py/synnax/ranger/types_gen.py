@@ -11,16 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import label
 from synnax.resource import ID
-from x import color as color_
-from x import filter, telem
+from x import color as color_, filter, telem
 from x.filter import shorthand
 
 Key: TypeAlias = UUID

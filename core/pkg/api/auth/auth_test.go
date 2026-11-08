@@ -277,6 +277,18 @@ var _ = Describe("SetPassword", func() {
 		Expect(authSvc.Authenticate(ctx, bobToken)).Error().
 			To(MatchError(auth.ErrInvalidToken))
 	})
+	It(
+		"Should let a caller that may update a user set its password",
+		func(ctx SpecContext) {
+			eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
+			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
+			Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
+				Subject:  eng.ResourceID(),
+				Password: "new",
+			})).To(Equal(apiauth.PasswordSetResponse{}))
+			login(ctx, eng.Name, "new")
+		},
+	)
 	It("Should deny a user setting another user's password", func(ctx SpecContext) {
 		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
 			Subject:  root.ResourceID(),
@@ -600,6 +612,21 @@ var _ = Describe("Sessions", func() {
 					apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
 				)).Error().To(MatchError(access.ErrDenied))
 				MustSucceed(authSvc.Authenticate(ctx, rootToken))
+			},
+		)
+		It(
+			"Should let a caller that may update a subject end its session",
+			func(ctx SpecContext) {
+				eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
+				engToken := login(ctx, eng.Name, "p").Token
+				key := MustSucceed(authSvc.Authenticate(ctx, engToken)).Key
+				grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
+				Expect(deleteSessions(
+					authed(ctx, bobToken),
+					apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
+				)).Error().ToNot(HaveOccurred())
+				Expect(authSvc.Authenticate(ctx, engToken)).Error().
+					To(MatchError(auth.ErrInvalidToken))
 			},
 		)
 		It("Should let the owner end another subject's session", func(ctx SpecContext) {

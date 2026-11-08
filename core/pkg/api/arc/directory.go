@@ -27,7 +27,10 @@ func (s *Service) RetrieveDirectories(
 	req apidirectory.RetrieveRequest,
 ) (apidirectory.RetrieveResponse, error) {
 	var res apidirectory.RetrieveResponse
-	q, err := req.Apply(s.internal.NewDirectoryRetrieve().Entries(&res.Directories))
+	q, err := apidirectory.ApplyRetrieve(
+		req,
+		s.internal.NewDirectoryRetrieve().Entries(&res.Directories),
+	)
 	if err != nil {
 		return apidirectory.RetrieveResponse{}, err
 	}

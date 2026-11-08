@@ -123,7 +123,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Views))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Views))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}

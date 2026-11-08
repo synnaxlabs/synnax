@@ -26,7 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
-	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -34,10 +34,10 @@ import (
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v   svctestutil.Vectors[task.Task, task.Where]
+		v   vectors.Vectors[task.Task, task.Where]
 		svc *task.Service
 	)
-	v = MustSucceed(svctestutil.ReadVectors[task.Task, task.Where]("tasks"))
+	v = MustSucceed(vectors.Read[task.Task, task.Where]("tasks"))
 	aliases := lo.MapEntries(v.Records, func(
 		alias string,
 		t task.Task,
@@ -89,7 +89,7 @@ var _ = Describe("Where", Ordered, func() {
 
 	DescribeTable(
 		"Should match the case",
-		func(ctx SpecContext, c svctestutil.Case[task.Where]) {
+		func(ctx SpecContext, c vectors.Case[task.Where]) {
 			f := MustSucceed(task.MatchWhere(c.Where))
 			var res []task.Task
 			Expect(svc.NewRetrieve().
@@ -101,7 +101,7 @@ var _ = Describe("Where", Ordered, func() {
 				return aliases[t.Key]
 			})).To(ConsistOf(c.Expected))
 		},
-		lo.Map(v.Cases, func(c svctestutil.Case[task.Where], _ int) TableEntry {
+		lo.Map(v.Cases, func(c vectors.Case[task.Where], _ int) TableEntry {
 			return Entry(c.Name, c)
 		}),
 	)
