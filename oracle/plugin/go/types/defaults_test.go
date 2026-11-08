@@ -1120,6 +1120,35 @@ var _ = Describe("Default group generation", func() {
 		goPlugin = types.New(types.DefaultOptions())
 	})
 
+	It(
+		"Should guard each group apart and set ungrouped fields without a guard",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			TwoPointLin struct {
+				first_electrical  float64 = 0 { @default group "electrical" }
+				second_electrical float64 = 1 { @default group "electrical" }
+				first_physical    float64 = 0 { @default group "physical" }
+				second_physical   float64 = 2 { @default group "physical" }
+				label             string  = "signal"
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (t *TwoPointLin) SetDefaults() {\n"+
+					"\tt.SetUngroupedDefaults()\n\tt.DefaultGroups()\n}",
+				"func (t *TwoPointLin) SetUngroupedDefaults() {\n"+
+					"\tt.Label = \"signal\"\n}",
+				"func (t *TwoPointLin) DefaultGroups() {\n"+
+					"\tif t.FirstElectrical == 0 && t.SecondElectrical == 0 {\n"+
+					"\t\tt.SecondElectrical = 1\n\t}\n"+
+					"\tif t.FirstPhysical == 0 && t.SecondPhysical == 0 {\n"+
+					"\t\tt.SecondPhysical = 2\n\t}\n}",
+			)
+		},
+	)
+
 	It("Should set grouped inline union variant fields", func(ctx SpecContext) {
 		source := `
 			@go output "core/pkg/service/x"
