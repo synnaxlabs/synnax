@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeSpan, uuid } from "@synnaxlabs/x";
+import { id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { NotFoundError, PathError } from "@/index";
