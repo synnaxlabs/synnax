@@ -682,7 +682,7 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
         "configuration"
     );
     EXPECT_EQ(this->mock->readstate_count, 1);
-    EXPECT_FALSE(this->activation.dc_sync_refused);
+    EXPECT_FALSE(this->activation.refusals.at(1).dc_sync_invalid);
 }
 
 /// @brief it should wait for a state change on the clock of its config, so a fake clock
@@ -831,7 +831,8 @@ TEST_F(SOEMMasterTest, ActivateReportsADCSyncRefusal) {
         "configuration; slave 2 (SecondSlave) is in PRE-OP: Invalid DC SYNC "
         "configuration"
     );
-    EXPECT_TRUE(this->activation.dc_sync_refused);
+    EXPECT_TRUE(this->activation.refusals.at(1).dc_sync_invalid);
+    EXPECT_TRUE(this->activation.refusals.at(2).dc_sync_invalid);
 }
 
 /// @brief it should return a refusal as soon as a slave refuses OP.
