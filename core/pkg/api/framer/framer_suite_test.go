@@ -122,7 +122,7 @@ func createUserGranted(
 	objects ...resource.ID,
 ) user.User {
 	GinkgoHelper()
-	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+	u := MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
 		Name: "api-framer-" + uuid.New().String(),
 	}))
 	actions := []access.Action{action}

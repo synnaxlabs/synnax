@@ -30,6 +30,7 @@ func provision(ctx context.Context, username, pwd string) user.User {
 		svc,
 		passwordSvc,
 		auth.Credentials{Username: username, Password: pwd},
+		owner,
 	))
 	return root
 }
@@ -58,7 +59,7 @@ func createUser(ctx context.Context, username, pwd string, root bool) user.User 
 	var u user.User
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		if root {
-			u = user.User{Key: uuid.New(), Name: username, RootUser: true}
+			u = user.User{Key: uuid.New(), Name: username, RootUser: true, Role: owner}
 			if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
 				return err
 			}
@@ -66,6 +67,7 @@ func createUser(ctx context.Context, username, pwd string, root bool) user.User 
 			var err error
 			if u, err = svc.NewWriter(tx).Create(ctx, user.User{
 				Name: username,
+				Role: member,
 			}); err != nil {
 				return err
 			}
@@ -129,13 +131,15 @@ func purgeUsers(ctx context.Context) {
 var _ = Describe("ProvisionRoot", Serial, func() {
 	BeforeEach(func(ctx SpecContext) { purgeUsers(ctx) })
 	It("Should reject incomplete credentials", func(ctx SpecContext) {
-		Expect(user.ProvisionRoot(ctx, svc, passwordSvc, auth.Credentials{})).Error().
+		Expect(user.ProvisionRoot(ctx, svc, passwordSvc, auth.Credentials{}, owner)).
+			Error().
 			To(MatchError(ContainSubstring("username: required")))
 	})
 	It("Should create a root user on a fresh Core", func(ctx SpecContext) {
 		root := provision(ctx, "alpha", "p1")
 		Expect(root.RootUser).To(BeTrue())
 		Expect(root.Name).To(Equal("alpha"))
+		Expect(root.Role).To(Equal(owner))
 		Expect(findUser(ctx, "alpha")).To(Equal(root))
 		Expect(MustSucceed(login(ctx, "alpha", "p1")).Subject).
 			To(Equal(root.ResourceID()))
@@ -153,6 +157,7 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 			svc,
 			passwordSvc,
 			auth.Credentials{Username: "alpha", Password: "p2"},
+			owner,
 		))
 		Expect(changed).To(BeTrue())
 		MustSucceed(login(ctx, "alpha", "p2"))
@@ -165,6 +170,7 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 			svc,
 			passwordSvc,
 			auth.Credentials{Username: "alpha", Password: "p1"},
+			owner,
 		))
 		Expect(changed).To(BeTrue())
 		before := storedHash(ctx, "alpha")
@@ -173,6 +179,7 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 			svc,
 			passwordSvc,
 			auth.Credentials{Username: "alpha", Password: "p1"},
+			owner,
 		))
 		Expect(changed).To(BeFalse())
 		Expect(storedHash(ctx, "alpha")).To(Equal(before))
@@ -183,6 +190,7 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 			provision(ctx, "alpha", "p1")
 			provision(ctx, "beta", "p2")
 			Expect(findUser(ctx, "alpha").RootUser).To(BeFalse())
+			Expect(findUser(ctx, "alpha").Role).To(Equal(owner))
 			Expect(findUser(ctx, "beta").RootUser).To(BeTrue())
 			Expect(rootUsers(ctx)).To(HaveLen(1))
 			MustSucceed(login(ctx, "alpha", "p1"))
@@ -195,6 +203,8 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		after := provision(ctx, "gamma", "p3")
 		Expect(after.Key).To(Equal(before.Key))
 		Expect(after.RootUser).To(BeTrue())
+		Expect(after.Role).To(Equal(owner))
+		Expect(findUser(ctx, "gamma").Role).To(Equal(owner))
 		Expect(findUser(ctx, "old-root").RootUser).To(BeFalse())
 		Expect(rootUsers(ctx)).To(HaveLen(1))
 		MustSucceed(login(ctx, "gamma", "p3"))
@@ -216,8 +226,12 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		ctx SpecContext,
 	) {
 		provision(ctx, "old-root", "p")
-		decoy := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{Name: "delta"}))
-		owner := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{Name: "owner"}))
+		decoy := MustSucceed(
+			svc.NewWriter(nil).Create(ctx, user.User{Name: "delta", Role: member}),
+		)
+		owner := MustSucceed(
+			svc.NewWriter(nil).Create(ctx, user.User{Name: "owner", Role: member}),
+		)
 		Expect(passwordSvc.NewWriter(nil).Set(ctx, owner.ResourceID(), auth.Credentials{
 			Username: "delta",
 			Password: "p",
@@ -229,7 +243,9 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 	It("Should create a root user when no password holds the username", func(
 		ctx SpecContext,
 	) {
-		other := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{Name: "orphan"}))
+		other := MustSucceed(
+			svc.NewWriter(nil).Create(ctx, user.User{Name: "orphan", Role: member}),
+		)
 		root := provision(ctx, "orphan", "p")
 		Expect(root.Key).ToNot(Equal(other.Key))
 		Expect(MustSucceed(login(ctx, "orphan", "p")).Subject).
@@ -252,6 +268,6 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		Expect(user.ProvisionRoot(ctx, svc, passwordSvc, auth.Credentials{
 			Username: "rack-held",
 			Password: "p",
-		})).Error().To(MatchError(ContainSubstring("not held by a user")))
+		}, owner)).Error().To(MatchError(ContainSubstring("not held by a user")))
 	})
 })

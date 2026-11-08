@@ -45,7 +45,8 @@ var _ = Describe("oracle check end-to-end", func() {
 		bin := buildOracleBinary()
 		proc := exec.Command(bin, append([]string{"check"}, args...)...)
 		proc.Dir = repoRoot
-		out, _ := proc.CombinedOutput()
+		out, err := proc.CombinedOutput()
+		Expect(err).To(Or(Succeed(), BeAssignableToTypeOf(&exec.ExitError{})))
 		return string(out), proc.ProcessState.ExitCode()
 	}
 

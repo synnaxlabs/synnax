@@ -116,9 +116,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/user/retrieve",
 		),
-		UserSetRoles: unary[user.SetRolesRequest, struct{}](
+		UserSetRole: unary[user.SetRoleRequest, struct{}](
 			router,
-			"/api/v1/user/set-roles",
+			"/api/v1/user/set-role",
 		),
 
 		// CHANNEL

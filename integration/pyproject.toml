@@ -66,8 +66,16 @@ select = [
     "PIE",
     "PERF",
     "RUF",
+    "TID251",
 ]
 ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
+
+# Tests wait with bounded polling helpers. Any other sleep keeps a noqa with its reason.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"time.sleep".msg = "Wait with a polling helper, such as wait_for_eq."
+"synnax.sleep".msg = "Wait with a polling helper, such as wait_for_eq."
+"synnax.timing.sleep".msg = "Wait with a polling helper, such as wait_for_eq."
+"x.timing.sleep".msg = "Wait with a polling helper, such as wait_for_eq."
 
 [tool.ruff.lint.isort]
 known-first-party = ["synnax", "alamos", "freighter", "x"]
@@ -75,6 +83,8 @@ known-first-party = ["synnax", "alamos", "freighter", "x"]
 [tool.ruff.lint.per-file-ignores]
 # Test cases configure subclasses with class-level lists that nothing mutates.
 "tests/**" = ["RUF012"]
+# The helpers that tests wait with poll on an interval.
+"!tests/**" = ["TID251"]
 # Optional hooks with no-op defaults.
 "console/schematic/symbol.py" = ["B027"]
 "framework/test_case.py" = ["B027"]
