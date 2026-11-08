@@ -53,12 +53,12 @@ if [ "$FORK" = true ]; then
     report failure "Sedosaur does not review forks, so an admin merges this one"
 fi
 
-# Only a review of the head counts. A push after the review needs a new one, unless it
-# leaves the diff the same: the head then gets the last review, and changes of the base
-# outside the diff are left to CI. The newest review of this pull request and base
-# decides, since a commit can head two pull requests and a rerun must not be shadowed by
-# an earlier success. Only the Sedosaur app can write its check runs, so the score in
-# the title is its own.
+# Only a review of the head counts. A push after the review needs a new request. When
+# the push leaves the diff the same, the request gets the last review at once, and
+# changes of the base outside the diff are left to CI. The newest review of this pull
+# request and base decides, since a commit can head two pull requests and a rerun must
+# not be shadowed by an earlier success. Only the Sedosaur app can write its check runs,
+# so the score in the title is its own.
 export KEY="${PR}:${BASE}"
 RUNS="repos/${REPO}/commits/${HEAD}/check-runs"
 REVIEW=$("$GH_API" "${RUNS}?check_name=Sedosaur%20Review&filter=all&per_page=100" \
