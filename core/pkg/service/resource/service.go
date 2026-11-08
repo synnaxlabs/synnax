@@ -99,11 +99,11 @@ type SearchQuery struct {
 
 // Search returns the resources that match q, closest match first. For an empty term,
 // it lists the resources in order of type, then in the order of each Provider. Search
-// reads the changes staged against tx, falling back to the database when tx is nil. A
-// limit or offset out of bounds, or a type with no Provider, is a validation error.
+// reads through snap, or through the database when snap is nil. A limit or offset out
+// of bounds, or a type with no Provider, is a validation error.
 func (s *Service) Search(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	q SearchQuery,
 ) ([]Resource, error) {
 	v := validate.New("resource.search")
@@ -117,20 +117,20 @@ func (s *Service) Search(
 	if err := v.Error(); err != nil {
 		return nil, err
 	}
-	tx = s.cfg.DB.OverrideTx(tx)
+	snap = gorp.OverrideSnapshot(s.cfg.DB, snap)
 	limit := q.Limit
 	if limit == 0 {
 		limit = defaultSearchLimit
 	}
 	if q.Term == "" {
-		return s.list(ctx, tx, q, limit)
+		return s.list(ctx, snap, q, limit)
 	}
 	results := make([]search.Result[ID], 0, len(s.types))
 	for _, t := range s.types {
 		if len(q.Types) > 0 && !slices.Contains(q.Types, t) {
 			continue
 		}
-		res, err := s.cfg.Providers[t].Search(ctx, tx, search.Query[ID]{
+		res, err := s.cfg.Providers[t].Search(ctx, snap, search.Query[ID]{
 			Term:   q.Term,
 			Except: q.Except,
 			Limit:  q.Offset + limit,
@@ -141,12 +141,12 @@ func (s *Service) Search(
 		results = append(results, res)
 	}
 	ids := search.Merge(q.Offset+limit, results...).Keys
-	return s.retrieve(ctx, tx, ids[min(q.Offset, len(ids)):])
+	return s.retrieve(ctx, snap, ids[min(q.Offset, len(ids)):])
 }
 
 func (s *Service) list(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	q SearchQuery,
 	limit int,
 ) ([]Resource, error) {
@@ -160,7 +160,7 @@ func (s *Service) list(
 		}
 		res, err := s.cfg.Providers[t].List(
 			ctx,
-			tx,
+			snap,
 			q.Offset+limit-len(resources),
 			q.Except,
 		)
@@ -173,12 +173,12 @@ func (s *Service) list(
 }
 
 // Retrieve returns the resources that ids name, in the order of ids. It leaves out each
-// ID that names no resource, and returns each resource once. Retrieve reads the changes
-// staged against tx, falling back to the database when tx is nil. An ID of a type with
-// no Provider is a validation error.
+// ID that names no resource, and returns each resource once. Retrieve reads through
+// snap, or through the database when snap is nil. An ID of a type with no Provider is a
+// validation error.
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	ids ...ID,
 ) ([]Resource, error) {
 	v := validate.New("resource.retrieve")
@@ -188,7 +188,7 @@ func (s *Service) Retrieve(
 	if err := v.Error(); err != nil {
 		return nil, err
 	}
-	return s.retrieve(ctx, s.cfg.DB.OverrideTx(tx), ids)
+	return s.retrieve(ctx, gorp.OverrideSnapshot(s.cfg.DB, snap), ids)
 }
 
 func (s *Service) validateType(v *validate.Validator, field string, t Type) {
@@ -200,7 +200,7 @@ func (s *Service) validateType(v *validate.Validator, field string, t Type) {
 // IDs whose types they have validated or that a Provider returned.
 func (s *Service) retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	ids []ID,
 ) ([]Resource, error) {
 	byType := make(map[Type][]ID)
@@ -218,7 +218,7 @@ func (s *Service) retrieve(
 		if !ok {
 			panic(fmt.Sprintf("[resource] - no provider for type %s", t))
 		}
-		res, err := p.Retrieve(ctx, tx, typeIDs)
+		res, err := p.Retrieve(ctx, snap, typeIDs)
 		if err != nil {
 			return nil, err
 		}

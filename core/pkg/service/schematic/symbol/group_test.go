@@ -137,6 +137,16 @@ var _ = Describe("RetrieveGroupSymbols", func() {
 		Expect(svc.RetrieveGroupSymbols(ctx, tx, uuid.New())).Error().
 			To(MatchError(query.ErrNotFound))
 	})
+	It("Should return the group's symbols through a snapshot", func(ctx SpecContext) {
+		g := createGroup(ctx, nil)
+		sym := createSymbol(ctx, g)
+		var ids []resource.ID
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			ids, err = svc.RetrieveGroupSymbols(ctx, snap, g.Key)
+			return err
+		})).To(Succeed())
+		Expect(ids).To(ConsistOf(symbol.ResourceID(sym.Key)))
+	})
 })
 
 var _ = Describe("Writer in concurrent transactions", func() {
