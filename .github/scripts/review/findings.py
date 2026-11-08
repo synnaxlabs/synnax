@@ -67,6 +67,16 @@ class Finding:
 
 
 @dataclass(frozen=True, kw_only=True)
+class Dismissal:
+    """A finding that a member told the bot to stop reporting on a pull request."""
+
+    path: str
+    title: str
+    reason: str
+    """What the member wrote beside the command. It can be empty."""
+
+
+@dataclass(frozen=True, kw_only=True)
 class Review:
     score: int
     """Confidence that the pull request is safe to merge, from 1 to 5."""

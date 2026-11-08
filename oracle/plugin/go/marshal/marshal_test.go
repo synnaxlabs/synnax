@@ -1318,7 +1318,8 @@ var _ = Describe("Union Codecs", func() {
 					`w.String("valve")`,
 					`return errors.Newf("ElementConfig: nil or unknown variant %T", ec.Variant)`,
 					"func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {",
-					"tag, err := r.String()",
+					"tag, err := r.StringBytes()",
+					"switch string(tag) {",
 					`case "tank":`,
 					"var v TankElementConfig",
 					"if err := v.BaseElement.DecodeOrc(r); err != nil { return err }",
@@ -1628,7 +1629,7 @@ var _ = Describe("Recursive Codecs", func() {
 		return err
 	}
 	defer r.PopDepth()
-	tag, err := r.String()`,
+	tag, err := r.StringBytes()`,
 					`func (gc *GroupConfig) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
@@ -1809,11 +1810,11 @@ func (c rtConfig) EncodeOrc(w *orc.Writer) error {
 }
 
 func (c *rtConfig) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "tank":
 		var v rtConfigTank
 		if err := v.rtBase.DecodeOrc(r); err != nil {
