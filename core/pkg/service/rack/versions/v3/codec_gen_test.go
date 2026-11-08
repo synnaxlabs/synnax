@@ -42,7 +42,7 @@ var _ = Describe("Codec", func() {
 				Integrations: []string{"test_4"},
 				Version:      new(string("test_5")),
 				Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-				Roles:        []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")},
+				Role:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"),
 			}),
 			Entry("zero values", v3.Rack{
 				Key:          v3.Key(0),
@@ -51,7 +51,7 @@ var _ = Describe("Codec", func() {
 				Integrations: []string{},
 				Version:      nil,
 				Group:        nil,
-				Roles:        []uuid.UUID{},
+				Role:         uuid.Nil(),
 			}),
 			Entry("empty collections", v3.Rack{
 				Key:          v3.Key(2),
@@ -60,7 +60,7 @@ var _ = Describe("Codec", func() {
 				Integrations: []string{},
 				Version:      new(string("test_5")),
 				Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-				Roles:        []uuid.UUID{},
+				Role:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"),
 			}),
 		)
 	})
@@ -74,7 +74,7 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 		Integrations: []string{"test_4"},
 		Version:      new(string("test_5")),
 		Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-		Roles:        []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")},
+		Role:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -100,7 +100,7 @@ func FuzzDecodeRack(f *testing.F) {
 			Integrations: []string{"test_4"},
 			Version:      new(string("test_5")),
 			Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-			Roles:        []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")},
+			Role:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -116,7 +116,7 @@ func FuzzDecodeRack(f *testing.F) {
 			Integrations: []string{},
 			Version:      nil,
 			Group:        nil,
-			Roles:        []uuid.UUID{},
+			Role:         uuid.Nil(),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -132,7 +132,7 @@ func FuzzDecodeRack(f *testing.F) {
 			Integrations: []string{},
 			Version:      new(string("test_5")),
 			Group:        new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-			Roles:        []uuid.UUID{},
+			Role:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

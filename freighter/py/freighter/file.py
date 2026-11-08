@@ -47,7 +47,7 @@ class FileTransport(Transport, Protocol):
         :param params: request params carrying per-transfer metadata out-of-band, since
             the body is the raw file bytes. Keys are the bare param names — the
             transport handles how they travel on the wire.
-        :return: the response returned by the server.
+        :returns: the response returned by the server.
         :raises Unreachable: when the target cannot be reached.
         :raises Exception: any error returned by the server.
         """

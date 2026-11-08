@@ -9,6 +9,7 @@
 
 import { type ReactElement } from "react";
 
+import { Label, Node, Pad, Trace } from "@/components/deployments/DeploymentGeometry";
 import {
   Box,
   CONCRETE,
@@ -20,8 +21,6 @@ import {
   type Point,
   Wire,
 } from "@/components/IndustrialGeometry";
-
-import { Label, Node, Pad, Trace } from "./DeploymentGeometry";
 
 const Battery = ({
   x,

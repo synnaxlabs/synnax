@@ -13,7 +13,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type Action } from "@/access/action/types.gen";
 import { type role } from "@/access/role";
 import { channel } from "@/channel";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import {
   type BuiltInRole,
@@ -107,21 +107,15 @@ describe("role", () => {
       );
     });
 
-    it("should delete the role's policies and remove it from its users", async () => {
+    it("should delete the role's policies", async () => {
       const doomed = await client.access.roles.create({
         name: `doomed-${id.create()}`,
       });
-      const kept = await client.access.roles.create({ name: `kept-${id.create()}` });
       const p = await client.access.policies.create({
         role: doomed.key,
         name: "doomed",
         objects: [],
         actions: ["retrieve"],
-      });
-      const u = await client.users.create({
-        username: id.create(),
-        password: "test",
-        roles: [doomed.key, kept.key],
       });
       await client.access.roles.delete(doomed.key);
       // A client with an empty cache reads what the Core stores.
@@ -129,7 +123,25 @@ describe("role", () => {
       await expect(fresh.access.policies.retrieve(p.key)).rejects.toThrow(
         NotFoundError,
       );
-      expect((await fresh.users.retrieve(u.key)).roles).toEqual([kept.key]);
+    });
+
+    it("should refuse to delete a role that a user holds", async () => {
+      const held = await client.access.roles.create({ name: `held-${id.create()}` });
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        role: held.key,
+      });
+      await expect(client.access.roles.delete(held.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete role ${held.name} because user ${u.name} ` +
+            "uses it as its role: validation error",
+        ),
+      );
+      expect(expectLive(client.access.roles.getCached(held.key)).key).toEqual(held.key);
+      const fresh = createTestClient();
+      expect((await fresh.access.roles.retrieve(held.key)).key).toEqual(held.key);
+      expect((await fresh.users.retrieve(u.key)).role).toEqual(held.key);
     });
   });
 

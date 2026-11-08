@@ -136,6 +136,9 @@ public:
     /// @brief object names returned by readODdescription, keyed by index.
     std::map<uint16_t, std::string> od_names;
     int readstate_count = 0;
+    /// @brief the number of next readstate calls that get no reply. As in SOEM, each
+    /// one sets every slave to EC_STATE_NONE.
+    int dropped_state_reads = 0;
     /// @brief the state reconfig_slave returns and leaves the slave in.
     int reconfig_return = EC_STATE_SAFE_OP;
     std::vector<uint16_t> reconfigured_slaves;
@@ -283,6 +286,13 @@ public:
 
     int readstate() override {
         this->readstate_count++;
+        if (this->dropped_state_reads > 0) {
+            this->dropped_state_reads--;
+            for (auto &info: this->slave_infos)
+                info.state = EC_STATE_NONE;
+            this->read_state.store(EC_STATE_NONE);
+            return EC_STATE_NONE;
+        }
         uint16_t lowest = 0xFF;
         for (size_t i = 0; i < this->slave_infos.size(); ++i) {
             auto &info = this->slave_infos[i];

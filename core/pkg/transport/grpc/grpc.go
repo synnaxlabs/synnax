@@ -101,7 +101,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.UserCreate = noop.UnaryServer[user.CreateRequest, user.CreateResponse]{}
 	t.UserDelete = noop.UnaryServer[user.DeleteRequest, struct{}]{}
 	t.UserRetrieve = noop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}
-	t.UserSetRoles = noop.UnaryServer[user.SetRolesRequest, struct{}]{}
+	t.UserSetRole = noop.UnaryServer[user.SetRoleRequest, struct{}]{}
 
 	// RESOURCE
 	t.ResourceSearch = noop.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]{}
