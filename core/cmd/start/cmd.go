@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	xsignal "github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -150,8 +151,9 @@ func readLicenseKey() (string, error) {
 func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 	// A Core that ignored a set peers key would start a new cluster without an error.
 	if viper.IsSet("peers") {
-		return CoreConfig{}, errors.New(
-			"peers is set, but a Core no longer joins other Cores: remove peers from " +
+		return CoreConfig{}, errors.Wrap(
+			validate.ErrValidation,
+			"peers is set, but a Core no longer joins other Cores: remove peers from "+
 				"the config file and the SYNNAX_PEERS variable",
 		)
 	}
