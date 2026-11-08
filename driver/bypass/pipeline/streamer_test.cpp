@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <functional>
+#include <random>
+#include <sstream>
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/testutil/testutil.h"
@@ -297,5 +302,80 @@ TEST(StreamerTest, PropagatesCoreErrorThroughClose) {
     auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
     ASSERT_OCCURRED_AS_P(streamer->read(), freighter::UNREACHABLE);
     ASSERT_OCCURRED_AS(streamer->close(), freighter::UNREACHABLE);
+}
+
+/// @brief pushes 20,000 frames at random gaps of 0 to 30 µs, each after the reader
+/// takes the one before. Fails if any frame takes over 2 ms to leave streamer.read().
+void expect_prompt_wakes(
+    Streamer &streamer,
+    const std::function<void(x::telem::Frame)> &push
+) {
+    constexpr int frame_count = 20000;
+    constexpr auto slow_threshold = std::chrono::milliseconds(2);
+    std::vector<std::chrono::steady_clock::time_point> pushed(frame_count);
+    std::atomic<int> received{0};
+    std::thread producer([&] {
+        // NOLINTNEXTLINE(bugprone-random-generator-seed): repeatable push gaps.
+        std::mt19937 rng(42);
+        std::uniform_int_distribution delay_us(0, 30);
+        for (int i = 0; i < frame_count; i++) {
+            while (received.load() < i) {}
+            const auto until = std::chrono::steady_clock::now() +
+                               std::chrono::microseconds(delay_us(rng));
+            while (std::chrono::steady_clock::now() < until) {}
+            x::telem::Frame frame(1);
+            frame.emplace(1, x::telem::Series(static_cast<int64_t>(i)));
+            pushed[i] = std::chrono::steady_clock::now();
+            push(std::move(frame));
+        }
+    });
+    std::vector<double> slow_ms;
+    for (int i = 0; i < frame_count; i++) {
+        auto [frame, err] = streamer.read();
+        if (err) {
+            ADD_FAILURE() << err;
+            received.store(frame_count);
+            break;
+        }
+        const auto latency = std::chrono::steady_clock::now() - pushed[i];
+        if (latency > slow_threshold)
+            slow_ms.push_back(
+                std::chrono::duration<double, std::milli>(latency).count()
+            );
+        received.store(i + 1);
+    }
+    producer.join();
+    streamer.close_send();
+    ASSERT_NIL(streamer.close());
+    std::ostringstream slow_list;
+    for (const auto ms: slow_ms)
+        slow_list << ms << " ";
+    EXPECT_TRUE(slow_ms.empty())
+        << slow_ms.size() << " of " << frame_count << " frames took more than "
+        << slow_threshold.count() << " ms: " << slow_list.str();
+}
+
+/// @brief a Core frame should reach a reader waiting in read() within 2 ms.
+TEST(StreamerTest, CoreFrameWakesWaitingReader) {
+    auto bus = std::make_shared<Bus>();
+    auto core = std::make_unique<::driver::pipeline::testutil::HandoffStreamer>();
+    auto *core_ptr = core.get();
+    Streamer streamer(std::move(core), bus->subscribe({1}), bus);
+    expect_prompt_wakes(streamer, [core_ptr](x::telem::Frame frame) {
+        core_ptr->push(std::move(frame));
+    });
+}
+
+/// @brief a bus frame should reach a reader waiting in read() within 2 ms.
+TEST(StreamerTest, LocalFrameWakesWaitingReader) {
+    auto bus = std::make_shared<Bus>();
+    Streamer streamer(
+        std::make_unique<::driver::pipeline::testutil::HandoffStreamer>(),
+        bus->subscribe({1}),
+        bus
+    );
+    expect_prompt_wakes(streamer, [&bus](const x::telem::Frame &frame) {
+        bus->publish(frame);
+    });
 }
 }

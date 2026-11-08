@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <chrono>
+#include <functional>
+#include <random>
 #include <thread>
 #include <vector>
 
@@ -15,6 +19,7 @@
 #include "x/cpp/sync/list.h"
 
 #include "driver/bypass/bypass.h"
+#include "driver/bypass/pipeline/streamer.h"
 #include "driver/bypass/pipeline/writer.h"
 #include "driver/control/state.h"
 #include "driver/pipeline/testutil/pipeline.h"
@@ -354,3 +359,82 @@ static void BM_EndToEnd(benchmark::State &state) {
 }
 
 BENCHMARK(BM_EndToEnd)->DenseRange(0, NUM_WORKLOADS - 1);
+
+// --- Streamer benchmarks ---
+
+/// Measures how long a frame from push takes to leave streamer.read() while a reader
+/// waits in it. Reports the tail, and the number of frames slower than 2 ms, as
+/// counters.
+static void measure_wake(
+    benchmark::State &state,
+    driver::bypass::pipeline::Streamer &streamer,
+    const std::function<void(x::telem::Frame)> &push
+) {
+    using clock = std::chrono::steady_clock;
+    std::atomic<int64_t> requested{0};
+    std::atomic<bool> done{false};
+    clock::time_point pushed_at;
+    std::thread producer([&] {
+        // NOLINTNEXTLINE(bugprone-random-generator-seed): repeatable push gaps.
+        std::mt19937 rng(42);
+        std::uniform_int_distribution delay_us(0, 30);
+        int64_t sent = 0;
+        while (!done.load()) {
+            if (requested.load() == sent) continue;
+            const auto until = clock::now() + std::chrono::microseconds(delay_us(rng));
+            while (clock::now() < until) {}
+            pushed_at = clock::now();
+            push(make_frame(1, 1));
+            sent++;
+        }
+    });
+    std::vector<double> latencies_ms;
+    for (auto _: state) {
+        requested.fetch_add(1);
+        auto [frame, err] = streamer.read();
+        const std::chrono::duration<double> latency = clock::now() - pushed_at;
+        state.SetIterationTime(latency.count());
+        latencies_ms.push_back(latency.count() * 1e3);
+    }
+    done.store(true);
+    producer.join();
+    streamer.close_send();
+    static_cast<void>(streamer.close());
+    std::ranges::sort(latencies_ms);
+    const auto p99 = latencies_ms[latencies_ms.size() * 99 / 100];
+    state.counters["p99_ms"] = p99;
+    state.counters["max_ms"] = latencies_ms.back();
+    state.counters["slow_over_2ms"] = static_cast<double>(
+        latencies_ms.end() - std::ranges::upper_bound(latencies_ms, 2.0)
+    );
+}
+
+static void BM_StreamerCoreFrameWake(benchmark::State &state) {
+    auto bus = std::make_shared<driver::bypass::Bus>();
+    auto core = std::make_unique<driver::pipeline::testutil::HandoffStreamer>();
+    auto *core_ptr = core.get();
+    driver::bypass::pipeline::Streamer streamer(
+        std::move(core),
+        bus->subscribe({1}),
+        bus
+    );
+    measure_wake(state, streamer, [core_ptr](x::telem::Frame frame) {
+        core_ptr->push(std::move(frame));
+    });
+}
+
+BENCHMARK(BM_StreamerCoreFrameWake)->UseManualTime()->Iterations(20000);
+
+static void BM_StreamerLocalFrameWake(benchmark::State &state) {
+    auto bus = std::make_shared<driver::bypass::Bus>();
+    driver::bypass::pipeline::Streamer streamer(
+        std::make_unique<driver::pipeline::testutil::HandoffStreamer>(),
+        bus->subscribe({1}),
+        bus
+    );
+    measure_wake(state, streamer, [&bus](const x::telem::Frame &frame) {
+        bus->publish(frame);
+    });
+}
+
+BENCHMARK(BM_StreamerLocalFrameWake)->UseManualTime()->Iterations(20000);

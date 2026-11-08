@@ -10,7 +10,10 @@
 #pragma once
 
 #include <atomic>
+#include <condition_variable>
+#include <deque>
 #include <future>
+#include <mutex>
 #include <vector>
 
 #include "client/cpp/synnax.h"
@@ -71,6 +74,43 @@ public:
             this->config
                 .read_errors = std::make_shared<std::vector<x::errors::Error>>();
         this->config.read_errors->push_back(freighter::STREAM_CLOSED);
+    }
+};
+
+/// @brief a Streamer whose read() blocks until the test pushes a frame or calls
+/// close_send(). Safe to push from one thread while another reads.
+class HandoffStreamer final : public pipeline::Streamer {
+    std::mutex mu;
+    std::condition_variable cv;
+    std::deque<x::telem::Frame> frames;
+    bool closed = false;
+
+public:
+    void push(x::telem::Frame frame) {
+        {
+            std::lock_guard lock(this->mu);
+            this->frames.push_back(std::move(frame));
+        }
+        this->cv.notify_one();
+    }
+
+    std::pair<x::telem::Frame, x::errors::Error> read() override {
+        std::unique_lock lock(this->mu);
+        this->cv.wait(lock, [this] { return !this->frames.empty() || this->closed; });
+        if (this->frames.empty()) return {x::telem::Frame{}, freighter::STREAM_CLOSED};
+        auto frame = std::move(this->frames.front());
+        this->frames.pop_front();
+        return {std::move(frame), x::errors::NIL};
+    }
+
+    x::errors::Error close() override { return x::errors::NIL; }
+
+    void close_send() override {
+        {
+            std::lock_guard lock(this->mu);
+            this->closed = true;
+        }
+        this->cv.notify_one();
     }
 };
 
