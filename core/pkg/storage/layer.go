@@ -474,6 +474,10 @@ func openKV(
 			dirname,
 		)
 	}
+	if err = deleteAspenKeys(db); err != nil {
+		err = errors.Wrap(err, "failed to delete the Aspen digest and version keys")
+		return nil, errors.Combine(err, db.Close())
+	}
 	return pebblekv.Wrap(db, pebblekv.WithObserver(observer)), nil
 }
 
