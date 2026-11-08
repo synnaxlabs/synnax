@@ -257,7 +257,7 @@ type Layer struct {
 	Status *status.Service
 	// View is used for managing views
 	View *view.Service
-	// Grant stores the grants that let a rack read secrets that nothing on it uses.
+	// Grant stores the grants that let a rack read secrets.
 	Grant *grant.Service
 	// Secret stores the hidden values that devices and tasks connect with.
 	Secret *secret.Service
