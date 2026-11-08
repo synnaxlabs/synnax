@@ -9,20 +9,20 @@
 
 from synnax.group.client import Client
 from synnax.group.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     Group,
     Key,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Group",
     "Key",
     "Where",
     "WhereInput",
-    "ontology_id",
+    "resource_id",
 ]

@@ -65,6 +65,15 @@ func ParseTimeFormat(text string) (TimeFormat, error) {
 // String returns the config form of f.
 func (f TimeFormat) String() string { return timeFormatNames[f] }
 
+// MarshalText implements encoding.TextMarshaler.
+func (f TimeFormat) MarshalText() ([]byte, error) { return []byte(f.String()), nil }
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (f *TimeFormat) UnmarshalText(text []byte) (err error) {
+	*f, err = ParseTimeFormat(string(text))
+	return err
+}
+
 // nanosExponent returns the base 10 logarithm of the nanoseconds in one unit of a
 // numeric format.
 func (f TimeFormat) nanosExponent() int {

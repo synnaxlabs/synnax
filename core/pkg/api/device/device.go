@@ -12,12 +12,14 @@ package device
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -40,10 +42,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Ontology stores the relationships between resources.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 }
 
 var (
@@ -57,7 +55,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Device = override.Nil(c.Device, other.Device)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
@@ -67,15 +64,13 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("device", c.Device)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
-	device   *device.Service
-	status   *status.Service
-	ontology *ontology.Ontology
+	access *rbac.Service
+	device *device.Service
+	status *status.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -84,10 +79,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		device:   cfg.Device,
-		status:   cfg.Status,
-		access:   cfg.RBAC,
-		ontology: cfg.Ontology,
+		device: cfg.Device,
+		status: cfg.Status,
+		access: cfg.RBAC,
 	}, nil
 }
 
@@ -105,10 +99,32 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
+		Objects: []resource.ID{{Type: resource.TypeDevice}},
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	var stored []device.Device
+	if err := s.device.NewRetrieve().
+		Where(device.MatchKeys(lo.Map(
+			req.Devices,
+			func(d device.Device, _ int) device.Key { return d.Key },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return CreateResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.CreateObjects(
+			req.Devices,
+			stored,
+			func(d device.Device) *group.Key { return d.Group },
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -132,7 +148,7 @@ func (s *Service) attachReadableStatuses(
 		err := enforcer.Enforce(ctx, access.Request{
 			Subject: subject,
 			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{devices[i].OntologyID()},
+			Objects: []resource.ID{devices[i].ResourceID()},
 		})
 		// Create access does not grant read access.
 		if errors.Is(err, access.ErrDenied) {
@@ -157,7 +173,7 @@ func (s *Service) attachStatuses(
 	statuses, err := s.status.Join[device.StatusDetails](
 		ctx,
 		tx,
-		device.OntologyIDsFromDevices(devices),
+		device.ResourceIDsFromDevices(devices),
 	)
 	if err != nil {
 		return err
@@ -188,29 +204,9 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: device.OntologyIDsFromDevices(res.Devices),
+		Objects: device.ResourceIDsFromDevices(res.Devices),
 	}); err != nil {
 		return RetrieveResponse{}, err
-	}
-	if req.IncludeParent {
-		for i, d := range res.Devices {
-			var parent ontology.Resource
-			err := s.ontology.NewRetrieve().
-				WhereIDs(d.OntologyID()).
-				TraverseTo(ontology.ParentsTraverser).
-				Limit(1).
-				ExcludeFieldData(true).
-				Entry(&parent).
-				Exec(ctx, nil)
-			if errors.Is(err, query.ErrNotFound) {
-				continue
-			}
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			pid := ontology.ID(parent.ID)
-			res.Devices[i].Parent = &pid
-		}
 	}
 	return res, nil
 }
@@ -232,7 +228,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{device.OntologyID(req.Key)},
+		Objects: []resource.ID{device.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -251,7 +247,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: device.OntologyIDs(req.Keys),
+		Objects: device.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -262,4 +258,37 @@ func (s *Service) Delete(
 		}
 	}
 	return struct{}{}, nil
+}
+
+// SetGroupRequest moves devices into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key   `json:"group" msgpack:"group"`
+	Keys  []device.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the devices with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	var devices []device.Device
+	if err := s.device.NewRetrieve().
+		Where(device.MatchKeys(req.Keys...)).
+		Entries(&devices).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(
+			device.ResourceIDs(req.Keys),
+			lo.Map(devices, func(e device.Device, _ int) *group.Key { return e.Group }),
+			req.Group,
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.device.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

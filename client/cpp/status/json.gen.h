@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "client/cpp/label/json.gen.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
@@ -35,9 +36,11 @@ Status<Details> Status<Details>::parse(x::json::Parser parser) {
         .description = parser.field<std::string>("description", ""),
         .time = parser.field<::x::telem::TimeStamp>("time", x::telem::TimeStamp::now()),
         .details = parser.field<Details>("details"),
-        .labels = parser.field<std::optional<std::vector<::synnax::label::Label>>>(
-            "labels"
+        .labels = parser.field<std::vector<::synnax::label::Key>>(
+            "labels",
+            std::vector<::synnax::label::Key>{}
         ),
+        .owner = parser.field<std::optional<::synnax::resource::ID>>("owner"),
     };
 }
 
@@ -51,7 +54,13 @@ x::json::json Status<Details>::to_json() const {
     j["description"] = this->description;
     j["time"] = this->time.nanoseconds();
     j["details"] = x::json::to_json(this->details);
-    if (this->labels.has_value()) j["labels"] = x::json::to_array(*this->labels);
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->labels)
+            arr.push_back(item.to_json());
+        j["labels"] = arr;
+    }
+    if (this->owner.has_value()) j["owner"] = this->owner->to_json();
     return j;
 }
 
@@ -66,6 +75,9 @@ inline Where Where::parse(x::json::Parser parser) {
         ),
         .labels = parser.field<std::optional<std::vector<::synnax::label::Key>>>(
             "labels"
+        ),
+        .owners = parser.field<std::optional<std::vector<::synnax::resource::ID>>>(
+            "owners"
         ),
     };
 }
@@ -83,6 +95,7 @@ inline x::json::json Where::to_json() const {
             arr.push_back(item.to_json());
         j["labels"] = arr;
     }
+    if (this->owners.has_value()) j["owners"] = x::json::to_array(*this->owners);
     return j;
 }
 
@@ -92,7 +105,6 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
         .search_term = parser.field<std::string>("search_term", ""),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
         .offset = parser.field<std::uint32_t>("offset", 0),
-        .include_labels = parser.field<bool>("include_labels", false),
     };
 }
 
@@ -102,7 +114,6 @@ inline x::json::json RetrieveRequest::to_json() const {
     j["search_term"] = this->search_term;
     if (this->limit.has_value()) j["limit"] = *this->limit;
     j["offset"] = this->offset;
-    j["include_labels"] = this->include_labels;
     return j;
 }
 

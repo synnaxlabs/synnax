@@ -361,6 +361,16 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) {
 		baseType := types.InferPostfix(ctx.Child(ctx.AST.PostfixExpression())).
 			Unwrap()
 		expType := types.InferFromUnaryExpression(ctx.Child(exponent)).Unwrap()
+		for _, t := range []basetypes.Type{baseType, expType} {
+			if t.IsValid() && !t.IsNumeric() {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.AST,
+					"cannot use %s in ^ operation",
+					t,
+				))
+				return
+			}
+		}
 
 		if baseType.Unit != nil || expType.Unit != nil {
 			_, isLiteral := getSignedIntegerLiteral(exponent)

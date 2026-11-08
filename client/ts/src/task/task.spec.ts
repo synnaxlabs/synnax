@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
+import { resource } from "@/resource";
 import { type status } from "@/status";
 import { task } from "@/task";
 import {
@@ -32,11 +32,26 @@ import {
 const client = createTestClient();
 const writer = createTestClient();
 
+const statusKeyOf = (owner: resource.ID): status.Key => {
+  const held = client.statuses.ownedBy(owner);
+  if (held == null) throw new Error(`${resource.idToString(owner)} holds no status`);
+  return held.key;
+};
+
 // Mirrors the deadline the task client gives an unanswered command.
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 describe("Task", async () => {
   const testRack = await client.racks.create({ name: "test" });
+  // The Core refuses an alert config that names a status it does not hold.
+  await client.statuses.set(
+    ["st1", "st-a", "st-b"].map((key) => ({
+      key,
+      name: key,
+      variant: "info" as const,
+      message: key,
+    })),
+  );
   describe("create", () => {
     it("should create a task on a rack", async () => {
       const m = await testRack.createTask({
@@ -77,7 +92,7 @@ describe("Task", async () => {
         variant: "success",
         message: "Custom task status",
         description: "Task is running",
-        details: { task: key, running: true, data: { customData: true } },
+        details: { running: true, data: { customData: true } },
       };
       const m = await testRack.createTask({
         key,
@@ -95,7 +110,7 @@ describe("Task", async () => {
       expect(retrieved.status?.variant).toBe("success");
       expect(retrieved.status?.message).toBe("Custom task status");
       expect(retrieved.status?.description).toBe("Task is running");
-      expect(retrieved.status?.details?.task).toBe(m.key);
+      expect(retrieved.status?.owner).toEqual(task.resourceID(m.key));
       expect(retrieved.status?.details?.running).toBe(true);
     });
   });
@@ -128,7 +143,7 @@ describe("Task", async () => {
       await local.connect();
       await waitForStreamLive(local.connection);
       await local.tasks.retrieve(m.key);
-      local.statuses.store.delete(task.statusKey(m.key));
+      local.statuses.store.delete(statusKeyOf(task.resourceID(m.key)));
       const { responded, release } = holdResponses(local, "/task/retrieve");
       const fetching = local.tasks.retrieve({ name: m.name });
       await responded;
@@ -321,6 +336,20 @@ describe("Task", async () => {
       await expect(client.tasks.retrieve({ name })).rejects.toThrow(MultipleFoundError);
     });
 
+    it("should name the operator at fault in a where tree", async () => {
+      await expect(
+        // @ts-expect-error - a name operator takes a string.
+        client.tasks.retrieve({ where: { name: { eq: 5 } } }),
+      ).rejects.toThrow(/at where\.name\n.*\n\s*✗ "eq": 5 {2}× expected string/);
+    });
+
+    it("should name the filter field at fault", async () => {
+      await expect(
+        // @ts-expect-error - internal takes a boolean.
+        client.tasks.retrieve({ internal: "yes" }),
+      ).rejects.toThrow('✗ "internal": "yes"  × expected boolean');
+    });
+
     it("should retrieve tasks by search term", async () => {
       const prefix = `searchable-task-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
@@ -345,11 +374,12 @@ describe("Task", async () => {
           type: "pagerduty_alert",
         });
         const communicatedStatus: task.Status = {
-          key: ontology.idToString(task.ontologyID(t.key)),
+          key: statusKeyOf(task.resourceID(t.key)),
+          owner: task.resourceID(t.key),
           name: "test",
           variant: "success",
+          labels: [],
           details: {
-            task: t.key,
             running: false,
             cmd: "",
             configHash: "",
@@ -620,6 +650,23 @@ describe("Task", async () => {
       expect(copy.name).toBe("New Name");
       expect(copy.config).toMatchObject({ routingKey: "dog" });
     });
+
+    it("should place a snapshot in a range", async () => {
+      const m = await testRack.createTask({
+        name: "test",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const rng = await client.ranges.create({
+        name: `snapshot-${id.create()}`,
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      const snap = await client.tasks.copy(m.key, "Snapshot", true, rng.key);
+      expect(snap.range).toEqual(rng.key);
+      expect((await snap.snapshottedTo())?.key).toEqual(rng.key);
+      const inRange = await client.tasks.retrieve({ where: { ranges: [rng.key] } });
+      expect(inRange.map(({ key }) => key)).toEqual([snap.key]);
+    });
   });
 
   describe("dispatch", () => {
@@ -685,9 +732,14 @@ describe("Task", async () => {
 
     it("should adopt the config the Core stores when it fills a default", async () => {
       await waitForStreamLive(client.connection);
+      const a = await client.arcs.create({
+        name: `dispatch-${id.create()}`,
+        type: "automation",
+        source: { mode: "text" },
+      });
       const t = await testRack.createTask({
         name: `dispatch-default-${id.create()}`,
-        config: { arcKey: uuid.create(), performance: "high" },
+        config: { arcKey: a.key, performance: "high" },
         type: "arc",
       });
       expect(
@@ -716,6 +768,33 @@ describe("Task", async () => {
       const cached = await client.tasks.retrieve(t.key);
       expect(cached.type).toBe("pagerduty_alert");
       await client.tasks.settled(t.key);
+    });
+  });
+
+  describe("references", () => {
+    it("should clear a deleted status from the cached task's alerts", async () => {
+      await waitForStreamLive(client.connection);
+      const st = await client.statuses.set({
+        key: uuid.create(),
+        name: "detached",
+        variant: "info",
+        message: "detached",
+      });
+      const t = await testRack.createTask({
+        name: `detach-${id.create()}`,
+        config: { routingKey: "dog", alerts: [{ key: "a", status: st.key }] },
+        type: "pagerduty_alert",
+      });
+      await client.statuses.delete(st.key);
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.config.alerts).toEqual([
+        expect.objectContaining({ key: "a", status: "" }),
+      ]);
+      expect(stored.configHash).not.toBe(t.configHash);
+      await expect
+        .poll(() => expectLive(client.tasks.getCached(t.key)).configHash)
+        .toBe(stored.configHash);
+      expect(expectLive(client.tasks.getCached(t.key)).config).toEqual(stored.config);
     });
   });
 
@@ -1134,12 +1213,11 @@ describe("Task", async () => {
     message: string,
   ) => {
     await client.statuses.set({
-      key: rack.statusKey(key),
+      owner: rack.resourceID(key),
       name: "Rack Status",
       variant,
       message,
       time: TimeStamp.now(),
-      details: { rack: key },
     });
   };
 
@@ -1150,15 +1228,14 @@ describe("Task", async () => {
     await waitForStreamLive(client.connection);
     const message = `alive-${id.create()}`;
     await writer.statuses.set({
-      key: rack.statusKey(key),
+      owner: rack.resourceID(key),
       name: "Rack Status",
       variant: "success",
       message,
       time: TimeStamp.now(),
-      details: { rack: key },
     });
     await expect
-      .poll(() => client.statuses.store.get(rack.statusKey(key))?.message)
+      .poll(() => client.statuses.ownedBy(rack.resourceID(key))?.message)
       .toBe(message);
   };
 
@@ -1188,7 +1265,7 @@ describe("Task", async () => {
 
     const setDriverNotRunning = async (key: rack.Key) =>
       await writer.statuses.set({
-        key: rack.statusKey(key),
+        owner: rack.resourceID(key),
         name: "Rack Status",
         variant: "warning",
         message: "Driver not running",
@@ -1278,15 +1355,14 @@ describe("Task", async () => {
       const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
       const cmd = await readCommand(streamer, t.key);
       await setRackStatus(alive.key, "success", "Driver is running");
-      const reply: task.Status = {
-        key: task.statusKey(t.key),
+      const reply = {
+        owner: task.resourceID(t.key),
         name: t.name,
-        variant: "success",
+        variant: "success" as const,
         message: "Scan complete",
         description: "",
         time: TimeStamp.now(),
         details: {
-          task: t.key,
           running: true,
           cmd: cmd.key,
           configHash: "",
@@ -1300,7 +1376,7 @@ describe("Task", async () => {
   });
 
   describe("onChange", () => {
-    it("merges a status keyed by details.task into a subscribed single query", async () => {
+    it("merges the status a task owns into a subscribed single query", async () => {
       const t = await testRack.createTask({
         name: `status-details-single-${id.create()}`,
         config: {},
@@ -1311,12 +1387,12 @@ describe("Task", async () => {
       try {
         await client.tasks.retrieve(params);
         await client.statuses.set({
-          key: id.create(),
+          owner: task.resourceID(t.key),
           name: "Task Status",
           variant: "error",
           message: "task failed",
           time: TimeStamp.now(),
-          details: { task: t.key, running: false, cmd: "", data: {} },
+          details: { running: false, cmd: "", data: {} },
         });
         await expect
           .poll(() => {
@@ -1330,7 +1406,7 @@ describe("Task", async () => {
       }
     });
 
-    it("merges a status keyed by details.task into a subscribed request query", async () => {
+    it("merges the status a task owns into a subscribed request query", async () => {
       const t = await testRack.createTask({
         name: `status-details-request-${id.create()}`,
         config: {},
@@ -1341,12 +1417,12 @@ describe("Task", async () => {
       try {
         await client.tasks.retrieve(params);
         await client.statuses.set({
-          key: id.create(),
+          owner: task.resourceID(t.key),
           name: "Task Status",
           variant: "warning",
           message: "task degraded",
           time: TimeStamp.now(),
-          details: { task: t.key, running: true, cmd: "", data: {} },
+          details: { running: true, cmd: "", data: {} },
         });
         await expect
           .poll(() => {
@@ -1378,13 +1454,12 @@ describe("Task", async () => {
       try {
         await client.tasks.retrieve(params);
         await client.statuses.set({
-          key: id.create(),
+          owner: task.resourceID(t.key),
           name: "Task Status",
           variant: "success",
           message: "task started",
           time: TimeStamp.now(),
           details: {
-            task: t.key,
             running: true,
             cmd: "",
             configHash: "deadbeef",
@@ -1411,55 +1486,40 @@ describe("Task", async () => {
       }
     });
 
-    it("writes the optimistic status for a task whose status has not synced", async () => {
-      const t = await testRack.createTask({
-        name: `status-uncached-${id.create()}`,
-        config: {},
-        type: "pagerduty_alert",
-      });
-      const params = { key: t.key };
-      const loading: Array<NonNullable<task.Task["status"]>> = [];
-      const off = client.tasks.onChange(params, (cached) => {
-        if (!query.isLive(cached)) return;
-        const { status } = cached;
-        if (status?.variant === "loading") loading.push(status);
-      });
-      try {
-        await client.tasks.retrieve(params);
-        await client.statuses.set({
-          key: id.create(),
-          name: "Task Status",
-          variant: "success",
-          message: "task started",
-          time: TimeStamp.now(),
-          details: {
-            task: t.key,
-            running: true,
-            cmd: "",
-            configHash: "deadbeef",
-            rack: testRack.key,
-            data: {},
-          },
+    it("writes no optimistic status for a task whose status the cache does not hold", async () => {
+      const create = async (): Promise<task.Task> =>
+        await testRack.createTask({
+          name: `unheld-${id.create()}`,
+          config: {},
+          type: "pagerduty_alert",
         });
-        await expect
-          .poll(() => {
-            const cached = client.tasks.getCached(params);
-            if (!query.isLive(cached)) return undefined;
-            return cached.status?.details.configHash;
-          })
-          .toBe("deadbeef");
-        await setRackStatus(testRack.key, "success", "Driver is running");
-        // A reconnect empties the status table while the task stays known. The
-        // command must still get an optimistic status carrying the deploy info.
-        const key = task.statusKey(t.key);
-        client.statuses.store.delete(key);
-        expect(client.statuses.store.get(key)).toBeUndefined();
-        await client.tasks.executeCommand({ task: t.key, type: "stop" });
-        await expect.poll(() => loading.length).toBeGreaterThan(0);
-        expect(loading[0].details.configHash).toBe("deadbeef");
-      } finally {
-        off();
-      }
+      const held = await create();
+      const unheld = await create();
+      const heldOwner = task.resourceID(held.key);
+      const unheldOwner = task.resourceID(unheld.key);
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.tasks.retrieve({ where: { key: { in: [held.key, unheld.key] } } });
+      // A reconnect empties the status table while the task stays known.
+      local.statuses.store.delete(statusKeyOf(unheldOwner));
+      const heldKey = statusKeyOf(heldOwner);
+      // One frame carries both commands, so the client handles them together.
+      await client.tasks.executeCommand({
+        commands: [
+          { task: held.key, type: "stop" },
+          { task: unheld.key, type: "stop" },
+        ],
+      });
+      // A rack with no Driver goes down at its own pace, so the stand-in is a loading
+      // status or the rack's warning.
+      const standIn = (): boolean =>
+        ["loading", "warning"].includes(
+          local.statuses.ownedBy(heldOwner)?.variant ?? "",
+        );
+      await expect.poll(standIn).toBe(true);
+      expect(local.statuses.ownedBy(heldOwner)?.key).toEqual(heldKey);
+      expect(local.statuses.ownedBy(unheldOwner)).toBeUndefined();
     });
 
     it("stands the rack's problem in for a wait its Driver cannot answer", async () => {
@@ -1469,7 +1529,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       await client.tasks.retrieve({ key: t.key });
       await setRackStatus(down.key, "warning", "no Driver here");
       // The store is watched directly so the assertion reads the write the command
@@ -1502,12 +1562,12 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       await client.tasks.retrieve({ key: t.key });
       await setRackAliveAfterEcho(dying.key);
       await setRackStatus(dying.key, "warning", "Rack status unknown");
       await expect
-        .poll(() => client.statuses.store.get(rack.statusKey(dying.key))?.message)
+        .poll(() => client.statuses.ownedBy(rack.resourceID(dying.key))?.message)
         .toBe("Rack status unknown");
       await client.tasks.executeCommand({ task: t.key, type: "start" });
       await expect
@@ -1526,7 +1586,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       let seeLoading = (): void => {};
       const loading = new Promise<void>((resolve) => (seeLoading = resolve));
       const off = client.statuses.store.subscribe((event) => {
@@ -1564,7 +1624,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       let seeLoading = (): void => {};
       const loading = new Promise<void>((resolve) => (seeLoading = resolve));
       const off = client.statuses.store.subscribe((event) => {
@@ -1579,23 +1639,25 @@ describe("Task", async () => {
         });
         await loading;
         const outage: rack.Status = {
-          key: rack.statusKey(dying.key),
+          key: statusKeyOf(rack.resourceID(dying.key)),
+          owner: rack.resourceID(dying.key),
           name: "Rack Status",
           variant: "warning",
           message: "no Driver here",
           description: "",
           time: TimeStamp.now(),
-          details: { rack: dying.key },
+          labels: [],
         };
         const reply: task.Status = {
           key,
+          owner: task.resourceID(t.key),
+          labels: [],
           name: "Task Status",
           variant: "success",
           message: "Started task",
           description: "",
           time: TimeStamp.now(),
           details: {
-            task: t.key,
             running: true,
             cmd: cmdKey,
             configHash: "",
@@ -1624,7 +1686,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       // The status store is watched directly, leaving no subscribed query behind:
       // winding the clock forward would otherwise reach the cache streamer's
       // reconcile, whose refetch replaces the very status under test.
@@ -1668,7 +1730,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       await client.tasks.retrieve({ key: t.key });
       await setRackStatus(down.key, "warning", "no Driver here");
       let seeWrite = (_: status.Status): void => {};
@@ -1694,7 +1756,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       let seeWrite = (_: status.Status): void => {};
       const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
       const off = client.statuses.onWrite((s) => {
@@ -1717,7 +1779,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       let seeLoading = (): void => {};
       const loading = new Promise<void>((resolve) => (seeLoading = resolve));
       const offLoading = client.statuses.store.subscribe((event) => {
@@ -1756,7 +1818,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       let seeLoading = (): void => {};
       const loading = new Promise<void>((resolve) => (seeLoading = resolve));
       const off = client.statuses.store.subscribe((event) => {
@@ -1778,13 +1840,14 @@ describe("Task", async () => {
         // behind. The reply names the command, so it answers it all the same.
         const reply: task.Status = {
           key,
+          owner: task.resourceID(t.key),
+          labels: [],
           name: "Task Status",
           variant: "success",
           message: "Started task",
           description: "",
           time: TimeStamp.now().sub(TimeSpan.minutes(1)),
           details: {
-            task: t.key,
             running: true,
             cmd: cmdKey,
             configHash: "",
@@ -1812,7 +1875,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       let seeLoading = (): void => {};
       const loading = new Promise<void>((resolve) => (seeLoading = resolve));
       const off = client.statuses.store.subscribe((event) => {
@@ -1831,7 +1894,6 @@ describe("Task", async () => {
         });
         await loading;
         const details = {
-          task: t.key,
           running: true,
           cmd: cmdKey,
           configHash: "",
@@ -1840,6 +1902,8 @@ describe("Task", async () => {
         };
         const reply: task.Status = {
           key,
+          owner: task.resourceID(t.key),
+          labels: [],
           name: "Task Status",
           variant: "success",
           message: "Started task",
@@ -1876,7 +1940,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       const local = createTestClient();
       await local.connect();
       await waitForStreamLive(local.connection);
@@ -1887,13 +1951,14 @@ describe("Task", async () => {
       // makes it the newer status.
       const streamed: task.Status = {
         key,
+        owner: task.resourceID(t.key),
+        labels: [],
         name: "Task Status",
         variant: "success",
         message: "Started task",
         description: "",
         time: TimeStamp.now().sub(TimeSpan.minutes(1)),
         details: {
-          task: t.key,
           running: true,
           cmd: "",
           configHash: "",
@@ -2019,9 +2084,9 @@ describe("Task", async () => {
         {
           name: "set-readable",
           objects: [
-            channel.TYPE_ONTOLOGY_ID,
-            framer.TYPE_ONTOLOGY_ID,
-            task.ontologyID(readable.key),
+            channel.TYPE_RESOURCE_ID,
+            framer.TYPE_RESOURCE_ID,
+            task.resourceID(readable.key),
           ],
           actions: ["retrieve"],
         },
@@ -2088,7 +2153,7 @@ describe("drifted", () => {
         ? task.statusZ().parse({
             message: "running",
             variant: "success",
-            details: { task: key, running, configHash: statusHash, rack: statusRack },
+            details: { running, configHash: statusHash, rack: statusRack },
           })
         : undefined,
     };
@@ -2130,11 +2195,12 @@ describe("status composition", () => {
       type: "pagerduty_alert",
     });
     const communicatedStatus: task.Status = {
-      key: ontology.idToString(task.ontologyID(t.key)),
+      key: statusKeyOf(task.resourceID(t.key)),
+      owner: task.resourceID(t.key),
       name: "test",
       variant: "success",
+      labels: [],
       details: {
-        task: t.key,
         running: false,
         cmd: "",
         configHash: "",
@@ -2158,51 +2224,5 @@ describe("status composition", () => {
       })
       .toBe(true);
     for (const [arg] of spy.mock.calls) expect(typeof arg).not.toBe("function");
-  });
-
-  it("should break a tie on time with the more severe status", async () => {
-    const testRack = await client.racks.create({ name: "status-tie-break" });
-    const t = await testRack.createTask({
-      name: `tie-${id.create()}`,
-      config: { routingKey: "dog" },
-      type: "pagerduty_alert",
-    });
-    const params = { key: t.key };
-    const off = client.tasks.onChange(params, vi.fn());
-    const composed = () => {
-      const cached = client.tasks.getCached(params);
-      return query.isLive(cached) ? cached.status?.message : undefined;
-    };
-    try {
-      await client.tasks.retrieve(params);
-      const time = TimeStamp.now();
-      const details = { task: t.key, running: false, cmd: "", data: undefined };
-      await client.statuses.set({
-        key: ontology.idToString(task.ontologyID(t.key)),
-        name: "test",
-        variant: "error",
-        message: "boom",
-        description: "",
-        time,
-        details,
-      });
-      await expect.poll(composed).toBe("boom");
-      // Written last, so insertion order alone would let this equally fresh
-      // success win. Severity has to be what keeps the error showing.
-      const indirectKey = id.create();
-      await client.statuses.set({
-        key: indirectKey,
-        name: "test",
-        variant: "success",
-        message: "all good",
-        description: "",
-        time,
-        details,
-      });
-      expect(client.statuses.store.get(indirectKey)?.message).toBe("all good");
-      await expect.poll(composed).toBe("boom");
-    } finally {
-      off();
-    }
   });
 });

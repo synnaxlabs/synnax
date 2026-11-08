@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -154,12 +154,12 @@ func (s *Service) Create(
 ) (CreateResponse, error) {
 	enforcer := s.access.NewEnforcer(tx)
 	subject := auth.GetSubject(ctx)
-	objects := []ontology.ID{{Type: ontology.ResourceTypeCertificate}}
+	objects := []resource.ID{{Type: resource.TypeCertificate}}
 	if lo.ContainsBy(
 		req.Certificates,
 		func(in Input) bool { return in.PrivateKey != "" },
 	) {
-		objects = append(objects, ontology.ID{Type: ontology.ResourceTypeSecret})
+		objects = append(objects, resource.ID{Type: resource.TypeSecret})
 	}
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
@@ -182,7 +182,7 @@ func (s *Service) Create(
 		if err := enforcer.Enforce(ctx, access.Request{
 			Subject: subject,
 			Action:  access.ActionUpdate,
-			Objects: certificate.OntologyIDsFromCertificates(replaced),
+			Objects: certificate.ResourceIDsFromCertificates(replaced),
 		}); err != nil {
 			return CreateResponse{}, err
 		}
@@ -219,7 +219,7 @@ func (s *Service) Retrieve(
 	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: certificate.OntologyIDsFromCertificates(res.Certificates),
+		Objects: certificate.ResourceIDsFromCertificates(res.Certificates),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -243,7 +243,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{certificate.OntologyID(req.Key)},
+		Objects: []resource.ID{certificate.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -267,7 +267,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: certificate.OntologyIDs(req.Keys),
+		Objects: certificate.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}

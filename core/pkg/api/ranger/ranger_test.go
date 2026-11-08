@@ -10,17 +10,20 @@
 package ranger_test
 
 import (
+	"context"
 	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -38,7 +41,7 @@ var _ = Describe("Retrieve", func() {
 			TimeRange: telem.TimeRange{Start: 1, End: 2},
 		}
 		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
 			apiranger.RetrieveRequest{Where: &ranger.Where{
@@ -56,7 +59,7 @@ var _ = Describe("Retrieve", func() {
 			TimeRange: telem.TimeRange{Start: 1, End: 2},
 		}
 		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
 			apiranger.RetrieveRequest{
@@ -146,10 +149,9 @@ var _ = Describe("Dispatch", func() {
 	It("Should apply the actions when update is granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		r := createRange(ctx)
-		grant(ctx, access.ActionUpdate, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
 		MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apiranger.DispatchRequest{Key: r.Key, DispatchKey: "dk", Actions: rename},
 		))
 		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Cold flow"))
@@ -159,18 +161,98 @@ var _ = Describe("Dispatch", func() {
 		r := createRange(ctx)
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apiranger.DispatchRequest{Key: r.Key, DispatchKey: "dk", Actions: rename},
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Hot fire"))
 	})
+	moveUnder := func(parent ranger.Key) []ranger.Action {
+		return []ranger.Action{ranger.NewSetAction(ranger.SetPayload{
+			Path:  []string{"parent"},
+			Value: parent.String(),
+		})}
+	}
+	It(
+		"Should refuse a move under a parent the subject cannot update",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			child := createRange(ctx)
+			parent := createRange(ctx)
+			grant(ctx, access.ActionUpdate, u.ResourceID(), child.ResourceID())
+			Expect(apiSvc.Dispatch(
+				AuthedCtx(ctx, u),
+				apiranger.DispatchRequest{
+					Key:     child.Key,
+					Actions: moveUnder(parent.Key),
+				},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveRange(ctx, child.Key).Parent).To(BeNil())
+		},
+	)
+	It(
+		"Should refuse a move out of a parent the subject cannot update",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			oldParent := createRange(ctx)
+			newParent := createRange(ctx)
+			child := ranger.Range{
+				Name:      "Child",
+				TimeRange: telem.NewRangeSeconds(1, 5),
+				Parent:    &oldParent.Key,
+			}
+			Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+			grant(
+				ctx,
+				access.ActionUpdate,
+				u.ResourceID(),
+				child.ResourceID(),
+				newParent.ResourceID(),
+			)
+			Expect(apiSvc.Dispatch(
+				AuthedCtx(ctx, u),
+				apiranger.DispatchRequest{
+					Key:     child.Key,
+					Actions: moveUnder(newParent.Key),
+				},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveRange(ctx, child.Key).Parent).
+				To(HaveValue(Equal(oldParent.Key)))
+		},
+	)
+	It("Should move a range when the subject can update both parents", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		oldParent := createRange(ctx)
+		newParent := createRange(ctx)
+		child := ranger.Range{
+			Name:      "Child",
+			TimeRange: telem.NewRangeSeconds(1, 5),
+			Parent:    &oldParent.Key,
+		}
+		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+		grant(
+			ctx,
+			access.ActionUpdate,
+			u.ResourceID(),
+			child.ResourceID(),
+			oldParent.ResourceID(),
+			newParent.ResourceID(),
+		)
+		MustSucceed(apiSvc.Dispatch(
+			AuthedCtx(ctx, u),
+			apiranger.DispatchRequest{
+				Key:     child.Key,
+				Actions: moveUnder(newParent.Key),
+			},
+		))
+		Expect(retrieveRange(ctx, child.Key).Parent).To(HaveValue(Equal(newParent.Key)))
+	})
 	It("Should return the dispatch error", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
-		grant(ctx, access.ActionUpdate, u.OntologyID(), ranger.OntologyID(key))
+		grant(ctx, access.ActionUpdate, u.ResourceID(), ranger.ResourceID(key))
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apiranger.DispatchRequest{Key: key, DispatchKey: "dk", Actions: rename},
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
@@ -181,8 +263,8 @@ var _ = Describe("Create", func() {
 		"Should stamp the dispatch key onto the create broadcast",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			grant(ctx, access.ActionCreate, u.OntologyID(), ontology.ID{
-				Type: ontology.ResourceTypeRange,
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+				Type: resource.TypeRange,
 			})
 			rec := &Recorder[ranger.Key, ranger.Action]{}
 			DeferCleanup(svc.Ranger.OnAction(rec.Record))
@@ -201,4 +283,63 @@ var _ = Describe("Create", func() {
 			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
 		},
 	)
+})
+
+var _ = Describe("Retrieve", func() {
+	authed := func(ctx SpecContext) context.Context {
+		GinkgoHelper()
+		u := createUser(ctx)
+		grant(
+			ctx,
+			access.ActionRetrieve,
+			u.ResourceID(),
+			resource.ID{Type: resource.TypeRange},
+			resource.ID{Type: resource.TypeLabel},
+		)
+		return AuthedCtx(ctx, u)
+	}
+	keysOf := func(ranges []apiranger.Range) []ranger.Key {
+		return lo.Map(
+			ranges,
+			func(r apiranger.Range, _ int) ranger.Key { return r.Key },
+		)
+	}
+
+	It("Should retrieve the children of the given parents", func(ctx SpecContext) {
+		parent := createRange(ctx)
+		child := ranger.Range{
+			Name:      "Burn",
+			TimeRange: telem.NewRangeSeconds(1, 2),
+			Parent:    &parent.Key,
+		}
+		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+		createRange(ctx)
+		res := MustSucceed(apiSvc.Retrieve(authed(ctx), apiranger.RetrieveRequest{
+			Where: &ranger.Where{Parents: []ranger.Key{parent.Key}},
+		}))
+		Expect(keysOf(res.Ranges)).To(Equal([]ranger.Key{child.Key}))
+		Expect(res.Ranges[0].Parent).To(HaveValue(Equal(parent.Key)))
+	})
+
+	It("Should retrieve the ranges that hold any of the labels", func(ctx SpecContext) {
+		a, b := label.Label{Name: "A"}, label.Label{Name: "B"}
+		Expect(svc.Label.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+		Expect(svc.Label.NewWriter(nil).Create(ctx, &b)).To(Succeed())
+		withA, withB := createRange(ctx), createRange(ctx)
+		createRange(ctx)
+		Expect(
+			svc.Ranger.NewWriter(nil).
+				AddLabels(ctx, withA.Key, []label.Key{a.Key}),
+		).
+			To(Succeed())
+		Expect(
+			svc.Ranger.NewWriter(nil).
+				AddLabels(ctx, withB.Key, []label.Key{b.Key}),
+		).
+			To(Succeed())
+		res := MustSucceed(apiSvc.Retrieve(authed(ctx), apiranger.RetrieveRequest{
+			Where: &ranger.Where{Labels: []label.Key{a.Key, b.Key}},
+		}))
+		Expect(keysOf(res.Ranges)).To(ConsistOf(withA.Key, withB.Key))
+	})
 })

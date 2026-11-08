@@ -16,12 +16,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
-	apiontology "github.com/synnaxlabs/synnax/pkg/api/ontology"
+	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -32,20 +32,29 @@ var _ = Describe("Directories", func() {
 	uniqueName := func() string {
 		return "d_" + strings.ReplaceAll(uuid.New().String(), "-", "_")
 	}
-	parentsOf := func(ctx SpecContext, id ontology.ID) []ontology.ID {
+	retrieveDirectory := func(ctx SpecContext, key directory.Key) directory.Directory {
 		GinkgoHelper()
-		var parents []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(id).
-			TraverseTo(ontology.ParentsTraverser).
-			ExcludeFieldData(true).
-			Entries(&parents).
-			Exec(ctx, db)).To(Succeed())
-		ids := make([]ontology.ID, 0, len(parents))
-		for _, p := range parents {
-			ids = append(ids, p.ID)
+		var d directory.Directory
+		Expect(arcSvc.NewDirectoryRetrieve().
+			Where(directory.MatchKeys(key)).
+			Entry(&d).
+			Exec(ctx, nil)).To(Succeed())
+		return d
+	}
+	parentsOf := func(ctx SpecContext, id resource.ID) []resource.ID {
+		GinkgoHelper()
+		key := MustSucceed(resource.ParseUUIDKey(id))
+		if id.Type != resource.TypeArc {
+			return []resource.ID{
+				directory.ResourceID(*retrieveDirectory(ctx, key).Parent),
+			}
 		}
-		return ids
+		var a arc.Arc
+		Expect(arcSvc.NewRetrieve().
+			Where(arc.MatchKeys(key)).
+			Entry(&a).
+			Exec(ctx, nil)).To(Succeed())
+		return []resource.ID{directory.ResourceID(*a.Base().Directory)}
 	}
 	createDirectory := func(ctx SpecContext) directory.Directory {
 		GinkgoHelper()
@@ -57,25 +66,42 @@ var _ = Describe("Directories", func() {
 		return d
 	}
 	BeforeEach(func(ctx SpecContext) {
-		var roots []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(ontology.RootID).
-			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(ontology.ResourceTypeArcDirectory).
-			ExcludeFieldData(true).
-			Entries(&roots).
-			Exec(ctx, db)).To(Succeed())
-		Expect(roots).To(HaveLen(1))
-		root = MustSucceed(directory.KeyFromOntologyID(roots[0].ID))
+		var r directory.Directory
+		Expect(arcSvc.NewDirectoryRetrieve().
+			Where(directory.MatchNested(false)).
+			Entry(&r).
+			Exec(ctx, nil)).To(Succeed())
+		root = r.Key
+	})
+
+	Describe("RetrieveDirectories", func() {
+		retrieve := func(ctx SpecContext) ([]directory.Directory, error) {
+			res, err := apiSvc.RetrieveDirectories(
+				AuthedCtx(ctx, author),
+				apiarcdirectory.RetrieveRequest{
+					Where: &directory.Where{Parents: []directory.Key{root}},
+				},
+			)
+			return res.Directories, err
+		}
+		It("Should retrieve the directories a directory holds", func(ctx SpecContext) {
+			d := createDirectory(ctx)
+			grantOn(ctx, author.ResourceID(), access.ActionRetrieve, d.ResourceID())
+			Expect(retrieve(ctx)).To(ContainElement(d))
+		})
+		It("Should deny a caller without retrieve access", func(ctx SpecContext) {
+			createDirectory(ctx)
+			Expect(retrieve(ctx)).Error().To(MatchError(access.ErrDenied))
+		})
 	})
 
 	Describe("CreateDirectory", func() {
 		It("Should create a directory under its parent", func(ctx SpecContext) {
 			grantOn(
 				ctx,
-				author.OntologyID(),
+				author.ResourceID(),
 				access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypeArcDirectory},
+				resource.ID{Type: resource.TypeArcDirectory},
 			)
 			res := MustSucceed(apiSvc.CreateDirectory(
 				AuthedCtx(ctx, author),
@@ -89,8 +115,8 @@ var _ = Describe("Directories", func() {
 				Expect(arcSvc.NewWriter(nil).DeleteDirectory(ctx, res.Directory.Key)).
 					To(Succeed())
 			})
-			Expect(parentsOf(ctx, res.Directory.OntologyID())).
-				To(ConsistOf(directory.OntologyID(root)))
+			Expect(parentsOf(ctx, res.Directory.ResourceID())).
+				To(ConsistOf(directory.ResourceID(root)))
 		})
 		It("Should deny a caller without create access", func(ctx SpecContext) {
 			Expect(apiSvc.CreateDirectory(
@@ -107,19 +133,14 @@ var _ = Describe("Directories", func() {
 	Describe("RenameDirectory", func() {
 		It("Should rename a directory", func(ctx SpecContext) {
 			d := createDirectory(ctx)
-			grantUpdateOn(ctx, author.OntologyID(), d.OntologyID())
+			grantUpdateOn(ctx, author.ResourceID(), d.ResourceID())
 			name := uniqueName()
 			MustSucceed(apiSvc.RenameDirectory(
 				AuthedCtx(ctx, author),
 				db,
 				apiarc.RenameDirectoryRequest{Key: d.Key, Name: name},
 			))
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(d.OntologyID()).
-				Entry(&res).
-				Exec(ctx, db)).To(Succeed())
-			Expect(res.Name).To(Equal(name))
+			Expect(retrieveDirectory(ctx, d.Key).Name).To(Equal(name))
 		})
 	})
 
@@ -127,15 +148,17 @@ var _ = Describe("Directories", func() {
 		It("Should delete a directory", func(ctx SpecContext) {
 			d := directory.Directory{Name: uniqueName()}
 			Expect(arcSvc.NewWriter(nil).CreateDirectory(ctx, &d, root)).To(Succeed())
-			grantOn(ctx, author.OntologyID(), access.ActionDelete, d.OntologyID())
+			grantOn(ctx, author.ResourceID(), access.ActionDelete, d.ResourceID())
 			MustSucceed(apiSvc.DeleteDirectory(
 				AuthedCtx(ctx, author),
 				db,
 				apiarc.DeleteDirectoryRequest{Keys: []directory.Key{d.Key}},
 			))
-			Expect(otg.NewRetrieve().
-				WhereIDs(d.OntologyID()).
-				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+			var res directory.Directory
+			Expect(arcSvc.NewDirectoryRetrieve().
+				Where(directory.MatchKeys(d.Key)).
+				Entry(&res).
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -147,14 +170,14 @@ var _ = Describe("Directories", func() {
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
 			})
-			Expect(arcSvc.NewWriter(nil).Move(ctx, root, d.Key, a.OntologyID())).
+			Expect(arcSvc.NewWriter(nil).Move(ctx, root, d.Key, a.ResourceID())).
 				To(Succeed())
 			return a
 		}
 		move := func(
 			ctx SpecContext,
 			from, to directory.Directory,
-			ids ...ontology.ID,
+			ids ...resource.ID,
 		) error {
 			_, err := apiSvc.Move(
 				AuthedCtx(ctx, author),
@@ -171,13 +194,13 @@ var _ = Describe("Directories", func() {
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,
-					author.OntologyID(),
-					a.OntologyID(),
-					src.OntologyID(),
-					dst.OntologyID(),
+					author.ResourceID(),
+					a.ResourceID(),
+					src.ResourceID(),
+					dst.ResourceID(),
 				)
-				Expect(move(ctx, src, dst, a.OntologyID())).To(Succeed())
-				Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(dst.OntologyID()))
+				Expect(move(ctx, src, dst, a.ResourceID())).To(Succeed())
+				Expect(parentsOf(ctx, a.ResourceID())).To(ConsistOf(dst.ResourceID()))
 			},
 		)
 		It(
@@ -188,13 +211,13 @@ var _ = Describe("Directories", func() {
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,
-					author.OntologyID(),
-					a.OntologyID(),
-					dst.OntologyID(),
+					author.ResourceID(),
+					a.ResourceID(),
+					dst.ResourceID(),
 				)
-				Expect(move(ctx, src, dst, a.OntologyID())).
+				Expect(move(ctx, src, dst, a.ResourceID())).
 					To(MatchError(access.ErrDenied))
-				Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(src.OntologyID()))
+				Expect(parentsOf(ctx, a.ResourceID())).To(ConsistOf(src.ResourceID()))
 			},
 		)
 		It(
@@ -205,13 +228,13 @@ var _ = Describe("Directories", func() {
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,
-					author.OntologyID(),
-					a.OntologyID(),
-					src.OntologyID(),
+					author.ResourceID(),
+					a.ResourceID(),
+					src.ResourceID(),
 				)
-				Expect(move(ctx, src, dst, a.OntologyID())).
+				Expect(move(ctx, src, dst, a.ResourceID())).
 					To(MatchError(access.ErrDenied))
-				Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(src.OntologyID()))
+				Expect(parentsOf(ctx, a.ResourceID())).To(ConsistOf(src.ResourceID()))
 			},
 		)
 		It(
@@ -222,13 +245,13 @@ var _ = Describe("Directories", func() {
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,
-					author.OntologyID(),
-					src.OntologyID(),
-					dst.OntologyID(),
+					author.ResourceID(),
+					src.ResourceID(),
+					dst.ResourceID(),
 				)
-				Expect(move(ctx, src, dst, a.OntologyID())).
+				Expect(move(ctx, src, dst, a.ResourceID())).
 					To(MatchError(access.ErrDenied))
-				Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(src.OntologyID()))
+				Expect(parentsOf(ctx, a.ResourceID())).To(ConsistOf(src.ResourceID()))
 			},
 		)
 		It(
@@ -238,18 +261,18 @@ var _ = Describe("Directories", func() {
 				dst := createDirectory(ctx)
 				sub := createDirectory(ctx)
 				Expect(arcSvc.NewWriter(nil).Move(
-					ctx, root, src.Key, sub.OntologyID(),
+					ctx, root, src.Key, sub.ResourceID(),
 				)).To(Succeed())
 				grantUpdateOn(
 					ctx,
-					author.OntologyID(),
-					sub.OntologyID(),
-					dst.OntologyID(),
+					author.ResourceID(),
+					sub.ResourceID(),
+					dst.ResourceID(),
 				)
-				Expect(move(ctx, src, dst, sub.OntologyID())).
+				Expect(move(ctx, src, dst, sub.ResourceID())).
 					To(MatchError(access.ErrDenied))
-				Expect(parentsOf(ctx, sub.OntologyID())).
-					To(ConsistOf(src.OntologyID()))
+				Expect(parentsOf(ctx, sub.ResourceID())).
+					To(ConsistOf(src.ResourceID()))
 			},
 		)
 		It(
@@ -261,14 +284,14 @@ var _ = Describe("Directories", func() {
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,
-					author.OntologyID(),
-					a.OntologyID(),
-					named.OntologyID(),
-					dst.OntologyID(),
+					author.ResourceID(),
+					a.ResourceID(),
+					named.ResourceID(),
+					dst.ResourceID(),
 				)
-				Expect(move(ctx, named, dst, a.OntologyID())).
+				Expect(move(ctx, named, dst, a.ResourceID())).
 					To(MatchError(validate.ErrValidation))
-				Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(src.OntologyID()))
+				Expect(parentsOf(ctx, a.ResourceID())).To(ConsistOf(src.ResourceID()))
 			},
 		)
 		It(
@@ -278,41 +301,13 @@ var _ = Describe("Directories", func() {
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,
-					author.OntologyID(),
-					a.OntologyID(),
-					src.OntologyID(),
+					author.ResourceID(),
+					a.ResourceID(),
+					src.ResourceID(),
 				)
-				Expect(move(ctx, src, src, a.OntologyID())).To(Succeed())
-				Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(src.OntologyID()))
+				Expect(move(ctx, src, src, a.ResourceID())).To(Succeed())
+				Expect(parentsOf(ctx, a.ResourceID())).To(ConsistOf(src.ResourceID()))
 			},
 		)
-		It("Should refuse the generic ontology move of an Arc", func(ctx SpecContext) {
-			d := createDirectory(ctx)
-			a := createArc(ctx, uniqueName())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
-			})
-			rootID := directory.OntologyID(root)
-			grantUpdateOn(
-				ctx,
-				author.OntologyID(),
-				a.OntologyID(),
-				d.OntologyID(),
-				rootID,
-			)
-			otgAPI := MustSucceed(apiontology.NewService(apiontology.ServiceConfig{
-				Ontology: otg,
-				RBAC:     rbacSvc,
-			}))
-			Expect(otgAPI.MoveChildren(
-				AuthedCtx(ctx, author),
-				db,
-				apiontology.MoveChildrenRequest{
-					From:     rootID,
-					To:       d.OntologyID(),
-					Children: []ontology.ID{arc.OntologyID(a.Base().Key)},
-				},
-			)).Error().To(MatchError(validate.ErrValidation))
-		})
 	})
 })

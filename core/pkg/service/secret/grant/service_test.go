@@ -18,8 +18,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -71,7 +71,7 @@ var _ = Describe("Service", func() {
 		db     *gorp.DB
 		clock  *timetestutil.Clock
 		svc    *grant.Service
-		rk     ontology.ID
+		rk     resource.ID
 		secret uuid.UUID
 	)
 	create := func(ctx SpecContext) grant.Grant {
@@ -96,7 +96,7 @@ var _ = Describe("Service", func() {
 			TTL:   time.Minute,
 			Clock: clock,
 		}))
-		rk = rack.Key(1).OntologyID()
+		rk = rack.Key(1).ResourceID()
 		secret = uuid.New()
 	})
 
@@ -134,8 +134,8 @@ var _ = Describe("Service", func() {
 				Entry(
 					"a subject that is not a rack",
 					func(g *grant.Grant) {
-						g.Subject = ontology.ID{
-							Type: ontology.ResourceTypeUser,
+						g.Subject = resource.ID{
+							Type: resource.TypeUser,
 							Key:  "u",
 						}
 					},
@@ -187,7 +187,7 @@ var _ = Describe("Service", func() {
 			"Should refuse a grant for another subject and keep it",
 			func(ctx SpecContext) {
 				g := create(ctx)
-				other := rack.Key(2).OntologyID()
+				other := rack.Key(2).ResourceID()
 				Expect(svc.Redeem(ctx, g.Key, other)).Error().To(SatisfyAll(
 					MatchError(access.ErrDenied),
 					MatchError(ContainSubstring("grant is not for "+other.String())),

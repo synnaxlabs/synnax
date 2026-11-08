@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -34,7 +34,7 @@ type Writer struct {
 // validation error when creds has an empty username or password.
 func (w Writer) Set(
 	ctx context.Context,
-	subject ontology.ID,
+	subject resource.ID,
 	creds auth.Credentials,
 ) error {
 	if err := creds.Validate(); err != nil {
@@ -76,7 +76,7 @@ func (w Writer) Set(
 // error when password is empty.
 func (w Writer) ChangePassword(
 	ctx context.Context,
-	subject ontology.ID,
+	subject resource.ID,
 	password string,
 ) error {
 	if password == "" {
@@ -105,7 +105,7 @@ func (w Writer) ChangePassword(
 // query.ErrNotFound when the subject has no password.
 func (w Writer) Rename(
 	ctx context.Context,
-	subject ontology.ID,
+	subject resource.ID,
 	username string,
 ) error {
 	if err := w.assertUsernameFree(ctx, subject, username); err != nil {
@@ -125,7 +125,7 @@ func (w Writer) Rename(
 }
 
 // DeleteFor removes the passwords of the given subjects.
-func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
+func (w Writer) DeleteFor(ctx context.Context, subjects ...resource.ID) error {
 	return w.svc.table.NewDelete().
 		Where(MatchSubjects(subjects...)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)
@@ -134,7 +134,7 @@ func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
 // next always moves past prev, since sessions treat Created as the password's version.
 func next(prev telem.TimeStamp) telem.TimeStamp { return max(telem.Now(), prev+1) }
 
-func (w Writer) retrieve(ctx context.Context, subject ontology.ID) (Password, error) {
+func (w Writer) retrieve(ctx context.Context, subject resource.ID) (Password, error) {
 	var p Password
 	err := w.svc.NewRetrieve().
 		Where(MatchSubjects(subject)).
@@ -145,7 +145,7 @@ func (w Writer) retrieve(ctx context.Context, subject ontology.ID) (Password, er
 
 func (w Writer) assertUsernameFree(
 	ctx context.Context,
-	subject ontology.ID,
+	subject resource.ID,
 	username string,
 ) error {
 	var holders []Password

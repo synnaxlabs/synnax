@@ -12,7 +12,7 @@
 import { filter, telem, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { secret } from "@/secret";
 
 /** Details describes the leaf certificate of a chain. */
@@ -131,5 +131,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("certificate");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("certificate");
+export const TYPE_RESOURCE_ID = resourceID("");

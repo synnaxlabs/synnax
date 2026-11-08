@@ -128,7 +128,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
 
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return cfg.Channel.NewWriter(tx).DeleteManyByNamePatterns(
+		return cfg.Channel.NewWriter(tx).DeleteManyByNames(
 			ctx,
 			legacyStatusChannels,
 			true,
@@ -426,6 +426,7 @@ type RequestManager struct {
 }
 
 func (r *RequestManager) Set(ctx context.Context, keys channel.Keys) error {
+	keys = keys.Unique()
 	added, removed := lo.Difference(keys, r.currKeys)
 	if err := r.svc.updateRequests(ctx, added, removed); err != nil {
 		return err

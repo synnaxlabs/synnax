@@ -18,9 +18,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -61,7 +61,7 @@ var _ = Describe("EncodeBundle", func() {
 
 	It("Should rewrite resource references to bundle paths", func() {
 		first, second := tab(uuid.New()), tab(uuid.New())
-		refs := map[ontology.ID]string{
+		refs := map[resource.ID]string{
 			mustResource(first):  "chamber_pressure.json",
 			mustResource(second): "propulsion/pressurization.json",
 		}
@@ -98,7 +98,7 @@ var _ = Describe("EncodeBundle", func() {
 
 	It("Should strip resource tabs whose target is not a member", func() {
 		member, stranger := tab(uuid.New()), tab(uuid.New())
-		refs := map[ontology.ID]string{mustResource(member): "kept.json"}
+		refs := map[resource.ID]string{mustResource(member): "kept.json"}
 		p := panel.Panel{Name: "Controls", Root: leafNode(member, stranger)}
 		root := rootOf(MustSucceed(panel.EncodeBundle(p, refs)))
 		Expect(root["tabs"]).To(ConsistOf(
@@ -108,7 +108,7 @@ var _ = Describe("EncodeBundle", func() {
 
 	It("Should collapse a leaf emptied by stripping", func() {
 		member, stranger := tab(uuid.New()), tab(uuid.New())
-		refs := map[ontology.ID]string{mustResource(member): "kept.json"}
+		refs := map[resource.ID]string{mustResource(member): "kept.json"}
 		p := panel.Panel{
 			Name: "Controls",
 			Root: splitNode(
@@ -137,7 +137,7 @@ var _ = Describe("EncodeBundle", func() {
 
 	It("Should collapse nested splits emptied by stripping", func() {
 		member, s1, s2 := tab(uuid.New()), tab(uuid.New()), tab(uuid.New())
-		refs := map[ontology.ID]string{mustResource(member): "kept.json"}
+		refs := map[resource.ID]string{mustResource(member): "kept.json"}
 		p := panel.Panel{
 			Name: "Controls",
 			Root: splitNode(
@@ -161,9 +161,9 @@ var _ = Describe("EncodeBundle", func() {
 })
 
 var _ = Describe("DecodeBundle", func() {
-	It("Should resolve resource paths back to ontology IDs", func(ctx SpecContext) {
+	It("Should resolve resource paths back to resource IDs", func(ctx SpecContext) {
 		first, second := tab(uuid.New()), tab(uuid.New())
-		encodeRefs := map[ontology.ID]string{
+		encodeRefs := map[resource.ID]string{
 			mustResource(first):  "chamber_pressure.json",
 			mustResource(second): "propulsion/pressurization.json",
 		}
@@ -174,12 +174,12 @@ var _ = Describe("DecodeBundle", func() {
 			),
 		}
 		env := MustSucceed(panel.EncodeBundle(p, encodeRefs))
-		minted := map[string]ontology.ID{
+		minted := map[string]resource.ID{
 			"chamber_pressure.json": {
-				Type: ontology.ResourceTypeLineplot, Key: uuid.New().String(),
+				Type: resource.TypeLineplot, Key: uuid.New().String(),
 			},
 			"propulsion/pressurization.json": {
-				Type: ontology.ResourceTypeSchematic, Key: uuid.New().String(),
+				Type: resource.TypeSchematic, Key: uuid.New().String(),
 			},
 		}
 		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), minted))
@@ -239,7 +239,7 @@ var _ = Describe("DecodeBundle", func() {
 		ctx SpecContext,
 	) {
 		t := tab(uuid.New())
-		refs := map[ontology.ID]string{mustResource(t): "missing.json"}
+		refs := map[resource.ID]string{mustResource(t): "missing.json"}
 		env := MustSucceed(panel.EncodeBundle(
 			panel.Panel{Name: "Controls", Root: leafNode(t)}, refs,
 		))
@@ -286,10 +286,10 @@ var _ = Describe("DecodeBundle", func() {
 })
 
 var _ = Describe("ResourceRefs", func() {
-	taskID := func() ontology.ID {
-		return ontology.ID{Type: ontology.ResourceTypeTask, Key: uuid.New().String()}
+	taskID := func() resource.ID {
+		return resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
 	}
-	taskTab := func(id ontology.ID) panel.Tab {
+	taskTab := func(id resource.ID) panel.Tab {
 		return panel.Tab{Variant: panel.ResourceTab{Key: uuid.New(), Resource: id}}
 	}
 
@@ -320,8 +320,8 @@ var _ = Describe("ResourceRefs", func() {
 	})
 })
 
-// mustResource returns the ontology ID behind a resource tab fixture.
-func mustResource(t panel.Tab) ontology.ID {
+// mustResource returns the resource ID behind a resource tab fixture.
+func mustResource(t panel.Tab) resource.ID {
 	GinkgoHelper()
 	r, ok := t.Variant.(panel.ResourceTab)
 	Expect(ok).To(BeTrue())
