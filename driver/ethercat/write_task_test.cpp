@@ -12,6 +12,7 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/testutil/master.h"
 #include "driver/ethercat/write_task.h"
 #include "driver/pipeline/testutil/pipeline.h"
@@ -310,6 +311,36 @@ TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
         errors[0]["message"],
         R"(Found no device where key = "nonexistent_slave_key")"
     );
+}
+
+/// @brief it should start a write task that the Factory configures, with the bus at the
+/// execution rate of the task.
+TEST_F(EtherCATWriteTest, FactoryStartsAWriteTaskAtItsExecutionRate) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["execution_rate"] = 250;
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "write",
+        .type = WRITE_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [write_task, ok] = factory.configure_task(this->ctx, task, "");
+    ASSERT_TRUE(ok);
+    ASSERT_NE(write_task, nullptr);
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    write_task->exec(start);
+    ASSERT_EVENTUALLY_GE(this->ctx->statuses.size(), 1);
+    EXPECT_EQ(this->ctx->statuses[0].message, "Started task");
+    EXPECT_EQ(this->mock_master->plan().period, x::telem::MILLISECOND * 4);
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    write_task->exec(stop);
 }
 
 /// @brief it should write the stop value of each channel when the task stops.

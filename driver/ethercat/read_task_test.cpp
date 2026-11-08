@@ -361,6 +361,75 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     );
 }
 
+/// @brief it should report a channel on a slave on another network than the slaves
+/// before it.
+TEST_F(EtherCATReadTest, ParseConfigRejectsSlavesOnTwoNetworks) {
+    auto other = this->slave_device;
+    other.key = "ecat_slave_eth1";
+    other.properties["network"] = "eth1";
+    ASSERT_NIL(this->client->devices.create(other));
+    const auto first = this->create_data_channel("first", x::telem::INT16_T);
+    const auto second = this->create_data_channel("second", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(first, 0x6000, 1, "int16")
+    );
+    auto on_other = this->create_input_channel_config(second, 0x6000, 1, "int16");
+    on_other["device"] = other.key;
+    cfg["channels"].push_back(on_other);
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.1.device");
+    EXPECT_EQ(errors[0]["message"], "all slaves must be on the same network");
+}
+
+/// @brief it should reject a task whose channels are all disabled.
+TEST_F(EtherCATReadTest, ParseConfigRejectsATaskWithNoEnabledChannel) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16", true)
+    );
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels");
+    EXPECT_EQ(errors[0]["message"], "task must have at least one enabled channel");
+}
+
+/// @brief it should write the cycle time of each sample to the index channel of the
+/// frame.
+TEST_F(EtherCATReadTest, SourceWritesTheSampleTimesToTheIndexChannel) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+    x::breaker::Breaker brk;
+    brk.start();
+    x::telem::Frame frame;
+    ASSERT_NIL(source.read(brk, frame).error);
+    const auto index = std::ranges::find(*frame.channels, this->index_channel.key);
+    ASSERT_NE(index, frame.channels->end());
+    const auto &times = frame.series->at(index - frame.channels->begin());
+    ASSERT_EQ(times.size(), 10);
+    EXPECT_EQ(frame.series->at(0).size(), 10);
+    for (size_t i = 1; i < times.size(); ++i)
+        EXPECT_GT(times.at<int64_t>(i), times.at<int64_t>(i - 1));
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
 /// @brief it should reject a stream rate that does not divide the sample rate.
 TEST_F(EtherCATReadTest, StreamRateThatDoesNotDivideSampleRateIsInvalid) {
     auto cfg = this->create_base_config();

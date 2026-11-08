@@ -567,6 +567,31 @@ TEST_F(EngineTest, ReaderKeepsItsSpacingWhileTheBusRateChanges) {
         );
 }
 
+/// @brief it should keep the samples of a reader exactly one sample period apart when a
+/// writer raises the bus rate between two of them.
+TEST_F(EngineLockTest, ReaderKeepsExactSampleTimesWhenTheBusRateRises) {
+    this->master->stall();
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(10), 3)
+    );
+    this->master->wait_until_stalled();
+    // Lets one cycle through, so that the reader samples before the bus takes the
+    // faster rate.
+    this->master->step();
+    this->master->wait_until_stalled();
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(200))
+    );
+    this->master->resume();
+    const auto times = this->read_times(*reader, 3);
+    ASSERT_EQ(times.size(), 3);
+    for (size_t i = 1; i < times.size(); ++i)
+        EXPECT_EQ(
+            x::telem::TimeSpan(times.at<int64_t>(i) - times.at<int64_t>(i - 1)),
+            x::telem::MILLISECOND * 100
+        );
+}
+
 /// @brief it should reject a reader with a sample rate below 0.001 Hz and not start the
 /// bus.
 TEST_F(EngineTest, ReadRateBelowOneMillihertzIsRejected) {

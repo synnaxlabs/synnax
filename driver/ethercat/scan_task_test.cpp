@@ -340,6 +340,16 @@ TEST_F(EtherCATScanStatusTest, SlaveOnStoppedBusShowsDiscovery) {
     EXPECT_TRUE(status.details.connected);
 }
 
+/// @brief it should key a slave with a serial number by its vendor, product, and
+/// serial, not by its position.
+TEST_F(EtherCATScanStatusTest, KeysASlaveBySerialNumber) {
+    const auto devices = ASSERT_NIL_P(
+        this->scanner->scan(common::ScannerContext{.count = 1})
+    );
+    ASSERT_EQ(devices.size(), 1);
+    EXPECT_EQ(devices.at(0).key, "ethercat_1_2_12345");
+}
+
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
 /// again.
 TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
