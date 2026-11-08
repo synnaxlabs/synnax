@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, FileTransport, UnaryClient
+from synnax import group as group_
 from synnax import imex
 from synnax.project.types_gen import (
     Key,
@@ -168,6 +169,8 @@ class Client:
         self,
         *,
         key: Key,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -181,6 +184,8 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -195,6 +200,8 @@ class Client:
         self,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -223,6 +230,9 @@ class Client:
         must match every field. A plain ``key`` returns one project.
 
         :param key: Keeps projects with this key.
+        :param groups: Keeps projects in any of these groups.
+        :param grouped: Keeps only projects in a group when True, and only projects in
+            no group when False.
         :param and_: Keeps projects that match every filter in the list.
         :param or_: Keeps projects that match any filter in the list.
         :param not_: Keeps projects that do not match the filter.

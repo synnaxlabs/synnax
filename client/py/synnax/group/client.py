@@ -95,6 +95,8 @@ class Client:
         self,
         *,
         key: Key,
+        parents: ID | list[ID] = ...,
+        nested: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -108,6 +110,8 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
+        parents: ID | list[ID] = ...,
+        nested: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -122,6 +126,8 @@ class Client:
         self,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        parents: ID | list[ID] = ...,
+        nested: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -152,6 +158,9 @@ class Client:
         group.
 
         :param key: Keeps groups with this key.
+        :param parents: Keeps groups that sit in any of these resources.
+        :param nested: Keeps only groups that sit in a parent when True, and only top
+            groups when False.
         :param and_: Keeps groups that match every filter in the list.
         :param or_: Keeps groups that match any filter in the list.
         :param not_: Keeps groups that do not match the filter.

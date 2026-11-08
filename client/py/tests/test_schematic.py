@@ -463,9 +463,7 @@ class TestSymbolClient:
         a, _ = client.schematics.symbols.create(
             [_symbol("In group", parent_group), _symbol("No group")]
         )
-        res = client.schematics.symbols.retrieve(
-            where=symbol.Where(groups=[parent_group.key])
-        )
+        res = client.schematics.symbols.retrieve(groups=parent_group.key)
         assert [r.key for r in res] == [a.key]
 
     def test_retrieve_with_search_term(
