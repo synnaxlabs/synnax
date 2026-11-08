@@ -455,6 +455,41 @@ var _ = Describe("Service", func() {
 			})
 		})
 
+		Describe("Own record", func() {
+			var other resource.ID
+			BeforeEach(func(ctx SpecContext) { other = createUser(ctx, tx) })
+			It("Should let the subject retrieve itself alone", func(ctx SpecContext) {
+				allowed := MustSucceed(rbacSvc.NewEnforcer(tx).Allowed(
+					ctx,
+					subject,
+					access.ActionRetrieve,
+				))
+				Expect(allowed(subject)).To(BeTrue())
+				Expect(allowed(other)).To(BeFalse())
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  access.ActionRetrieve,
+					Objects: []resource.ID{subject},
+				})).To(Succeed())
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  access.ActionRetrieve,
+					Objects: []resource.ID{subject, other},
+				})).To(MatchError(ContainSubstring(
+					"%s cannot retrieve %s",
+					subject,
+					other,
+				)))
+			})
+			It("Should not let the subject update itself", func(ctx SpecContext) {
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  access.ActionUpdate,
+					Objects: []resource.ID{subject},
+				})).To(MatchError(access.ErrDenied))
+			})
+		})
+
 		Describe("Enforce after a role change", func() {
 			It("Should allow access through the new role", func(ctx SpecContext) {
 				r := &role.Role{
