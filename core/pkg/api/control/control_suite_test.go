@@ -68,10 +68,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status: statusSvc,
 	})).RBAC
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      dist.Channel,
-		DB:           dist.DB,
-		HostProvider: dist.Cluster,
-		Status:       statusSvc,
+		Channel: dist.Channel,
+		DB:      dist.DB,
+		HostKey: dist.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      dist.DB,
@@ -108,14 +108,20 @@ func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	return fctx
 }
 
-// newUser creates a user with no role assignments.
+// newUser creates a user that can do nothing.
 func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(userSvc.NewWriter(nil).
-		Create(ctx, user.User{Name: "user-" + uuid.New().String()}))
+	return MustSucceed(
+		rbactestutil.CreateUser(
+			ctx,
+			rbacSvc,
+			userSvc,
+			user.User{Name: "user-" + uuid.New().String()},
+		),
+	)
 }
 
-// grantOn grants the actions on the objects to the subject through a new role.
+// grantOn grants the actions on the objects to the subject.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,

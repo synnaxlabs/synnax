@@ -82,7 +82,7 @@ type Transport struct {
 	UserCreate         freighter.UnaryServer[user.CreateRequest, user.CreateResponse]
 	UserDelete         freighter.UnaryServer[user.DeleteRequest, struct{}]
 	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
-	UserSetRoles       freighter.UnaryServer[user.SetRolesRequest, struct{}]
+	UserSetRole        freighter.UnaryServer[user.SetRoleRequest, struct{}]
 	// CHANNEL
 	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
 	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
@@ -351,7 +351,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.UserCreate,
 		t.UserDelete,
 		t.UserRetrieve,
-		t.UserSetRoles,
+		t.UserSetRole,
 
 		// CHANNEL
 		t.ChannelCreate,
@@ -567,7 +567,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.UserCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Create))
 	t.UserDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Delete))
 	t.UserRetrieve.BindHandler(l.User.Retrieve)
-	t.UserSetRoles.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.SetRoles))
+	t.UserSetRole.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.SetRole))
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Create))
@@ -812,7 +812,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		User:     cfg.Service.User,
 		Rack:     cfg.Service.Rack,
 		RBAC:     cfg.Service.RBAC,
-		Cluster:  cfg.Distribution.Cluster,
+		Identity: cfg.Distribution.Identity,
 	}); err != nil {
 		return nil, err
 	}
@@ -860,8 +860,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Connectivity, err = connectivity.NewService(connectivity.ServiceConfig{
-		Cluster: cfg.Distribution.Cluster,
-		License: cfg.Service.License,
+		Identity: cfg.Distribution.Identity,
+		License:  cfg.Service.License,
 	}); err != nil {
 		return nil, err
 	}

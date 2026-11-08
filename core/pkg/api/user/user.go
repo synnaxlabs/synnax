@@ -11,8 +11,8 @@ package user
 
 import (
 	"context"
-	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -101,9 +101,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 // username.
 type NewUser struct {
 	svcauth.Credentials
-	Name  string     `json:"name"  msgpack:"name"`
-	Key   user.Key   `json:"key"   msgpack:"key"`
-	Roles []role.Key `json:"roles" msgpack:"roles"`
+	Name string   `json:"name" msgpack:"name"`
+	Key  user.Key `json:"key"  msgpack:"key"`
+	Role role.Key `json:"role" msgpack:"role"`
 }
 
 type (
@@ -115,9 +115,9 @@ type (
 	}
 )
 
-// Create registers the new users with the provided credentials. If successful, Create
-// returns a slice of the new users. Creating a user with roles also requires update on
-// users and on each of the roles.
+// Create registers the new users with the provided credentials and roles. If
+// successful, Create returns a slice of the new users. Creating a user also requires
+// update on users and on its role.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -132,17 +132,15 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	var roles []role.Key
-	for _, u := range req.Users {
-		roles = append(roles, u.Roles...)
-	}
-	if len(roles) > 0 {
+	if len(req.Users) > 0 {
 		if err := enforcer.Enforce(ctx, access.Request{
 			Subject: subject,
 			Action:  access.ActionUpdate,
 			Objects: append(
 				[]resource.ID{{Type: resource.TypeUser}},
-				role.ResourceIDs(roles)...,
+				role.ResourceIDs(lo.Map(req.Users, func(u NewUser, _ int) role.Key {
+					return u.Role
+				}))...,
 			),
 		}); err != nil {
 			return CreateResponse{}, err
@@ -156,7 +154,7 @@ func (s *Service) Create(
 		if name == "" {
 			name = nu.Username
 		}
-		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key, Roles: nu.Roles})
+		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key, Role: nu.Role})
 		if err != nil {
 			return CreateResponse{}, err
 		}
@@ -235,7 +233,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Users))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Users))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -276,33 +274,49 @@ func (s *Service) Delete(
 		DeleteFor(ctx, user.ResourceIDsFromKeys(req.Keys)...)
 }
 
-// SetRolesRequest removes the roles in Remove from the users with Keys, then adds the
-// roles in Add.
-type SetRolesRequest struct {
-	Keys   []user.Key `json:"keys"   msgpack:"keys"`
-	Add    []role.Key `json:"add"    msgpack:"add"`
-	Remove []role.Key `json:"remove" msgpack:"remove"`
+// SetRoleRequest gives Role to the users with Keys.
+type SetRoleRequest struct {
+	Keys []user.Key `json:"keys" msgpack:"keys"`
+	Role role.Key   `json:"role" msgpack:"role"`
 }
 
-// SetRoles removes and adds roles on the users with the provided keys in one
-// transaction. It returns access.ErrDenied unless the subject can update the users and
-// every added and removed role, and a validation error when a user is a root user.
-func (s *Service) SetRoles(
+// SetRole gives a role to the users with the provided keys in one transaction. It
+// returns access.ErrDenied unless the subject can update the users, the role, and the
+// roles the users hold, a validation error when a user is a root user, and
+// query.ErrNotFound when a user does not exist. A role that another request gives a
+// user while SetRole runs is replaced with no access check on it.
+func (s *Service) SetRole(
 	ctx context.Context,
 	tx gorp.Tx,
-	req SetRolesRequest,
+	req SetRoleRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
 		Action:  access.ActionUpdate,
-		Objects: slices.Concat(
+		Objects: append(
 			user.ResourceIDsFromKeys(req.Keys),
-			role.ResourceIDs(req.Add),
-			role.ResourceIDs(req.Remove),
+			role.ResourceID(req.Role),
 		),
 	}); err != nil {
 		return struct{}{}, err
 	}
+	// The guard checks the role each user holds when the write reads it.
+	guard := func(u user.User) error {
+		if u.RootUser {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"cannot change the role of root user %s",
+				u.Name,
+			)
+		}
+		return enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionUpdate,
+			Objects: []resource.ID{role.ResourceID(u.Role)},
+		})
+	}
 	return struct{}{}, s.internal.NewWriter(tx).
-		SetRoles(ctx, req.Add, req.Remove, req.Keys...)
+		SetRole(ctx, req.Role, guard, req.Keys...)
 }

@@ -50,14 +50,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
-	MustSucceed2(
-		user.ProvisionRoot(
-			ctx,
-			userSvc,
-			passwordSvc,
-			auth.Credentials{Username: "api-imex-suite-root", Password: "p"},
-		),
-	)
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
 	}))
@@ -66,6 +58,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:   userSvc,
 		Status: statusSvc,
 	})).RBAC
+	MustSucceed2(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "api-imex-suite-root", Password: "p"},
+			rbacSvc.Builtin.OwnerKey,
+		),
+	)
 	imexSvc = imex.NewService()
 	importer = &recordingImporter{}
 	Expect(imexSvc.RegisterImporter(string(importer.Type()), importer)).To(Succeed())

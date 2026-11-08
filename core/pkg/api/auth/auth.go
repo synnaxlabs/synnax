@@ -11,6 +11,7 @@ package auth
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -69,10 +70,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Cluster provides information about the cluster topology.
+	// Identity names the Core in responses.
 	//
 	// [REQUIRED]
-	Cluster cluster.Cluster
+	Identity cluster.Identity
 }
 
 var (
@@ -89,7 +90,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.User = override.Nil(c.User, other.User)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
-	c.Cluster = override.Nil(c.Cluster, other.Cluster)
+	c.Identity = override.If(
+		c.Identity,
+		other.Identity,
+		other.Identity != cluster.Identity{},
+	)
 	return c
 }
 
@@ -102,7 +107,8 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("user", c.User)
 	v.NotNil("rack", c.Rack)
 	v.NotNil("rbac", c.RBAC)
-	v.NotNil("cluster", c.Cluster)
+	v.Ternary("identity.key", c.Identity.Key == uuid.Nil(), "must be set")
+	v.NonZero("identity.host_key", c.Identity.HostKey)
 	return v.Error()
 }
 
@@ -114,7 +120,7 @@ type Service struct {
 	user     *user.Service
 	rack     *rack.Service
 	access   *rbac.Service
-	cluster  cluster.Cluster
+	identity cluster.Identity
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -129,7 +135,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		user:     cfg.User,
 		rack:     cfg.Rack,
 		access:   cfg.RBAC,
-		cluster:  cfg.Cluster,
+		identity: cfg.Identity,
 	}, nil
 }
 
@@ -170,8 +176,8 @@ func (s *Service) Login(
 func (s *Service) clusterInfo(start telem.TimeStamp) ClusterInfo {
 	end := telem.Now()
 	return ClusterInfo{
-		ClusterKey:  s.cluster.Key().String(),
-		NodeKey:     s.cluster.HostKey(),
+		ClusterKey:  s.identity.Key.String(),
+		NodeKey:     s.identity.HostKey,
 		NodeVersion: version.Get(),
 		NodeTime:    start + (end-start)/2,
 	}

@@ -22,20 +22,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	rolev0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
-	rackversions "github.com/synnaxlabs/synnax/pkg/service/rack/versions"
-	rackv3 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding"
@@ -49,7 +42,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -77,7 +69,7 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 		DB: db,
 	}))
 	cfg.DB = db
-	cfg.HostProvider = testutil.NewStaticHostProvider(1)
+	cfg.HostKey = 1
 	cfg.Status = stat
 	roles := MustSucceed(role.OpenService(ctx, role.ServiceConfig{
 		DB: db,
@@ -95,21 +87,6 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	}
 }
 
-// markApplied records the migrations with the given keys as applied in namespace
-// without running them, as on a store that ran them before an upgrade.
-func markApplied(ctx context.Context, db *gorp.DB, namespace string, keys ...string) {
-	GinkgoHelper()
-	noop := func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil }
-	migrations := lo.Map(keys, func(k string, _ int) gorp.Migration {
-		return migrate.New(k, noop)
-	})
-	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-		DB:         db,
-		Namespace:  namespace,
-		Migrations: migrations,
-	})).To(Succeed())
-}
-
 // hasDriverRole reports whether the rack with key holds the stack's Driver role.
 func hasDriverRole(ctx context.Context, s stack, key rack.Key) bool {
 	GinkgoHelper()
@@ -118,7 +95,7 @@ func hasDriverRole(ctx context.Context, s stack, key rack.Key) bool {
 		Where(rack.MatchKeys(key)).
 		Entry(&r).
 		Exec(ctx, nil)).To(Succeed())
-	return slices.Contains(r.Roles, s.driverRole)
+	return r.Role == s.driverRole
 }
 
 var _ = Describe("Driver role", func() {
@@ -135,50 +112,17 @@ var _ = Describe("Driver role", func() {
 		Expect(hasDriverRole(ctx, s, s.rack.EmbeddedKey)).
 			To(BeTrue())
 	})
-	It("Should keep a rack revoked before the upgrade revoked", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		driver := rolev0.Role{Key: uuid.New(), Name: "Driver", Internal: true}
-		Expect(gorp.WrapWriter[rolev0.Key, rolev0.Role](db).Set(ctx, driver)).
-			To(Succeed())
-		kept := rackv3.Rack{Key: rack.NewKey(1, 10), Name: "kept"}
-		revoked := rackv3.Rack{Key: rack.NewKey(1, 11), Name: "revoked"}
-		Expect(gorp.WrapWriter[rackv3.Key, rackv3.Rack](db).Set(ctx, kept, revoked)).
-			To(Succeed())
-		Expect(gorp.WrapWriter[string, ontologyv0.Relationship](db).Set(
-			ctx,
-			ontologyv0.Relationship{
-				From: role.ResourceID(driver.Key),
-				To:   kept.ResourceID(),
-				Type: ontologyv0.RelationshipTypeParentOf,
-			},
-		)).To(Succeed())
-		var chain []string
-		for _, m := range rackversions.NewMigrations(rackversions.MigrationsConfig{}) {
-			if m.Key() != "v61_rack_roles" {
-				chain = append(chain, m.Key())
-			}
-		}
-		markApplied(ctx, db, types.Name[rack.Rack](), chain...)
-		markApplied(ctx, db, "rack.roles", "v0.driver_role")
-		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{DriverRole: driver.Key}))
-		Expect(hasDriverRole(ctx, s, kept.Key)).To(BeTrue())
-		Expect(hasDriverRole(ctx, s, revoked.Key)).To(BeFalse())
-		Expect(s.rack.NewWriter(nil).Create(ctx, &rack.Rack{
-			Key:  revoked.Key,
-			Name: revoked.Name,
-		})).To(Succeed())
-		Expect(hasDriverRole(ctx, s, revoked.Key)).To(BeFalse())
-	})
 	It("Should give the Driver role to racks stored before it", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		s := openStack(ctx, db, rack.ServiceConfig{})
-		embedded := s.rack.EmbeddedKey
+		driver := s.driverRole
 		Expect(s.Close()).To(Succeed())
+		stored := rack.Rack{Key: rack.NewKey(1, 10), Name: "stored"}
+		Expect(gorp.WrapWriter[rack.Key, rack.Rack](db).Set(ctx, stored)).
+			To(Succeed())
 		Expect(db.Delete(ctx, []byte("gorp.migration.rack.roles"))).To(Succeed())
-		// The second open gives the rack a new Driver role, which only the migration
-		// can assign to a rack that already exists.
-		s = DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
-		Expect(hasDriverRole(ctx, s, embedded)).To(BeTrue())
+		s = DeferClose(openStack(ctx, db, rack.ServiceConfig{DriverRole: driver}))
+		Expect(hasDriverRole(ctx, s, stored.Key)).To(BeTrue())
 	})
 })
 
@@ -374,21 +318,6 @@ var _ = Describe("Rack", Ordered, func() {
 			).To(Succeed())
 			Expect(res).To(Equal(*r))
 		})
-		It(
-			"Should retrieve racks where the host is the rack's node",
-			func(ctx SpecContext) {
-				r := &rack.Rack{Name: "rack4"}
-				Expect(writer.Create(ctx, r)).To(Succeed())
-				var res rack.Rack
-				Expect(
-					svc.NewRetrieve().
-						Where(rack.MatchHostIsNode(true)).
-						Entry(&res).
-						Exec(ctx, tx),
-				).To(Succeed())
-				Expect(res).To(Equal(*r))
-			},
-		)
 		It("Should only retrieve embedded racks", func(ctx SpecContext) {
 			var res rack.Rack
 			Expect(
@@ -620,20 +549,6 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(res).To(HaveLen(1))
 				Expect(res[0].Name).To(Equal("combo-not-opc"))
 			})
-			It(
-				"Should compose MatchHostIsNode under And with MatchNames",
-				func(ctx SpecContext) {
-					r := &rack.Rack{Name: "combo-host-rack"}
-					Expect(writer.Create(ctx, r)).To(Succeed())
-					var res []rack.Rack
-					Expect(svc.NewRetrieve().Where(rack.And(
-						rack.MatchNames("combo-host-rack"),
-						rack.MatchHostIsNode(true),
-					)).Entries(&res).Exec(ctx, tx)).To(Succeed())
-					Expect(res).To(HaveLen(1))
-					Expect(res[0].Key).To(Equal(r.Key))
-				},
-			)
 		})
 		Describe("Exists", func() {
 			It("Should return true when a rack matches", func(ctx SpecContext) {

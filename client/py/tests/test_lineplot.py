@@ -172,6 +172,15 @@ class TestClient:
         )
         assert client.line_plots.retrieve(ranges=[rng.key]) == []
 
+    def test_retrieve_by_group(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should filter the line plots by group."""
+        made = client.line_plots.create(name="Ungrouped", project=project.key)
+        g = client.groups.create("Empty", parent=sy.project.resource_id(project.key))
+        assert client.line_plots.retrieve(groups=g.key) == []
+        ungrouped = client.line_plots.retrieve(projects=project.key, grouped=False)
+        assert [r.key for r in ungrouped] == [made.key]
+        assert client.line_plots.retrieve(projects=project.key, grouped=True) == []
+
     def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should keep the line plots that match the where and the other filters."""
         a = client.line_plots.create(name="A", project=project.key)

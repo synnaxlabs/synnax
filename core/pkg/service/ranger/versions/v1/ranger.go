@@ -17,6 +17,3 @@ var _ gorp.Entry[Key] = Range{}
 
 // GorpKey implements gorp.Entry.
 func (r Range) GorpKey() Key { return r.Key }
-
-// SetOptions implements gorp.Entry.
-func (Range) SetOptions() []any { return nil }

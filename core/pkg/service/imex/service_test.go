@@ -60,8 +60,6 @@ var _ gorp.Entry[string] = testEntry{}
 
 func (e testEntry) GorpKey() string { return e.Key }
 
-func (testEntry) SetOptions() []any { return nil }
-
 // EncodeOrc implements orc.SelfEncoder so the entry can persist through the
 // production gorp codec, which requires it.
 func (e testEntry) EncodeOrc(w *orc.Writer) error {
@@ -504,7 +502,7 @@ var _ = Describe("Service", func() {
 				// wraps the multi- envelope batch in db.WithTx. This test exercises
 				// that contract: the bad envelope causes the tx callback to return
 				// early, so the good envelope's write is rolled back along with it.
-				err := db.WithTx(ctx, func(tx gorp.Tx) error {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					if _, err := svc.Import(
 						ctx,
 						tx,
@@ -519,8 +517,7 @@ var _ = Describe("Service", func() {
 						Name:    "Bad Type",
 					}, imex.ImportOptions{})
 					return err
-				})
-				Expect(err).To(MatchError(ContainSubstring("no importer registered")))
+				})).To(MatchError(ContainSubstring("no importer registered")))
 				Expect(ts.Retrieve(ctx, "Good Record")).Error().To(
 					MatchError(query.ErrNotFound),
 				)

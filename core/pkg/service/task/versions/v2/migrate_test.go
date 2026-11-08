@@ -69,10 +69,10 @@ var _ = Describe("Migrations", func() {
 				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:           db,
-				HostProvider: testutil.NewStaticHostProvider(1),
-				Status:       stat,
-				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+				DB:         db,
+				HostKey:    1,
+				Status:     stat,
+				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 			}))
 
 			testRack := &rack.Rack{Name: "Migration Test Rack"}
@@ -175,10 +175,10 @@ var _ = Describe("Migrations", func() {
 				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:           db,
-				HostProvider: testutil.NewStaticHostProvider(1),
-				Status:       stat,
-				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+				DB:         db,
+				HostKey:    1,
+				Status:     stat,
+				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 			}))
 			testRack := &rack.Rack{Name: "Decompose Test Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
@@ -194,10 +194,10 @@ var _ = Describe("Migrations", func() {
 			Expect(targets.CreateDevice(ctx, "dev-ni")).To(Succeed())
 			Expect(targets.CreateDevice(ctx, "dev-lj")).To(Succeed())
 			channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-				Channel:      node.Channel,
-				DB:           db,
-				HostProvider: node.Cluster,
-				Status:       stat,
+				Channel: node.Channel,
+				DB:      db,
+				HostKey: node.Identity.HostKey,
+				Status:  stat,
 			}))
 			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 4))
 			cmdKey, stateKey, tcKey, freqKey := keys[0], keys[1], keys[2], keys[3]

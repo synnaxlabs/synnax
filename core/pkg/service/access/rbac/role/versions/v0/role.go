@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = Role{}
 // GorpKey implements the gorp.Entry interface.
 func (r Role) GorpKey() Key { return r.Key }
 
-// SetOptions implements the gorp.Entry interface.
-func (Role) SetOptions() []any { return nil }
-
 // ResourceID returns the resource ID for this role.
 func (r Role) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeRole, Key: r.Key.String()}

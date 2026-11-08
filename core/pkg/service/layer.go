@@ -163,7 +163,7 @@ func (c LayerConfig) Validate() error {
 // The service layer wraps the distribution layer to provide the core services of
 // synnax that do not require network awareness.
 type Layer struct {
-	// Group is for grouping related resources in the cluster.
+	// Group is for grouping related resources.
 	Group *group.Service
 	// User is the service for registering and retrieving information about users.
 	User *user.Service
@@ -224,14 +224,13 @@ type Layer struct {
 	PagerDuty *pdruntime.Service
 	// MQTT owns the stored configuration records of the MQTT task types.
 	MQTT *mqtt.Service
-	// Framer is for reading, writing, and streaming frames of telemetry from channels
-	// across the cluster.
+	// Framer is for reading, writing, and streaming frames of telemetry from channels.
 	Framer *framer.Service
 	// Channel is the highest-level channel service and owns calculated channel
 	// behavior.
 	Channel *channel.Service
-	// Control reads the control state of channels across the cluster and publishes
-	// every transfer on the control channel.
+	// Control reads the control state of channels and publishes every transfer on the
+	// control channel.
 	Control *control.Service
 	// License holds the Core's license and gates the API on it.
 	License *license.Service
@@ -246,7 +245,7 @@ type Layer struct {
 	View *view.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
-	// Node serves the cluster's nodes as resources.
+	// Node serves the host node of the Core as a resource.
 	Node *node.Service
 	// Resource searches and names records of every type.
 	Resource *resource.Service
@@ -328,7 +327,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if l.Node, err = node.NewService(node.ServiceConfig{
 		Instrumentation: cfg.Child("node"),
-		Cluster:         cfg.Distribution.Cluster,
+		Host:            cfg.Distribution.Host,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -357,7 +356,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("channel"),
 		Channel:         cfg.Distribution.Channel,
 		DB:              cfg.Distribution.DB,
-		HostProvider:    cfg.Distribution.Cluster,
+		HostKey:         cfg.Distribution.Identity.HostKey,
 		Limit:           l.License.CheckChannelLimit,
 		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
@@ -488,30 +487,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.APIKey) {
 		return nil, err
 	}
-	var (
-		root                user.User
-		rootPasswordChanged bool
-	)
-	if !cfg.RootCredentials.IsZero() {
-		if root, rootPasswordChanged, err = user.ProvisionRoot(
-			ctx,
-			l.User,
-			l.Password,
-			cfg.RootCredentials,
-		); !ok(err, nil) {
-			return nil, err
-		}
-		if rootPasswordChanged {
-			cfg.L.Info(
-				"rotated root user password to match the start settings",
-				zap.String("username", cfg.RootCredentials.Username),
-			)
-		}
-	}
 	if l.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
 		Instrumentation: cfg.Child("rack"),
 		DB:              cfg.Distribution.DB,
-		HostProvider:    cfg.Distribution.Cluster,
+		HostKey:         cfg.Distribution.Identity.HostKey,
 		Status:          l.Status,
 		DriverRole:      roles.Builtin.DriverKey,
 	}); !ok(err, l.Rack) {
@@ -531,6 +510,29 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Rack:            l.Rack,
 	}); !ok(err, nil) {
 		return nil, err
+	}
+	// The RBAC migrations give each stored user a role, so the root user is provisioned
+	// after them.
+	var (
+		root                user.User
+		rootPasswordChanged bool
+	)
+	if !cfg.RootCredentials.IsZero() {
+		if root, rootPasswordChanged, err = user.ProvisionRoot(
+			ctx,
+			l.User,
+			l.Password,
+			cfg.RootCredentials,
+			roles.Builtin.OwnerKey,
+		); !ok(err, nil) {
+			return nil, err
+		}
+		if rootPasswordChanged {
+			cfg.L.Info(
+				"rotated root user password to match the start settings",
+				zap.String("username", cfg.RootCredentials.Username),
+			)
+		}
 	}
 	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
 		Instrumentation: cfg.Child("auth"),
@@ -809,7 +811,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Framer:          l.Framer,
 			Channel:         l.Channel,
-			HostProvider:    cfg.Distribution.Cluster,
+			HostKey:         cfg.Distribution.Identity.HostKey,
 			Storage:         cfg.Storage,
 			Group:           l.Group,
 		},
@@ -896,7 +898,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			kafkaFactory,
 			mqttFactory,
 		},
-		Host: cfg.Distribution.Cluster,
+		HostKey: cfg.Distribution.Identity.HostKey,
 	}); !ok(err, l.Driver) {
 		return nil, err
 	}

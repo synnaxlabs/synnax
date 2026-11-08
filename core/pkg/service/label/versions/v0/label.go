@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = Label{}
 // GorpKey implements gorp.Entry.
 func (l Label) GorpKey() Key { return l.Key }
 
-// SetOptions implements gorp.Entry.
-func (Label) SetOptions() []any { return nil }
-
 // ResourceID returns the unique resource identifier for the label.
 func (l Label) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeLabel, Key: l.Key.String()}
