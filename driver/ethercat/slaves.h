@@ -91,7 +91,8 @@ struct Slaves {
                 return x::errors::Error(
                     errors::TOPOLOGY_MISMATCH,
                     std::format(
-                        "device {} at position {}: expected {} {:#010x}, found {:#010x}",
+                        "device {} at position {}: expected {} {:#010x}, found "
+                        "{:#010x}",
                         key,
                         saved.position,
                         field,
