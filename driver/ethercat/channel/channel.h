@@ -27,8 +27,7 @@
 namespace driver::ethercat::channel {
 /// @brief an enabled channel that reads an input entry (TxPDO, slave->master).
 struct Input {
-    /// @brief the entry the channel reads. Its index is 0 when the config does not
-    /// address an entry on the slave.
+    /// @brief the entry the channel reads.
     pdo::Entry entry;
     /// @brief the key of the Synnax channel to write data to.
     synnax::channel::Key synnax_key = 0;
@@ -45,8 +44,7 @@ struct Input {
 
 /// @brief an enabled channel that writes an output entry (RxPDO, master->slave).
 struct Output {
-    /// @brief the entry the channel writes. Its index is 0 when the config does not
-    /// address an entry on the slave.
+    /// @brief the entry the channel writes.
     pdo::Entry entry;
     /// @brief the key of the Synnax channel to receive commands from.
     synnax::channel::Key command_key = 0;
