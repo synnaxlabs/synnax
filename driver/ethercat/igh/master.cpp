@@ -622,7 +622,6 @@ void Master::discover_slave_pdos(
 ) {
     for (uint8_t sm = 0; sm < sync_count; ++sm)
         this->append_scanned_pdos(slave.properties, sm);
-    slave.status.pdos_discovered = true;
     esi::fill(slave);
 }
 

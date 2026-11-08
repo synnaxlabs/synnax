@@ -650,7 +650,6 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     // SOEM maps a slave from its SII when CoE gives no process data.
     if (props.input_pdos.empty() && props.output_pdos.empty())
         this->discover_pdos_sii(slave);
-    slave.status.pdos_discovered = true;
     esi::fill(slave);
 }
 

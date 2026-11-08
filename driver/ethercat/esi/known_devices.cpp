@@ -232,7 +232,6 @@ void fill(slave::DiscoveryResult &slave) {
     }
     if (!lookup_device_pdos(props.vendor_id, props.product_code, props.revision, props))
         return;
-    slave.status.pdos_discovered = true;
     slave.status.pdo_discovery_error.clear();
 }
 

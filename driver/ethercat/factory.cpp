@@ -117,7 +117,7 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
         const auto label = props.serial == 0
                              ? dev.name
                              : std::format("{} (serial {})", dev.name, props.serial);
-        const auto config = props.config();
+        const auto &config = props.config;
         const auto [it, added] = configs.emplace(props.position, config);
         if (added) {
             labels[props.position] = label;

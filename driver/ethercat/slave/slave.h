@@ -233,22 +233,9 @@ struct Properties {
     std::vector<pdo::Properties> output_pdos;
     /// @brief synchronization modes the slave lists in its SII, in SII order.
     std::vector<dc::OpMode> op_modes;
-    /// @brief the mode the user chose, or nullopt for the mode that dc::select picks.
-    std::optional<dc::Choice> op_mode;
-    /// @brief whether the device is enabled or not.
-    bool enabled = true;
-    /// @brief CoE objects written to the slave before each move to SAFE-OP. Set by the
-    /// user, so to_json leaves them out and a scan keeps them.
-    std::vector<StartupParameter> startup_parameters;
-
-    /// @brief returns the settings the master applies to the slave when the bus starts.
-    [[nodiscard]] Config config() const {
-        return {
-            .enabled = this->enabled,
-            .op_mode = this->op_mode,
-            .startup_parameters = this->startup_parameters,
-        };
-    }
+    /// @brief the settings the user chose. to_json leaves out the startup parameters,
+    /// so a scan keeps them.
+    Config config;
 
     /// @brief returns the entry at the given address in one direction, or nullopt when
     /// the slave has no such entry. Padding never matches.
@@ -270,12 +257,13 @@ struct Properties {
         props.name = parser.field<std::string>("name");
         props.network = parser.field<std::string>("network", "");
         props.position = static_cast<uint16_t>(parser.field<int>("position"));
-        props.enabled = parser.field<bool>("enabled");
+        props.config.enabled = parser.field<bool>("enabled");
         props.op_modes = parser.field<std::vector<dc::OpMode>>("op_modes", {});
-        props.op_mode = parser.field<std::optional<dc::Choice>>("op_mode");
+        props.config.op_mode = parser.field<std::optional<dc::Choice>>("op_mode");
+        auto &params = props.config.startup_parameters;
         if (parser.has("startup_parameters"))
-            parser.iter("startup_parameters", [&props](x::json::Parser &param) {
-                props.startup_parameters.push_back(StartupParameter::parse(param));
+            parser.iter("startup_parameters", [&params](x::json::Parser &param) {
+                params.push_back(StartupParameter::parse(param));
             });
         const auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
@@ -299,13 +287,13 @@ struct Properties {
         props["name"] = this->name;
         props["network"] = network;
         props["position"] = this->position;
-        props["enabled"] = this->enabled;
+        props["enabled"] = this->config.enabled;
 
         nlohmann::json op_modes = nlohmann::json::array();
         for (const auto &mode: this->op_modes)
             op_modes.push_back(mode.to_json());
         props["op_modes"] = op_modes;
-        if (this->op_mode) props["op_mode"] = this->op_mode->to_json();
+        if (this->config.op_mode) props["op_mode"] = this->config.op_mode->to_json();
 
         nlohmann::json inputs = nlohmann::json::array();
         for (const auto &pdo: this->input_pdos)
@@ -324,9 +312,7 @@ struct Properties {
 struct Status {
     /// @brief current application layer state of the slave.
     State state;
-    /// @brief true if PDO discovery completed successfully.
-    bool pdos_discovered;
-    /// @brief error message if PDO discovery failed (empty on success).
+    /// @brief why PDO discovery failed, or empty when it succeeded.
     std::string pdo_discovery_error;
 };
 

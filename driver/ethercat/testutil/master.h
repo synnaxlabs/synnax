@@ -114,7 +114,6 @@ public:
         slave::DiscoveryResult result{};
         result.properties = std::move(props);
         result.status.state = slave::State::INIT;
-        result.status.pdos_discovered = true;
         this->slave_list.push_back(std::move(result));
     }
 
