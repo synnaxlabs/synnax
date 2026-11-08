@@ -249,7 +249,8 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     session.dc_setups = std::move(dc_setups);
 
     std::vector<uint16_t> parameterized;
-    for (uint16_t pos = 1; pos <= this->api->context.slavecount; ++pos) {
+    for (int i = 1; i <= this->api->context.slavecount; ++i) {
+        const auto pos = static_cast<uint16_t>(i);
         auto config = this->config(pos);
         this->slave(pos).group = config.enabled ? ENABLED_GROUP : DISABLED_GROUP;
         if (!config.enabled || config.startup_parameters.empty()) {
@@ -272,7 +273,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     // SOEM keeps the SII length of a sync manager whose PDO assignment is empty or that
     // 0x1C00 does not list, and turns it on. A slave can refuse SAFE-OP for that.
     // config_map_group then gives a sync manager a length only from its PDOs.
-    for (uint16_t i = 1; i <= this->api->context.slavecount; ++i)
+    for (int i = 1; i <= this->api->context.slavecount; ++i)
         if (this->slave(i).group == ENABLED_GROUP)
             for (int sm = 2; sm < EC_MAXSM; ++sm)
                 this->slave(i).SM[sm].SMlength = 0;
@@ -423,13 +424,13 @@ std::optional<x::telem::TimeStamp> Master::dc_time() const {
 std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
     this->api->readstate();
     std::vector<slave::Health> health;
-    for (uint16_t i = 1; i <= this->api->context.slavecount; ++i) {
+    for (int i = 1; i <= this->api->context.slavecount; ++i) {
         if (this->slave(i).group != ENABLED_GROUP) continue;
         this->update_lost(i);
         const uint16_t state = this->slave(i).state;
         auto &h = health.emplace_back(
             slave::Health{
-                .position = i,
+                .position = static_cast<uint16_t>(i),
                 .state = slave::from_al_state(state),
                 .faulted = (state & EC_STATE_ERROR) != 0,
                 .lost = this->slave(i).islost != 0,
@@ -507,7 +508,7 @@ void Master::populate_slaves() {
     this->slave_list.clear();
     this->slave_list.reserve(this->api->context.slavecount);
 
-    for (uint16_t i = 1; i <= this->api->context.slavecount; ++i)
+    for (int i = 1; i <= this->api->context.slavecount; ++i)
         this->slave_list.push_back(this->discover_slave(i));
 }
 
@@ -787,7 +788,7 @@ x::errors::Error Master::clear_sync(const uint16_t pos) {
 
 x::errors::Error Master::clear_dc_activation() {
     std::string failed;
-    for (uint16_t i = 1; i <= this->api->context.slavecount; ++i) {
+    for (int i = 1; i <= this->api->context.slavecount; ++i) {
         if (this->slave(i).group != ENABLED_GROUP || !this->slave(i).hasdc) continue;
         if (const auto err = this->clear_sync(i)) {
             if (!failed.empty()) failed += "; ";
@@ -990,7 +991,8 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
         );
     const auto [local, local_err] = this->read_dc_register<int64_t>(pos, ECT_REG_DCSOF);
     if (local_err) return local_err;
-    for (uint16_t other = 1; other <= this->api->context.slavecount; ++other) {
+    for (int i = 1; i <= this->api->context.slavecount; ++i) {
+        const auto other = static_cast<uint16_t>(i);
         // A slave in SAFE-OP or OP kept its clock since activation or a restore that
         // worked. A failed restore leaves its slave in SAFE-OP until the next check.
         if (other == pos || this->slave(other).group != ENABLED_GROUP ||
@@ -1049,7 +1051,7 @@ Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
 }
 
 x::errors::Error Master::request_state(const uint16_t state, const int timeout) {
-    for (uint16_t i = 1; i <= this->api->context.slavecount; ++i) {
+    for (int i = 1; i <= this->api->context.slavecount; ++i) {
         if (this->slave(i).group != ENABLED_GROUP) continue;
         this->slave(i).state = state;
         this->api->writestate(i);
@@ -1060,7 +1062,7 @@ x::errors::Error Master::request_state(const uint16_t state, const int timeout) 
         std::vector<uint16_t> pending;
         // Like ecx_statecheck, a slave in the state counts even with its error flag
         // set: a request without the ACK bit leaves the flag as it is.
-        for (uint16_t i = 1; i <= this->api->context.slavecount; ++i)
+        for (int i = 1; i <= this->api->context.slavecount; ++i)
             if (this->slave(i).group == ENABLED_GROUP &&
                 (this->slave(i).state & ~EC_STATE_ERROR) != state)
                 pending.push_back(i);
