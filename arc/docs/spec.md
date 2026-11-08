@@ -314,10 +314,12 @@ literal is read as a float. The constants act like a float literal: they fit `f3
 constant can also be a function input value, a `$=` initializer in a sequence or stage,
 or a variable's value outside a function. Outside a function, an initializer that
 computes with a constant must also read a channel, as `scaled := raw * math.inf` does: a
-flow has no value to read for `limit := math.inf * 2.0`, which fails with
-`'limit' cannot be initialized from math.inf*2.0 outside a function`. `x != math.nan` is
-always `true`, and `==`, `<`, `>`, `<=`, or `>=` with `math.nan` is always `false`, so
-each fails with error ARC2004: test with `math.is_nan(x)` or `not math.is_nan(x)`.
+flow has no value to read for `limit := math.inf * 2.0`, so a flow that uses `limit`
+fails with
+`cannot use 'limit' in a flow: its initializer is not a compile-time constant`.
+`x != math.nan` is always `true`, and `==`, `<`, `>`, `<=`, or `>=` with `math.nan` is
+always `false`, so each fails with error ARC2004: test with `math.is_nan(x)` or
+`not math.is_nan(x)`.
 
 ```arc
 import math

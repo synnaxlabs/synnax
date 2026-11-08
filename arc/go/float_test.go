@@ -491,7 +491,7 @@ var _ = Describe("NaN and infinity", func() {
 				arc.Text{Raw: "import math\nlimit := math.inf * 2.0\nlimit -> y"},
 				root,
 			)).Error().To(MatchError(ContainSubstring(
-				"'limit' cannot be initialized from math.inf*2.0 outside a function",
+				"cannot use 'limit' in a flow: its initializer is not a compile-time constant",
 			)))
 		},
 	)

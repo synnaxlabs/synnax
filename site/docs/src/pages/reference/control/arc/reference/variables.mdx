@@ -35,8 +35,8 @@ variable holds depends on its value:
 
 Outside a function, a value can be a module constant on its own, such as
 `limit := -math.inf`. A value that computes with one, such as `math.inf * 2.0`, must
-also read a channel, as `scaled := raw * math.inf` does, or it fails with
-`'limit' cannot be initialized from math.inf*2.0 outside a function`.
+also read a channel, as `scaled := raw * math.inf` does, or a flow that uses it fails
+with `cannot use 'limit' in a flow: its initializer is not a compile-time constant`.
 
 ### Where you can declare
 
