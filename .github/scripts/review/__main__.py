@@ -17,7 +17,7 @@ Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEA
 BASE_SHA, CHECK_RUN, RUN_URL, and BOT, the slug of the GitHub App the review posts as.
 `run` also takes POLICY_DIR, a trusted checkout that holds `.sedosaur/`, and POLICY_SHA,
 the commit its policy comes from; HEAD_DIR, a checkout of the head; REPLAY, `true` for a
-review that posts nothing; and CLAUDE_CODE_OAUTH_TOKEN, the only variable that reaches
+review that posts nothing; and CLAUDE_CODE_OAUTH_TOKEN, the only secret that reaches
 Claude Code. A replay needs no CHECK_RUN.
 
 `run` writes a record of the review: when it ran, the pull request, the commits, the
@@ -59,6 +59,10 @@ def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
             "HOME": home,
             "CLAUDE_CONFIG_DIR": home,
             "CLAUDE_CODE_OAUTH_TOKEN": os.environ["CLAUDE_CODE_OAUTH_TOKEN"],
+            # A subscription writes the one-hour cache, at 1.6 times the price of the
+            # five-minute one. The turns of a review come seconds apart, and no other
+            # review shares its cache, so the hour is never used.
+            "CLAUDE_CODE_PROMPT_CACHE_TTL": "5m",
         }
         with subprocess.Popen(
             args,
