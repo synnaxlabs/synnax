@@ -22,3 +22,11 @@ var _ = Describe("ReadConfig", func() {
 		})
 	})
 })
+
+var _ = Describe("WriteConfig", func() {
+	Describe("CustomTypeName", func() {
+		It("Should keep the gorp type name of the stored write configs", func() {
+			Expect(v3.WriteConfig{}.CustomTypeName()).To(Equal("ethercat_write_config"))
+		})
+	})
+})
