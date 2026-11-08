@@ -146,10 +146,14 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   const retriever = client == null ? null : source(client);
   const list =
     retriever == null || listQuery == null ? null : retriever.list(listQuery);
-  const window = useSyncExternalStore(
+  const current = useSyncExternalStore(
     (callback) => (list == null ? noop : list.onChange(callback)),
     () => list?.getCached(),
   );
+  // A new query, such as a new search term, shows the last answer until its own lands.
+  const [last, setLast] = useState(current);
+  if (current != null && current !== last) setLast(current);
+  const window = list == null ? undefined : (current ?? last);
   const [status, setStatus] = useState<Result<null>>(() => loadingResult<null>(op));
   const reading = useRef<Promise<void> | null>(null);
 
@@ -179,7 +183,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
 
   const more = () => {
     if (!started) return setStarted(true);
-    if (list == null || reading.current != null || window?.end == null) return;
+    if (list == null || reading.current != null || current?.end == null) return;
     read(`retrieve more ${name}`, async () => await list.more(pageSize));
   };
 
