@@ -90,7 +90,6 @@ class CDAQAnalogReadRate(CDAQAnalogRead):
             if problems:
                 self.fail(f"At {rate} Hz: {'; '.join(problems)}")
             self.metrics["max_gap_free_rate_hz"] = rate
-            self.log(f"{rate} Hz: no gap")
 
     def _acquire(self, rate: int) -> list[str]:
         before = sy.TimeStamp.now()
@@ -112,7 +111,8 @@ class CDAQAnalogReadRate(CDAQAnalogRead):
             return [*problems, "no samples"]
         if (late := sy.TimeStamp(int(stamps[0])) - started) > 0:
             problems.append(f"the samples start {late} after the task started")
-        # The stop can cut short the last chunk of samples, which the Driver drops.
+        # The Driver reads in chunks of one stream period, and a stop can land partway
+        # through one.
         if (
             early := stopping - sy.TimeStamp(int(stamps[-1]))
         ) > self.STREAM_RATE.period:
@@ -120,7 +120,7 @@ class CDAQAnalogReadRate(CDAQAnalogRead):
         gap = sy.TimeSpan(int(np.diff(stamps).max()))
         if gap > 1.5 * sy.Rate(rate).period:
             problems.append(f"a gap of {gap} between samples")
-        self.log(f"{rate} Hz: started {late}, stopped {early}, max gap {gap}")
+        self.log(f"{rate} Hz: start offset {late}, stop offset {early}, max gap {gap}")
         return problems
 
     def _read_until_stopped(self, statuses: sy.Streamer) -> list[str]:
