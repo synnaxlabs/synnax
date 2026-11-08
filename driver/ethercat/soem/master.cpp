@@ -26,6 +26,7 @@
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/soem/master.h"
+#include "driver/ethercat/soem/sii.h"
 #include "driver/ethercat/soem/util.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -653,54 +654,39 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     esi::fill(slave);
 }
 
+std::vector<uint8_t>
+Master::read_sii_category(const uint16_t pos, const uint16_t category) {
+    const uint16_t start = this->api->siifind(pos, category);
+    if (start == 0) return {};
+    const auto byte = [&](const size_t offset) {
+        return this->api->siigetbyte(pos, static_cast<uint16_t>(start + offset));
+    };
+    std::vector<uint8_t> data(static_cast<size_t>(byte(0) | byte(1) << 8) * 2);
+    for (size_t i = 0; i < data.size(); ++i)
+        data[i] = byte(2 + i);
+    return data;
+}
+
+sii::Strings Master::sii_strings(const uint16_t pos) {
+    return [this, pos](const uint8_t index) {
+        if (index == 0) return std::string{};
+        char str[EC_MAXNAME + 1] = {0};
+        this->api->siistring(str, pos, index);
+        return std::string(str);
+    };
+}
+
 void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
     const auto pos = props.position;
-    uint16_t addr = 0;
-    const auto read = [&](const int bytes) {
-        uint16_t value = 0;
-        for (int i = 0; i < bytes; ++i)
-            value |= static_cast<uint16_t>(
-                this->api->siigetbyte(pos, addr++) << (8 * i)
-            );
-        return value;
-    };
-    const auto read_string = [&](const uint16_t index) {
-        char name[EC_MAXNAME + 1] = {0};
-        if (index > 0) this->api->siistring(name, pos, index);
-        return std::string(name);
-    };
     for (const bool is_input: {true, false}) {
-        const uint16_t start = this->api->siifind(
+        const auto data = this->read_sii_category(
             pos,
             is_input ? ECT_SII_PDO : ECT_SII_PDO + 1
         );
-        if (start == 0) continue;
-        addr = start;
-        const uint16_t words = read(2);
-        const uint16_t end = start + 2 + words * 2;
-        while (addr < end) {
-            coe::PDO pdo{.index = read(2), .entries = {}};
-            const auto count = read(1);
-            const auto sync_manager = read(1);
-            addr++;
-            if (auto name = read_string(read(1)); !name.empty()) pdo.name = name;
-            addr += 2;
-            for (uint16_t i = 0; i < count; ++i) {
-                coe::Entry entry{
-                    .index = read(2),
-                    .sub_index = static_cast<uint8_t>(read(1)),
-                    .bit_length = 0,
-                };
-                entry.name = read_string(read(1));
-                entry.type = static_cast<telem::DataType>(read(1));
-                entry.bit_length = static_cast<uint8_t>(read(1));
-                addr += 2;
-                pdo.entries.push_back(std::move(entry));
-            }
-            auto &pdos = is_input ? props.input_pdos : props.output_pdos;
-            if (sync_manager < EC_MAXSM) coe::append(pdos, is_input, pdo);
-        }
+        auto &pdos = is_input ? props.input_pdos : props.output_pdos;
+        for (const auto &pdo: sii::parse_pdos(data, EC_MAXSM, this->sii_strings(pos)))
+            coe::append(pdos, is_input, pdo);
     }
     this->api->eeprom2pdi(pos);
     if (props.input_pdos.empty() && props.output_pdos.empty())
@@ -709,42 +695,13 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
 
 /// SII category that lists the synchronization modes of a slave.
 constexpr uint16_t SII_DC_CATEGORY = 60;
-/// Size in bytes of one mode in the SII DC category.
-constexpr uint32_t SII_OP_MODE_SIZE = 24;
 
-std::vector<dc::OpMode> Master::read_op_modes(const uint16_t position) {
-    const uint16_t start = this->api->siifind(position, SII_DC_CATEGORY);
-    if (start == 0) return {};
-    uint16_t addr = start;
-    const auto read = [&](const int bytes) {
-        uint32_t value = 0;
-        for (int i = 0; i < bytes; ++i)
-            value |= static_cast<uint32_t>(this->api->siigetbyte(position, addr++))
-                  << (8 * i);
-        return value;
-    };
-    const uint32_t length = read(2) * 2;
-    const uint16_t data = addr;
-    std::vector<dc::OpMode> modes;
-    for (uint32_t off = 0; off + SII_OP_MODE_SIZE <= length; off += SII_OP_MODE_SIZE) {
-        addr = static_cast<uint16_t>(data + off);
-        dc::OpMode mode;
-        mode.sync0_cycle = read(4);
-        mode.sync0_shift = static_cast<int32_t>(read(4));
-        mode.sync1_shift = static_cast<int32_t>(read(4));
-        mode.sync1_factor = static_cast<int16_t>(read(2));
-        mode.assign_activate = static_cast<uint16_t>(read(2));
-        mode.sync0_factor = static_cast<int16_t>(read(2));
-        const auto name_index = static_cast<uint16_t>(read(1));
-        if (name_index > 0) {
-            char name[EC_MAXNAME + 1] = {0};
-            this->api->siistring(name, position, name_index);
-            mode.name = name;
-        }
-        modes.push_back(std::move(mode));
-    }
-    this->api->eeprom2pdi(position);
-    VLOG(1) << "Slave " << position << " lists " << modes.size() << " OpModes in SII";
+std::vector<dc::OpMode> Master::read_op_modes(const uint16_t pos) {
+    auto modes = sii::parse_op_modes(
+        this->read_sii_category(pos, SII_DC_CATEGORY),
+        this->sii_strings(pos)
+    );
+    this->api->eeprom2pdi(pos);
     return modes;
 }
 

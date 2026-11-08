@@ -33,6 +33,7 @@
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/soem/api.h"
+#include "driver/ethercat/soem/sii.h"
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
@@ -188,6 +189,13 @@ private:
     /// of the slave at pos.
     std::pair<uint32_t, x::errors::Error>
     read_sdo(uint16_t pos, uint16_t index, uint8_t sub_index);
+
+    /// @brief reads an SII category of the slave at pos, without its length word.
+    /// Returns no bytes when the SII has no such category.
+    std::vector<uint8_t> read_sii_category(uint16_t pos, uint16_t category);
+
+    /// @brief returns the strings of the SII of the slave at pos.
+    sii::Strings sii_strings(uint16_t pos);
 
     /// @brief discovers PDOs from the SII categories of the slave.
     void discover_pdos_sii(slave::DiscoveryResult &slave);

@@ -525,34 +525,6 @@ TEST_F(SOEMMasterTest, CoEDiscoveryWaitsForPreOp) {
     EXPECT_EQ(inputs[0].bit_length, 16);
 }
 
-/// @brief it should type each PDO entry from the data type in the SII of the slave.
-TEST_F(SOEMMasterTest, SIIDiscoveryUsesEntryDataTypes) {
-    MockSlaveInfo slave;
-    slave.state = EC_STATE_PRE_OP;
-    this->add_slave(slave);
-    constexpr uint16_t start = 0x40;
-    this->mock->slave_infos[0].sii_categories = {{ECT_SII_PDO, start}};
-    // One TxPDO, 0x1A00, with entries 0x6000:01 (INTEGER16) and 0x6000:02 (REAL32).
-    const std::vector<uint8_t> category = {
-        12, 0,    0x00, 0x1A, 2, 3,    0,    0, 0, 0,    0x00, 0x60, 1,
-        0,  0x03, 16,   0,    0, 0x00, 0x60, 2, 0, 0x08, 32,   0,    0,
-    };
-    for (size_t i = 0; i < category.size(); ++i)
-        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
-
-    ASSERT_NIL(this->master->scan().second);
-
-    const auto slaves = this->master->scan().first;
-    ASSERT_EQ(slaves.size(), 1);
-    const auto &inputs = slaves[0].properties.input_pdos;
-    ASSERT_EQ(inputs.size(), 2);
-    EXPECT_EQ(inputs[0].index, 0x6000);
-    EXPECT_EQ(inputs[0].sub_index, 1);
-    EXPECT_EQ(inputs[0].data_type, x::telem::INT16_T);
-    EXPECT_EQ(inputs[1].sub_index, 2);
-    EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
-}
-
 /// @brief it should read the PDOs of a CoE slave from its SII when the slave has no
 /// sync manager type object, as SOEM then maps it from its SII.
 TEST_F(SOEMMasterTest, CoEDiscoveryReadsTheSIIWithoutSyncManagerTypes) {
@@ -626,41 +598,6 @@ TEST_F(SOEMMasterTest, SIIDiscoveryGivesTheEEPROMBackToTheSlave) {
     EXPECT_TRUE(this->mock->eeprom_held.empty());
 }
 
-/// @brief it should read the synchronization modes a slave lists in its SII DC
-/// category, in SII order.
-TEST_F(SOEMMasterTest, ScanReadsOpModesFromSII) {
-    MockSlaveInfo slave;
-    slave.state = EC_STATE_PRE_OP;
-    this->add_slave(slave);
-    constexpr uint16_t start = 0x200;
-    this->mock->slave_infos[0].sii_categories = {{60, start}};
-    // The DC category of a slave on the test bench: SM, DC with a 1 s SYNC0, and DC
-    // with a 1 us SYNC0 and a SYNC1 of 1000 bus cycles.
-    const std::vector<uint8_t> category = {
-        36, 0, 0,    0,    0, 0,    0,    0, 0, 0, 0, 0,    0,    0,    0,
-        0,  0, 0,    1,    0, 3,    0,    0, 0, 0, 0, 0,    0xCA, 0x9A, 0x3B,
-        0,  0, 0,    0,    0, 0,    0,    0, 0, 0, 0, 0x07, 0,    0,    4,
-        0,  0, 0,    0,    0, 0xE8, 0x03, 0, 0, 0, 0, 0,    0,    0,    0,
-        0,  0, 0x18, 0xFC, 0, 0x07, 0,    0, 5, 0, 0, 0,    0,    0,
-    };
-    for (size_t i = 0; i < category.size(); ++i)
-        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
-    this->mock->slave_infos[0]
-        .sii_strings = {{3, "SM-Synchron"}, {4, "DC"}, {5, "DC-bus1"}};
-
-    ASSERT_NIL(this->master->scan().second);
-
-    const std::vector<dc::OpMode> expected = {
-        {.name = "SM-Synchron", .sync0_factor = 1},
-        {.name = "DC", .assign_activate = 0x0700, .sync0_cycle = 1000000000},
-        {.name = "DC-bus1",
-         .assign_activate = 0x0700,
-         .sync0_cycle = 1000,
-         .sync1_factor = -1000},
-    };
-    EXPECT_EQ(this->master->scan().first[0].properties.op_modes, expected);
-}
-
 /// @brief it should give the EEPROM back to the slave after it reads the OpModes.
 TEST_F(SOEMMasterTest, ScanGivesTheEEPROMBackAfterReadingOpModes) {
     MockSlaveInfo slave;
@@ -678,34 +615,6 @@ TEST_F(SOEMMasterTest, ScanGivesTheEEPROMBackAfterReadingOpModes) {
 
     ASSERT_EQ(this->master->scan().first[0].properties.op_modes.size(), 1);
     EXPECT_TRUE(this->mock->eeprom_held.empty());
-}
-
-/// @brief it should read negative shift times and leave the name of a mode empty when
-/// the SII gives none.
-TEST_F(SOEMMasterTest, ScanReadsSignedShiftsAndUnnamedOpModes) {
-    MockSlaveInfo slave;
-    slave.state = EC_STATE_PRE_OP;
-    this->add_slave(slave);
-    constexpr uint16_t start = 0x200;
-    this->mock->slave_infos[0].sii_categories = {{60, start}};
-    // One DC mode: SYNC0 = bus cycle, SYNC0 shift -100 us, SYNC1 shift 25 us, no name.
-    const std::vector<uint8_t> category = {
-        12, 0,    0,    0,    0,    0,    0x60, 0x79, 0xFE, 0xFF, 0xA8, 0x61, 0,
-        0,  0x01, 0x00, 0x00, 0x03, 0x01, 0x00, 0,    0,    0,    0,    0,    0,
-    };
-    for (size_t i = 0; i < category.size(); ++i)
-        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
-
-    ASSERT_NIL(this->master->scan().second);
-
-    const std::vector<dc::OpMode> expected = {{
-        .assign_activate = 0x0300,
-        .sync0_factor = 1,
-        .sync0_shift = -100000,
-        .sync1_factor = 1,
-        .sync1_shift = 25000,
-    }};
-    EXPECT_EQ(this->master->scan().first[0].properties.op_modes, expected);
 }
 
 /// @brief it should give a slave no synchronization modes when its SII has no DC
@@ -2211,37 +2120,6 @@ TEST_F(SOEMMasterTest, CoEDiscoveryWithoutPDOName) {
     const auto inputs = this->master->scan().first[0].properties.input_pdos;
     ASSERT_EQ(inputs.size(), 3);
     EXPECT_FALSE(inputs[0].pdo_name.has_value());
-}
-
-/// @brief it should keep padding entries and the PDO name when it discovers PDOs
-/// through the SII.
-TEST_F(SOEMMasterTest, SIIDiscoveryKeepsPaddingAndPDOName) {
-    MockSlaveInfo slave;
-    slave.state = EC_STATE_PRE_OP;
-    this->add_slave(slave);
-    constexpr uint16_t start = 0x40;
-    this->mock->slave_infos[0].sii_categories = {{ECT_SII_PDO, start}};
-    // One TxPDO, 0x1A00 named by string 1, with 0x6000:01 (1 bit, string 2), 7 bits of
-    // padding, and 0x6000:11 (INTEGER16, string 3).
-    const std::vector<uint8_t> category = {
-        16, 0,    0x00, 0x1A, 3, 3, 0, 1, 0, 0,    0x00, 0x60, 1, 2,    0x01, 1, 0,
-        0,  0x00, 0x00, 0,    0, 0, 7, 0, 0, 0x00, 0x60, 17,   3, 0x03, 16,   0, 0,
-    };
-    for (size_t i = 0; i < category.size(); ++i)
-        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
-    this->mock->slave_infos[0]
-        .sii_strings = {{1, "Channel 1"}, {2, "Underrange"}, {3, "Value"}};
-
-    ASSERT_NIL(this->master->scan().second);
-
-    const auto inputs = this->master->scan().first[0].properties.input_pdos;
-    ASSERT_EQ(inputs.size(), 3);
-    EXPECT_EQ(inputs[0].name, "Underrange");
-    EXPECT_EQ(inputs[0].pdo_name, "Channel 1");
-    EXPECT_TRUE(inputs[1].is_padding());
-    EXPECT_EQ(inputs[1].bit_length, 7);
-    EXPECT_EQ(inputs[2].name, "Value");
-    EXPECT_EQ(inputs[2].pdo_name, "Channel 1");
 }
 
 /// @brief it should use the mapping read from the slave over the device registry.

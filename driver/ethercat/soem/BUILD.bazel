@@ -48,6 +48,26 @@ cc_test(
 )
 
 cc_library(
+    name = "sii",
+    srcs = ["sii.cpp"],
+    hdrs = ["sii.h"],
+    deps = [
+        "//driver/ethercat/coe",
+        "//driver/ethercat/dc",
+        "//driver/ethercat/telem",
+    ],
+)
+
+cc_test(
+    name = "sii_test",
+    srcs = ["sii_test.cpp"],
+    deps = [
+        ":sii",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "soem_api",
     srcs = select({
         "@platforms//os:linux": ["api_linux.cpp"],
@@ -102,6 +122,7 @@ cc_library(
     visibility = ["//driver/ethercat:__pkg__"],
     deps = [
         ":soem_api",
+        ":sii",
         ":util",
         "//driver/ethercat/coe",
         "//driver/ethercat/dc",
