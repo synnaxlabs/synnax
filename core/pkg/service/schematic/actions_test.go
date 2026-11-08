@@ -1066,21 +1066,25 @@ var _ = Describe("Path actions", func() {
 			))
 		})
 
-		It("Should reject a path to another field", func() {
-			Expect(schematic.Reduce(state, set([]string{"nodes"}, []any{}))).
-				Error().To(SatisfyAll(
+		DescribeTable("Should reject", func(path []string, value any, msg string) {
+			Expect(schematic.Reduce(state, set(path, value))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(`unknown object member name "nodes"`)),
+				MatchError(ContainSubstring(msg)),
 			))
-		})
-
-		It("Should reject a path to the element configs map", func() {
-			Expect(schematic.Reduce(state, set([]string{"configs"}, map[string]any{}))).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("the path is not inside an entry of")),
-			))
-		})
+		},
+			Entry(
+				"a path to another field",
+				[]string{"nodes"},
+				[]any{},
+				`unknown object member name "nodes"`,
+			),
+			Entry(
+				"a path to the element configs map",
+				[]string{"configs"},
+				map[string]any{},
+				"the path is not inside an entry of",
+			),
+		)
 
 		It("Should reject a value that fails the element config's schema", func() {
 			Expect(schematic.Reduce(

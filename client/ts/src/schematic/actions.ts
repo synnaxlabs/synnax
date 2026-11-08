@@ -32,9 +32,6 @@ import {
 
 const CONFIGS_FIELD = "configs";
 
-// The Core alone sets the group and the project.
-const FIELDS = ["name", "group", "project"];
-
 const hasNode = (state: Draft<Schematic>, key: string): boolean =>
   state.nodes.some((n) => n.key === key);
 
@@ -48,8 +45,7 @@ const hasElement = (state: Draft<Schematic>, key: string): boolean =>
 // An action on the config of a node or edge that does not exist does nothing.
 const applyPath = (state: Draft<Schematic>, action: patch.Action): HandlerResult => {
   const path = patch.pathOf(action);
-  if (path[0] !== CONFIGS_FIELD)
-    return actions.applyFieldPath(state, action, FIELDS, schematicZ);
+  if (path[0] !== CONFIGS_FIELD) return actions.applyPath(state, action, schematicZ);
   if (path.length > 1 && !hasElement(state, path[1])) return actions.NO_OP_RESULT;
   return actions.applyEntryPath(state, action, [CONFIGS_FIELD], schematicZ);
 };

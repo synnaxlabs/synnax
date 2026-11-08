@@ -496,23 +496,23 @@ var _ = Describe("Path actions", func() {
 			Expect(next.Base().Name).To(Equal("Other"))
 		})
 
-		It("Should reject a path to another field", func() {
-			Expect(arc.Reduce(state, set([]string{"directory"}, nil))).Error().
-				To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(
-						ContainSubstring(`unknown object member name "directory"`),
-					),
-				))
-		})
-
-		It("Should reject a path to the graph's nodes", func() {
-			Expect(arc.Reduce(state, set([]string{"graph", "nodes"}, nil))).Error().
-				To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("the path is not inside an entry of")),
-				))
-		})
+		DescribeTable("Should reject", func(path []string, msg string) {
+			Expect(arc.Reduce(state, set(path, nil))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(msg)),
+			))
+		},
+			Entry(
+				"a path to another field",
+				[]string{"directory"},
+				`unknown object member name "directory"`,
+			),
+			Entry(
+				"a path to the graph's nodes",
+				[]string{"graph", "nodes"},
+				"the path is not inside an entry of",
+			),
+		)
 	})
 
 	Describe("RemovePayload", func() {

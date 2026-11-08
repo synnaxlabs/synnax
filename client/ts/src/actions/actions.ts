@@ -49,15 +49,7 @@ export interface ReduceAllResult<S, A> {
  */
 export const snapshotDraft = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
 
-/**
- * Applies a path action to a draft of a cached document. The action holds the form the
- * Core stores, with snake_case keys, and the draft holds the camelCase form that the
- * client decodes.
- * @param schema - The document's schema, which names the keys that keep their case.
- * @returns the inverse actions, in the form the Core stores.
- * @throws {Error} if the document cannot hold the action.
- */
-export const applyPath = <S extends object>(
+const applyInverse = <S extends object>(
   state: Draft<S>,
   action: patch.Action,
   schema: z.ZodType,
@@ -69,6 +61,24 @@ export const applyPath = <S extends object>(
     { snapshot: snapshotDraft },
   );
   return inverse.map((a) => patch.camelToSnake(a, opts));
+};
+
+/**
+ * Applies a path action to a draft of a cached document. The action holds the form the
+ * Core stores, with snake_case keys, and the draft holds the camelCase form that the
+ * client decodes. The result targets the path that the action changes, and holds the
+ * inverse actions in the form the Core stores.
+ * @param schema - The document's schema, which names the keys that keep their case.
+ * @throws {Error} if the document cannot hold the action.
+ */
+export const applyPath = <S extends object>(
+  state: Draft<S>,
+  action: patch.Action,
+  schema: z.ZodType,
+): HandlerResult<patch.Action> => {
+  const inverse = applyInverse(state, action, schema);
+  if (inverse.length === 0) return NO_OP_RESULT;
+  return { inverse, targets: [patch.pathOf(action).join(".")] };
 };
 
 /**
@@ -88,31 +98,9 @@ export const applyEntryPath = <S extends object>(
   const path = patch.pathOf(action);
   if (path.length <= root.length || root.some((field, i) => path[i] !== field))
     throw new Error(`${path.join(".")} is not inside an entry of ${root.join(".")}`);
-  const inverse = applyPath(state, action, schema);
+  const inverse = applyInverse(state, action, schema);
   if (inverse.length === 0) return NO_OP_RESULT;
   return { inverse, targets: [path[root.length]] };
-};
-
-/**
- * Applies a path action to a top-level field of a draft of a cached document, such as
- * its name. The result targets the path that the action changes.
- * @param fields - The top-level fields that path actions change.
- * @param schema - The document's schema, which names the keys that keep their case.
- * @throws {Error} if the action's path starts at another field, or if the document
- * cannot hold the action.
- */
-export const applyFieldPath = <S extends object>(
-  state: Draft<S>,
-  action: patch.Action,
-  fields: readonly string[],
-  schema: z.ZodType,
-): HandlerResult<patch.Action> => {
-  const path = patch.pathOf(action);
-  if (!fields.includes(path[0]))
-    throw new Error(`${path.join(".")} is not inside a field of ${fields.join(", ")}`);
-  const inverse = applyPath(state, action, schema);
-  if (inverse.length === 0) return NO_OP_RESULT;
-  return { inverse, targets: [path.join(".")] };
 };
 
 /**

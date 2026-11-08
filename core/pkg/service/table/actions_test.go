@@ -631,21 +631,25 @@ var _ = Describe("Path actions", func() {
 			Expect(next.Cells).To(Equal(create2x2().Cells))
 		})
 
-		It("Should reject a path to another field", func() {
-			Expect(table.Reduce(create2x2(), set([]string{"rows"}, []any{}))).
-				Error().To(SatisfyAll(
+		DescribeTable("Should reject", func(path []string, value any, msg string) {
+			Expect(table.Reduce(create2x2(), set(path, value))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(`unknown object member name "rows"`)),
+				MatchError(ContainSubstring(msg)),
 			))
-		})
-
-		It("Should reject a path to the cells map", func() {
-			Expect(table.Reduce(create2x2(), set([]string{"cells"}, map[string]any{}))).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("the path is not inside an entry of")),
-			))
-		})
+		},
+			Entry(
+				"a path to another field",
+				[]string{"rows"},
+				[]any{},
+				`unknown object member name "rows"`,
+			),
+			Entry(
+				"a path to the cells map",
+				[]string{"cells"},
+				map[string]any{},
+				"the path is not inside an entry of",
+			),
+		)
 
 		It("Should reject a value that fails the cell config's schema", func() {
 			Expect(table.Reduce(create2x2(), set([]string{"cells", "a", "weight"}, 0))).

@@ -188,8 +188,8 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
-// notifyGroup notifies a set of the group of each log with keys, or a remove of
-// the group when g is nil.
+// notifyGroup notifies a set of the group of each log with keys, or a remove of the
+// group when g is nil.
 func (w Writer) notifyGroup(ctx context.Context, g *group.Key, keys []Key) {
 	for _, k := range keys {
 		a := NewRemoveAction(RemovePayload{Key: "group"})
