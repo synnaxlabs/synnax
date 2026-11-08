@@ -149,9 +149,13 @@ public:
     int activate_result = 0;
     bool slave_config_fails = false;
     bool config_sdo_fails = false;
-    /// @brief the result of master_receive and master_send.
+    /// @brief the results of master_receive, master_send, domain_process,
+    /// domain_queue, and domain_state.
     int receive_result = 0;
     int send_result = 0;
+    int domain_process_result = 0;
+    int domain_queue_result = 0;
+    int domain_state_result = 0;
     mutable bool released = false;
     mutable bool deactivated = false;
 
@@ -218,14 +222,16 @@ public:
         return d.data.empty() ? nullptr : d.data.data();
     }
 
-    int domain_process(ec_domain_t *) const override { return 0; }
+    int domain_process(ec_domain_t *) const override {
+        return this->domain_process_result;
+    }
 
-    int domain_queue(ec_domain_t *) const override { return 0; }
+    int domain_queue(ec_domain_t *) const override { return this->domain_queue_result; }
 
     int
     domain_state(const ec_domain_t *domain, ec_domain_state_t *state) const override {
         *state = this->domain(domain).state;
-        return 0;
+        return this->domain_state_result;
     }
 
     int master_send(ec_master_t *) const override { return this->send_result; }
