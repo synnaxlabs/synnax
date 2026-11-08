@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
+import { id, TimeSpan, uuid } from "@synnaxlabs/x";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { NotFoundError, PathError } from "@/index";
@@ -180,9 +180,17 @@ describe("Secret", () => {
       const off = client.secrets.onChange(q, () => {});
       const before = await client.secrets.retrieve(q);
       expect(before.uses).toEqual([{ type: "certificate", key: c.key }]);
-      off();
-      // Past the teardown grace window, so nothing maintains the answer.
-      await sleep.sleep(TimeSpan.seconds(8));
+      vi.useFakeTimers({
+        toFake: ["setTimeout", "clearTimeout"],
+        shouldAdvanceTime: true,
+      });
+      try {
+        off();
+        // Past the teardown grace window, so nothing maintains the answer.
+        await vi.advanceTimersByTimeAsync(TimeSpan.seconds(6).milliseconds);
+      } finally {
+        vi.useRealTimers();
+      }
       await client.certificates.delete(c.key);
       await vi.waitFor(() => expectDeleted(client.secrets.getCached(privateKey)));
       await client.secrets.create({
