@@ -24,7 +24,7 @@ Rack struct extends v2.Rack {
     group   group.Key? {
         @doc value "is the group the rack sits in, if any."
     }
-    roles   role.Key[] = [] {
-        @doc value "are the roles that grant the rack its permissions."
+    role    role.Key   {
+        @doc value "is the role that grants the rack its permissions."
     }
 }

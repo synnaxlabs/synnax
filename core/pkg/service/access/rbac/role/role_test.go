@@ -28,10 +28,9 @@ var _ = Describe("Writer", func() {
 		w  role.Writer
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, true)
 	})
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Create", func() {
 		It("Should reject a role with an empty name", func(ctx SpecContext) {
@@ -127,11 +126,10 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, roles[0].Key)).To(Succeed())
 
 			var r role.Role
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(role.MatchKeys(roles[0].Key)).
 				Entry(&r).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
 		It(
@@ -146,11 +144,10 @@ var _ = Describe("Writer", func() {
 				Expect(w.Delete(ctx, r.Key)).To(Succeed())
 
 				var retrieved role.Role
-				err := svc.NewRetrieve().
+				Expect(svc.NewRetrieve().
 					Where(role.MatchKeys(r.Key)).
 					Entry(&retrieved).
-					Exec(ctx, tx)
-				Expect(err).To(MatchError(query.ErrNotFound))
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -180,7 +177,7 @@ var _ = Describe("Retrieve", func() {
 		roles []role.Role
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, true)
 		roles = []role.Role{
 			{Name: "admin", Description: "Administrator"},
@@ -191,7 +188,6 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.Create(ctx, &roles[i])).To(Succeed())
 		}
 	})
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("WhereKeys", func() {
 		It("Should retrieve a single role by key", func(ctx SpecContext) {
@@ -215,11 +211,10 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should return error when key not found", func(ctx SpecContext) {
 			var r role.Role
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(role.MatchKeys(uuid.New())).
 				Entry(&r).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -235,11 +230,10 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should return error when name not found", func(ctx SpecContext) {
 			var r role.Role
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(role.MatchNames("nonexistent")).
 				Entry(&r).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -341,8 +335,7 @@ var _ = Describe("Search", func() {
 
 var _ = Describe("Resources", func() {
 	var tx gorp.Tx
-	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
+	BeforeEach(func(ctx SpecContext) { tx = DeferClose(db.OpenTx()) })
 
 	Describe("Search", func() {
 		It(

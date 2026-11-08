@@ -20,9 +20,9 @@ namespace driver::modbus::testutil {
 /// @brief a pseudo-terminal pair that a test slave serves Modbus RTU on. POSIX only: on
 /// Windows, open fails.
 class PseudoTerminal {
-    int controller_ = -1;
-    int terminal_ = -1;
-    std::string path_;
+    int controller = -1;
+    int terminal = -1;
+    std::string device_path;
 
 public:
     PseudoTerminal() = default;
@@ -49,9 +49,9 @@ public:
     void write_damaged(const std::function<void(int)> &write) const;
 
     /// @returns the descriptor the slave reads requests from and writes replies to.
-    [[nodiscard]] int fd() const { return this->controller_; }
+    [[nodiscard]] int fd() const { return this->controller; }
 
     /// @returns the path a client opens to reach the slave, valid after open.
-    [[nodiscard]] std::string path() const { return this->path_; }
+    [[nodiscard]] std::string path() const { return this->device_path; }
 };
 }
