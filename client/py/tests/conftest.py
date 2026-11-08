@@ -41,6 +41,12 @@ def client() -> sy.Synnax:
     )
 
 
+@pytest.fixture(scope="session")
+def empty_role(client: sy.Synnax) -> sy.Role:
+    """A role with no policies, for users that need no permissions."""
+    return client.access.roles.create(sy.Role(name="Empty"))
+
+
 @pytest.fixture
 def counted_client() -> tuple[sy.Synnax, RetrieveCounter]:
     """A client that counts the channel retrieve requests it sends."""

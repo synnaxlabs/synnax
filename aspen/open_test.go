@@ -20,29 +20,22 @@ import (
 )
 
 var _ = Describe("Open", func() {
-	var (
-		db1 *aspen.DB
-		db2 *aspen.DB
-	)
+	var db1 *aspen.DB
 	BeforeEach(func() {
-		db1 = MustSucceed(aspen.Open(
+		db1 = MustOpen(aspen.Open(
 			context.Background(),
 			GinkgoT().TempDir(),
 			"localhost:0",
 			[]address.Address{},
 			aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 		))
-		db2 = MustSucceed(aspen.Open(
+		MustOpen(aspen.Open(
 			context.Background(),
 			GinkgoT().TempDir(),
 			"localhost:0",
 			[]address.Address{db1.Cluster.Host().Address},
 			aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 		))
-	})
-	AfterEach(func() {
-		Expect(db1.Close()).To(Succeed())
-		Expect(db2.Close()).To(Succeed())
 	})
 	It("Should be able to join two clusters", func(ctx SpecContext) {
 		Eventually(db1.Cluster.Nodes).Should(HaveLen(2))

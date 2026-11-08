@@ -15,6 +15,7 @@ import { role } from "@/access/role";
 import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
+  createEmptyRole,
   createTestClient,
   createTestClientWithPolicy,
   expectDeleted,
@@ -41,7 +42,7 @@ describe("policy", () => {
       const u = await client.users.create({
         username: id.create(),
         password: "test",
-        roles: [r.key],
+        role: r.key,
       });
       const subjects = [user.resourceID(u.key)];
       const key = { in: [held.key, other.key] };
@@ -279,11 +280,13 @@ describe("cached reads", () => {
       }
     });
 
-    it("refetches the policies of a user whose roles change", async () => {
+    it("refetches the policies of a user whose role changes", async () => {
       const p = await createPolicy();
+      const empty = await createEmptyRole(client);
       const u = await client.users.create({
         username: id.create(),
         password: "test",
+        role: empty.key,
       });
       const subject = user.resourceID(u.key);
       const off = client.access.policies.onChange(
@@ -294,7 +297,7 @@ describe("cached reads", () => {
         expect(
           await client.access.policies.retrieve({ where: { subjects: [subject] } }),
         ).toEqual([]);
-        await remote.users.setRoles(u.key, { add: [owner.key] });
+        await remote.users.setRole(u.key, owner.key);
         await expect
           .poll(() => {
             const cached = client.access.policies.getCached({

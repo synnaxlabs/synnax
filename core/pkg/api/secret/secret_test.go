@@ -318,9 +318,10 @@ var _ = Describe("Service", func() {
 			)
 			It("Should let an Owner replace a secret", func(ctx SpecContext) {
 				owner := createUser(ctx)
-				Expect(svc.User.NewWriter(nil).AssignRole(
+				Expect(svc.User.NewWriter(nil).SetRole(
 					ctx,
 					svc.RBAC.Builtin.OwnerKey,
+					nil,
 					owner.Key,
 				)).To(Succeed())
 				MustSucceed(replace(ctx, owner))

@@ -101,8 +101,9 @@ var _ = Describe("OperationSender", func() {
 		})
 		It("Should DPanic when an invalid message is received", func() {
 			Expect(func() {
-				_, _ = net.UnaryClient().
+				res, err := net.UnaryClient().
 					Send(context.Background(), t2.Address(), gossip.Message{})
+				GinkgoWriter.Printf("send returned %v, %v\n", res, err)
 			}).To(Panic())
 		})
 	})
