@@ -58,7 +58,8 @@ func newTestConfig(ctx context.Context, nodeType string) node.Config {
 		Inputs:    map[string]msgpack.EncodedJSON{"n1": {"type": nodeType}},
 		Functions: []ir.Function{{Key: nodeType}},
 	}
-	analyzed, _ := graph.Analyze(ctx, g, symbol.NewRoot(nil, nil))
+	analyzed, diagnostics := graph.Analyze(ctx, g, symbol.NewRoot(nil, nil))
+	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	s := node.New(analyzed)
 	return node.Config{
 		Node:  ir.Node{Type: nodeType},
@@ -212,19 +213,17 @@ var _ = Describe("Node", func() {
 
 	Describe("Config", func() {
 		It("Should hold node configuration", func(ctx SpecContext) {
-			var (
-				irNode = ir.Node{Key: "test", Type: "constant"}
-				g      = graph.Graph{
-					Nodes: []graph.Node{{Key: "test"}},
-					Inputs: map[string]msgpack.EncodedJSON{
-						"test": {"type": "constant"},
-					},
-					Functions: []ir.Function{{Key: "constant"}},
-				}
-				analyzed, _ = graph.Analyze(ctx, g, nil)
-				s           = node.New(analyzed)
-				cfg         = node.Config{Node: irNode, State: s.Node("test")}
-			)
+			irNode := ir.Node{Key: "test", Type: "constant"}
+			g := graph.Graph{
+				Nodes: []graph.Node{{Key: "test"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"test": {"type": "constant"},
+				},
+				Functions: []ir.Function{{Key: "constant"}},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			cfg := node.Config{Node: irNode, State: node.New(analyzed).Node("test")}
 			Expect(cfg.Node.Key).To(Equal("test"))
 			Expect(cfg.Node.Type).To(Equal("constant"))
 			Expect(cfg.State).ToNot(BeNil())
