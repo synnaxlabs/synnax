@@ -340,8 +340,15 @@ func (s *Service) retrieve(
 		}
 		limit = int(*r.Limit)
 	}
+	rng := *req.RangeKey
 	return s.alias.NewReader(snap).SearchChannels(
-		ctx, q.Where(allowed), *req.RangeKey, r.SearchTerm, limit, int(r.Offset),
+		ctx,
+		q.Where(allowed),
+		rng,
+		r.SearchTerm,
+		func(ch channel.Key) bool { return snap.Allowed(alias.ResourceID(rng, ch)) },
+		limit,
+		int(r.Offset),
 	)
 }
 

@@ -196,8 +196,6 @@ func (errorService) Export(
 
 type noopImporter struct{ typ resource.Type }
 
-func (n noopImporter) Type() resource.Type { return n.typ }
-
 func (noopImporter) Match(map[string]any) bool { return false }
 
 func (n noopImporter) Import(
@@ -244,25 +242,6 @@ var _ = Describe("Service", func() {
 		ts = DeferClose(openTestService(ctx, db))
 		Expect(svc.RegisterImportExporter(ts)).To(Succeed())
 		Expect(svc.RegisterImportExporter(errorService{})).To(Succeed())
-	})
-
-	Describe("ImporterType", func() {
-		It("Should return the registered importer's broader Type", func() {
-			Expect(
-				svc.ImporterType(string(resource.TypeChannel)),
-			).To(Equal(resource.TypeChannel))
-		})
-
-		It(
-			"Should return a validation error scoped to the type field if not registered",
-			func() {
-				Expect(svc.ImporterType("nonexistent")).Error().To(SatisfyAll(
-					MatchError(ContainSubstring("type")),
-					MatchError(ContainSubstring("no importer registered")),
-					MatchError(ContainSubstring("validation error")),
-				))
-			},
-		)
 	})
 
 	Describe("ResolveType", func() {
@@ -344,17 +323,8 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("RegisterImporter", func() {
-		It("Should register an importer under a narrow type string", func() {
-			s := imex.NewService()
-			Expect(s.RegisterImporter(
-				"narrow",
-				noopImporter{typ: resource.TypeChannel},
-			)).To(Succeed())
-			Expect(s.ImporterType("narrow")).To(Equal(resource.TypeChannel))
-		})
-
 		It(
-			"Should map the narrow type to the importer's broader Type for access control",
+			"Should route each narrow type string to the importer registered under it",
 			func(ctx SpecContext) {
 				s := imex.NewService()
 				Expect(s.RegisterImporter(
@@ -365,8 +335,6 @@ var _ = Describe("Service", func() {
 					"opc_scan",
 					noopImporter{typ: resource.TypeTask},
 				)).To(Succeed())
-				Expect(s.ImporterType("http_read")).To(Equal(resource.TypeTask))
-				Expect(s.ImporterType("opc_scan")).To(Equal(resource.TypeTask))
 				k1 := MustSucceed(s.Import(
 					ctx, db,
 					imex.Envelope{Version: 1, Type: "http_read", Name: "ingest"},
@@ -414,7 +382,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Duplicate registration", func() {
-		It("Should reject a second importer for a type", func() {
+		It("Should reject a second importer for a type", func(ctx SpecContext) {
 			s := imex.NewService()
 			first := noopImporter{typ: resource.TypeChannel}
 			Expect(s.RegisterImporter("taken", first)).To(Succeed())
@@ -425,7 +393,12 @@ var _ = Describe("Service", func() {
 				MatchError(imex.ErrTypeTaken),
 				MatchError(ContainSubstring(`importer for type "taken"`)),
 			))
-			Expect(s.ImporterType("taken")).To(Equal(resource.TypeChannel))
+			Expect(s.Import(
+				ctx,
+				db,
+				imex.Envelope{Version: 1, Type: "taken", Name: "taken"},
+				imex.ImportOptions{},
+			)).To(HaveField("Type", resource.TypeChannel))
 		})
 
 		It("Should reject a second exporter for a type", func(ctx SpecContext) {
@@ -697,7 +670,7 @@ var _ = Describe("Service", func() {
 	Describe("Concurrency", func() {
 		It(
 			"Should be safe to register and look up handlers from multiple goroutines",
-			func() {
+			func(ctx SpecContext) {
 				s := imex.NewService()
 				const N = 64
 				types := make([]string, N)
@@ -720,7 +693,12 @@ var _ = Describe("Service", func() {
 				for _, t := range types {
 					go func(t string) {
 						defer wg.Done()
-						Expect(s.ImporterType(t)).To(Equal(resource.TypeTask))
+						Expect(s.Import(
+							ctx,
+							db,
+							imex.Envelope{Version: 1, Type: t, Name: t},
+							imex.ImportOptions{},
+						)).To(HaveField("Type", resource.TypeTask))
 					}(t)
 				}
 				wg.Wait()

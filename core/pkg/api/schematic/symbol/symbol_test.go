@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
@@ -27,11 +26,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// symbolType is the type-wide symbol object Create enforces on.
+// symbolType is the type-wide symbol object.
 var symbolType = resource.ID{Type: resource.TypeSchematicSymbol}
 
 // inGroup returns an unsaved symbol in g.
@@ -39,6 +38,39 @@ func inGroup(name string, g group.Group) symbol.Symbol {
 	sym := newSymbol(name)
 	sym.Group = &g.Key
 	return sym
+}
+
+// denied matches an error that denies the subject the action on object.
+func denied(
+	subject resource.ID,
+	action access.Action,
+	object resource.ID,
+) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring("%s cannot %s %s", subject, action, object)),
+	)
+}
+
+// deniedOnType matches an error that denies the subject the action on a record of type
+// t.
+func deniedOnType(
+	subject resource.ID,
+	action access.Action,
+	t resource.Type,
+) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring("%s cannot %s %s:", subject, action, t)),
+	)
+}
+
+// exists returns whether a symbol has key.
+func exists(ctx SpecContext, key symbol.Key) bool {
+	GinkgoHelper()
+	return MustSucceed(symbolSvc.NewRetrieve().
+		Where(symbol.MatchKeys(key)).
+		Exists(ctx, db))
 }
 
 var _ = Describe("Create", func() {
@@ -49,11 +81,9 @@ var _ = Describe("Create", func() {
 		g := createGroup(ctx, "creatable")
 		grantCreateOn(ctx, u.ResourceID(), symbolType)
 		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
-		res := MustSucceed(fgorp.CreateWriteUnaryHandler(db, apiSvc.Create)(
-			AuthedCtx(ctx, u), apisymbol.CreateRequest{
-				Symbols: []symbol.Symbol{inGroup("Inlet", g), inGroup("Outlet", g)},
-			},
-		))
+		res := MustSucceed(create(AuthedCtx(ctx, u), apisymbol.CreateRequest{
+			Symbols: []symbol.Symbol{inGroup("Inlet", g), inGroup("Outlet", g)},
+		}))
 		Expect(res.Symbols).To(HaveLen(2))
 		Expect(symbolSvc.RetrieveGroupSymbols(ctx, db, g.Key)).To(ConsistOf(
 			symbol.ResourceID(res.Symbols[0].Key),
@@ -66,18 +96,14 @@ var _ = Describe("Create", func() {
 		u := createUser(ctx)
 		g := createGroup(ctx, "uncreatable")
 		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
-		Expect(
-			fgorp.CreateWriteUnaryHandler(
-				db,
-				apiSvc.Create,
-			)(
-				AuthedCtx(ctx, u),
-				apisymbol.CreateRequest{
-					Symbols: []symbol.Symbol{inGroup("Inlet", g)},
-				},
-			),
-		).Error().
-			To(MatchError(access.ErrDenied))
+		Expect(create(AuthedCtx(ctx, u), apisymbol.CreateRequest{
+			Symbols: []symbol.Symbol{inGroup("Inlet", g)},
+		})).Error().To(deniedOnType(
+			u.ResourceID(),
+			access.ActionCreate,
+			resource.TypeSchematicSymbol,
+		))
+		Expect(symbolSvc.RetrieveGroupSymbols(ctx, db, g.Key)).To(BeEmpty())
 	})
 	It("Should reject the request when update is not granted on the group", func(
 		ctx SpecContext,
@@ -85,33 +111,32 @@ var _ = Describe("Create", func() {
 		u := createUser(ctx)
 		g := createGroup(ctx, "ungranted-group")
 		grantCreateOn(ctx, u.ResourceID(), symbolType)
-		Expect(
-			fgorp.CreateWriteUnaryHandler(
-				db,
-				apiSvc.Create,
-			)(
-				AuthedCtx(ctx, u),
-				apisymbol.CreateRequest{
-					Symbols: []symbol.Symbol{inGroup("Inlet", g)},
-				},
-			),
-		).Error().
-			To(MatchError(access.ErrDenied))
+		Expect(create(AuthedCtx(ctx, u), apisymbol.CreateRequest{
+			Symbols: []symbol.Symbol{inGroup("Inlet", g)},
+		})).Error().To(denied(u.ResourceID(), access.ActionUpdate, g.ResourceID()))
+		Expect(symbolSvc.RetrieveGroupSymbols(ctx, db, g.Key)).To(BeEmpty())
+	})
+	It("Should need update on a stored symbol that it overwrites", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		g := createGroup(ctx, "overwritten")
+		sym := createSymbol(ctx, g, "Inlet")
+		grantCreateOn(ctx, u.ResourceID(), symbolType)
+		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
+		sym.Name = "Outlet"
+		req := apisymbol.CreateRequest{Symbols: []symbol.Symbol{sym}}
+		Expect(create(AuthedCtx(ctx, u), req)).Error().To(denied(
+			u.ResourceID(),
+			access.ActionUpdate,
+			symbol.ResourceID(sym.Key),
+		))
+		grantUpdateOn(ctx, u.ResourceID(), symbol.ResourceID(sym.Key))
+		MustSucceed(create(AuthedCtx(ctx, u), req))
 	})
 })
 
 var _ = Describe("SetGroup", func() {
-	// denied matches an error that denies the subject the action on object.
-	denied := func(
-		subject resource.ID,
-		action access.Action,
-		object resource.ID,
-	) types.GomegaMatcher {
-		return SatisfyAll(
-			MatchError(access.ErrDenied),
-			MatchError(ContainSubstring("%s cannot %s %s", subject, action, object)),
-		)
-	}
 	move := func(
 		ctx SpecContext,
 		u user.User,
@@ -262,10 +287,10 @@ var _ = Describe("Rename", func() {
 		g := createGroup(ctx, "renamable")
 		sym := createSymbol(ctx, g, "Inlet")
 		grantUpdateOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Rename)(
+		MustSucceed(rename(
 			AuthedCtx(ctx, author),
 			apisymbol.RenameRequest{Key: sym.Key, Name: "Outlet"},
-		)).Error().ToNot(HaveOccurred())
+		))
 		var renamed symbol.Symbol
 		Expect(symbolSvc.NewRetrieve().
 			Where(symbol.MatchKeys(sym.Key)).
@@ -276,35 +301,60 @@ var _ = Describe("Rename", func() {
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		g := createGroup(ctx, "unrenamable")
 		sym := createSymbol(ctx, g, "Inlet")
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Rename)(
+		Expect(rename(
 			AuthedCtx(ctx, author),
 			apisymbol.RenameRequest{Key: sym.Key, Name: "Outlet"},
-		)).Error().To(MatchError(access.ErrDenied))
+		)).Error().To(denied(
+			author.ResourceID(),
+			access.ActionUpdate,
+			symbol.ResourceID(sym.Key),
+		))
 	})
 })
 
 var _ = Describe("Delete", func() {
-	It("Should delete the symbols when delete is granted", func(ctx SpecContext) {
-		g := createGroup(ctx, "deletable-symbols")
-		sym := createSymbol(ctx, g, "Inlet")
-		grantDeleteOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Delete)(
-			AuthedCtx(ctx, author),
+	remove := func(ctx SpecContext, u user.User, sym symbol.Symbol) (struct{}, error) {
+		return del(
+			AuthedCtx(ctx, u),
 			apisymbol.DeleteRequest{Keys: []symbol.Key{sym.Key}},
-		)).Error().ToNot(HaveOccurred())
-		Expect(symbolSvc.NewRetrieve().
-			Where(symbol.MatchKeys(sym.Key)).
-			Entry(&symbol.Symbol{}).
-			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
-	})
+		)
+	}
+	It(
+		"Should delete the symbol with delete on it and update on its group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			g := createGroup(ctx, "deletable-symbols")
+			sym := createSymbol(ctx, g, "Inlet")
+			grantDeleteOn(ctx, u.ResourceID(), symbol.ResourceID(sym.Key))
+			grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
+			MustSucceed(remove(ctx, u, sym))
+			Expect(exists(ctx, sym.Key)).To(BeFalse())
+		},
+	)
 	It("Should reject the request when delete is not granted", func(ctx SpecContext) {
+		u := createUser(ctx)
 		g := createGroup(ctx, "undeletable-symbols")
 		sym := createSymbol(ctx, g, "Inlet")
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Delete)(
-			AuthedCtx(ctx, author),
-			apisymbol.DeleteRequest{Keys: []symbol.Key{sym.Key}},
-		)).Error().To(MatchError(access.ErrDenied))
+		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
+		Expect(remove(ctx, u, sym)).Error().To(denied(
+			u.ResourceID(),
+			access.ActionDelete,
+			symbol.ResourceID(sym.Key),
+		))
+		Expect(exists(ctx, sym.Key)).To(BeTrue())
 	})
+	It(
+		"Should reject the request when update is not granted on the group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			g := createGroup(ctx, "unupdatable-symbol-group")
+			sym := createSymbol(ctx, g, "Inlet")
+			grantDeleteOn(ctx, u.ResourceID(), symbol.ResourceID(sym.Key))
+			Expect(remove(ctx, u, sym)).Error().
+				To(denied(u.ResourceID(), access.ActionUpdate, g.ResourceID()))
+			Expect(exists(ctx, sym.Key)).To(BeTrue())
+		},
+	)
 })
 
 var _ = Describe("ExportGroup", func() {
@@ -370,56 +420,78 @@ var _ = Describe("ExportGroup", func() {
 })
 
 var _ = Describe("DeleteGroup", func() {
-	It("Should delete the group and its symbols when both are granted", func(
+	removeGroup := func(ctx SpecContext, u user.User, g group.Group) (struct{}, error) {
+		return deleteGroup(AuthedCtx(ctx, u), apisymbol.DeleteGroupRequest{Key: g.Key})
+	}
+	It(
+		"Should delete the group and its symbols with delete on both and update on it",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			g := createGroup(ctx, "deletable")
+			sym := createSymbol(ctx, g, "Inlet")
+			grantDeleteOn(
+				ctx, u.ResourceID(), g.ResourceID(), symbol.ResourceID(sym.Key),
+			)
+			grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
+			MustSucceed(removeGroup(ctx, u, g))
+			Expect(exists(ctx, sym.Key)).To(BeFalse())
+		},
+	)
+	It("Should reject the request when delete is not granted on the group", func(
 		ctx SpecContext,
 	) {
-		g := createGroup(ctx, "deletable")
-		sym := createSymbol(ctx, g, "Inlet")
-		grantDeleteOn(
-			ctx, author.ResourceID(), g.ResourceID(), symbol.ResourceID(sym.Key),
-		)
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.DeleteGroup)(
-			AuthedCtx(ctx, author), apisymbol.DeleteGroupRequest{Key: g.Key},
-		)).Error().ToNot(HaveOccurred())
-		Expect(symbolSvc.NewRetrieve().
-			Where(symbol.MatchKeys(sym.Key)).
-			Entry(&symbol.Symbol{}).
-			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
-	})
-	It("Should reject the request when the group is not granted", func(
-		ctx SpecContext,
-	) {
+		u := createUser(ctx)
 		g := createGroup(ctx, "ungranted-group")
 		sym := createSymbol(ctx, g, "Outlet")
-		grantDeleteOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.DeleteGroup)(
-			AuthedCtx(ctx, author), apisymbol.DeleteGroupRequest{Key: g.Key},
-		)).Error().To(MatchError(access.ErrDenied))
+		grantDeleteOn(ctx, u.ResourceID(), symbol.ResourceID(sym.Key))
+		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
+		Expect(removeGroup(ctx, u, g)).Error().
+			To(denied(u.ResourceID(), access.ActionDelete, g.ResourceID()))
+		Expect(exists(ctx, sym.Key)).To(BeTrue())
 	})
-	It("Should reject the request when a member is not granted", func(ctx SpecContext) {
-		g := createGroup(ctx, "ungranted-member")
-		createSymbol(ctx, g, "Vent")
-		grantDeleteOn(ctx, author.ResourceID(), g.ResourceID())
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.DeleteGroup)(
-			AuthedCtx(ctx, author), apisymbol.DeleteGroupRequest{Key: g.Key},
-		)).Error().To(MatchError(access.ErrDenied))
-	})
-	It("Should refuse the group before it names the child that is not a symbol", func(
+	It("Should reject the request when update is not granted on the group", func(
 		ctx SpecContext,
 	) {
-		g := createGroup(ctx, "ungranted-with-nested")
-		nested := group.Group{Name: "Nested", Parent: new(g.ResourceID())}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return groupSvc.NewWriter(tx).Create(ctx, &nested)
-		})).To(Succeed())
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.DeleteGroup)(
-			AuthedCtx(ctx, createUser(ctx)),
-			apisymbol.DeleteGroupRequest{Key: g.Key},
-		)).Error().To(MatchError(access.ErrDenied))
+		u := createUser(ctx)
+		g := createGroup(ctx, "unupdatable-group")
+		sym := createSymbol(ctx, g, "Outlet")
+		grantDeleteOn(
+			ctx, u.ResourceID(), g.ResourceID(), symbol.ResourceID(sym.Key),
+		)
+		Expect(removeGroup(ctx, u, g)).Error().
+			To(denied(u.ResourceID(), access.ActionUpdate, g.ResourceID()))
+		Expect(exists(ctx, sym.Key)).To(BeTrue())
 	})
+	It("Should reject the request when a member is not granted", func(ctx SpecContext) {
+		u := createUser(ctx)
+		g := createGroup(ctx, "ungranted-member")
+		sym := createSymbol(ctx, g, "Vent")
+		grantDeleteOn(ctx, u.ResourceID(), g.ResourceID())
+		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
+		Expect(removeGroup(ctx, u, g)).Error().To(denied(
+			u.ResourceID(),
+			access.ActionDelete,
+			symbol.ResourceID(sym.Key),
+		))
+		Expect(exists(ctx, sym.Key)).To(BeTrue())
+	})
+	It(
+		"Should refuse a group that holds another group before any access check",
+		func(ctx SpecContext) {
+			g := createGroup(ctx, "ungranted-with-nested")
+			nested := group.Group{Name: "Nested", Parent: new(g.ResourceID())}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Create(ctx, &nested)
+			})).To(Succeed())
+			Expect(removeGroup(ctx, createUser(ctx), g)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("not empty")),
+			))
+		},
+	)
 })
 
-// groupType is the type-wide group object ImportGroup enforces on.
+// groupType is the type-wide group object.
 var groupType = resource.ID{Type: resource.TypeGroup}
 
 // newBundle returns a version 2 symbol group bundle holding one symbol.
@@ -436,33 +508,46 @@ func newBundle(name string) zip.Files {
 }
 
 var _ = Describe("ImportGroup", func() {
-	It("Should import the bundle when create is granted on the types",
+	It(
+		"Should import the bundle with create on the types and update on groups",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
 			grantCreateOn(ctx, u.ResourceID(), groupType, symbolType)
-			res := MustSucceed(fgorp.CreateWriteUnaryHandler(db, apiSvc.ImportGroup)(
-				AuthedCtx(ctx, u), newBundle("Valves"),
-			))
+			grantUpdateOn(ctx, u.ResourceID(), groupType)
+			res := MustSucceed(importGroup(AuthedCtx(ctx, u), newBundle("Valves")))
 			Expect(res.Group.Name).To(Equal("Valves"))
 			Expect(symbolSvc.RetrieveGroupSymbols(ctx, db, res.Group.Key)).
 				To(HaveLen(1))
 		},
 	)
+	It("Should reject the request without update on the new group", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		grantCreateOn(ctx, u.ResourceID(), groupType, symbolType)
+		Expect(importGroup(AuthedCtx(ctx, u), newBundle("Valves"))).Error().
+			To(deniedOnType(u.ResourceID(), access.ActionUpdate, resource.TypeGroup))
+	})
 	It("Should reject the request when create is not granted on the types", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.ImportGroup)(
-			AuthedCtx(ctx, u), newBundle("Valves"),
-		)).Error().To(MatchError(access.ErrDenied))
+		grantUpdateOn(ctx, u.ResourceID(), groupType)
+		Expect(importGroup(AuthedCtx(ctx, u), newBundle("Valves"))).Error().
+			To(deniedOnType(u.ResourceID(), access.ActionCreate, resource.TypeGroup))
 	})
 	It("Should reject the request when create is granted on one type alone", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		grantCreateOn(ctx, u.ResourceID(), symbolType)
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.ImportGroup)(
-			AuthedCtx(ctx, u), newBundle("Valves"),
-		)).Error().To(MatchError(access.ErrDenied))
+		grantCreateOn(ctx, u.ResourceID(), groupType)
+		grantUpdateOn(ctx, u.ResourceID(), groupType)
+		Expect(importGroup(AuthedCtx(ctx, u), newBundle("Valves"))).Error().To(
+			deniedOnType(
+				u.ResourceID(),
+				access.ActionCreate,
+				resource.TypeSchematicSymbol,
+			),
+		)
 	})
 })

@@ -322,10 +322,15 @@ var _ = Describe("ImEx", Ordered, func() {
 			excluded = openStack(ctx, "Excluded Rack", pagerduty.AlertTaskType)
 		})
 
-		It("Should register no importer for an excluded type", func() {
-			Expect(excluded.imex.ImporterType(pagerduty.AlertTaskType)).
-				Error().
-				To(MatchError(ContainSubstring("no importer registered")))
+		It("Should register no importer for an excluded type", func(ctx SpecContext) {
+			Expect(excluded.db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := excluded.imex.Import(ctx, tx, imex.Envelope{
+					Version: 1,
+					Type:    pagerduty.AlertTaskType,
+					Name:    "Excluded Task",
+				}, imex.ImportOptions{})
+				return err
+			})).To(MatchError(ContainSubstring("no importer registered")))
 		})
 
 		It("Should refuse to export a task of an excluded type", func(ctx SpecContext) {

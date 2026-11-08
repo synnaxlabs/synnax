@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
@@ -627,19 +626,15 @@ func (g *Graph) fetchChannels(
 	return channels, nil
 }
 
+// compile reads the DB with no snapshot, so a compile delays no write.
 func (g *Graph) compile(
 	ctx context.Context,
 	ch channel.Channel,
 ) (compiler.Module, error) {
-	var mod compiler.Module
-	err := g.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		mod, err = compiler.Compile(ctx, snap, compiler.Config{
-			ChannelService: g.cfg.Channel,
-			Channel:        ch,
-		})
-		return err
+	return compiler.Compile(ctx, g.cfg.DB, compiler.Config{
+		ChannelService: g.cfg.Channel,
+		Channel:        ch,
 	})
-	return mod, err
 }
 
 // resolveBaseDependencies recursively resolves all dependencies to find the concrete
@@ -1001,13 +996,9 @@ func (g *Graph) fetchDependencyDiagnostics(
 	ch channel.Channel,
 ) []channel.Channel {
 	// Try preProcess to discover channel references from the expression
-	var prog arc.Program
-	preErr := g.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		prog, err = compiler.PreProcess(ctx, snap, compiler.Config{
-			ChannelService: g.cfg.Channel,
-			Channel:        ch,
-		})
-		return err
+	prog, preErr := compiler.PreProcess(ctx, g.cfg.DB, compiler.Config{
+		ChannelService: g.cfg.Channel,
+		Channel:        ch,
 	})
 	if preErr != nil || len(prog.Functions) == 0 {
 		return nil

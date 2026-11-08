@@ -22,7 +22,9 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -41,10 +43,14 @@ var (
 	rbacSvc  *rbac.Service
 	userSvc  *user.Service
 	imexSvc  *imex.Service
-	apiSvc   *apiimex.Service
+	groupSvc *group.Service
 	importer *recordingImporter
 	root     user.User
-	// export runs its route as the API layer binds it.
+	// importEnvelope and export run their routes as the API layer binds them.
+	importEnvelope freighter.UnaryHandler[
+		apiimex.ImportRequest,
+		apiimex.ImportResponse,
+	]
 	export freighter.UnaryHandler[apiimex.ExportRequest, apiimex.ExportResponse]
 )
 
@@ -77,11 +83,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	importer = &recordingImporter{}
 	Expect(imexSvc.RegisterImporter(string(importer.Type()), importer)).To(Succeed())
 	Expect(imexSvc.RegisterExporter(namingExporter{})).To(Succeed())
-	apiSvc = MustSucceed(apiimex.NewService(apiimex.ServiceConfig{
-		ImEx: imexSvc,
-		RBAC: rbacSvc,
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+	MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
+		DB:    db,
+		Group: groupSvc,
+		ImEx:  imexSvc,
 	}))
+	apiSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{ImEx: imexSvc}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	importEnvelope = bind.Write(binder, apiSvc.Import)
 	export = bind.Read(binder, apiSvc.Export)
 	Expect(userSvc.NewRetrieve().
 		Where(user.MatchRootUser(true)).

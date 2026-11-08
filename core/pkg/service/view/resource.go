@@ -30,11 +30,6 @@ func ResourceID(keys Key) resource.ID {
 	return resource.ID{Type: resource.TypeView, Key: keys.String()}
 }
 
-// ResourceIDs returns the resource IDs for the given keys.
-func ResourceIDs(keys []Key) []resource.ID {
-	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
-}
-
 // KeysFromResourceIDs returns the keys of the views for the given resource IDs.
 func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {

@@ -30,11 +30,6 @@ func ResourceID(k Key) resource.ID {
 	return resource.ID{Type: resource.TypeSchematicSymbol, Key: k.String()}
 }
 
-// ResourceIDs returns the resource IDs of the symbols with keys.
-func ResourceIDs(keys []Key) []resource.ID {
-	return lo.Map(keys, func(key Key, _ int) resource.ID { return ResourceID(key) })
-}
-
 // KeysFromResourceIDs extracts the keys of the symbols from the resource IDs.
 func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {

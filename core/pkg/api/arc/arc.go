@@ -39,6 +39,11 @@ type (
 
 // ServiceConfig is the configuration for the Arc API service.
 type ServiceConfig struct {
+	// DB holds the channels and modules that compilation reads. Compilation reads it
+	// with no snapshot, so it delays no write.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -61,6 +66,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
@@ -70,12 +76,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.arc")
+	v.NotNil("db", c.DB)
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
 type Service struct {
+	db       *gorp.DB
 	internal *arc.Service
 	status   *status.Service
 	alamos.Instrumentation
@@ -87,6 +95,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Arc,
 		status:          cfg.Status,
@@ -214,13 +223,28 @@ func (s *Service) Retrieve(
 	// reconstructing the document.
 	for i := range res.Arcs {
 		res.Arcs[i] = materialize(res.Arcs[i])
-		if req.IncludeProgram {
-			if err := s.compile(ctx, snap, &res.Arcs[i]); err != nil {
+	}
+	return res, nil
+}
+
+// Compiled returns a handler that runs retrieve and then, when the request includes
+// programs, compiles each automation that retrieve returns. Compilation runs after
+// retrieve returns, so it holds no read lock and delays no write.
+func (s *Service) Compiled(
+	retrieve freighter.UnaryHandler[RetrieveRequest, RetrieveResponse],
+) freighter.UnaryHandler[RetrieveRequest, RetrieveResponse] {
+	return func(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
+		res, err := retrieve(ctx, req)
+		if err != nil || !req.IncludeProgram {
+			return res, err
+		}
+		for i := range res.Arcs {
+			if err = s.compile(ctx, &res.Arcs[i]); err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
+		return res, nil
 	}
-	return res, nil
 }
 
 // LSPMessage represents a single JSON-RPC message for the LSP
@@ -256,7 +280,7 @@ func materialize(a Arc) Arc {
 
 // compile compiles the source of an automation into its program and leaves a module as
 // is. Returns an error if parsing, analysis, or compilation fails.
-func (s *Service) compile(ctx context.Context, snap gorp.Snapshot, a *Arc) error {
+func (s *Service) compile(ctx context.Context, a *Arc) error {
 	automation, ok := a.Variant.(arc.AutomationArc)
 	if !ok {
 		return nil
@@ -267,12 +291,12 @@ func (s *Service) compile(ctx context.Context, snap gorp.Snapshot, a *Arc) error
 	)
 	switch src := automation.Source.Variant.(type) {
 	case arc.TextSource:
-		prog, err = s.compileText(ctx, snap, src.Text)
+		prog, err = s.compileText(ctx, src.Text)
 	case arc.GraphSource:
 		prog, err = arclang.CompileGraph(
 			ctx,
 			src.Graph,
-			s.internal.NewRoot(snap),
+			s.internal.NewRoot(s.db),
 			arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
 		)
 	}
@@ -287,7 +311,6 @@ func (s *Service) compile(ctx context.Context, snap gorp.Snapshot, a *Arc) error
 // compileText compiles t, reporting parse and analysis failures as a CompileError.
 func (s *Service) compileText(
 	ctx context.Context,
-	snap gorp.Snapshot,
 	t arctext.Text,
 ) (arclang.Program, error) {
 	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
@@ -295,7 +318,7 @@ func (s *Service) compileText(
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(snap), cfg)
+	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(s.db), cfg)
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}

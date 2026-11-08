@@ -231,21 +231,10 @@ func (s *Service) AllowDashedNames() bool { return !s.cfg.Channel.ShouldValidate
 // CompileProgram retrieves the automation with key and compiles its program. A module
 // is a validation error.
 func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, error) {
-	var automation AutomationArc
-	err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		automation, err = s.compileProgram(ctx, snap, key)
-		return err
-	})
-	return automation, err
-}
-
-func (s *Service) compileProgram(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	key Key,
-) (AutomationArc, error) {
 	var entry Arc
-	err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, snap)
+	err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, snap)
+	})
 	if err != nil {
 		return AutomationArc{}, err
 	}
@@ -259,12 +248,14 @@ func (s *Service) compileProgram(
 		)
 	}
 	var prog arc.Program
+	// Compilation reads the DB with no snapshot, so it delays no write.
+	root := s.NewRoot(s.cfg.DB)
 	switch src := automation.Source.Variant.(type) {
 	case TextSource:
-		prog, err = arc.CompileText(ctx, src.Text.Materialize(), s.NewRoot(snap),
+		prog, err = arc.CompileText(ctx, src.Text.Materialize(), root,
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	case GraphSource:
-		prog, err = arc.CompileGraph(ctx, src.Graph, s.NewRoot(snap),
+		prog, err = arc.CompileGraph(ctx, src.Graph, root,
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	}
 	if err != nil {

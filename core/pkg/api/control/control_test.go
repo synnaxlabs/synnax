@@ -109,6 +109,22 @@ var _ = Describe("Service.Retrieve", func() {
 	})
 
 	It(
+		"Should deny a named channel that no one controls without retrieve access",
+		func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			u := newUser(ctx)
+			Expect(retrieve(
+				authedCtx(ctx, u),
+				apicontrol.RetrieveRequest{Keys: channel.Keys{ch.Key()}},
+			)).Error().To(MatchError(access.Denied(
+				u.ResourceID(),
+				access.ActionRetrieve,
+				framer.ResourceIDs(channel.Keys{ch.Key()})[0],
+			).Error()))
+		},
+	)
+
+	It(
 		"Should leave out the channels the subject cannot retrieve",
 		func(ctx SpecContext) {
 			allowed, blocked := createChannel(ctx), createChannel(ctx)

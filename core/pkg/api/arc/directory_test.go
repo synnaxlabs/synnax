@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -90,6 +91,24 @@ var _ = Describe("Directories", func() {
 			func(ctx SpecContext) {
 				d := newDirectory(ctx)
 				Expect(retrieve(ctx)).ToNot(ContainElement(d))
+			},
+		)
+		It(
+			"Should deny a named directory that the caller cannot retrieve",
+			func(ctx SpecContext) {
+				d := newDirectory(ctx)
+				Expect(retrieveDirectories(
+					AuthedCtx(ctx, author),
+					apiarcdirectory.RetrieveRequest{
+						Where: &directory.Where{
+							Key: &filter.Set[directory.Key]{Eq: new(d.Key)},
+						},
+					},
+				)).Error().To(MatchError(access.Denied(
+					author.ResourceID(),
+					access.ActionRetrieve,
+					d.ResourceID(),
+				).Error()))
 			},
 		)
 	})
