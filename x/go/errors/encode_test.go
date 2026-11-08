@@ -128,8 +128,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 				"Should decode a custom error type from a payload",
 				func(ctx SpecContext) {
 					pld := errors.Encode(ctx, errMyCustomOne, true)
-					err := errors.Decode(ctx, pld)
-					Expect(err).To(Equal(errMyCustomOne))
+					Expect(errors.Decode(ctx, pld)).To(Equal(errMyCustomOne))
 				},
 			)
 			It(

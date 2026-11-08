@@ -24,7 +24,7 @@ const roles = new RoleClients(client);
 describe("arc/Selectable", () => {
   it("opens the arc create modal when selected", async () => {
     const Selectable = Arc.SELECTABLES.find(
-      (s) => s.type === arc.TYPE_ONTOLOGY_ID.type,
+      (s) => s.type === arc.TYPE_RESOURCE_ID.type,
     );
     assertDefined(Selectable, "no selectable registered for the arc editor");
     const { wrapper: Base } = await createConsoleWrapper({ client });
@@ -42,7 +42,7 @@ describe("arc/Selectable", () => {
 describe("arc/Selectable permissions", () => {
   const findSelectable = () => {
     const Selectable = Arc.SELECTABLES.find(
-      (s) => s.type === arc.TYPE_ONTOLOGY_ID.type,
+      (s) => s.type === arc.TYPE_RESOURCE_ID.type,
     );
     assertDefined(Selectable, "no selectable registered for arc");
     return Selectable;
@@ -52,7 +52,7 @@ describe("arc/Selectable permissions", () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Engineer"),
     });
-    const { result } = renderVisible(findSelectable(), arc.TYPE_ONTOLOGY_ID, wrapper);
+    const { result } = renderVisible(findSelectable(), arc.TYPE_RESOURCE_ID, wrapper);
     await waitFor(() => expect(result.current.visible).toBe(true));
   });
 
@@ -60,7 +60,7 @@ describe("arc/Selectable permissions", () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Viewer"),
     });
-    const { result } = renderVisible(findSelectable(), arc.TYPE_ONTOLOGY_ID, wrapper);
+    const { result } = renderVisible(findSelectable(), arc.TYPE_RESOURCE_ID, wrapper);
     await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(result.current.visible).toBe(false);
   });

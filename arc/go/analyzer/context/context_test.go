@@ -34,6 +34,8 @@ var _ = Describe("Context", func() {
 			Expect(ctx.Constraints).ToNot(BeNil())
 			Expect(ctx.TypeMap).ToNot(BeNil())
 			Expect(ctx.TypeMap).To(BeEmpty())
+			Expect(ctx.FmtStrings).ToNot(BeNil())
+			Expect(ctx.FmtStrings).To(BeEmpty())
 			Expect(ctx.CallEdges).ToNot(BeNil())
 			Expect(*ctx.CallEdges).To(BeEmpty())
 			Expect(ctx.AST).To(Equal(ast))
@@ -73,6 +75,8 @@ var _ = Describe("Context", func() {
 			testAST := testutil.NewMockAST(3)
 			child.TypeMap[testAST] = types.I32()
 			Expect(parent.TypeMap[testAST]).To(Equal(types.I32()))
+			child.FmtStrings[nil] = []parser.FmtSegment{{Text: "a"}}
+			Expect(parent.FmtStrings).To(HaveLen(1))
 		})
 
 		It(
@@ -112,6 +116,31 @@ var _ = Describe("Context", func() {
 			Expect(newCtx.AST).To(Equal(ctx.AST))
 			Expect(newCtx.TypeHint).To(Equal(ctx.TypeHint))
 			Expect(newCtx.InTypeInferenceMode).To(Equal(ctx.InTypeInferenceMode))
+		})
+	})
+
+	Describe("WithModule", func() {
+		It(
+			"Should return new context with the module flag set",
+			func(specCtx SpecContext) {
+				var (
+					ast    = testutil.NewMockAST(1)
+					ctx    = analyzerContext.NewRoot(specCtx, ast, nil)
+					newCtx = ctx.WithModule(true)
+				)
+				Expect(newCtx.Module).To(BeTrue())
+				Expect(ctx.Module).To(BeFalse())
+				Expect(newCtx.Scope).To(Equal(ctx.Scope))
+				Expect(newCtx.Diagnostics).To(BeIdenticalTo(ctx.Diagnostics))
+			},
+		)
+
+		It("Should carry the module flag into a child", func(specCtx SpecContext) {
+			var (
+				parent = analyzerContext.NewRoot(specCtx, testutil.NewMockAST(1), nil)
+				child  = parent.WithModule(true).Child(testutil.NewMockAST(2))
+			)
+			Expect(child.Module).To(BeTrue())
 		})
 	})
 

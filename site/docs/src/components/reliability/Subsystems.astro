@@ -27,15 +27,18 @@ const get = (key: string) => {
     return s;
 };
 
+// Runs of older commits, such as on a release branch, still hold Aspen tests.
+const aspen: [key: string, note: string][] =
+    product.subsystems.aspen != null
+        ? [["aspen", "Keeps metadata in sync across nodes"]]
+        : [];
+
 // Core layers from the API down to the libraries every layer shares.
 const CORE: [key: string, note: string][][] = [
     [["api", "HTTP and WebSocket endpoints every client talks to"]],
     [["services", "Channels, ranges, users, access control, devices, and tasks"]],
-    [["distribution", "Routes reads and writes across the nodes of a cluster"]],
-    [
-        ["aspen", "Keeps metadata in sync across nodes"],
-        ["cesium", "Time-series storage engine"],
-    ],
+    [["distribution", "Channels, and the reads, writes, and streams of frames"]],
+    [...aspen, ["cesium", "Time-series storage engine"]],
     [
         ["freighter", "Network transport"],
         ["x", "Shared libraries"],

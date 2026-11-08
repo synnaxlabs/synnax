@@ -646,6 +646,99 @@ var _ = Describe("Scope", func() {
 			},
 		)
 
+		Describe("Source modules", func() {
+			// buildSourceModule mimics a module analyzed from source: a root whose
+			// ambient holds g, re-kinded to KindModule, with an exported f and an
+			// unexported h.
+			buildSourceModule := func() *symbol.Symbol {
+				g := &symbol.Symbol{Name: "g", Kind: symbol.KindFunction}
+				mod := symbol.NewRoot(nil, []*symbol.Symbol{g})
+				mod.Kind, mod.Name = symbol.KindModule, "m"
+				mod.UserDefined = true
+				mod.AddChild(
+					&symbol.Symbol{
+						Name:     "f",
+						Kind:     symbol.KindFunction,
+						Exported: true,
+					},
+					&symbol.Symbol{Name: "h", Kind: symbol.KindFunction},
+				)
+				return mod
+			}
+			buildAlias := func(bCtx SpecContext, mod *symbol.Symbol) *symbol.Symbol {
+				GinkgoHelper()
+				root := symbol.NewRoot(nil, nil)
+				return MustSucceed(root.Add(bCtx, symbol.Symbol{
+					Name: "m", Kind: symbol.KindModuleAlias, Target: mod,
+				}))
+			}
+
+			It(
+				"Should resolve an exported member through an alias",
+				func(bCtx SpecContext) {
+					alias := buildAlias(bCtx, buildSourceModule())
+					Expect(MustSucceed(alias.Resolve(bCtx, "f")).Name).To(Equal("f"))
+				},
+			)
+
+			It("Should hide a member that is not exported", func(bCtx SpecContext) {
+				alias := buildAlias(bCtx, buildSourceModule())
+				Expect(alias.Resolve(bCtx, "h")).Error().
+					To(MatchError(ContainSubstring("undefined symbol: h")))
+			})
+
+			It(
+				"Should reach an unexported member with IncludeInternal",
+				func(bCtx SpecContext) {
+					alias := buildAlias(bCtx, buildSourceModule())
+					Expect(
+						MustSucceed(
+							alias.Resolve(bCtx, "h", symbol.IncludeInternal),
+						).Name,
+					).To(Equal("h"))
+				},
+			)
+
+			It(
+				"Should not reach the module's ambient through an alias",
+				func(bCtx SpecContext) {
+					alias := buildAlias(bCtx, buildSourceModule())
+					Expect(alias.Resolve(bCtx, "g")).Error().
+						To(MatchError(ContainSubstring("undefined symbol: g")))
+				},
+			)
+
+			It(
+				"Should reach the module's ambient from inside the module",
+				func(bCtx SpecContext) {
+					mod := buildSourceModule()
+					f := mod.FindChild("f")
+					Expect(MustSucceed(f.Resolve(bCtx, "g")).Name).To(Equal("g"))
+				},
+			)
+
+			It(
+				"Should resolve a module through the module resolver",
+				func(bCtx SpecContext) {
+					root := symbol.NewRoot(nil, nil, symbol.WithModules(StaticResolver{
+						{Name: "lib.m", Kind: symbol.KindModule},
+					}))
+					Expect(
+						MustSucceed(root.ResolveModule(bCtx, "lib.m")).Name,
+					).To(Equal("lib.m"))
+				},
+			)
+
+			It(
+				"Should report a missing module resolver as not found",
+				func(bCtx SpecContext) {
+					root := symbol.NewRoot(nil, nil)
+					Expect(root.ResolveModule(bCtx, "lib.m")).Error().
+						To(MatchError(symbol.ErrModuleNotFound))
+				},
+			)
+		})
+
 		Describe("Module aliases", func() {
 			// buildAmbientRoot constructs a root with a synthetic ambient
 			// prelude that has a single "time" module containing "now".

@@ -12,6 +12,7 @@ package kafka
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -21,19 +22,35 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// testConnectionCommandType is the scan task command that pings a proposed cluster.
-const testConnectionCommandType = "test_connection"
+const (
+	// testConnectionCommand tests a connection to the cluster that its arguments
+	// describe, one stage at a time.
+	testConnectionCommand = "test_connection"
+	// browseCommand lists the topics of a cluster device.
+	browseCommand = "browse"
+	// sampleCommand reads records from topics of a cluster device and infers their
+	// shapes.
+	sampleCommand = "sample"
+)
 
 // testConnectionArgs are the arguments of a test_connection command.
 type testConnectionArgs struct {
-	// Connection is the cluster to ping.
+	// Connection is the cluster to test. It need not be a stored device yet.
 	Connection Properties `json:"connection"`
 }
 
-// scanner pings Kafka cluster devices and answers connection tests.
+// browseArgs are the arguments of a browse command.
+type browseArgs struct {
+	// Device is the key of the cluster device to browse.
+	Device device.Key `json:"device"`
+}
+
+// scanner pings Kafka cluster devices and answers the commands of the scan task.
 type scanner struct {
 	// timeout bounds one ping.
 	timeout telem.TimeSpan
+	db      *gorp.DB
+	device  *device.Service
 }
 
 var _ driver.Scanner = scanner{}
@@ -52,18 +69,57 @@ func (s scanner) Exec(
 	ctx context.Context,
 	cmd task.Command,
 ) (msgpack.EncodedJSON, error) {
-	if cmd.Type != testConnectionCommandType {
-		return nil, driver.ErrUnsupportedCommand
+	switch cmd.Type {
+	case testConnectionCommand:
+		var args testConnectionArgs
+		if err := unmarshalArgs(cmd, &args); err != nil {
+			return nil, err
+		}
+		return nil, testConnection(ctx, args.Connection)
+	case browseCommand:
+		var args browseArgs
+		if err := unmarshalArgs(cmd, &args); err != nil {
+			return nil, err
+		}
+		props, err := resolveProperties(ctx, s.db, s.device, args.Device)
+		if err != nil {
+			return nil, err
+		}
+		topics, err := browseTopics(ctx, props)
+		if err != nil {
+			return nil, err
+		}
+		kept, truncated, err := driver.Fit(browseResult{}, [][]browsedTopic{topics})
+		if err != nil {
+			return nil, err
+		}
+		return msgpack.NewEncodedJSON(
+			browseResult{Topics: kept[0], Truncated: truncated},
+		)
+	case sampleCommand:
+		var args sampleArgs
+		if err := unmarshalArgs(cmd, &args); err != nil {
+			return nil, err
+		}
+		props, err := resolveProperties(ctx, s.db, s.device, args.Device)
+		if err != nil {
+			return nil, err
+		}
+		res, err := sampleTopics(ctx, props, args)
+		if err != nil {
+			return nil, err
+		}
+		return msgpack.NewEncodedJSON(res)
 	}
-	var args testConnectionArgs
-	if err := cmd.Args.Unmarshal(&args); err != nil {
-		return nil, errors.Wrap(err, "invalid connection")
+	return nil, driver.ErrUnsupportedCommand
+}
+
+// unmarshalArgs decodes the arguments of cmd into args.
+func unmarshalArgs(cmd task.Command, args any) error {
+	if err := cmd.Args.Unmarshal(args); err != nil {
+		return errors.Wrapf(validate.ErrValidation, "invalid arguments: %s", err)
 	}
-	args.Connection.ApplyDefaults()
-	if err := s.ping(ctx, args.Connection); err != nil {
-		return nil, errors.Wrap(err, "failed to connect")
-	}
-	return nil, nil
+	return nil
 }
 
 func (s scanner) ping(ctx context.Context, props Properties) error {
@@ -85,8 +141,12 @@ func (f *factory) configureScan(t task.Task) (*driver.ScanTask, bool, error) {
 		)
 	}
 	st, err := driver.NewScanTask(driver.ScanTaskConfig{
-		Instrumentation:    f.cfg.Child("scan"),
-		Scanner:            scanner{timeout: f.cfg.PingTimeout},
+		Instrumentation: f.cfg.Child("scan"),
+		Scanner: scanner{
+			timeout: f.cfg.PingTimeout,
+			db:      f.cfg.DB,
+			device:  f.cfg.Device,
+		},
 		DB:                 f.cfg.DB,
 		Status:             f.cfg.Status,
 		Device:             f.cfg.Device,

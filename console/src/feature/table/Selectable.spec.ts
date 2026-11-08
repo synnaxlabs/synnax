@@ -30,11 +30,11 @@ describe("table/Selectable", () => {
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
     });
     const Selectable = Table.SELECTABLES[0];
-    expect(Selectable.type).toBe(table.TYPE_ONTOLOGY_ID.type);
+    expect(Selectable.type).toBe(table.TYPE_RESOURCE_ID.type);
     select(Selectable, wrapper);
     const tab = await resolveFocusedTab(store, client, (t) => t.variant === "resource");
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(table.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(table.TYPE_RESOURCE_ID.type);
     const key = tab.resource.key;
     const created = await client.tables.retrieve(key);
     expect(created.name).toBe("Table");
@@ -49,7 +49,7 @@ describe("table/Selectable", () => {
 describe("table/Selectable permissions", () => {
   const findSelectable = () => {
     const Selectable = Table.SELECTABLES.find(
-      (s) => s.type === table.TYPE_ONTOLOGY_ID.type,
+      (s) => s.type === table.TYPE_RESOURCE_ID.type,
     );
     assertDefined(Selectable, "no selectable registered for table");
     return Selectable;
@@ -59,7 +59,7 @@ describe("table/Selectable permissions", () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Engineer"),
     });
-    const { result } = renderVisible(findSelectable(), table.TYPE_ONTOLOGY_ID, wrapper);
+    const { result } = renderVisible(findSelectable(), table.TYPE_RESOURCE_ID, wrapper);
     await waitFor(() => expect(result.current.visible).toBe(true));
   });
 
@@ -67,7 +67,7 @@ describe("table/Selectable permissions", () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Viewer"),
     });
-    const { result } = renderVisible(findSelectable(), table.TYPE_ONTOLOGY_ID, wrapper);
+    const { result } = renderVisible(findSelectable(), table.TYPE_RESOURCE_ID, wrapper);
     await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(result.current.visible).toBe(false);
   });

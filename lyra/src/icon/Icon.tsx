@@ -68,7 +68,10 @@ interface WrapIconOpts {
   className?: string;
 }
 
-/** A raw SVG component, as generated from an icon file. Wrap it with {@link wrapSVGIcon}. */
+/**
+ * A raw SVG component, as generated from an icon file. Wrap it with
+ * {@link wrapSVGIcon}.
+ */
 export interface SVGFC extends ReactFC<IconBaseProps> {}
 
 const parseColor = (c?: color.Crude | Theming.Shade): string | undefined => {

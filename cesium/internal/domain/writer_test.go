@@ -71,13 +71,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(domain.Open(domain.Config{
+				db = MustOpen(domain.Open(domain.Config{
 					FS:              fs,
 					Instrumentation: PanicLogger(),
 				}))
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 			Describe("Happiest of paths", func() {
 				It("Should work with a preset end", func(ctx SpecContext) {
@@ -109,11 +106,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should not allow opening a writer on a closed database",
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
-						_, err := db.OpenWriter(
+						Expect(db.OpenWriter(
 							ctx,
 							domain.WriterConfig{Start: 10 * telem.SecondTS},
-						)
-						Expect(err).To(MatchError(domain.ErrDBClosed))
+						)).Error().To(MatchError(domain.ErrDBClosed))
 					},
 				)
 			})
@@ -137,10 +133,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w.Write([]byte{1, 2, 3, 4, 5, 6})).To(Equal(6))
 						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
 						Expect(w.Close()).To(Succeed())
-						_, err := db.OpenWriter(ctx, domain.WriterConfig{
+						Expect(db.OpenWriter(ctx, domain.WriterConfig{
 							Start: 10 * telem.SecondTS,
-						})
-						Expect(err).To(MatchError(domain.ErrWriteConflict))
+						})).Error().To(MatchError(domain.ErrWriteConflict))
 					})
 				})
 			})
@@ -342,7 +337,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Commit(ctx, 22*telem.SecondTS)).To(Succeed())
 					Expect(w.Close()).To(Succeed())
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
@@ -759,7 +754,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						By("Replacing the DB with a recorder-wrapped FS")
 						Expect(db.Close()).To(Succeed())
 						rec := NewRecorder(fs)
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              rec,
 							Instrumentation: PanicLogger(),
 						}))
@@ -947,7 +942,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
 						rec := NewRecorder(fs)
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              rec,
 							FileSize:        1 * telem.Megabyte,
 							Instrumentation: PanicLogger(),
@@ -1002,11 +997,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should not open a writer on a closed database",
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
-						_, err := db.OpenWriter(
+						Expect(db.OpenWriter(
 							ctx,
 							domain.WriterConfig{Start: 10 * telem.SecondTS},
-						)
-						Expect(err).To(MatchError(domain.ErrDBClosed))
+						)).Error().To(MatchError(domain.ErrDBClosed))
 					},
 				)
 
