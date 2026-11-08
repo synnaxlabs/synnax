@@ -11,7 +11,7 @@ import { resource } from "@synnaxlabs/client";
 import { describe, expect, it, vi } from "vitest";
 
 import { type Source, type Window } from "@/platform/tree/children";
-import { type Results, Store, type StoreConfig } from "@/platform/tree/store";
+import { moreKey, type Results, Store, type StoreConfig } from "@/platform/tree/store";
 import { type Resource } from "@/platform/tree/types";
 
 const ROOT: resource.ID = { type: "builtin", key: "root" };
@@ -29,24 +29,30 @@ interface MemorySource extends Source {
   subscribers: () => number;
 }
 
-// Answers a fetch with the window, and holds nothing before the first fetch.
-const createMemorySource = (fetched: Window): MemorySource => {
+// Answers a fetch with the window and each call for more with the next page, and holds
+// nothing before the first fetch.
+const createMemorySource = (fetched: Window, pages: Window[] = []): MemorySource => {
   let cached: Window | undefined;
   const handlers = new Set<(window: Window | undefined) => void>();
+  const push = (window: Window | undefined): void => {
+    cached = window;
+    handlers.forEach((handler) => handler(window));
+  };
   return {
     retrieve: async () => {
       cached ??= fetched;
       return cached;
+    },
+    more: async () => {
+      const page = pages.shift();
+      if (page != null) push(page);
     },
     getCached: () => cached,
     onChange: (handler) => {
       handlers.add(handler);
       return () => handlers.delete(handler);
     },
-    push: (window) => {
-      cached = window;
-      handlers.forEach((handler) => handler(window));
-    },
+    push,
     subscribers: () => handlers.size,
   };
 };
@@ -101,7 +107,7 @@ describe("tree store", () => {
       store.start();
       await expect
         .poll(() => keysOf(store))
-        .toEqual(["channel:1", "device:2", "channel:3"]);
+        .toEqual(["channel:1", "device:2", "channel:3", moreKey(ROOT_KEY)]);
     });
 
     it("should hide the other records while a folder list has more", async () => {
@@ -112,7 +118,55 @@ describe("tree store", () => {
         ],
       });
       store.start();
-      await expect.poll(() => keysOf(store)).toEqual(["group:a"]);
+      await expect.poll(() => keysOf(store)).toEqual(["group:a", moreKey(ROOT_KEY)]);
+    });
+
+    it("should fetch the next page of only the lists that hold back more", async () => {
+      const paged = createMemorySource(
+        { resources: [res("channel", "1", "a"), res("channel", "3", "c")], more: true },
+        [
+          {
+            resources: [
+              res("channel", "1", "a"),
+              res("channel", "3", "c"),
+              res("channel", "5", "e"),
+            ],
+            more: false,
+          },
+        ],
+      );
+      const whole = createMemorySource(
+        listed(res("device", "2", "b"), res("device", "4", "d")),
+      );
+      const wholeMore = vi.spyOn(whole, "more");
+      const store = createStore({ [ROOT_KEY]: [paged, whole] });
+      store.start();
+      await expect.poll(() => keysOf(store)).toContain(moreKey(ROOT_KEY));
+      store.more(ROOT_KEY);
+      await expect
+        .poll(() => keysOf(store))
+        .toEqual(["channel:1", "device:2", "channel:3", "device:4", "channel:5"]);
+      expect(wholeMore).not.toHaveBeenCalled();
+    });
+
+    it("should fetch one page at a time and show it loading meanwhile", async () => {
+      let release: () => void = () => {};
+      const paged = createMemorySource({ resources: [GROUP_A], more: true });
+      const more = vi.spyOn(paged, "more").mockImplementation(
+        async () =>
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          }),
+      );
+      const store = createStore({ [ROOT_KEY]: [paged] });
+      store.start();
+      await expect.poll(() => keysOf(store)).toContain(moreKey(ROOT_KEY));
+      store.more(ROOT_KEY);
+      store.more(ROOT_KEY);
+      expect(more).toHaveBeenCalledTimes(1);
+      expect(store.isLoading(moreKey(ROOT_KEY))).toBe(true);
+      release();
+      await expect.poll(() => store.isLoading(moreKey(ROOT_KEY))).toBe(false);
     });
 
     it("should follow a change to a list", async () => {
@@ -171,6 +225,7 @@ describe("tree store", () => {
       const onError = vi.fn();
       const failing: Source = {
         retrieve: async () => await Promise.reject(new Error("unreachable")),
+        more: async () => {},
         getCached: () => undefined,
         onChange: () => () => {},
       };
@@ -278,6 +333,7 @@ describe("tree store", () => {
       const root = createMemorySource(listed(GROUP_A));
       const failing: Source = {
         retrieve: async () => await Promise.reject(new Error("unreachable")),
+        more: async () => {},
         getCached: () => undefined,
         onChange: () => () => {},
       };

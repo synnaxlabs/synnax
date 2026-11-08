@@ -24,6 +24,8 @@ export interface Window {
 export interface Source {
   /** Fetches the list. The window reaches onChange handlers too. */
   retrieve: () => Promise<Window>;
+  /** Fetches the next page of the list. The window reaches onChange handlers. */
+  more: () => Promise<void>;
   /** Returns the window, or undefined before the list is fetched. */
   getCached: () => Window | undefined;
   /**
@@ -52,9 +54,12 @@ interface NameOrder {
 
 const NAME_ORDER: NameOrder["order"] = { field: "name" };
 
+/** The most children that a list fetches at a time. */
+const PAGE_SIZE = 1000;
+
 /** A typed client that keeps live lists of the records that queries match. */
 export interface Retriever<Q, D extends record.Keyed<record.Key>> {
-  watch: (query: Q & NameOrder) => query.List<D, unknown>;
+  watch: (query: Q & NameOrder & { limit: number }) => query.List<D, unknown>;
 }
 
 /** Builds a source that lists the records a typed client matches for the query. */
@@ -63,7 +68,7 @@ export const createSource = <Q, D extends record.Keyed<record.Key>>(
   q: Q,
   toResource: (record: D) => Resource,
 ): Source => {
-  const list = retriever.watch({ ...q, order: NAME_ORDER });
+  const list = retriever.watch({ ...q, order: NAME_ORDER, limit: PAGE_SIZE });
   // A record keeps its identity until it changes, so a row reads the same resource
   // until then.
   const resources = new WeakMap<D, Resource>();
@@ -86,6 +91,9 @@ export const createSource = <Q, D extends record.Keyed<record.Key>>(
   };
   return {
     retrieve: async () => toWindow(await list.retrieve()),
+    more: async () => {
+      await list.more(PAGE_SIZE);
+    },
     getCached: () => {
       const cached = list.getCached();
       return cached == null ? undefined : toWindow(cached);

@@ -45,6 +45,7 @@ import {
   getTreeRow,
   itemName,
   openTreeRootContextMenu,
+  openTreeRowContextMenu,
   renderLiveTree,
   retrieveChildGroupKeys,
   searchTree,
@@ -447,6 +448,85 @@ describe("Tree.Tree", () => {
         fireEvent.keyDown(editable, { key: "Escape" });
       });
       await awaitTextEditingExit();
+    });
+  });
+
+  describe("paged folders", () => {
+    // A folder list fetches this many children at a time.
+    const PAGE_SIZE = 1000;
+    const SHOW_MORE = "Show more";
+    const tree = (): HTMLElement => {
+      const el = document.querySelector<HTMLElement>(".lyra-tree");
+      if (el == null) throw new Error("tree not found");
+      return el;
+    };
+    // A fresh client starts with no page fetched, as a list another test grew stays
+    // grown in its client's cache.
+    const renderPaged = async () =>
+      await renderTree(
+        channel.TYPE_RESOURCE_ID,
+        GROUP_ITEMS,
+        createTestClient(),
+        listRoot,
+      );
+    let groupKey: string;
+    let names: string[];
+    const listRoot: Tree.TreeProps["listRoot"] = (c) => [
+      Tree.createSource(
+        c.channels,
+        { where: { groups: [groupKey] } },
+        Tree.toResource("channel"),
+      ),
+    ];
+
+    beforeAll(async () => {
+      const g = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("paged"),
+      });
+      groupKey = g.key;
+      const tag = uniqueName("paged");
+      // Zero padded so the tree's name order matches creation order.
+      names = Array.from(
+        { length: PAGE_SIZE + 1 },
+        (_, i) => `${tag}_${String(i).padStart(4, "0")}`,
+      );
+      await client.channels.create(
+        names.map((name) => ({
+          name,
+          dataType: DataType.FLOAT32,
+          virtual: true,
+          group: g.key,
+        })),
+      );
+    });
+
+    it("should show one page and load the next from the show more node", async () => {
+      await renderPaged();
+      const more = await findTreeRow(SHOW_MORE);
+      expect(screen.queryByText(names[PAGE_SIZE])).toBeNull();
+      fireEvent.click(more);
+      await findTreeRow(names[PAGE_SIZE]);
+      expect(screen.queryByText(SHOW_MORE)).toBeNull();
+    });
+
+    it("should load the next page when Enter lands on the show more node", async () => {
+      await renderPaged();
+      fireEvent.click(await findTreeRow(names[PAGE_SIZE - 1]));
+      await findTreeRow(SHOW_MORE);
+      expect(screen.queryByText(names[PAGE_SIZE])).toBeNull();
+      const arrowDown = { key: "ArrowDown", code: "ArrowDown" };
+      fireEvent.keyDown(tree(), arrowDown);
+      fireEvent.keyUp(tree(), arrowDown);
+      fireEvent.keyDown(tree(), { key: "Enter", code: "Enter" });
+      fireEvent.keyUp(tree(), { key: "Enter", code: "Enter" });
+      await findTreeRow(names[PAGE_SIZE]);
+    });
+
+    it("should show the root menu on the show more node", async () => {
+      await renderPaged();
+      await openTreeRowContextMenu(SHOW_MORE);
+      expect(await screen.findByText("New group")).toBeTruthy();
     });
   });
 

@@ -16,7 +16,7 @@ import { type DragEvent, type RefObject } from "react";
 import { findAncestors, findContainedKeys } from "@/platform/tree/ancestry";
 import { type Item } from "@/platform/tree/item";
 import { type ResultNodes } from "@/platform/tree/search";
-import { type Store } from "@/platform/tree/store";
+import { isMoreKey, type Store } from "@/platform/tree/store";
 import { type GetResource } from "@/platform/tree/types";
 
 export interface UseDragAndDropProps {
@@ -84,7 +84,8 @@ export const useDragAndDrop = ({
 
   const onDragStart = (key: string): void => {
     if (selectedRef.current.includes(key)) {
-      const selectedItems = getResource(selectedRef.current).flatMap((res) => [
+      const dragged = selectedRef.current.filter((k) => !isMoreKey(k));
+      const selectedItems = getResource(dragged).flatMap((res) => [
         Base.createHaulItem(resource.idToString(res.id)),
         ...resolveItem(res.id.type).haulItems(res),
       ]);

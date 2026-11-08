@@ -318,19 +318,53 @@ const QUERY_OPTIONS = { ignore: "script, style, .console-tree--hidden *" };
  * reaches the DOM the same way a user reaches it. Leaves the tree scrolled where the
  * label was found, and back at the top when there is none.
  */
-// Sweeps from the top: a previous lookup can leave the tree scrolled past the row.
-const sweepTree = async (text: Matcher): Promise<HTMLElement | null> => {
+// Sweeps from the top by default: a previous lookup can leave the tree scrolled past
+// the row.
+const sweepTree = async (text: Matcher, from = 0): Promise<HTMLElement | null> => {
   const tree = document.querySelector<HTMLElement>(VISIBLE_TREE);
   const rows = tree?.querySelector<HTMLElement>(".lyra-list__virtualizer");
   if (tree == null || rows == null) return null;
   const total = parseInt(rows.style.minHeight, 10);
-  for (let offset = 0; offset <= total; offset += SCROLL_STEP) {
+  for (let offset = from; offset <= total; offset += SCROLL_STEP) {
     await act(async () => {
       tree.scrollTop = offset;
       fireEvent.scroll(tree);
     });
     const label = screen.queryByText(text, QUERY_OPTIONS);
     if (label != null) return label;
+  }
+  return null;
+};
+
+const SHOW_MORE = "Show more";
+const MAX_PAGES = 20;
+const BOTTOM_SPAN = 5 * SCROLL_STEP;
+
+const rowsHeight = (): number => {
+  const rows = document.querySelector<HTMLElement>(
+    `${VISIBLE_TREE} .lyra-list__virtualizer`,
+  );
+  return rows == null ? 0 : parseInt(rows.style.minHeight, 10);
+};
+
+// Loads the next page of a folder, as a user does, until the label shows. A page that
+// lands either moves the show more node down or replaces it. When the last folder
+// pages, the node and the new page sit near the bottom, so the sweeps start there.
+const pageTo = async (text: Matcher): Promise<HTMLElement | null> => {
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const height = rowsHeight();
+    const bottom = Math.max(0, height - BOTTOM_SPAN);
+    const more = (await sweepTree(SHOW_MORE, bottom)) ?? (await sweepTree(SHOW_MORE));
+    if (more == null) return null;
+    await act(async () => {
+      fireEvent.click(more);
+    });
+    await waitFor(() => {
+      if (more.isConnected && rowsHeight() === height)
+        throw new Error("the next page has not landed");
+    });
+    const found = await sweepTree(text, bottom);
+    if (found != null) return found;
   }
   return null;
 };
@@ -344,7 +378,7 @@ const findTreeLabel = async (text: Matcher): Promise<HTMLElement> => {
   try {
     return await screen.findByText(text, QUERY_OPTIONS);
   } catch (err) {
-    const retried = await sweepTree(text);
+    const retried = (await sweepTree(text)) ?? (await pageTo(text));
     if (retried != null) return retried;
     throw err instanceof Error ? err : new Error(String(err), { cause: err });
   }
