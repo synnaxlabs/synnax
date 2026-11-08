@@ -61,10 +61,6 @@ type Request struct {
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
 	// Reduction should only be set when opening the Iterator.
 	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
-	// SeqNum is the sequence number of the request (starting at 0). This is used to
-	// match responses to requests. Each request should increment the sequence number by
-	// 1.
-	SeqNum int `json:"-" msgpack:"-"`
 	// Command is the command to execute on the Iterator.
 	Command Command `json:"command" msgpack:"command"`
 }
@@ -90,7 +86,8 @@ type Response struct {
 	Error error `json:"error" msgpack:"error"`
 	// Frame is only relevant for DataResponse. It is the data returned by the Iterator.
 	Frame frame.Frame `json:"frame" msgpack:"frame"`
-	// SeqNum matches the response to the Request.SeqNum that triggered it.
+	// SeqNum is the position of the request that triggered the response, counting the
+	// requests of the iterator from 0.
 	SeqNum int `json:"seq_num" msgpack:"seq_num"`
 	// Variant is the type of response returned.
 	Variant ResponseVariant `json:"variant" msgpack:"variant"`
