@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// keySeparator splits the range from the key in the Gorp key of a Pair.
 const keySeparator = "<--->"
 
 // RangeOf returns the range of the pair whose Gorp key is key. It returns a validation
