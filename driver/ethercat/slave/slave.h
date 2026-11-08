@@ -256,11 +256,6 @@ struct Properties {
         };
     }
 
-    /// @brief returns the total number of discovered PDO entries.
-    [[nodiscard]] size_t pdo_count() const {
-        return this->input_pdos.size() + this->output_pdos.size();
-    }
-
     /// @brief returns the entry at the given address in one direction, or nullopt when
     /// the slave has no such entry. Padding never matches.
     [[nodiscard]] std::optional<pdo::Properties>

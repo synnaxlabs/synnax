@@ -50,31 +50,6 @@ TEST(FromAlState, AcceptsUint8Values) {
     ASSERT_EQ(from_al_state(igh_state), State::OP);
 }
 
-TEST(PropertiesPdoCount, ReturnsZeroForEmptyProperties) {
-    Properties props;
-    ASSERT_EQ(props.pdo_count(), 0);
-}
-
-TEST(PropertiesPdoCount, ReturnsSumOfInputAndOutputPdos) {
-    Properties props{
-        .input_pdos =
-            {
-                {.pdo_index = 0x1A00,
-                 .index = 0x6000,
-                 .sub_index = 1,
-                 .bit_length = 16},
-                {.pdo_index = 0x1A00,
-                 .index = 0x6000,
-                 .sub_index = 2,
-                 .bit_length = 16},
-            },
-        .output_pdos = {
-            {.pdo_index = 0x1600, .index = 0x7000, .sub_index = 1, .bit_length = 8},
-        },
-    };
-    ASSERT_EQ(props.pdo_count(), 3);
-}
-
 Properties find_pdo_slave() {
     return Properties{
         .input_pdos =

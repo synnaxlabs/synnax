@@ -71,10 +71,6 @@ inline const char *string_at(uint32_t offset) {
     );
 }
 
-inline const BlobVendor *vendors() {
-    return reinterpret_cast<const BlobVendor *>(REGISTRY_BLOB + sizeof(BlobHeader));
-}
-
 inline const BlobDeviceIndex *device_index() {
     return reinterpret_cast<const BlobDeviceIndex *>(
         REGISTRY_BLOB + sizeof(BlobHeader) + header()->vendor_count * sizeof(BlobVendor)
@@ -226,40 +222,6 @@ void fill_known_entries(slave::Properties &slave) {
     };
     fill(slave.input_pdos, registry.input_pdos);
     fill(slave.output_pdos, registry.output_pdos);
-}
-
-std::optional<std::string_view> vendor_name(const uint32_t vendor_id) {
-    const auto *vends = vendors();
-    const uint32_t count = header()->vendor_count;
-
-    const auto it = std::lower_bound(
-        vends,
-        vends + count,
-        vendor_id,
-        [](const BlobVendor &v, uint32_t id) { return v.vendor_id < id; }
-    );
-
-    if (it == vends + count || it->vendor_id != vendor_id) return std::nullopt;
-    return std::string_view(string_at(it->name_offset));
-}
-
-bool is_device_known(const uint32_t vendor_id, const uint32_t product_code) {
-    const auto *idx = device_index();
-    const uint32_t idx_count = header()->device_index_count;
-
-    const auto it = std::lower_bound(
-        idx,
-        idx + idx_count,
-        std::pair{vendor_id, product_code},
-        [](const BlobDeviceIndex &entry, const std::pair<uint32_t, uint32_t> &target) {
-            return entry.vendor_id < target.first ||
-                   (entry.vendor_id == target.first &&
-                    entry.product_code < target.second);
-        }
-    );
-
-    return it != idx + idx_count && it->vendor_id == vendor_id &&
-           it->product_code == product_code;
 }
 
 }

@@ -140,20 +140,9 @@ common::ScannerConfig Scanner::config() const {
     };
 }
 
-x::errors::Error Scanner::start() {
-    VLOG(1) << SCAN_LOG_PREFIX << "starting EtherCAT scanner";
-    return x::errors::NIL;
-}
-
-x::errors::Error Scanner::stop() {
-    VLOG(1) << SCAN_LOG_PREFIX << "stopping EtherCAT scanner";
-    return x::errors::NIL;
-}
-
 std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices;
-    if (this->pool == nullptr) return {devices, x::errors::NIL};
 
     std::set<std::string> failures;
     const auto masters = this->pool->enumerate();
@@ -288,9 +277,7 @@ nlohmann::json Scanner::get_existing_properties(
     const auto it = scan_ctx.devices->find(key);
     if (it == scan_ctx.devices->end()) return nlohmann::json::object();
     if (it->second.properties.empty()) return nlohmann::json::object();
-    try {
-        return it->second.properties;
-    } catch (const nlohmann::json::parse_error &) { return nlohmann::json::object(); }
+    return it->second.properties;
 }
 
 std::string Scanner::generate_slave_key(

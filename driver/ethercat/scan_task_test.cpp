@@ -153,20 +153,6 @@ TEST_F(EtherCATScanTest, ScannerConfigReturnsCorrectValues) {
     EXPECT_EQ(config.log_prefix, SCAN_LOG_PREFIX);
 }
 
-TEST_F(EtherCATScanTest, ScannerStartStopSucceed) {
-    synnax::task::Task task{
-        .rack = rack.key,
-        .name = "EtherCAT Scanner",
-        .type = SCAN_TASK_TYPE,
-        .internal = true,
-    };
-    ScanTaskConfig cfg;
-    Scanner scanner(ctx, task, cfg, nullptr);
-
-    ASSERT_NIL(scanner.start());
-    ASSERT_NIL(scanner.stop());
-}
-
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     synnax::task::Task task{
         .rack = rack.key,

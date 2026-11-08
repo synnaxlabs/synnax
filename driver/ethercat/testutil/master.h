@@ -414,7 +414,8 @@ public:
             if (const auto it = this->refusing.find(pos); it != this->refusing.end())
                 refused.insert(*it);
             else
-                io_left |= slave.properties.pdo_count() > 0;
+                io_left |= !slave.properties.input_pdos.empty() ||
+                           !slave.properties.output_pdos.empty();
         }
         if (!refused.empty()) {
             if (io_left) this->start_refusals = refused;

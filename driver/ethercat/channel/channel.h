@@ -25,6 +25,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
+#include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -34,21 +35,13 @@ namespace driver::ethercat::channel {
 struct Channel : pdo::Entry {
     /// @brief whether this channel is enabled for data exchange.
     bool enabled;
-    /// @brief the key of the slave device in Synnax.
-    std::string device_key;
 
     virtual ~Channel() = default;
 
 protected:
-    Channel(
-        const slave::Properties &slave,
-        const bool is_input,
-        const bool disabled,
-        std::string device
-    ):
+    Channel(const slave::Properties &slave, const bool is_input, const bool disabled):
         pdo::Entry{slave.position, 0, 0, 0, is_input, x::telem::UNKNOWN_T},
-        enabled(!disabled),
-        device_key(std::move(device)) {}
+        enabled(!disabled) {}
 
     /// @brief binds the entry at an address on the slave, with the slave's bit length
     /// and the configured data type. Accumulates a field error under path and binds
@@ -184,9 +177,7 @@ struct Input final : Channel {
         const x::json::Parser &parser,
         const std::string &path = ""
     ):
-        Channel(slave, true, cfg.disabled, cfg.device),
-        synnax_key(cfg.channel),
-        scale(cfg.scale) {
+        Channel(slave, true, cfg.disabled), synnax_key(cfg.channel), scale(cfg.scale) {
         this->bind_entry(cfg.index, cfg.sub_index, cfg.data_type, slave, parser, path);
     }
 
@@ -196,7 +187,7 @@ struct Input final : Channel {
         const x::json::Parser &parser,
         const std::string &path = ""
     ):
-        Channel(slave, true, cfg.disabled, cfg.device), synnax_key(cfg.channel) {
+        Channel(slave, true, cfg.disabled), synnax_key(cfg.channel) {
         this->reject_unresolved(cfg.pdo, slave, parser, path);
     }
 
@@ -228,7 +219,7 @@ struct Output final : Channel {
         const x::json::Parser &parser,
         const std::string &path = ""
     ):
-        Channel(slave, false, cfg.disabled, cfg.device),
+        Channel(slave, false, cfg.disabled),
         command_key(cfg.cmd_channel),
         state_key(cfg.state_channel),
         stop_value(cfg.stop_value) {
@@ -242,7 +233,7 @@ struct Output final : Channel {
         const x::json::Parser &parser,
         const std::string &path = ""
     ):
-        Channel(slave, false, cfg.disabled, cfg.device),
+        Channel(slave, false, cfg.disabled),
         command_key(cfg.cmd_channel),
         state_key(cfg.state_channel) {
         this->reject_unresolved(cfg.pdo, slave, parser, path);
