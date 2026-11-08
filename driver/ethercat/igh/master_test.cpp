@@ -738,6 +738,20 @@ TEST_F(IGHMasterTest, DeactivateDoesNothingBeforeScan) {
     this->master.deactivate();
     EXPECT_FALSE(this->api->released);
 }
+/// @brief it should create a master only for a key of the form igh:N.
+TEST(IGHManagerTest, CreateRejectsAKeyThatIsNotOfTheFormIghN) {
+    Manager manager(std::make_shared<MockAPI>());
+    for (const std::string key: {"igh:", "igh:x", "igh:1x", "igh:-1", "eth0"}) {
+        auto res = manager.create(key);
+        EXPECT_EQ(
+            res.second.data,
+            "invalid IgH master key '" + key + "': expected format 'igh:N'"
+        );
+        ASSERT_OCCURRED_AS_P(std::move(res), errors::MASTER_INIT_ERROR);
+    }
+    EXPECT_NE(ASSERT_NIL_P(manager.create("igh:2")), nullptr);
+}
+
 namespace {
 /// @brief an IgH master on its mock for the master contract.
 class Bus {
