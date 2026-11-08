@@ -30,8 +30,6 @@
 namespace driver::ethercat::engine {
 /// @brief Configuration for the Engine.
 struct Config {
-    /// @brief maximum allowed cycle overrun before logging a warning.
-    x::telem::TimeSpan max_overrun = x::telem::TimeSpan(0);
     /// @brief real-time thread configuration for the cycle thread.
     x::thread::rt::Config rt;
     /// @brief optional RT handle from the Manager. When set, the engine calls
@@ -273,17 +271,10 @@ public:
 
         /// @brief creates a transaction for writing multiple PDO entries under a lock.
         [[nodiscard]] Transaction open_tx() const;
-
-        /// @brief writes a value to a specific PDO entry by index.
-        [[nodiscard]] x::errors::Error
-        write(size_t pdo_index, const x::telem::SampleValue &value) const;
     };
 
-    /// @brief constructs an Engine with the given master and configuration.
-    explicit Engine(std::shared_ptr<master::Master> master, Config config);
-
-    /// @brief constructs an Engine with the given master using default configuration.
-    explicit Engine(std::shared_ptr<master::Master> master);
+    /// @brief constructs an Engine that runs the bus of master.
+    explicit Engine(std::shared_ptr<master::Master> master, Config config = {});
 
     ~Engine();
 
@@ -318,9 +309,6 @@ public:
 
     /// @brief returns true while the bus runs.
     [[nodiscard]] bool running() const { return this->bus.running(); }
-
-    /// @brief returns the engine configuration.
-    [[nodiscard]] const Config &cfg() const { return this->config; }
 
     /// @brief returns the rate the bus cycles at, or zero when it is not running.
     [[nodiscard]] x::telem::Rate cycle_rate() const;

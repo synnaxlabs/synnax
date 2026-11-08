@@ -17,7 +17,8 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/ethercat",
-        "//driver/ethercat/master",
+        "//driver/ethercat/pdo",
+        "//driver/ethercat/slave",
         "//driver/ethercat/telem",
         "//x/cpp/json",
         "//x/cpp/telem",

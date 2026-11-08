@@ -60,12 +60,6 @@ public:
     /// @brief returns scanner configuration for common::ScanTask.
     [[nodiscard]] common::ScannerConfig config() const override;
 
-    /// @brief lifecycle method called when the scan task starts.
-    x::errors::Error start() override;
-
-    /// @brief lifecycle method called when the scan task stops.
-    x::errors::Error stop() override;
-
     /// @brief periodic scan method to discover networks and slaves. Returns
     /// common::PARTIAL_SCAN_ERROR, naming each interface it could not scan, with the
     /// slaves of the others.
