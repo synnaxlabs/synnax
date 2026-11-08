@@ -11,6 +11,7 @@
 #include <array>
 #include <charconv>
 #include <format>
+#include <optional>
 #include <string_view>
 #include <system_error>
 
@@ -59,7 +60,7 @@ read_layout(const API &api, ec_master_t *master, const uint16_t position) {
     );
 }
 
-/// Time between reads of the slave states while the slaves move to OP.
+/// @brief the time between reads of the slave states while the slaves move to OP.
 const auto OP_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 
 /// @brief returns the state that a slave in state moves to next on its way to OP.
@@ -77,6 +78,37 @@ std::string next_state(const slave::State state) {
 /// @brief returns the IgH ring position, which counts from 0, of the slave at position.
 uint16_t ring_position(const uint16_t position) {
     return position - 1;
+}
+
+/// @brief returns errors::SLAVE_CONFIG_ERROR when config enables slave in a mode that
+/// the IgH master cannot run.
+x::errors::Error
+check_op_mode(const slave::Properties &slave, const slave::Config &config) {
+    if (!config.enabled || !config.op_mode) return x::errors::NIL;
+    const auto err = config.op_mode->assign_activate != 0
+                       ? x::errors::Error(
+                             errors::SLAVE_CONFIG_ERROR,
+                             "the IgH master does not run DC sync"
+                         )
+                       : dc::check_cycles({}, config.op_mode->cycles);
+    if (!err) return x::errors::NIL;
+    return x::errors::Error(
+        errors::SLAVE_CONFIG_ERROR,
+        std::format(
+            "slave {} ({}) cannot use its chosen mode: {}",
+            slave.position,
+            slave.name,
+            err.data
+        )
+    );
+}
+
+/// @brief returns s as a decimal number, or nullopt when s holds anything else.
+std::optional<unsigned int> parse_index(const std::string_view s) {
+    unsigned int index = 0;
+    const auto [end, ec] = std::from_chars(s.data(), s.data() + s.size(), index);
+    if (ec != std::errc{} || end != s.data() + s.size()) return std::nullopt;
+    return index;
 }
 }
 
@@ -149,7 +181,10 @@ x::errors::Error Master::initialize() {
         result.properties.serial = slave_info.serial_number;
         result.properties.name = slave_info.name;
         result.status.state = slave::State::INIT;
-        this->discover_slave_pdos(result, slave_info.sync_count);
+        for (uint8_t sm = 0; sm < slave_info.sync_count; ++sm)
+            this->append_scanned_pdos(result.properties, sm);
+        result.status.pdos_discovered = true;
+        esi::fill(result);
         this->cached_slaves.push_back(std::move(result));
     }
 
@@ -226,32 +261,21 @@ master::Activation Master::activate(
         return {.err = x::errors::Error(errors::ACTIVATION_ERROR, "not initialized")};
     if (this->activated)
         return {.err = x::errors::Error(errors::ACTIVATION_ERROR, "already activated")};
+    const auto config_of = [&plan](const uint16_t pos) {
+        const auto it = plan.slaves.find(pos);
+        return it == plan.slaves.end() ? slave::Config{} : it->second;
+    };
+    for (const auto &slave: this->cached_slaves)
+        if (auto err = check_op_mode(
+                slave.properties,
+                config_of(slave.properties.position)
+            ))
+            return {.err = err};
     master::Image image;
     for (const auto &slave: this->cached_slaves) {
         const auto pos = slave.properties.position;
-        const auto it = plan.slaves.find(pos);
-        const auto config = it == plan.slaves.end() ? slave::Config{} : it->second;
+        const auto config = config_of(pos);
         if (!config.enabled) continue;
-        if (config.op_mode) {
-            const auto err = config.op_mode->assign_activate != 0
-                               ? x::errors::Error(
-                                     errors::SLAVE_CONFIG_ERROR,
-                                     "the IgH master does not run DC sync"
-                                 )
-                               : dc::check_cycles({}, config.op_mode->cycles);
-            if (err)
-                return {
-                    .err = x::errors::Error(
-                        errors::SLAVE_CONFIG_ERROR,
-                        std::format(
-                            "slave {} ({}) cannot use its chosen mode: {}",
-                            pos,
-                            slave.properties.name,
-                            err.data
-                        )
-                    )
-                };
-        }
         auto *sc = this->api->master_slave_config(
             this->ec_master,
             0,
@@ -459,7 +483,6 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
     if (!assignable(true) && !assignable(false)) return x::errors::NIL;
     std::vector<std::vector<ec_pdo_entry_info_t>> entry_infos;
     std::vector<std::vector<ec_pdo_info_t>> pdo_infos;
-    pdo_infos.reserve(syncs.size());
     std::vector<ec_sync_info_t> sync_infos;
     std::vector<uint8_t> empty_syncs;
     std::vector<uint16_t> empty_pdos;
@@ -616,16 +639,6 @@ void Master::append_scanned_pdos(slave::Properties &props, const uint8_t sync_in
     }
 }
 
-void Master::discover_slave_pdos(
-    slave::DiscoveryResult &slave,
-    const uint8_t sync_count
-) {
-    for (uint8_t sm = 0; sm < sync_count; ++sm)
-        this->append_scanned_pdos(slave.properties, sm);
-    slave.status.pdos_discovered = true;
-    esi::fill(slave);
-}
-
 std::pair<std::unique_ptr<Manager>, x::errors::Error> Manager::open() {
     struct stat st{};
     if (stat(DEVICE_PATH, &st) != 0)
@@ -646,18 +659,11 @@ std::vector<master::Info> Manager::enumerate() {
     while (const dirent *entry = readdir(dir)) {
         const std::string_view name = entry->d_name;
         if (!name.starts_with(prefix)) continue;
-        const auto digits = name.substr(prefix.size());
-        int index = 0;
-        const auto [end, ec] = std::from_chars(
-            digits.data(),
-            digits.data() + digits.size(),
-            index
-        );
-        if (digits.empty() || ec != std::errc{} || end != digits.data() + digits.size())
-            continue;
+        const auto index = parse_index(name.substr(prefix.size()));
+        if (!index) continue;
         masters.push_back({
-            .key = "igh:" + std::to_string(index),
-            .description = "IgH EtherCAT Master " + std::to_string(index),
+            .key = "igh:" + std::to_string(*index),
+            .description = "IgH EtherCAT Master " + std::to_string(*index),
         });
     }
     closedir(dir);
@@ -667,17 +673,10 @@ std::vector<master::Info> Manager::enumerate() {
 std::pair<std::shared_ptr<master::Master>, x::errors::Error>
 Manager::create(const std::string &key) {
     constexpr std::string_view prefix = "igh:";
-    const auto digits = std::string_view(key).substr(
-        std::min(key.size(), prefix.size())
-    );
-    unsigned int index = 0;
-    const auto [end, ec] = std::from_chars(
-        digits.data(),
-        digits.data() + digits.size(),
-        index
-    );
-    if (!key.starts_with(prefix) || digits.empty() || ec != std::errc{} ||
-        end != digits.data() + digits.size())
+    const auto index = key.starts_with(prefix)
+                         ? parse_index(std::string_view(key).substr(prefix.size()))
+                         : std::nullopt;
+    if (!index)
         return {
             nullptr,
             x::errors::Error(
@@ -685,6 +684,6 @@ Manager::create(const std::string &key) {
                 "invalid IgH master key '" + key + "': expected format 'igh:N'"
             )
         };
-    return {std::make_shared<Master>(this->api, index), x::errors::NIL};
+    return {std::make_shared<Master>(this->api, *index), x::errors::NIL};
 }
 }

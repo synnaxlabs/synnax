@@ -90,10 +90,12 @@ public:
 
     std::pair<size_t, x::errors::Error> count_slaves() override;
 
-    /// @brief does what master::Master::activate does, but ignores the period and
-    /// starts no DC sync yet, so a slave that needs DC sync refuses SAFE-OP. The IgH
-    /// master moves the slaves to OP on its own, so a slave that has its AL error flag
-    /// set at Config::op_timeout counts as a refusal.
+    /// @brief does what master::Master::activate does, but ignores the period and runs
+    /// no DC sync, so a slave that needs DC sync refuses SAFE-OP. Returns
+    /// errors::SLAVE_CONFIG_ERROR, before it configures any slave, when the chosen mode
+    /// of a slave is one that the IgH master cannot run. The IgH master moves the
+    /// slaves to OP on its own, so a slave that has its AL error flag set at
+    /// Config::op_timeout counts as a refusal.
     master::Activation activate(
         const master::Plan &plan,
         const std::function<void(const master::Image &)> &start_cycle
@@ -150,7 +152,6 @@ private:
 
     /// @brief discovers the PDO entries of a slave from the layout IgH scanned for its
     /// sync_count sync managers.
-    void discover_slave_pdos(slave::DiscoveryResult &slave, uint8_t sync_count);
 
     /// @brief appends the PDO entries that IgH scanned for a sync manager of a slave.
     void append_scanned_pdos(slave::Properties &props, uint8_t sync_index);
