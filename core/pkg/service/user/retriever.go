@@ -32,7 +32,7 @@ func MatchUsernames(usernames ...string) Filter {
 			if err := r.password.NewRetrieve().
 				Where(password.MatchUsernames(usernames...)).
 				Entries(&passwords).
-				Exec(ctx, ctx.Tx); err != nil {
+				Exec(ctx, ctx.Snapshot); err != nil {
 				return nil, err
 			}
 			keys := make([]Key, 0, len(passwords))

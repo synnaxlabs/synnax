@@ -81,17 +81,17 @@ func populateErr(name string, err error) error {
 	return errors.Wrapf(ErrIndexInvalid, "%q", name)
 }
 
-// scopeOf returns the per-tx state of tx, or nil when tx is nil or is not a real
+// scopeOf returns the per-tx state of snap, or nil when snap is nil or is not a real
 // transaction.
-func scopeOf(tx Tx) *txState {
-	if tx == nil {
+func scopeOf(snap Snapshot) *txState {
+	if snap == nil {
 		return nil
 	}
-	return tx.txIdentity()
+	return snap.txIdentity()
 }
 
 // probe returns the keys that store maps to any of values, with the changes staged
-// against tx applied. A read outside a transaction can run after a commit writes and
+// against snap applied. A read outside a transaction can run after a commit writes and
 // before its index changes apply, so probe also includes the keys of each commit in
 // flight. Such a commit can fail, so a caller checks each key against storage.
 //
@@ -99,14 +99,14 @@ func scopeOf(tx Tx) *txState {
 func probe[K Key, V comparable](
 	ctx context.Context,
 	store indexStore[K, V],
-	tx Tx,
+	snap Snapshot,
 	values []V,
 ) ([]K, error) {
 	if err := store.Wait(ctx); err != nil {
 		return nil, err
 	}
 	committing := store.Committing(values...)
-	keys, err := store.Get(scopeOf(tx), values...)
+	keys, err := store.Get(scopeOf(snap), values...)
 	if err != nil || len(committing) == 0 {
 		return keys, err
 	}
@@ -123,9 +123,9 @@ func indexFilter[K Key, E Entry[K], V comparable](
 ) Filter[K, E] {
 	captured := lo.Uniq(values)
 	return Filter[K, E]{
-		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
 			// eval drops the keys of a commit in flight that fails.
-			keys, err := probe(ctx, store, tx, captured)
+			keys, err := probe(ctx, store, snap, captured)
 			if errors.Is(err, ErrIndexInvalid) {
 				return resolved[K, E]{}, nil
 			}
@@ -201,17 +201,17 @@ func (l *LookupIndex[K, E, V]) stageDelete(tx Tx, key K) {
 
 // Get returns the primary keys of entries whose indexed field matches any of the
 // provided values, merging committed index state with any per-tx delta staged against
-// tx. Pass a nil tx to read committed state only. Get includes the keys of a commit in
-// flight, which can fail, so check each key against storage.
+// snap. Pass a nil snap to read committed state only. Get includes the keys of a commit
+// in flight, which can fail, so check each key against storage.
 //
 // Get waits for the index to populate, or for ctx to end. It returns ErrIndexInvalid
 // if population failed. The caller owns the returned slice.
 func (l *LookupIndex[K, E, V]) Get(
 	ctx context.Context,
-	tx Tx,
+	snap Snapshot,
 	values ...V,
 ) ([]K, error) {
-	return probe(ctx, l.store, tx, values)
+	return probe(ctx, l.store, snap, values)
 }
 
 // Filter returns a Filter[K, E] matching entries whose indexed field is any of values.
@@ -289,10 +289,10 @@ func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
 // provided values. See LookupIndex.Get for its contract.
 func (s *SortedIndex[K, E, V]) Get(
 	ctx context.Context,
-	tx Tx,
+	snap Snapshot,
 	values ...V,
 ) ([]K, error) {
-	return probe(ctx, s.store, tx, values)
+	return probe(ctx, s.store, snap, values)
 }
 
 // Filter returns an exact-match Filter[K, E] matching entries whose indexed field is

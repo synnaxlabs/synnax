@@ -42,7 +42,7 @@ type registeredReference interface {
 	onDeletePolicy() OnDelete
 	targetTables() []string
 	// dependents returns the text keys of the entries that hold target.
-	dependents(ctx context.Context, tx Tx, target Target) ([]string, error)
+	dependents(ctx context.Context, snap Snapshot, target Target) ([]string, error)
 }
 
 // detachOp removes target from the reference at index ref of an entry.
@@ -184,12 +184,12 @@ func (r *registry) referencesTo(table string) []registeredReference {
 // dependents returns the entries that hold target through any registered reference.
 func (r *registry) dependents(
 	ctx context.Context,
-	tx Tx,
+	snap Snapshot,
 	target Target,
 ) ([]Target, error) {
 	var out []Target
 	for _, ref := range r.referencesTo(target.Table) {
-		keys, err := ref.dependents(ctx, tx, target)
+		keys, err := ref.dependents(ctx, snap, target)
 		if err != nil {
 			return nil, err
 		}
