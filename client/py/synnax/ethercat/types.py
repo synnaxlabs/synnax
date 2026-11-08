@@ -13,8 +13,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
 
-from synnax import device, task
-from synnax import rack as rack_
+from synnax import device, rack as rack_, task
 from synnax.ethercat.types_gen import (
     ReadChannel,
     ReadConfig,

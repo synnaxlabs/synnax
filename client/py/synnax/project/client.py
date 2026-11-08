@@ -13,8 +13,7 @@ from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, FileTransport, UnaryClient
-from synnax import group as group_
-from synnax import imex
+from synnax import group as group_, imex
 from synnax.project.types_gen import (
     Key,
     Project,
