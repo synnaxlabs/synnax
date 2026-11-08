@@ -53,11 +53,11 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 )
 
 // graphNodeSpec describes a graph node along with its function type and configuration
@@ -90,32 +90,6 @@ func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.AutomationArc, err
 
 var errCommit = errors.New("commit failed")
 
-// commitHook replaces each commit made under a context that carries it. commit applies
-// the transaction.
-type commitHook func(commit func() error) error
-
-type commitHookKey struct{}
-
-func withCommitHook(ctx context.Context, hook commitHook) context.Context {
-	return context.WithValue(ctx, commitHookKey{}, hook)
-}
-
-// hookedKV is a kv.DB whose transactions commit through the commitHook of the commit's
-// context, if it has one.
-type hookedKV struct{ kv.DB }
-
-func (d hookedKV) OpenTx() kv.Tx { return hookedTx{Tx: d.DB.OpenTx()} }
-
-type hookedTx struct{ kv.Tx }
-
-func (t hookedTx) Commit(ctx context.Context, opts ...any) error {
-	commit := func() error { return t.Tx.Commit(ctx, opts...) }
-	if hook, ok := ctx.Value(commitHookKey{}).(commitHook); ok {
-		return hook(commit)
-	}
-	return commit()
-}
-
 var _ = Describe("Task", Ordered, func() {
 	var (
 		db            *gorp.DB
@@ -131,7 +105,7 @@ var _ = Describe("Task", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		st := DeferClose(storagetestutil.OpenLayer(ctx))
 		node := testutil.NewNode(ctx, distribution.LayerConfig{
-			Storage: &storage.Layer{KV: hookedKV{DB: st.KV}, TS: st.TS},
+			Storage: &storage.Layer{KV: hookkv.Wrap(st.KV), TS: st.TS},
 		})
 		db = node.DB
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -1080,7 +1054,7 @@ var _ = Describe("Task", Ordered, func() {
 				ch := createVirtualCh(ctx, "start_unanswered", telem.Float32T)
 				t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 				DeferCleanup(func() { Expect(t.Stop(false)).To(Succeed()) })
-				cmdCtx := withCommitHook(
+				cmdCtx := hookkv.WithHook(
 					ctx,
 					func(func() error) error { return errCommit },
 				)
@@ -1103,7 +1077,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				createTask(ctx, svcTask)
 				cmdCtx, cancel := context.WithCancel(ctx)
-				cmdCtx = withCommitHook(cmdCtx, func(commit func() error) error {
+				cmdCtx = hookkv.WithHook(cmdCtx, func(commit func() error) error {
 					err := commit()
 					cancel()
 					return err
