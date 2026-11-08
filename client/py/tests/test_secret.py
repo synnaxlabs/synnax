@@ -118,7 +118,9 @@ class TestSecret:
     def test_retrieve_missing(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when no secret has the key."""
         key = uuid4()
-        with pytest.raises(sy.NotFoundError, match=rf"Secret matching .*{key}"):
+        with pytest.raises(
+            sy.NotFoundError, match=f'Found no secret where key = "{key}"'
+        ):
             client.secrets.retrieve(key)
 
     def test_rename(self, client: sy.Synnax) -> None:
@@ -144,5 +146,7 @@ class TestSecret:
         )
         client.secrets.delete([s.key for s in secrets])
         key = secrets[0].key
-        with pytest.raises(sy.NotFoundError, match=rf"Secret matching .*{key}"):
+        with pytest.raises(
+            sy.NotFoundError, match=f'Found no secret where key = "{key}"'
+        ):
             client.secrets.retrieve(key)

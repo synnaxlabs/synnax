@@ -21,6 +21,7 @@
 #include "client/cpp/task/types.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/json/json.h"
 
 #include "core/pkg/api/task/pb/task.pb.h"
@@ -47,13 +48,6 @@ using RetrieveClient = freighter::
 using DeleteClient = freighter::
     UnaryClient<grpc::task::DeleteRequest, google::protobuf::Empty>;
 
-/// @brief Returns a unique status key for a task.
-/// @param task The task.
-/// @returns A unique key for status updates, derived from the task key.
-inline std::string status_key(const Task &task) {
-    return ontology_id(task.key).string();
-}
-
 /// @brief Stream output operator for Task.
 /// @param os The output stream.
 /// @param task The task to output.
@@ -69,12 +63,6 @@ inline std::ostream &operator<<(std::ostream &os, const Task &task) {
 inline std::ostream &operator<<(std::ostream &os, const Command &cmd) {
     return os << cmd.type << " (task=" << cmd.task << ",key=" << cmd.key << ")";
 }
-
-/// @brief Options for retrieving tasks.
-struct RetrieveOptions {
-    /// @brief Whether to include status information in the retrieved tasks.
-    bool include_status = false;
-};
 
 /// @brief Client for managing tasks on a specific rack.
 class Client {
@@ -100,105 +88,59 @@ public:
     [[nodiscard]]
     x::errors::Error create(Task &task) const;
 
-    /// @brief Retrieves a task by its key.
-    /// @param key The key of the task to retrieve.
-    /// @returns A pair containing the retrieved task and an error if one occurred.
-    [[nodiscard]]
-    std::pair<Task, x::errors::Error> retrieve(Key key) const;
-
-    /// @brief Retrieves a task by its key with options.
-    /// @param key The key of the task to retrieve.
-    /// @param options Options for the retrieval.
-    /// @returns A pair containing the retrieved task and an error if one occurred.
+    /// @brief retrieves the task with the given key.
+    /// @param key the key of the task.
+    /// @param options the options of the retrieve.
+    /// @returns the task, and an error that matches NOT_FOUND when no task has the key.
     [[nodiscard]]
     std::pair<Task, x::errors::Error>
-    retrieve(Key key, const RetrieveOptions &options) const;
+    retrieve(Key key, const RetrieveOptions &options = {}) const;
 
-    /// @brief Retrieves a task by its type.
-    /// @param type The type of the task to retrieve.
-    /// @returns A pair containing the retrieved task and an error if one occurred.
-    [[nodiscard]]
-    std::pair<Task, x::errors::Error> retrieve_by_type(const std::string &type) const;
-
-    /// @brief Retrieves a task by its type with options.
-    /// @param type The type of the task to retrieve.
-    /// @param options Options for the retrieval.
-    /// @returns A pair containing the retrieved task and an error if one occurred.
+    /// @brief retrieves the task with the given name.
+    /// @param name the name of the task.
+    /// @param options the options of the retrieve.
+    /// @returns the task, and an error that matches NOT_FOUND when no task has the
+    /// name, or MULTIPLE_RESULTS when more than one does.
     [[nodiscard]]
     std::pair<Task, x::errors::Error>
-    retrieve_by_type(const std::string &type, const RetrieveOptions &options) const;
+    retrieve(const std::string &name, const RetrieveOptions &options = {}) const;
 
-    /// @brief Retrieves a task by its name.
-    /// @param name The name of the task to retrieve.
-    /// @returns A pair containing the retrieved task and an error if one occurred.
-    [[nodiscard]]
-    std::pair<Task, x::errors::Error> retrieve(const std::string &name) const;
-
-    /// @brief Retrieves a task by its name with options.
-    /// @param name The name of the task to retrieve.
-    /// @param options Options for the retrieval.
-    /// @returns A pair containing the retrieved task and an error if one occurred.
-    [[nodiscard]]
-    std::pair<Task, x::errors::Error>
-    retrieve(const std::string &name, const RetrieveOptions &options) const;
-
-    /// @brief Retrieves multiple tasks by their names.
-    /// @param names The names of the tasks to retrieve.
-    /// @returns A pair containing the retrieved tasks and an error if one occurred.
-    [[nodiscard]]
-    std::pair<std::vector<Task>, x::errors::Error>
-    retrieve(const std::vector<std::string> &names) const;
-
-    /// @brief Retrieves multiple tasks by their names with options.
-    /// @param names The names of the tasks to retrieve.
-    /// @param options Options for the retrieval.
-    /// @returns A pair containing the retrieved tasks and an error if one occurred.
+    /// @brief retrieves the tasks with the given names.
+    /// @param names the names of the tasks.
+    /// @param options the options of the retrieve.
     [[nodiscard]]
     std::pair<std::vector<Task>, x::errors::Error> retrieve(
         const std::vector<std::string> &names,
-        const RetrieveOptions &options
+        const RetrieveOptions &options = {}
     ) const;
 
-    /// @brief Retrieves multiple tasks by their types.
-    /// @param types The types of the tasks to retrieve.
-    /// @returns A pair containing the retrieved tasks and an error if one occurred.
+    /// @brief retrieves the tasks that where selects, on the rack of the client when
+    /// it has one.
+    /// @param where the filter that the tasks match. An empty filter matches all tasks.
+    /// @param options the options of the retrieve.
     [[nodiscard]]
     std::pair<std::vector<Task>, x::errors::Error>
-    retrieve_by_type(const std::vector<std::string> &types) const;
+    retrieve(const Where &where, const RetrieveOptions &options = {}) const;
 
-    /// @brief Retrieves multiple tasks by their types with options.
-    /// @param types The types of the tasks to retrieve.
-    /// @param options Options for the retrieval.
-    /// @returns A pair containing the retrieved tasks and an error if one occurred.
+    /// @brief retrieves the one task that where selects, on the rack of the client when
+    /// it has one.
+    /// @param where the filter that the task matches.
+    /// @param options the options of the retrieve.
+    /// @returns the task, and an error that matches NOT_FOUND when no task matches,
+    /// MULTIPLE_RESULTS when more than one does, or VALIDATION when options set a limit
+    /// or an offset.
     [[nodiscard]]
-    std::pair<std::vector<Task>, x::errors::Error> retrieve_by_type(
-        const std::vector<std::string> &types,
-        const RetrieveOptions &options
+    std::pair<Task, x::errors::Error> retrieve(
+        const Where &where,
+        x::filter::One,
+        const RetrieveOptions &options = {}
     ) const;
-
-    /// @brief Retrieves the tasks that req selects, on this client's rack when it has
-    /// one.
-    [[nodiscard]]
-    std::pair<std::vector<Task>, x::errors::Error>
-    retrieve(const RetrieveRequest &req) const;
 
     /// @brief Deletes a task by its key.
     /// @param key The key of the task to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
     x::errors::Error del(Key key) const;
-
-    /// @brief Lists all tasks on the rack.
-    /// @returns A pair containing the list of tasks and an error if one occurred.
-    [[nodiscard]]
-    std::pair<std::vector<Task>, x::errors::Error> list() const;
-
-    /// @brief Lists all tasks on the rack with options.
-    /// @param options Options for the retrieval.
-    /// @returns A pair containing the list of tasks and an error if one occurred.
-    [[nodiscard]]
-    std::pair<std::vector<Task>, x::errors::Error>
-    list(const RetrieveOptions &options) const;
 
     [[nodiscard]] Client scope_to_rack(const rack::Key &rack_key) const {
         auto c = *this;
@@ -207,10 +149,6 @@ public:
     }
 
 private:
-    [[nodiscard]]
-    std::pair<Task, x::errors::Error>
-    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
-
     /// @brief Key of rack that this client belongs to.
     rack::Key rack{};
     /// @brief Task creation transport.

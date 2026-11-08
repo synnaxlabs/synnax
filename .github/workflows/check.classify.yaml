@@ -172,7 +172,8 @@ jobs:
             echo skipped > "out/surface-$SURFACE/status"
             exit 0
           fi
-          git worktree add --detach ../base "$BASE"
+          # No surface reads a Git LFS file, so the base takes no LFS download.
+          GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach ../base "$BASE"
           .github/scripts/surface.sh "$SURFACE" ../base . "out/surface-$SURFACE"
 
       - name: Report no change

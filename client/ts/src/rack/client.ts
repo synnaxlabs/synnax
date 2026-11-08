@@ -8,19 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, deep } from "@synnaxlabs/x";
+import { array, deep, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { type role } from "@/access/role";
+import { group } from "@/group";
 import { query } from "@/query";
 import {
   type Key,
   keyZ,
   type New,
   newZ,
-  ontologyID,
   type Payload,
   payloadZ,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -36,10 +37,10 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
-const retrieveMultiParamsZ = z.union([
+const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
-]);
+);
 export const rackZ = payloadZ;
 
 const singleRetrieveParamsZ = z.union([
@@ -91,22 +92,11 @@ const singleQueryZ = z
 /** The table never holds statuses; the status table is their single home. */
 const stripStatus = ({ status: _, ...rack }: Payload): Omit<Payload, "status"> => rack;
 
-// Rack statuses live in the status table under the "rack:<key>" status key.
-const affectedRackKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): Key[] | null => {
-  const [type, key] = event.key.split(":");
-  if (type !== "rack") return null;
-  const parsed = keyZ.safeParse(Number(key));
-  return parsed.success ? [parsed.data] : null;
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   tasks: task.Client;
   cache: query.Cache;
-  statusStore: query.Table<status.Key, status.Status>;
-  ontology: ontology.Client;
+  statuses: status.Client;
 }
 
 export class Client extends query.Retriever<
@@ -120,9 +110,14 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
+  /** Builds requests that move racks between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, statusStore } = cfg;
+    const { cache, statuses } = cfg;
+    const statusStore = statuses.store;
+    const affectedRackKeys = (event: query.TableEvent<status.Key, status.Status>) =>
+      statuses.ownerKeys(event, "rack")?.map(Number) ?? null;
     const store = cache.createTable<Key, Omit<Payload, "status">>({
       name: "racks",
       fetch: async (keys) =>
@@ -175,14 +170,14 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/rack/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -198,10 +193,7 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
@@ -216,7 +208,7 @@ export class Client extends query.Retriever<
   async create(rack: New | New[]): Promise<Rack | Rack[]> {
     const isSingle = !Array.isArray(rack);
     // A status streamed during the request is newer than the reply.
-    const since = this.cfg.statusStore.stamp();
+    const since = this.cfg.statuses.store.stamp();
     const res = await this.cfg.unary.send(
       "/rack/create",
       { racks: array.toArray(rack) },
@@ -224,7 +216,7 @@ export class Client extends query.Retriever<
       createResZ,
     );
     res.racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st, { since });
+      if (st != null) this.cfg.statuses.store.ingest(st, { since });
     });
     this.store.set(res.racks.map(stripStatus));
     const sugared = this.sugar(res.racks);
@@ -238,8 +230,18 @@ export class Client extends query.Retriever<
     const sugared = array
       .toArray(payloads)
       .map(
-        ({ key, name, status, integrations, embedded }) =>
-          new Rack(key, name, this.cfg.tasks, status, integrations, embedded),
+        ({ key, name, status, integrations, embedded, version, group: g, roles }) =>
+          new Rack(
+            key,
+            name,
+            this.cfg.tasks,
+            status,
+            integrations,
+            embedded,
+            version,
+            g,
+            roles,
+          ),
       );
     return isSingle ? sugared[0] : sugared;
   }
@@ -251,10 +253,8 @@ export class Client extends query.Retriever<
     return this.sugar({ ...cached, status: st });
   }
 
-  // Only the "rack:<key>" row is the rack's status. Task statuses name their rack in
-  // their details, and matching on that would let them take the rack's status over.
   private statusOf(key: Key): Status | undefined {
-    const parsed = statusZ.safeParse(this.cfg.statusStore.get(statusKey(key)));
+    const parsed = statusZ.safeParse(this.cfg.statuses.ownedBy(resourceID(key)));
     return parsed.success ? parsed.data : undefined;
   }
 
@@ -270,11 +270,11 @@ export class Client extends query.Retriever<
 
   private async fetchThrough(req: RetrieveParams): Promise<Payload[]> {
     const since = this.store.stamp();
-    const statusSince = this.cfg.statusStore.stamp();
+    const statusSince = this.cfg.statuses.store.stamp();
     const racks = await this.execRetrieve(req);
     this.store.ingest(racks.map(stripStatus), { since });
     racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st, { since: statusSince });
+      if (st != null) this.cfg.statuses.store.ingest(st, { since: statusSince });
     });
     return racks;
   }
@@ -284,11 +284,17 @@ export class Client extends query.Retriever<
     // queries can be served from it.
     if ("key" in q && q.includeStatus !== true) {
       const racks = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults("Rack", q, racks, true);
+      checkForMultipleOrNoResults(
+        "rack",
+        { where: { key: { eq: q.key } } },
+        racks,
+        true,
+      );
       return this.sugar(racks[0]);
     }
     const racks = await this.fetchThrough(q);
-    checkForMultipleOrNoResults("Rack", q, racks, true);
+    const where = "key" in q ? { key: { eq: q.key } } : { name: { eq: q.name } };
+    checkForMultipleOrNoResults("rack", { where }, racks, true);
     return this.sugar(racks[0]);
   }
 }
@@ -299,6 +305,9 @@ export class Rack {
   status?: Status;
   integrations: string[];
   embedded: boolean;
+  version?: string;
+  group?: group.Key;
+  roles: role.Key[];
   private readonly tasks: task.Client;
 
   constructor(
@@ -308,6 +317,9 @@ export class Rack {
     status?: Status,
     integrations: string[] = [],
     embedded: boolean = false,
+    version?: string,
+    groupKey?: group.Key,
+    roles: role.Key[] = [],
   ) {
     this.key = key;
     this.name = name;
@@ -315,6 +327,9 @@ export class Rack {
     this.status = status;
     this.integrations = integrations;
     this.embedded = embedded;
+    this.version = version;
+    this.group = groupKey;
+    this.roles = roles;
   }
 
   async listTasks(): Promise<task.Task[]> {
@@ -346,8 +361,9 @@ export class Rack {
       status: this.status,
       integrations: this.integrations,
       embedded: this.embedded,
+      version: this.version,
+      group: this.group,
+      roles: this.roles,
     };
   }
 }
-
-export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));

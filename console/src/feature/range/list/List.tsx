@@ -45,7 +45,7 @@ export interface ListProps
 
 const EmptyContent = () => {
   const openCreate = Range.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No ranges found"
@@ -171,7 +171,7 @@ const contextMenu = Component.renderProp<Menu.ContextMenuMenuProps>((p) => (
 
 const AddButton = (): ReactElement | null => {
   const openCreate = Range.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   if (!hasCreatePermission) return null;
   return (
     <Button.Button tooltip="Create range" onClick={() => openCreate()} variant="filled">

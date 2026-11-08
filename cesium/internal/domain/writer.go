@@ -390,9 +390,9 @@ func (w *Writer) Close() error {
 		return err
 	}
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
-		w.idx.mu.RLock()
+		w.idx.mu.Lock()
 		write := w.idx.indexPersist.prepare(w.idx.persistHead)
-		w.idx.mu.RUnlock()
+		w.idx.mu.Unlock()
 		return write.run()
 	}
 	return nil

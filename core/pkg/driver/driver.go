@@ -488,7 +488,7 @@ func (d *Driver) resolveKey(ctx context.Context) (string, error) {
 				APIKeyCredentials: auth.APIKeyCredentials{Key: saved},
 			},
 		})
-		if err == nil && id.Subject == d.cfg.RackKey.OntologyID() {
+		if err == nil && id.Subject == d.cfg.RackKey.ResourceID() {
 			return saved, nil
 		}
 		if err != nil && !errors.Is(err, auth.ErrInvalidCredentials) {
@@ -497,7 +497,7 @@ func (d *Driver) resolveKey(ctx context.Context) (string, error) {
 	}
 	created, token, err := d.cfg.Keys.NewWriter(nil).Create(
 		ctx,
-		d.cfg.RackKey.OntologyID(),
+		d.cfg.RackKey.ResourceID(),
 		apiKeyName,
 	)
 	if err != nil {

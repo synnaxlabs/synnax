@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, panel, status } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -96,7 +96,7 @@ describe("ErrorDiagnostics", () => {
       name: "fridge_schem",
       root: { variant: "leaf", tabs: [] },
     });
-    await client.panels.create({ ...doc, parent: await createPanelParent(client) });
+    await client.panels.create({ ...doc, project: await createPanelProject(client) });
     // Prime the query cache the way the mosaic's retrieve does.
     await client.panels.retrieve(doc.key);
     render(
@@ -120,7 +120,7 @@ describe("ErrorDiagnostics", () => {
       name: "fridge_schem",
       root: { variant: "leaf", tabs: [] },
     });
-    await client.panels.create({ ...doc, parent: await createPanelParent(client) });
+    await client.panels.create({ ...doc, project: await createPanelProject(client) });
     await client.panels.retrieve(doc.key);
     render(
       <Errors.Boundary panelKey={doc.key}>

@@ -29,7 +29,6 @@ namespace synnax::task {
 
 inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
     return StatusDetails{
-        .task = parser.field<Key>("task"),
         .running = parser.field<bool>("running"),
         .cmd = parser.field<std::string>("cmd", ""),
         .config_hash = parser.field<std::string>("config_hash", ""),
@@ -40,7 +39,6 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 
 inline x::json::json StatusDetails::to_json() const {
     x::json::json j = x::json::json::object();
-    j["task"] = this->task.to_json();
     j["running"] = this->running;
     j["cmd"] = this->cmd;
     j["config_hash"] = this->config_hash;

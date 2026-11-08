@@ -14,7 +14,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -33,7 +33,7 @@ func (w Writer) Create(ctx context.Context, g *Grant) error {
 	v := validate.New("grant")
 	v.Ternaryf(
 		"subject",
-		g.Subject.Type != ontology.ResourceTypeRack,
+		g.Subject.Type != resource.TypeRack,
 		"%s is not a rack",
 		g.Subject,
 	)

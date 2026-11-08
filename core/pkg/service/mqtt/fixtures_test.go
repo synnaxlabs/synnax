@@ -203,6 +203,8 @@ func createIndexedOn(
 		Leaseholder: leaseholder,
 	}
 	Expect(w.Create(ctx, &idx)).To(Succeed())
+	// The host checks that the index of a data channel exists.
+	gossiped(ctx, idx.Key())
 	data := make([]channel.Channel, len(dataTypes))
 	for i, dt := range dataTypes {
 		data[i] = channel.Channel{
@@ -213,8 +215,14 @@ func createIndexedOn(
 		}
 		Expect(w.Create(ctx, &data[i])).To(Succeed())
 	}
-	// A peer's channels reach the host by gossip.
-	keys := append(channel.Keys{idx.Key()}, channel.KeysFromChannels(data)...)
+	gossiped(ctx, channel.KeysFromChannels(data)...)
+	return idx, data
+}
+
+// gossiped waits until the host holds the channels with keys. A peer's channels reach
+// the host by gossip.
+func gossiped(ctx context.Context, keys ...channel.Key) {
+	GinkgoHelper()
 	Eventually(func(g Gomega) {
 		var found []channel.Channel
 		g.Expect(channelSvc.NewRetrieve().
@@ -223,7 +231,6 @@ func createIndexedOn(
 			Exec(ctx, nil)).To(Succeed())
 		g.Expect(found).To(HaveLen(len(keys)))
 	}).Should(Succeed())
-	return idx, data
 }
 
 func createVirtual(ctx context.Context, dt telem.DataType) channel.Channel {
@@ -233,18 +240,29 @@ func createVirtual(ctx context.Context, dt telem.DataType) channel.Channel {
 	return ch
 }
 
+// newTask stores and returns a task of taskType on rackKey. It skips task.Writer,
+// which writes a status of its own, so a spec sees only the statuses the factory
+// writes.
 func newTask(
+	ctx context.Context,
 	rackKey rack.Key,
 	taskType string,
 	cfg msgpack.EncodedJSON,
 ) task.Task {
-	return task.Task{
+	GinkgoHelper()
+	t := task.Task{
 		Key:    uuid.New(),
 		Name:   "mqtt-task",
 		Type:   taskType,
 		Rack:   rackKey,
 		Config: cfg,
 	}
+	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+		To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+	})
+	return t
 }
 
 // configure configures t with a start command key and stops the task at the end of
@@ -262,7 +280,7 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 	var stat task.Status
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+			Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 			Entry(&stat).
 			Exec(ctx, nil),
 		query.ErrNotFound,
@@ -292,6 +310,31 @@ func answered(ctx context.Context, t task.Task, cmdKey string) task.Status {
 		g.Expect(stat.Details.Cmd).To(Equal(cmdKey))
 	}).WithTimeout(10 * time.Second).Should(Succeed())
 	return stat
+}
+
+// publishUntilDone publishes payload to topic every 10 ms until the spec ends.
+func publishUntilDone(b *testBroker, topic, payload string) {
+	GinkgoHelper()
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+	go func() {
+		defer GinkgoRecover()
+		defer close(stopped)
+		ticker := time.NewTicker(10 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				Expect(b.server.Publish(topic, []byte(payload), false, 0)).To(Succeed())
+			}
+		}
+	}()
+	DeferCleanup(func() {
+		close(done)
+		Eventually(stopped).Should(BeClosed())
+	})
 }
 
 // testStreamer receives the frames written to a set of channels.
@@ -355,7 +398,7 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 	var stat device.Status
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[device.StatusDetails]().
-			Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
+			Where(status.MatchOwners[device.StatusDetails](dev.ResourceID())).
 			Entry(&stat).
 			Exec(ctx, nil),
 		query.ErrNotFound,

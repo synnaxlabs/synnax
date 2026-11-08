@@ -52,7 +52,7 @@ describe("User Commands permissions", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(user.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(user.TYPE_RESOURCE_ID),
       }),
       { client: await roles.get("Viewer") },
     );

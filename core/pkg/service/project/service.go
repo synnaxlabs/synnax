@@ -15,11 +15,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -31,19 +28,8 @@ import (
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
 	alamos.Instrumentation
-	Signals  *signals.Provider
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
-	Group    *group.Service
-	// ImEx is the leaf import/export registry Export serializes member documents
-	// through.
-	//
-	// [REQUIRED]
-	ImEx *imex.Service
-	// Panel is the panel service Export reads panel trees through.
-	//
-	// [REQUIRED]
-	Panel *panel.Service
+	Signals *signals.Provider
+	DB      *gorp.DB
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -52,11 +38,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.ImEx = override.Nil(c.ImEx, other.ImEx)
-	c.Panel = override.Nil(c.Panel, other.Panel)
 	return c
 }
 
@@ -64,10 +46,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("project")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
-	v.NotNil("imex", c.ImEx)
-	v.NotNil("panel", c.Panel)
 	return v.Error()
 }
 
@@ -76,7 +54,6 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Project]
 	indexes indexes
-	group   group.Group
 }
 
 func OpenService(
@@ -91,23 +68,15 @@ func OpenService(
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Project]{
-		DB:      cfg.DB,
-		Indexes: s.indexes.all(),
-		Migrations: versions.NewMigrations(
-			versions.MigrationsConfig{Ontology: cfg.Ontology},
-		),
+		DB:              cfg.DB,
+		Name:            tableName,
+		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Projects",
-		ontology.RootID,
-	); !ok(err, nil) {
-		return nil, err
-	}
-	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
@@ -125,11 +94,20 @@ func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
+		svc:   s,
 		tx:    gorp.OverrideTx(s.cfg.DB, tx),
-		otg:   s.cfg.Ontology.NewWriter(tx),
-		group: s.group,
 		table: s.table,
 	}
+}
+
+// Children returns the ID of every record that references the project with key, as seen
+// by tx: the groups directly under it and every visualization it owns.
+func (s *Service) Children(
+	ctx context.Context,
+	tx gorp.Tx,
+	key Key,
+) ([]resource.ID, error) {
+	return resource.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), s.table, key)
 }
 
 func (s *Service) NewRetrieve() Retrieve {

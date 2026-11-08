@@ -9,7 +9,6 @@
 
 #include <memory>
 #include <optional>
-#include <random>
 #include <string>
 
 #include "gtest/gtest.h"
@@ -36,16 +35,6 @@
 #include "arc/cpp/stl/time/time.h"
 
 namespace arc::runtime {
-// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
-// printed so that a failing run can be replayed.
-std::mt19937 gen_rand = random_generator("Node Tests");
-// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
-
-std::string random_name(const std::string &prefix) {
-    std::uniform_int_distribution<> dis(10000, 99999);
-    return prefix + std::to_string(dis(gen_rand));
-}
-
 /// @brief Finds the IR node with the given type in the module.
 const arc::ir::Node *
 find_node_by_type(const arc::program::Program &mod, const std::string &type) {
@@ -135,9 +124,11 @@ T call_func(
 /// @brief Factory::handles returns true for functions in the module.
 TEST(FactoryTest, HandlesReturnsTrueForExistingFunction) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -156,9 +147,11 @@ func double() {val f32} f32 {
 /// @brief Factory::create returns NOT_FOUND when function doesn't exist.
 TEST(FactoryTest, CreateReturnsErrorWhenFunctionNotFound) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -188,9 +181,11 @@ func double() {val f32} f32 {
 /// @brief Factory::create succeeds with valid function.
 TEST(FactoryTest, CreateSucceedsWithValidConfig) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -220,9 +215,11 @@ func double() {val f32} f32 {
 /// @brief Factory::create rejects a node whose params do not match its signature.
 TEST(FactoryTest, CreateReturnsErrorWhenParamsMismatchSignature) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -253,9 +250,11 @@ func double() {val f32} f32 {
 /// @brief Node::next returns early and doesn't mark outputs when no inputs refreshed.
 TEST(NodeTest, NextReturnsEarlyWhenNoInputsRefreshed) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -295,8 +294,8 @@ func double() {val f32} f32 {
 TEST(NodeTest, ResetKeepsConsumedEdgeFedInput) {
     const auto client = new_test_client();
 
-    auto input_idx_name = random_name("input_idx");
-    auto input_name = random_name("input_val");
+    auto input_idx_name = make_unique_channel_name("input_idx");
+    auto input_name = make_unique_channel_name("input_val");
 
     auto input_idx = synnax::channel::Channel{
         .name = input_idx_name,
@@ -392,10 +391,10 @@ func double() {val f32} f32 {
 TEST(NodeTest, NextExecutesFunctionAndProducesOutput) {
     const auto client = new_test_client();
 
-    auto input_idx_name = random_name("input_idx");
-    auto input_name = random_name("input_val");
-    auto output_idx_name = random_name("output_idx");
-    auto output_name = random_name("output_val");
+    auto input_idx_name = make_unique_channel_name("input_idx");
+    auto input_name = make_unique_channel_name("input_val");
+    auto output_idx_name = make_unique_channel_name("output_idx");
+    auto output_name = make_unique_channel_name("output_val");
 
     auto input_idx = synnax::channel::Channel{
         .name = input_idx_name,
@@ -671,9 +670,9 @@ TEST(NodeTest, OmittedChannelHoldsThroughTwoOmissions) {
 TEST(NodeTest, NextReportsErrorOnWasmTrap) {
     const auto client = new_test_client();
 
-    auto idx_name = random_name("time");
-    auto input_name = random_name("input");
-    auto output_name = random_name("output");
+    auto idx_name = make_unique_channel_name("time");
+    auto input_name = make_unique_channel_name("input");
+    auto output_name = make_unique_channel_name("output");
 
     auto index_ch = synnax::channel::Channel{
         .name = idx_name,
@@ -757,9 +756,11 @@ func divide_by_zero() {val i32} i32 {
 /// @brief Node::is_output_truthy returns false for nonexistent outputs.
 TEST(NodeTest, IsOutputTruthyReturnsFalseForNonexistent) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -787,9 +788,9 @@ func double() {val f32} f32 {
 TEST(NodeTest, IsOutputTruthyEvaluatesOutputValues) {
     const auto client = new_test_client();
 
-    auto idx_name = random_name("time");
-    auto input_name = random_name("input");
-    auto output_name = random_name("output");
+    auto idx_name = make_unique_channel_name("time");
+    auto input_name = make_unique_channel_name("input");
+    auto output_name = make_unique_channel_name("output");
 
     auto index_ch = synnax::channel::Channel{
         .name = idx_name,
@@ -866,8 +867,8 @@ func passthrough() {val f32} f32 {
 TEST(NodeTest, NoInputNodeExecutesOnEveryNext) {
     const auto client = new_test_client();
 
-    auto output_idx_name = random_name("output_idx");
-    auto output_name = random_name("output");
+    auto output_idx_name = make_unique_channel_name("output_idx");
+    auto output_name = make_unique_channel_name("output");
 
     auto output_idx = synnax::channel::Channel{
         .name = output_idx_name,
@@ -935,13 +936,13 @@ constant() -> )" + output_name;
 TEST(NodeTest, DispatcherStampsEachSampleOfABatch) {
     const auto client = new_test_client();
     auto count_idx = synnax::channel::Channel{
-        .name = random_name("count_idx"),
+        .name = make_unique_channel_name("count_idx"),
         .data_type = x::telem::TIMESTAMP_T,
         .is_index = true,
     };
     ASSERT_NIL(client.channels.create(count_idx));
     auto count_ch = synnax::channel::Channel{
-        .name = random_name("count"),
+        .name = make_unique_channel_name("count"),
         .data_type = x::telem::INT64_T,
         .index = count_idx.key,
     };
@@ -1024,10 +1025,10 @@ TEST(NodeTest, DispatcherStampsEachSampleOfABatch) {
 TEST(NodeTest, NodeWithInputsExecutesNormally) {
     const auto client = new_test_client();
 
-    auto input_idx_name = random_name("input_idx");
-    auto input_name = random_name("input");
-    auto output_idx_name = random_name("output_idx");
-    auto output_name = random_name("output");
+    auto input_idx_name = make_unique_channel_name("input_idx");
+    auto input_name = make_unique_channel_name("input");
+    auto output_idx_name = make_unique_channel_name("output_idx");
+    auto output_name = make_unique_channel_name("output");
 
     auto input_idx = synnax::channel::Channel{
         .name = input_idx_name,
@@ -1131,8 +1132,8 @@ func double() {val i64} i64 {
 TEST(NodeTest, FlowExpressionExecutesEveryTime) {
     const auto client = new_test_client();
 
-    auto output_idx_name = random_name("output_idx");
-    auto output_name = random_name("output");
+    auto output_idx_name = make_unique_channel_name("output_idx");
+    auto output_name = make_unique_channel_name("output");
 
     auto output_idx = synnax::channel::Channel{
         .name = output_idx_name,
@@ -1195,8 +1196,8 @@ counter() -> )" + output_name;
 TEST(NodeTest, FlowExpressionContinuesAfterReset) {
     const auto client = new_test_client();
 
-    auto output_idx_name = random_name("output_idx");
-    auto output_name = random_name("output");
+    auto output_idx_name = make_unique_channel_name("output_idx");
+    auto output_name = make_unique_channel_name("output");
 
     auto output_idx = synnax::channel::Channel{
         .name = output_idx_name,
@@ -1261,8 +1262,8 @@ counter() -> )" + output_name;
 TEST(NodeTest, NonExpressionNodeNotTreatedAsExpression) {
     const auto client = new_test_client();
 
-    auto output_idx_name = random_name("output_idx");
-    auto output_name = random_name("output");
+    auto output_idx_name = make_unique_channel_name("output_idx");
+    auto output_name = make_unique_channel_name("output");
 
     auto output_idx = synnax::channel::Channel{
         .name = output_idx_name,
@@ -1322,10 +1323,10 @@ counter() -> )" + output_name;
 TEST(NodeTest, ConfigParametersPassedToWasm) {
     const auto client = new_test_client();
 
-    auto input_idx_name = random_name("input_idx");
-    auto input_name = random_name("input");
-    auto output_idx_name = random_name("output_idx");
-    auto output_name = random_name("output");
+    auto input_idx_name = make_unique_channel_name("input_idx");
+    auto input_name = make_unique_channel_name("input");
+    auto output_idx_name = make_unique_channel_name("output_idx");
+    auto output_name = make_unique_channel_name("output");
 
     auto input_idx = synnax::channel::Channel{
         .name = input_idx_name,
@@ -1417,10 +1418,10 @@ func add_config(x i32){y i32} i32 {
 TEST(NodeTest, MultipleConfigParametersPassedToWasm) {
     const auto client = new_test_client();
 
-    auto input_idx_name = random_name("input_idx");
-    auto input_name = random_name("input");
-    auto output_idx_name = random_name("output_idx");
-    auto output_name = random_name("output");
+    auto input_idx_name = make_unique_channel_name("input_idx");
+    auto input_name = make_unique_channel_name("input");
+    auto output_idx_name = make_unique_channel_name("output_idx");
+    auto output_name = make_unique_channel_name("output");
 
     auto input_idx = synnax::channel::Channel{
         .name = input_idx_name,
@@ -1511,10 +1512,10 @@ func multi_config(a i32, b i32){c i32} i32 {
 TEST(NodeTest, StatefulVariablesAreIsolatedBetweenNodeInstances) {
     const auto client = new_test_client();
 
-    auto idx_name = random_name("time");
-    auto trigger_name = random_name("trigger");
-    auto output_a_name = random_name("output_a");
-    auto output_b_name = random_name("output_b");
+    auto idx_name = make_unique_channel_name("time");
+    auto trigger_name = make_unique_channel_name("trigger");
+    auto output_a_name = make_unique_channel_name("output_a");
+    auto output_b_name = make_unique_channel_name("output_b");
 
     auto index_ch = synnax::channel::Channel{
         .name = idx_name,
@@ -1660,8 +1661,8 @@ func counter() {trigger i64} i64 {
 TEST(NodeTest, StatefulVariablesResetOnNodeReset) {
     const auto client = new_test_client();
 
-    auto output_idx_name = random_name("output_idx");
-    auto output_name = random_name("output");
+    auto output_idx_name = make_unique_channel_name("output_idx");
+    auto output_name = make_unique_channel_name("output");
 
     auto output_idx = synnax::channel::Channel{
         .name = output_idx_name,
@@ -1745,9 +1746,9 @@ counter() -> )" + output_name;
 TEST(NodeTest, NodeResetLeavesOtherNodesStatefulVariablesIntact) {
     const auto client = new_test_client();
 
-    auto output_idx_name = random_name("output_idx");
-    auto output_a_name = random_name("output_a");
-    auto output_b_name = random_name("output_b");
+    auto output_idx_name = make_unique_channel_name("output_idx");
+    auto output_a_name = make_unique_channel_name("output_a");
+    auto output_b_name = make_unique_channel_name("output_b");
 
     auto output_idx = synnax::channel::Channel{
         .name = output_idx_name,
@@ -1843,12 +1844,12 @@ counter() -> )" + output_a_name +
 TEST(NodeTest, ChannelConfigParamReadsChannelData) {
     const auto client = new_test_client();
 
-    auto trigger_idx_name = random_name("trigger_idx");
-    auto trigger_name = random_name("trigger");
-    auto data_idx_name = random_name("data_idx");
-    auto data_name = random_name("data");
-    auto output_idx_name = random_name("output_idx");
-    auto output_name = random_name("output");
+    auto trigger_idx_name = make_unique_channel_name("trigger_idx");
+    auto trigger_name = make_unique_channel_name("trigger");
+    auto data_idx_name = make_unique_channel_name("data_idx");
+    auto data_name = make_unique_channel_name("data");
+    auto output_idx_name = make_unique_channel_name("output_idx");
+    auto output_name = make_unique_channel_name("output");
 
     auto trigger_idx = synnax::channel::Channel{
         .name = trigger_idx_name,
@@ -2005,9 +2006,9 @@ func read_chan(ch chan f32){trigger u8} f32 {
 TEST(NodeTest, StringChannelInputConvertedToHandles) {
     const auto client = new_test_client();
 
-    auto idx_name = random_name("time");
-    auto input_name = random_name("str_input");
-    auto output_name = random_name("len_output");
+    auto idx_name = make_unique_channel_name("time");
+    auto input_name = make_unique_channel_name("str_input");
+    auto output_name = make_unique_channel_name("len_output");
 
     auto index_ch = synnax::channel::Channel{
         .name = idx_name,
@@ -2024,7 +2025,7 @@ TEST(NodeTest, StringChannelInputConvertedToHandles) {
     ASSERT_NIL(client.channels.create(input_ch));
 
     auto output_idx = synnax::channel::Channel{
-        .name = random_name("out_idx"),
+        .name = make_unique_channel_name("out_idx"),
         .data_type = x::telem::TIMESTAMP_T,
         .is_index = true,
     };
@@ -2123,10 +2124,10 @@ func str_len() {s str} i64 {
 TEST(NodeTest, NamedStringOutputMemoryLayout) {
     const auto client = new_test_client();
 
-    auto idx_name = random_name("time");
-    auto input_name = random_name("input");
-    auto label_out_name = random_name("label_out");
-    auto value_out_name = random_name("value_out");
+    auto idx_name = make_unique_channel_name("time");
+    auto input_name = make_unique_channel_name("input");
+    auto label_out_name = make_unique_channel_name("label_out");
+    auto value_out_name = make_unique_channel_name("value_out");
 
     auto index_ch = synnax::channel::Channel{
         .name = idx_name,
@@ -2143,7 +2144,7 @@ TEST(NodeTest, NamedStringOutputMemoryLayout) {
     ASSERT_NIL(client.channels.create(input_ch));
 
     auto out_idx = synnax::channel::Channel{
-        .name = random_name("out_idx"),
+        .name = make_unique_channel_name("out_idx"),
         .data_type = x::telem::TIMESTAMP_T,
         .is_index = true,
     };
@@ -2252,9 +2253,9 @@ func labeler() {x i64} (label str, value i64) {
 TEST(NodeTest, StringChannelInputWithQualifiedStringLen) {
     const auto client = new_test_client();
 
-    auto idx_name = random_name("time");
-    auto input_name = random_name("str_input");
-    auto output_name = random_name("len_output");
+    auto idx_name = make_unique_channel_name("time");
+    auto input_name = make_unique_channel_name("str_input");
+    auto output_name = make_unique_channel_name("len_output");
 
     auto index_ch = synnax::channel::Channel{
         .name = idx_name,
@@ -2271,7 +2272,7 @@ TEST(NodeTest, StringChannelInputWithQualifiedStringLen) {
     ASSERT_NIL(client.channels.create(input_ch));
 
     auto output_idx = synnax::channel::Channel{
-        .name = random_name("out_idx"),
+        .name = make_unique_channel_name("out_idx"),
         .data_type = x::telem::TIMESTAMP_T,
         .is_index = true,
     };
@@ -2370,7 +2371,7 @@ func qstr_len() {s str} i64 {
 TEST(NodeTest, FlowExpressionStringDefaultOutput) {
     const auto client = new_test_client();
 
-    auto output_name = random_name("str_output");
+    auto output_name = make_unique_channel_name("str_output");
     auto output_ch = synnax::channel::Channel{
         .name = output_name,
         .data_type = x::telem::STRING_T,
@@ -2439,7 +2440,7 @@ produce_str() -> )" + output_name;
 TEST(NodeTest, FlowExpressionStringConcatDefaultOutput) {
     const auto client = new_test_client();
 
-    auto output_name = random_name("str_output");
+    auto output_name = make_unique_channel_name("str_output");
     auto output_ch = synnax::channel::Channel{
         .name = output_name,
         .data_type = x::telem::STRING_T,
@@ -2506,10 +2507,10 @@ produce_str() -> )" + output_name;
 TEST(NodeTest, DISABLED_StringConcatWithChannelData) {
     const auto client = new_test_client();
 
-    auto idx_name = random_name("time");
-    auto input_a_name = random_name("str_a");
-    auto input_b_name = random_name("str_b");
-    auto output_name = random_name("len_output");
+    auto idx_name = make_unique_channel_name("time");
+    auto input_a_name = make_unique_channel_name("str_a");
+    auto input_b_name = make_unique_channel_name("str_b");
+    auto output_name = make_unique_channel_name("len_output");
 
     auto index_ch = synnax::channel::Channel{
         .name = idx_name,
@@ -2530,7 +2531,7 @@ TEST(NodeTest, DISABLED_StringConcatWithChannelData) {
     };
     ASSERT_NIL(client.channels.create(input_b_ch));
     auto output_idx = synnax::channel::Channel{
-        .name = random_name("out_idx"),
+        .name = make_unique_channel_name("out_idx"),
         .data_type = x::telem::TIMESTAMP_T,
         .is_index = true,
     };
@@ -3128,9 +3129,9 @@ func range_i16_only() i16 {
 TEST(ForLoopTest, DISABLED_StatefulAccumulationAcrossCalls) {
     const auto client = new_test_client();
 
-    auto idx_name = random_name("time");
-    auto trigger_name = random_name("trigger");
-    auto output_name = random_name("output");
+    auto idx_name = make_unique_channel_name("time");
+    auto trigger_name = make_unique_channel_name("trigger");
+    auto output_name = make_unique_channel_name("output");
 
     auto index_ch = synnax::channel::Channel{
         .name = idx_name,
@@ -3145,7 +3146,7 @@ TEST(ForLoopTest, DISABLED_StatefulAccumulationAcrossCalls) {
     };
     ASSERT_NIL(client.channels.create(trigger_ch));
     auto output_idx = synnax::channel::Channel{
-        .name = random_name("out_idx"),
+        .name = make_unique_channel_name("out_idx"),
         .data_type = x::telem::TIMESTAMP_T,
         .is_index = true,
     };
@@ -3271,9 +3272,11 @@ func loop_state() {trigger i64} i64 {
 /// @brief Module::func returns VALIDATION error for unresolved output types.
 TEST(ModuleFuncTest, ReturnsErrorForUnresolvedOutputType) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
