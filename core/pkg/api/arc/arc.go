@@ -214,13 +214,28 @@ func (s *Service) Retrieve(
 	// reconstructing the document.
 	for i := range res.Arcs {
 		res.Arcs[i] = materialize(res.Arcs[i])
-		if req.IncludeProgram {
-			if err := s.compile(ctx, &res.Arcs[i]); err != nil {
+	}
+	return res, nil
+}
+
+// Compiled returns a handler that runs retrieve and then, when the request includes
+// programs, compiles each automation that retrieve returns. Compilation runs after
+// retrieve returns, so it holds no read lock and delays no write.
+func (s *Service) Compiled(
+	retrieve freighter.UnaryHandler[RetrieveRequest, RetrieveResponse],
+) freighter.UnaryHandler[RetrieveRequest, RetrieveResponse] {
+	return func(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
+		res, err := retrieve(ctx, req)
+		if err != nil || !req.IncludeProgram {
+			return res, err
+		}
+		for i := range res.Arcs {
+			if err = s.compile(ctx, &res.Arcs[i]); err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
+		return res, nil
 	}
-	return res, nil
 }
 
 // LSPMessage represents a single JSON-RPC message for the LSP

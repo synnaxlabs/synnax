@@ -166,7 +166,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	renameDirectory = bind.Write(binder, apiSvc.RenameDirectory)
 	deleteDirectory = bind.Write(binder, apiSvc.DeleteDirectory)
 	move = bind.Write(binder, apiSvc.Move)
-	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	retrieve = apiSvc.Compiled(bind.Read(binder, apiSvc.Retrieve))
 	retrieveDirectories = bind.Read(binder, apiSvc.RetrieveDirectories)
 	var r directory.Directory
 	Expect(arcSvc.NewDirectoryRetrieve().
