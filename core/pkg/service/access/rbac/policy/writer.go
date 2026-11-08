@@ -21,7 +21,6 @@ import (
 )
 
 type Writer struct {
-	svc           *Service
 	tx            gorp.Tx
 	allowInternal bool
 	table         *gorp.Table[Key, Policy]

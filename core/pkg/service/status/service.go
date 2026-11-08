@@ -228,7 +228,6 @@ func (s *Service) NewMigrationWriter(tx gorp.Tx) *gorp.Writer[Key, Status[any]] 
 // NewWriter opens a Writer for statuses that runs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:     s,
 		tx:      tx,
 		table:   s.table,
 		indexes: s.indexes,

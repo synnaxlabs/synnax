@@ -242,7 +242,6 @@ func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:        s,
 		tx:         tx,
 		newKey:     s.newKey,
 		status:     s.Status.NewWriter(tx),

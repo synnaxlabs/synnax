@@ -23,7 +23,6 @@ import (
 )
 
 type Writer struct {
-	svc        *Service
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Panel]
 	dispatcher actions.Dispatcher[Key, Action]
