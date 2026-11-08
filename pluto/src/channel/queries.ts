@@ -209,7 +209,7 @@ export const useList = ({
   ...rest
 }: Omit<
   Flux.UseListParams<ListQuery, channel.Channel>,
-  "item" | "name"
+  "itemQuery" | "name"
 > = {}): Flux.UseListReturn<channel.Key, channel.Channel> =>
   Flux.useList((client) => client.channels, {
     ...rest,
