@@ -15,6 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -38,6 +40,9 @@ var (
 	svc       *service.Layer
 	apiSvc    *apirack.Service
 	statusAPI *apistatus.Service
+	// create and rename run their routes as the API layer binds them.
+	create freighter.UnaryHandler[apirack.CreateRequest, apirack.CreateResponse]
+	rename freighter.UnaryHandler[apirack.RenameRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -55,6 +60,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status: svc.Status,
 		RBAC:   svc.RBAC,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+		Task: svc.Task,
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	rename = bind.Write(binder, apiSvc.Rename)
 })
 
 // createUser creates a user that can do nothing.

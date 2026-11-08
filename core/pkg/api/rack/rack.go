@@ -11,7 +11,6 @@ package rack
 
 import (
 	"context"
-	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -27,8 +26,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -51,7 +48,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of retrieve, delete, and set group requests, and the read
+	// access that a create response needs.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -119,14 +117,13 @@ type (
 	}
 )
 
+// Create creates or updates the racks. The response holds the status of each rack that
+// the subject can retrieve.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.enforceCreate(ctx, tx, req.Racks); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.rack.NewWriter(tx).CreateMany(ctx, &req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
@@ -183,68 +180,6 @@ func (s *Service) attachStatuses(
 	return nil
 }
 
-// enforceCreate requires the update action on each rack that already exists, and the
-// create action when any rack is new, so a subject that may only update racks can
-// still save its own.
-func (s *Service) enforceCreate(
-	ctx context.Context,
-	tx gorp.Tx,
-	racks []rack.Rack,
-) error {
-	keys := make([]rack.Key, 0, len(racks))
-	for _, r := range racks {
-		if !r.Key.IsZero() {
-			keys = append(keys, r.Key)
-		}
-	}
-	var existing []rack.Rack
-	if len(keys) > 0 {
-		if err := s.rack.NewRetrieve().
-			Where(rack.MatchKeys(keys...)).
-			Entries(&existing).
-			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-	}
-	enforcer := s.access.NewEnforcer(tx)
-	subject := auth.GetSubject(ctx)
-	if len(existing) > 0 {
-		if err := enforcer.Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionUpdate,
-			Objects: rack.ResourceIDsFromRacks(existing),
-		}); err != nil {
-			return err
-		}
-	}
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			racks,
-			existing,
-			func(r rack.Rack) *group.Key { return r.Group },
-		),
-	}); err != nil {
-		return err
-	}
-	found := make(set.Set[rack.Key], len(existing))
-	for _, r := range existing {
-		found.Add(r.Key)
-	}
-	if !slices.ContainsFunc(
-		racks,
-		func(r rack.Rack) bool { return !found.Contains(r.Key) },
-	) {
-		return nil
-	}
-	return enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeRack}},
-	})
-}
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -280,19 +215,12 @@ type RenameRequest struct {
 	Key rack.Key `json:"key" msgpack:"key"`
 }
 
-// Rename renames the rack. It requires update access on it.
+// Rename renames the rack and its status.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{req.Key.ResourceID()},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.rack.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 

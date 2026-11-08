@@ -14,6 +14,7 @@ package bind
 import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -29,6 +30,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
+	// Task maps each task config record to its task.
+	//
+	// [REQUIRED]
+	Task *task.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -37,6 +42,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Task = override.Nil(c.Task, other.Task)
 	return c
 }
 
@@ -45,6 +51,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.bind")
 	v.NotNil("db", c.DB)
 	v.NotNil("rbac", c.RBAC)
+	v.NotNil("task", c.Task)
 	return v.Error()
 }
 

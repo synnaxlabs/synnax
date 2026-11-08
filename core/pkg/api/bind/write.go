@@ -21,6 +21,12 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// Copy is a request that reads records and copies them into what it writes.
+type Copy interface {
+	// Sources returns the records that the request copies.
+	Sources() []resource.ID
+}
+
 // Write returns a handler that runs apply in one write transaction, checks access on
 // what the transaction changed, and commits. A denial or an error from apply rolls back
 // every write and returns a zero response. The subject of the request needs:
@@ -28,7 +34,8 @@ import (
 //   - create on a new record, update on a changed record, and delete on a deleted
 //     record, cascades and detaches included;
 //   - update on the target of each place link added or removed;
-//   - retrieve on the target of each use link added.
+//   - retrieve on the target of each use link added;
+//   - retrieve on each source of a request that implements Copy.
 //
 // Policies are read from committed state, so a policy or role that apply stages grants
 // nothing. A denial wraps access.ErrDenied and names the record.
@@ -42,7 +49,7 @@ func Write[RQ, RS freighter.Payload](
 			if res, err = apply(ctx, tx, req); err != nil {
 				return err
 			}
-			return s.check(ctx, tx)
+			return s.check(ctx, tx, req)
 		}); err != nil {
 			return zero, err
 		}
@@ -51,11 +58,11 @@ func Write[RQ, RS freighter.Payload](
 }
 
 // check returns an error wrapping access.ErrDenied when the subject of ctx cannot make
-// the changes of tx.
-func (s *Service) check(ctx context.Context, tx gorp.Tx) error {
+// the changes of tx or read the sources of req.
+func (s *Service) check(ctx context.Context, tx gorp.Tx, req any) error {
 	needs := make(map[access.Action][]resource.ID, len(access.AllActions))
 	need := func(action access.Action, target gorp.Target) error {
-		id, err := resourceOf(target)
+		id, err := s.resourceOf(target)
 		if err != nil {
 			return err
 		}
@@ -80,6 +87,12 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx) error {
 			}
 		}
 	}
+	if c, ok := req.(Copy); ok {
+		needs[access.ActionRetrieve] = append(
+			needs[access.ActionRetrieve],
+			c.Sources()...,
+		)
+	}
 	enforcer := s.cfg.RBAC.NewEnforcer(nil)
 	subject := auth.GetSubject(ctx)
 	for _, action := range access.AllActions {
@@ -98,9 +111,12 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx) error {
 	return nil
 }
 
-// resourceOf returns the resource of a record. It returns an error when no resource
-// type matches the table of the record.
-func resourceOf(t gorp.Target) (resource.ID, error) {
+// resourceOf returns the resource of a record. A task config record maps to its task.
+// It returns an error when no resource type matches the table of the record.
+func (s *Service) resourceOf(t gorp.Target) (resource.ID, error) {
+	if id, ok := s.cfg.Task.ConfigTask(t); ok {
+		return id, nil
+	}
 	id := resource.ID{Type: resource.Type(t.Table), Key: t.Key}
 	if !id.Type.IsValid() {
 		return resource.ID{}, errors.Newf(

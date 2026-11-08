@@ -727,24 +727,24 @@ func (l *Layer) BindTo(t Transport) {
 	t.LabelDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Dispatch))
 
 	// RACK
-	t.RackCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Create))
+	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
 	t.RackRetrieve.BindHandler(l.Rack.Retrieve)
 	t.RackDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Delete))
-	t.RackRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Rename))
+	t.RackRename.BindHandler(bind.Write(l.binder, l.Rack.Rename))
 
 	// TASK
-	t.TaskCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Create))
+	t.TaskCreate.BindHandler(bind.Write(l.binder, l.Task.Create))
 	t.TaskRetrieve.BindHandler(l.Task.Retrieve)
 	t.TaskDelete.BindHandler(l.Task.Delete)
-	t.TaskCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Copy))
-	t.TaskRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Rename))
-	t.TaskDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Dispatch))
+	t.TaskCopy.BindHandler(bind.Write(l.binder, l.Task.Copy))
+	t.TaskRename.BindHandler(bind.Write(l.binder, l.Task.Rename))
+	t.TaskDispatch.BindHandler(bind.Write(l.binder, l.Task.Dispatch))
 
 	// DEVICE
-	t.DeviceCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Create))
+	t.DeviceCreate.BindHandler(bind.Write(l.binder, l.Device.Create))
 	t.DeviceRetrieve.BindHandler(l.Device.Retrieve)
-	t.DeviceDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Delete))
-	t.DeviceRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Rename))
+	t.DeviceDelete.BindHandler(bind.Write(l.binder, l.Device.Delete))
+	t.DeviceRename.BindHandler(bind.Write(l.binder, l.Device.Rename))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(
@@ -812,6 +812,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.binder, err = bind.NewService(bind.ServiceConfig{
 		DB:   cfg.Distribution.DB,
 		RBAC: cfg.Service.RBAC,
+		Task: cfg.Service.Task,
 	}); err != nil {
 		return nil, err
 	}

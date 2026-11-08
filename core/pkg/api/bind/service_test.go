@@ -15,11 +15,16 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() bind.ServiceConfig {
-		return bind.ServiceConfig{DB: &gorp.DB{}, RBAC: &rbac.Service{}}
+		return bind.ServiceConfig{
+			DB:   &gorp.DB{},
+			RBAC: &rbac.Service{},
+			Task: &task.Service{},
+		}
 	}
 
 	Describe("Validate", func() {
@@ -44,6 +49,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *bind.ServiceConfig) { c.RBAC = nil },
 				"rbac: must be non-nil",
 			),
+			Entry(
+				"task",
+				func(c *bind.ServiceConfig) { c.Task = nil },
+				"task: must be non-nil",
+			),
 		)
 	})
 
@@ -53,6 +63,7 @@ var _ = Describe("ServiceConfig", func() {
 			merged := bind.ServiceConfig{}.Override(cfg)
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 		})
 
 		It("Should keep the receiver's fields when the other's are nil", func() {
@@ -60,13 +71,16 @@ var _ = Describe("ServiceConfig", func() {
 			merged := cfg.Override(bind.ServiceConfig{})
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 		})
 	})
 })
 
 var _ = Describe("NewService", func() {
 	It("Should return the error of an invalid config", func() {
-		Expect(bind.NewService(bind.ServiceConfig{RBAC: &rbac.Service{}})).Error().
-			To(MatchError("db: must be non-nil"))
+		Expect(bind.NewService(bind.ServiceConfig{
+			RBAC: &rbac.Service{},
+			Task: &task.Service{},
+		})).Error().To(MatchError("db: must be non-nil"))
 	})
 })

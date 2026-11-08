@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -39,10 +39,12 @@ var (
 	node   testutil.Node
 	svc    *service.Layer
 	apiSvc *apitask.Service
-	// dispatch runs the Dispatch route in one transaction, as the API layer binds it.
+	// create, copyTask, dispatch, and rename run their routes as the API layer binds
+	// them.
+	create   freighter.UnaryHandler[apitask.CreateRequest, apitask.CreateResponse]
+	copyTask freighter.UnaryHandler[apitask.CopyRequest, apitask.CopyResponse]
 	dispatch freighter.UnaryHandler[apitask.DispatchRequest, apitask.DispatchResponse]
-	// rename runs the Rename route in one transaction, as the API layer binds it.
-	rename freighter.UnaryHandler[apitask.RenameRequest, struct{}]
+	rename   freighter.UnaryHandler[apitask.RenameRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -56,8 +58,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:   svc.RBAC,
 		Framer: svc.Framer,
 	}))
-	dispatch = fgorp.CreateWriteUnaryHandler(node.DB, apiSvc.Dispatch)
-	rename = fgorp.CreateWriteUnaryHandler(node.DB, apiSvc.Rename)
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+		Task: svc.Task,
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	copyTask = bind.Write(binder, apiSvc.Copy)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	rename = bind.Write(binder, apiSvc.Rename)
 })
 
 // createUser creates a user that can do nothing.

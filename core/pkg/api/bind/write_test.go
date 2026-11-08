@@ -23,15 +23,24 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// copyRequest is a request that copies its sources.
+type copyRequest struct{ sources []resource.ID }
+
+var _ bind.Copy = copyRequest{}
+
+func (r copyRequest) Sources() []resource.ID { return r.sources }
 
 // apply is the write of a spec.
 type apply func(ctx context.Context, tx gorp.Tx) error
@@ -62,14 +71,14 @@ func grant(
 	))
 }
 
-// write runs f through bind.Write as u.
-func write(ctx context.Context, u user.User, f apply) error {
+// write runs f through bind.Write as u, with a request that copies sources.
+func write(ctx context.Context, u user.User, f apply, sources ...resource.ID) error {
 	_, err := bind.Write(
 		binder,
-		func(ctx context.Context, tx gorp.Tx, _ struct{}) (struct{}, error) {
+		func(ctx context.Context, tx gorp.Tx, _ copyRequest) (struct{}, error) {
 			return struct{}{}, f(ctx, tx)
 		},
-	)(AuthedCtx(ctx, u), struct{}{})
+	)(AuthedCtx(ctx, u), copyRequest{sources: sources})
 	return err
 }
 
@@ -117,6 +126,17 @@ func createRange(
 	return r
 }
 
+func createTask(ctx context.Context) task.Task {
+	GinkgoHelper()
+	t := task.Task{
+		Type: pagerduty.AlertTaskType,
+		Rack: svc.Rack.EmbeddedKey,
+		Name: "task",
+	}
+	Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+	return t
+}
+
 func labelExists(ctx context.Context, key label.Key) bool {
 	GinkgoHelper()
 	err := svc.Label.NewRetrieve().
@@ -137,6 +157,7 @@ type need struct {
 // under test requires.
 type rule struct {
 	write   apply
+	sources []resource.ID
 	granted []need
 	needed  need
 }
@@ -150,10 +171,10 @@ var _ = Describe("Write", func() {
 			for _, g := range r.granted {
 				grant(ctx, u, g.action, g.object)
 			}
-			Expect(write(ctx, u, r.write)).
+			Expect(write(ctx, u, r.write, r.sources...)).
 				To(denied(u, r.needed.action, r.needed.object))
 			grant(ctx, u, r.needed.action, r.needed.object)
-			Expect(write(ctx, u, r.write)).To(Succeed())
+			Expect(write(ctx, u, r.write, r.sources...)).To(Succeed())
 		},
 		Entry("create on a new record", func(ctx context.Context) rule {
 			key := uuid.New()
@@ -272,6 +293,37 @@ var _ = Describe("Write", func() {
 						{access.ActionUpdate, to.ResourceID()},
 					},
 					needed: need{access.ActionUpdate, from.ResourceID()},
+				}
+			},
+		),
+		Entry("retrieve on a source", func(ctx context.Context) rule {
+			source := createLabel(ctx)
+			key := uuid.New()
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					l := label.Label{Key: key, Name: source.Name}
+					return svc.Label.NewWriter(tx).Create(ctx, &l)
+				},
+				sources: []resource.ID{source.ResourceID()},
+				granted: []need{{access.ActionCreate, label.ResourceID(key)}},
+				needed:  need{access.ActionRetrieve, source.ResourceID()},
+			}
+		}),
+		Entry(
+			"update on the task of a changed config record",
+			func(ctx context.Context) rule {
+				t := createTask(ctx)
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						_, err := svc.Task.Dispatch(ctx, tx, t.Key, "", []task.Action{
+							task.NewSetAction(task.SetPayload{
+								Path:  []string{"config", "routing_key"},
+								Value: "changed",
+							}),
+						})
+						return err
+					},
+					needed: need{access.ActionUpdate, t.ResourceID()},
 				}
 			},
 		),
