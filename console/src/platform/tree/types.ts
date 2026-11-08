@@ -64,6 +64,11 @@ export interface ContextMenuProps extends BaseProps {
 
 export interface ContextMenu extends FC<ContextMenuProps> {}
 
+export interface RootContextMenuProps {
+  root: resource.ID;
+  state: TreeState;
+}
+
 export interface AllowRename {
   (resource: Resource): boolean;
 }

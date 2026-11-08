@@ -13,9 +13,7 @@ import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { type DragEvent, type RefObject } from "react";
 
-import { findAncestors, findContainedKeys } from "@/platform/tree/ancestry";
 import { type Item } from "@/platform/tree/item";
-import { type ResultNodes } from "@/platform/tree/search";
 import { isMoreKey, type Store } from "@/platform/tree/store";
 import { type GetResource } from "@/platform/tree/types";
 
@@ -23,7 +21,6 @@ export interface UseDragAndDropProps {
   client: Client;
   store: Store;
   root: resource.ID;
-  results?: ResultNodes;
   resolveItem: (type: resource.Type) => Item;
   selectedRef: RefObject<string[]>;
   contract: (...keys: string[]) => void;
@@ -43,7 +40,6 @@ export const useDragAndDrop = ({
   client,
   store,
   root,
-  results,
   resolveItem,
   selectedRef,
   contract,
@@ -61,18 +57,14 @@ export const useDragAndDrop = ({
     if (drop == null) return [];
     // An item inside another dragged item travels with it. Moving it explicitly would
     // re-parent it onto the destination as a sibling of its own parent.
-    const contained = findContainedKeys(
-      store,
-      dropped.map(({ key }) => key),
-      results?.ancestors,
-    );
+    const contained = store.getContained(dropped.map(({ key }) => key));
     const haulMoved = dropped.filter(({ key }) => !contained.has(key));
     if (haulMoved.length === 0) return [];
     const moved = haulMoved.map(({ key }) => ({
       id: resource.parseID(key),
-      ancestors: findAncestors(store, key, root, results?.paths),
+      ancestors: store.getAncestors(key),
     }));
-    const ancestors = findAncestors(store, key, root, results?.paths);
+    const ancestors = store.getAncestors(key);
     if (!canDrop({ source, items, root, destination, ancestors, moved })) return [];
     contract(...haulMoved.map(({ key }) => key));
     handleError(

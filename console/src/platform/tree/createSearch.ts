@@ -7,36 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group, resource } from "@synnaxlabs/client";
+import { resource } from "@synnaxlabs/client";
 import { type Tree as Base } from "@synnaxlabs/lyra/tree";
-import { Group } from "@synnaxlabs/pluto";
 import { unique } from "@synnaxlabs/x";
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
-import { DefaultItem } from "@/platform/tree/item";
+import { DefaultItem, type Item } from "@/platform/tree/item";
 import { useItems } from "@/platform/tree/Provider";
 import {
   type CreateSearchParams,
-  groupsAbove,
   type Match,
   type Matches,
-  matchKey,
-  placeInGroups,
   type Placement,
-  type ResultNodes,
   type Search,
   type SearchAnswer,
   type SearchLayout,
-  useGroupMatches,
   type UseSearch,
 } from "@/platform/tree/search";
-import { FOLDER_TYPES } from "@/platform/tree/store";
+import { type Results } from "@/platform/tree/store";
 import { type Resource } from "@/platform/tree/types";
 
 export const LIMIT = 100;
 const DEBOUNCE_MS = 120;
-const NO_GROUPS: group.Group[] = [];
 
 type FoundMatches = Extract<Matches, { variant: "success" }>;
 type FailedMatches = Extract<Matches, { variant: "error" }>;
@@ -47,32 +40,37 @@ const isFound = (matches: Matches): matches is FoundMatches =>
 const isFailed = (matches: Matches): matches is FailedMatches =>
   matches.variant === "error";
 
-const isFolderNode = ({ key }: Base.Node<string>): boolean =>
-  FOLDER_TYPES.has(resource.parseID(key).type);
-
-const foldersFirst = (nodes: Base.Node<string>[]): Base.Node<string>[] =>
-  [...nodes.filter(isFolderNode), ...nodes.filter((node) => !isFolderNode(node))].map(
+const foldersFirst = (
+  nodes: Base.Node<string>[],
+  resolveItem: (type: resource.Type) => Item,
+): Base.Node<string>[] => {
+  const isFolder = ({ key }: Base.Node<string>): boolean =>
+    resolveItem(resource.parseID(key).type).folder;
+  return [...nodes.filter(isFolder), ...nodes.filter((node) => !isFolder(node))].map(
     (node) =>
-      node.children == null ? node : { ...node, children: foldersFirst(node.children) },
+      node.children == null
+        ? node
+        : { ...node, children: foldersFirst(node.children, resolveItem) },
   );
+};
 
 interface BuildResultsParams {
   matches: Resource[];
-  ancestry: Placement;
+  placement: Placement;
   layout: SearchLayout;
-  hasChildren: (id: resource.ID) => boolean;
+  resolveItem: (type: resource.Type) => Item;
 }
 
 interface Built {
-  results: ResultNodes;
+  results: Results;
   groups: Map<string, string>;
 }
 
 const buildResults = ({
   matches,
-  ancestry: { resources, paths },
+  placement: { resources, paths },
   layout,
-  hasChildren,
+  resolveItem,
 }: BuildResultsParams): Built => {
   const names = new Map(resources.map(({ key, name }) => [key, name]));
   const ids = matches.map(({ id }) => id);
@@ -85,7 +83,7 @@ const buildResults = ({
   const expanded = new Set<string>();
   const toNode = (id: resource.ID): Base.Node<string> => ({
     key: resource.idToString(id),
-    children: hasChildren(id) ? [] : undefined,
+    children: resolveItem(id.type).hasChildren ? [] : undefined,
   });
   ids.forEach((id) => {
     const key = resource.idToString(id);
@@ -120,7 +118,7 @@ const buildResults = ({
   });
   return {
     results: {
-      nodes: foldersFirst(nodes),
+      nodes: foldersFirst(nodes, resolveItem),
       fixed,
       expanded: [...expanded],
       paths: above,
@@ -134,11 +132,21 @@ const buildResults = ({
 interface Held {
   key: string;
   layout: SearchLayout;
-  groups: group.Group[] | null;
-  results: ResultNodes;
+  results: Results;
   match: Match;
   more: boolean;
 }
+
+const nameKey = ({ key, name }: Resource): string => `${key}\t${name}`;
+
+// Names what the results show, so a change to it rebuilds them.
+const keyOf = (term: string, matches: Resource[], placement: Placement): string =>
+  JSON.stringify([
+    term,
+    matches.map(nameKey),
+    placement.resources.map(nameKey),
+    placement.paths,
+  ]);
 
 const useDebounced = (value: string): string => {
   const [debounced, setDebounced] = useState(value);
@@ -155,7 +163,8 @@ const useDebounced = (value: string): string => {
  */
 export const createSearch = ({
   noun,
-  useMatches = useGroupMatches,
+  useMatches,
+  usePlacement,
 }: CreateSearchParams): UseSearch => {
   const useSearch = (root: resource.ID | null): Search => {
     const items = useItems();
@@ -179,14 +188,12 @@ export const createSearch = ({
         )
       : null;
     const shown = found?.slice(0, LIMIT) ?? null;
-    const above = shown == null ? [] : groupsAbove(shown);
-    const ancestors = Group.useResultAncestors(
-      above.length === 0 ? null : { keys: above },
+    const placed = usePlacement(
+      shown == null || root == null ? null : { matches: shown, root },
     );
-    let groups: group.Group[] | null = null;
-    if (above.length === 0) groups = NO_GROUPS;
-    else if (ancestors.variant === "success") groups = ancestors.data;
-    const key = shown == null ? null : [trimmed, ...shown.map(matchKey)].join("\n");
+    const placement = placed.variant === "success" ? placed.placement : null;
+    const key =
+      shown == null || placement == null ? null : keyOf(trimmed, shown, placement);
     const more = found != null && found.length > LIMIT;
 
     // The last answer shows until the next one is placed, so the results never blank
@@ -195,25 +202,20 @@ export const createSearch = ({
     if (!searching) {
       if (held != null) setHeld(null);
     } else if (
-      root != null &&
       key != null &&
       shown != null &&
-      groups != null &&
-      (held?.key !== key ||
-        held.groups !== groups ||
-        held.layout !== layout ||
-        held.more !== more)
+      placement != null &&
+      (held?.key !== key || held.layout !== layout || held.more !== more)
     ) {
       const { results, groups: groupNames } = buildResults({
         matches: shown,
-        ancestry: placeInGroups(shown, groups, root),
+        placement,
         layout,
-        hasChildren: (id) => (items[id.type] ?? DefaultItem).hasChildren,
+        resolveItem: (type) => items[type] ?? DefaultItem,
       });
       setHeld({
         key,
         layout,
-        groups,
         results,
         match: { term: trimmed, groups: groupNames },
         more,
@@ -221,8 +223,7 @@ export const createSearch = ({
     }
 
     const failure =
-      sources.find(isFailed) ??
-      (ancestors.variant === "error" ? ancestors.status : null);
+      sources.find(isFailed) ?? (placed.variant === "error" ? placed : null);
     let answer: SearchAnswer | null = null;
     if (searching && failure != null)
       answer = { variant: "error", description: failure.description };

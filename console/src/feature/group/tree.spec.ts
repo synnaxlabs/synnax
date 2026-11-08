@@ -28,6 +28,7 @@ import { Device } from "@/feature/device";
 import { Group } from "@/feature/group";
 import { Project } from "@/feature/project";
 import { Rack } from "@/feature/rack";
+import { Group as PlatformGroup } from "@/platform/group";
 import { Tree } from "@/platform/tree";
 import {
   createResource,
@@ -328,7 +329,11 @@ describe("a group and its child selected in flat search results", () => {
       root: channel.TYPE_RESOURCE_ID,
       items: { group: Item },
       listRoot: createScopeTree(root.key).listRoot,
-      search: Tree.createSearch({ noun: "groups" }),
+      search: Tree.createSearch({
+        noun: "groups",
+        useMatches: PlatformGroup.useMatches,
+        usePlacement: PlatformGroup.usePlacement,
+      }),
     });
     searchTree(tok);
     const innerRow = await findTreeRow(itemName(inner.name));
