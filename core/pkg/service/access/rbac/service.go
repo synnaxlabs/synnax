@@ -11,6 +11,7 @@ package rbac
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -127,12 +128,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Roles *Roles
-	// User is the user service that holds the roles of each user. It assigns the Owner
-	// role to root users at startup.
+	// User is the user service that holds the role of each user.
 	//
 	// [REQUIRED]
 	User *user.Service
-	// Rack is the rack service that holds the roles of each rack.
+	// Rack is the rack service that holds the role of each rack.
 	//
 	// [REQUIRED]
 	Rack *rack.Service
@@ -160,14 +160,14 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// Service enforces access control on the roles that users and racks hold.
+// Service enforces access control on the role that each user and rack holds.
 type Service struct {
 	*Roles
 	cfg ServiceConfig
 }
 
-// NewService creates a Service. It runs the legacy permission migrations and gives the
-// Owner role to every root user.
+// NewService creates a Service. It runs the migrations that give each stored user one
+// role.
 func NewService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
@@ -179,94 +179,71 @@ func NewService(ctx context.Context, configs ...ServiceConfig) (*Service, error)
 		DB:              cfg.DB,
 		Namespace:       "RBAC",
 		Migrations: migrations.New(migrations.Config{
-			User:  cfg.User,
-			Roles: s.Builtin,
+			User:    cfg.User,
+			Role:    s.Role,
+			Policy:  s.Policy,
+			Builtin: s.Builtin,
 		}),
 	}); err != nil {
-		return nil, err
-	}
-	if err = s.assignOwnerToRoots(ctx, s.Builtin.OwnerKey); err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-// assignOwnerToRoots assigns the role identified by ownerKey to every user with
-// RootUser=true. The assignment is idempotent, so it is safe to run on every startup.
-func (s *Service) assignOwnerToRoots(ctx context.Context, ownerKey role.Key) error {
-	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		var roots []user.User
-		if err := s.cfg.User.NewRetrieve().
-			Where(user.MatchRootUser(true)).
-			Entries(&roots).
-			Exec(ctx, tx); err != nil {
-			return errors.Wrap(err, "load root users")
-		}
-		if len(roots) == 0 {
-			return nil
-		}
-		keys := lo.Map(roots, func(u user.User, _ int) user.Key { return u.Key })
-		return errors.Wrap(
-			s.cfg.User.NewWriter(tx).AssignRole(ctx, ownerKey, keys...),
-			"assign Owner role to root users",
-		)
-	})
-}
-
 // RolesOf returns the keys of the roles that the subjects hold, as seen by tx. A
-// subject is a user or a rack. RolesOf returns a validation error for a subject of any
-// other type, and query.ErrNotFound when a subject does not exist.
+// subject is a user or a rack, and holds one role. RolesOf returns a validation error
+// for a subject of any other type, and query.ErrNotFound when a subject does not exist.
 func (s *Service) RolesOf(
 	ctx context.Context,
 	tx gorp.Tx,
 	subjects ...resource.ID,
 ) ([]role.Key, error) {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
-	var roles []role.Key
+	roles := make([]role.Key, 0, len(subjects))
 	for _, subject := range subjects {
-		held, err := s.rolesOf(ctx, tx, subject)
+		r, err := s.roleOf(ctx, tx, subject)
 		if err != nil {
 			return nil, err
 		}
-		roles = append(roles, held...)
+		roles = append(roles, r)
 	}
 	return lo.Uniq(roles), nil
 }
 
-func (s *Service) rolesOf(
+func (s *Service) roleOf(
 	ctx context.Context,
 	tx gorp.Tx,
 	subject resource.ID,
-) ([]role.Key, error) {
+) (role.Key, error) {
 	switch subject.Type {
 	case resource.TypeUser:
 		key, err := user.KeyFromResourceID(subject)
 		if err != nil {
-			return nil, err
+			return uuid.Nil(), err
 		}
 		var u user.User
 		if err = s.cfg.User.NewRetrieve().
 			Where(user.MatchKeys(key)).
 			Entry(&u).
 			Exec(ctx, tx); err != nil {
-			return nil, err
+			return uuid.Nil(), err
 		}
-		return u.Roles, nil
+		return u.Role, nil
 	case resource.TypeRack:
 		key, err := rack.KeyFromResourceID(subject)
 		if err != nil {
-			return nil, err
+			return uuid.Nil(), err
 		}
 		var r rack.Rack
 		if err = s.cfg.Rack.NewRetrieve().
 			Where(rack.MatchKeys(key)).
 			Entry(&r).
 			Exec(ctx, tx); err != nil {
-			return nil, err
+			return uuid.Nil(), err
 		}
-		return r.Roles, nil
+		return r.Role, nil
 	default:
-		return nil, errors.Wrapf(
+		return uuid.Nil(), errors.Wrapf(
 			validate.ErrValidation,
 			"%s cannot hold roles",
 			subject,
@@ -289,7 +266,7 @@ func (e *Enforcer) retrievePolicies(
 	if errors.Is(err, query.ErrNotFound) {
 		return nil, nil
 	}
-	if err != nil || len(roles) == 0 {
+	if err != nil {
 		return nil, err
 	}
 	var policies []policy.Policy

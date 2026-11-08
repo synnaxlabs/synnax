@@ -16,8 +16,8 @@ export interface Polyline {
   order: number;
 }
 
-/// @brief clearance a crossing needs from the ends of the hop-bearing segment, so the arc
-/// fits clear of that segment's corners.
+/// @brief clearance a crossing needs from the ends of the hop-bearing segment, so the
+/// arc fits clear of that segment's corners.
 const WINNER_BUFFER = 14;
 /// @brief clearance from the ends of the crossed segment, only enough to skip a true
 /// T-junction so hops persist almost to where the crossed line ends.
@@ -64,8 +64,8 @@ const pushSpans = (
 };
 
 /// @brief returns the hop points per edge: where a horizontal run of one edge crosses a
-/// vertical run of another, assigned to the edge on top. Crossings near a segment's ends
-/// are dropped; collinear overlaps and self-crossings are ignored by construction.
+/// vertical run of another, assigned to the edge on top. Crossings near a segment's
+/// ends are dropped; collinear overlaps and self-crossings are ignored by construction.
 export const findCrossings = (polylines: Polyline[]): Map<string, xy.XY[]> => {
   const horizontal: Span[] = [];
   const vertical: Span[] = [];
@@ -76,8 +76,8 @@ export const findCrossings = (polylines: Polyline[]): Map<string, xy.XY[]> => {
       if (h.key === v.key) continue;
       const x = v.cross;
       const y = h.cross;
-      // The hop is drawn along the winner's segment, so only it needs the wide clearance;
-      // the crossed segment just needs to clear a T-junction.
+      // The hop is drawn along the winner's segment, so only it needs the wide
+      // clearance; the crossed segment just needs to clear a T-junction.
       const hWins = h.order >= v.order;
       const hBuf = hWins ? WINNER_BUFFER : CROSS_BUFFER;
       const vBuf = hWins ? CROSS_BUFFER : WINNER_BUFFER;

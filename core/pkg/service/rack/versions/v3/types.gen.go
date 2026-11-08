@@ -46,8 +46,8 @@ type Rack struct {
 	Version *string `json:"version,omitzero" msgpack:"version,omitempty"`
 	// Group is the group the rack sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Roles are the roles that grant the rack its permissions.
-	Roles []role.Key `json:"roles" msgpack:"roles"`
+	// Role is the role that grants the rack its permissions.
+	Role role.Key `json:"role" msgpack:"role"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
