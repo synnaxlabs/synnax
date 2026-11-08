@@ -56,16 +56,15 @@ class Analog:
         """
         Initialize analog channel with common configuration.
 
-        Args:
-            layout: LayoutClient for UI operations
-            name: Channel name
-            device: Device identifier
-            chan_type: Channel type (e.g., "Voltage", "Accelerometer")
-            port: Physical port number
-            terminal_config: Terminal configuration
-            min_val: Minimum value
-            max_val: Maximum value
-            custom_scale: Custom scale type
+        :param layout: LayoutClient for UI operations
+        :param name: Channel name
+        :param device: Device identifier
+        :param chan_type: Channel type (e.g., "Voltage", "Accelerometer")
+        :param port: Physical port number
+        :param terminal_config: Terminal configuration
+        :param min_val: Minimum value
+        :param max_val: Maximum value
+        :param custom_scale: Custom scale type
         """
         self.layout = layout
         self.device = device
@@ -178,10 +177,9 @@ class Analog:
     ) -> None:
         """Configure a dropdown field.
 
-        Args:
-            label: The UI label for the dropdown
-            value: The value to select, or None to read current value
-            track: Whether to track the value in form_values
+        :param label: The UI label for the dropdown
+        :param value: The value to select, or None to read current value
+        :param track: Whether to track the value in form_values
         """
         if value is not None:
             value = console_label(value)
@@ -205,9 +203,8 @@ class Analog:
         Skips when the trigger already shows the target, since reopening a
         single-option dropdown to reselect its value hangs.
 
-        Args:
-            trigger_text: A substring identifying the dropdown trigger button.
-            value: The exact option text to select, or None to leave unchanged.
+        :param trigger_text: A substring identifying the dropdown trigger button.
+        :param value: The exact option text to select, or None to leave unchanged.
         """
         if value is None:
             return
@@ -231,10 +228,9 @@ class Analog:
     ) -> None:
         """Configure an input field.
 
-        Args:
-            label: The UI label for the input field
-            value: The value to set, or None to read current value
-            track: Whether to track the value in form_values
+        :param label: The UI label for the input field
+        :param value: The value to set, or None to read current value
+        :param track: Whether to track the value in form_values
         """
         if value is not None:
             self.layout.fill_input_field(label, str(value))
@@ -254,10 +250,9 @@ class Analog:
     ) -> None:
         """Configure a toggle/checkbox field.
 
-        Args:
-            label: The UI label for the toggle
-            value: The desired state, or None to read current value
-            track: Whether to track the value in form_values
+        :param label: The UI label for the toggle
+        :param value: The desired state, or None to read current value
+        :param track: Whether to track the value in form_values
         """
         if value is not None:
             current = self.layout.get_toggle(label)

@@ -19,7 +19,9 @@ export interface OnSelectParams {
   tabKey?: panel.TabKey;
 }
 
-/** An item a selector offers to create. The button the selector draws calls its hooks. */
+/**
+ * An item a selector offers to create. The button the selector draws calls its hooks.
+ */
 export interface Selectable {
   /** Identifies the item, such as a resource or task type. */
   type: string;

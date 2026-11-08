@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"io"
 	"math"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -108,8 +109,7 @@ var _ = Describe("Reader", func() {
 		w := orc.NewWriter(0)
 		w.WriteWithLen([]byte{1, 2, 3})
 		r := orc.NewReader(bytesReader(w.Bytes()))
-		_, err := r.ReadWithLen()
-		Expect(err).To(MatchError(orc.ErrExceedCollectionLen))
+		Expect(r.ReadWithLen()).Error().To(MatchError(orc.ErrExceedCollectionLen))
 	})
 
 	It("Should read length-prefixed strings", func() {
@@ -149,6 +149,25 @@ var _ = Describe("Reader", func() {
 		w.String("hello")
 		r := orc.NewReader(bytesReader(w.Bytes()))
 		Expect(r.String()).To(Equal("hello"))
+	})
+
+	It("Should read string bytes in io.Reader mode", func() {
+		w := orc.NewWriter(0)
+		w.String("hello")
+		w.String("")
+		r := orc.NewReader(bytesReader(w.Bytes()))
+		Expect(r.StringBytes()).To(Equal([]byte("hello")))
+		Expect(r.StringBytes()).To(BeEmpty())
+	})
+
+	It("Should reject string bytes exceeding MaxStringLen in io.Reader mode", func() {
+		prev := orc.MaxStringLen
+		defer func() { orc.MaxStringLen = prev }()
+		orc.MaxStringLen = 8
+		buf := make([]byte, 4)
+		binary.BigEndian.PutUint32(buf, 9)
+		r := orc.NewReader(bytesReader(buf))
+		Expect(r.StringBytes()).Error().To(MatchError(orc.ErrExceedStringLen))
 	})
 
 	It("Should read uint16 in io.Reader mode", func() {
@@ -397,6 +416,31 @@ var _ = Describe("Reader", func() {
 			Expect(buf).To(Equal([]byte{1, 2, 3, 4}))
 			Expect(r.Read(buf)).To(Equal(4))
 			Expect(buf).To(Equal([]byte{5, 6, 7, 8}))
+		})
+
+		It("Should read string bytes without copying them", func() {
+			w := orc.NewWriter(0)
+			w.String("hello")
+			data := w.Bytes()
+			r := orc.NewReader(nil)
+			r.ResetBytes(data)
+			b := MustSucceed(r.StringBytes())
+			Expect(b).To(Equal([]byte("hello")))
+			Expect(&b[0]).To(BeIdenticalTo(&data[4]))
+			var err error
+			Expect(testing.AllocsPerRun(100, func() {
+				r.ResetBytes(data)
+				_, err = r.StringBytes()
+			})).To(BeZero())
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Should return ErrUnexpectedEOF on truncated string bytes", func() {
+			buf := make([]byte, 7)
+			binary.BigEndian.PutUint32(buf, 100)
+			r := orc.NewReader(nil)
+			r.ResetBytes(buf)
+			Expect(r.StringBytes()).Error().To(MatchError(io.ErrUnexpectedEOF))
 		})
 
 		It("Should return ErrUnexpectedEOF on partial Read", func() {

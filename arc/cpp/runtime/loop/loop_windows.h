@@ -78,8 +78,8 @@ public:
         std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr,
         Api api = Api{}
     ):
-        config_(config), rt_handle_(std::move(rt_handle)), api_(std::move(api)) {
-        if (this->config_.memory_locked) {
+        config(config), rt_handle(std::move(rt_handle)), api(std::move(api)) {
+        if (this->config.memory_locked) {
             LOG(WARNING) << "[arc.loop] Memory locking on Windows requires "
                          << "VirtualLock API (not implemented)";
         }
@@ -92,9 +92,9 @@ public:
         x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0),
         x::telem::TimeSpan span = x::telem::TimeSpan::max()
     ) override {
-        if (this->wake_event_ == NULL) return WakeReason::Shutdown;
+        if (this->wake_event == NULL) return WakeReason::Shutdown;
 
-        switch (this->config_.mode) {
+        switch (this->config.mode) {
             case ExecutionMode::BUSY_WAIT:
                 return this->busy_wait(breaker, max_timeout);
             case ExecutionMode::HIGH_RATE:
@@ -116,10 +116,10 @@ public:
     }
 
     x::errors::Error start() override {
-        if (this->wake_event_ != NULL) return x::errors::NIL;
+        if (this->wake_event != NULL) return x::errors::NIL;
 
-        this->wake_event_ = CreateEvent(NULL, FALSE, FALSE, NULL);
-        if (this->wake_event_ == NULL)
+        this->wake_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+        if (this->wake_event == NULL)
             return this->fail_start(
                 x::errors::Error(
                     x::errors::INTERNAL,
@@ -128,24 +128,24 @@ public:
             );
 
         // HIGH_RATE and BUSY_WAIT check the deadline against the clock.
-        if (this->config_.mode != ExecutionMode::HIGH_RATE &&
-            this->config_.mode != ExecutionMode::BUSY_WAIT) {
+        if (this->config.mode != ExecutionMode::HIGH_RATE &&
+            this->config.mode != ExecutionMode::BUSY_WAIT) {
             if (auto err = this->create_waitable_timer()) return this->fail_start(err);
         }
 
-        if (!this->rt_handle_) {
-            auto rt_cfg = this->config_.rt();
+        if (!this->rt_handle) {
+            auto rt_cfg = this->config.rt();
             rt_cfg.use_mmcss = true;
             x::thread::rt::apply_config(rt_cfg);
         } else {
-            this->rt_handle_->apply();
+            this->rt_handle->apply();
         }
         return x::errors::NIL;
     }
 
     void wake() override {
-        if (this->wake_event_ == NULL) return;
-        SetEvent(this->wake_event_);
+        if (this->wake_event == NULL) return;
+        SetEvent(this->wake_event);
     }
 
     bool watch(x::notify::Notifier &notifier) override {
@@ -154,11 +154,11 @@ public:
             LOG(ERROR) << "[arc.loop] Notifier has no native handle";
             return false;
         }
-        if (this->watched_handle_ != NULL && this->watched_handle_ != handle) {
+        if (this->watched_handle != NULL && this->watched_handle != handle) {
             LOG(ERROR) << "[arc.loop] Only one external notifier can be watched";
             return false;
         }
-        this->watched_handle_ = handle;
+        this->watched_handle = handle;
         return true;
     }
 
@@ -169,13 +169,13 @@ private:
     /// deadline, as the periodic lPeriod parameter does not use the high-resolution
     /// mechanism.
     x::errors::Error create_waitable_timer() {
-        this->timer_event_ = this->api_.create_high_resolution();
-        if (this->timer_event_ != NULL) {
-            this->high_res_timer_ = true;
+        this->timer_event = this->api.create_high_resolution();
+        if (this->timer_event != NULL) {
+            this->high_res_timer = true;
             VLOG(1) << "[arc.loop] using high-resolution waitable timer";
         } else {
-            this->timer_event_ = this->api_.create();
-            if (this->timer_event_ == NULL)
+            this->timer_event = this->api.create();
+            if (this->timer_event == NULL)
                 return x::errors::Error(
                     x::errors::INTERNAL,
                     "Failed to create waitable timer: " + std::to_string(GetLastError())
@@ -187,19 +187,19 @@ private:
 
     /// @brief raises or lowers the system tick for a standard timer.
     void set_tick_raised(const bool raised) {
-        if (this->high_res_timer_ || this->tick_raised_ == raised) return;
+        if (this->high_res_timer || this->tick_raised == raised) return;
         if (raised)
-            this->api_.raise_tick();
+            this->api.raise_tick();
         else
-            this->api_.lower_tick();
-        this->tick_raised_ = raised;
+            this->api.lower_tick();
+        this->tick_raised = raised;
     }
 
     /// @brief disarms the timer. A cancel does not clear a fire, so the drain clears
     /// one left from an earlier arm.
     void disarm_timer() const {
-        CancelWaitableTimer(this->timer_event_);
-        WaitForSingleObject(this->timer_event_, 0);
+        CancelWaitableTimer(this->timer_event);
+        WaitForSingleObject(this->timer_event, 0);
     }
 
     /// @brief arms the timer to fire once after span.
@@ -209,8 +209,8 @@ private:
         const int64_t span_100ns = span.nanoseconds() /
                                    timing::WINDOWS_TIMER_UNIT.nanoseconds();
         due_time.QuadPart = -span_100ns;
-        if (this->api_.set(this->timer_event_, due_time)) return true;
-        report_arm_failure(this->arm_failed_, std::to_string(GetLastError()));
+        if (this->api.set(this->timer_event, due_time)) return true;
+        report_arm_failure(this->arm_failed, std::to_string(GetLastError()));
         return false;
     }
 
@@ -221,7 +221,7 @@ private:
         const x::telem::TimeSpan max_timeout,
         const x::telem::TimeSpan spin
     ) const {
-        return this->timer_event_ != NULL && max_timeout.nanoseconds() > 0 &&
+        return this->timer_event != NULL && max_timeout.nanoseconds() > 0 &&
                max_timeout < spin + timing::WINDOWS_TIMER_UNIT;
     }
 
@@ -229,7 +229,7 @@ private:
     /// disarms the timer so that an earlier deadline does not wake the loop.
     bool
     arm_deadline(const x::telem::TimeSpan max_timeout, const x::telem::TimeSpan spin) {
-        if (this->timer_event_ == NULL) return false;
+        if (this->timer_event == NULL) return false;
         if (max_timeout.nanoseconds() <= 0) {
             this->disarm_timer();
             this->set_tick_raised(false);
@@ -265,17 +265,17 @@ private:
     }
 
     void close_handles() {
-        if (this->timer_event_ != NULL) {
-            CancelWaitableTimer(this->timer_event_);
-            CloseHandle(this->timer_event_);
-            this->timer_event_ = NULL;
+        if (this->timer_event != NULL) {
+            CancelWaitableTimer(this->timer_event);
+            CloseHandle(this->timer_event);
+            this->timer_event = NULL;
         }
 
         this->set_tick_raised(false);
 
-        if (this->wake_event_ != NULL) {
-            CloseHandle(this->wake_event_);
-            this->wake_event_ = NULL;
+        if (this->wake_event != NULL) {
+            CloseHandle(this->wake_event);
+            this->wake_event = NULL;
         }
     }
 
@@ -306,8 +306,8 @@ private:
         const x::breaker::Breaker &breaker,
         const x::telem::TimeSpan max_timeout
     ) {
-        const auto span = high_rate_span(this->config_, max_timeout);
-        if (!this->sleeper_.precise_sleep(span, breaker)) return WakeReason::Shutdown;
+        const auto span = high_rate_span(this->config, max_timeout);
+        if (!this->sleeper.precise_sleep(span, breaker)) return WakeReason::Shutdown;
         return WakeReason::Timer;
     }
 
@@ -356,7 +356,7 @@ private:
         if (!armed && max_timeout.nanoseconds() > 0)
             return this->busy_wait(breaker, max_timeout);
 
-        while (sw.elapsed() < this->config_.spin_duration) {
+        while (sw.elapsed() < this->config.spin_duration) {
             if (!breaker.running()) return WakeReason::Shutdown;
 
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
@@ -384,28 +384,28 @@ private:
     /// @brief Classifies which handle was signaled to determine wake reason.
     WakeReason classify_result(const DWORD result, const HANDLE *handles) const {
         const DWORD index = result - WAIT_OBJECT_0;
-        if (handles[index] == this->timer_event_) return WakeReason::Timer;
-        if (handles[index] == this->watched_handle_) return WakeReason::Input;
+        if (handles[index] == this->timer_event) return WakeReason::Timer;
+        if (handles[index] == this->watched_handle) return WakeReason::Input;
         return WakeReason::Shutdown;
     }
 
     DWORD build_handles(HANDLE *handles) const {
-        handles[0] = this->wake_event_;
+        handles[0] = this->wake_event;
         DWORD count = 1;
-        if (this->watched_handle_ != NULL) handles[count++] = this->watched_handle_;
-        if (this->timer_event_ != NULL) handles[count++] = this->timer_event_;
+        if (this->watched_handle != NULL) handles[count++] = this->watched_handle;
+        if (this->timer_event != NULL) handles[count++] = this->timer_event;
         return count;
     }
 
-    Config config_;
-    std::shared_ptr<x::thread::rt::Handle> rt_handle_;
-    HANDLE wake_event_ = NULL;
-    HANDLE timer_event_ = NULL;
-    HANDLE watched_handle_ = NULL;
-    bool arm_failed_ = false;
-    bool high_res_timer_ = false;
-    bool tick_raised_ = false;
-    Api api_;
-    ::x::loop::Timer sleeper_;
+    Config config;
+    std::shared_ptr<x::thread::rt::Handle> rt_handle;
+    HANDLE wake_event = NULL;
+    HANDLE timer_event = NULL;
+    HANDLE watched_handle = NULL;
+    bool arm_failed = false;
+    bool high_res_timer = false;
+    bool tick_raised = false;
+    Api api;
+    ::x::loop::Timer sleeper;
 };
 }

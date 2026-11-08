@@ -18,8 +18,8 @@
 #include <vector>
 
 #include "client/cpp/label/types.gen.h"
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/ranger/kv/kv.h"
+#include "client/cpp/resource/id.h"
 #include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
@@ -53,12 +53,11 @@ struct Range {
     /// @brief color is an optional display color for visual identification of the range
     /// in user interfaces.
     std::optional<::x::color::Color> color;
-    /// @brief labels contains optional labels attached to this range for categorization
-    /// and filtering.
-    std::optional<std::vector<::synnax::label::Label>> labels;
-    /// @brief parent is an optional parent range for hierarchical organization. Ranges
-    /// can be nested within other ranges.
-    x::mem::indirect<Range> parent;
+    /// @brief labels are the keys of the labels attached to the range.
+    std::vector<::synnax::label::Key> labels = {};
+    /// @brief parent is the key of the range this range is nested in. Empty for a
+    /// top-level range.
+    std::optional<Key> parent;
 
     static Range parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -87,6 +86,8 @@ struct Where {
     std::optional<::x::telem::TimeRange> overlaps;
     /// @brief labels matches ranges that have any of the given labels.
     ::x::filter::List<::synnax::label::Key> labels;
+    /// @brief parents matches the ranges nested in any of the given ranges.
+    ::x::filter::List<Key> parents;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {
@@ -146,10 +147,6 @@ struct RetrieveOptions {
     std::optional<std::uint32_t> limit;
     /// @brief offset is the number of matching ranges to skip.
     std::uint32_t offset = 0;
-    /// @brief include_labels includes the labels of each record.
-    bool include_labels = false;
-    /// @brief include_parent includes the parent of each record.
-    bool include_parent = false;
 };
 
 /// @brief RetrieveRequest is a request to retrieve ranges.
@@ -163,10 +160,6 @@ struct RetrieveRequest {
     std::optional<std::uint32_t> limit;
     /// @brief offset is the number of matching ranges to skip.
     std::uint32_t offset = 0;
-    /// @brief include_labels includes the labels of each record.
-    bool include_labels = false;
-    /// @brief include_parent includes the parent of each record.
-    bool include_parent = false;
 
     /// @brief returns a request for the records that where selects.
     static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
@@ -175,8 +168,6 @@ struct RetrieveRequest {
             .search_term = options.search_term,
             .limit = options.limit,
             .offset = options.offset,
-            .include_labels = options.include_labels,
-            .include_parent = options.include_parent,
         };
     }
 
@@ -190,9 +181,9 @@ struct RetrieveRequest {
     from_proto(const ::api::ranger::pb::RetrieveRequest &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("range", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("range", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("range", key.to_string());
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("range", key.to_string());
 }
 }

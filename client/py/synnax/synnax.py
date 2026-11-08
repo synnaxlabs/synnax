@@ -14,38 +14,37 @@ from alamos import NOOP, Instrumentation
 from freighter import URL
 from freighter.exceptions import Unreachable
 from synnax import (
+    access as access_,
     arc,
     auth,
     channel,
     connection,
+    control as control_,
     device,
     exceptions,
     framer,
     group,
+    imex as imex_,
     label,
+    license as license_,
     lineplot,
     log,
     panel,
     project,
     rack,
     ranger,
+    resource,
     schematic,
+    signals as signals_,
     status,
     table,
     task,
     user,
     view,
 )
-from synnax.access import Client as AccessClient
 from synnax.config import DESKTOP_NOT_RUNNING_MSG, try_load_options_if_none_provided
-from synnax.control import Client as ControlClient
 from synnax.exceptions import ValidationError
-from synnax.imex import Client as ImexClient
-from synnax.license import Client as LicenseClient
-from synnax.ontology import Client as OntologyClient
 from synnax.options import Options
-from synnax.ranger.retrieve import Retriever as RangeRetriever
-from synnax.signals import Registry as SignalsRegistry
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
 from x.exceptions import Registry
@@ -79,22 +78,22 @@ class Synnax(framer.Client):
 
     channels: channel.Client
     connectivity: connection.Checker
-    access: AccessClient
+    access: access_.Client
     users: user.Client
     ranges: ranger.Client
-    control: ControlClient
-    signals: SignalsRegistry
+    control: control_.Client
+    signals: signals_.Registry
     racks: rack.Client
     devices: device.Client
     tasks: task.Client
-    ontology: OntologyClient
-    license: LicenseClient
+    resources: resource.Client
+    license: license_.Client
     statuses: status.Client
     arcs: arc.Client
     groups: group.Client
     labels: label.Client
     views: view.Client
-    imex: ImexClient
+    imex: imex_.Client
     projects: project.Client
     tables: table.Client
     line_plots: lineplot.Client
@@ -216,31 +215,31 @@ class Synnax(framer.Client):
         )
         self.groups = group.Client(self._transport.unary)
         self.labels = label.Client(self._transport.unary)
-        self.ontology = OntologyClient(client=self._transport.unary)
+        self.resources = resource.Client(self._transport.unary)
         self.channels = channel.Client(
             client=self._transport.unary,
             frame_client=self,
             retriever=ch_retriever,
             creator=ch_creator,
         )
-        range_retriever = RangeRetriever(
+        range_retriever = ranger.Retriever(
             client=self._transport.unary, instrumentation=instrumentation
         )
         range_creator = ranger.Writer(
             client=self._transport.unary, instrumentation=instrumentation
         )
-        self.signals = SignalsRegistry(frame_client=self, channels=ch_retriever)
+        self.signals = signals_.Registry(frame_client=self, channels=ch_retriever)
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
-        self.imex = ImexClient(file_transport=self._transport.file_transport)
+        self.imex = imex_.Client(file_transport=self._transport.file_transport)
         self.projects = project.Client(
             client=self._transport.unary,
             file_transport=self._transport.file_transport,
         )
         self.tables = table.Client(client=self._transport.unary)
         self.line_plots = lineplot.Client(client=self._transport.unary)
-        self.panels = panel.Client(client=self._transport.unary, ontology=self.ontology)
+        self.panels = panel.Client(client=self._transport.unary)
         self.logs = log.Client(self._transport.unary)
         self.schematics = schematic.Client(client=self._transport.unary)
         self.tasks = task.Client(
@@ -256,18 +255,17 @@ class Synnax(framer.Client):
             writer=range_creator,
             retriever=range_retriever,
             signals=self.signals,
-            ontology=self.ontology,
             tasks=self.tasks,
             labels=self.labels,
         )
-        self.control = ControlClient(
+        self.control = control_.Client(
             framer=self, channels=ch_retriever, client=self._transport.unary
         )
         self.users = user.Client(self._transport.unary)
         self.statuses = status.Client(self._transport.unary)
-        self.license = LicenseClient(self._transport.unary)
+        self.license = license_.Client(self._transport.unary)
         self.arcs = arc.Client(self._transport.unary)
-        self.access = AccessClient(self._transport.unary)
+        self.access = access_.Client(self._transport.unary)
 
     def close(self) -> None:
         """Logs out, shuts down the client, and closes all connections. All open

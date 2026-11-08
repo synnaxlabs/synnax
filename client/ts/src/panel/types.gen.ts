@@ -12,7 +12,10 @@
 import { color, filter, spatial, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { group } from "@/group";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
+import { resource } from "@/resource";
 
 /**
  * View is an inline, self-describing view with no backing Core document. Used for
@@ -47,6 +50,10 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
+  projects?: project.Key[];
+  ranges?: ranger.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -63,6 +70,14 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** groups matches the panels in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the panels in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
+  /** projects matches the panels owned by any of the given projects. */
+  projects: zod.nullToUndefined(project.keyZ.array()),
+  /** ranges matches the panels owned by any of the given ranges. */
+  ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
 
 /** ResourceTab is a tab displaying a backing Core document. */
@@ -72,7 +87,7 @@ export const resourceTabZ = tabBaseZ.extend({
    * resource is the visualization resource displayed by this tab, set via
    * SetTabResource.
    */
-  resource: ontology.idZ,
+  resource: resource.idZ,
 });
 export interface ResourceTab extends z.infer<typeof resourceTabZ> {}
 
@@ -179,17 +194,24 @@ export const panelZ = z.object({
   /** root is the root of the panel tree. */
   root: nodeZ.prefault({ variant: "leaf", tabs: [] }),
   /**
-   * parent is the parent resource for the panel in the ontology. Required on create and
-   * absent on retrieve.
-   */
-  parent: ontology.idZ.optional(),
-  /**
    * icon is the key of the icon that marks the panel in lists. When null, the Console
    * draws its default panel icon.
    */
   icon: z.string().optional(),
   /** color is the color of the panel's icon. When null, the theme picks it. */
   color: color.colorZ.optional(),
+  /** group is the group the panel sits in, if any. */
+  group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the panel, if any. Exactly one of project and
+   * range is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the panel, if any. Exactly one of project and range is
+   * set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface Panel extends z.infer<typeof panelZ> {}
 export interface New extends z.input<typeof panelZ> {}
@@ -201,5 +223,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("panel");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("panel");
+export const TYPE_RESOURCE_ID = resourceID("");

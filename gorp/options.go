@@ -10,11 +10,10 @@
 package gorp
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 )
 
@@ -27,11 +26,16 @@ func WithCodec(codec encoding.Codec) Option {
 	return func(opts *options) { opts.Codec = codec }
 }
 
-// WithIndexObservable sets the default change source used by index observers
-// on tables opened against this DB. Per-table TableConfig.Observable still
-// takes precedence; when neither is set, the DB itself is used.
-func WithIndexObservable(obs observe.Observable[kv.TxReader]) Option {
-	return func(opts *options) { opts.IndexObservable = obs }
+// WithMaxDeleteSize sets the most entries that one Delete may delete or rewrite once
+// references cascade and detach. A larger delete fails before it changes anything. The
+// default is 1 << 20.
+func WithMaxDeleteSize(n int) Option {
+	return func(opts *options) { opts.MaxDeleteSize = n }
+}
+
+// WithInstrumentation sets the instrumentation that the DB logs to.
+func WithInstrumentation(ins alamos.Instrumentation) Option {
+	return func(opts *options) { opts.Instrumentation = ins }
 }
 
 // options holds the configuration applied to a DB and inherited by
@@ -39,14 +43,15 @@ func WithIndexObservable(obs observe.Observable[kv.TxReader]) Option {
 type options struct {
 	// Codec encodes and decodes entries to and from the underlying KV.
 	encoding.Codec
-	// IndexObservable is the default change source for index observers
-	// on tables opened against the DB. Per-table TableConfig.Observable
-	// takes precedence; when neither is set, the DB itself is used.
-	IndexObservable observe.Observable[kv.TxReader]
+	// MaxDeleteSize is the most entries that one Delete may delete or rewrite.
+	MaxDeleteSize int
+	// Instrumentation is where the DB logs.
+	Instrumentation alamos.Instrumentation
 }
 
 var defaultOptions = options{
-	Codec: encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),
+	Codec:         encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),
+	MaxDeleteSize: 1 << 20,
 }
 
 func newOptions(opts []Option) options {
@@ -59,5 +64,6 @@ func newOptions(opts []Option) options {
 
 func overrideOptions(o options) options {
 	o.Codec = override.Nil(defaultOptions.Codec, o.Codec)
+	o.MaxDeleteSize = override.Numeric(defaultOptions.MaxDeleteSize, o.MaxDeleteSize)
 	return o
 }

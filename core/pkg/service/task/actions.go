@@ -10,19 +10,16 @@
 package task
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // task.
 func (CreatePayload) Handle(Task) (Task, error) {
-	return Task{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a task create",
-	)
+	return Task{}, actions.CoreOnlyError("a task create")
 }
 
 // Handle applies the set to the task's name, rack, or config.

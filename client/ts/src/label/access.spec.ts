@@ -35,7 +35,7 @@ describe("label", () => {
     it("should allow the caller to retrieve labels with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [label.ontologyID("")],
+        objects: [label.resourceID("")],
         actions: ["retrieve"],
       });
       const randomLabel = await client.labels.create({
@@ -51,7 +51,7 @@ describe("label", () => {
     it("should allow the caller to create labels with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [label.ontologyID("")],
+        objects: [label.resourceID("")],
         actions: ["create"],
       });
       await userClient.labels.create({
@@ -63,7 +63,7 @@ describe("label", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [label.ontologyID("")],
+        objects: [label.resourceID("")],
         actions: [],
       });
       await expect(
@@ -77,7 +77,7 @@ describe("label", () => {
     it("should allow the caller to delete labels with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [label.ontologyID("")],
+        objects: [label.resourceID("")],
         actions: ["delete"],
       });
       const randomLabel = await client.labels.create({
@@ -93,7 +93,7 @@ describe("label", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [label.ontologyID("")],
+        objects: [label.resourceID("")],
         actions: [],
       });
       const randomLabel = await client.labels.create({

@@ -155,8 +155,8 @@ describe("code/text", () => {
     describe("exhaustive roundtrip", () => {
       // Enumerate every string of length 0..3 over an alphabet that includes a
       // surrogate-pair emoji, then assert applyDiff(a, diff(a, b)) === b for every
-      // ordered pair. A deterministic stand-in for property-based fuzzing that exercises
-      // every prefix/suffix overlap and code-point boundary case at once.
+      // ordered pair. A deterministic stand-in for property-based fuzzing that
+      // exercises every prefix/suffix overlap and code-point boundary case at once.
       const alphabet = ["a", "b", "😀"];
       const strings: string[] = [];
       for (let len = 0; len <= 3; len++) {

@@ -13,9 +13,11 @@ package task
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/filter"
+	"uuid"
 )
 
 // Key is a unique identifier for a task.
@@ -113,6 +115,10 @@ type Where struct {
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
 	// Snapshot selects by snapshot.
 	Snapshot *filter.Bool `json:"snapshot,omitzero" msgpack:"snapshot,omitempty"`
+	// Ranges matches the tasks that are snapshots in any of the given ranges.
+	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges,omitempty"`
+	// Arcs matches the tasks that run any of the Arcs with the given keys.
+	Arcs []uuid.UUID `json:"arcs,omitzero" msgpack:"arcs,omitempty"`
 }
 
 // Command is a command to execute on a task in the Driver system.

@@ -36,7 +36,7 @@ const CreateButton = () => {
 // The select moves its border onto a wrapper the moment it is handed a footer, so an
 // ungranted subject must leave the prop undefined rather than render nothing inside it.
 const useCreateFooter = (): ReactElement | undefined =>
-  Access.useCreateGranted(label.TYPE_ONTOLOGY_ID) ? <CreateButton /> : undefined;
+  Access.useCreateGranted(label.TYPE_RESOURCE_ID) ? <CreateButton /> : undefined;
 
 export const SelectMultiple = (props: Label.SelectMultipleProps) => (
   <Label.SelectMultiple {...props} footer={useCreateFooter()} />

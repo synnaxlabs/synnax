@@ -81,10 +81,13 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
     if (health.faulted) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Error in " + state;
-        status.description = health.al_status.empty()
-                               ? "The device reports an error without an error "
-                                 "code. With IgH, the kernel log (dmesg) shows it."
-                               : health.al_status;
+        if (!health.startup_error.empty())
+            status.description = health.startup_error;
+        else if (!health.al_status.empty())
+            status.description = health.al_status;
+        else
+            status.description = "The device reports an error without an error "
+                                 "code. With IgH, the kernel log (dmesg) shows it.";
         return;
     }
     status.variant = synnax::status::VARIANT_WARNING;
@@ -240,10 +243,10 @@ synnax::device::Device Scanner::create_slave_device(
     dev.rack = rack_key;
     dev.properties = json_props;
     synnax::device::Status status{
-        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = rack_key, .device = dev.key, .connected = is_enabled},
+        .details = {.rack = rack_key, .connected = is_enabled},
+        .owner = synnax::device::resource_id(dev.key),
     };
     const auto live = std::ranges::find(
         health,
@@ -314,13 +317,13 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
     );
     const bool connected = props.enabled && (live == health.end() || !live->lost);
     synnax::device::Status status{
-        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = props.enabled ? synnax::status::VARIANT_SUCCESS
                                  : synnax::status::VARIANT_DISABLED,
         .message = props.enabled ? "Device enabled" : "Device disabled",
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = dev.rack, .device = dev.key, .connected = connected},
+        .details = {.rack = dev.rack, .connected = connected},
+        .owner = synnax::device::resource_id(dev.key),
     };
     if (err) set_invalid_properties_status(err, status);
     if (auto status_err = this->ctx->client->statuses.set(status); status_err)
@@ -333,15 +336,15 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     TestInterfaceArgs args(parser);
 
     synnax::task::Status task_status{
-        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = this->task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = this->task.config_hash,
-        }
+        .details =
+            synnax::task::StatusDetails{
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = this->task.config_hash,
+            },
+        .owner = synnax::task::resource_id(this->task.key),
     };
 
     if (!parser.ok()) {

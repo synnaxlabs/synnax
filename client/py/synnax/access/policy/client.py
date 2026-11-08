@@ -8,12 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Literal, overload
-from uuid import UUID
 
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax.access import role
 from synnax.access.policy.payload import Policy
 from synnax.access.policy.types_gen import (
     Key,
@@ -22,7 +22,7 @@ from synnax.access.policy.types_gen import (
     Where,
     WhereInput,
 )
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -36,10 +36,10 @@ _CreateResponse = _CreateRequest
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[UUID]
+    keys: list[Key]
 
 
-_ONTOLOGY_TYPE = ID(type="policy")
+_RESOURCE_TYPE = ID(type="policy")
 
 
 class Client:
@@ -83,6 +83,7 @@ class Client:
         key: Key,
         internal: filter.BoolInput = ...,
         subjects: ID | list[ID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -98,11 +99,12 @@ class Client:
         key: filter.SetInput[Key] = ...,
         internal: filter.BoolInput = ...,
         subjects: ID | list[ID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         one: Literal[True],
     ) -> Policy: ...
@@ -114,11 +116,12 @@ class Client:
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         internal: filter.BoolInput = ...,
         subjects: ID | list[ID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
         offset: int = ...,
@@ -129,7 +132,7 @@ class Client:
         self,
         *,
         where: Where | None = None,
-        keys: list[UUID] | None = None,
+        keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
@@ -145,6 +148,7 @@ class Client:
         :param internal: Keeps policies with this internal flag.
         :param subjects: Keeps the policies of the roles that any of these subjects
             hold.
+        :param roles: Keeps the policies of any of these roles.
         :param and_: Keeps policies that match every filter in the list.
         :param or_: Keeps policies that match any filter in the list.
         :param not_: Keeps policies that do not match the filter.
@@ -162,7 +166,7 @@ class Client:
             beside a limit or an offset.
         """
         single = returns_one(fields, one, limit, offset)
-        flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
@@ -172,6 +176,6 @@ class Client:
         res = self._client.send("/access/policy/retrieve", req, RetrieveResponse)
         return sole("policy", req, res.policies) if single else res.policies
 
-    def delete(self, keys: UUID | list[UUID]) -> None:
+    def delete(self, keys: Key | list[Key]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         self._client.send("/access/policy/delete", req, Empty)
