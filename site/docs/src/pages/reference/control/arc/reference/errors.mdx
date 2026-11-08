@@ -184,7 +184,9 @@ This section lists the most common diagnostics without a code, not all of them.
   <Problem.Fix>Assign it inside a sequence, a stage, or a function.</Problem.Fix>
 </Problem.Item>
 <Problem.Item
-  message={"cannot use '<name>' in a flow: its initializer is not a compile-time constant"}
+  message={
+    "cannot use '<name>' in a flow: its initializer is not a compile-time constant"
+  }
 >
   <Problem.Cause>
     A flow uses a top-level or sequence variable whose initializer computes a value and
