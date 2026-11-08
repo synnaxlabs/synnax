@@ -186,6 +186,34 @@ var _ = Describe("@ref", func() {
 				)
 			},
 		)
+
+		It(
+			"Should reject a variant reference that collides with the search index",
+			func(ctx SpecContext) {
+				req := MustGenerateRequest(ctx, `
+					import "schemas/rack"
+
+					@go output "core/pkg/service/device"
+
+					Base struct {
+						key  uuid   @key
+						name string @search
+					}
+
+					Device union on kind extends Base {
+						physical {
+							search rack.Key? @ref on_delete restrict
+						}
+						virtual {}
+						@resource type "device"
+						@retrieve
+					}
+				`, "device", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"@ref field search collides with the search index",
+				)))
+			},
+		)
 	})
 
 	It("Should detach a deleted target from an array", func(ctx SpecContext) {
@@ -794,6 +822,34 @@ var _ = Describe("@ref", func() {
 			`).
 					ToContain(`Name:     "rack",`).
 					ToNotContain("tree.")
+			},
+		)
+
+		It(
+			"Should generate the references that the variants of a union hold",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+					import "schemas/rack"
+
+					@go output "core/pkg/service/modbus"
+
+					Base struct {
+						key uuid @key
+					}
+
+					ReadConfig union on kind extends Base {
+						serial {
+							rack rack.Key = 0 @ref on_delete restrict
+						}
+						tcp {}
+						@retrieve references
+					}
+				`, "modbus", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").ToContain(
+					"func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig]",
+					`Name:     "rack",`,
+					"case SerialReadConfig:",
+				)
 			},
 		)
 
