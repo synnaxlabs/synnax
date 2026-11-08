@@ -11,6 +11,7 @@ package bind
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
@@ -55,12 +56,18 @@ func Write[RQ, RS freighter.Payload](
 	apply func(context.Context, gorp.Tx, RQ) (RS, error),
 ) freighter.UnaryHandler[RQ, RS] {
 	return func(ctx context.Context, req RQ) (RS, error) {
-		var res, zero RS
+		var (
+			res, zero RS
+			sources   []resource.ID
+		)
+		if c, ok := any(req).(Copy); ok {
+			sources = c.Sources()
+		}
 		if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
 			if res, err = apply(ctx, tx, req); err != nil {
 				return err
 			}
-			return s.check(ctx, tx, req)
+			return s.check(ctx, tx, sources)
 		}); err != nil {
 			return zero, err
 		}
@@ -90,9 +97,10 @@ func WritePrepared[RQ, RS freighter.Payload, P any](
 }
 
 // check returns an error wrapping access.ErrDenied when the subject of ctx cannot make
-// the changes of tx or read the sources of req.
-func (s *Service) check(ctx context.Context, tx gorp.Tx, req any) error {
+// the changes of tx or read sources.
+func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) error {
 	needs := make(map[access.Action][]resource.ID, len(access.AllActions))
+	needs[access.ActionRetrieve] = slices.Clone(sources)
 	need := func(action access.Action, target gorp.Target) error {
 		id, err := resourceOf(target)
 		if err != nil {
@@ -128,12 +136,6 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, req any) error {
 				return err
 			}
 		}
-	}
-	if c, ok := req.(Copy); ok {
-		needs[access.ActionRetrieve] = append(
-			needs[access.ActionRetrieve],
-			c.Sources()...,
-		)
 	}
 	enforcer := s.cfg.RBAC.NewEnforcer(nil)
 	for _, action := range access.AllActions {

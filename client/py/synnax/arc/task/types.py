@@ -9,6 +9,7 @@
 
 from uuid import UUID
 
+import synnax.arc.types_gen as arc
 from synnax import task
 from synnax.arc.task.types_gen import Config, Performance
 
@@ -26,7 +27,7 @@ class Task(task.StarterStopperMixin, task.JSONConfigMixin[Config], task.Protocol
         internal: task.Task | None = None,
         *,
         name: str = "Arc Task",
-        arc_key: UUID | str | None = None,
+        arc_key: arc.Key | str | None = None,
         auto_start: bool = False,
         performance: Performance = "auto",
     ):
