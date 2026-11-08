@@ -141,7 +141,7 @@ export class Client {
       fetch: async (keys) => (await this.table.retrieve(keys)).map((r) => r.key),
       compose: (records, keys) => {
         const byKey = new Map(records.map((r) => [r.key, r]));
-        return keys.flatMap((k) => byKey.get(k) ?? []);
+        return [...new Set(keys)].flatMap((k) => byKey.get(k) ?? []);
       },
       keysOf: (keys) => keys,
       matches: (r, keys) => keys.includes(r.key),
