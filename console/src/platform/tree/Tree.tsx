@@ -570,8 +570,8 @@ const Internal = ({
           ...kept,
         ];
         if (parentKey === rootKey) return merge(prevNodes);
-        // The watch can outlive the parent's presence in the tree. A missing parent means
-        // the answer is stale.
+        // The watch can outlive the parent's presence in the tree. A missing parent
+        // means the answer is stale.
         return updateChildren(prevNodes, parentKey, merge);
       });
     if (parentKey === rootKey) setRootAnswered(true);
