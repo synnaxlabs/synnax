@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Any, Literal, overload
-from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -49,7 +48,7 @@ class _CreateResponse(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[UUID]
+    keys: list[Key]
 
 
 class Automation(AutomationPayload):
