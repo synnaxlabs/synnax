@@ -433,7 +433,7 @@ var _ = Describe("Writer", func() {
 						),
 						log.NewSetChannelTimestampTimeZoneAction(
 							log.SetChannelTimestampTimeZonePayload{
-								Channel: ch5,
+								Channel:  ch5,
 								TimeZone: telem.TimeZoneUTC,
 							},
 						),
