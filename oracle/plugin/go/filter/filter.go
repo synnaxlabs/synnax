@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package filter generates the Go interpreter of a filter definition. MatchWhere turns
-// a Where into the service's Filter, and RetrieveRequest.Apply, generated wherever the
-// request is, narrows a Retrieve to the records a request selects. The request also
-// rejects unknown JSON members.
+// a Where into the service's Filter, and ApplyRetrieve, generated wherever the request
+// is, narrows a Retrieve to the records a request selects. The request also rejects
+// unknown JSON members.
 package filter
 
 import (
@@ -645,10 +645,14 @@ import (
 {{- end}}
 )
 
-// Apply narrows q to the records that the request selects. A key with no record is a
+// ApplyRetrieve narrows q to the records that r selects. A key with no record is a
 // non-match, as for every other line. It returns a validate.PathError for a value that
 // no filter can hold.
-func (r RetrieveRequest) Apply(q {{$.Service}}Retrieve{{$.Args}}) ({{$.Service}}Retrieve{{$.Args}}, error) {
+//
+// ApplyRetrieve is a function, not a method, to cut compile time. As a method, it would
+// make every package that names RetrieveRequest compile each generic method of the
+// Retrieve.
+func ApplyRetrieve(r RetrieveRequest, q {{$.Service}}Retrieve{{$.Args}}) ({{$.Service}}Retrieve{{$.Args}}, error) {
 	q = q.SkipMissingKeys()
 	if r.Where != nil {
 		f, err := {{$.Service}}MatchWhere{{$.Args}}(*r.Where)
