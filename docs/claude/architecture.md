@@ -1,7 +1,7 @@
 # Synnax architecture
 
-Synnax is a horizontally-scalable observability and control platform for hardware
-telemetry, optimized for real-time performance and distributed reliability.
+Synnax is an observability and control platform for hardware telemetry, optimized for
+real-time performance.
 
 ## Components
 
@@ -11,10 +11,9 @@ telemetry, optimized for real-time performance and distributed reliability.
     Pebble KV for metadata. No cluster awareness.
   - **Distribution** — turns storage into the data plane: the Core's identity, channels
     with node-aware keys, and the framer (reads, writes, and streams).
-  - **Service** — business logic on distributed primitives: resource search and names
-    across types, groups, auth, access control, users, ranges, hardware
-    (task/rack/device), arc automations, workspace items (schematic, lineplot, log,
-    table).
+  - **Service** — business logic: resource search and names across types, groups, auth,
+    access control, users, ranges, hardware (task/rack/device), arc automations,
+    workspace items (schematic, lineplot, log, table).
   - **API** — transport-agnostic client interface: request/response types, validation,
     freighter-compatible service definitions.
   - Alongside the stack: **transport** (concrete gRPC/HTTP bindings), **server**
