@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -276,6 +278,32 @@ var _ = Describe("Change channels", func() {
 			},
 		),
 	)
+
+	It("Should send a subject the changes to the policies of its role", func(
+		ctx SpecContext,
+	) {
+		other := role.Role{Name: "change-channel"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Role.NewWriter(tx, false).Create(ctx, &other)
+		})).To(Succeed())
+		u := stream(ctx, "sy_policy_set")
+		own := policy.Policy{
+			Role:    u.Role,
+			Name:    "change-channel",
+			Objects: []resource.ID{{Type: resource.TypeLabel}},
+			Actions: []access.Action{access.ActionUpdate},
+		}
+		denied := own
+		denied.Role = other.Key
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := rbacSvc.Policy.NewWriter(tx, false)
+			if err := w.Create(ctx, &own); err != nil {
+				return err
+			}
+			return w.Create(ctx, &denied)
+		})).To(Succeed())
+		Expect(received()).To(Equal([]resource.ID{own.ResourceID()}))
+	}, SpecTimeout(10*time.Second))
 
 	It("Should stop sending a record once a policy no longer allows it", func(
 		ctx SpecContext,
