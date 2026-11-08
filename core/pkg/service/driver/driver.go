@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/coalesce"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -31,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -100,7 +102,25 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	}
 	d.startHeartbeat()
 	d.configureExistingTasks(ctx)
-	disconnect := cfg.Task.Observe().OnChange(d.handleTaskChange)
+	// A reader of a commit must not wait for a task to stop, so a worker stops the
+	// tasks that commits delete.
+	deleted, err := coalesce.Open(coalesce.Config[task.Key]{
+		Instrumentation: cfg.Instrumentation,
+		Handle:          d.deleteTasks,
+	})
+	if !ok(err, deleted) {
+		return nil, err
+	}
+	disconnect := cfg.Task.Observe().OnChange(func(
+		_ context.Context,
+		r gorp.TxReader[task.Key, task.Task],
+	) {
+		for ch := range r {
+			if ch.Variant == change.VariantDelete {
+				deleted.Add(ch.Key)
+			}
+		}
+	})
 	ok(nil, io.NoFailCloserFunc(disconnect))
 	if err = d.startCommandStreaming(ctx); !ok(err, nil) {
 		return nil, err
@@ -506,14 +526,22 @@ func unsupportedDescription(cmdType string) string {
 // handleTaskChange stops live instances of deleted tasks. Sets are ignored:
 // configs deploy on start, and a rack move leaves the old live instance running
 // until the task is redeployed.
-func (d *Driver) handleTaskChange(
-	_ context.Context,
-	reader gorp.TxReader[task.Key, task.Task],
-) {
-	for ch := range reader {
-		if ch.Variant == change.VariantDelete {
-			d.delete(ch.Key)
-		}
+// deleteTasks stops the instance of each task with a key in keys that no longer exists.
+func (d *Driver) deleteTasks(ctx context.Context, keys set.Set[task.Key]) {
+	var kept []task.Task
+	if err := d.cfg.Task.NewRetrieve().
+		Where(task.MatchKeys(keys.Slice()...)).
+		SkipMissingKeys().
+		Entries(&kept).
+		Exec(ctx, nil); err != nil {
+		d.cfg.L.Error("failed to retrieve deleted tasks", zap.Error(err))
+		return
+	}
+	for _, t := range kept {
+		keys.Remove(t.Key)
+	}
+	for key := range keys {
+		d.delete(key)
 	}
 }
 

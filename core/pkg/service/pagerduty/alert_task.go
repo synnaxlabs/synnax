@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/coalesce"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -86,27 +88,49 @@ func newAlertTask(
 }
 
 func (t *alertTask) open(context.Context) (func(context.Context) error, error) {
-	disconnect := t.factoryCfg.Status.Observe().OnChange(t.handleStatusChange)
+	// A reader of a commit must not wait for PagerDuty, so a worker sends the events.
+	changed, err := coalesce.Open(coalesce.Config[status.Key]{
+		Instrumentation: t.factoryCfg.Instrumentation,
+		Handle:          t.sendEvents,
+	})
+	if err != nil {
+		return nil, err
+	}
+	disconnect := t.factoryCfg.Status.Observe().OnChange(func(
+		_ context.Context,
+		r gorp.TxReader[status.Key, status.Status[any]],
+	) {
+		for ch := range r {
+			if _, ok := t.alertsByStatus[ch.Key]; ok &&
+				ch.Variant == change.VariantSet {
+				changed.Add(ch.Key)
+			}
+		}
+	})
 	return func(ctx context.Context) error {
 		<-ctx.Done()
 		disconnect()
-		return nil
+		return changed.Close()
 	}, nil
 }
 
-func (t *alertTask) handleStatusChange(
-	ctx context.Context,
-	reader gorp.TxReader[status.Key, status.Status[any]],
-) {
-	for ch := range reader {
-		if ch.Variant == change.VariantDelete {
-			continue
-		}
-		alertCfg, ok := t.alertsByStatus[ch.Key]
-		if !ok {
-			continue
-		}
-		s := ch.Value
+// sendEvents sends an event for each status with a key in keys, as the status is now.
+func (t *alertTask) sendEvents(ctx context.Context, keys set.Set[status.Key]) {
+	var stats []status.Status[any]
+	if err := t.factoryCfg.Status.NewRetrieve[any]().
+		Where(status.MatchKeys[any](keys.Slice()...)).
+		SkipMissingKeys().
+		Entries(&stats).
+		Exec(ctx, nil); err != nil {
+		t.factoryCfg.L.Error(
+			"failed to retrieve alerted statuses",
+			zap.Stringer("task", t.task),
+			zap.Error(err),
+		)
+		return
+	}
+	for _, s := range stats {
+		alertCfg := t.alertsByStatus[s.Key]
 		switch s.Variant {
 		case status.VariantError, status.VariantWarning, status.VariantInfo:
 			event := t.buildTriggerEvent(s, alertCfg)

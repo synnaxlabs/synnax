@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/coalesce"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -54,7 +55,10 @@ type Graph struct {
 	status     *status.Service
 	obs        observe.Observer[Changes]
 	disconnect observe.Disconnect
-	mu         struct {
+	// changed reconciles the channels that commits change, since a reader of a commit
+	// must not commit.
+	changed *coalesce.Worker[channel.Key]
+	mu      struct {
 		nodes            map[channel.Key]node
 		dependents       map[channel.Key]set.Set[channel.Key]
 		unresolvedByName map[string]set.Set[channel.Key]
@@ -131,7 +135,17 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	}); err != nil {
 		return nil, err
 	}
-	g.disconnect = cfg.Channel.Observe().OnChange(g.handleChanges)
+	if g.changed, err = coalesce.Open(coalesce.Config[channel.Key]{
+		Instrumentation: cfg.Instrumentation,
+		Handle:          g.handleChanges,
+	}); err != nil {
+		return nil, err
+	}
+	g.disconnect = cfg.Channel.Observe().OnChange(func(_ context.Context, r Changes) {
+		for ch := range r {
+			g.changed.Add(ch.Key)
+		}
+	})
 	return g, nil
 }
 
@@ -286,10 +300,8 @@ func (g *Graph) deleteStatus(ctx context.Context, tx gorp.Tx, key channel.Key) e
 
 // Close disconnects the graph from the channel observable.
 func (g *Graph) Close() error {
-	if g.disconnect != nil {
-		g.disconnect()
-	}
-	return nil
+	g.disconnect()
+	return g.changed.Close()
 }
 
 func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
@@ -400,7 +412,9 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 	return nil
 }
 
-func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
+// handleChanges reconciles the Graph with the channels with keys as tx stores them. A
+// key with no channel is a delete.
+func (g *Graph) handleChanges(ctx context.Context, keys set.Set[channel.Key]) {
 	var (
 		updates []channel.Channel
 		valid   []channel.Channel
@@ -408,6 +422,10 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 	)
 	g.mu.Lock()
 	err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
+		reader, err := g.retrieveChanges(ctx, tx, keys)
+		if err != nil {
+			return err
+		}
 		analyzer := g.newAnalyzer(tx)
 		queued := make(set.Set[channel.Key])
 		var unresolvedNames []string
@@ -503,6 +521,38 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 			}
 		}
 	}
+}
+
+func (g *Graph) retrieveChanges(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys set.Set[channel.Key],
+) (Changes, error) {
+	var stored []channel.Channel
+	if err := g.svc.NewRetrieve().
+		Where(channel.MatchKeys(keys.Slice()...)).
+		SkipMissingKeys().
+		Entries(&stored).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	changes := make([]change.Change[channel.Key, channel.Channel], 0, len(keys))
+	deleted := keys.Copy()
+	for _, ch := range stored {
+		deleted.Remove(ch.Key())
+		changes = append(changes, change.Change[channel.Key, channel.Channel]{
+			Key:     ch.Key(),
+			Value:   ch,
+			Variant: change.VariantSet,
+		})
+	}
+	for k := range deleted {
+		changes = append(changes, change.Change[channel.Key, channel.Channel]{
+			Key:     k,
+			Variant: change.VariantDelete,
+		})
+	}
+	return slices.Values(changes), nil
 }
 
 func (g *Graph) setNodeStatus(
