@@ -147,7 +147,10 @@ func (s *Service) verify(
 		return Password{}, nil, err
 	}
 	h, err := s.check(p, creds)
-	return p, h, err
+	if err != nil {
+		return Password{}, nil, err
+	}
+	return p, h, nil
 }
 
 func (s *Service) find(
@@ -166,7 +169,10 @@ func (s *Service) find(
 	if errors.Is(err, query.ErrNotFound) {
 		return Password{}, auth.ErrInvalidCredentials
 	}
-	return p, err
+	if err != nil {
+		return Password{}, err
+	}
+	return p, nil
 }
 
 func (s *Service) check(p Password, creds auth.PasswordProof) (verifier, error) {
@@ -177,7 +183,10 @@ func (s *Service) check(p Password, creds auth.PasswordProof) (verifier, error) 
 			"the stored hash uses an algorithm this Core does not accept",
 		)
 	}
-	return h, h.verify(p.Hash, creds.Password)
+	if err := h.verify(p.Hash, creds.Password); err != nil {
+		return nil, err
+	}
+	return h, nil
 }
 
 // Hash is a password hash made outside any write transaction, since hashing is slow.
