@@ -56,7 +56,7 @@ jobs:
       HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
       # A comment never asks for a repeat, so a head with a review gets no other one. A
-      # pull request event names its head, and the review takes the newer one.
+      # pull request event names its head, and the review waits for the API to show it.
       - name: Start Review - Sedosaur
         run: |
           args=(-f pr="$PR" -f comment="$COMMENT")

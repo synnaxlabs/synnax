@@ -31,8 +31,8 @@ on:
         required: false
       head:
         description:
-          "Commit to review, if not the head of the pull request. A live review takes
-          the head instead when it is newer."
+          "Commit to review in a replay. A live review waits for the pull request to
+          show it, then reviews the pull request's head."
         type: string
         required: false
       base:
@@ -102,14 +102,16 @@ jobs:
           fi
           set -o pipefail
           pull=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
-          # The relay names the pushed head, but a later push can reach the queue
-          # first. The API can also still serve the last head. So a live review takes
-          # the newer of the two.
-          current=$(jq -r .head.sha <<< "$pull")
-          if [ -n "$HEAD" ] && [ "$REPLAY" != true ] && [ "$HEAD" != "$current" ] &&
-            [ "$(gh api "repos/$GITHUB_REPOSITORY/compare/$HEAD...$current" \
-              --jq .status)" != behind ]; then
-            HEAD=$current
+          # The relay names the pushed head. The API can lag a push for a moment, and a
+          # later push can reach the queue first, so a live review waits a little for
+          # the named head, then reviews the head that the API shows.
+          if [ "$REPLAY" != true ] && [ -n "$HEAD" ]; then
+            for _ in 1 2 3; do
+              if [ "$(jq -r .head.sha <<< "$pull")" = "$HEAD" ]; then break; fi
+              sleep 5
+              pull=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
+            done
+            HEAD=
           fi
           jq -r --arg head "$HEAD" --arg base "$BASE" '
               "head=\(if $head == "" then .head.sha else $head end)",
