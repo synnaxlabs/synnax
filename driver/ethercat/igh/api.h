@@ -58,6 +58,8 @@ class API {
         decltype(&ecrt_slave_config_reg_pdo_entry) slave_config_reg_pdo_entry;
         decltype(&ecrt_slave_config_sdo) slave_config_sdo;
         decltype(&ecrt_slave_config_pdos) slave_config_pdos;
+        decltype(&ecrt_slave_config_pdo_assign_clear) slave_config_pdo_assign_clear;
+        decltype(&ecrt_slave_config_pdo_mapping_clear) slave_config_pdo_mapping_clear;
         decltype(&ecrt_master_sdo_download) master_sdo_download;
         decltype(&ecrt_master_sdo_upload) master_sdo_upload;
         decltype(&ecrt_master_get_sync_manager) master_get_sync_manager;
@@ -152,6 +154,14 @@ public:
             .slave_config_pdos = reinterpret_cast<decltype(&ecrt_slave_config_pdos)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_slave_config_pdos"))
         );
+        this->func_ptrs.slave_config_pdo_assign_clear = reinterpret_cast<
+            decltype(&ecrt_slave_config_pdo_assign_clear)>(const_cast<void *>(
+            this->lib->get_func_ptr("ecrt_slave_config_pdo_assign_clear")
+        ));
+        this->func_ptrs.slave_config_pdo_mapping_clear = reinterpret_cast<
+            decltype(&ecrt_slave_config_pdo_mapping_clear)>(const_cast<void *>(
+            this->lib->get_func_ptr("ecrt_slave_config_pdo_mapping_clear")
+        ));
         this->func_ptrs.master_sdo_download = reinterpret_cast<
             decltype(&ecrt_master_sdo_download)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_master_sdo_download"))
@@ -342,6 +352,18 @@ public:
         const ec_sync_info_t syncs[]
     ) const {
         return this->func_ptrs.slave_config_pdos(sc, n_syncs, syncs);
+    }
+
+    /// @brief makes the master assign no PDOs to a sync manager of the slave.
+    [[nodiscard]] virtual int
+    slave_config_pdo_assign_clear(ec_slave_config_t *sc, uint8_t sync_index) const {
+        return this->func_ptrs.slave_config_pdo_assign_clear(sc, sync_index);
+    }
+
+    /// @brief makes the master map no entries to a PDO of the slave.
+    [[nodiscard]] virtual int
+    slave_config_pdo_mapping_clear(ec_slave_config_t *sc, uint16_t pdo_index) const {
+        return this->func_ptrs.slave_config_pdo_mapping_clear(sc, pdo_index);
     }
 
     /// @brief writes an SDO to a slave and blocks until it answers, setting abort_code

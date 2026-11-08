@@ -134,6 +134,10 @@ public:
     };
     /// @brief the PDO entries passed to slave_config_pdos, in call order.
     std::vector<ConfiguredEntry> configured_entries;
+    /// @brief the slave position and sync manager of each cleared PDO assignment.
+    std::vector<std::pair<uint16_t, uint8_t>> cleared_assignments;
+    /// @brief the slave position and PDO index of each cleared PDO mapping.
+    std::vector<std::pair<uint16_t, uint16_t>> cleared_mappings;
 
     MockAPI(): API(MockTag{}), request_master_result(this->sentinel_master) {}
 
@@ -388,6 +392,26 @@ public:
                             .bit_length = entry.bit_length,
                         });
         }
+        return 0;
+    }
+
+    int slave_config_pdo_assign_clear(
+        ec_slave_config_t *sc,
+        uint8_t sync_index
+    ) const override {
+        auto *self = const_cast<MockAPI *>(this);
+        for (const auto &[pos, config]: this->created_slave_configs)
+            if (config == sc) self->cleared_assignments.emplace_back(pos, sync_index);
+        return 0;
+    }
+
+    int slave_config_pdo_mapping_clear(
+        ec_slave_config_t *sc,
+        uint16_t pdo_index
+    ) const override {
+        auto *self = const_cast<MockAPI *>(this);
+        for (const auto &[pos, config]: this->created_slave_configs)
+            if (config == sc) self->cleared_mappings.emplace_back(pos, pdo_index);
         return 0;
     }
 

@@ -23,9 +23,8 @@ constexpr uint16_t SM_TYPE_INDEX = 0x1C00;
 constexpr uint16_t PDO_ASSIGN_INDEX = 0x1C10;
 constexpr uint32_t SM_TYPE_OUTPUTS = 3;
 constexpr uint32_t SM_TYPE_INPUTS = 4;
-/// @brief the most sync managers a slave can type, one per PDO assign object from
-/// 0x1C10 to 0x1C2F.
-constexpr uint32_t MAX_SYNC_MANAGERS = 32;
+/// @brief the most sync managers IgH configures on a slave.
+constexpr uint32_t MAX_SYNC_MANAGERS = EC_MAX_SYNC_MANAGERS;
 /// @brief the most PDOs an assign object, or entries a mapping object, can count.
 constexpr uint32_t MAX_SUB_INDEX = 254;
 constexpr uint32_t ABORT_OBJECT_MISSING = 0x06020000;
@@ -81,7 +80,8 @@ std::pair<uint32_t, x::errors::Error> read_sdo(
 
 /// @brief reads the PDOs a slave assigns to each process data sync manager and the
 /// entries each PDO maps. Returns no sync managers for a slave without the sync
-/// manager type object, whose layout is the one its EEPROM describes.
+/// manager type object, whose layout is the one its EEPROM describes. Leaves out a
+/// sync manager without a PDO assign object, as SOEM does.
 std::pair<std::vector<AssignedSync>, x::errors::Error>
 read_assigned_pdos(const API &api, ec_master_t *master, const uint16_t position) {
     const auto read = [&](const uint16_t index, const uint32_t sub_index) {
@@ -110,6 +110,10 @@ read_assigned_pdos(const API &api, ec_master_t *master, const uint16_t position)
         const auto [type, type_err] = read(SM_TYPE_INDEX, sm + 1);
         if (type_err) return {{}, type_err};
         if (type != SM_TYPE_OUTPUTS && type != SM_TYPE_INPUTS) continue;
+        const auto assign_index = static_cast<uint16_t>(PDO_ASSIGN_INDEX + sm);
+        const auto [pdo_count, pdo_count_err] = read_count(assign_index, MAX_SUB_INDEX);
+        if (pdo_count_err.matches(OBJECT_MISSING)) continue;
+        if (pdo_count_err) return {{}, pdo_count_err};
         auto &sync = syncs.emplace_back(
             AssignedSync{
                 .index = static_cast<uint8_t>(sm),
@@ -117,9 +121,6 @@ read_assigned_pdos(const API &api, ec_master_t *master, const uint16_t position)
                 .pdos = {},
             }
         );
-        const auto assign_index = static_cast<uint16_t>(PDO_ASSIGN_INDEX + sm);
-        const auto [pdo_count, pdo_count_err] = read_count(assign_index, MAX_SUB_INDEX);
-        if (pdo_count_err) return {{}, pdo_count_err};
         for (uint32_t i = 1; i <= pdo_count; i++) {
             const auto [pdo_index, pdo_err] = read(assign_index, i);
             if (pdo_err) return {{}, pdo_err};
@@ -590,16 +591,26 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
     std::vector<std::vector<ec_pdo_info_t>> pdo_infos;
     pdo_infos.reserve(syncs.size());
     std::vector<ec_sync_info_t> sync_infos;
-    props.input_pdos.clear();
-    props.output_pdos.clear();
+    std::vector<uint8_t> empty_syncs;
+    std::vector<uint16_t> empty_pdos;
+    const auto has_dir = [&](const ec_direction_t dir) {
+        return std::ranges::any_of(syncs, [dir](const auto &s) {
+            return s.dir == dir;
+        });
+    };
+    // A direction with no sync manager read keeps its scanned PDOs.
+    if (has_dir(EC_DIR_INPUT)) props.input_pdos.clear();
+    if (has_dir(EC_DIR_OUTPUT)) props.output_pdos.clear();
     for (const auto &sync: syncs) {
         auto &infos = pdo_infos.emplace_back();
+        if (sync.pdos.empty()) empty_syncs.push_back(sync.index);
         for (const auto &pdo: sync.pdos) {
             infos.push_back({
                 .index = pdo.index,
                 .n_entries = static_cast<unsigned int>(pdo.entries.size()),
                 .entries = pdo.entries.data(),
             });
+            if (pdo.entries.empty()) empty_pdos.push_back(pdo.index);
             for (const auto &entry: pdo.entries)
                 this->append_pdo_entry(
                     props,
@@ -625,6 +636,20 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
             errors::PDO_MAPPING_ERROR,
             "failed to configure the PDOs of " + slave_name
         );
+    // ecrt_slave_config_pdos keeps the default assignment of a sync manager with no
+    // PDOs and the default mapping of a PDO with no entries.
+    for (const auto sync: empty_syncs)
+        if (this->api->slave_config_pdo_assign_clear(sc, sync) < 0)
+            return x::errors::Error(
+                errors::PDO_MAPPING_ERROR,
+                "failed to clear the PDO assignment of " + slave_name
+            );
+    for (const auto pdo: empty_pdos)
+        if (this->api->slave_config_pdo_mapping_clear(sc, pdo) < 0)
+            return x::errors::Error(
+                errors::PDO_MAPPING_ERROR,
+                "failed to clear the PDO mapping of " + slave_name
+            );
     esi::fill_known_entries(props);
     std::lock_guard lock(this->mu);
     this->cached_slaves[position].properties = std::move(props);

@@ -405,7 +405,9 @@ TEST_F(IGHMasterTest, ActivateSkipsStartupParametersOfDisabledSlave) {
 TEST_F(IGHMasterTest, ActivateRegistersTheEntriesAStartupParameterAssigns) {
     this->create_assignable_layout();
     this->initialize_with_slave();
-    this->master_instance->set_slave_config(0, {.startup_parameters = {ASSIGN_INPUTS}});
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {ASSIGN_INPUTS}}}}
+    );
     this->activate_with_domains();
     const std::vector<std::pair<uint16_t, uint8_t>> registered{{0x6010, 0x01}};
     EXPECT_EQ(this->mock_api->registered_entries, registered);
@@ -432,11 +434,57 @@ TEST_F(IGHMasterTest, ActivateKeepsTheScannedLayoutWithoutSyncManagerTypes) {
     this->create_assignable_layout();
     this->mock_api->objects.erase({0, 0x1C00, 0});
     this->initialize_with_slave();
-    this->master_instance->set_slave_config(0, {.startup_parameters = {ASSIGN_INPUTS}});
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {ASSIGN_INPUTS}}}}
+    );
     this->activate_with_domains();
     const std::vector<std::pair<uint16_t, uint8_t>> registered{{0x6000, 0x01}};
     EXPECT_EQ(this->mock_api->registered_entries, registered);
     EXPECT_TRUE(this->mock_api->configured_entries.empty());
+}
+
+/// @brief it should clear the assignment of a sync manager that assigns no PDOs.
+TEST_F(IGHMasterTest, ActivateClearsAnEmptyAssignment) {
+    this->create_assignable_layout();
+    this->initialize_with_slave();
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {ASSIGN_INPUTS}}}}
+    );
+    this->activate_with_domains();
+    const std::vector<std::pair<uint16_t, uint8_t>> cleared{{0, 2}};
+    EXPECT_EQ(this->mock_api->cleared_assignments, cleared);
+}
+
+/// @brief it should clear the mapping of an assigned PDO that maps no entries.
+TEST_F(IGHMasterTest, ActivateClearsAnEmptyMapping) {
+    this->create_assignable_layout();
+    this->mock_api->objects[{0, 0x1A01, 0}] = 0;
+    this->initialize_with_slave();
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {ASSIGN_INPUTS}}}}
+    );
+    this->activate_with_domains();
+    const std::vector<std::pair<uint16_t, uint16_t>> cleared{{0, 0x1A01}};
+    EXPECT_EQ(this->mock_api->cleared_mappings, cleared);
+    EXPECT_TRUE(this->master_instance->slaves()[0].properties.input_pdos.empty());
+}
+
+/// @brief it should keep the scanned PDOs of a sync manager without an assign object.
+TEST_F(IGHMasterTest, ActivateKeepsTheScannedPDOsWithoutAnAssignObject) {
+    this->create_assignable_layout();
+    this->mock_api->fake_syncs[2] = {EC_DIR_OUTPUT, {{0x1600, {{0x7000, 0x01, 8}}}}};
+    this->mock_api->objects.erase({0, 0x1C12, 0});
+    this->initialize_with_slave();
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {ASSIGN_INPUTS}}}}
+    );
+    this->activate_with_domains();
+    const std::vector<std::pair<uint16_t, uint8_t>> registered{
+        {0x7000, 0x01},
+        {0x6010, 0x01}
+    };
+    EXPECT_EQ(this->mock_api->registered_entries, registered);
+    EXPECT_TRUE(this->mock_api->cleared_assignments.empty());
 }
 
 /// @brief it should fail activation when it cannot read the layout after the startup
@@ -445,14 +493,16 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheLayoutCannotBeRead) {
     this->create_assignable_layout();
     this->mock_api->objects.erase({0, 0x1A01, 0});
     this->initialize_with_slave();
-    this->master_instance->set_slave_config(0, {.startup_parameters = {ASSIGN_INPUTS}});
-    const auto err = this->master_instance->activate();
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {ASSIGN_INPUTS}}}}
+    );
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::PDO_DISCOVERY_ERROR);
     EXPECT_EQ(
         err.data,
         "failed to read the PDO layout of slave 0 (TestSlave) after its startup "
-        "parameters: failed to read 0x1A01:00: The object does not exist in the "
-        "object directory"
+        "parameters: failed to read 0x1A01:00: Object does not exist in the "
+        "object dictionary"
     );
     EXPECT_TRUE(this->mock_api->registered_entries.empty());
 }
@@ -465,8 +515,10 @@ TEST_F(IGHMasterTest, ActivateReadsTheLayoutOfEachSlaveFromItsOwnDictionary) {
     this->add_default_slave(0);
     this->add_default_slave(1);
     ASSERT_NIL(this->master_instance->initialize());
-    this->master_instance->set_slave_config(0, {.startup_parameters = {ASSIGN_INPUTS}});
-    this->master_instance->set_slave_config(1, {.startup_parameters = {FILTER}});
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {ASSIGN_INPUTS}}},
+         {1, {.startup_parameters = {FILTER}}}}
+    );
     this->activate_with_domains();
     const std::vector<MockAPI::ConfiguredEntry> configured{
         {0, 3, 0x1A01, 0x6010, 0x01, 32},
@@ -475,19 +527,21 @@ TEST_F(IGHMasterTest, ActivateReadsTheLayoutOfEachSlaveFromItsOwnDictionary) {
     EXPECT_EQ(this->mock_api->configured_entries, configured);
 }
 
-/// @brief it should fail activation when a slave counts more sync managers than it can
-/// type.
+/// @brief it should fail activation when a slave counts more sync managers than IgH
+/// configures.
 TEST_F(IGHMasterTest, ActivateFailsWhenASlaveCountsTooManySyncManagers) {
     this->create_assignable_layout();
-    this->mock_api->objects[{0, 0x1C00, 0}] = 33;
+    this->mock_api->objects[{0, 0x1C00, 0}] = 17;
     this->initialize_with_slave();
-    this->master_instance->set_slave_config(0, {.startup_parameters = {ASSIGN_INPUTS}});
-    const auto err = this->master_instance->activate();
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {ASSIGN_INPUTS}}}}
+    );
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::PDO_DISCOVERY_ERROR);
     EXPECT_EQ(
         err.data,
         "failed to read the PDO layout of slave 0 (TestSlave) after its startup "
-        "parameters: 0x1C00:00 counts 33 entries, above the maximum of 32"
+        "parameters: 0x1C00:00 counts 17 entries, above the maximum of 16"
     );
 }
 
@@ -497,8 +551,10 @@ TEST_F(IGHMasterTest, ActivateFailsWhenAPDOCountsTooManyEntries) {
     this->create_assignable_layout();
     this->mock_api->objects[{0, 0x1A01, 0}] = 0xFFFFFFFF;
     this->initialize_with_slave();
-    this->master_instance->set_slave_config(0, {.startup_parameters = {ASSIGN_INPUTS}});
-    const auto err = this->master_instance->activate();
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {ASSIGN_INPUTS}}}}
+    );
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::PDO_DISCOVERY_ERROR);
     EXPECT_EQ(
         err.data,
