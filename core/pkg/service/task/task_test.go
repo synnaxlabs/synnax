@@ -920,7 +920,8 @@ var _ = Describe("Task", Ordered, func() {
 			createCommitted(ctx, arcTask)
 			Expect(svc.Dispatch(ctx, arcTask.Key, "dk", []task.Action{
 				set([]string{"config", "performance"}, "BOGUS"),
-			}, nil)).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+			}, nil)).Error().
+				To(MatchError(ContainSubstring("invalid performance: BOGUS")))
 		})
 
 		It("Should reject an empty name", func(ctx SpecContext) {

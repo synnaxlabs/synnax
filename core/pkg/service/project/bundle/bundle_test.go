@@ -523,9 +523,8 @@ var _ = Describe("Import", func() {
 				ids []resource.ID,
 			) error {
 				calls++
-				Expect(
-					ids,
-				).ToNot(ContainElement(HaveField("Type", resource.TypeSecret)))
+				secret := HaveField("Type", resource.TypeSecret)
+				Expect(ids).ToNot(ContainElement(secret))
 				return nil
 			}))
 			Expect(calls).To(Equal(1))
@@ -855,9 +854,7 @@ var _ = Describe("Import", func() {
 	DescribeTable("Should reject an invalid bundle",
 		func(ctx SpecContext, files zip.Files, reason string) {
 			tx = DeferClose(db.OpenTx())
-			Expect(
-				svc.Import(ctx, tx, files, "Fallback.zip", nil),
-			).Error().
+			Expect(svc.Import(ctx, tx, files, "Fallback.zip", nil)).Error().
 				To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(reason)),

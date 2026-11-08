@@ -837,7 +837,7 @@ var _ = Describe("Copy", func() {
 	})
 
 	It(
-		"Should refuse to copy a config that names a secret the subject cannot retrieve",
+		"Should refuse to copy a config naming a secret the subject cannot retrieve",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
 			t := createAlerts(ctx)

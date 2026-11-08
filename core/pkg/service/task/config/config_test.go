@@ -204,7 +204,8 @@ var _ = Describe("Service", func() {
 			Expect(svc.Prepare(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "BOGUS",
-			}, nil)).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+			}, nil)).Error().
+				To(MatchError(ContainSubstring("invalid performance: BOGUS")))
 		})
 	})
 
@@ -255,7 +256,8 @@ var _ = Describe("Service", func() {
 			Expect(svc.PrepareStrict(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "BOGUS",
-			}, nil)).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+			}, nil)).Error().
+				To(MatchError(ContainSubstring("invalid performance: BOGUS")))
 		})
 	})
 
@@ -748,9 +750,8 @@ var _ = Describe("With a detach reference", func() {
 			MustSucceed(prepare(ctx, ldb, uuid.New(), "", msgpack.EncodedJSON{
 				"arc_key": t.Key.String(),
 			}, see))
-			Expect(
-				seen,
-			).To(Equal([]resource.ID{{Type: targetTable, Key: t.Key.String()}}))
+			want := resource.ID{Type: targetTable, Key: t.Key.String()}
+			Expect(seen).To(Equal([]resource.ID{want}))
 		},
 			Entry("Prepare", false),
 			Entry("PrepareStrict", true),
@@ -795,9 +796,8 @@ var _ = Describe("With a detach reference", func() {
 			MustSucceed(resolving.Prepare(ctx, rdb, uuid.New(), "", msgpack.EncodedJSON{
 				"arc_key": named.String(),
 			}, see))
-			Expect(
-				seen,
-			).To(Equal([]resource.ID{{Type: targetTable, Key: named.String()}}))
+			want := resource.ID{Type: targetTable, Key: named.String()}
+			Expect(seen).To(Equal([]resource.ID{want}))
 		})
 
 		It("Should give the guard the references of a copied record", func(
@@ -811,9 +811,8 @@ var _ = Describe("With a detach reference", func() {
 				"arc_key": createTarget(ctx).Key.String(),
 			}))
 			Expect(svc.Copy(ctx, ldb, from, to, see)).To(Succeed())
-			Expect(
-				seen,
-			).To(Equal([]resource.ID{{Type: targetTable, Key: t.Key.String()}}))
+			want := resource.ID{Type: targetTable, Key: t.Key.String()}
+			Expect(seen).To(Equal([]resource.ID{want}))
 		})
 
 		It("Should store no copy when the guard fails", func(ctx SpecContext) {
