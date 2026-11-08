@@ -284,6 +284,25 @@ describe("Resource", () => {
       await expect.poll(() => latest).toEqual([]);
     });
 
+    it("should add a resource created again with the key of a deleted one", async () => {
+      const key = uuid.create();
+      const name = randomToken();
+      const set = async () =>
+        await client.statuses.set({ key, name, variant: "info", message: "a" });
+      await set();
+      const ids = [status.resourceID(key)];
+      let latest: resource.Resource[] | undefined;
+      const off = client.resources.onChange(ids, (answer) => {
+        if (query.isLive(answer)) latest = answer;
+      });
+      onTestFinished(off);
+      await client.resources.retrieve(ids);
+      await client.statuses.delete(key);
+      await expect.poll(() => latest).toEqual([]);
+      await set();
+      await expect.poll(() => latest?.map((r) => r.name)).toEqual([name]);
+    });
+
     it("should return the cached answer of a list read before", async () => {
       const l = await createLabel(randomToken());
       await client.resources.retrieve([l]);
