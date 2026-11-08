@@ -163,7 +163,6 @@ class RetrieveRequest(BaseModel):
         order: Sorts the arcs. An absent order sorts them by key.
         after: Starts the arcs strictly past this position in their order.
         limit: Is the most arcs to return.
-        offset: Is the number of matching arcs to skip.
         include_program: Includes the program of each record.
     """
 
@@ -174,7 +173,6 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
     include_program: bool = False
 
 

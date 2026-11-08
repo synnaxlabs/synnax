@@ -65,7 +65,7 @@ func (r RetrieveRequest) Apply(q servicetable.Retrieve) (servicetable.Retrieve, 
 		}
 		q = q.Limit(int(*r.Limit))
 	}
-	return q.Offset(int(r.Offset)), nil
+	return q, nil
 }
 
 // order returns the walk that the request's order selects, starting past the request's

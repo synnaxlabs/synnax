@@ -167,7 +167,6 @@ class Client:
         has_labels: list[label.Key] | None = ...,
         owners: list[CrudeID] | None = ...,
         search_term: str = ...,
-        offset: int = ...,
         limit: int | None = ...,
         one: Literal[False] = ...,
     ) -> list[Status[JsonValue]]: ...
@@ -182,7 +181,6 @@ class Client:
         has_labels: list[label.Key] | None = None,
         owners: list[CrudeID] | None = None,
         search_term: str = "",
-        offset: int = 0,
         limit: int | None = None,
         one: bool = False,
         **fields: Any,
@@ -205,7 +203,6 @@ class Client:
         :param owners: Keeps the statuses these resources own.
         :param search_term: A fuzzy search term matched against status names and
             messages.
-        :param offset: The number of statuses to skip.
         :param limit: The maximum number of statuses to retrieve.
         :param one: Returns one status for any filter.
         :returns: One status for a plain ``key`` or when ``one`` is set, otherwise a
@@ -213,13 +210,13 @@ class Client:
         :raises NotFoundError: If one status is wanted and none matches.
         :raises MultipleFoundError: If one status is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one status is wanted
-            beside a limit or an offset.
+            beside a limit.
 
         Retrieve the status of a task:
 
         >>> statuses = client.statuses.retrieve(owners=[task.resource_id])
         """
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             variant=None if variants is None else filter.Set[Variant](in_=variants),
@@ -229,7 +226,6 @@ class Client:
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
-            offset=offset,
             limit=limit,
         )
         res = self.client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse).statuses

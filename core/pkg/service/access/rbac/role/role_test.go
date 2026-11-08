@@ -237,7 +237,7 @@ var _ = Describe("Retrieve", func() {
 		})
 	})
 
-	Describe("Limit and Offset", func() {
+	Describe("Limit", func() {
 		It("Should limit results", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
@@ -245,25 +245,6 @@ var _ = Describe("Retrieve", func() {
 				Entries(&rs).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(rs).To(HaveLen(2))
-		})
-
-		It("Should apply offset", func(ctx SpecContext) {
-			var rs []role.Role
-			Expect(svc.NewRetrieve().
-				Offset(1).
-				Limit(2).
-				Entries(&rs).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(rs).To(HaveLen(2))
-		})
-
-		It("Should handle offset beyond results", func(ctx SpecContext) {
-			var rs []role.Role
-			Expect(svc.NewRetrieve().
-				Offset(10).
-				Entries(&rs).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(rs).To(BeEmpty())
 		})
 	})
 

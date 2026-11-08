@@ -319,7 +319,6 @@ RetrieveRequest::to_proto() const {
         *pb.mutable_after() = v;
     }
     if (this->limit.has_value()) pb.set_limit(*this->limit);
-    pb.set_offset(this->offset);
     pb.set_include_program(this->include_program);
     return {pb, x::errors::NIL};
 }
@@ -344,7 +343,6 @@ RetrieveRequest::from_proto(const ::api::arc::pb::RetrieveRequest &pb) {
         cpp.after = v;
     }
     if (pb.has_limit()) cpp.limit = pb.limit();
-    cpp.offset = pb.offset();
     cpp.include_program = pb.include_program();
     return {cpp, x::errors::NIL};
 }

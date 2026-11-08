@@ -60,22 +60,19 @@ TEST(RackTests, testRetrieveRackByName) {
     ASSERT_EQ(r.key, r2.key);
 }
 
-/// @brief it should reject a limit or an offset on a retrieve of one rack.
+/// @brief it should reject a limit on a retrieve of one rack.
 TEST(RackTests, testRetrieveRackRejectsPage) {
     const auto client = new_test_client();
-    for (const auto &options:
-         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
-        for (const auto &err: {
-                 client.racks.retrieve("rack", options).second,
-                 client.racks.retrieve({.name = "rack"}, x::filter::one, options).second
-             }) {
-            ASSERT_MATCHES(err, x::errors::VALIDATION);
-            ASSERT_EQ(
-                err.data,
-                "a query for one record takes no limit or offset, since a page could "
-                "hide a second match"
-            );
-        }
+    const auto options = RetrieveOptions{.limit = 1};
+    for (const auto &err:
+         {client.racks.retrieve("rack", options).second,
+          client.racks.retrieve({.name = "rack"}, x::filter::one, options).second}) {
+        ASSERT_MATCHES(err, x::errors::VALIDATION);
+        ASSERT_EQ(
+            err.data,
+            "a query for one record takes no limit, since a page could hide a "
+            "second match"
+        );
     }
 }
 
@@ -90,7 +87,9 @@ TEST(RackTests, testRetrieveWherePage) {
     const auto where = Where{.name = name};
     const auto first = ASSERT_NIL_P(client.racks.retrieve(where, {.limit = 2}));
     ASSERT_EQ(first.size(), 2);
-    const auto rest = ASSERT_NIL_P(client.racks.retrieve(where, {.offset = 2}));
+    const auto rest = ASSERT_NIL_P(
+        client.racks.retrieve(where, {.after = Cursor{.key = first[1].key}})
+    );
     ASSERT_EQ(rest.size(), 1);
 }
 

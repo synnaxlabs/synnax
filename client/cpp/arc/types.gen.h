@@ -207,8 +207,6 @@ struct RetrieveOptions {
     std::optional<Cursor> after;
     /// @brief limit is the most arcs to return.
     std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching arcs to skip.
-    std::uint32_t offset = 0;
     /// @brief include_program includes the program of each record.
     bool include_program = false;
 };
@@ -225,8 +223,6 @@ struct RetrieveRequest {
     std::optional<Cursor> after;
     /// @brief limit is the most arcs to return.
     std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching arcs to skip.
-    std::uint32_t offset = 0;
     /// @brief include_program includes the program of each record.
     bool include_program = false;
 
@@ -238,7 +234,6 @@ struct RetrieveRequest {
             .order = options.order,
             .after = options.after,
             .limit = options.limit,
-            .offset = options.offset,
             .include_program = options.include_program,
         };
     }

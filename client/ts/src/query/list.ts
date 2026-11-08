@@ -21,6 +21,7 @@ import {
   hash,
   type SpaceHooks,
   startStreaming,
+  type Watch,
 } from "@/query/query";
 import { type Keyed, type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
@@ -118,6 +119,14 @@ export interface ListsConfig<
   cursor: (record: V, order?: O) => C;
   /** Orders two positions as the Core walks them. */
   compare: (a: C, b: C, order?: O) => number;
+  /** Foreign tables whose changes reach the records of the windows. */
+  watch?: Array<Watch<Q, K>>;
+}
+
+interface Seen {
+  /** The versions of the table and of each watched table. */
+  versions: number[];
+  epoch: number | null;
 }
 
 interface Entry<Q, K extends record.Key, D extends Data, V, C> {
@@ -133,6 +142,8 @@ interface Entry<Q, K extends record.Key, D extends Data, V, C> {
   /** The limit of the search fetch behind the window. */
   searched?: number;
   handlers: Set<WindowHandler<D, C>>;
+  /** The list handles of the window, by the limit they ask for. */
+  lists: Map<number | undefined, List<D, C>>;
   /** Present exactly while the window is maintained. */
   teardown?: destructor.Destructor;
   idleSince?: TimeStamp;
@@ -146,8 +157,8 @@ interface Entry<Q, K extends record.Key, D extends Data, V, C> {
   ingesting: boolean;
   /** Set when the window may have missed a change. The next read fetches it. */
   stale: boolean;
-  /** The table version and epoch when the window stopped seeing changes. */
-  seen?: { version: number; epoch: number | null };
+  /** The table versions and epoch when the window stopped seeing changes. */
+  seen?: Seen;
   refetchTimer?: ReturnType<typeof setTimeout>;
   composed?: { records: V[]; end: C | null; value: Window<D, C> };
   /** The window last delivered to the handlers. */
@@ -193,19 +204,27 @@ export class Lists<
     });
   }
 
-  /** Returns the list of the records that match the query. */
+  /**
+   * Returns the list of the records that match the query. Equal queries return the same
+   * list, so a reader can key a subscription on it.
+   */
   list(query: Q): List<D, C> {
     const { limit, after: _after, ...rest } = query;
     const base = (
       rest.searchTerm === "" ? { ...rest, searchTerm: undefined } : rest
     ) as Q;
     const entry = this.ensure(base);
-    return {
-      retrieve: async (options) => await this.retrieve(entry, limit, options),
-      more: async (n, options) => await this.more(entry, n, options),
-      getCached: () => this.cachedOf(entry),
-      onChange: (handler) => this.subscribe(entry, handler),
-    };
+    let list = entry.lists.get(limit);
+    if (list == null) {
+      list = {
+        retrieve: async (options) => await this.retrieve(entry, limit, options),
+        more: async (n, options) => await this.more(entry, n, options),
+        getCached: () => this.cachedOf(entry),
+        onChange: (handler) => this.subscribe(entry, handler),
+      };
+      entry.lists.set(limit, list);
+    }
+    return list;
   }
 
   /**
@@ -224,6 +243,16 @@ export class Lists<
       entry.stale = false;
       entry.composed = undefined;
       this.deliver(entry);
+    });
+  }
+
+  /**
+   * Fetches again, after a short wait, each window whose query the predicate accepts.
+   * For changes the table cannot see, such as a record the caller may not read.
+   */
+  refetchMatching(predicate: (query: Q) => boolean): void {
+    this.entries.forEach((entry) => {
+      if (predicate(entry.query)) this.scheduleRefetch(entry);
     });
   }
 
@@ -274,6 +303,7 @@ export class Lists<
         fetched: false,
         limit: 0,
         handlers: new Set(),
+        lists: new Map(),
         queue: Promise.resolve(),
         generation: 0,
         ingesting: false,
@@ -526,10 +556,30 @@ export class Lists<
     };
   }
 
+  /**
+   * Handles a change to a watched table. The window's records are the same objects, so
+   * a change to a member composes the window again.
+   */
+  private onWatch(entry: Entry<Q, K, D, V, C>, result: K[] | "refetch"): void {
+    if (entry.ingesting || !entry.fetched) return;
+    if (result === "refetch") return this.scheduleRefetch(entry);
+    if (entry.search) this.scheduleRefetch(entry);
+    else this.admit(entry, result);
+    const members = new Set(entry.keys);
+    if (!result.some((key) => members.has(key))) return;
+    entry.composed = undefined;
+    this.deliver(entry);
+  }
+
   private maintain(entry: Entry<Q, K, D, V, C>): void {
-    entry.teardown = this.config.table.subscribeBatch((events) =>
-      this.onEvents(entry, events),
-    );
+    const { table, watch = [] } = this.config;
+    const releases = [
+      table.subscribeBatch((events) => this.onEvents(entry, events)),
+      ...watch.map((w) =>
+        w.attach(entry.query, (result) => this.onWatch(entry, result)),
+      ),
+    ];
+    entry.teardown = () => releases.forEach((release) => release());
     const { seen } = entry;
     const now = this.seen();
     // The window saw no change while unmaintained, so one may have reached the table.
@@ -537,11 +587,14 @@ export class Lists<
       entry.fetched &&
       (seen == null ||
         seen.epoch == null ||
-        seen.version !== now.version ||
+        !compare.arraysEqual(seen.versions, now.versions) ||
         seen.epoch !== now.epoch)
     )
       entry.stale = true;
-    if (entry.stale && entry.fetched) this.scheduleRefetch(entry);
+    if (!entry.stale || !entry.fetched) return;
+    // A watched change leaves the records as they were, so the window composes again.
+    entry.composed = undefined;
+    this.scheduleRefetch(entry);
   }
 
   private teardown(entry: Entry<Q, K, D, V, C>): void {
@@ -552,11 +605,12 @@ export class Lists<
     this.clearRefetch(entry);
   }
 
-  private seen(): { version: number; epoch: number | null } {
+  private seen(): Seen {
+    const { table, watch = [] } = this.config;
     const maintained = this.hooks.maintained?.() !== false;
     const epoch = this.hooks.epoch?.() ?? 1;
     return {
-      version: this.config.table.version(),
+      versions: [table.version(), ...watch.map((w) => w.version())],
       epoch: maintained && epoch !== 0 ? epoch : null,
     };
   }

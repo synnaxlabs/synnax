@@ -199,7 +199,6 @@ class Client:
         integration: str | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Rack]: ...
@@ -214,7 +213,6 @@ class Client:
         integration: str | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -242,7 +240,6 @@ class Client:
         :param integration: Keeps racks that support this integration.
         :param search_term: A fuzzy search term matched against rack names.
         :param limit: The maximum number of racks to retrieve.
-        :param offset: The number of racks to skip.
         :param include_status: Whether to populate each rack's status.
         :param one: Returns one rack for any filter.
         :returns: One rack for a plain ``key`` or ``name`` or when ``one`` is set,
@@ -250,11 +247,11 @@ class Client:
         :raises NotFoundError: If one rack is wanted and none matches.
         :raises MultipleFoundError: If one rack is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one rack is wanted
-            beside a limit or an offset.
+            beside a limit.
         """
         if key is not None:
             fields["key"] = key
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
@@ -266,7 +263,6 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
             include_status=include_status,
         )
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)

@@ -135,7 +135,6 @@ class Client:
         keys: list[UUID] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
         one: Literal[False] = ...,
     ) -> list[Role]: ...
 
@@ -147,7 +146,6 @@ class Client:
         keys: list[UUID] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
         one: bool = False,
         **fields: Any,
     ) -> Role | list[Role]:
@@ -167,24 +165,22 @@ class Client:
         :param keys: Keeps roles with one of these keys.
         :param search_term: A fuzzy search term matched against role names.
         :param limit: The maximum number of roles to retrieve.
-        :param offset: The number of roles to skip.
         :param one: Returns one role for any filter.
         :returns: One role for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of roles. The list leaves out keys that do not exist.
         :raises NotFoundError: If one role is wanted and none matches.
         :raises MultipleFoundError: If one role is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one role is wanted
-            beside a limit or an offset.
+            beside a limit.
         """
         if key is not None:
             fields["key"] = key
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit)
         flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
         )
         res = self._client.send("/access/role/retrieve", req, RetrieveResponse)
         return sole("role", req, res.roles) if single else res.roles

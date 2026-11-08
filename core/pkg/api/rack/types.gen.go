@@ -71,8 +71,6 @@ type RetrieveRequest struct {
 	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
 	// Limit is the most racks to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching racks to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeStatus includes the status of each record.
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 }

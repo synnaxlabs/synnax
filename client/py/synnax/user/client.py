@@ -194,7 +194,6 @@ class Client:
         keys: list[UUID] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
         one: Literal[False] = ...,
     ) -> list[User]: ...
 
@@ -206,7 +205,6 @@ class Client:
         keys: list[UUID] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
         one: bool = False,
         **fields: Any,
     ) -> User | list[User]:
@@ -226,7 +224,6 @@ class Client:
         :param keys: Keeps users with one of these keys.
         :param search_term: A fuzzy search term matched against user names.
         :param limit: The maximum number of users to retrieve.
-        :param offset: The number of users to skip.
         :param one: Returns one user for any filter.
         :returns: One user for a plain ``key``, a ``username``, or when ``one`` is
             set, otherwise a list of users. The list leaves out keys that do not
@@ -234,7 +231,7 @@ class Client:
         :raises NotFoundError: If one user is wanted and none matches.
         :raises MultipleFoundError: If one user is wanted and more than one matches.
         :raises ValidationError: If a filter field or ``username`` is None, or if one
-            user is wanted beside a limit or an offset.
+            user is wanted beside a limit.
         """
         if "username" in fields:
             username = fields.pop("username")
@@ -244,13 +241,12 @@ class Client:
                 )
             where = filter.merge(where, Where(usernames=[username]))
             one = True
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit)
         flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
         )
         res = self.client.send("/user/retrieve", req, _RetrieveResponse)
         return sole("user", req, res.users) if single else res.users

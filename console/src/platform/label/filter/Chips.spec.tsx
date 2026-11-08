@@ -11,7 +11,7 @@ import { type label, ranger, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep, uuid } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -23,6 +23,7 @@ import {
   awaitGranted,
   createConsoleWrapper,
   findTagCloseButton,
+  renderSuspended,
   uniqueName,
 } from "@/testutil";
 
@@ -64,7 +65,7 @@ describe("Label.Filter.Chips", () => {
     // check does not wait on the network mid-test.
     await awaitGranted(client, view.resourceID(uuid.create()), "update");
     const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture labels={[kept.key, removed.key]} />, { wrapper });
+    await renderSuspended(<Fixture labels={[kept.key, removed.key]} />, { wrapper });
     await waitFor(() => expect(screen.getByText(removed.name)).toBeTruthy());
     await enableEditing();
     const close = await waitFor(() => findTagCloseButton(removed.name));
@@ -83,7 +84,7 @@ describe("Label.Filter.Chips", () => {
     });
     await awaitGranted(client, view.resourceID(uuid.create()), "update");
     const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture labels={[only.key]} />, { wrapper });
+    await renderSuspended(<Fixture labels={[only.key]} />, { wrapper });
     await waitFor(() => expect(screen.getByText(only.name)).toBeTruthy());
     await enableEditing();
     fireEvent.click(await waitFor(() => findTagCloseButton(only.name)));
@@ -92,7 +93,7 @@ describe("Label.Filter.Chips", () => {
 
   it("should render nothing when no labels are selected", async () => {
     const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture />, { wrapper });
+    await renderSuspended(<Fixture />, { wrapper });
     await waitFor(() => expect(screen.getByText("All ranges")).toBeTruthy());
     expect(screen.queryByText("Labels")).toBeNull();
   });

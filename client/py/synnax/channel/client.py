@@ -478,7 +478,6 @@ class Client:
         search_term: str = ...,
         range_key: UUID | None = ...,
         limit: int | None = ...,
-        offset: int = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Channel]: ...
@@ -494,7 +493,6 @@ class Client:
         search_term: str = "",
         range_key: UUID | None = None,
         limit: int | None = None,
-        offset: int = 0,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -530,7 +528,6 @@ class Client:
             whose alias in the range matches come first.
         :param range_key: Sets each channel's alias from this range.
         :param limit: The maximum number of channels to retrieve.
-        :param offset: The number of channels to skip.
         :param include_status: Attaches each channel's status. A channel with no
             status gets None.
         :param one: Returns one channel for any filter.
@@ -540,14 +537,14 @@ class Client:
         :raises MultipleFoundError: If one channel is wanted and more than one
             matches.
         :raises ValidationError: If a filter field is None, or if one channel is
-            wanted beside a limit or an offset.
+            wanted beside a limit.
         """
         selected = Where()
         positional = False
         if channel is not None:
             selected = params_where(channel)
             positional = normalize_params(channel).single
-        single = returns_one(fields, one or positional, limit, offset)
+        single = returns_one(fields, one or positional, limit)
         flat = Where(
             key=selected.key,
             name=selected.name,
@@ -571,7 +568,6 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
             include_status=include_status,
         )
         res = self._retriever.filter(req, range_key)

@@ -66,10 +66,10 @@ describe("retrieveInputZ", () => {
   });
 
   it("should split the options from the fields", () => {
-    expect(inputZ.parse({ name: "a", limit: 2, offset: 1 })).toEqual({
+    expect(inputZ.parse({ name: "a", limit: 2, searchTerm: "b" })).toEqual({
       where: { name: { eq: "a" } },
       limit: 2,
-      offset: 1,
+      searchTerm: "b",
     });
   });
 

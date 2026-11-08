@@ -150,8 +150,6 @@ var _ = Describe("C++ Types Plugin", func() {
 					"    std::optional<Cursor> after;\n"+
 					"    /// @brief limit is the most things to return.\n"+
 					"    std::optional<std::uint32_t> limit;\n"+
-					"    /// @brief offset is the number of matching things to skip.\n"+
-					"    std::uint32_t offset = 0;\n"+
 					"};",
 				"static RetrieveRequest\n"+
 					"    from(Where where, const RetrieveOptions &options = {}) {\n"+
@@ -159,7 +157,6 @@ var _ = Describe("C++ Types Plugin", func() {
 					"            .where = std::move(where),\n"+
 					"            .after = options.after,\n"+
 					"            .limit = options.limit,\n"+
-					"            .offset = options.offset,\n"+
 					"        };\n"+
 					"    }",
 			)

@@ -50,10 +50,8 @@ message RetrieveRequest {
   optional Cursor after = 4;
   // limit is the most tasks to return.
   optional uint32 limit = 5;
-  // offset is the number of matching tasks to skip.
-  uint32 offset = 6;
   // include_status includes the status of each record.
-  bool include_status = 7;
+  bool include_status = 6;
 }
 
 // RetrieveResponse holds the tasks a RetrieveRequest selects.

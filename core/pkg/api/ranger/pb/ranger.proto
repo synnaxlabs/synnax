@@ -54,8 +54,6 @@ message RetrieveRequest {
   optional Cursor after = 4;
   // limit is the most ranges to return.
   optional uint32 limit = 5;
-  // offset is the number of matching ranges to skip.
-  uint32 offset = 6;
 }
 
 // RetrieveResponse holds the ranges a RetrieveRequest selects.

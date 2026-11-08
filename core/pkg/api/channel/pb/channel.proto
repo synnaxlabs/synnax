@@ -96,10 +96,8 @@ message RetrieveRequest {
   optional Cursor after = 4;
   // limit is the most channels to return.
   optional uint32 limit = 5;
-  // offset is the number of matching channels to skip.
-  uint32 offset = 6;
   // include_status includes the status of each record.
-  bool include_status = 7;
+  bool include_status = 6;
 }
 
 // RetrieveResponse holds the channels a RetrieveRequest selects.

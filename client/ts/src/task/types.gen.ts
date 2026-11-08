@@ -318,8 +318,6 @@ export const retrieveRequestZ = z.strictObject({
   after: cursorZ.optional(),
   /** limit is the most tasks to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching tasks to skip. */
-  offset: z.uint32().optional(),
   /** includeStatus includes the status of each record. */
   includeStatus: z.boolean().optional(),
 });

@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type access,
-  query,
-  type resource,
-  type Synnax,
-  user,
-} from "@synnaxlabs/client";
+import { type access, query, type resource, type Synnax } from "@synnaxlabs/client";
 import { type destructor } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -25,30 +19,30 @@ export type PermissionsQuery = {
   action: access.Action;
 };
 
-const subjectOf = (client: Synnax): resource.ID | null => {
+const granteeOf = (client: Synnax): access.Grantee | null => {
   const u = client.users.current.getCached();
-  return query.isLive(u) ? user.resourceID(u.key) : null;
+  return query.isLive(u) ? u : null;
 };
 
-const retrieveSubject = async (client: Synnax): Promise<resource.ID> =>
-  user.resourceID((await client.users.current.retrieve()).key);
+const sameGrantee = (a: access.Grantee | null, b: access.Grantee | null): boolean =>
+  a?.key === b?.key && a?.role === b?.role;
 
 /**
  * Subscribes for the signed-in user, and moves the subscription each time a different
- * user signs in. Calls onSwitch after each move.
+ * user signs in or the user's role changes. Calls onSwitch after each move.
  */
 const subscribeForCurrent = (
   client: Synnax,
-  subscribe: (subject: resource.ID) => destructor.Destructor,
+  subscribe: (grantee: access.Grantee) => destructor.Destructor,
   onSwitch: () => void,
 ): destructor.Destructor => {
-  let subject = subjectOf(client);
-  let release = subject == null ? undefined : subscribe(subject);
+  let grantee = granteeOf(client);
+  let release = grantee == null ? undefined : subscribe(grantee);
   const stop = client.users.current.onChange(() => {
-    const next = subjectOf(client);
-    if (next?.key === subject?.key) return;
+    const next = granteeOf(client);
+    if (sameGrantee(next, grantee)) return;
     release?.();
-    subject = next;
+    grantee = next;
     release = next == null ? undefined : subscribe(next);
     onSwitch();
   });
@@ -65,9 +59,9 @@ export interface IsGrantedParams {
 
 export const isGranted = ({ client, query }: IsGrantedParams): boolean => {
   if (client == null) return false;
-  const subject = subjectOf(client);
-  if (subject == null) return false;
-  return client.access.granted.getCached(subject, query) ?? false;
+  const grantee = granteeOf(client);
+  if (grantee == null) return false;
+  return client.access.granted.getCached(grantee, query) ?? false;
 };
 
 export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
@@ -78,17 +72,17 @@ const { useResult: useResultGranted } = Flux.createRetrieve<PermissionsQuery, bo
   // lock the subject out of surfaces it can in fact reach.
   retryUnreachable: true,
   retrieve: async ({ client, query }) =>
-    await client.access.granted.retrieve(await retrieveSubject(client), query),
+    await client.access.granted.retrieve(await client.users.current.retrieve(), query),
   onChange: ({ client, query }, handler) =>
     subscribeForCurrent(
       client,
-      (subject) => client.access.granted.onChange(subject, query, handler),
+      (grantee) => client.access.granted.onChange(grantee, query, handler),
       () => handler(undefined),
     ),
   getCached: ({ client, query }) => {
-    const subject = subjectOf(client);
-    if (subject == null) return undefined;
-    return client.access.granted.getCached(subject, query);
+    const grantee = granteeOf(client);
+    if (grantee == null) return undefined;
+    return client.access.granted.getCached(grantee, query);
   },
 });
 
@@ -141,17 +135,17 @@ export const {
   retryUnreachable: true,
   retrieve: async ({ client }) =>
     await client.access.policies.retrieve({
-      subjects: [await retrieveSubject(client)],
+      roles: [(await client.users.current.retrieve()).role],
     }),
   onChange: ({ client }, handler) =>
     subscribeForCurrent(
       client,
-      (subject) => client.access.policies.onChange({ subjects: [subject] }, handler),
+      ({ role }) => client.access.policies.onChange({ roles: [role] }, handler),
       () => handler(undefined),
     ),
   getCached: ({ client }) => {
-    const subject = subjectOf(client);
-    if (subject == null) return undefined;
-    return client.access.policies.getCached({ subjects: [subject] });
+    const grantee = granteeOf(client);
+    if (grantee == null) return undefined;
+    return client.access.policies.getCached({ roles: [grantee.role] });
   },
 });

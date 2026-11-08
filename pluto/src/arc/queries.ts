@@ -172,17 +172,6 @@ export const useAddNode = (keyOverride?: arc.Key) => {
   };
 };
 
-export type ListQuery = arc.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.arcs.retrieve(key),
-  onChange: ({ client, query }, handler) => client.arcs.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.arcs.onChange(key, handler),
-  getCached: ({ client, query }) => client.arcs.getCached(query),
-});
-
 export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   name: PLURAL_RESOURCE_NAME,
   verbs: verbs.DELETE,
@@ -266,7 +255,6 @@ export type RetrieveTaskParams = {
 };
 
 export const {
-  use: useTask,
   useResult: useResultTask,
   createResultSelector: createTaskResultSelector,
 } = Flux.createRetrieve<RetrieveTaskParams, task.Task | null>({

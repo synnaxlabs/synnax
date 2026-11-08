@@ -170,7 +170,6 @@ class Client:
         keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
         one: Literal[False] = ...,
     ) -> list[Panel]: ...
 
@@ -181,7 +180,6 @@ class Client:
         where: Where | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
         one: bool = False,
         **fields: Any,
     ) -> Panel | list[Panel]:
@@ -203,22 +201,20 @@ class Client:
             group when False.
         :param search_term: A fuzzy search term matched against panel names.
         :param limit: The maximum number of panels to retrieve.
-        :param offset: The number of panels to skip.
         :param one: Returns one panel for any filter.
         :returns: One panel for a plain ``key`` or when ``one`` is set, otherwise a list
             of panels. The list leaves out keys that do not exist.
         :raises NotFoundError: If one panel is wanted and none matches.
         :raises MultipleFoundError: If one panel is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one panel is wanted
-            beside a limit or an offset.
+            beside a limit.
         """
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
         )
         res = self._client.send("/panel/retrieve", req, RetrieveResponse)
         return sole("panel", req, res.panels) if single else res.panels

@@ -564,24 +564,29 @@ var _ = Describe("Rack", Ordered, func() {
 					Exists(ctx, tx))).To(BeFalse())
 			})
 		})
-		Describe("Limit and Offset", func() {
-			It("Should paginate results with Limit and Offset", func(ctx SpecContext) {
-				for i := range 4 {
-					Expect(
-						writer.Create(
-							ctx,
-							&rack.Rack{Name: fmt.Sprintf("page-rack-%d", i)},
-						),
-					).To(Succeed())
+		Describe("Limit and After", func() {
+			It("Should page through results", func(ctx SpecContext) {
+				names := make([]string, 4)
+				created := make([]rack.Key, 4)
+				for i := range names {
+					names[i] = fmt.Sprintf("page-rack-%d", i)
+					r := &rack.Rack{Name: names[i]}
+					Expect(writer.Create(ctx, r)).To(Succeed())
+					created[i] = r.Key
 				}
-				var res []rack.Rack
-				Expect(svc.NewRetrieve().
-					Where(rack.MatchNames("page-rack-0", "page-rack-1", "page-rack-2", "page-rack-3")).
-					Limit(2).
-					Offset(1).
-					Entries(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(HaveLen(2))
+				page := func(q rack.Retrieve) []rack.Key {
+					var res []rack.Rack
+					Expect(q.Where(rack.MatchNames(names...)).Limit(3).Entries(&res).
+						Exec(ctx, tx)).To(Succeed())
+					return lo.Map(
+						res,
+						func(r rack.Rack, _ int) rack.Key { return r.Key },
+					)
+				}
+				first := page(svc.NewRetrieve())
+				second := page(svc.NewRetrieve().After(first[2]))
+				Expect(second).To(HaveLen(1))
+				Expect(slices.Concat(first, second)).To(ConsistOf(created))
 			})
 		})
 		Describe("Search", func() {

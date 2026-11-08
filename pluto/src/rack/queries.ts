@@ -24,16 +24,20 @@ const BASE_QUERY = { includeStatus: true } as const;
 
 export type ListQuery = rack.RetrieveMultipleParams;
 
-export const useList = Flux.createList<ListQuery, rack.Key, rack.Rack>({
-  name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.racks.retrieve(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.racks.retrieve({ ...BASE_QUERY, key }),
-  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.racks.onChange(key, handler),
-  getCached: ({ client, query }) => client.racks.getCached(query),
-});
+/** Lists racks with their statuses, also for a rack outside the list. */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<ListQuery, rack.Rack>,
+  "item" | "name"
+> = {}): Flux.UseListReturn<rack.Key, rack.Rack> =>
+  Flux.useList((client) => client.racks, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query: query === null ? null : { ...BASE_QUERY, ...query },
+    item: (key) => ({ ...BASE_QUERY, key }),
+  });
 
 export const { use, useResult, useEnsure, createSelector } = Flux.createRetrieve<
   RetrieveQuery,

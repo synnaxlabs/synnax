@@ -544,7 +544,6 @@ class Client:
         types: list[str] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Task]: ...
@@ -559,7 +558,6 @@ class Client:
         types: list[str] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -589,7 +587,6 @@ class Client:
         :param types: Keeps tasks of one of these types.
         :param search_term: A fuzzy search term matched against task names.
         :param limit: The maximum number of tasks to retrieve.
-        :param offset: The number of tasks to skip.
         :param include_status: Whether to populate each task's status. Tasks come
             back with a null status when false.
         :param one: Returns one task for any filter.
@@ -598,11 +595,11 @@ class Client:
         :raises NotFoundError: If one task is wanted and none matches.
         :raises MultipleFoundError: If one task is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one task is wanted
-            beside a limit or an offset.
+            beside a limit.
         """
         if key is not None:
             fields["key"] = key
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
@@ -612,7 +609,6 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
             include_status=include_status,
         )
         res = self._client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse)

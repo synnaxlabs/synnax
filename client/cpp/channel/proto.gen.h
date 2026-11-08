@@ -424,7 +424,6 @@ RetrieveRequest::to_proto() const {
         *pb.mutable_after() = v;
     }
     if (this->limit.has_value()) pb.set_limit(*this->limit);
-    pb.set_offset(this->offset);
     pb.set_include_status(this->include_status);
     return {pb, x::errors::NIL};
 }
@@ -449,7 +448,6 @@ RetrieveRequest::from_proto(const ::api::channel::pb::RetrieveRequest &pb) {
         cpp.after = v;
     }
     if (pb.has_limit()) cpp.limit = pb.limit();
-    cpp.offset = pb.offset();
     cpp.include_status = pb.include_status();
     return {cpp, x::errors::NIL};
 }

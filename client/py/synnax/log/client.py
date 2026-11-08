@@ -184,7 +184,7 @@ class Client:
         :raises MultipleFoundError: If one log is wanted and more than one matches.
         :raises ValidationError: If a filter field is None.
         """
-        single = returns_one(fields, one, None, 0)
+        single = returns_one(fields, one, None)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields)

@@ -199,7 +199,7 @@ export interface SpaceConfig<
    */
   matches?: (record: V, params: P) => boolean | null;
   /**
-   * Query fields only the server can evaluate (searchTerm, limit, offset).
+   * Query fields only the server can evaluate (searchTerm, limit).
    * A query instance with any of them set is maintained by rule 3, except a
    * positive `limit` alone (see rule 2).
    */

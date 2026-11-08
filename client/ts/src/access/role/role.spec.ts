@@ -23,7 +23,6 @@ import {
   expectLive,
   RoleClients,
 } from "@/testutil";
-import { user } from "@/user";
 
 const client = createTestClient();
 
@@ -145,10 +144,9 @@ describe("role", () => {
     it("should connect a client holding a built-in role's permissions", async () => {
       const viewer = await createTestClientWithRole(client, "Viewer");
       await viewer.connect();
-      const { key } = await viewer.users.current.retrieve();
-      const subject = user.resourceID(key);
+      const grantee = await viewer.users.current.retrieve();
       const granted = async (action: Action) =>
-        await viewer.access.granted.retrieve(subject, {
+        await viewer.access.granted.retrieve(grantee, {
           objects: channel.TYPE_RESOURCE_ID,
           action,
         });

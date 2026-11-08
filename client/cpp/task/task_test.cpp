@@ -334,21 +334,19 @@ TEST(TaskTests, testRetrieveTasksByNamesWithLimit) {
     ASSERT_EQ(tasks.size(), 1);
 }
 
-/// @brief it should reject a limit or an offset on a retrieve of one task.
+/// @brief it should reject a limit on a retrieve of one task.
 TEST(TaskTests, testRetrieveTaskRejectsPage) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
-    for (const auto &options:
-         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
-        const auto [_, err] = r.tasks.retrieve("test_module", options);
-        ASSERT_MATCHES(err, x::errors::VALIDATION);
-        ASSERT_EQ(
-            err.data,
-            "a query for one record takes no limit or offset, since a page could "
-            "hide a second match"
-        );
-    }
+    const auto options = RetrieveOptions{.limit = 1};
+    const auto [_, err] = r.tasks.retrieve("test_module", options);
+    ASSERT_MATCHES(err, x::errors::VALIDATION);
+    ASSERT_EQ(
+        err.data,
+        "a query for one record takes no limit, since a page could hide a "
+        "second match"
+    );
 }
 
 /// @brief it should page a retrieve of the tasks on a rack that a filter matches.
@@ -367,7 +365,9 @@ TEST(TaskTests, testRetrieveWherePage) {
     const auto where = Where{.type = "pagerduty_alert"};
     const auto first = ASSERT_NIL_P(r.tasks.retrieve(where, {.limit = 2}));
     ASSERT_EQ(first.size(), 2);
-    const auto rest = ASSERT_NIL_P(r.tasks.retrieve(where, {.offset = 2}));
+    const auto rest = ASSERT_NIL_P(
+        r.tasks.retrieve(where, {.after = Cursor{.key = first[1].key}})
+    );
     ASSERT_EQ(rest.size(), 1);
 }
 

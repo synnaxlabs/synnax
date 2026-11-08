@@ -185,21 +185,20 @@ export const useResultStatus = createResultSelector(
   (a, b) => a?.variant === b?.variant && a?.message === b?.message,
 );
 
-export const useResultRack = createResultSelector(({ rack }) => rack);
-
-export type ListParams = device.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListParams, device.Key, device.Device>({
-  name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.devices.retrieve(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.devices.retrieve({ ...BASE_QUERY, key }),
-  onChange: ({ client, query }, handler) => client.devices.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) =>
-    client.devices.onChange({ ...BASE_QUERY, key }, handler),
-  getCached: ({ client, query }) => client.devices.getCached(query),
-});
+/** Lists devices with their statuses, also for a device outside the list. */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<RetrieveMultipleQuery, device.Device>,
+  "item" | "name"
+> = {}): Flux.UseListReturn<device.Key, device.Device> =>
+  Flux.useList((client) => client.devices, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query: query === null ? null : { ...BASE_QUERY, ...query },
+    item: (key) => ({ ...BASE_QUERY, key }),
+  });
 
 export type UseDeleteParams = device.Key | device.Key[];
 

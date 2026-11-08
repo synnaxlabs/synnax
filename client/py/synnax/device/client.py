@@ -334,7 +334,6 @@ class Client:
         racks: list[int] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Device]: ...
@@ -351,7 +350,6 @@ class Client:
         racks: list[int] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
         include_status: bool = False,
         one: bool = False,
         ignore_not_found: bool = False,
@@ -386,7 +384,6 @@ class Client:
             group when False.
         :param search_term: A fuzzy search term matched against device names.
         :param limit: The maximum number of devices to retrieve.
-        :param offset: The number of devices to skip.
         :param include_status: Whether to populate each device's status.
         :param one: Returns one device for any filter.
         :param ignore_not_found: Returns None instead of raising when one device is
@@ -398,9 +395,9 @@ class Client:
         :raises MultipleFoundError: If one device is wanted and more than one matches,
             even when ``ignore_not_found`` is set.
         :raises ValidationError: If a filter field is None, or if one device is wanted
-            beside a limit or an offset.
+            beside a limit.
         """
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
@@ -413,7 +410,6 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
             include_status=include_status,
         )
         res = self._client.send("/device/retrieve", req, RetrieveResponse)

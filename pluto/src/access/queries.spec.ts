@@ -30,17 +30,10 @@ import { Access } from "@/access";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
-const subjectOf = (c: Synnax): resource.ID => {
+const cachedPoliciesOf = (c: Synnax): access.policy.Policy[] => {
   const u = c.users.current.getCached();
   assert(query.isLive(u), "client has no signed-in user");
-  return user.resourceID(u.key);
-};
-
-const cachedPoliciesOf = (
-  c: Synnax,
-  subject: resource.ID = subjectOf(c),
-): access.policy.Policy[] => {
-  const cached = c.access.policies.getCached({ subjects: [subject] });
+  const cached = c.access.policies.getCached({ roles: [u.role] });
   return query.isLive(cached) ? cached : [];
 };
 

@@ -18,6 +18,7 @@ export { type DeriveWatch, deriveWatch } from "@/query/derived";
 export { LookupIndex } from "@/query/indexes";
 export {
   type List,
+  type ListQuery,
   type Lists,
   type ListsConfig,
   MAX_SEARCH_LIMIT,

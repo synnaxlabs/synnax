@@ -94,16 +94,17 @@ var _ = Describe("Service", func() {
 			}))
 		})
 
-		It("Should page through the merged matches", func(ctx SpecContext) {
-			Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{
-				Term:   "pump",
-				Limit:  2,
-				Offset: 1,
-			}))).To(Equal([]resource.Resource{
-				{ID: racks.id("1"), Name: "pump"},
-				{ID: channels.id("1"), Name: "pump pressure"},
-			}))
-		})
+		It("Should keep the closest merged matches within the limit",
+			func(ctx SpecContext) {
+				Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{
+					Term:  "pump",
+					Limit: 2,
+				}))).To(Equal([]resource.Resource{
+					{ID: channels.id("2"), Name: "pump"},
+					{ID: racks.id("1"), Name: "pump"},
+				}))
+			},
+		)
 
 		It("Should fill the page with the matches that Except keeps",
 			func(ctx SpecContext) {
@@ -115,15 +116,6 @@ var _ = Describe("Service", func() {
 					{ID: channels.id("2"), Name: "pump"},
 					{ID: channels.id("1"), Name: "pump pressure"},
 				}))
-			},
-		)
-
-		It("Should return nothing for an offset past the last match",
-			func(ctx SpecContext) {
-				Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{
-					Term:   "pump",
-					Offset: 10,
-				}))).To(BeEmpty())
 			},
 		)
 
@@ -150,11 +142,12 @@ var _ = Describe("Service", func() {
 				}))
 			})
 
-			It("Should page across types", func(ctx SpecContext) {
+			It("Should fill the limit across types", func(ctx SpecContext) {
 				Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{
-					Limit:  2,
-					Offset: 2,
+					Limit: 4,
 				}))).To(Equal([]resource.Resource{
+					{ID: channels.id("1"), Name: "pump pressure"},
+					{ID: channels.id("2"), Name: "pump"},
 					{ID: channels.id("3"), Name: "valve"},
 					{ID: racks.id("1"), Name: "pump"},
 				}))
@@ -170,14 +163,6 @@ var _ = Describe("Service", func() {
 						{ID: channels.id("3"), Name: "valve"},
 						{ID: racks.id("1"), Name: "pump"},
 					}))
-				},
-			)
-
-			It("Should return nothing for an offset past the last resource",
-				func(ctx SpecContext) {
-					Expect(MustSucceed(svc.Search(ctx, nil, resource.SearchQuery{
-						Offset: 10,
-					}))).To(BeEmpty())
 				},
 			)
 
@@ -216,25 +201,17 @@ var _ = Describe("Service", func() {
 			})).Error().To(MatchError(`types: unknown resource type "turbine"`))
 		})
 
-		It("Should refuse a negative limit or offset", func(ctx SpecContext) {
+		It("Should refuse a negative limit", func(ctx SpecContext) {
 			Expect(svc.Search(ctx, nil, resource.SearchQuery{
-				Term:   "pump",
-				Limit:  -1,
-				Offset: -1,
-			})).Error().To(MatchError(
-				"limit: must be greater than or equal to 0\n" +
-					"offset: must be greater than or equal to 0",
-			))
+				Term:  "pump",
+				Limit: -1,
+			})).Error().To(MatchError("limit: must be greater than or equal to 0"))
 		})
 
-		It("Should refuse a limit or offset past its bound", func(ctx SpecContext) {
+		It("Should refuse a limit past its bound", func(ctx SpecContext) {
 			Expect(svc.Search(ctx, nil, resource.SearchQuery{
-				Limit:  1001,
-				Offset: 10001,
-			})).Error().To(MatchError(
-				"limit: must be less than or equal to 1000\n" +
-					"offset: must be less than or equal to 10000",
-			))
+				Limit: 1001,
+			})).Error().To(MatchError("limit: must be less than or equal to 1000"))
 		})
 
 		It("Should panic when a Provider returns an ID of a type with no Provider",

@@ -95,22 +95,20 @@ def request_where[W: BaseModel](
     return model.model_validate({"and": [tree, read]})
 
 
-def returns_one(
-    fields: Mapping[str, Any], one: bool, limit: int | None, offset: int
-) -> bool:
+def returns_one(fields: Mapping[str, Any], one: bool, limit: int | None) -> bool:
     """Reports whether a retrieve returns one record: one is set, or the key or name
     field holds a plain value.
 
-    :raises ValidationError: If such a retrieve sets limit or offset, since a page could
-        hide a second match.
+    :raises ValidationError: If such a retrieve sets a limit, since a page could hide a
+        second match.
     """
     single = one or any(
         f in fields and not isinstance(fields[f], (list, tuple, dict, BaseModel))
         for f in ("key", "name")
     )
-    if single and (limit is not None or offset != 0):
+    if single and limit is not None:
         raise ValidationError(
-            "A retrieve of one record cannot set limit or offset, since a page could "
-            "hide a second match."
+            "A retrieve of one record cannot set a limit, since a page could hide a "
+            "second match."
         )
     return single

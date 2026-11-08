@@ -11,10 +11,12 @@ package ranger_test
 
 import (
 	"fmt"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/query"
@@ -372,22 +374,32 @@ var _ = Describe("Ranger", func() {
 				Where(ranger.MatchNames("NopeRange")).
 				Exists(ctx, tx))).To(BeFalse())
 		})
-		It("Should apply Limit and Offset", func(ctx SpecContext) {
-			for i := range 5 {
+		It("Should page with Limit and After", func(ctx SpecContext) {
+			names := make([]string, 5)
+			created := make([]ranger.Key, 5)
+			for i := range names {
+				names[i] = fmt.Sprintf("PageRange%d", i)
 				r := &ranger.Range{
-					Name:      fmt.Sprintf("PageRange%d", i),
+					Name:      names[i],
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+				created[i] = r.Key
 			}
-			var results []ranger.Range
-			Expect(svc.NewRetrieve().
-				Where(ranger.MatchNames("PageRange0", "PageRange1", "PageRange2", "PageRange3", "PageRange4")).
-				Limit(2).
-				Offset(1).
-				Entries(&results).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(results).To(HaveLen(2))
+			page := func(q ranger.Retrieve) []ranger.Key {
+				var res []ranger.Range
+				Expect(q.Where(ranger.MatchNames(names...)).Limit(2).Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				return lo.Map(
+					res,
+					func(r ranger.Range, _ int) ranger.Key { return r.Key },
+				)
+			}
+			first := page(svc.NewRetrieve())
+			second := page(svc.NewRetrieve().After(first[1]))
+			third := page(svc.NewRetrieve().After(second[1]))
+			Expect(third).To(HaveLen(1))
+			Expect(slices.Concat(first, second, third)).To(ConsistOf(created))
 		})
 		Describe("Search", func() {
 			It(

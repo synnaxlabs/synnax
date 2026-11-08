@@ -127,8 +127,8 @@ public:
     /// @param where the filter that the task matches.
     /// @param options the options of the retrieve.
     /// @returns the task, and an error that matches NOT_FOUND when no task matches,
-    /// MULTIPLE_RESULTS when more than one does, or VALIDATION when options set a limit
-    /// or an offset.
+    /// MULTIPLE_RESULTS when more than one does, or VALIDATION when options set a
+    /// limit.
     [[nodiscard]]
     std::pair<Task, x::errors::Error> retrieve(
         const Where &where,

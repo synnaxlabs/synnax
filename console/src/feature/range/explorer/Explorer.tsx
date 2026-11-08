@@ -9,12 +9,13 @@
 
 import "@/feature/range/explorer/Explorer.css";
 
-import { ranger } from "@synnaxlabs/client";
+import { ranger, type view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Ranger } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { Access, Flux, Ranger } from "@synnaxlabs/pluto";
+import { location, TimeStamp } from "@synnaxlabs/x";
+import { useState } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/feature/range/list/Item";
@@ -35,16 +36,46 @@ export const Explorer: Panel.Content = () => (
   </View.Frame>
 );
 
-const Internal = () => {
-  const listProps = Ranger.useList({
-    query: { where: View.useContext().getInitialView().where },
-    sort: Ranger.sortByStage,
+const ORDERS: Record<Ranger.Stage, ranger.Order> = {
+  to_do: { field: "time_range_start", descending: false },
+  in_progress: { field: "time_range_start", descending: true },
+  completed: { field: "time_range_start", descending: true },
+};
+
+const useStage = (where: view.View["where"], stage: Ranger.Stage, now: TimeStamp) => {
+  const staged = Ranger.stageWhere(stage, now);
+  return Flux.useList((client) => client.ranges, {
+    name: "ranges",
+    query: {
+      where: where == null ? staged : { and: [where as ranger.Where, staged] },
+      order: ORDERS[stage],
+    },
   });
+};
+
+const Internal = () => {
+  const [where, setWhere] = useState(View.useContext().getInitialView().where);
+  // Ranges change stage as time passes; the lists keep the stage they had at mount.
+  const [now] = useState(() => TimeStamp.now());
+  const toDo = useStage(where, "to_do", now);
+  const inProgress = useStage(where, "in_progress", now);
+  const completed = useStage(where, "completed", now);
+  const stages = [toDo, inProgress, completed];
+  const handleMore = () => stages.forEach((s) => s.more());
+  const handleSearch = (term: string) => stages.forEach((s) => s.search(term));
   const openCreate = Range.useCreateModal();
   const handleCreate = () => openCreate();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   return (
-    <View.Form {...listProps}>
+    <View.Form
+      data={[...toDo.data, ...inProgress.data, ...completed.data]}
+      getItem={toDo.getItem}
+      subscribe={toDo.subscribe}
+      answered={stages.every((s) => s.answered)}
+      more={handleMore}
+      search={handleSearch}
+      onWhereChange={setWhere}
+    >
       <View.Toolbar>
         <View.FilterMenu>
           <Label.Filter.MenuItem />

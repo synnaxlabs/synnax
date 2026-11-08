@@ -367,7 +367,7 @@ var _ = Describe("Retriever", func() {
 		})
 	})
 
-	Describe("Limit and Offset", func() {
+	Describe("Limit", func() {
 		It("Should limit results", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
@@ -375,25 +375,6 @@ var _ = Describe("Retriever", func() {
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(2))
-		})
-
-		It("Should apply offset", func(ctx SpecContext) {
-			var ps []policy.Policy
-			Expect(svc.NewRetrieve().
-				Offset(1).
-				Limit(2).
-				Entries(&ps).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(ps).To(HaveLen(2))
-		})
-
-		It("Should handle offset beyond results", func(ctx SpecContext) {
-			var ps []policy.Policy
-			Expect(svc.NewRetrieve().
-				Offset(10).
-				Entries(&ps).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(ps).To(BeEmpty())
 		})
 	})
 

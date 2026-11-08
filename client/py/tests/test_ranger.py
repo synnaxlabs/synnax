@@ -737,7 +737,7 @@ class TestRangeRetrieveFilters:
 
     def test_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject one beside a limit, since a page could hide a match"""
-        with pytest.raises(sy.ValidationError, match="limit or offset"):
+        with pytest.raises(sy.ValidationError, match="cannot set a limit"):
             client.ranges.retrieve(key=uuid4(), limit=1)  # type: ignore[call-overload]
 
     def test_none_field(self, client: sy.Synnax) -> None:
@@ -778,19 +778,16 @@ class TestRangeRetrieveFilters:
         res = client.ranges.retrieve(overlaps_with=tr)
         assert {r.key for r in res} == {r.key for r in window_ranges[:2]}
 
-    def test_limit_offset(
+    def test_limit(
         self,
         client: sy.Synnax,
         window: sy.TimeRange,
         window_ranges: list[sy.Range],
     ) -> None:
-        """Should page through the matching ranges"""
+        """Should return at most the limit of the matching ranges"""
         first = client.ranges.retrieve(overlaps_with=window, limit=2)
-        rest = client.ranges.retrieve(overlaps_with=window, limit=2, offset=2)
         assert len(first) == 2
-        assert len(rest) == 1
-        keys = {r.key for r in first} | {r.key for r in rest}
-        assert keys == {r.key for r in window_ranges}
+        assert {r.key for r in first} <= {r.key for r in window_ranges}
 
     def test_search_term(
         self, client: sy.Synnax, window_ranges: list[sy.Range]

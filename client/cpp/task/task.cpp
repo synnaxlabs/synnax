@@ -51,8 +51,7 @@ std::pair<Task, x::errors::Error> Client::retrieve(
     x::filter::One,
     const RetrieveOptions &options
 ) const {
-    if (options.limit.has_value() || options.offset != 0)
-        return {Task{}, errors::paged_one_error()};
+    if (options.limit.has_value()) return {Task{}, errors::paged_one_error()};
     auto [tasks, err] = this->retrieve(where, options);
     if (err) return {Task{}, err};
     if (const auto one_err = errors::check_one("task", where.to_json(), tasks.size()))

@@ -315,7 +315,7 @@ class TestDevice:
 
     def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject one beside a limit, since a page could hide a match."""
-        with pytest.raises(sy.ValidationError, match="limit or offset"):
+        with pytest.raises(sy.ValidationError, match="cannot set a limit"):
             client.devices.retrieve(model="T7", one=True, limit=1)  # type: ignore[call-overload]
 
     def test_retrieve_none_field(self, client: sy.Synnax) -> None:
@@ -323,12 +323,11 @@ class TestDevice:
         with pytest.raises(sy.ValidationError, match="model is None"):
             client.devices.retrieve(model=None)  # type: ignore[call-overload]
 
-    def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
-        """Should page through the devices on a rack."""
+    def test_retrieve_with_limit(self, client: sy.Synnax) -> None:
+        """Should return at most the limit of the devices on a rack."""
         rack = client.racks.create(name=str(uuid4()))
         client.devices.create([basic_device(rack.key, i) for i in range(3)])
         assert len(client.devices.retrieve(racks=[rack.key], limit=2)) == 2
-        assert len(client.devices.retrieve(racks=[rack.key], offset=2)) == 1
 
     def test_retrieve_by_search_term(self, client: sy.Synnax) -> None:
         """Should return the devices whose names match the search term."""

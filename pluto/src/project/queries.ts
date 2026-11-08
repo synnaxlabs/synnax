@@ -22,7 +22,6 @@ import type z from "zod";
 import { Flux } from "@/flux";
 
 const RESOURCE_NAME = "project";
-const PLURAL_RESOURCE_NAME = "projects";
 
 export type RetrieveQuery = {
   key: project.Key;
@@ -33,17 +32,6 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   retrieve: async ({ client, query }) => await client.projects.retrieve(query),
   onChange: ({ client, query }, handler) => client.projects.onChange(query, handler),
   getCached: ({ client, query }) => client.projects.getCached(query),
-});
-
-export type ListParams = project.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListParams, project.Key, project.Project>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.projects.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.projects.retrieve(key),
-  onChange: ({ client, query }, handler) => client.projects.onChange(query, handler),
-  getCached: ({ client, query }) => client.projects.getCached(query),
-  onChangeByKey: ({ client, key }, handler) => client.projects.onChange(key, handler),
 });
 
 export type DeleteParams = project.Key | project.Key[];

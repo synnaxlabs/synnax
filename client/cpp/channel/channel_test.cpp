@@ -290,11 +290,14 @@ TEST(TestChannel, testRetrieveManyByNamePage) {
     const auto client = new_test_client();
     const auto a = create_virtual_channel(client);
     const auto b = create_virtual_channel(client);
-    const auto channels = ASSERT_NIL_P(client.channels.retrieve(
-        std::vector<std::string>{a.name, b.name},
-        {.offset = 1}
-    ));
-    ASSERT_EQ(channels.size(), 1);
+    const auto names = std::vector<std::string>{a.name, b.name};
+    const auto first = ASSERT_NIL_P(client.channels.retrieve(names, {.limit = 1}));
+    ASSERT_EQ(first.size(), 1);
+    const auto rest = ASSERT_NIL_P(
+        client.channels.retrieve(names, {.after = Cursor{.key = first[0].key}})
+    );
+    ASSERT_EQ(rest.size(), 1);
+    ASSERT_NE(rest[0].key, first[0].key);
 }
 
 /// @brief it should retrieve the one channel that a filter matches.
@@ -327,23 +330,21 @@ TEST(TestChannel, testRetrieveOneWhereMultipleFound) {
     );
 }
 
-/// @brief it should reject a limit or an offset on a retrieve of one channel.
+/// @brief it should reject a limit on a retrieve of one channel.
 TEST(TestChannel, testRetrieveRejectsPage) {
     const auto client = new_test_client();
-    for (const auto &options:
-         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
-        for (const auto &err:
-             {client.channels.retrieve(Key(1), options).second,
-              client.channels.retrieve("channel", options).second,
-              client.channels.retrieve({.name = "channel"}, x::filter::one, options)
-                  .second}) {
-            ASSERT_MATCHES(err, x::errors::VALIDATION);
-            ASSERT_EQ(
-                err.data,
-                "a query for one record takes no limit or offset, since a page could "
-                "hide a second match"
-            );
-        }
+    const auto options = RetrieveOptions{.limit = 1};
+    for (const auto &err:
+         {client.channels.retrieve(Key(1), options).second,
+          client.channels.retrieve("channel", options).second,
+          client.channels.retrieve({.name = "channel"}, x::filter::one, options)
+              .second}) {
+        ASSERT_MATCHES(err, x::errors::VALIDATION);
+        ASSERT_EQ(
+            err.data,
+            "a query for one record takes no limit, since a page could hide a "
+            "second match"
+        );
     }
 }
 

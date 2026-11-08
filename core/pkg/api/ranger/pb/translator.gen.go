@@ -140,7 +140,6 @@ func OrdersFromPB(pbs []*Order) ([]ranger.Order, error) {
 func RetrieveRequestToPB(r ranger.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
 		SearchTerm: r.SearchTerm,
-		Offset:     r.Offset,
 	}
 	if r.Where != nil {
 		var err error
@@ -176,7 +175,6 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (ranger.RetrieveRequest, error) 
 		return r, nil
 	}
 	r.SearchTerm = pb.SearchTerm
-	r.Offset = pb.Offset
 	if pb.Where != nil {
 		val, err := rangerpb.WhereFromPB(pb.Where)
 		if err != nil {

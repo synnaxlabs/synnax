@@ -192,8 +192,6 @@ export const retrieveRequestZ = z.strictObject({
   after: cursorZ.optional(),
   /** limit is the most statuses to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching statuses to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 

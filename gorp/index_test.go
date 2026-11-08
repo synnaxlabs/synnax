@@ -1049,16 +1049,6 @@ var _ = Describe("Index", func() {
 				Expect(idsOf(res)).To(Equal([]int32{9, 2}))
 			})
 
-			It("Should skip the offset in matching entries", func(ctx SpecContext) {
-				var res []indexedEntry
-				Expect(table.NewRetrieve().
-					OrderBy(scoreIdx.Ordered(gorp.DirectionDesc)).
-					Offset(2).
-					Limit(2).
-					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
-				Expect(scoresOf(res)).To(Equal([]int64{170, 160}))
-			})
-
 			It("Should return every entry without a limit", func(ctx SpecContext) {
 				var res []indexedEntry
 				Expect(table.NewRetrieve().

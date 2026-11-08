@@ -283,15 +283,15 @@ describe("Retriever", () => {
       expect(fetchRequest).not.toHaveBeenCalled();
     });
 
-    it("rejects a query that sets one beside an offset", async () => {
+    it("rejects a query that sets one beside a limit", async () => {
       const fetchRequest = vi.fn(async () => []);
       const client = new Client(newCache(), async () => [], fetchRequest);
       await expect(
-        client.retrieve({ minSize: 2, one: true, offset: 1 } as never),
+        client.retrieve({ minSize: 2, one: true, limit: 1 } as never),
       ).rejects.toThrow(
         new ValidationError(
-          "a query for one record takes no limit or offset, since a page could " +
-            "hide a second match",
+          "a query for one record takes no limit, since a page could hide a " +
+            "second match",
         ),
       );
       expect(fetchRequest).not.toHaveBeenCalled();

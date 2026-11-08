@@ -83,12 +83,6 @@ func (r Retrieve[D]) Limit(limit int) Retrieve[D] {
 	return r
 }
 
-// Offset sets the number of results that Retrieve will skip before returning results.
-func (r Retrieve[D]) Offset(offset int) Retrieve[D] {
-	r.gorp = r.gorp.Offset(offset)
-	return r
-}
-
 // After starts the query strictly past key in key order.
 func (r Retrieve[D]) After(key Key) Retrieve[D] {
 	r.gorp = r.gorp.After(key)

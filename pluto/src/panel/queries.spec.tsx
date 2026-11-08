@@ -289,45 +289,6 @@ describe("Panel queries", () => {
     });
   });
 
-  describe("useList", () => {
-    it("should return panels including those created beforehand", async () => {
-      const p1 = await client.panels.create({
-        name: "list-a",
-        project: defaultProject,
-      });
-      const p2 = await client.panels.create({
-        name: "list-b",
-        project: defaultProject,
-      });
-
-      const { result } = renderHook(() => Panel.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(p1.key);
-      expect(result.current.data).toContain(p2.key);
-    });
-
-    it("should expose individual panels via getItem", async () => {
-      const target = await client.panels.create({
-        name: "get-item-target",
-        project: defaultProject,
-      });
-      const { result } = renderHook(() => Panel.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const item = result.current.getItem(target.key);
-      expect(item?.key).toEqual(target.key);
-      expect(item?.name).toEqual("get-item-target");
-    });
-  });
-
   describe("useKeysByProject", () => {
     const newProject = async (): Promise<project.Key> =>
       (
@@ -1551,22 +1512,6 @@ describe("Panel queries", () => {
         expect(leafTabKeys(root?.first)).toEqual([tabA.key]);
         expect(leafTabKeys(root?.last)).toEqual([tabB.key]);
       });
-    });
-
-    it("should propagate deletes through the channel listener", async () => {
-      const target = await client.panels.create({
-        name: "reactive-delete",
-        project: defaultProject,
-      });
-      const { result } = renderHook(() => Panel.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => expect(result.current.data).toContain(target.key));
-
-      await writer.panels.delete(target.key);
-
-      await waitFor(() => expect(result.current.data).not.toContain(target.key));
     });
   });
 

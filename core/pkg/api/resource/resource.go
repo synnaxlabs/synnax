@@ -82,8 +82,6 @@ type (
 		// Limit is the maximum number of resources to return, at most 1000. Zero
 		// returns at most 100.
 		Limit int `json:"limit" msgpack:"limit"`
-		// Offset is the number of closest matches to skip, at most 10000.
-		Offset int `json:"offset" msgpack:"offset"`
 	}
 	// SearchResponse holds the resources that match a SearchRequest, closest match
 	// first.
@@ -110,7 +108,6 @@ func (s *Service) Search(
 		Term:   req.SearchTerm,
 		Types:  req.Types,
 		Limit:  req.Limit,
-		Offset: req.Offset,
 		Except: func(id resource.ID) bool { return !allowed(id) },
 	})
 	if err != nil {

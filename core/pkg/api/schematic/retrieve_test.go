@@ -71,13 +71,15 @@ var _ = Describe("Retrieve by snapshot and page", func() {
 	)
 
 	It("Should page the matching schematics", func(ctx SpecContext) {
-		first := retrieve(ctx, apischematic.RetrieveRequest{Limit: new(uint32(1))})
-		second := retrieve(ctx, apischematic.RetrieveRequest{
-			Limit:  new(uint32(1)),
-			Offset: 1,
-		})
-		Expect(first).To(HaveLen(1))
-		Expect(second).To(HaveLen(1))
-		Expect(append(first, second...)).To(ConsistOf("editable", "snap"))
+		order := &apischematic.Order{Field: apischematic.OrderFieldName}
+		Expect(retrieve(ctx, apischematic.RetrieveRequest{
+			Order: order,
+			Limit: new(uint32(1)),
+		})).To(Equal([]string{"editable"}))
+		Expect(retrieve(ctx, apischematic.RetrieveRequest{
+			Order: order,
+			After: &apischematic.Cursor{Key: editable.Key, Name: new("editable")},
+			Limit: new(uint32(1)),
+		})).To(Equal([]string{"snap"}))
 	})
 })

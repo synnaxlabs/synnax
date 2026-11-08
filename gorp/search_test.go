@@ -185,16 +185,15 @@ var _ = Describe("SearchIndex", func() {
 				Where(idx.Filter("analog")))).To(Equal([]int32{3, 1, 4}))
 		})
 
-		DescribeTable("Should page through the matches by relevance",
-			func(ctx SpecContext, offset, limit int, expected []int32) {
+		DescribeTable("Should keep the closest matches within the limit",
+			func(ctx SpecContext, limit int, expected []int32) {
 				Expect(retrieveIDs(ctx, db, table.NewRetrieve().
 					Where(idx.Filter("analog")).
-					Offset(offset).
 					Limit(limit))).To(Equal(expected))
 			},
-			Entry("the first page", 0, 2, []int32{3, 1}),
-			Entry("a later page", 1, 2, []int32{1, 4}),
-			Entry("past the end", 3, 2, []int32{}),
+			Entry("the closest match", 1, []int32{3}),
+			Entry("the two closest matches", 2, []int32{3, 1}),
+			Entry("a limit past the matches", 5, []int32{3, 1, 4}),
 		)
 
 		DescribeTable("Should keep the rank when keys narrow the matches",
