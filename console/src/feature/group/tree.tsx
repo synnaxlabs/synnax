@@ -153,7 +153,6 @@ export const createTreeItems = (
   };
 
   const TreeItem = Tree.createItem({
-    type: "group",
     icon: <Icon.Group />,
     children,
     canDrop: (props) => {

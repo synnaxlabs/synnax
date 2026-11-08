@@ -152,10 +152,6 @@ const createStore = ({
       return children({ client, id, root });
     },
     hasChildren: (type) => resolveItem(type).hasChildren,
-    visible: (r) => {
-      const { visible } = resolveItem(r.id.type);
-      return visible == null || visible(r);
-    },
     onError: (e) => handleError(e, "Failed to retrieve resources"),
     results,
   });

@@ -33,7 +33,6 @@ const client = createTestClient();
 const roles = new RoleClients(client);
 
 const RoleItem = Access.Role.TREE_ITEMS.role;
-const PolicyItem = Access.Policy.TREE_ITEMS.policy;
 
 const createRole = async () =>
   await client.access.roles.create({ name: uniqueName("role") });
@@ -217,15 +216,5 @@ describe("role tree item", () => {
     ];
     for (const [name, icon] of cases)
       expect(queryIcon(await findTreeRow(name), icon), name).toBeTruthy();
-  });
-});
-
-describe("policy tree item", () => {
-  it("should stay hidden in the tree and declare no children", () => {
-    expect(PolicyItem.type).toBe("policy");
-    expect(
-      PolicyItem.visible?.(createResource(access.policy.resourceID("p1"), "p1")),
-    ).toBe(false);
-    expect(PolicyItem.hasChildren).toBe(false);
   });
 });

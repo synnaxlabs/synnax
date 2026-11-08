@@ -9,7 +9,6 @@
 
 import { channel, group, resource, type Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { array } from "@synnaxlabs/x";
@@ -111,27 +110,6 @@ export const createResource = (
   ...(data != null ? { data } : {}),
 });
 
-/**
- * Builds a {@link Status.ErrorHandler} that actually runs the wrapped operation, so
- * handlers like Tree.HandleSelect (which route their async work through
- * handleError) execute in tests. Failures are reported to onError with the handler's
- * heading.
- */
-export const createExecutingHandleError =
-  (
-    onError: (heading: Status.Heading, exc: unknown) => void = () => {},
-  ): Status.ErrorHandler =>
-  (excOrFunc, heading = "error") => {
-    if (typeof excOrFunc !== "function") return onError(heading, excOrFunc);
-    void (async () => {
-      try {
-        await excOrFunc();
-      } catch (exc) {
-        onError(heading, exc);
-      }
-    })();
-  };
-
 /** Lists the groups whose parent is the node. */
 const listChildGroups: Tree.Children = ({ client, id }) => [
   Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
@@ -145,7 +123,6 @@ export const createGroupItem = (
   params: Partial<Tree.CreateItemParams> = {},
 ): Tree.Item =>
   Tree.createItem({
-    type: "group",
     children: listChildGroups,
     drop: async ({ client, destination, items }) =>
       await client.groups.setParent(
@@ -200,7 +177,6 @@ export const createHostItems = (
   children: (client: Synnax) => Tree.Source[],
 ): Tree.Items => ({
   [HOST_ID.type]: Tree.createItem({
-    type: HOST_ID.type,
     children: ({ client }) => children(client),
   }),
 });
@@ -249,7 +225,6 @@ export const createBaseProps = ({
   client,
   store,
   openTab: () => undefined,
-  addStatus: () => undefined,
   handleError: () => undefined,
   ...overrides,
 });

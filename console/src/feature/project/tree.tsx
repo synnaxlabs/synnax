@@ -236,7 +236,6 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
 };
 
 const TreeItem = Tree.createItem({
-  type: "project",
   icon: <Icon.Project />,
   useOnSelect,
   children,

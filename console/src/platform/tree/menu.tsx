@@ -9,7 +9,7 @@
 
 import { resource, type Synnax as Client } from "@synnaxlabs/client";
 import { type Menu } from "@synnaxlabs/lyra/menu";
-import { Status } from "@synnaxlabs/lyra/status";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { unique } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
@@ -72,7 +72,6 @@ export const useMenu = ({
   handleError,
 }: UseMenuProps): ((props: Menu.ContextMenuMenuProps) => ReactElement) => {
   const openTab = Panel.useOpenTab();
-  const addStatus = Status.useAdder();
   const session = useStore<State, Action>();
 
   const render = ({ keys: clicked }: Menu.ContextMenuMenuProps): ReactElement => {
@@ -105,7 +104,6 @@ export const useMenu = ({
       client,
       store: session,
       openTab,
-      addStatus,
       handleError,
     };
     const allSameType = ids.every((id) => id.type === ids[0].type);

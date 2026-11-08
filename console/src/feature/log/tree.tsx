@@ -94,7 +94,6 @@ export const GROUP_MEMBER: Group.Member = {
 };
 
 const TreeItem = Tree.createItem({
-  type: "log",
   icon: <Icon.Log />,
   useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
