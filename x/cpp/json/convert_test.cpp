@@ -1792,6 +1792,18 @@ TEST(FromSampleValue, EnumNoMatchFallsThrough) {
     ASSERT_EQ(result, json("99"));
 }
 
+TEST(FromSampleValue, NaNToEnumErrors) {
+    const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
+    ASSERT_OCCURRED_AS_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(std::numeric_limits<double>::quiet_NaN()),
+            x::json::Type::String,
+            &enums
+        ),
+        x::json::CONVERSION_ERROR
+    );
+}
+
 TEST(FromSampleValue, EnumIgnoredForNonStringTarget) {
     const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
     const auto result = ASSERT_NIL_P(

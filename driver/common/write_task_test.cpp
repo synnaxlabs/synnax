@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <future>
+#include <iterator>
 
 #include "gtest/gtest.h"
 
@@ -50,6 +52,30 @@ public:
         auto err = pipeline::testutil::Sink::write(frame);
         this->set_state(frame);
         return err;
+    }
+};
+
+/// @brief a sink that skips each command of 0 and reports a warning for it.
+class SkippingSink final : public Sink {
+public:
+    /// @brief the frames the sink did not skip.
+    std::shared_ptr<x::sync::List<x::telem::Frame>> writes;
+
+    explicit SkippingSink(
+        const std::shared_ptr<x::sync::List<x::telem::Frame>> &writes
+    ):
+        Sink(std::vector<synnax::channel::Key>{1}), writes(writes) {}
+
+    x::errors::Error write(x::telem::Frame &frame) override {
+        if (frame.at<uint8_t>(1, 0) == 0) {
+            this->warn({
+                .message = "Skipped invalid command",
+                .description = "Channel 1: 0 is not valid. Write 1.",
+            });
+            return x::errors::NIL;
+        }
+        this->writes->push_back(frame.deep_copy());
+        return x::errors::NIL;
     }
 };
 
@@ -442,6 +468,52 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
     EXPECT_EQ(raw_sink->start_count, 2);
     ASSERT_TRUE(write_task.stop("stop_cmd_3", true));
     EXPECT_EQ(raw_sink->stop_count, 2);
+}
+
+/// @brief a skipped command should warn once without a retry wait, and the next
+/// command should clear the warning.
+TEST(TestCommonWriteTask, SkippedCommandWarnsWithoutBreaker) {
+    const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    for (const uint8_t v: {0, 0, 1})
+        reads->emplace_back(1, x::telem::Series(v, x::telem::UINT8_T));
+    const auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    // A breaker wait would outlast the timeout below.
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{.name = "test", .base_interval = 30 * x::telem::SECOND},
+        std::make_unique<SkippingSink>(writes),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        pipeline::testutil::simple_streamer_factory({1}, reads)
+    );
+    ASSERT_TRUE(write_task.start("start"));
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        writes->size(),
+        1,
+        std::chrono::seconds(2),
+        std::chrono::milliseconds(5)
+    );
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] { return ctx->snapshot().back().message; },
+        std::string("Task running"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto statuses = ctx->snapshot();
+    std::vector<synnax::task::Status> warnings;
+    std::ranges::copy_if(statuses, std::back_inserter(warnings), [](const auto &s) {
+        return s.variant == synnax::status::VARIANT_WARNING;
+    });
+    ASSERT_EQ(warnings.size(), 1);
+    EXPECT_EQ(warnings[0].message, "Skipped invalid command");
+    EXPECT_EQ(warnings[0].description, "Channel 1: 0 is not valid. Write 1.");
+    EXPECT_TRUE(warnings[0].details.running);
+    EXPECT_EQ(statuses.back().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_TRUE(statuses.back().details.running);
+    ASSERT_TRUE(write_task.stop("stop", true));
 }
 
 /// @brief it should parse a device key from the config.

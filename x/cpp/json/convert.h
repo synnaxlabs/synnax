@@ -85,7 +85,8 @@ enum class Type { Number, String, Boolean };
 /// entry. If a match is found, the corresponding label is returned as a JSON string;
 /// otherwise normal conversion applies.
 /// @returns the JSON value and nil, or an empty JSON value and CONVERSION_ERROR if
-/// unsupported. NaN and infinity have no JSON number, and NaN has no JSON boolean.
+/// unsupported. NaN and infinity have no JSON number, NaN has no JSON boolean, and NaN
+/// matches no enum value.
 std::pair<nlohmann::json, errors::Error> from_sample_value(
     const telem::SampleValue &value,
     Type target,

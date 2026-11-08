@@ -128,16 +128,17 @@ void assert_invalid_value_skipped(
         synnax::channel::Key(1),
         x::telem::Series(std::vector<double>{invalid})
     );
-    const auto err = sink->write(bad);
-    ASSERT_OCCURRED_AS(err, errors::INVALID_VALUE_ERROR);
-    ASSERT_OCCURRED_AS(err, driver::errors::TEMPORARY_HARDWARE_ERROR);
-    EXPECT_NE(err.data.find("valve_cmd"), std::string::npos);
-    EXPECT_NE(err.data.find(value_text), std::string::npos);
+    ASSERT_NIL(sink->write(bad));
+    const auto warning = sink->take_warning();
+    EXPECT_EQ(warning.message, "Skipped invalid command");
+    EXPECT_NE(warning.description.find("valve_cmd"), std::string::npos);
+    EXPECT_NE(warning.description.find(value_text), std::string::npos);
     EXPECT_EQ(server.received_requests().size(), 0);
 
     x::telem::Frame good;
     good.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{valid}));
     ASSERT_NIL(sink->write(good));
+    EXPECT_TRUE(sink->take_warning().empty());
     const auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
     EXPECT_EQ(x::json::json::parse(reqs[0].body)["value"], expected);
@@ -1244,8 +1245,8 @@ TEST(HTTPWriteTask, BadConversionStringToNumber) {
         x::telem::Series(std::string("not a number"))
     );
 
-    auto err = sink->write(frame);
-    ASSERT_OCCURRED_AS(err, errors::INVALID_VALUE_ERROR);
+    ASSERT_NIL(sink->write(frame));
+    EXPECT_EQ(sink->take_warning().message, "Skipped invalid command");
 
     // No request should have been sent.
     EXPECT_EQ(server.received_requests().size(), 0);
@@ -1324,7 +1325,8 @@ TEST(HTTPWriteTask, NaNSkipsOnlyItsEndpoint) {
         x::telem::Series(std::vector{std::numeric_limits<double>::quiet_NaN()})
     );
     frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector{2.5}));
-    ASSERT_OCCURRED_AS(sink->write(frame), errors::INVALID_VALUE_ERROR);
+    ASSERT_NIL(sink->write(frame));
+    EXPECT_NE(sink->take_warning().description.find("valve_cmd"), std::string::npos);
     const auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
     EXPECT_EQ(reqs[0].path, "/api/other");
@@ -1361,15 +1363,12 @@ TEST(HTTPWriteTask, NaNReportsWarningAndKeepsRunning) {
     synnax::task::Task task;
     task.key = x::uuid::create();
     auto ctx = std::make_shared<task::MockContext>(nullptr);
-    // The breaker wait outlasts the status window, so the warning is sent before the
-    // next write clears it.
+    // A breaker wait would outlast the timeout below, so the test fails if the skipped
+    // command engages the breaker.
     common::WriteTask write_task(
         task,
         ctx,
-        x::breaker::Config{
-            .name = "test",
-            .base_interval = 1500 * x::telem::MILLISECOND
-        },
+        x::breaker::Config{.name = "test", .base_interval = 30 * x::telem::SECOND},
         std::move(sink),
         std::make_shared<pipeline::testutil::WriterFactory>(),
         pipeline::testutil::simple_streamer_factory({1}, reads)
@@ -1384,15 +1383,19 @@ TEST(HTTPWriteTask, NaNReportsWarningAndKeepsRunning) {
     );
     EXPECT_EQ(x::json::json::parse(server.received_requests()[0].body)["value"], 3.5);
     const auto statuses = ctx->snapshot();
-    const auto warning = std::find_if(
-        statuses.begin(),
-        statuses.end(),
-        [](const auto &s) { return s.variant == synnax::status::VARIANT_WARNING; }
-    );
+    const auto warning = std::ranges::find_if(statuses, [](const auto &s) {
+        return s.variant == synnax::status::VARIANT_WARNING;
+    });
     ASSERT_NE(warning, statuses.end());
-    EXPECT_EQ(warning->message, "Failed to write commands");
+    EXPECT_EQ(warning->message, "Skipped invalid command");
     EXPECT_NE(warning->description.find("valve_cmd"), std::string::npos);
     EXPECT_NE(warning->description.find("NaN"), std::string::npos);
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] { return ctx->snapshot().back().message; },
+        std::string("Task running"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
     EXPECT_TRUE(ctx->snapshot().back().details.running);
     ASSERT_TRUE(write_task.stop("stop", true));
 }

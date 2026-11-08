@@ -272,7 +272,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
     };
 
     std::vector<PendingRequest> pending;
-    std::vector<std::string> invalid_msgs;
+    std::vector<std::string> skipped;
     for (const auto &[ch_key, series]: frame) {
         auto it = channel_to_endpoint.find(ch_key);
         if (it == channel_to_endpoint.end()) continue;
@@ -292,10 +292,16 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
                 enum_ptr
             );
             if (conv_err) {
-                invalid_msgs.push_back(
-                    "Channel " + this->cfg.cmd_names.at(ch_key) + ": " + conv_err.data +
+                const auto reason = conv_err.data.empty()
+                                      ? "the value has no JSON form for the field"
+                                      : conv_err.data;
+                const auto *remedy = ep.json_type == x::json::Type::String
+                                       ? "Write a value of the enum."
+                                       : "Write a finite number.";
+                skipped.push_back(
+                    "Channel " + this->cfg.cmd_names.at(ch_key) + ": " + reason +
                     ". Did not send " + to_string(ep.method) + " " +
-                    base_requests[ep_idx].url + ". Write a finite value."
+                    base_requests[ep_idx].url + ". " + remedy
                 );
                 continue;
             }
@@ -376,11 +382,11 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
         );
     }
 
-    if (!invalid_msgs.empty()) {
-        if (first_error_type.empty())
-            first_error_type = errors::INVALID_VALUE_ERROR.type;
-        error_msgs.insert(error_msgs.end(), invalid_msgs.begin(), invalid_msgs.end());
-    }
+    if (!skipped.empty())
+        this->warn({
+            .message = "Skipped invalid command",
+            .description = x::strings::join(skipped, " "),
+        });
 
     if (error_msgs.empty()) return x::errors::NIL;
     return {first_error_type, x::strings::join(error_msgs, "; ")};
