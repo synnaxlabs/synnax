@@ -15,7 +15,6 @@ import {
   type ReactFlowState,
 } from "@xyflow/react";
 
-import { type Diagram } from "@/vis/diagram";
 import { type diagram } from "@/vis/diagram/aether";
 
 export const selectNode = (key: string): HTMLDivElement => {
@@ -171,7 +170,7 @@ export class NodeLayout {
 export const calculateCursorPosition = (
   region: box.Box,
   cursor: xy.Crude,
-  viewport: Diagram.Viewport,
+  viewport: diagram.Viewport,
 ): xy.XY => {
   const zoomXY = xy.construct(viewport.zoom);
   const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
