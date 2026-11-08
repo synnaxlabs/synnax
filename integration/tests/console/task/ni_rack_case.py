@@ -35,4 +35,3 @@ class NIRackCase(HardwareCase, ConsoleCase):
                 )
             ]
         )
-        sy.sleep(1)

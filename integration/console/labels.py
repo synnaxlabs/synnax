@@ -26,9 +26,9 @@ class LabelClient(ResourceClient):
     def create(self, name: str, *, color: str | None = None) -> None:
         """Create a new label.
 
-        Args:
-            name: The name for the new label.
-            color: Optional hex color code (e.g., "#FF0000") to set for the new label.
+        :param name: The name for the new label.
+        :param color: Optional hex color code (e.g., "#FF0000") to set for the new
+            label.
         """
         self._open_edit_modal()
         add_button = self.layout.page.locator("button.console-label__create")
@@ -105,9 +105,8 @@ class LabelClient(ResourceClient):
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename an existing label.
 
-        Args:
-            old_name: The current name of the label.
-            new_name: The new name for the label.
+        :param old_name: The current name of the label.
+        :param new_name: The new name for the label.
         """
         self._open_edit_modal()
 
@@ -137,11 +136,8 @@ class LabelClient(ResourceClient):
     def delete(self, name: str) -> None:
         """Delete a label.
 
-        Args:
-            name: The name of the label to delete.
-
-        Raises:
-            ValueError: If the label with the provided name is not found.
+        :param name: The name of the label to delete.
+        :raises ValueError: If the label with the provided name is not found.
         """
         self._open_edit_modal()
 
@@ -169,8 +165,7 @@ class LabelClient(ResourceClient):
     def list_all(self) -> list[str]:
         """List all existing labels.
 
-        Returns:
-            List of label names.
+        :returns: List of label names.
         """
         self._open_edit_modal()
         labels: list[str] = []
@@ -188,9 +183,8 @@ class LabelClient(ResourceClient):
     def change_color(self, *, name: str, new_color: str) -> None:
         """Change the color of a label.
 
-        Args:
-            name: The name of the label to update.
-            new_color: The new hex color code (e.g., "#FF0000").
+        :param name: The name of the label to update.
+        :param new_color: The new hex color code (e.g., "#FF0000").
         """
         self._open_edit_modal()
 
@@ -236,11 +230,8 @@ class LabelClient(ResourceClient):
     def _enumerate_label_names(self, items: list[Locator]) -> list[str]:
         """Extract label names from a list of label item locators.
 
-        Args:
-            items: List of label item locators
-
-        Returns:
-            List of label names
+        :param items: List of label item locators
+        :returns: List of label names
         """
         all_names = []
         for item in items:
