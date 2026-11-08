@@ -149,6 +149,25 @@ var _ = Describe("Type Unification", func() {
 			Entry("numeric first", false),
 		)
 
+		DescribeTable(
+			"Should make an empty series element numeric for an integer in either order",
+			func(firstIsInteger bool) {
+				open := types.Variable("open", nil)
+				left, right := integer, open
+				if !firstIsInteger {
+					left, right = open, integer
+				}
+				system := constraints.New()
+				system.AddDefault(open, types.F64())
+				Expect(system.AddEquality(left, right, nil, "test")).To(Succeed())
+				Expect(system.AddCompatible(open, float, nil, "test")).To(Succeed())
+				Expect(system.Unify()).To(Succeed())
+				Expect(system.ApplySubstitutions(integer)).To(Equal(types.F64()))
+			},
+			Entry("integer first", true),
+			Entry("open element first", false),
+		)
+
 		It("Should take a concrete f32 through the float", func() {
 			system := constraints.New()
 			Expect(system.AddCompatible(float, integer, nil, "test")).To(Succeed())

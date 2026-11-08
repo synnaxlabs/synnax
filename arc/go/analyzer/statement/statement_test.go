@@ -403,6 +403,18 @@ var _ = Describe("Statement", func() {
 			Entry("f32", "y series f32 := [1.5]", types.F32(), 1),
 			Entry("an integer into an empty series", "y := []\ny += 1", types.F64(), 1),
 			Entry(
+				"an integer element into an empty series",
+				"y := []\ny[0] = 1",
+				types.F64(),
+				1,
+			),
+			Entry(
+				"an integer series into an empty series",
+				"y := []\ny = [1]",
+				types.F64(),
+				1,
+			),
+			Entry(
 				"an integer then a float into an empty series",
 				"y := []\ny += 1\ny += 1.5",
 				types.F64(),
@@ -697,6 +709,26 @@ var _ = Describe("Statement", func() {
 			Entry(
 				"a float then an integer into an empty series",
 				"y := []\ny += 1.5\ny += 1",
+				"",
+			),
+			Entry(
+				"a float element after an integer element into an empty series",
+				"y := []\ny[0] = 1\ny[0] = 1.5",
+				"",
+			),
+			Entry(
+				"a float series after an integer series into an empty series",
+				"y := []\ny = [1]\ny = [1.5]",
+				"",
+			),
+			Entry(
+				"a bool after an integer into an empty series",
+				"y := []\ny[0] = 1\ny[0] = true",
+				"bool",
+			),
+			Entry(
+				"an integer into an empty series of a declared type",
+				"y := []\ny[0] = 1\nw i32 := y[0]",
 				"",
 			),
 			Entry(

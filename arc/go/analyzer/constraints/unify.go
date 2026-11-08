@@ -222,11 +222,9 @@ func (s *System) unifyTypesWithVisited(
 	return errors.Wrapf(ErrUnresolvable, "%v and %v", t1, t2)
 }
 
-// unifyTypeVariableWithVisited is the internal recursive function with cycle detection
 // numericYields reports whether a variable constrained to a takes a variable
 // constrained to b when one of them is numeric. A float literal fixes a numeric
-// variable as a float, and a numeric variable fixes an integer literal, so an integer
-// literal never makes an empty series an integer series.
+// variable as a float, and a numeric variable fixes an integer literal.
 func numericYields(a, b types.Kind) bool {
 	if a == types.KindNumericConstant {
 		return b != types.KindNumericConstant && b != types.KindIntegerConstant
@@ -234,6 +232,26 @@ func numericYields(a, b types.Kind) bool {
 	return a == types.KindIntegerConstant && b == types.KindNumericConstant
 }
 
+// openIntegerTarget returns the one of a and b that is the open element of an empty
+// series, unbound and with a default, when the other is an integer literal.
+func (s *System) openIntegerTarget(a, b types.Type) (types.Type, bool) {
+	isOpen := func(t types.Type) bool {
+		_, hasDefault := s.Defaults[t.Name]
+		return t.Constraint == nil && hasDefault
+	}
+	isInteger := func(t types.Type) bool {
+		return t.Constraint != nil && t.Constraint.Kind == types.KindIntegerConstant
+	}
+	if isOpen(a) && isInteger(b) {
+		return a, true
+	}
+	if isOpen(b) && isInteger(a) {
+		return b, true
+	}
+	return types.Type{}, false
+}
+
+// unifyTypeVariableWithVisited is the internal recursive function with cycle detection
 func (s *System) unifyTypeVariableWithVisited(
 	tv, other types.Type,
 	source Constraint,
@@ -260,6 +278,15 @@ func (s *System) unifyTypeVariableWithVisited(
 	if other.Kind == types.KindVariable {
 		if otherSub, exists := s.Substitutions[other.Name]; exists {
 			return s.unifyTypeVariableWithVisited(tv, otherSub, source, visiting)
+		}
+		// An integer literal makes an empty series numeric, not integer, so on every
+		// write path a later float still fits and the element defaults to f64.
+		if open, ok := s.openIntegerTarget(tv, other); ok {
+			numeric := types.NumericConstraint()
+			bound := types.Variable(open.Name+"_numeric", &numeric)
+			s.recordTypeVars(bound)
+			s.Substitutions[open.Name] = bound
+			return s.unifyTypeVariableWithVisited(tv, other, source, visiting)
 		}
 		if tv.Constraint != nil && other.Constraint == nil {
 			s.Substitutions[other.Name] = tv
