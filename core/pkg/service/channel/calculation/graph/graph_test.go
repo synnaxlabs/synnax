@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -171,7 +170,7 @@ func deleteDep(ctx context.Context, depName string) {
 // given name.
 func batchWrites(r graph.Changes, name string) bool {
 	for c := range r {
-		if c.Variant == change.VariantSet && c.Value.Name == name {
+		if c.Kind != gorp.ChangeDelete && c.Value.Name == name {
 			return true
 		}
 	}
@@ -1570,7 +1569,7 @@ var _ = Describe("Graph", func() {
 				)
 				g.Observe().OnChange(func(_ context.Context, r graph.Changes) {
 					for c := range r {
-						if c.Variant == change.VariantDelete && c.Key == dep.Key() {
+						if c.Kind == gorp.ChangeDelete && c.Key == dep.Key() {
 							once.Do(func() { close(depDeleted) })
 						}
 					}

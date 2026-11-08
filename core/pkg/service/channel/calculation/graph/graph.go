@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/coalesce"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -36,7 +35,7 @@ import (
 type Changes = gorp.TxReader[channel.Key, channel.Channel]
 
 // channelChange is one change to a channel.
-type channelChange = change.Change[channel.Key, channel.Channel]
+type channelChange = gorp.EntryChange[channel.Key, channel.Channel]
 
 type node struct {
 	channel.Channel
@@ -154,7 +153,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 
 // Observe returns an observable that fires with a channel change batch after the Graph
 // has reconciled it and committed the resulting statuses and node state. The batch also
-// holds a Set change for each calculated channel the Graph re-inspected and found valid
+// holds an update for each calculated channel the Graph re-inspected and found valid
 // because a channel it reads changed. Subscribers that act on calculated channels must
 // use this instead of the channel observable, so that their work runs against a
 // reconciled graph and their status reports land after the Graph's own.
@@ -433,7 +432,7 @@ func (g *Graph) handleChanges(
 		for _, chg := range latest {
 			batch = append(batch, chg)
 			ch := chg.Value
-			if chg.Variant == change.VariantDelete {
+			if chg.Kind == gorp.ChangeDelete {
 				g.L.Debug(
 					"channel deleted, removing node and re-inspecting dependents",
 					zap.Stringer("channel", chg.Key),
@@ -502,10 +501,10 @@ func (g *Graph) handleChanges(
 		return
 	}
 	for _, ch := range valid {
-		batch = append(batch, change.Change[channel.Key, channel.Channel]{
-			Key:     ch.Key(),
-			Value:   ch,
-			Variant: change.VariantSet,
+		batch = append(batch, channelChange{
+			Key:   ch.Key(),
+			Value: ch,
+			Kind:  gorp.ChangeUpdate,
 		})
 	}
 	g.obs.Notify(ctx, slices.Values(batch))

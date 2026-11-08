@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
@@ -165,13 +164,15 @@ var _ = Describe("DB", func() {
 		)
 
 		It(
-			"Should release the lock before observers run",
+			"Should release the lock before the readers of Observe run",
 			func(ctx SpecContext) {
 				observed := make(chan error, 1)
-				disconnect := lockDB.OnChange(func(ctx context.Context, _ kv.TxReader) {
-					tx := lockDB.OpenTx()
-					observed <- tx.Close()
-				})
+				disconnect := lockDB.Observe().OnChange(
+					func(context.Context, gorp.Commit) {
+						tx := lockDB.OpenTx()
+						observed <- tx.Close()
+					},
+				)
 				defer disconnect()
 				Expect(gorp.NewCreate[int32, entry]().
 					Entry(&entry{ID: 1, Data: "One"}).

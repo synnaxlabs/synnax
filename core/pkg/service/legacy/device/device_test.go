@@ -27,7 +27,6 @@ import (
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -1239,7 +1238,7 @@ var _ = Describe("Device", func() {
 			disconnect := svc.Observe().OnChange(
 				func(ctx context.Context, r gorp.TxReader[device.Key, device.Device]) {
 					for change := range r {
-						if change.Variant == xchange.VariantSet {
+						if change.Kind != gorp.ChangeDelete {
 							created.Store(change.Value.Name)
 						}
 					}

@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
@@ -252,7 +251,7 @@ func (m *monitor) handleChange(
 	defer m.mu.Unlock()
 	for ch := range t {
 		owner := ch.Value.Owner
-		if ch.Variant == xchange.VariantDelete || owner == nil ||
+		if ch.Kind == gorp.ChangeDelete || owner == nil ||
 			owner.Type != resource.TypeRack {
 			continue
 		}

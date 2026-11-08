@@ -11,13 +11,28 @@ package gorp
 
 import (
 	"context"
+	"iter"
 	"slices"
 
 	"github.com/synnaxlabs/gorp/internal/key"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/observe"
 	"go.uber.org/zap"
 )
+
+// EntryChange is the net effect of a commit on one entry of a table.
+type EntryChange[K Key, E Entry[K]] struct {
+	// Key is the key of the entry.
+	Key K
+	// Value is the entry after the commit. It is the zero value for a delete.
+	Value E
+	// Kind is what the commit did to the entry.
+	Kind ChangeKind
+	// Derived is true when Gorp made every write to the entry by a cascade or a detach.
+	Derived bool
+}
+
+// TxReader yields the changes that one commit made to the entries of a table.
+type TxReader[K Key, E Entry[K]] = iter.Seq[EntryChange[K, E]]
 
 // Observe returns an observable that notifies its caller of the changes that each
 // commit of the DB makes to the entries of the table. The handlers run as the readers
@@ -35,10 +50,10 @@ func (t *Table[K, E]) Observe() observe.Observable[TxReader[K, E]] {
 }
 
 // Changes returns the changes that c made to the entries of the table, in the order of
-// c.Changes. A set carries the key and the decoded entry. A delete carries the key
-// only.
+// c.Changes. A create or an update carries the key and the decoded entry. A delete
+// carries the key only.
 func (t *Table[K, E]) Changes(ctx context.Context, c Commit) TxReader[K, E] {
-	return func(yield func(change.Change[K, E]) bool) {
+	return func(yield func(EntryChange[K, E]) bool) {
 		for _, ch := range c.Changes {
 			if !t.holds(ch) {
 				continue
@@ -66,18 +81,16 @@ func (t *Table[K, E]) holds(ch Change) bool { return ch.Record.Table == t.name }
 func (t *Table[K, E]) decode(
 	ctx context.Context,
 	ch Change,
-) (change.Change[K, E], error) {
+) (EntryChange[K, E], error) {
 	var (
-		op  change.Change[K, E]
+		op  = EntryChange[K, E]{Kind: ch.Kind, Derived: ch.Derived}
 		err error
 	)
 	if op.Key, err = key.Parse[K](ch.Record.Key); err != nil {
 		return op, err
 	}
 	if ch.Kind == ChangeDelete {
-		op.Variant = change.VariantDelete
 		return op, nil
 	}
-	op.Variant = change.VariantSet
 	return op, t.db.Decode(ctx, ch.Value, &op.Value)
 }

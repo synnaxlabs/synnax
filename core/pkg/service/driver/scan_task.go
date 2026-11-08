@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -348,7 +347,7 @@ func (t *ScanTask) open() func(context.Context) error {
 		r gorp.TxReader[device.Key, device.Device],
 	) {
 		for ch := range r {
-			if ch.Variant != change.VariantSet || !t.owns(ch.Value) {
+			if ch.Kind == gorp.ChangeDelete || !t.owns(ch.Value) {
 				continue
 			}
 			select {

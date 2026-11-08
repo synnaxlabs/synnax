@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -630,7 +629,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 func (d *Driver) markDeleted(r gorp.TxReader[task.Key, task.Task]) bool {
 	marked := false
 	for ch := range r {
-		if ch.Variant != change.VariantDelete {
+		if ch.Kind != gorp.ChangeDelete {
 			continue
 		}
 		d.mu.Lock()
