@@ -764,6 +764,36 @@ TEST_F(IGHMasterTest, SendFailsWhenTheMasterCannotSend) {
     EXPECT_EQ(err.data, "failed to send frames: Input/output error");
 }
 
+/// @brief it should fail when the master fails to process a domain.
+TEST_F(IGHMasterTest, ReceiveFailsWhenADomainCannotBeProcessed) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->domain_process_result = -EIO;
+    const auto err = this->master.receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "failed to process a domain: Input/output error");
+}
+
+/// @brief it should fail when the master fails to read the state of a domain.
+TEST_F(IGHMasterTest, ReceiveFailsWhenADomainStateCannotBeRead) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->domain_state_result = -EIO;
+    const auto err = this->master.receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "failed to read a domain state: Input/output error");
+}
+
+/// @brief it should fail when the master fails to queue a domain.
+TEST_F(IGHMasterTest, SendFailsWhenADomainCannotBeQueued) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->domain_queue_result = -EIO;
+    const auto err = this->master.send();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "failed to queue a domain: Input/output error");
+}
+
 /// @brief it should report a slave whose state or info it cannot read as lost.
 TEST_F(IGHMasterTest, CheckReportsASlaveItCannotReadAsLost) {
     this->api->add_slave();
