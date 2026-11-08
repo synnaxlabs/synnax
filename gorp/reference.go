@@ -51,8 +51,8 @@ func NewTarget[K Key](table string, k K) Target {
 	return Target{Table: table, Key: FormatKey(k)}
 }
 
-// LinkKind is what a link says about the record that holds it. The zero value means
-// that the reference has not declared a kind.
+// LinkKind is what a link says about the record that holds it. The zero value is
+// invalid.
 type LinkKind uint8
 
 const (
@@ -143,6 +143,7 @@ func (s *referenceSpec) validate(table string, targets bool) error {
 		s.onDelete < Restrict || s.onDelete > Detach,
 		"must be Restrict, Cascade, or Detach",
 	)
+	v.Ternary("kind", s.kind < Place || s.kind > Use, "must be Place or Use")
 	v.Ternary(
 		"detach",
 		s.onDelete == Detach && !s.detachable,
@@ -216,6 +217,8 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	// [REQUIRED] when OnDelete is Detach.
 	Detach func(e *E, target T)
 	// Kind is the kind of the link from e to each of its targets.
+	//
+	// [REQUIRED]
 	Kind LinkKind
 	// Unique allows at most one entry to hold each target.
 	Unique bool
@@ -283,6 +286,8 @@ type TargetReferenceConfig[K Key, E Entry[K]] struct {
 	// [REQUIRED] when OnDelete is Detach.
 	Detach func(e *E, target Target)
 	// Kind is the kind of the link from e to each of its targets.
+	//
+	// [REQUIRED]
 	Kind LinkKind
 	// Unique allows at most one entry to hold each target.
 	Unique bool

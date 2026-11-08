@@ -45,7 +45,7 @@ type refInfo struct {
 	Tables []string
 	// OnDelete is "Restrict", "Cascade", or "Detach".
 	OnDelete string
-	// Kind is "Place" or "Use", or empty when the schema declares no kind.
+	// Kind is "Place" or "Use".
 	Kind string
 	// Unique is true when at most one entry may hold each target.
 	Unique bool
@@ -230,7 +230,7 @@ func extractRef(
 		return fail("needs on_delete cascade, restrict, or detach")
 	}
 	kind, ok := kindNames[plugindomain.GetStringFromField(field, "ref", "kind")]
-	if !ok && plugindomain.HasExprFromField(field, "ref", "kind") {
+	if !ok {
 		return fail("needs kind place or use")
 	}
 	isOptional := field.Optional && !isSlice

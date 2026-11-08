@@ -795,9 +795,7 @@ func newIndexes() indexes {
 			Name:     "{{$ref.FieldName}}",
 			{{$ref.TablesField}}
 			OnDelete: gorp.{{$ref.OnDelete}},
-{{- if $ref.Kind}}
 			Kind:     gorp.{{$ref.Kind}},
-{{- end}}
 {{- if $ref.Unique}}
 			Unique:   true,
 {{- end}}
@@ -1164,9 +1162,7 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 			Name:     "{{.FieldName}}",
 			{{.TablesField}}
 			OnDelete: gorp.{{.OnDelete}},
-{{- if .Kind}}
 			Kind:     gorp.{{.Kind}},
-{{- end}}
 {{- if .Unique}}
 			Unique:   true,
 {{- end}}
