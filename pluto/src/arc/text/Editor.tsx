@@ -37,8 +37,9 @@ export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
   const dispatch = useSingleDispatch();
   const hasText = useHasText();
 
-  // text is the working CRDT replica. It is bootstrapped once the document loads and lives
-  // for the editor's lifetime, materializing the value and translating edits to operations.
+  // text is the working CRDT replica. It is bootstrapped once the document loads and
+  // lives for the editor's lifetime, materializing the value and translating edits to
+  // operations.
   const text = hasText ? bootstrap(client, resourceKey) : null;
 
   const handleEdit = (edits: readonly TextChange[]) => {
