@@ -31,6 +31,7 @@ import (
 
 var _ = Describe("Where", Ordered, func() {
 	var (
+		db  *gorp.DB
 		v   vectors.Vectors[device.Device, device.Where]
 		svc *device.Service
 	)
@@ -44,7 +45,7 @@ var _ = Describe("Where", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))

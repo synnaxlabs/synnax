@@ -461,6 +461,7 @@ var _ = Describe("Framer", func() {
 			})).To(Succeed())
 			keys := channel.Keys{records.Key(), other.Key()}
 			svc := MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
+				DB:      db,
 				Framer:  framerSvc,
 				Channel: channelSvc,
 				RBAC:    rbacSvc,

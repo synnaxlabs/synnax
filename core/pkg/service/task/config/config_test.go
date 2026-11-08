@@ -276,7 +276,7 @@ var _ = Describe("Service", func() {
 			openResolving := func(
 				ctx SpecContext,
 				resolve func(context.Context, gorp.Snapshot, *arctask.Config) error,
-			) (*config.Service[arctask.Config], *tasktestutil.Tasks) {
+			) (*config.Service[arctask.Config], *tasktestutil.Tasks, *gorp.DB) {
 				GinkgoHelper()
 				db := DeferClose(gorp.Wrap(memkv.New()))
 				resolving := MustOpen(config.OpenService(
@@ -296,13 +296,13 @@ var _ = Describe("Service", func() {
 						DB:     db,
 						Stores: []config.Store{resolving},
 					},
-				))
+				)), db
 			}
 
 			It("Should store the entry the hook resolves, before validating it", func(
 				ctx SpecContext,
 			) {
-				resolving, tasks := openResolving(ctx, func(
+				resolving, tasks, db := openResolving(ctx, func(
 					_ context.Context,
 					snap gorp.Snapshot,
 					c *arctask.Config,
@@ -322,7 +322,7 @@ var _ = Describe("Service", func() {
 			It("Should return the hook's error and store nothing", func(
 				ctx SpecContext,
 			) {
-				resolving, _ := openResolving(ctx, func(
+				resolving, _, db := openResolving(ctx, func(
 					context.Context,
 					gorp.Snapshot,
 					*arctask.Config,

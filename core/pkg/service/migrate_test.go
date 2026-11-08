@@ -111,20 +111,20 @@ var _ = Describe("Ontology drop", func() {
 			Expect(layer.Group.NewRetrieve().
 				Where(group.MatchKeys(sensors.Key)).
 				Entry(&g).
-				Exec(ctx, legacyDB)).To(Succeed())
+				Exec(ctx, node.DB)).To(Succeed())
 			Expect(g.Scope).To(Equal(resource.TypeChannel))
 			Expect(g.Parent).To(BeNil())
 			var r ranger.Range
 			Expect(layer.Ranger.NewRetrieve().
 				Where(ranger.MatchKeys(child.Key)).
 				Entry(&r).
-				Exec(ctx, legacyDB)).To(Succeed())
+				Exec(ctx, node.DB)).To(Succeed())
 			Expect(r.Parent).To(HaveValue(Equal(parent.Key)))
 
 			By("Deleting the built-in root group")
 			Expect(layer.Group.NewRetrieve().
 				Where(group.MatchKeys(channels.Key)).
-				Exists(ctx, legacyDB)).To(BeFalse())
+				Exists(ctx, node.DB)).To(BeFalse())
 
 			By("Deleting every resource and relationship")
 			Expect(resources(ctx, node.DB)).To(BeEmpty())

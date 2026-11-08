@@ -154,6 +154,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:       imexSvc,
 	}))
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
+		DB:     db,
 		Arc:    arcSvc,
 		Status: statusSvc,
 	}))

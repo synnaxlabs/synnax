@@ -211,7 +211,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					NewRetrieve().
 					Where(channel.MatchCalculated()).
 					Entries(&results).
-					Exec(ctx, db)).To(Succeed())
+					Exec(ctx, fresh.DB)).To(Succeed())
 				Expect(results).To(BeEmpty())
 			},
 		)

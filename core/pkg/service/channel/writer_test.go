@@ -1353,7 +1353,7 @@ var _ = Describe("Writer", func() {
 					Expect(freshSvc.NewRetrieve().
 						Where(channel.MatchKeys(calc.Key())).
 						Entry(&stored).
-						Exec(ctx, db)).To(Succeed())
+						Exec(ctx, fresh.DB)).To(Succeed())
 					Expect(stored.LocalIndex).To(BeZero())
 				},
 			)

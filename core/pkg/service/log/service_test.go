@@ -134,7 +134,7 @@ var _ = Describe("OpenService", func() {
 		for _, name := range []string{"sy_log_set", "sy_log_delete"} {
 			var ch channel.Channel
 			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).
-				Entry(&ch).Exec(ctx, db)).To(Succeed())
+				Entry(&ch).Exec(ctx, node.DB)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())
 		}

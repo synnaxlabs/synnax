@@ -393,13 +393,13 @@ var _ = Describe("Service", func() {
 				opened := MustOpen(
 					modbus.OpenService(ctx, modbus.ServiceConfig{DB: stored.DB}),
 				)
-				data := MustSucceed(opened.Read.Read(ctx, db, key))
+				data := MustSucceed(opened.Read.Read(ctx, stored.DB, key))
 				Expect(data).To(HaveKeyWithValue("device", ""))
 				Expect(data["channels"]).To(HaveExactElements(
 					HaveKeyWithValue("channel", BeEquivalentTo(0)),
 					HaveKeyWithValue("channel", BeEquivalentTo(ch)),
 				))
-				Expect(MustSucceed(opened.Write.Read(ctx, db, key))).
+				Expect(MustSucceed(opened.Write.Read(ctx, stored.DB, key))).
 					To(HaveKeyWithValue("device", "kept"))
 			},
 		)

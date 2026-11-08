@@ -25,12 +25,13 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
+		db    *gorp.DB
 		svc   *mqtt.Service
 		tasks *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
 		// The suite's DB holds a mqtt service and a task service of its own.
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{DB: db}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,

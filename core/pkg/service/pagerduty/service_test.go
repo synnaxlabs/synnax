@@ -22,12 +22,13 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
+		db    *gorp.DB
 		svc   *pd.Service
 		tasks *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
 		// The suite's DB holds a task table of its own.
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 			DB: db,
 		}))

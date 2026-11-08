@@ -132,7 +132,7 @@ var _ = Describe("Layer", func() {
 		Expect(layer.Task.NewRetrieve().
 			Where(task.MatchNames("Snapshot")).
 			Entry(&migrated).
-			Exec(ctx, legacyDB)).To(Succeed())
+			Exec(ctx, node.DB)).To(Succeed())
 		Expect(migrated.Range).To(HaveValue(Equal(rng.Key)))
 	})
 
@@ -388,7 +388,7 @@ var _ = Describe("Workspace-era upgrade", func() {
 			Expect(layer.Schematic.NewRetrieve().
 				Where(schematic.MatchKeys(loose.Key, grouped.Key)).
 				Entries(&schematics).
-				Exec(ctx, legacyDB)).To(Succeed())
+				Exec(ctx, node.DB)).To(Succeed())
 			Expect(schematics).To(HaveLen(2))
 			for _, s := range schematics {
 				Expect(s.Project).To(HaveValue(Equal(ws.Key)))
@@ -397,19 +397,19 @@ var _ = Describe("Workspace-era upgrade", func() {
 			Expect(layer.LinePlot.NewRetrieve().
 				Where(lineplot.MatchKeys(lp.Key)).
 				Entry(&plot).
-				Exec(ctx, legacyDB)).To(Succeed())
+				Exec(ctx, node.DB)).To(Succeed())
 			Expect(plot.Project).To(HaveValue(Equal(ws.Key)))
 			var l log.Log
 			Expect(layer.Log.NewRetrieve().
 				Where(log.MatchKeys(lg.Key)).
 				Entry(&l).
-				Exec(ctx, legacyDB)).To(Succeed())
+				Exec(ctx, node.DB)).To(Succeed())
 			Expect(l.Project).To(HaveValue(Equal(ws.Key)))
 			var t table.Table
 			Expect(layer.Table.NewRetrieve().
 				Where(table.MatchKeys(tbl.Key)).
 				Entry(&t).
-				Exec(ctx, legacyDB)).To(Succeed())
+				Exec(ctx, node.DB)).To(Succeed())
 			Expect(t.Project).To(HaveValue(Equal(ws.Key)))
 		},
 	)

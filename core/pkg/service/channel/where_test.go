@@ -44,6 +44,7 @@ var _ = Describe("Where", Ordered, func() {
 	var (
 		v      vectors.Vectors[record, channel.Where]
 		chSvc  *channel.Service
+		chDB   *gorp.DB
 		byName = make(map[string]string)
 	)
 	v = MustSucceed(vectors.Read[record, channel.Where]("channels"))
@@ -76,6 +77,7 @@ var _ = Describe("Where", Ordered, func() {
 			Entries(&chs).
 			Exec(ctx, cfg.DB)).To(Succeed())
 		chSvc = MustOpen(channel.OpenService(ctx, cfg))
+		chDB = cfg.DB
 	})
 
 	DescribeTable(
@@ -87,7 +89,7 @@ var _ = Describe("Where", Ordered, func() {
 				SkipMissingKeys().
 				Where(f).
 				Entries(&res).
-				Exec(ctx, db)).To(Succeed())
+				Exec(ctx, chDB)).To(Succeed())
 			Expect(lo.Map(res, func(ch channel.Channel, _ int) string {
 				return byName[ch.Name]
 			})).To(ConsistOf(c.Expected))

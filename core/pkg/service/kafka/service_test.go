@@ -24,12 +24,13 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
+		db    *gorp.DB
 		svc   *kafka.Service
 		tasks *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
 		// The suite's DB holds a kafka service and a task service of its own.
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: db}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
