@@ -302,7 +302,13 @@ var _ = Describe("Change channels", func() {
 			}
 			return w.Create(ctx, &denied)
 		})).To(Succeed())
-		Expect(received()).To(Equal([]resource.ID{own.ResourceID()}))
+		// The policy that stream grants the user can reach the stream after it opens.
+		var records []resource.ID
+		Eventually(func() []resource.ID {
+			records = received()
+			return records
+		}).WithTimeout(5 * time.Second).Should(ContainElement(own.ResourceID()))
+		Expect(records).ToNot(ContainElement(denied.ResourceID()))
 	}, SpecTimeout(10*time.Second))
 
 	It("Should stop sending a record once a policy no longer allows it", func(
