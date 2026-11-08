@@ -164,6 +164,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
             continue;
         }
         const auto &ch = it->second;
+        cfg.cmd_names[ch.key] = ch.name;
 
         // Timestamp channels encode by time_format, not json_type.
         if (ch.data_type == x::telem::TIMESTAMP_T) continue;
@@ -271,6 +272,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
     };
 
     std::vector<PendingRequest> pending;
+    std::vector<std::string> invalid_msgs;
     for (const auto &[ch_key, series]: frame) {
         auto it = channel_to_endpoint.find(ch_key);
         if (it == channel_to_endpoint.end()) continue;
@@ -289,12 +291,14 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
                 ep.json_type,
                 enum_ptr
             );
-            if (conv_err)
-                return {
-                    conv_err.type,
-                    "failed to convert value for endpoint " +
-                        this->cfg.endpoints[ep_idx].path + ": " + conv_err.data,
-                };
+            if (conv_err) {
+                invalid_msgs.push_back(
+                    "Channel " + this->cfg.cmd_names.at(ch_key) + ": " + conv_err.data +
+                    ". Did not send " + to_string(ep.method) + " " +
+                    base_requests[ep_idx].url + ". Write a finite value."
+                );
+                continue;
+            }
             json_val = std::move(val);
         }
 
@@ -307,8 +311,6 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             .series = series.shallow_copy(),
         });
     }
-
-    if (pending.empty()) return x::errors::NIL;
 
     std::vector<std::string> error_msgs;
     std::string first_error_type;
@@ -372,6 +374,12 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             std::string(to_string(ep.method)) + " " + base_requests[p.ep_idx].url +
             ": timed out"
         );
+    }
+
+    if (!invalid_msgs.empty()) {
+        if (first_error_type.empty())
+            first_error_type = errors::INVALID_VALUE_ERROR.type;
+        error_msgs.insert(error_msgs.end(), invalid_msgs.begin(), invalid_msgs.end());
     }
 
     if (error_msgs.empty()) return x::errors::NIL;

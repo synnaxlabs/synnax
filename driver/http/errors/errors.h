@@ -26,6 +26,9 @@ const x::errors::Error TEMPORARY_ERROR = driver::errors::TEMPORARY_HARDWARE_ERRO
 const x::errors::Error UNREACHABLE_ERROR = TEMPORARY_ERROR.sub("unreachable");
 /// @brief request dropped after an earlier request to the same device was unreachable.
 const x::errors::Error SKIPPED_ERROR = UNREACHABLE_ERROR.sub("skipped");
+/// @brief a command value with no JSON form, such as NaN. Temporary, so the write task
+/// warns and keeps running.
+const x::errors::Error INVALID_VALUE_ERROR = TEMPORARY_ERROR.sub("invalid_value");
 
 /// @brief classifies an HTTP status code into an error.
 /// @param status_code the HTTP response status code.

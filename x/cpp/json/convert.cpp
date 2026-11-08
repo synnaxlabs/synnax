@@ -427,6 +427,25 @@ std::pair<nlohmann::json, errors::Error> from_sample_value(
                         it != enum_values->end())
                         return {nlohmann::json(it->second), errors::NIL};
                 }
+                if constexpr (std::is_floating_point_v<T>) {
+                    const auto bad = std::isnan(v) ? "NaN" : v > 0 ? "inf" : "-inf";
+                    if (target == Type::Number && !std::isfinite(v))
+                        return {
+                            nlohmann::json(),
+                            errors::Error(
+                                CONVERSION_ERROR,
+                                std::string(bad) + " is not a valid JSON number"
+                            ),
+                        };
+                    if (target == Type::Boolean && std::isnan(v))
+                        return {
+                            nlohmann::json(),
+                            errors::Error(
+                                CONVERSION_ERROR,
+                                "NaN is not a valid JSON boolean"
+                            ),
+                        };
+                }
                 switch (target) {
                     case Type::Number:
                         return {nlohmann::json(v), errors::NIL};
