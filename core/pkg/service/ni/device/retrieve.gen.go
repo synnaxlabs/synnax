@@ -36,6 +36,7 @@ type Retrieve struct {
 // instead of relying on package-level state.
 type indexes struct {
 	serial *gorp.LookupIndex[Key, Device, string]
+	rack   *gorp.KeyReference[Key, Device, rack.Key]
 	search *gorp.SearchIndex[Key, Device]
 }
 
@@ -48,6 +49,15 @@ func newIndexes() indexes {
 			"serial",
 			func(e *Device) string { return e.Serial },
 		),
+		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, rack.Key]{
+			Name:     "rack",
+			Table:    "rack",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Place,
+			Targets: func(e *Device) []rack.Key {
+				return []rack.Key{e.Rack}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Device](
 			"search",
 			func(e *Device) []string {
@@ -63,6 +73,14 @@ func (i indexes) all() []gorp.Index[Key, Device] {
 	return []gorp.Index[Key, Device]{
 		i.serial,
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Device] {
+	return []gorp.Reference[Key, Device]{
+		i.rack,
 	}
 }
 
@@ -126,14 +144,12 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
-// MatchRacks returns a filter for
-// devices whose Rack matches any of the
-// provided values.
+// MatchRacks returns a filter for devices
+// whose Rack matches any of the provided
+// values.
 func MatchRacks(vals ...rack.Key) Filter {
-	return func(Retrieve) gorp.Filter[Key, Device] {
-		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return slices.Contains(vals, e.Rack), nil
-		})
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.rack.Filter(vals...)
 	}
 }
 
