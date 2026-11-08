@@ -368,6 +368,20 @@ var _ = Describe("Read task", func() {
 				Leaseholder: peerKey,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &index)).To(Succeed())
+			// A channel on the peer reaches this node later, and a data channel's
+			// index must exist here when the data channel is created.
+			resolved := func(keys ...channel.Key) []channel.Channel {
+				var found []channel.Channel
+				if err := channelSvc.NewRetrieve().
+					Where(channel.MatchKeys(keys...)).
+					Entries(&found).
+					Exec(ctx, nil); err != nil {
+					return nil
+				}
+				return found
+			}
+			Eventually(func() []channel.Channel { return resolved(index.Key()) }).
+				WithTimeout(5 * time.Second).Should(HaveLen(1))
 			data := channel.Channel{
 				Name:        "data_" + uuid.New().String()[:8],
 				DataType:    telem.Float64T,
@@ -375,16 +389,8 @@ var _ = Describe("Read task", func() {
 				Leaseholder: peerKey,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &data)).To(Succeed())
-			Eventually(func() []channel.Channel {
-				var found []channel.Channel
-				if err := channelSvc.NewRetrieve().
-					Where(channel.MatchKeys(index.Key(), data.Key())).
-					Entries(&found).
-					Exec(ctx, nil); err != nil {
-					return nil
-				}
-				return found
-			}).WithTimeout(5 * time.Second).Should(HaveLen(2))
+			Eventually(func() []channel.Channel { return resolved(data.Key()) }).
+				WithTimeout(5 * time.Second).Should(HaveLen(1))
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			group := "group-" + topic
