@@ -48,6 +48,13 @@ public:
     explicit Timer(const telem::TimeSpan &interval):
         interval(interval), last(hs_clock::now()) {}
 
+    /// @brief a timer that waits on the host's steady clock. A precise timer spins to
+    /// each deadline at any interval. Otherwise, only an interval under
+    /// HIGH_RES_THRESHOLD spins, and a longer one sleeps, which on Windows can wake up
+    /// to 2 ms late.
+    Timer(const telem::TimeSpan &interval, const bool precise):
+        interval(interval), precise(precise), last(hs_clock::now()) {}
+
     /// @brief a timer that reads and sleeps on clock in place of the host's steady
     /// clock.
     Timer(const telem::TimeSpan &interval, Clock clock):
@@ -75,7 +82,7 @@ public:
         const auto deadline = now + remaining.chrono();
         if (this->clock)
             this->clock->sleep(remaining);
-        else if (this->high_rate())
+        else if (this->precise || this->high_rate())
             this->precise_sleep(remaining);
         else
             std::this_thread::sleep_for(remaining.chrono());
@@ -96,8 +103,8 @@ public:
         const auto deadline = now + remaining.chrono();
         if (this->clock)
             this->clock->sleep(remaining);
-        else if (this->high_rate())
-            this->precise_sleep(remaining);
+        else if (this->precise || this->high_rate())
+            this->precise_sleep(remaining, breaker);
         else if (this->medium_rate())
             std::this_thread::sleep_for(remaining.chrono());
         else
@@ -174,6 +181,7 @@ private:
 
     telem::TimeSpan interval;
     std::optional<Clock> clock;
+    bool precise = false;
     bool last_set = false;
     hs_clock::time_point last;
     /// @brief the OS state of a sleep step.
@@ -220,9 +228,11 @@ public:
             std::this_thread::sleep_for(span.chrono());
     }
 
-    /// @brief returns a timer that waits on this clock.
-    [[nodiscard]] Timer timer(const telem::TimeSpan &interval) const {
-        if (!this->source) return Timer(interval);
+    /// @brief returns a timer that waits on this clock. precise is as for Timer. A
+    /// timer on a source waits exactly at any interval.
+    [[nodiscard]] Timer
+    timer(const telem::TimeSpan &interval, const bool precise = false) const {
+        if (!this->source) return {interval, precise};
         return {interval, *this->source};
     }
 
