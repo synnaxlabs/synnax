@@ -63,6 +63,14 @@ var _ = Describe("Table", func() {
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("changes")))
 		})
 
+		It("Should fail without set_disabled", func() {
+			cfg := signals.TableConfig[uuid.UUID, testUUIDEntry]{
+				Changes:    uuidTable.Changes,
+				DeleteName: "sy_testuuidentry_delete",
+			}
+			Expect(cfg.Validate()).To(MatchError("set_disabled: must be non-nil"))
+		})
+
 		It("Should need no set channel name when the set channel is disabled", func() {
 			cfg := signals.DefaultTableConfig[uuid.UUID, testUUIDEntry]().Override(
 				signals.TableConfig[uuid.UUID, testUUIDEntry]{

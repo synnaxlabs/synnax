@@ -89,6 +89,10 @@ func (c TableConfig[K, E]) Validate() error {
 	v := validate.New("signals.table_config")
 	v.NotNil("changes", c.Changes)
 	v.NotEmptyString("delete_name", c.DeleteName)
+	v.NotNil("set_disabled", c.SetDisabled)
+	if v.Error() != nil {
+		return v.Error()
+	}
 	if !*c.SetDisabled {
 		v.NotEmptyString("set_name", c.SetName)
 		v.NotNil("marshal_set", c.MarshalSet)

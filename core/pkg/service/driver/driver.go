@@ -102,11 +102,11 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	d.configureExistingTasks(ctx)
 	// A reader of a commit must not wait for a task to stop, so a worker stops the
 	// tasks that commits delete.
-	changed, err := coalesce.Open(coalesce.Config[task.Key, gorp.ChangeKind]{
+	deleted, err := coalesce.Open(coalesce.Config[task.Key, struct{}]{
 		Instrumentation: cfg.Instrumentation,
 		Handle:          d.deleteTasks,
 	})
-	if !ok(err, changed) {
+	if !ok(err, deleted) {
 		return nil, err
 	}
 	disconnect := cfg.Task.Observe().OnChange(func(
@@ -114,7 +114,9 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 		r gorp.TxReader[task.Key, task.Task],
 	) {
 		for ch := range r {
-			changed.Add(ch.Key, ch.Kind)
+			if ch.Kind == gorp.ChangeDelete {
+				deleted.Add(ch.Key, struct{}{})
+			}
 		}
 	})
 	ok(nil, io.NoFailCloserFunc(disconnect))
@@ -519,14 +521,13 @@ func unsupportedDescription(cmdType string) string {
 	return fmt.Sprintf("The task does not accept the '%s' command.", cmdType)
 }
 
-// deleteTasks stops the instance of each task whose latest change is a delete. A create
-// or an update needs nothing: configs deploy on start, and a rack move leaves the old
-// instance running until the task deploys again.
-func (d *Driver) deleteTasks(_ context.Context, latest map[task.Key]gorp.ChangeKind) {
-	for key, kind := range latest {
-		if kind == gorp.ChangeDelete {
-			d.delete(key)
-		}
+// deleteTasks stops the instance of each deleted task. The worker gets deletes only, so
+// a later create of the same key cannot hide one. A create or an update needs nothing:
+// configs deploy on start, and a rack move leaves the old instance running until the
+// task deploys again.
+func (d *Driver) deleteTasks(_ context.Context, deleted map[task.Key]struct{}) {
+	for key := range deleted {
+		d.delete(key)
 	}
 }
 
