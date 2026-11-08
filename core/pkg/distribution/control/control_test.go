@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	mockcontrol "github.com/synnaxlabs/synnax/pkg/distribution/transport/testutil/control"
 	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -149,6 +150,14 @@ var _ = Describe("Control", func() {
 				held.Key(),
 				free.Key(),
 			)))).To(Equal(map[channel.Key]string{held.Key(): "denver"}))
+		})
+
+		It("Should return an error for a channel leased to another node", func(
+			ctx SpecContext,
+		) {
+			gw := testutil.NewNode(ctx)
+			Expect(gw.Control.Retrieve(ctx, channel.NewKey(99, 1))).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should return the state of every channel when no keys are given", func(

@@ -96,5 +96,8 @@ func createIdentity(
 	if err != nil {
 		return Identity{}, err
 	}
-	return id, db.Set(ctx, identityKey, b)
+	if err = db.Set(ctx, identityKey, b); err != nil {
+		return Identity{}, err
+	}
+	return id, nil
 }
