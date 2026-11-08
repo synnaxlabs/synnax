@@ -385,8 +385,8 @@ var _ = Describe("NaN and infinity", func() {
 	})
 
 	Describe("Format string placeholders", func() {
-		// format runs a func that writes source to a string channel, with a NaN f32 a and
-		// an f64 b of 1.5 in scope, and returns the string.
+		// format runs a func that writes source to a string channel, with a NaN f32
+		// a and an f64 b of 1.5 in scope, and returns the string.
 		format := func(ctx SpecContext, source string) string {
 			GinkgoHelper()
 			h := newRuntimeHarness(ctx, `import math
