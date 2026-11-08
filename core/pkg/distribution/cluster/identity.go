@@ -54,7 +54,8 @@ var (
 
 // OpenIdentity reads the identity of the Core from db. When db holds none, it creates
 // one with host key 1 and a new cluster key, reachable at the address host. It returns
-// an error when db belongs to a node other than 1, or lists other nodes.
+// an error when db belongs to a node other than 1, or lists other nodes. Otherwise, it
+// deletes the digests and the version counter that Aspen stored for each write.
 func OpenIdentity(
 	ctx context.Context,
 	db kv.DB,
@@ -77,6 +78,12 @@ func OpenIdentity(
 			validate.ErrValidation,
 			"the data directory belongs to node %d of a cluster, and a Core no longer runs as a cluster",
 			r.HostKey,
+		)
+	}
+	if err = deleteAspenKeys(ctx, db); err != nil {
+		return Identity{}, errors.Wrap(
+			err,
+			"failed to delete the Aspen digest and version keys",
 		)
 	}
 	return Identity{Key: r.ClusterKey, HostKey: r.HostKey}, nil
