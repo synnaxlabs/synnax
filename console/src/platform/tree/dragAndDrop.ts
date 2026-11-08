@@ -9,7 +9,7 @@
 
 import { resource, type Synnax as Client } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { Status } from "@synnaxlabs/lyra/status";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { type DragEvent, type RefObject } from "react";
 
@@ -28,6 +28,7 @@ export interface UseDragAndDropProps {
   selectedRef: RefObject<string[]>;
   contract: (...keys: string[]) => void;
   getResource: GetResource;
+  handleError: Status.ErrorHandler;
 }
 
 export interface DragAndDrop {
@@ -47,8 +48,8 @@ export const useDragAndDrop = ({
   selectedRef,
   contract,
   getResource,
+  handleError,
 }: UseDragAndDropProps): DragAndDrop => {
-  const handleError = Status.useErrorHandler();
   const { startDrag, onDragEnd } = Haul.useDrag({ type: Base.HAUL_TYPE });
 
   const onDrop = (key: string, { source, items }: Haul.OnDropProps): Haul.Item[] => {

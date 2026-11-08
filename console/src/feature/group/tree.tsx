@@ -104,8 +104,9 @@ export const createTreeItems = (
     const firstID = ids[0];
     const rename = useRename(props);
     const isSingle = ids.length === 1;
+    // A closed group has unknown children, so it shows "Ungroup".
     const isDelete = ids.every(
-      (id) => (getChildren(resource.idToString(id))?.length ?? 0) === 0,
+      (id) => getChildren(resource.idToString(id))?.length === 0,
     );
     const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
     return (

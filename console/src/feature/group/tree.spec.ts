@@ -165,7 +165,7 @@ describe("group tree item", () => {
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
-  it("should offer rename and delete for a top-level group", async () => {
+  it("should offer rename and ungroup for a closed top-level group", async () => {
     const g = await createGroup();
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
@@ -173,7 +173,7 @@ describe("group tree item", () => {
       resources: [groupResource(g)],
     });
     expect(await screen.findByText("Rename")).toBeTruthy();
-    expect(screen.getByText("Delete")).toBeTruthy();
+    expect(screen.getByText("Ungroup")).toBeTruthy();
     expect(screen.getByText("Copy properties")).toBeTruthy();
   });
 
@@ -290,18 +290,18 @@ describe("group tree item", () => {
     expect((await client.channels.retrieve(ch.key)).group).toBeUndefined();
   });
 
-  it("should label ungroup as delete for a childless nested group", async () => {
+  it("should label ungroup as delete for an open, childless nested group", async () => {
     const parent = await createGroup();
     const child = await createGroup(parent.key);
     const nodes: PTree.Node<string>[] = [
-      { key: nodeKey(parent), children: [{ key: nodeKey(child) }] },
+      { key: nodeKey(parent), children: [{ key: nodeKey(child), children: [] }] },
     ];
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [groupResource(parent), groupResource(child)],
       selected: [group.resourceID(child.key)],
-      stateOverrides: { nodes, expanded: [nodeKey(parent)] },
+      stateOverrides: { nodes, expanded: [nodeKey(parent), nodeKey(child)] },
     });
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.getByText("Delete")).toBeTruthy();
@@ -310,9 +310,6 @@ describe("group tree item", () => {
 });
 
 describe("a group and its child selected in flat search results", () => {
-  // The item reads Delete until the group loads its children.
-  const UNGROUP = /^(Ungroup|Delete)$/;
-
   const childKeysOf = async (key: group.Key): Promise<string[]> =>
     await retrieveChildGroupKeys(client, group.resourceID(key));
 
@@ -354,7 +351,7 @@ describe("a group and its child selected in flat search results", () => {
   it("should offer to group and ungroup the selection", async () => {
     await openMenu();
     expect(await screen.findByText("Group selection")).toBeTruthy();
-    expect(screen.getByText(UNGROUP)).toBeTruthy();
+    expect(screen.getByText("Ungroup")).toBeTruthy();
   });
 
   it("should move the group alone into a new group", async () => {
@@ -379,7 +376,7 @@ describe("a group and its child selected in flat search results", () => {
 
   it("should move what is left of the group to its parent", async () => {
     const { root, sibling } = await openMenu();
-    fireEvent.click(await screen.findByText(UNGROUP));
+    fireEvent.click(await screen.findByText("Ungroup"));
     await waitFor(async () =>
       expect(await childKeysOf(root.key)).toEqual([sibling.key]),
     );

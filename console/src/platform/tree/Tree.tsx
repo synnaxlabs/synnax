@@ -11,11 +11,7 @@ import { NotFoundError, resource, type Synnax as Client } from "@synnaxlabs/clie
 import { Component } from "@synnaxlabs/lyra/component";
 import { context } from "@synnaxlabs/lyra/context";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import {
-  useCombinedStateAndRef,
-  useInitializerRef,
-  useSyncedRef,
-} from "@synnaxlabs/lyra/hooks";
+import { useCombinedStateAndRef, useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -189,23 +185,13 @@ const Internal = ({
     setHeld({ client, store });
   }
   const nodes = useSyncExternalStore(store.subscribe, store.getNodes);
+  const expanded = useSyncExternalStore(store.subscribe, store.getExpanded);
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
-  const [expanded, setExpanded] = useState<string[]>([]);
-  const expandedRef = useSyncedRef(expanded);
 
-  // The open folders decide which lists the store reads, so it hears of each change at
-  // once.
-  const handleExpandedChange = (arg: xstate.SetArg<string[]>) => {
-    const next = xstate.executeSetter(arg, expandedRef.current);
-    expandedRef.current = next;
-    store.setExpanded(next);
-    setExpanded(next);
-  };
+  const handleExpandedChange = (arg: xstate.SetArg<string[]>) =>
+    store.setExpanded(xstate.executeSetter(arg, store.getExpanded()));
 
-  useEffect(() => {
-    store.setExpanded(expandedRef.current);
-    return store.start();
-  }, [store]);
+  useEffect(() => store.start(), [store]);
 
   // Groups open on arrival once, so a group the user closes stays closed.
   const openedRef = useInitializerRef(() => new Set<string>());
@@ -273,6 +259,7 @@ const Internal = ({
     selectedRef,
     contract,
     getResource,
+    handleError,
   });
   const renderMenu = useMenu({
     client,
@@ -283,6 +270,7 @@ const Internal = ({
     state,
     rootContextMenu,
     resolveItem,
+    handleError,
   });
   const menuProps = Menu.useContextMenu();
 

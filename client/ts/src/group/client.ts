@@ -112,11 +112,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     return {
       endpoint: "/group/create",
       payload,
-      apply: () => {
-        const prev = this.store.get(key);
-        this.store.set({ key, name, scope, parent });
-        return () => (prev == null ? this.store.delete(key) : this.store.set(prev));
-      },
+      apply: () => this.store.set({ key, name, scope, parent }),
     };
   }
 

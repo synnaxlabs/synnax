@@ -144,32 +144,3 @@ export const getAllNodesOfMinDepth = <K extends record.Key = string>(
   const minDepth = Math.min(...data.nodes.map((node) => node.depth));
   return data.keys.filter((_, index) => data.nodes[index].depth === minDepth);
 };
-
-/**
- * Returns the depth of the node with the given key, or null if the shape has no such
- * key. A shape holds only visible rows, so a node under a contracted parent is absent
- * even though it is still in the tree.
- */
-export const getDepth = <K extends record.Key = string>(
-  key: K,
-  shape: Shape<K>,
-): number | null => getNodeShape(shape, key)?.depth ?? null;
-
-/** Orders keys shallowest-first. Keys the shape does not contain sort last. */
-export const compareDepth =
-  <K extends record.Key = string>(shape: Shape<K>): compare.Comparator<K> =>
-  (a, b) => {
-    const aDepth = getDepth(a, shape);
-    const bDepth = getDepth(b, shape);
-    if (aDepth == null) return bDepth == null ? 0 : 1;
-    if (bDepth == null) return -1;
-    return aDepth - bDepth;
-  };
-
-export const getNodeShape = <K extends record.Key = string>(
-  shape: Shape<K>,
-  key: K,
-): NodeShape | null => {
-  const index = shape.keys.findIndex((k) => k === key);
-  return index === -1 ? null : shape.nodes[index];
-};

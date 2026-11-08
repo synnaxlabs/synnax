@@ -116,7 +116,7 @@ export class Client extends query.Retriever<
    */
   async create({ parent, key, name }: CreateParams): Promise<Directory> {
     const { directory } = await query.optimistic({
-      rollbacks: key == null ? [] : [this.writeAhead({ key, name, parent })],
+      rollbacks: key == null ? [] : [this.store.set({ key, name, parent })],
       commit: async () =>
         await this.cfg.unary.send(
           "/arc/directory/create",
@@ -127,13 +127,6 @@ export class Client extends query.Retriever<
     });
     this.store.set(directory);
     return directory;
-  }
-
-  private writeAhead(directory: Directory): destructor.Destructor {
-    const prev = this.store.get(directory.key);
-    this.store.set(directory);
-    return () =>
-      prev == null ? this.store.delete(directory.key) : this.store.set(prev);
   }
 
   /** Renames the directory with key. */

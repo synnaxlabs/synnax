@@ -52,9 +52,13 @@ export interface StoreConfig {
 interface Folder {
   sources: Source[];
   windows: Array<Window | undefined>;
+  /** The merge of the windows it was built from, reused until a window changes. */
+  merged?: { windows: Array<Window | undefined>; keys: string[] | undefined };
   /** Ends the subscriptions. Absent while the folder is hidden. */
   release?: destructor.Destructor;
   loading: boolean;
+  /** Whether the last fetch failed. The folder then shows what it holds. */
+  failed: boolean;
 }
 
 interface HeldDraft {
@@ -92,12 +96,11 @@ const merge = (
   windows: Array<Window | undefined>,
   visible: (r: Resource) => boolean,
 ): string[] | undefined => {
-  if (windows.some((w) => w == null)) return undefined;
-  const answered = windows as Window[];
-  const folders = answered.filter(({ resources }) => resources.some(isFolder));
+  if (!windows.every((w): w is Window => w != null)) return undefined;
+  const folders = windows.filter(({ resources }) => resources.some(isFolder));
   const head = segment(folders, visible);
   if (head.more) return head.keys;
-  const rest = answered.filter((w) => !folders.includes(w));
+  const rest = windows.filter((w) => !folders.includes(w));
   return [...head.keys, ...segment(rest, visible).keys];
 };
 
@@ -122,6 +125,7 @@ export class Store {
   private results?: Results;
   private resultChildren = new Map<string, string[]>();
   private expanded = new Set<string>();
+  private expandedKeys: string[] = [];
   private resources = new Map<string, Resource>();
   private children = new Map<string, string[]>();
   private parents = new Map<string, string>();
@@ -152,9 +156,14 @@ export class Store {
 
   /** Sets the expanded nodes. An expanded node whose parents show opens. */
   setExpanded(keys: string[]): void {
+    this.expandedKeys = keys;
     this.expanded = new Set(keys);
     this.refresh();
+    this.listeners.forEach((handler) => handler());
   }
+
+  /** Returns the keys of the expanded nodes. Equal until they change. */
+  readonly getExpanded = (): string[] => this.expandedKeys;
 
   /** Sets the search answer the tree shows. */
   setResults(results: Results): void {
@@ -198,7 +207,7 @@ export class Store {
     return this.folders.get(key)?.loading === true;
   }
 
-  /** Calls the handler each time the nodes change. */
+  /** Calls the handler each time the nodes or the expanded keys change. */
   readonly subscribe = (handler: () => void): destructor.Destructor => {
     this.listeners.add(handler);
     return () => this.listeners.delete(handler);
@@ -240,6 +249,7 @@ export class Store {
       sources,
       windows: sources.map((source) => source.getCached()),
       loading: false,
+      failed: false,
     };
   }
 
@@ -282,7 +292,7 @@ export class Store {
     else {
       const folder = this.folders.get(key);
       listed =
-        (folder == null ? undefined : merge(folder.windows, this.config.visible)) ??
+        (folder == null ? undefined : this.mergedOf(folder)) ??
         this.resultChildren.get(key) ??
         held?.draft.children;
     }
@@ -298,6 +308,15 @@ export class Store {
     return [...drafted, ...kept];
   }
 
+  private mergedOf(folder: Folder): string[] | undefined {
+    const { merged, windows } = folder;
+    if (merged != null && compare.arraysEqual(merged.windows, windows))
+      return merged.keys;
+    const keys = merge(windows, this.config.visible);
+    folder.merged = { windows: [...windows], keys };
+    return keys;
+  }
+
   private recompute(): void {
     const moved = new Set(
       [...this.drafts.values()].flatMap(({ draft }) => draft.children ?? []),
@@ -310,9 +329,14 @@ export class Store {
       reachable.add(key);
       const listed = this.childrenOf(key, moved);
       if (listed == null) return;
-      children.set(key, listed);
+      const shown: string[] = [];
+      children.set(key, shown);
       listed.forEach((child) => {
+        // A key under two shown parents, such as a flat search match that its open
+        // group also lists, shows only at its first place.
+        if (child === this.rootKey || parents.has(child)) return;
         parents.set(child, key);
+        shown.push(child);
         if (this.expanded.has(child)) visit(child);
       });
     };
@@ -344,7 +368,7 @@ export class Store {
         if (folder?.release == null) this.open(key, folder);
       });
       this.folders.forEach((folder, key) => {
-        if (!reachable.has(key)) this.pause(folder);
+        if (!reachable.has(key) || !this.readsLists(key)) this.pause(folder);
       });
     }
     // A settled draft or a newly open folder changes what shows.
@@ -361,27 +385,28 @@ export class Store {
     const moves = !mapsEqual(children, this.children);
     if (moves) {
       this.children = children;
-      this.nodes = this.build(this.rootKey, new Set());
+      this.nodes = this.build(this.rootKey);
     }
     changedKeys.forEach((key) => this.notifyKey(key));
     if (moves) this.listeners.forEach((handler) => handler());
   }
 
-  // Answered means each of the node's lists has a window, or the node is not expanded.
+  // Answered means each of the node's lists has a window or failed, or the node is not
+  // expanded.
   private answered(key: string): boolean {
     if (!this.expanded.has(key)) return true;
-    return this.folders.get(key)?.windows.every((w) => w != null) === true;
+    const folder = this.folders.get(key);
+    if (folder == null) return false;
+    return folder.failed || folder.windows.every((w) => w != null);
   }
 
-  // A key repeats only in a broken tree. Its second node gets no children, and the
-  // repeat itself fails the tree's flatten.
-  private build(key: string, built: Set<string>): Base.Node<string>[] {
-    built.add(key);
+  private build(key: string): Base.Node<string>[] {
     return (this.children.get(key) ?? []).map((child) => {
       if (!this.config.hasChildren(resource.parseID(child).type)) return { key: child };
-      if (built.has(child) || !this.children.has(child))
-        return { key: child, children: [] };
-      return { key: child, children: this.build(child, built) };
+      return {
+        key: child,
+        children: this.children.has(child) ? this.build(child) : [],
+      };
     });
   }
 
@@ -416,21 +441,28 @@ export class Store {
     }
     // A change can land between the fetch and its answer, so the window comes from the
     // cache.
-    Promise.all(
-      indices.map(async (i) => {
-        const source = folder.sources[i];
-        await source.retrieve();
-        folder.windows[i] = source.getCached() ?? folder.windows[i];
-      }),
-    )
-      .catch(this.config.onError)
-      .finally(() => {
-        if (folder.loading) {
-          folder.loading = false;
-          this.notifyKey(key);
-        }
-        this.refresh();
-      });
+    void this.settle(key, folder, indices);
+  }
+
+  private async settle(key: string, folder: Folder, indices: number[]): Promise<void> {
+    folder.failed = false;
+    try {
+      await Promise.all(
+        indices.map(async (i) => {
+          const source = folder.sources[i];
+          await source.retrieve();
+          folder.windows[i] = source.getCached() ?? folder.windows[i];
+        }),
+      );
+    } catch (error) {
+      folder.failed = true;
+      this.config.onError(error);
+    }
+    if (folder.loading) {
+      folder.loading = false;
+      this.notifyKey(key);
+    }
+    this.refresh();
   }
 
   private pause(folder: Folder): void {

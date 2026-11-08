@@ -48,8 +48,9 @@ export const useCreateEmpty = ({
     const parentKey = resource.idToString(parent);
     if (!resource.idsEqual(parent, root)) expand(parentKey);
     const done = addDraft({ resource: { key, id, name: "" }, parent: parentKey });
-    void updateAsync({ key: id.key, name: "", ...placement(parent, root) }).finally(
-      done,
-    );
+    void (async () => {
+      await updateAsync({ key: id.key, name: "", ...placement(parent, root) });
+      done();
+    })();
   };
 };

@@ -49,6 +49,9 @@ export const useCreateDirectory = ({
     const parentKey = resource.idToString(parent);
     if (!resource.idsEqual(parent, root)) expand(parentKey);
     const done = addDraft({ resource: { key, id, name: "" }, parent: parentKey });
-    void updateAsync({ parent: parent.key, key: id.key, name: "" }).finally(done);
+    void (async () => {
+      await updateAsync({ parent: parent.key, key: id.key, name: "" });
+      done();
+    })();
   };
 };

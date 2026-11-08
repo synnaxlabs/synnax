@@ -56,6 +56,7 @@ export interface UseMenuProps {
   /** The menu for a right-click on empty space. */
   rootContextMenu: FC<DefaultContextMenuProps>;
   resolveItem: (type: resource.Type) => Item;
+  handleError: Status.ErrorHandler;
 }
 
 /** Returns the context menu of a tree: for the selection, or for empty space. */
@@ -68,10 +69,10 @@ export const useMenu = ({
   state,
   rootContextMenu: RootContextMenu,
   resolveItem,
+  handleError,
 }: UseMenuProps): ((props: Menu.ContextMenuMenuProps) => ReactElement) => {
   const openTab = Panel.useOpenTab();
   const addStatus = Status.useAdder();
-  const handleError = Status.useErrorHandler();
   const session = useStore<State, Action>();
 
   const render = ({ keys: clicked }: Menu.ContextMenuMenuProps): ReactElement => {

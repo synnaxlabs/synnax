@@ -61,6 +61,29 @@ describe("Group", () => {
       rollback?.();
       expect(query.isLive(client.groups.getCached(key))).toBe(false);
     });
+    it.each<[string, resource.ID, resource.Type]>([
+      ["a project", { type: "project", key: KEY }, "project"],
+      ["a rack", RACK, "device"],
+    ])("should give a group under %s the scope of its parent", (_, parent, scope) => {
+      const key = uuid.create();
+      client.groups.createRequest({ key, name: "Pumps", parent }).apply?.();
+      expect(client.groups.getCached(key)).toMatchObject({ scope });
+    });
+    it("should give a group under a cached group the scope of that group", async () => {
+      const parent = await createTopLevel();
+      const key = uuid.create();
+      client.groups
+        .createRequest({ key, name: "Pumps", parent: group.resourceID(parent.key) })
+        .apply?.();
+      expect(client.groups.getCached(key)).toMatchObject({ scope: "channel" });
+    });
+    it("should not write a group under a group that is not cached", () => {
+      const parent = group.resourceID(uuid.create());
+      expect(
+        client.groups.createRequest({ key: uuid.create(), name: "Pumps", parent })
+          .apply,
+      ).toBeUndefined();
+    });
     it("should not write a group with no key to the cache", () => {
       expect(
         client.groups.createRequest({ name: "Pumps", scope: "channel" }).apply,

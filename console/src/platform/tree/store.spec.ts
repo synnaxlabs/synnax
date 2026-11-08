@@ -25,7 +25,7 @@ const res = (type: resource.Type, key: string, name: string): Resource => ({
 
 interface MemorySource extends Source {
   /** Changes the window, as a change in the cache does. */
-  push: (window: Window) => void;
+  push: (window: Window | undefined) => void;
   subscribers: () => number;
 }
 
@@ -154,6 +154,34 @@ describe("tree store", () => {
       expect(handler).toHaveBeenCalledOnce();
     });
 
+    it("should show a key that two open lists hold only at its first place", async () => {
+      const store = createStore({
+        [ROOT_KEY]: [
+          createMemorySource(listed(GROUP_A)),
+          createMemorySource(listed(res("channel", "1", "x"))),
+        ],
+        "group:a": [createMemorySource(listed(res("channel", "1", "x")))],
+      });
+      store.setExpanded(["group:a"]);
+      store.start();
+      await expect.poll(() => keysOf(store, "group:a")).toEqual(["channel:1"]);
+      expect(keysOf(store)).toEqual(["group:a"]);
+      expect(store.getNodes()).toEqual([
+        { key: "group:a", children: [{ key: "channel:1" }] },
+      ]);
+    });
+
+    it("should fetch a list again when the cache drops its window", async () => {
+      const root = createMemorySource(listed(GROUP_A));
+      const retrieve = vi.spyOn(root, "retrieve");
+      const store = createStore({ [ROOT_KEY]: [root] });
+      store.start();
+      await expect.poll(() => keysOf(store)).toEqual(["group:a"]);
+      root.push(undefined);
+      await expect.poll(() => retrieve.mock.calls.length).toBe(2);
+      await expect.poll(() => keysOf(store)).toEqual(["group:a"]);
+    });
+
     it("should pass each failed fetch to the error handler", async () => {
       const onError = vi.fn();
       const failing: Source = {
@@ -206,6 +234,15 @@ describe("tree store", () => {
       expect(child.subscribers()).toBe(1);
     });
 
+    it("should tell its subscribers when the expanded keys change", () => {
+      const store = createStore({});
+      const handler = vi.fn();
+      store.subscribe(handler);
+      store.setExpanded(["group:a"]);
+      expect(handler).toHaveBeenCalled();
+      expect(store.getExpanded()).toEqual(["group:a"]);
+    });
+
     it("should stop reading every list when it stops", async () => {
       const root = createMemorySource(listed(GROUP_A));
       const store = createStore({ [ROOT_KEY]: [root] });
@@ -252,6 +289,25 @@ describe("tree store", () => {
       expect(keysOf(store, "group:new")).toEqual(["channel:1"]);
     });
 
+    it("should end a draft whose own lists fail to fetch", async () => {
+      const root = createMemorySource(listed(GROUP_A));
+      const failing: Source = {
+        retrieve: async () => await Promise.reject(new Error("unreachable")),
+        getCached: () => undefined,
+        onChange: () => () => {},
+      };
+      const store = createStore({ [ROOT_KEY]: [root], "group:new": [failing] });
+      store.start();
+      await expect.poll(() => keysOf(store)).toEqual(["group:a"]);
+      const done = store.addDraft({ resource: DRAFT, parent: ROOT_KEY });
+      store.setExpanded(["group:new"]);
+      root.push(listed(GROUP_A, res("group", "new", "Pumps")));
+      done();
+      expect(store.isDraft("group:new")).toBe(true);
+      await expect.poll(() => store.isDraft("group:new")).toBe(false);
+      expect(keysOf(store)).toEqual(["group:a", "group:new"]);
+    });
+
     it("should move the children a draft holds out of their parent", async () => {
       const store = createStore({
         [ROOT_KEY]: [
@@ -295,6 +351,21 @@ describe("tree store", () => {
       expect(keysOf(store, "group:a")).toEqual(["channel:1"]);
       expect(store.get("channel:1")?.name).toBe("match");
       expect(list).not.toHaveBeenCalled();
+    });
+
+    it("should stop reading the lists of a group that the results fix", async () => {
+      const child = createMemorySource(listed(res("channel", "2", "every")));
+      const store = createStore({
+        [ROOT_KEY]: [createMemorySource(listed(GROUP_A))],
+        "group:a": [child],
+      });
+      store.start();
+      store.setExpanded(["group:a"]);
+      await expect.poll(() => keysOf(store, "group:a")).toEqual(["channel:2"]);
+      expect(child.subscribers()).toBe(1);
+      store.setResults(results);
+      expect(child.subscribers()).toBe(0);
+      expect(keysOf(store, "group:a")).toEqual(["channel:1"]);
     });
 
     it("should read the lists of a group that is not fixed once it expands", async () => {

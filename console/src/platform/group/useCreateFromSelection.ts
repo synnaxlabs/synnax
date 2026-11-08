@@ -67,6 +67,9 @@ export const useCreateFromSelection = () => {
     if (parent == null) throw new Error(`${children[0]} does not show in the tree`);
     const done = addDraft({ resource: { key, id, name: "" }, parent, children });
     setSelection([key]);
-    void updateAsync({ ...props, group: { key: groupKey, name: "" } }).finally(done);
+    void (async () => {
+      await updateAsync({ ...props, group: { key: groupKey, name: "" } });
+      done();
+    })();
   };
 };
