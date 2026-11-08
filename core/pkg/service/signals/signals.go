@@ -31,8 +31,9 @@ import (
 type Provider struct {
 	cfg Config
 	// feeds write the samples of the channels in keys.
-	feeds []feed
-	keys  channel.Keys
+	feeds   []feed
+	keys    channel.Keys
+	records map[channel.Key]RecordOf
 	// started is true once Start runs.
 	started bool
 }
@@ -86,5 +87,5 @@ func New(cfgs ...Config) (*Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Provider{cfg: cfg}, nil
+	return &Provider{cfg: cfg, records: make(map[channel.Key]RecordOf)}, nil
 }

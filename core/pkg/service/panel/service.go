@@ -91,14 +91,16 @@ func OpenService(
 	}
 	// sy_panel_set carries action batches, so the table publishes its deletes only.
 	if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
-		Name:    "sy_panel_set",
-		Actions: s.state,
-		Table:   tableName,
+		Name:     "sy_panel_set",
+		Actions:  s.state,
+		Resource: ResourceID,
+		Table:    tableName,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Panel]{
 		Changes:     s.table.Changes,
+		Resource:    ResourceID,
 		SetDisabled: new(true),
 	}); !ok(err, nil) {
 		return nil, err

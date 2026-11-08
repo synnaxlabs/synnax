@@ -16,7 +16,6 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp/internal/key"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -156,5 +155,3 @@ func (k *Iterator[E]) Error() error {
 func (k *Iterator[E]) Valid() bool {
 	return k.err == nil && k.Iterator.Valid()
 }
-
-type TxReader[K Key, E Entry[K]] = iter.Seq[change.Change[K, E]]

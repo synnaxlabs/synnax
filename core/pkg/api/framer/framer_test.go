@@ -26,6 +26,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -392,7 +393,7 @@ var _ = Describe("Framer", func() {
 				Framer:  framerSvc,
 				Channel: channelSvc,
 				RBAC:    rbacSvc,
-				Records: map[channel.Key]apiframer.RecordOf{
+				Records: map[channel.Key]signals.RecordOf{
 					records.Key(): func(sample []byte) (resource.ID, error) {
 						id, err := strconv.Unquote(string(sample))
 						if err != nil {

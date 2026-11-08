@@ -415,28 +415,38 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if err = l.Signals.PublishTable(
 		ctx,
-		signals.TableConfig[group.Key, group.Group]{Changes: l.Group.Changes},
-	); !ok(err, nil) {
-		return nil, err
-	}
-	if err = l.Signals.PublishTable(
-		ctx,
-		signals.TableConfig[label.Key, label.Label]{Changes: l.Label.Changes},
-	); !ok(err, nil) {
-		return nil, err
-	}
-	if err = l.Signals.PublishActions(
-		ctx,
-		signals.ActionConfig[label.Key, label.Action]{
-			Name:    "sy_label_action_set",
-			Actions: l.Label.Actions(),
+		signals.TableConfig[group.Key, group.Group]{
+			Changes:  l.Group.Changes,
+			Resource: group.ResourceID,
 		},
 	); !ok(err, nil) {
 		return nil, err
 	}
 	if err = l.Signals.PublishTable(
 		ctx,
-		signals.TableConfig[status.Key, status.Status[any]]{Changes: l.Status.Changes},
+		signals.TableConfig[label.Key, label.Label]{
+			Changes:  l.Label.Changes,
+			Resource: label.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[label.Key, label.Action]{
+			Name:     "sy_label_action_set",
+			Actions:  l.Label.Actions(),
+			Resource: label.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[status.Key, status.Status[any]]{
+			Changes:  l.Status.Changes,
+			Resource: status.ResourceID,
+		},
 	); !ok(err, nil) {
 		return nil, err
 	}
@@ -496,7 +506,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if err = l.Signals.PublishTable(
 		ctx,
-		signals.TableConfig[rack.Key, rack.Rack]{Changes: l.Rack.Changes},
+		signals.TableConfig[rack.Key, rack.Rack]{
+			Changes:  l.Rack.Changes,
+			Resource: rack.Key.ResourceID,
+		},
 	); !ok(err, nil) {
 		return nil, err
 	}

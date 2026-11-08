@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -63,12 +64,12 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Records maps each channel whose samples carry a record that only some subjects
-	// can read to the function that finds the record. A streamer sends such a sample
-	// only to a subject that can retrieve its record.
+	// Records maps each channel whose samples describe records to the function that
+	// finds the record of a sample. A streamer sends such a sample only to a subject
+	// that can retrieve its record.
 	//
 	// [OPTIONAL]
-	Records map[channel.Key]RecordOf
+	Records map[channel.Key]signals.RecordOf
 }
 
 var (
@@ -100,7 +101,7 @@ type Service struct {
 	access   *rbac.Service
 	channel  *channel.Service
 	internal *framer.Service
-	records  map[channel.Key]RecordOf
+	records  map[channel.Key]signals.RecordOf
 	alamos.Instrumentation
 }
 

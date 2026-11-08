@@ -111,14 +111,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if cfg.Signals != nil {
 		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
-			Name:    "sy_table_set",
-			Actions: s.state,
-			Table:   tableName,
+			Name:     "sy_table_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+			Table:    tableName,
 		}); !ok(err, nil) {
 			return nil, err
 		}
 		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Table]{
 			Changes:     s.table.Changes,
+			Resource:    ResourceID,
 			SetDisabled: new(true),
 		}); !ok(err, nil) {
 			return nil, err

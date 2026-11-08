@@ -121,13 +121,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if err = cfg.Signals.PublishTable(
 		ctx,
-		signals.TableConfig[Key, Range]{Changes: s.table.Changes},
+		signals.TableConfig[Key, Range]{
+			Changes:  s.table.Changes,
+			Resource: ResourceID,
+		},
 	); !ok(err, nil) {
 		return nil, err
 	}
 	if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
-		Name:    "sy_range_action_set",
-		Actions: s.state,
+		Name:     "sy_range_action_set",
+		Actions:  s.state,
+		Resource: ResourceID,
 	}); !ok(err, nil) {
 		return nil, err
 	}

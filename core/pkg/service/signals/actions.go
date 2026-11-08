@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -35,6 +36,11 @@ type ActionConfig[K gorp.Key, A any] struct {
 	//
 	// [REQUIRED]
 	Actions *actions.State[K, A]
+	// Resource returns the resource of the entry with the given key. A streamer sends a
+	// batch only to a subject that can retrieve the entry that it edits.
+	//
+	// [REQUIRED]
+	Resource func(K) resource.ID
 	// Table names a table that only the channel describes. Each create or update of one
 	// of its records needs a batch for its key in the same commit, and the Provider
 	// reports a change without one with DPanic.
@@ -48,6 +54,7 @@ func (c ActionConfig[K, A]) Validate() error {
 	v := validate.New("signals.action_config")
 	v.NotEmptyString("name", c.Name)
 	v.NotNil("actions", c.Actions)
+	v.NotNil("resource", c.Resource)
 	return v.Error()
 }
 
@@ -101,6 +108,12 @@ func (f *actionFeed[K, A]) append(
 		return fr
 	}
 	return fr.Append(f.ch.Key(), samples)
+}
+
+func (f *actionFeed[K, A]) records() map[channel.Key]RecordOf {
+	return map[channel.Key]RecordOf{
+		f.ch.Key(): recordOf(unmarshalKey[K], f.cfg.Resource),
+	}
 }
 
 // check reports each create or update in c of a record of the table of f that has no

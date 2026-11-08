@@ -24,6 +24,7 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -102,6 +103,11 @@ func (t *testStringEntry) DecodeOrc(r *orc.Reader) error {
 }
 
 const uuidTableName = "signals_test_uuid"
+
+// testResource returns the resource of the test entry with the given key.
+func testResource[K gorp.Key](k K) resource.ID {
+	return resource.ID{Type: "signals_test", Key: gorp.FormatKey(k)}
+}
 
 var (
 	db          *gorp.DB

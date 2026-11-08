@@ -126,21 +126,28 @@ var _ = Describe("Driver role", func() {
 	})
 })
 
-// failingDB rejects each commit that fail returns an error for.
+// failingDB rejects each commit that fail returns an error for. fail receives the
+// values that the commit sets.
 type failingDB struct {
 	kv.DB
-	fail func(kv.TxReader) error
+	fail func(values [][]byte) error
 }
 
-func (d failingDB) OpenTx() kv.Tx { return failingTx{Tx: d.DB.OpenTx(), fail: d.fail} }
+func (d failingDB) OpenTx() kv.Tx { return &failingTx{Tx: d.DB.OpenTx(), fail: d.fail} }
 
 type failingTx struct {
 	kv.Tx
-	fail func(kv.TxReader) error
+	fail   func(values [][]byte) error
+	values [][]byte
 }
 
-func (t failingTx) Commit(ctx context.Context, opts ...any) error {
-	if err := t.fail(t.NewReader()); err != nil {
+func (t *failingTx) Set(ctx context.Context, key, value []byte) error {
+	t.values = append(t.values, slices.Clone(value))
+	return t.Tx.Set(ctx, key, value)
+}
+
+func (t *failingTx) Commit(ctx context.Context, opts ...any) error {
+	if err := t.fail(t.values); err != nil {
 		return err
 	}
 	return t.Tx.Commit(ctx, opts...)
@@ -1429,9 +1436,9 @@ var _ = Describe("Rack", Ordered, func() {
 				now.Store(int64(start))
 				failDB := DeferClose(gorp.Wrap(failingDB{
 					DB: memkv.New(),
-					fail: func(reader kv.TxReader) error {
-						for ch := range reader {
-							if bytes.Contains(ch.Value, outageStatus) &&
+					fail: func(values [][]byte) error {
+						for _, v := range values {
+							if bytes.Contains(v, outageStatus) &&
 								failed.CompareAndSwap(false, true) {
 								now.Store(int64(start.Add(5 * telem.Millisecond)))
 								return errors.New("commit failed")

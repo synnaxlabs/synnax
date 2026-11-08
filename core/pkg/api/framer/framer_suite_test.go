@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -53,6 +54,8 @@ var (
 	channelSvc    *channel.Service
 	rbacSvc       *rbac.Service
 	userSvc       *user.Service
+	svc           *service.Layer
+	db            *gorp.DB
 	root          user.User
 	// faultyFS holds the Core's time-series data and fails the operations a spec sets.
 	faultyFS *FaultyFS
@@ -69,7 +72,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),
 	}))
-	svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
+	db = node.DB
+	svc = MustOpen(service.OpenLayer(ctx, service.LayerConfig{
 		Distribution: node.Layer,
 		Security:     sec,
 		Storage:      store,
@@ -87,6 +91,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Framer:  svc.Framer,
 		Channel: svc.Channel,
 		RBAC:    svc.RBAC,
+		Records: svc.Signals.Records(),
 	}))
 	Expect(svc.User.NewRetrieve().
 		Where(user.MatchRootUser(true)).

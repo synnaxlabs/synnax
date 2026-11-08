@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -205,7 +204,7 @@ func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes)
 		ch := cg.Value
 		// Don't stop calculating if the channel is deleted. The calculation will be
 		// automatically shut down when it is no longer needed.
-		if cg.Variant != change.VariantSet || !ch.IsCalculated() {
+		if cg.Kind == gorp.ChangeDelete || !ch.IsCalculated() {
 			continue
 		}
 		s.mu.Lock()

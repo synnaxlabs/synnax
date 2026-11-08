@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -312,7 +311,7 @@ func (e *edgeSession) onDeviceChange(
 	r gorp.TxReader[device.Key, device.Device],
 ) {
 	for ch := range r {
-		if ch.Variant != change.VariantSet || ch.Key != e.broker {
+		if ch.Kind == gorp.ChangeDelete || ch.Key != e.broker {
 			continue
 		}
 		select {
