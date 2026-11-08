@@ -1303,4 +1303,62 @@ TEST(SeriesModule, SliceStartGEEndReturnsZero) {
     EXPECT_EQ(result[0].i32(), 0);
 }
 
+const std::string_view STR_WAT = R"wat(
+(module
+  (import "series" "create_empty_str" (func $create_empty_str (param i32) (result i32)))
+  (import "series" "len" (func $len (param i32) (result i64)))
+  (import "series" "slice" (func $slice (param i32 i32 i32) (result i32)))
+
+  (func (export "create_empty_str") (param i32) (result i32)
+    (call $create_empty_str (local.get 0)))
+  (func (export "len") (param i32) (result i64)
+    (call $len (local.get 0)))
+  (func (export "slice") (param i32 i32 i32) (result i32)
+    (call $slice (local.get 0) (local.get 1) (local.get 2)))
+)
+)wat";
+
+int32_t create_empty_str(Fixture &f, const int32_t length) {
+    return f.get("create_empty_str")
+        .call(f.store, {wasmtime::Val(length)})
+        .unwrap()[0]
+        .i32();
+}
+
+TEST(SeriesModule, CreateEmpty_str) {
+    Fixture f{std::string(STR_WAT)};
+    auto h = create_empty_str(f, 0);
+    EXPECT_GT(h, 0);
+    auto *s = f.state->get(h);
+    ASSERT_NE(s, nullptr);
+    EXPECT_EQ(s->data_type(), x::telem::STRING_T);
+    EXPECT_EQ(s->size(), 0);
+}
+
+TEST(SeriesModule, CreateEmptyStrIgnoresRequestedLength) {
+    Fixture f{std::string(STR_WAT)};
+    auto h = create_empty_str(f, 3);
+    auto result = f.get("len").call(f.store, {wasmtime::Val(h)}).unwrap();
+    EXPECT_EQ(result[0].i64(), 0);
+}
+
+TEST(SeriesModule, CreateEmptyStrReturnsDistinctHandles) {
+    Fixture f{std::string(STR_WAT)};
+    EXPECT_NE(create_empty_str(f, 0), create_empty_str(f, 0));
+}
+
+TEST(SeriesModule, SliceEmptyStrReturnsZero) {
+    Fixture f{std::string(STR_WAT)};
+    auto h = create_empty_str(f, 0);
+    auto result = f.get("slice")
+                      .call(
+                          f.store,
+                          {wasmtime::Val(h),
+                           wasmtime::Val(int32_t{0}),
+                           wasmtime::Val(int32_t{1})}
+                      )
+                      .unwrap();
+    EXPECT_EQ(result[0].i32(), 0);
+}
+
 }
