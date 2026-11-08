@@ -243,9 +243,7 @@ var _ = Describe("Service", func() {
 	})
 	Describe("HashProven", func() {
 		credentials := func(password string) auth.PasswordProof {
-			return auth.PasswordProof{
-				Credentials: auth.Credentials{Username: username, Password: password},
-			}
+			return auth.PasswordProof{Username: username, Password: password}
 		}
 		It("Should return a hash with the identity the proof matched", func(
 			ctx SpecContext,
