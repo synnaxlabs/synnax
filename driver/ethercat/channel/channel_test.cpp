@@ -121,14 +121,13 @@ slave::Properties wide_output_slave() {
 nlohmann::json read_entry(
     const uint16_t index,
     const uint8_t sub_index,
-    const std::string &data_type = "uint8",
-    const bool disabled = false
+    const std::string &data_type = "uint8"
 ) {
     return {
         {"type", "entry"},
         {"device", "dev-001"},
         {"channel", 42},
-        {"disabled", disabled},
+        {"disabled", false},
         {"index", index},
         {"sub_index", sub_index},
         {"data_type", data_type},
@@ -391,31 +390,6 @@ TEST(Input, NamesAnAddressThatSeveralPDOsRepeatOnce) {
     );
 }
 
-/// @brief it should give no channel and no errors for a disabled channel, even when its
-/// entry cannot be bound.
-TEST(Input, GivesNothingForADisabledChannel) {
-    const auto slave = padded_slave();
-    auto unresolved = read_unresolved("Value");
-    unresolved["disabled"] = true;
-    auto unresolved_parser = x::json::Parser(unresolved);
-    ASSERT_EQ(input(slave, unresolved_parser), nullptr);
-    ASSERT_TRUE(unresolved_parser.ok()) << unresolved_parser.error_json().dump();
-    const auto missing = read_entry(0x6100, 1, "uint8", true);
-    auto missing_parser = x::json::Parser(missing);
-    ASSERT_EQ(input(slave, missing_parser), nullptr);
-    ASSERT_TRUE(missing_parser.ok()) << missing_parser.error_json().dump();
-}
-
-/// @brief it should enable a channel when its config has no disabled field.
-TEST(Input, EnabledDefaultsToTrue) {
-    const auto slave = padded_slave();
-    auto j = read_entry(0x6000, 1);
-    j.erase("disabled");
-    auto parser = x::json::Parser(j);
-    ASSERT_NE(input(slave, parser), nullptr);
-    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
-}
-
 /// @brief it should bind an output channel to the entry at its address, with the bit
 /// length from the slave.
 TEST(Output, BindsAnEntryWithBitLengthFromTheSlave) {
@@ -515,17 +489,6 @@ TEST(Output, RejectsANegativeStopValueOnASubByteSignedEntry) {
         "stop value -1 does not fit entry 0x7000:01 on slave EL1008. Pick a whole "
         "number from 0 to 1."
     );
-}
-
-/// @brief it should give no channel and no errors for a disabled channel with a stop
-/// value that does not fit its entry.
-TEST(Output, GivesNothingForADisabledChannel) {
-    auto j = write_entry(0x7000, 2, "float32");
-    j["stop_value"] = 1e100;
-    j["disabled"] = true;
-    auto parser = x::json::Parser(j);
-    ASSERT_EQ(output(wide_output_slave(), parser), nullptr);
-    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
 }
 
 /// @brief it should reject a fractional stop value on an integer entry.

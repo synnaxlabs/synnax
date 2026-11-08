@@ -248,6 +248,34 @@ TEST_F(EtherCATWriteTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     EXPECT_EQ(task_cfg.outputs.size(), 1);
 }
 
+/// @brief it should ignore a disabled write channel on a slave device that does not
+/// exist.
+TEST_F(EtherCATWriteTest, ParseConfigIgnoresTheDeviceOfADisabledChannel) {
+    const auto enabled = create_command_channel("enabled", x::telem::INT16_T);
+    const auto disabled = create_command_channel("disabled", x::telem::INT16_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(enabled.key, 0x7000, 1, "int16")
+    );
+    auto disabled_cfg = create_output_channel_config(
+        disabled.key,
+        0x7000,
+        1,
+        "int16",
+        0,
+        true
+    );
+    disabled_cfg["device"] = "nonexistent_slave_key";
+    cfg["channels"].push_back(disabled_cfg);
+
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(client, parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(task_cfg.outputs.size(), 1);
+    EXPECT_EQ(task_cfg.outputs[0]->command_key, enabled.key);
+}
+
 /// @brief it should report a write channel on a slave device that does not exist.
 TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(

@@ -206,7 +206,6 @@ std::unique_ptr<Input> make_input(
     const slave::Properties &slave,
     const x::json::Parser &parser
 ) {
-    if (::synnax::ethercat::base(cfg).disabled) return nullptr;
     if (const auto *c = std::get_if<::synnax::ethercat::UnresolvedReadChannel>(&cfg))
         return std::make_unique<Input>(Input{
             .entry = reject_unresolved(true, c->pdo, slave, parser, ""),
@@ -226,7 +225,6 @@ std::unique_ptr<Output> make_output(
     const x::json::Parser &parser,
     const std::string &path
 ) {
-    if (::synnax::ethercat::base(cfg).disabled) return nullptr;
     if (const auto *c = std::get_if<::synnax::ethercat::UnresolvedWriteChannel>(&cfg))
         return std::make_unique<Output>(Output{
             .entry = reject_unresolved(false, c->pdo, slave, parser, path),
