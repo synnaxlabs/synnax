@@ -1125,11 +1125,14 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
             };
         msg += ": " + text;
     }
-    auto err = x::errors::Error(
-        refusing.empty() ? errors::STATE_CHANGE_ERROR : errors::STATE_CHANGE_REFUSED,
-        "failed to reach " + target + ": " + msg
-    );
-    return {.err = std::move(err), .refusals = std::move(refusing)};
+    return {
+        .err = x::errors::Error(
+            refusing.empty() ? errors::STATE_CHANGE_ERROR
+                             : errors::STATE_CHANGE_REFUSED,
+            "failed to reach " + target + ": " + msg
+        ),
+        .refusals = std::move(refusing),
+    };
 }
 
 std::vector<master::Info> Manager::enumerate() {
