@@ -13,6 +13,7 @@
 package testutil
 
 import (
+	"encoding/json/v2"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,6 +28,8 @@ import (
 const script = `#!/bin/sh
 state=%q
 case "$1" in
+is-system-running) if [ -f "$state/offline" ]; then echo offline; exit 1; fi
+   echo running ;;
 show) if [ -f "$state/show" ]; then cat "$state/show"; else echo LoadState=not-found; fi ;;
 *) echo "$*" >> "$state/calls"
    if [ "$1" = start ] && [ -f "$state/on-start" ]; then
@@ -36,17 +39,27 @@ show) if [ -f "$state/show" ]; then cat "$state/show"; else echo LoadState=not-f
 esac
 `
 
+// busctl prints the ExecStart property of the service that Install wrote.
+const busctl = `#!/bin/sh
+cat %q
+`
+
 // Systemctl is a fake systemctl first on the PATH of the test process.
 type Systemctl struct{ dir string }
 
-// NewSystemctl puts a fake systemctl first on the PATH until the spec ends. The fake
-// reports no service until Install.
+// NewSystemctl puts a fake systemctl and busctl first on the PATH until the spec ends.
+// The fake reports no service until Install.
 func NewSystemctl() *Systemctl {
 	ginkgo.GinkgoHelper()
 	dir := ginkgo.GinkgoT().TempDir()
 	gomega.Expect(os.WriteFile(
 		filepath.Join(dir, "systemctl"),
 		fmt.Appendf(nil, script, dir),
+		0o755,
+	)).To(gomega.Succeed())
+	gomega.Expect(os.WriteFile(
+		filepath.Join(dir, "busctl"),
+		fmt.Appendf(nil, busctl, filepath.Join(dir, "exec-start")),
 		0o755,
 	)).To(gomega.Succeed())
 	ginkgo.GinkgoT().Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
@@ -56,15 +69,28 @@ func NewSystemctl() *Systemctl {
 // Install makes the fake report a service that runs `<binary> <args>`.
 func (s *Systemctl) Install(workDir, binary string, args ...string) {
 	ginkgo.GinkgoHelper()
-	argv := strings.Join(append([]string{binary}, args...), " ")
-	gomega.Expect(os.WriteFile(filepath.Join(s.dir, "show"), fmt.Appendf(
-		nil,
-		"LoadState=loaded\nExecStart={ path=%s ; argv[]=%s ; ignore_errors=no }\n"+
-			"WorkingDirectory=%s\n",
-		binary,
-		argv,
-		workDir,
-	), 0o644)).To(gomega.Succeed())
+	gomega.Expect(os.WriteFile(
+		filepath.Join(s.dir, "show"),
+		fmt.Appendf(nil, "LoadState=loaded\nWorkingDirectory=%s\n", workDir),
+		0o644,
+	)).To(gomega.Succeed())
+	argv := append([]string{binary}, args...)
+	property := map[string]any{
+		"type": "a(sasbttttuii)",
+		"data": [][]any{{binary, argv, false, 0, 0, 0, 0, 0, 0, 0}},
+	}
+	gomega.Expect(os.WriteFile(
+		filepath.Join(s.dir, "exec-start"),
+		testutil.MustSucceed(json.Marshal(property)),
+		0o644,
+	)).To(gomega.Succeed())
+}
+
+// Offline makes the fake report that systemd does not run on the host.
+func (s *Systemctl) Offline() {
+	ginkgo.GinkgoHelper()
+	gomega.Expect(os.WriteFile(filepath.Join(s.dir, "offline"), nil, 0o644)).
+		To(gomega.Succeed())
 }
 
 // OnStart runs the shell script at the next start of the service only.

@@ -10,6 +10,7 @@
 package storage
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -40,10 +41,26 @@ type Update struct {
 func (u *Update) Commit() error { return u.backups.fs.Remove(updateMarkerFile) }
 
 // Undo puts back the backup taken before the update and records the update as failed. A
-// Core of version To then refuses the data until Backups.Retry. Call Undo only after
-// the Layer that started the update closes. Undo returns an error that names cause and
-// the Core version to run.
-func (u *Update) Undo(cause error) error {
+// Core of version To then refuses the data until Backups.Retry. Undo returns an error
+// that names cause and the Core version to run. When ctx is done, the start stopped on
+// request, so Undo records no failure and returns cause, and the next start of version
+// To updates the data again. Call Undo only after the Layer that started the update
+// closes.
+func (u *Update) Undo(ctx context.Context, cause error) error {
+	if ctx.Err() != nil {
+		if _, err := u.backups.Restore(u.backup); err != nil {
+			return errors.Combine(
+				errors.Wrapf(err, "failed to put back the data before Core %s", u.To),
+				cause,
+			)
+		}
+		u.backups.cfg.L.Warn(
+			"the Core stopped before it committed the update, so it put back the "+
+				"data. Its next start updates the data again.",
+			zap.String("to", u.To),
+		)
+		return cause
+	}
 	if err := u.backups.undo(u.backup, u.To, u.backups.Restore); err != nil {
 		return errors.Newf(
 			"Update to Core %s failed: %v. The undo of the update also failed: %v",
@@ -154,8 +171,10 @@ func (b *Backups) Retry() (string, error) {
 type UpdateState uint8
 
 const (
-	// UpdatePending is an update that did not commit and was not undone.
-	UpdatePending UpdateState = iota
+	// UpdateNotStarted is an update that no Core started on the data.
+	UpdateNotStarted UpdateState = iota
+	// UpdatePending is an update that started and did not commit or undo yet.
+	UpdatePending
 	// UpdateCommitted is an update that the Core committed.
 	UpdateCommitted
 	// UpdateUndone is an update that failed. The data is back at the version before it.
@@ -170,25 +189,27 @@ func (b *Backups) UpdateState(version string) (UpdateState, error) {
 	// commit.
 	recorded, err := b.readVersion()
 	if err != nil {
-		return UpdatePending, err
+		return 0, err
 	}
 	updating, err := b.fs.Exists(updateMarkerFile)
 	if err != nil {
-		return UpdatePending, err
+		return 0, err
 	}
 	restoring, err := b.fs.Exists(restoreMarkerFile)
 	if err != nil {
-		return UpdatePending, err
+		return 0, err
 	}
 	failed, err := b.failedVersion()
-	if err != nil || updating || restoring {
-		return UpdatePending, err
+	if err != nil {
+		return 0, err
 	}
-	if failed == version {
+	switch {
+	case updating || restoring:
+		return UpdatePending, nil
+	case failed == version:
 		return UpdateUndone, nil
-	}
-	if recorded == version {
+	case recorded == version:
 		return UpdateCommitted, nil
 	}
-	return UpdatePending, nil
+	return UpdateNotStarted, nil
 }

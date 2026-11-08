@@ -12,6 +12,7 @@ Unicode True
 !include "MUI2.nsh"
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
+!include "FileFunc.nsh"
 
 ; Variables for service installation options
 Var InstallService
@@ -85,14 +86,23 @@ Section "MainSection" SEC01
     Pop $1
     ${If} $0 == 0
     ${AndIf} $InstallService == ${BST_CHECKED}
-        DetailPrint "Updating the Synnax service..."
+        ; The update replaces the binary of the service, so the install goes in its
+        ; folder. The service manager quotes a path with spaces.
+        ReadRegStr $1 HKLM "SYSTEM\CurrentControlSet\Services\SynnaxCore" "ImagePath"
+        StrCpy $2 $1 1
+        ${If} $2 == '"'
+            StrCpy $1 $1 "" 1
+            StrCpy $1 $1 -1
+        ${EndIf}
+        ${GetParent} $1 $INSTDIR
+        DetailPrint "Updating the Synnax service in $INSTDIR..."
         InitPluginsDir
         SetOutPath "$PLUGINSDIR"
         File /oname=synnax-update.exe "synnax-server.exe"
         nsExec::ExecToLog '"$PLUGINSDIR\synnax-update.exe" update --file "$PLUGINSDIR\synnax-update.exe"'
         Pop $0
         ${If} $0 != 0
-            MessageBox MB_ICONSTOP "The update of the Synnax Core failed, and the previous Core runs again. The details list the cause." /SD IDOK
+            MessageBox MB_ICONSTOP "The update of the Synnax Core failed. The details list the cause and the state of the Synnax service." /SD IDOK
             Abort
         ${EndIf}
         SetOutPath "$INSTDIR"

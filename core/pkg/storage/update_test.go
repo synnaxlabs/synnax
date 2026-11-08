@@ -84,7 +84,7 @@ var _ = Describe("Update", func() {
 		l := startUpdate(ctx, dir, "0.60.0")
 		Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 		Expect(l.Close()).To(Succeed())
-		Expect(l.Update.Undo(errors.New("no space left on device"))).To(And(
+		Expect(l.Update.Undo(ctx, errors.New("no space left on device"))).To(And(
 			beRefused(),
 			MatchError("Update to Core 0.60.0 failed: no space left on device. The "+
 				"data is back at Core 0.59.0. Run Core 0.59.0, or fix the cause and "+
@@ -97,10 +97,27 @@ var _ = Describe("Update", func() {
 		Expect(l.Close()).To(Succeed())
 	})
 
+	It("Should put the data back without a failure on a stop", func(ctx SpecContext) {
+		l := startUpdate(ctx, dir, "0.60.0")
+		Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
+		Expect(l.Close()).To(Succeed())
+		stopped, cancel := context.WithCancel(ctx)
+		cancel()
+		Expect(l.Update.Undo(stopped, context.Canceled)).
+			To(MatchError(context.Canceled))
+		Expect(recordedVersion(dir)).To(Equal("0.59.0"))
+		Expect(filepath.Join(dir, failedUpdateFile)).ToNot(BeAnExistingFile())
+		Expect(updateState(dir, "0.60.0")).To(Equal(storage.UpdateNotStarted))
+		l = openLayer(ctx, dir, "0.59.0")
+		Expect(readValue(ctx, l)).To(Equal("before"))
+		Expect(l.Close()).To(Succeed())
+		Expect(startUpdate(ctx, dir, "0.60.0").Close()).To(Succeed())
+	})
+
 	It("Should refuse the failed version without a backup", func(ctx SpecContext) {
 		l := startUpdate(ctx, dir, "0.60.0")
 		Expect(l.Close()).To(Succeed())
-		Expect(l.Update.Undo(errors.New("crashed"))).
+		Expect(l.Update.Undo(ctx, errors.New("crashed"))).
 			To(MatchError(HavePrefix("Update to Core 0.60.0 failed: crashed.")))
 		Expect(storage.OpenLayer(
 			ctx,
@@ -114,7 +131,7 @@ var _ = Describe("Update", func() {
 	It("Should update to another version after a failed one", func(ctx SpecContext) {
 		l := startUpdate(ctx, dir, "0.60.0")
 		Expect(l.Close()).To(Succeed())
-		Expect(l.Update.Undo(errors.New("crashed"))).
+		Expect(l.Update.Undo(ctx, errors.New("crashed"))).
 			To(MatchError(HavePrefix("Update to Core 0.60.0 failed: crashed.")))
 		l = startUpdate(ctx, dir, "0.60.1")
 		Expect(l.Update.From).To(Equal("0.59.0"))
@@ -124,7 +141,7 @@ var _ = Describe("Update", func() {
 	It("Should update again after a retry", func(ctx SpecContext) {
 		l := startUpdate(ctx, dir, "0.60.0")
 		Expect(l.Close()).To(Succeed())
-		Expect(l.Update.Undo(errors.New("crashed"))).
+		Expect(l.Update.Undo(ctx, errors.New("crashed"))).
 			To(MatchError(HavePrefix("Update to Core 0.60.0 failed: crashed.")))
 		Expect(newBackups(dir).Retry()).To(Equal("0.60.0"))
 		Expect(filepath.Join(dir, failedUpdateFile)).ToNot(BeAnExistingFile())
@@ -210,7 +227,7 @@ var _ = Describe("Update", func() {
 	})
 
 	It("Should not count a version that the data is not at", func() {
-		Expect(updateState(dir, "0.60.0")).To(Equal(storage.UpdatePending))
+		Expect(updateState(dir, "0.60.0")).To(Equal(storage.UpdateNotStarted))
 		Expect(updateState(dir, "0.59.0")).To(Equal(storage.UpdateCommitted))
 	})
 })

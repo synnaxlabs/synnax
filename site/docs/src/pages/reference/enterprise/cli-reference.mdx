@@ -520,7 +520,10 @@ binary in place of the old one, and starts the service. It then waits for the ne
 to commit the update. If the new Core fails, the command puts the old Core back and
 starts it. Without a service, it only replaces the binary that runs the command, so stop
 the Core first and start it after. The old binary stays next to the new one, with an
-`.old` extension.
+`.old` extension. When the installed Core is the same version, the command does nothing.
+It refuses while an update of the data has not finished. For a service, the new binary
+can also run the command, such as for an update from a Core that has no `update`
+command.
 
 - `--file` -> the Core binary to update to.
 - `--timeout` -> how long to wait for the new Core to commit the update. Default `10m`.
@@ -541,7 +544,8 @@ synnax update undo 1793000000-0.60.1
 ```
 
 When the `.old` binary from `synnax update` is that version, the command also puts it
-back.
+back. For the Linux service, run it with `sudo`. The command gives the restored files to
+the owner of the data folder.
 
 ### update history
 

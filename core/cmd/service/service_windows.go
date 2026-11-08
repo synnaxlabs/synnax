@@ -35,11 +35,15 @@ import (
 )
 
 const (
-	startupTimeout   = 60 * time.Second
-	shutdownTimeout  = 30 * time.Second
-	stopTimeout      = shutdownTimeout + 15*time.Second
-	stopPollInterval = 250 * time.Millisecond
-	name             = "SynnaxCore"
+	// startCheckpointInterval is how often a starting Core tells the service manager
+	// that its start makes progress. The start has no time limit, because the first
+	// start of a
+	// new version migrates the data.
+	startCheckpointInterval = 5 * time.Second
+	shutdownTimeout         = 30 * time.Second
+	stopTimeout             = shutdownTimeout + 15*time.Second
+	stopPollInterval        = 250 * time.Millisecond
+	name                    = "SynnaxCore"
 )
 
 // ConfigDir returns the directory where the service config file is stored.
@@ -230,28 +234,35 @@ func Stop() (err error) {
 	return nil
 }
 
-// Lookup returns the Core service on this host, or false when none is installed.
+// Lookup returns the Core service on this host, or false when none is installed. It
+// asks only for read access, so it works without administrator rights.
 func Lookup() (_ Installation, _ bool, err error) {
-	m, err := mgr.Connect()
+	h, err := windows.OpenSCManager(nil, nil, windows.SC_MANAGER_CONNECT)
 	if err != nil {
 		return Installation{}, false, errors.Wrap(
 			err,
-			"failed to connect to service manager (are you running as administrator?)",
+			"failed to connect to service manager",
 		)
 	}
+	m := &mgr.Mgr{Handle: h}
 	defer func() {
 		err = errors.Combine(
 			err,
 			errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"),
 		)
 	}()
-	s, err := m.OpenService(name)
+	serviceName, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return Installation{}, false, err
+	}
+	sh, err := windows.OpenService(h, serviceName, windows.SERVICE_QUERY_CONFIG)
 	if errors.Is(err, windows.ERROR_SERVICE_DOES_NOT_EXIST) {
 		return Installation{}, false, nil
 	}
 	if err != nil {
 		return Installation{}, false, errors.Wrapf(err, "failed to open %s", name)
 	}
+	s := &mgr.Service{Name: name, Handle: sh}
 	defer func() {
 		err = errors.Combine(
 			err,
@@ -395,7 +406,10 @@ func (s *synnaxService) Execute(
 ) (bool, uint32) {
 	const accepts = svc.AcceptStop | svc.AcceptShutdown
 	defer func() { changes <- svc.Status{State: svc.Stopped} }()
-	status := svc.Status{State: svc.StartPending}
+	status := svc.Status{
+		State:    svc.StartPending,
+		WaitHint: uint32((3 * startCheckpointInterval).Milliseconds()),
+	}
 	changes <- status
 
 	sCtx, cancel := signal.WithCancel(
@@ -413,18 +427,19 @@ func (s *synnaxService) Execute(
 		return cmdstart.BootupCore(ctx, onServerStarted, cfg)
 	}, signal.CancelOnFail())
 
-	startupTimer := time.After(startupTimeout)
+	checkpoints := time.NewTicker(startCheckpointInterval)
+	defer checkpoints.Stop()
+	checkpoint := checkpoints.C
 o:
 	for {
 		select {
 		case <-onServerStarted:
 			status = svc.Status{State: svc.Running, Accepts: accepts}
-			startupTimer = nil
+			checkpoint = nil
 			changes <- status
-		case <-startupTimer:
-			s.ins.L.Error("service startup timed out")
-			cancel()
-			break o
+		case <-checkpoint:
+			status.CheckPoint++
+			changes <- status
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Stop, svc.Shutdown:

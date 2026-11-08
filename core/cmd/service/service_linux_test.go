@@ -38,6 +38,30 @@ var _ = Describe("Service", func() {
 			Expect(service.Lookup()).Error().ToNot(HaveOccurred())
 		})
 
+		It("Should find no service when systemd does not run", func() {
+			systemctl.Install("/var/lib/synnax", "/usr/local/bin/synnax", "start")
+			systemctl.Offline()
+			_, installed := MustSucceed2(service.Lookup())
+			Expect(installed).To(BeFalse())
+		})
+
+		It("Should return no service when the config file fails to read", func() {
+			config := filepath.Join(GinkgoT().TempDir(), "config.yaml")
+			systemctl.Install(
+				"/var/lib/synnax",
+				"/usr/local/bin/synnax",
+				"start",
+				"--config",
+				config,
+			)
+			inst, installed, err := service.Lookup()
+			Expect(err).To(MatchError(
+				HavePrefix("failed to read service configuration"),
+			))
+			Expect(inst).To(BeZero())
+			Expect(installed).To(BeFalse())
+		})
+
 		DescribeTable(
 			"Should read the data directory from the service command",
 			func(args []string, data string) {
@@ -63,6 +87,11 @@ var _ = Describe("Service", func() {
 				"relative to the working directory",
 				[]string{"start", "--data=data"},
 				"/var/lib/synnax/data",
+			),
+			Entry(
+				"path with a space",
+				[]string{"start", "--data", "/mnt/my data"},
+				"/mnt/my data",
 			),
 			Entry("default", []string{"start"}, "/var/lib/synnax/synnax-data"),
 		)

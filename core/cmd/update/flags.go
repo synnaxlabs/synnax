@@ -41,8 +41,12 @@ func openBackups(ins alamos.Instrumentation) (*storage.Backups, string, error) {
 
 func dataDir() (string, error) {
 	if !viper.IsSet(start.FlagData) {
-		if inst, installed, err := service.Lookup(); err != nil || installed {
-			return filepath.Clean(inst.Data), err
+		inst, installed, err := service.Lookup()
+		if err != nil {
+			return "", err
+		}
+		if installed {
+			return filepath.Clean(inst.Data), nil
 		}
 	}
 	return filepath.Abs(viper.GetString(start.FlagData))

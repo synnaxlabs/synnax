@@ -216,7 +216,7 @@ func BootupCore(
 	cleanup, ok := xservice.NewOpener(ctx, &closer)
 	defer func() {
 		if err = cleanup(err); err != nil && update != nil {
-			err = update.Undo(err)
+			err = update.Undo(ctx, err)
 		}
 	}()
 
@@ -277,6 +277,22 @@ func BootupCore(
 	})
 	if !ok(err, serviceLayer) {
 		return err
+	}
+
+	// No client reaches the data before the commit, so an undo loses no writes.
+	if update != nil {
+		if err = serviceLayer.License.CheckUpdate(update.From); err != nil {
+			return err
+		}
+		if err = update.Commit(); err != nil {
+			return err
+		}
+		cfg.L.Info(
+			"committed the update",
+			zap.String("from", update.From),
+			zap.String("to", update.To),
+		)
+		update = nil
 	}
 
 	apiLayer, err := api.NewLayer(api.LayerConfig{
@@ -379,21 +395,6 @@ func BootupCore(
 		},
 	); !ok(err, embeddedDriver) {
 		return err
-	}
-
-	if update != nil {
-		if err = serviceLayer.License.CheckUpdate(update.From); err != nil {
-			return err
-		}
-		if err = update.Commit(); err != nil {
-			return err
-		}
-		cfg.L.Info(
-			"committed the update",
-			zap.String("from", update.From),
-			zap.String("to", update.To),
-		)
-		update = nil
 	}
 
 	cfg.L.Infof(

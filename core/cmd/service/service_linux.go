@@ -13,6 +13,8 @@ package service
 
 import (
 	"bytes"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"os"
 	"os/exec"
@@ -35,7 +37,8 @@ const (
 	name     = "synnax"
 	unitPath = "/etc/systemd/system/synnax.service"
 	// home is the home directory of the service user, which systemd creates as the
-	// state directory of the service.
+	// state
+	// directory of the service.
 	home = "/var/lib/synnax"
 )
 
@@ -70,15 +73,18 @@ LimitRTPRIO=99
 WantedBy=multi-user.target
 `
 
-func systemctl(args ...string) (string, error) {
+// run runs the program with args and returns its output, or an error with its standard
+// error.
+func run(program string, args ...string) (string, error) {
 	var stderr bytes.Buffer
-	cmd := exec.Command("systemctl", args...)
+	cmd := exec.Command(program, args...)
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
 		return "", errors.Wrapf(
 			err,
-			"systemctl %s failed: %s",
+			"%s %s failed: %s",
+			program,
 			strings.Join(args, " "),
 			strings.TrimSpace(stderr.String()),
 		)
@@ -88,7 +94,12 @@ func systemctl(args ...string) (string, error) {
 
 // show returns the given properties of the service.
 func show(properties ...string) (map[string]string, error) {
-	out, err := systemctl("show", name, "--property="+strings.Join(properties, ","))
+	out, err := run(
+		"systemctl",
+		"show",
+		name,
+		"--property="+strings.Join(properties, ","),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -140,10 +151,10 @@ func install(autoStart bool) error {
 	); err != nil {
 		return errors.Wrap(err, "failed to write the systemd unit")
 	}
-	if _, err = systemctl("daemon-reload"); err != nil || !autoStart {
+	if _, err = run("systemctl", "daemon-reload"); err != nil || !autoStart {
 		return err
 	}
-	_, err = systemctl("enable", name)
+	_, err = run("systemctl", "enable", name)
 	return err
 }
 
@@ -181,70 +192,108 @@ func uninstall() error {
 	} else if err != nil {
 		return err
 	}
-	if _, err := systemctl("disable", "--now", name); err != nil {
+	if _, err := run("systemctl", "disable", "--now", name); err != nil {
 		return err
 	}
 	if err := os.Remove(unitPath); err != nil {
 		return errors.Wrap(err, "failed to remove the systemd unit")
 	}
-	_, err := systemctl("daemon-reload")
+	_, err := run("systemctl", "daemon-reload")
 	return err
 }
 
 // Start starts the Core service.
 func Start() error {
-	_, err := systemctl("start", name)
+	_, err := run("systemctl", "start", name)
 	return err
 }
 
 // Stop stops the Core service and waits until the Core exits. It does nothing when the
 // service is not running.
 func Stop() error {
-	_, err := systemctl("stop", name)
+	_, err := run("systemctl", "stop", name)
 	return err
 }
 
-// Lookup returns the Core service on this host, or false when none is installed. It
-// reads the data directory from the flags of the service command, or from the config
-// file that the command names.
+// Lookup returns the Core service on this host, or false when none is installed or
+// systemd does not run. It reads the data directory from the flags of the service
+// command, or from the config file that the command names.
 func Lookup() (Installation, bool, error) {
-	props, err := show("LoadState", "ExecStart", "WorkingDirectory")
-	if errors.Is(err, exec.ErrNotFound) {
+	offline, err := systemdOffline()
+	if errors.Is(err, exec.ErrNotFound) || (err == nil && offline) {
 		return Installation{}, false, nil
 	}
+	if err != nil {
+		return Installation{}, false, err
+	}
+	props, err := show("LoadState", "WorkingDirectory")
 	if err != nil {
 		return Installation{}, false, err
 	}
 	if props["LoadState"] != "loaded" {
 		return Installation{}, false, nil
 	}
-	binary, args := parseExecStart(props["ExecStart"])
-	if binary == "" {
-		return Installation{}, false, errors.Newf(
-			"failed to read the command of service %s",
-			name,
-		)
+	binary, args, err := execStart()
+	if err != nil {
+		return Installation{}, false, err
 	}
 	data, err := dataDir(args, props["WorkingDirectory"])
-	return Installation{Binary: binary, Data: data}, true, err
+	if err != nil {
+		return Installation{}, false, err
+	}
+	return Installation{Binary: binary, Data: data}, true, nil
 }
 
-// parseExecStart returns the binary and the arguments of an ExecStart property, which
-// systemctl shows as "{ path=<binary> ; argv[]=<binary> <args> ; ... }".
-func parseExecStart(property string) (string, []string) {
-	field := func(key string) string {
-		_, rest, ok := strings.Cut(property, key+"=")
-		if !ok {
-			return ""
-		}
-		value, _, _ := strings.Cut(rest, " ;")
-		return value
+// systemdOffline reports whether systemd does not manage this host, such as in a
+// container.
+func systemdOffline() (bool, error) {
+	out, err := exec.Command("systemctl", "is-system-running").Output()
+	// The command exits with an error in every state but running.
+	if err != nil && !errors.As(err, new(*exec.ExitError)) {
+		return false, err
 	}
-	argv := strings.Fields(field("argv[]"))
+	return strings.TrimSpace(string(out)) == "offline", nil
+}
+
+// execStart returns the binary and the arguments of the service command. It reads them
+// with busctl, because systemctl show joins the arguments with spaces.
+func execStart() (string, []string, error) {
+	out, err := run(
+		"busctl",
+		"get-property",
+		"--json=short",
+		"org.freedesktop.systemd1",
+		"/org/freedesktop/systemd1/unit/synnax_2eservice",
+		"org.freedesktop.systemd1.Service",
+		"ExecStart",
+	)
+	if err != nil {
+		return "", nil, err
+	}
+	// Each command is a D-Bus structure that starts with the binary and the argv.
+	var property struct {
+		Data [][]jsontext.Value `json:"data"`
+	}
+	if err = json.Unmarshal([]byte(out), &property); err != nil {
+		return "", nil, errors.Wrapf(err, "failed to read the command of %s", name)
+	}
+	if len(property.Data) == 0 || len(property.Data[0]) < 2 {
+		return "", nil, errors.Newf("service %s has no command", name)
+	}
+	var (
+		binary string
+		argv   []string
+	)
+	if err = json.Unmarshal(property.Data[0][0], &binary); err != nil {
+		return "", nil, errors.Wrapf(err, "failed to read the binary of %s", name)
+	}
+	if err = json.Unmarshal(property.Data[0][1], &argv); err != nil {
+		return "", nil, errors.Wrapf(err, "failed to read the arguments of %s", name)
+	}
 	if len(argv) == 0 {
-		return field("path"), nil
+		return "", nil, errors.Newf("service %s has no command", name)
 	}
-	return field("path"), argv[1:]
+	return binary, argv[1:], nil
 }
 
 // dataDir returns the data directory of a `synnax start` with the given arguments in

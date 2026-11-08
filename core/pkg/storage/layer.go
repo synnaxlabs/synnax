@@ -235,7 +235,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() {
 		if err = cleanup(err); err != nil && update != nil {
-			err = update.Undo(err)
+			err = update.Undo(ctx, err)
 		}
 	}()
 

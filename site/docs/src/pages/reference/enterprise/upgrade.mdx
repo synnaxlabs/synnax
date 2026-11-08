@@ -56,9 +56,10 @@ Download the new binary:
 
 <DownloadURL os="linux" />
 
-If the Core runs as a [service](/reference/enterprise/service), update it:
+If the Core runs as a [service](/reference/enterprise/service), update it with the new
+binary, because an older Core has no update command:
 
-<UpdateCommand os="linux" />
+<UpdateCommand os="linux" target="service" />
 
 The command stops the service, puts the new binary in place of the old one, and starts
 the service. It then waits up to 10 minutes for the new Core to commit the update. To
@@ -66,8 +67,12 @@ change the wait, add `--timeout`, such as `--timeout 30m`. If the new Core fails
 command puts the old Core back and starts it. The old binary stays next to the new one,
 with an `.old` extension.
 
-If the Core runs in a terminal, stop it with **Ctrl+C** and run the same command. Then
-start the Core with the same flags and from the same folder as before, so it uses the
+If the Core runs in a terminal, stop it with **Ctrl+C**, then put the new binary in
+place of the old one:
+
+<UpdateCommand os="linux" target="binary" />
+
+Start the Core with the same flags and from the same folder as before, so it uses the
 same data folder.
 
 </Fragment>
@@ -80,7 +85,7 @@ Download the new binary:
 
 Stop the Core with **Ctrl+C**, then put the new binary in place of the old one:
 
-<UpdateCommand os="macos" />
+<UpdateCommand os="macos" target="binary" />
 
 Start the Core with the same flags and from the same folder as before, so it uses the
 same data folder.
@@ -144,9 +149,9 @@ To check the version, run `synnax --version`.
 
 ## When an update fails
 
-The new Core commits the update when it is ready for clients, and no client writes to
-the data before that. If the new Core fails before the commit, it puts the backup back
-and stops with a message such as:
+The new Core commits the update after it opens the data and before it serves clients, so
+no client writes to the data before the commit. If the new Core fails before the commit,
+it puts the backup back and stops with a message such as:
 
 ```
 Update to Core 0.61.0 failed: no space left on device. The data is back at Core 0.60.1.
@@ -154,8 +159,9 @@ Run Core 0.60.1, or fix the cause and run `synnax update retry`.
 ```
 
 The update also fails when the license covered the old version but does not cover the
-new one. When the Core stops before the commit, for example after a power loss, its next
-start undoes the update.
+new one. When you stop the Core before the commit, it puts the backup back, and its next
+start updates the data again. When the Core stops before the commit without a chance to
+clean up, for example after a power loss, its next start undoes the update.
 
 After a failed update, the new version does not start on the data, so a service or a
 container that restarts does not repeat the update. `synnax update` and the Windows
@@ -209,8 +215,8 @@ To go back, undo the update:
    synnax update undo
    ```
 
-   For a Core service, the command uses the data folder of the service. Otherwise, add
-   the same `--data` flag as `synnax start`.
+   For a Core service, the command uses the data folder of the service. On Linux, run it
+   with `sudo`. Otherwise, add the same `--data` flag as `synnax start`.
 
    The command restores the backup of the last update and prints the Core version to
    run. It refuses if the last update is already undone. If `synnax update` installed

@@ -27,7 +27,8 @@ import (
 
 const (
 	// oldSuffix names the binary that an update replaced, next to the binary that
-	// replaced it.
+	// replaced
+	// it.
 	oldSuffix = ".old"
 	// stagedSuffix names the new binary while the update checks it.
 	stagedSuffix = ".new"
@@ -72,6 +73,12 @@ func fromFile(ctx context.Context, w io.Writer, file string, timeout time.Durati
 		)
 	}
 	if !installed {
+		if to == from {
+			return printLines(
+				w,
+				fmt.Sprintf("Core %s is already installed at %s.", to, binary),
+			)
+		}
 		if err = replace(binary, staged); err != nil {
 			return err
 		}
@@ -86,14 +93,25 @@ func fromFile(ctx context.Context, w io.Writer, file string, timeout time.Durati
 	if err != nil {
 		return errors.Wrapf(err, "failed to open the data of the Core service")
 	}
-	if state, err := backups.UpdateState(to); err != nil {
+	state, err := backups.UpdateState(to)
+	if err != nil {
 		return err
-	} else if state == storage.UpdateUndone {
+	}
+	switch {
+	case state == storage.UpdateUndone:
 		return errors.Newf(
 			"The update to Core %s failed before. Fix the cause, run `synnax update "+
 				"retry`, then update again.",
 			to,
 		)
+	// The pending update still needs the old binary that a replace would overwrite.
+	case state == storage.UpdatePending:
+		return errors.New(
+			"An update of the data did not finish. Wait for the Core service to " +
+				"finish it, and start the service if it stopped.",
+		)
+	case to == from:
+		return printLines(w, fmt.Sprintf("Core %s is already installed.", to))
 	}
 	if err = printLines(w, "Stopping the Core service."); err != nil {
 		return err
@@ -115,8 +133,7 @@ func fromFile(ctx context.Context, w io.Writer, file string, timeout time.Durati
 	if err = service.Start(); err != nil {
 		return err
 	}
-	state, err := waitForUpdate(ctx, backups, to, timeout)
-	if err != nil {
+	if state, err = waitForUpdate(ctx, backups, to, timeout); err != nil {
 		return err
 	}
 	switch state {
@@ -221,7 +238,7 @@ func replace(binary, staged string) error {
 }
 
 // waitForUpdate waits up to timeout for the Core to commit or undo the update of the
-// data to version. It returns storage.UpdatePending when the timeout passes first.
+// data to version. When the timeout passes first, it returns the last state.
 func waitForUpdate(
 	ctx context.Context,
 	backups *storage.Backups,
@@ -233,12 +250,15 @@ func waitForUpdate(
 	defer ticker.Stop()
 	for {
 		state, err := backups.UpdateState(version)
-		if err != nil || state != storage.UpdatePending {
-			return state, err
+		if err != nil {
+			return 0, err
+		}
+		if state == storage.UpdateCommitted || state == storage.UpdateUndone {
+			return state, nil
 		}
 		select {
 		case <-ctx.Done():
-			return state, ctx.Err()
+			return 0, ctx.Err()
 		case <-deadline:
 			return state, nil
 		case <-ticker.C:

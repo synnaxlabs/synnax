@@ -157,16 +157,20 @@ func undo(
 	dir string,
 	args []string,
 ) error {
-	var (
-		res storage.Restored
-		err error
-	)
+	inst, installed, err := installation()
+	if err != nil {
+		return err
+	}
+	var res storage.Restored
 	if len(args) == 1 {
 		if res, err = backups.Restore(args[0]); err != nil {
 			return errors.Wrapf(err, "failed to restore backup %s", args[0])
 		}
 	} else if res, err = backups.Undo(); err != nil {
 		return err
+	}
+	if err = matchOwner(dir); err != nil {
+		return errors.Wrap(err, "failed to give the restored files to the data owner")
 	}
 	lines := []string{fmt.Sprintf("Restored backup %s.", res.Backup.Name)}
 	if res.OrphanedDir != "" {
@@ -183,19 +187,16 @@ func undo(
 	if err = printLines(w, lines...); err != nil {
 		return err
 	}
-	inst, installed, err := installation()
-	if err != nil {
-		return err
-	}
+	run := fmt.Sprintf("Run Core %s on the data.", res.Backup.Version)
 	if installed && filepath.Clean(inst.Data) != dir {
-		return printLines(
-			w,
-			fmt.Sprintf("Run Core %s on the data.", res.Backup.Version),
-		)
+		return printLines(w, run)
 	}
 	putBack, err := putBackOld(ctx, inst.Binary, res.Backup.Version)
 	if err != nil {
-		return err
+		return errors.Combine(
+			errors.Wrapf(err, "failed to put back the binary at %s", inst.Binary),
+			printLines(w, run),
+		)
 	}
 	if putBack {
 		return printLines(w, fmt.Sprintf(
@@ -204,7 +205,7 @@ func undo(
 			inst.Binary,
 		))
 	}
-	return printLines(w, fmt.Sprintf("Run Core %s on the data.", res.Backup.Version))
+	return printLines(w, run)
 }
 
 func history(w io.Writer, backups *storage.Backups) error {

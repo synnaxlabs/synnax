@@ -121,6 +121,29 @@ var _ = Describe("Update with a Core service", func() {
 			Expect(binary + ".new").ToNot(BeAnExistingFile())
 		})
 
+		It("Should not update while an update of the data is pending", func() {
+			writeCore(binary+".old", "0.59.0")
+			Expect(os.WriteFile(
+				filepath.Join(data, "UPDATING"),
+				[]byte("0000000001-0.59.0\n0.60.0"),
+				0o600,
+			)).To(Succeed())
+			Expect(run("--file", next)).To(MatchError(
+				"An update of the data did not finish. Wait for the Core service to " +
+					"finish it, and start the service if it stopped.",
+			))
+			Expect(systemctl.Calls()).To(BeEmpty())
+			Expect(coreAt(binary + ".old")).To(ContainSubstring("0.59.0"))
+		})
+
+		It("Should do nothing when the Core is already installed", func() {
+			writeCore(next, "0.60.0")
+			Expect(run("--file", next)).To(Succeed())
+			Expect(out.String()).To(Equal("Core 0.60.0 is already installed.\n"))
+			Expect(systemctl.Calls()).To(BeEmpty())
+			Expect(binary + ".old").ToNot(BeAnExistingFile())
+		})
+
 		It("Should not update to an older Core", func() {
 			writeCore(next, "0.59.0")
 			Expect(run("--file", next)).To(MatchError(
@@ -194,6 +217,38 @@ var _ = Describe("Update with a Core service", func() {
 			)).To(Succeed())
 			Expect(out.String()).
 				To(HaveSuffix("Run Core 0.59.0 on the data.\n"))
+			Expect(coreAt(binary)).To(ContainSubstring("0.61.0"))
+		})
+
+		It("Should not restore the backup when the service lookup fails", func() {
+			createBackup(data, "0000000001-0.60.0")
+			systemctl.Install(
+				filepath.Dir(binary),
+				binary,
+				"start",
+				"--config",
+				filepath.Join(data, "missing.yaml"),
+			)
+			Expect(run(
+				"undo",
+				"--data", data,
+				"--log-file-path", filepath.Join(data, "logs", "synnax.log"),
+			)).To(MatchError(HavePrefix("failed to read service configuration")))
+			Expect(MustSucceed(os.ReadFile(filepath.Join(data, "VERSION")))).
+				To(BeEquivalentTo("0.61.0"))
+		})
+
+		It("Should name the Core to run when the put back fails", func() {
+			createBackup(data, "0000000001-0.60.0")
+			Expect(os.WriteFile(binary+".old", []byte("not a binary"), 0o755)).
+				To(Succeed())
+			Expect(run(
+				"undo",
+				"--log-file-path", filepath.Join(data, "logs", "synnax.log"),
+			)).To(MatchError(
+				HavePrefix("failed to put back the binary at " + binary + ": "),
+			))
+			Expect(out.String()).To(HaveSuffix("Run Core 0.60.0 on the data.\n"))
 			Expect(coreAt(binary)).To(ContainSubstring("0.61.0"))
 		})
 
