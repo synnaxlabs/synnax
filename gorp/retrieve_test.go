@@ -443,6 +443,25 @@ var _ = Describe("Retrieve", func() {
 					Expect(res).To(HaveLen(2))
 				},
 			)
+
+			It(
+				"Should return nothing when the cursor sorts past the prefix",
+				func(ctx SpecContext) {
+					es := []prefixEntry{{ID: 1, Data: "a"}, {ID: 2, Data: "b"}}
+					Expect(
+						gorp.NewCreate[string, prefixEntry]().Entries(&es).
+							Exec(ctx, tx),
+					).To(Succeed())
+					var res []prefixEntry
+					Expect(gorp.NewRetrieve[string, prefixEntry]().
+						WherePrefix([]byte("prefix-1")).
+						After("prefix-2").
+						Entries(&res).
+						Exec(ctx, tx),
+					).To(Succeed())
+					Expect(res).To(BeEmpty())
+				},
+			)
 		})
 	})
 

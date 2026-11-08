@@ -10,6 +10,7 @@
 import { TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
+import { ValidationError } from "@/errors";
 import { query } from "@/query";
 import { Lists, MAX_SEARCH_LIMIT } from "@/query/list";
 import { type SpaceHooks } from "@/query/query";
@@ -115,6 +116,13 @@ describe("Lists", () => {
       );
     });
 
+    it("should reject a limit that is not positive", () => {
+      const { lists } = setup([]);
+      expect(() => lists.list({ order: byName, limit: 0 })).toThrow(
+        new ValidationError("a thing list needs a positive limit"),
+      );
+    });
+
     it("should page in key order when the query sets no order", async () => {
       const { lists } = setup([rec("2", "a"), rec("1", "b"), rec("3", "c")]);
       const window = await lists.list({ limit: 2 }).retrieve();
@@ -182,6 +190,7 @@ describe("Lists", () => {
     it("should fetch past the end and add the page", async () => {
       const { lists, fetch } = setup([rec("1", "a"), rec("2", "b"), rec("3", "c")]);
       const list = lists.list({ order: byName, limit: 2 });
+      list.onChange(vi.fn());
       await list.retrieve();
       const window = await list.more(2);
       expect(names(window)).toEqual(["a", "b", "c"]);
@@ -195,8 +204,33 @@ describe("Lists", () => {
     it("should fetch nothing when the window holds every match", async () => {
       const { lists, fetch } = setup([rec("1", "a")]);
       const list = lists.list({ order: byName, limit: 2 });
+      list.onChange(vi.fn());
       await list.retrieve();
       await list.more(2);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should fetch an unmaintained window again from its start", async () => {
+      const { lists, core, table, fetch } = setup([
+        rec("1", "a"),
+        rec("2", "b"),
+        rec("3", "c"),
+        rec("4", "d"),
+      ]);
+      const list = lists.list({ order: byName, limit: 3 });
+      await list.retrieve();
+      core.records = core.records.filter(({ key }) => key !== "2");
+      table.delete("2");
+      expect(names(await list.more(1))).toEqual(["a", "c", "d"]);
+      expect(fetch).toHaveBeenLastCalledWith({ order: byName, limit: 4 }, undefined);
+    });
+
+    it("should fetch nothing for a count that is not positive", async () => {
+      const { lists, fetch } = setup([rec("1", "a"), rec("2", "b")]);
+      const list = lists.list({ order: byName, limit: 1 });
+      list.onChange(vi.fn());
+      await list.retrieve();
+      expect(names(await list.more(0))).toEqual(["a"]);
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -369,6 +403,20 @@ describe("Lists", () => {
       expect(list.getCached()?.end).not.toBeNull();
     });
 
+    it("should fetch again on a change during its first fetch", async () => {
+      const { lists, table, fetch, core } = setup([rec("1", "ab")]);
+      const list = lists.list({ searchTerm: "a", limit: 2 });
+      list.onChange(vi.fn());
+      fetch.mockImplementationOnce(async () => {
+        core.records.push(rec("2", "ac"));
+        table.set("2", rec("2", "ac"));
+        return [rec("1", "ab")];
+      });
+      await list.retrieve();
+      await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("should treat an empty search term as no search", async () => {
       const { lists, fetch } = setup([rec("1", "b"), rec("2", "a")]);
       const window = await lists.list({ searchTerm: "", order: byName }).retrieve();
@@ -471,6 +519,53 @@ describe("Lists", () => {
       list.onChange(vi.fn());
       await expect.poll(() => names(list.getCached())).toEqual(["a", "b"]);
       expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should not fetch again on subscribe after an unmaintained fetch", async () => {
+      const { lists, fetch } = setup([rec("1", "a")]);
+      const list = lists.list({ order: byName });
+      await list.retrieve();
+      list.onChange(vi.fn());
+      await list.retrieve();
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should refetch on subscribe after a change during an unmaintained fetch", async () => {
+      const { lists, table, fetch, core } = setup([rec("1", "a")]);
+      const list = lists.list({ order: byName });
+      fetch.mockImplementationOnce(async () => {
+        core.records.push(rec("2", "b"));
+        table.set("2", rec("2", "b"));
+        return [rec("1", "a")];
+      });
+      await list.retrieve();
+      list.onChange(vi.fn());
+      await expect.poll(() => names(list.getCached())).toEqual(["a", "b"]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should drop a record deleted while unmaintained on resubscribe", async () => {
+      const { lists, table, core } = setup([rec("1", "a"), rec("2", "b")]);
+      const list = lists.list({ order: byName });
+      list.onChange(vi.fn())();
+      await list.retrieve();
+      core.records = core.records.filter(({ key }) => key !== "2");
+      table.delete("2");
+      list.onChange(vi.fn());
+      core.records.push(rec("3", "c"));
+      table.set("3", rec("3", "c"));
+      expect(names(list.getCached())).toEqual(["a", "c"]);
+    });
+
+    it("should release the records it holds on close", async () => {
+      const { lists, table } = setup([rec("1", "a")]);
+      const list = lists.list({ order: byName });
+      list.onChange(vi.fn());
+      await list.retrieve();
+      table.trim(0);
+      expect(table.trim(0)).toEqual([]);
+      lists.close();
+      expect(table.trim(0)).toEqual(["1"]);
     });
 
     it("should discard the window on reset and fetch a read in flight again", async () => {

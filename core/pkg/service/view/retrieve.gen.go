@@ -162,10 +162,17 @@ func MatchKeys(keys ...Key) Filter {
 // views whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(Retrieve) gorp.Filter[Key, View] {
-		return gorp.Match(func(_ gorp.Context, e *View) (bool, error) {
-			return slices.Contains(vals, e.Base().Name), nil
-		})
+	return func(r Retrieve) gorp.Filter[Key, View] {
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *View) (bool, error) {
+				return slices.Contains(vals, e.Base().Name), nil
+			}),
+		)
 	}
 }
 

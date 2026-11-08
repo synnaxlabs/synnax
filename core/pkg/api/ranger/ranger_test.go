@@ -459,7 +459,7 @@ var _ = Describe("Retrieve", func() {
 					Order: &apiranger.Order{Field: apiranger.OrderFieldName},
 					After: &apiranger.Cursor{Key: uuid.New()},
 				},
-				"after.name: is required to resume an order by name",
+				"after.name: is required to resume an order by name: validation error",
 			),
 			Entry(
 				"that sorts a search",
@@ -467,7 +467,7 @@ var _ = Describe("Retrieve", func() {
 					SearchTerm: "fire",
 					Order:      &apiranger.Order{Field: apiranger.OrderFieldName},
 				},
-				"order: a search sorts by relevance",
+				"order: a search sorts by relevance: validation error",
 			),
 			Entry(
 				"that resumes a search",
@@ -475,12 +475,12 @@ var _ = Describe("Retrieve", func() {
 					SearchTerm: "fire",
 					After:      &apiranger.Cursor{Key: uuid.New()},
 				},
-				"after: a search cannot resume after a position",
+				"after: a search cannot resume after a position: validation error",
 			),
 			Entry(
 				"that sorts by an unknown field",
 				apiranger.RetrieveRequest{Order: &apiranger.Order{Field: "color"}},
-				`order.field: "color" is not a field to sort by`,
+				`order.field: "color" is not a field to sort by: validation error`,
 			),
 		)
 	})

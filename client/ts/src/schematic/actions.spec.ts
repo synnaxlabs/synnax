@@ -1247,9 +1247,4 @@ describe("group and project patches", () => {
         .project,
     ).toEqual(G2);
   });
-  it("should throw on a path to a field outside the patchable fields", () => {
-    expect(() =>
-      schematic.reduceAll(empty(), [schematic.set({ path: ["nodes"], value: [] })]),
-    ).toThrow("nodes is not inside a field of name, group, project");
-  });
 });

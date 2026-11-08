@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -151,7 +152,7 @@ func (r Retrieve[K, E]) After(key K) Retrieve[K, E] {
 const errCursorWithOrder = "gorp: After cannot combine with OrderBy"
 
 // OrderBy walks the results in the order defined by the given OrderQuery,
-// typically obtained from SortedIndex.Ordered(dir) (optionally with .After(cursor)
+// typically obtained from SortedIndex.Ordered(dir) (optionally with .After(value, key)
 // chained for cursor-based pagination). Combine with Limit for paged walks. OrderBy
 // panics on a query with an After.
 func (r Retrieve[K, E]) OrderBy(o OrderQuery[K, E]) Retrieve[K, E] {
@@ -561,50 +562,42 @@ const minWalkBatch = 128
 func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 	var (
 		reader  = wrapReader[K, E](tx, r.keyPrefix)
-		matched = make([]E, 0, r.limit)
+		matched = make([]E, 0, min(r.limit, minWalkBatch))
+		counted = set.New[K]()
 		gorpCtx = Context{Context: ctx, Tx: tx}
-		e       E
-		zero    E
+		batch   int
 		bounded []K
 	)
 	if r.HasFilterKeys() {
 		bounded = r.filter.keys.Keys()
 	}
-	next := r.orderBy.walker(bounded)
-	full := func() bool { return r.limit > 0 && len(matched) == r.limit }
-	for !full() {
-		n := 0
-		if r.limit > 0 {
-			n = max(r.limit-len(matched), minWalkBatch)
+	if r.limit > 0 {
+		batch = max(r.limit, minWalkBatch)
+	}
+	for k, holds := range r.orderBy.walk(bounded, batch) {
+		// A commit between two batches can move a counted key ahead of the walk.
+		if counted.Contains(k) {
+			continue
 		}
-		keys := next(n)
-		if len(keys) == 0 {
-			break
-		}
-		for _, k := range keys {
-			if !r.filter.keys.Contains(k) {
+		var e E
+		b, closer, err := reader.get(ctx, k, &e)
+		if err != nil {
+			if errors.Is(err, query.ErrNotFound) {
 				continue
 			}
-			e = zero
-			b, closer, err := reader.get(ctx, k, &e)
-			if err != nil {
-				if errors.Is(err, query.ErrNotFound) {
-					continue
-				}
-				return err
-			}
-			match, mErr := r.matchEval(gorpCtx, &e, nil, b)
-			if cErr := closer.Close(); mErr != nil || cErr != nil {
-				return errors.Combine(mErr, cErr)
-			}
-			if !match {
-				continue
-			}
-			if matched = append(matched, e); full() {
-				break
-			}
+			return err
 		}
-		if n == 0 {
+		match, mErr := r.matchEval(gorpCtx, &e, nil, b)
+		if cErr := closer.Close(); mErr != nil || cErr != nil {
+			return errors.Combine(mErr, cErr)
+		}
+		// A commit between the walk and the read can move the entry. Skipping it keeps
+		// the page in walk order.
+		if !match || !holds(&e) {
+			continue
+		}
+		counted.Add(k)
+		if matched = append(matched, e); r.limit > 0 && len(matched) == r.limit {
 			break
 		}
 	}

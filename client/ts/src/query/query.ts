@@ -398,7 +398,7 @@ export class Space<
         case "deleted":
           return Promise.reject(new NotFoundError(`${this.config.name} was deleted`));
       }
-    void this.startStreaming();
+    void startStreaming(this.hooks, (exc) => this.report(exc));
     return this.fetch(query, options);
   }
 
@@ -463,7 +463,7 @@ export class Space<
    * quick remount skips the reconfirm refetch. Returns a destructor that unsubscribes.
    */
   onChange(params: P, handler: ChangeHandler<D>): destructor.Destructor {
-    void this.startStreaming();
+    void startStreaming(this.hooks, (exc) => this.report(exc));
     const query = this.ensure(params);
     query.handlers.add(handler);
     query.idleSince = undefined;
@@ -600,10 +600,6 @@ export class Space<
       this.queries.set(hashed, query);
     }
     return query;
-  }
-
-  private async startStreaming(): Promise<void> {
-    await startStreaming(this.hooks, (exc) => this.report(exc));
   }
 
   private report(

@@ -34,11 +34,8 @@ import {
 } from "@/log/actions.gen";
 import { channelEntryZ, type Log, logZ } from "@/log/types.gen";
 
-// The Core alone sets the group and the project.
-const FIELDS = ["name", "group", "project"];
-
 const applyPath = (state: Draft<Log>, action: patch.Action): HandlerResult =>
-  actions.applyFieldPath(state, action, FIELDS, logZ);
+  actions.applyPath(state, action, logZ);
 
 // Handlers report the narrowest resource each action touches as its target. Log-level
 // config (timestamp precision, display flags) targets the log key itself, and a path

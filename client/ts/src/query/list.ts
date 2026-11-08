@@ -15,6 +15,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
+import { ValidationError } from "@/errors";
 import {
   DEFAULT_DEBOUNCE,
   DEFAULT_TEARDOWN_GRACE,
@@ -126,21 +127,23 @@ export interface ListsConfig<
 interface Seen {
   /** The versions of the table and of each watched table. */
   versions: number[];
+  /** Null while the stream does not maintain the tables. */
   epoch: number | null;
 }
 
 interface Entry<Q, K extends record.Key, D extends Data, V, C> {
   /** The query without its limit and cursor. */
   query: Q;
-  search: boolean;
+  /** Whether only the Core can order and match the window, as in a search. */
+  ranked: boolean;
   /** The window's keys, in list order. */
   keys: K[];
   end: C | null;
   fetched: boolean;
   /** The largest limit a reader asked for: Infinity for every match, 0 before any. */
   limit: number;
-  /** The limit of the search fetch behind the window. */
-  searched?: number;
+  /** The limit of the ranked fetch behind the window. */
+  searchLimit?: number;
   handlers: Set<WindowHandler<D, C>>;
   /** The list handles of the window, by the limit they ask for. */
   lists: Map<number | undefined, List<D, C>>;
@@ -210,6 +213,8 @@ export class Lists<
    */
   list(query: Q): List<D, C> {
     const { limit, after: _after, ...rest } = query;
+    if (limit != null && limit <= 0)
+      throw new ValidationError(`a ${this.config.name} list needs a positive limit`);
     const base = (
       rest.searchTerm === "" ? { ...rest, searchTerm: undefined } : rest
     ) as Q;
@@ -239,7 +244,7 @@ export class Lists<
       entry.keys = [];
       entry.end = null;
       entry.fetched = false;
-      entry.searched = undefined;
+      entry.searchLimit = undefined;
       entry.stale = false;
       entry.composed = undefined;
       this.deliver(entry);
@@ -282,7 +287,7 @@ export class Lists<
       entry.keys = [];
       entry.end = null;
       entry.fetched = false;
-      entry.searched = undefined;
+      entry.searchLimit = undefined;
       entry.composed = undefined;
     });
   }
@@ -294,7 +299,7 @@ export class Lists<
       const { matches, serverComputed } = this.config;
       entry = {
         query,
-        search:
+        ranked:
           matches == null ||
           query.searchTerm != null ||
           serverComputed?.(query) === true,
@@ -322,7 +327,7 @@ export class Lists<
     entry.limit = Math.max(entry.limit, limit ?? Infinity);
     void startStreaming(this.hooks, (exc) => this.report(exc));
     return await this.enqueue(entry, async () => {
-      if (!this.trusted(entry) || (entry.search && this.searchShort(entry)))
+      if (!this.trusted(entry) || (entry.ranked && this.searchShort(entry)))
         await this.replace(entry, options);
       else if (entry.end != null && (limit == null || entry.keys.length < limit))
         await this.extend(
@@ -340,17 +345,18 @@ export class Lists<
     options?: FetchOptions,
   ): Promise<Window<D, C>> {
     return await this.enqueue(entry, async () => {
-      if (!entry.fetched) {
-        entry.limit = Math.max(entry.limit, n);
+      if (n <= 0) return this.windowOf(entry);
+      if (!this.trusted(entry)) {
+        entry.limit = Math.max(entry.limit, entry.keys.length + n);
         await this.replace(entry, options);
       } else if (entry.end != null)
-        if (entry.search) {
-          const searched = entry.searched ?? 0;
+        if (entry.ranked) {
+          const searchLimit = entry.searchLimit ?? 0;
           entry.limit = Math.min(
-            Math.max(searched + n, 2 * searched),
+            Math.max(searchLimit + n, 2 * searchLimit),
             MAX_SEARCH_LIMIT,
           );
-          if (entry.limit > searched) await this.replace(entry, options);
+          if (entry.limit > searchLimit) await this.replace(entry, options);
         } else await this.extend(entry, n, options);
       return this.windowOf(entry);
     });
@@ -369,12 +375,12 @@ export class Lists<
   /** Whether a reader asked a search for more records than its fetch returned. */
   private searchShort(entry: Entry<Q, K, D, V, C>): boolean {
     if (entry.end == null) return false;
-    return entry.limit > (entry.searched ?? Infinity);
+    return entry.limit > (entry.searchLimit ?? Infinity);
   }
 
-  /** Runs the task after every fetch queued before it, whether that fetch failed. */
+  /** Runs the task after every fetch queued before it. The queue never rejects. */
   private async enqueue<T>(entry: Entry<Q, K, D, V, C>, task: () => Promise<T>) {
-    const run = entry.queue.then(task, task);
+    const run = entry.queue.then(task);
     entry.queue = run.catch(() => undefined);
     return await run;
   }
@@ -385,10 +391,10 @@ export class Lists<
     options?: FetchOptions,
   ): Promise<void> {
     this.clearRefetch(entry);
-    const { search } = entry;
+    const { ranked } = entry;
     // A refetch keeps the records that more added.
     const size = finite(
-      search ? entry.limit : Math.max(entry.limit, entry.keys.length),
+      ranked ? entry.limit : Math.max(entry.limit, entry.keys.length),
     );
     const page = await this.page(entry, { ...entry.query, limit: size }, options);
     // A reset discarded the window, so the read goes to the new cluster.
@@ -396,9 +402,11 @@ export class Lists<
     entry.fetched = true;
     entry.stale = false;
     entry.end = this.endOf(entry, page.records, size);
-    if (search) {
-      entry.searched = size;
+    if (ranked) {
+      entry.searchLimit = size;
       entry.keys = page.records.map(({ key }) => key);
+      // Only the Core can place a change that landed during the fetch.
+      if (page.rechecks.size > 0) this.scheduleRefetch(entry);
     } else {
       entry.keys = [];
       this.admitPage(entry, page);
@@ -436,6 +444,8 @@ export class Lists<
     const rechecks = new Set<K>();
     entry.rechecks = rechecks;
     const since = table.stamp();
+    // A change that lands during the fetch reaches no unmaintained window.
+    const before = this.seen();
     let records: V[];
     try {
       records = await fetch(query, options);
@@ -443,20 +453,21 @@ export class Lists<
       if (entry.rechecks === rechecks) entry.rechecks = undefined;
     }
     if (entry.generation !== generation) return null;
+    const missed = !unchanged(before, this.seen());
     entry.ingesting = true;
     try {
       table.ingest(records, { since });
     } finally {
       entry.ingesting = false;
     }
-    if (entry.teardown == null) entry.seen = this.seen();
+    if (entry.teardown == null) entry.seen = missed ? before : this.seen();
     return { records, rechecks };
   }
 
   private endOf(entry: Entry<Q, K, D, V, C>, records: V[], limit?: number): C | null {
     const last = records.at(-1);
     if (limit == null || records.length < limit || last == null) return null;
-    return this.config.cursor(last, entry.search ? undefined : entry.query.order);
+    return this.config.cursor(last, entry.ranked ? undefined : entry.query.order);
   }
 
   /** Admits a page and the keys that changed while it was in flight. */
@@ -528,7 +539,7 @@ export class Lists<
     const keys = events.map(({ key }) => key);
     if (entry.rechecks != null) keys.forEach((key) => entry.rechecks?.add(key));
     if (!entry.fetched) return;
-    if (!entry.search) {
+    if (!entry.ranked) {
       if (this.admit(entry, keys)) this.deliver(entry);
       return;
     }
@@ -563,7 +574,7 @@ export class Lists<
   private onWatch(entry: Entry<Q, K, D, V, C>, result: K[] | "refetch"): void {
     if (entry.ingesting || !entry.fetched) return;
     if (result === "refetch") return this.scheduleRefetch(entry);
-    if (entry.search) this.scheduleRefetch(entry);
+    if (entry.ranked) this.scheduleRefetch(entry);
     else this.admit(entry, result);
     const members = new Set(entry.keys);
     if (!result.some((key) => members.has(key))) return;
@@ -580,18 +591,10 @@ export class Lists<
       ),
     ];
     entry.teardown = () => releases.forEach((release) => release());
-    const { seen } = entry;
-    const now = this.seen();
-    // The window saw no change while unmaintained, so one may have reached the table.
-    if (
-      entry.fetched &&
-      (seen == null ||
-        seen.epoch == null ||
-        !compare.arraysEqual(seen.versions, now.versions) ||
-        seen.epoch !== now.epoch)
-    )
-      entry.stale = true;
+    if (entry.fetched && !unchanged(entry.seen, this.seen())) entry.stale = true;
     if (!entry.stale || !entry.fetched) return;
+    // A record deleted while unmaintained leaves its key until the refetch lands.
+    entry.keys = entry.keys.filter((key) => table.get(key) != null);
     // A watched change leaves the records as they were, so the window composes again.
     entry.composed = undefined;
     this.scheduleRefetch(entry);
@@ -701,6 +704,12 @@ export class Lists<
     this.hooks.onError(new Error(message, { cause: exc }));
   }
 }
+
+/** Whether the tables took no change between the two snapshots. */
+const unchanged = (before: Seen | undefined, now: Seen): boolean =>
+  before?.epoch != null &&
+  compare.arraysEqual(before.versions, now.versions) &&
+  before.epoch === now.epoch;
 
 /** Returns the limit to send the Core: undefined for every record. */
 const finite = (limit: number): number | undefined =>

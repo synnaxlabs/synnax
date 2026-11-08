@@ -73,11 +73,6 @@ describe("arc reducer", () => {
     it("should set the name of a text Arc", () => {
       expect(apply(emptyText(), setName("new")).name).toEqual("new");
     });
-    it("should throw on a path to a field outside the name", () => {
-      expect(() => apply(empty(), arc.set({ path: ["mode"], value: "text" }))).toThrow(
-        "mode is not inside a field of name",
-      );
-    });
     it("should leave the graph untouched", () => {
       const state = empty({
         nodes: [node("n1", 0, 0)],

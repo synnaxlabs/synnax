@@ -186,10 +186,17 @@ func MatchKeys(keys ...Key) Filter {
 // channels whose Name matches any of the
 // provided values.
 func MatchNames(vals ...Name) Filter {
-	return func(Retrieve) gorp.Filter[Key, Channel] {
-		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return slices.Contains(vals, e.Name), nil
-		})
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
+				return slices.Contains(vals, e.Name), nil
+			}),
+		)
 	}
 }
 

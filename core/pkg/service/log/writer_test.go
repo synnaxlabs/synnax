@@ -350,6 +350,21 @@ var _ = Describe("Writer", func() {
 					log.NewRemoveAction(log.RemovePayload{Key: "name"}),
 					"[name]: the document requires a value",
 				),
+				Entry(
+					"an insert into the name",
+					log.NewInsertAction(log.InsertPayload{
+						Path:  []string{"name"},
+						Value: map[string]any{"key": "a"},
+					}),
+					"[name]: the value is not a list",
+				),
+				Entry(
+					"a move in the name",
+					log.NewMoveAction(
+						log.MovePayload{Path: []string{"name"}, Key: "a"},
+					),
+					"[name]: the value is not a list",
+				),
 			)
 
 			It(

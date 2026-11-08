@@ -52,11 +52,8 @@ import { reconcileLines } from "@/lineplot/line";
 import { type LinePlot, linePlotZ } from "@/lineplot/types.gen";
 import { type ranger } from "@/ranger";
 
-// The Core alone sets the group and the project.
-const FIELDS = ["name", "group", "project"];
-
 const applyPath = (state: Draft<LinePlot>, action: patch.Action): HandlerResult =>
-  actions.applyFieldPath(state, action, FIELDS, linePlotZ);
+  actions.applyPath(state, action, linePlotZ);
 
 // Handlers report the narrowest resource each action touches as its target,
 // type-prefixed to keep the key spaces (numeric channels, "y1" axes, uuid lines/rules)
