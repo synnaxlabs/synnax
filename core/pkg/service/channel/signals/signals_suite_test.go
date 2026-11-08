@@ -67,7 +67,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
 		DB:      node.DB,
 		Channel: channelSvc,
-		Framer:  framerSvc,
+		Framer:  node.Framer,
 	}))
 	Expect(sigs.PublishTable(ctx, signals.TableConfig(channelSvc))).To(Succeed())
 	MustOpen(sigs.Start(ctx))

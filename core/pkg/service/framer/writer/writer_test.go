@@ -10,6 +10,8 @@
 package writer_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -132,6 +134,24 @@ var _ = Describe("Writer", func() {
 				})).Error().To(MatchError(query.ErrNotFound))
 			},
 		)
+	})
+
+	Describe("Reserved Channels", func() {
+		It("Should refuse a writer on a reserved channel", func(ctx SpecContext) {
+			ch := createVirtual(ctx)
+			svc := MustSucceed(writer.NewService(writer.ServiceConfig{
+				Framer:   mockNode.Framer,
+				Channel:  channelSvc,
+				Reserved: func(k channel.Key) bool { return k == ch.Key() },
+			}))
+			Expect(svc.NewStream(ctx, writer.Config{
+				Keys:  channel.Keys{ch.Key()},
+				Start: telem.SecondTS,
+			})).Error().To(MatchError(fmt.Sprintf(
+				"channel %d holds changes that only the Core writes: validation error",
+				ch.Key(),
+			)))
+		})
 	})
 
 	Describe("Frame Errors", func() {
