@@ -101,9 +101,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 	}))
+	resourceSvc := MustSucceed(resource.NewService(resource.ServiceConfig{
+		DB: db,
+		Providers: map[resource.Type]resource.Provider{
+			resource.TypeGroup:   groupSvc.Resources(),
+			resource.TypeLog:     logSvc.Resources(),
+			resource.TypePanel:   panelSvc.Resources(),
+			resource.TypeProject: projectSvc.Resources(),
+		},
+	}))
 	bundleSvc := MustSucceed(bundle.NewService(bundle.Config{
 		DB:       db,
-		Ontology: otg,
+		Resource: resourceSvc,
 		Project:  projectSvc,
 		Group:    groupSvc,
 		Panel:    panelSvc,

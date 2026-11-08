@@ -145,7 +145,7 @@ func leaf(tabs ...panel.Tab) panel.Node {
 
 // childrenOf returns what the project tree shows under id: the groups and ungrouped
 // members of a project, or the groups and members of a group.
-func childrenOf(ctx SpecContext, id resource.ID) []ontology.Resource {
+func childrenOf(ctx SpecContext, id resource.ID) []resource.Resource {
 	GinkgoHelper()
 	var ids []resource.ID
 	if id.Type == resource.TypeProject {
@@ -167,12 +167,8 @@ func childrenOf(ctx SpecContext, id resource.ID) []ontology.Resource {
 		key := MustSucceed(group.KeyFromResourceID(id))
 		ids = MustSucceed(groupSvc.Children(ctx, tx, key))
 	}
-	if len(ids) == 0 {
-		return nil
-	}
-	var children []ontology.Resource
-	Expect(otg.NewRetrieve().WhereIDs(ids...).Entries(&children).Exec(ctx, tx)).
-		To(Succeed())
+	children := MustSucceed(resourceSvc.Retrieve(ctx, tx, ids...))
+	Expect(children).To(HaveLen(len(ids)))
 	return children
 }
 
@@ -473,8 +469,8 @@ func tabResources(l panel.LeafNode) []resource.ID {
 }
 
 func childOfType(
-	children []ontology.Resource, t resource.Type,
-) ontology.Resource {
+	children []resource.Resource, t resource.Type,
+) resource.Resource {
 	GinkgoHelper()
 	for _, c := range children {
 		if c.ID.Type == t {
@@ -482,7 +478,7 @@ func childOfType(
 		}
 	}
 	Fail(string("no child of type " + t))
-	return ontology.Resource{}
+	return resource.Resource{}
 }
 
 // Imports run on the per-spec tx so created rows roll back and the shared DB's counts
@@ -504,8 +500,8 @@ var _ = Describe("Import", func() {
 		}
 
 		named := func(
-			children []ontology.Resource, name string,
-		) ontology.Resource {
+			children []resource.Resource, name string,
+		) resource.Resource {
 			GinkgoHelper()
 			for _, c := range children {
 				if c.Name == name {
@@ -513,7 +509,7 @@ var _ = Describe("Import", func() {
 				}
 			}
 			Fail("no child named " + name)
-			return ontology.Resource{}
+			return resource.Resource{}
 		}
 
 		It("Should name the project after the manifest", func(ctx SpecContext) {
@@ -755,12 +751,9 @@ var _ = Describe("Import", func() {
 		newTaskID := firstTabResource(retrievePanel(ctx, children[0].ID))
 		Expect(newTaskID.Type).To(Equal(resource.TypeTask))
 		Expect(newTaskID).ToNot(Equal(t.ResourceID()))
-		var res ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(newTaskID).
-			Entry(&res).
-			Exec(ctx, tx)).To(Succeed())
-		Expect(res.Name).To(Equal("Sequence"))
+		Expect(resourceSvc.Retrieve(ctx, tx, newTaskID)).To(ConsistOf(
+			resource.Resource{ID: newTaskID, Name: "Sequence"},
+		))
 	})
 
 	It("Should parent imported Arcs under Arcs", func(ctx SpecContext) {

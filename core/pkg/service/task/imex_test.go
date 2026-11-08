@@ -43,6 +43,7 @@ import (
 // stack is a task service over an in-memory database, holding the PagerDuty config
 // store and its own ImEx registry, plus a rack to create tasks on.
 type stack struct {
+	db   *gorp.DB
 	task *task.Service
 	imex *imex.Service
 	rack *rack.Rack
@@ -91,7 +92,7 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	}))
 	r := &rack.Rack{Name: rackName}
 	Expect(rackSvc.NewWriter(nil).Create(ctx, r)).To(Succeed())
-	return stack{task: taskSvc, imex: imexSvc, rack: r}
+	return stack{db: db, task: taskSvc, imex: imexSvc, rack: r}
 }
 
 var _ = Describe("ImEx", Ordered, func() {

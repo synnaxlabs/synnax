@@ -19,7 +19,7 @@ var _ = Describe("Config", func() {
 	full := func() bundle.Config {
 		return bundle.Config{
 			DB:       db,
-			Ontology: otg,
+			Resource: resourceSvc,
 			Project:  projectSvc,
 			Group:    groupSvc,
 			Panel:    panelSvc,
@@ -40,9 +40,9 @@ var _ = Describe("Config", func() {
 		},
 		Entry("db", func(c *bundle.Config) { c.DB = nil }, "db: must be non-nil"),
 		Entry(
-			"ontology",
-			func(c *bundle.Config) { c.Ontology = nil },
-			"ontology: must be non-nil",
+			"resource",
+			func(c *bundle.Config) { c.Resource = nil },
+			"resource: must be non-nil",
 		),
 		Entry(
 			"project",

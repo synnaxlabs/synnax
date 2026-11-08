@@ -39,7 +39,7 @@ func ResourceIDs(keys []Key) []resource.ID {
 // KeysFromResourceIDs returns the keys of the views for the given resource IDs.
 func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
-		return uuid.Parse(id.Key)
+		return resource.ParseUUIDKey(id)
 	})
 }
 
@@ -108,5 +108,5 @@ func (s *Service) Search(
 	tx gorp.Tx,
 	q search.Query[resource.ID],
 ) (search.Result[resource.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
+	return resource.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

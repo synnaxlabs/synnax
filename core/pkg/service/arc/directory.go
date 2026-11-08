@@ -127,7 +127,7 @@ func (d directories) Search(
 	tx gorp.Tx,
 	q search.Query[resource.ID],
 ) (search.Result[resource.ID], error) {
-	return ontology.SearchIndex(ctx, tx, d.search, directory.ResourceID, q)
+	return resource.SearchIndex(ctx, tx, d.search, directory.ResourceID, q)
 }
 
 // openRoot returns the key of the root directory under the ontology root, creating it
