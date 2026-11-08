@@ -101,7 +101,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.Role.NewRetrieve().Entries(&res.Roles))
+	q, err := ApplyRetrieve(req, s.internal.Role.NewRetrieve().Entries(&res.Roles))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
