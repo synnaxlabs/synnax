@@ -452,6 +452,19 @@ func reportInlineDiagnostic(
 	})
 }
 
+// assertionString prints an assertion that matchExpectErrSucceeds matched on one line,
+// so a diagnostic quotes the code in the file.
+func assertionString(fset *token.FileSet, expr ast.Expr) string {
+	call := expr.(*ast.CallExpr)
+	sel := call.Fun.(*ast.SelectorExpr)
+	return fmt.Sprintf(
+		"%s.%s(%s)",
+		nodeString(fset, sel.X),
+		sel.Sel.Name,
+		nodeString(fset, call.Args[0]),
+	)
+}
+
 // expectedIdent returns the name of the identifier that an Expect or ExpectWithOffset
 // call asserts on.
 func expectedIdent(expr ast.Expr) (string, bool) {
@@ -529,6 +542,7 @@ func reportDiagnostic(
 	adjacent bool,
 ) bool {
 	callStr := nodeString(pass.Fset, rhsCall)
+	assertion := assertionString(pass.Fset, expectStmt.X)
 	numLHS := len(assign.Lhs)
 	errIdx := -1
 	for i, lhs := range assign.Lhs {
@@ -544,18 +558,15 @@ func reportDiagnostic(
 	)
 	if numLHS == 1 && errIdx == 0 {
 		msg = fmt.Sprintf(
-			"Expect(%s).ToNot(HaveOccurred()) can be replaced with Expect(%s).To(Succeed())",
-			errName,
+			"%s can be replaced with Expect(%s).To(Succeed())",
+			assertion,
 			callStr,
 		)
 		fixText = fmt.Sprintf("Expect(%s).To(Succeed())", callStr)
 	} else if numLHS == 2 && errIdx == 1 {
 		needsImport = true
 		if isBlank(assign.Lhs[0]) {
-			msg = fmt.Sprintf(
-				"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed",
-				errName,
-			)
+			msg = fmt.Sprintf("%s can be replaced with MustSucceed", assertion)
 			fixText = fmt.Sprintf("MustSucceed(%s)", callStr)
 		} else {
 			resultName := nodeString(pass.Fset, assign.Lhs[0])
@@ -563,19 +574,13 @@ func reportDiagnostic(
 			if assign.Tok == token.ASSIGN {
 				tok = "="
 			}
-			msg = fmt.Sprintf(
-				"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed",
-				errName,
-			)
+			msg = fmt.Sprintf("%s can be replaced with MustSucceed", assertion)
 			fixText = fmt.Sprintf("%s %s MustSucceed(%s)", resultName, tok, callStr)
 		}
 	} else if numLHS == 3 && errIdx == 2 {
 		needsImport = true
 		if isBlank(assign.Lhs[0]) && isBlank(assign.Lhs[1]) {
-			msg = fmt.Sprintf(
-				"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed2",
-				errName,
-			)
+			msg = fmt.Sprintf("%s can be replaced with MustSucceed2", assertion)
 			fixText = fmt.Sprintf("MustSucceed2(%s)", callStr)
 		} else {
 			r1 := nodeString(pass.Fset, assign.Lhs[0])
@@ -584,10 +589,7 @@ func reportDiagnostic(
 			if assign.Tok == token.ASSIGN {
 				tok = "="
 			}
-			msg = fmt.Sprintf(
-				"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed2",
-				errName,
-			)
+			msg = fmt.Sprintf("%s can be replaced with MustSucceed2", assertion)
 			fixText = fmt.Sprintf("%s, %s %s MustSucceed2(%s)", r1, r2, tok, callStr)
 		}
 	} else {

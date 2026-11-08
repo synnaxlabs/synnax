@@ -45,7 +45,7 @@ func example() {
 	var err error
 
 	// Pattern A: result, err := f(); Expect(err).ToNot(HaveOccurred())
-	result, err := returnsValErr() // want "can be replaced with MustSucceed"
+	result, err := returnsValErr() // want `^Expect\(err\)\.ToNot\(HaveOccurred\(\)\) can be replaced with MustSucceed$`
 	Expect(err).ToNot(HaveOccurred())
 	_ = result
 
@@ -60,12 +60,12 @@ func example() {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Pattern with NotTo variant
-	r2, err := returnsValErr() // want "can be replaced with MustSucceed"
+	r2, err := returnsValErr() // want `^Expect\(err\)\.NotTo\(HaveOccurred\(\)\) can be replaced with MustSucceed$`
 	Expect(err).NotTo(HaveOccurred())
 	_ = r2
 
 	// Pattern with To(Not(HaveOccurred()))
-	r3, err := returnsValErr() // want "can be replaced with MustSucceed"
+	r3, err := returnsValErr() // want `^Expect\(err\)\.To\(Not\(HaveOccurred\(\)\)\) can be replaced with MustSucceed$`
 	Expect(err).To(Not(HaveOccurred()))
 	_ = r3
 
@@ -96,7 +96,7 @@ func example() {
 	// Pattern H: non-adjacent case where the Expect call is split across multiple
 	// physical lines — the whole multi-line statement must be removed, not just
 	// the first line.
-	t2, err := returnsValErr() // want "can be replaced with MustSucceed"
+	t2, err := returnsValErr() // want `^Expect\(err\)\.ToNot\(HaveOccurred\(\)\) can be replaced with MustSucceed$`
 	_ = t2 + 1
 	Expect(err).
 		ToNot(HaveOccurred())
@@ -130,7 +130,7 @@ func example() {
 	})
 
 	// Pattern I: err := f(); Expect(err).To(Succeed()) → Expect(f()).To(Succeed())
-	err = returnsErr() // want "can be replaced with Expect"
+	err = returnsErr() // want `^Expect\(err\)\.To\(Succeed\(\)\) can be replaced with Expect\(returnsErr\(\)\)\.To\(Succeed\(\)\)$`
 	Expect(err).To(Succeed())
 
 	// Pattern J: _, err := f(); Expect(err).To(MatchError(e)) →
@@ -145,7 +145,7 @@ func example() {
 
 	// Pattern L: err := f(); Expect(err).Should(Succeed()) →
 	// Expect(f()).To(Succeed())
-	err = returnsErr() // want "can be replaced with Expect"
+	err = returnsErr() // want `^Expect\(err\)\.Should\(Succeed\(\)\) can be replaced with Expect\(returnsErr\(\)\)\.To\(Succeed\(\)\)$`
 	Expect(err).Should(Succeed())
 
 	// Pattern M: composite matchers assert inline like MatchError.

@@ -146,6 +146,25 @@ var _ = Describe("Statement", func() {
 			})
 
 			It(
+				"should detect a duplicate declaration whose type does not infer",
+				func(bCtx SpecContext) {
+					stmt := MustSucceed(parser.ParseBlock(`{
+					x := 1
+					x := undefined_name
+				}`))
+					ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+					statement.AnalyzeBlock(ctx)
+					Expect(*ctx.Diagnostics).To(HaveLen(2))
+					Expect(
+						(*ctx.Diagnostics)[0].Message,
+					).To(Equal("undefined symbol: undefined_name"))
+					Expect(
+						(*ctx.Diagnostics)[1].Message,
+					).To(ContainSubstring("name x conflicts with existing variable"))
+				},
+			)
+
+			It(
 				"should detect undefined variable in initializer",
 				func(bCtx SpecContext) {
 					stmt := MustSucceed(parser.ParseStatement(`x := y + 1`))
@@ -198,6 +217,25 @@ var _ = Describe("Statement", func() {
 					Expect(*ctx.Diagnostics).To(BeEmpty())
 					sym := MustSucceed(ctx.Scope.Resolve(ctx, "total"))
 					Expect(sym.Type).To(Equal(types.F32()))
+				},
+			)
+
+			It(
+				"should detect a duplicate stateful variable whose type does not infer",
+				func(bCtx SpecContext) {
+					block := MustSucceed(parser.ParseBlock(`{
+					x $= 1
+					x $= undefined_name
+				}`))
+					ctx := context.NewRoot(bCtx, block, NewRoot(nil))
+					ctx.Scope = MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
+						Name: "s1", Kind: symbol.KindStage,
+					}))
+					statement.AnalyzeBlock(ctx)
+					Expect(*ctx.Diagnostics).To(HaveLen(1))
+					Expect(
+						(*ctx.Diagnostics)[0].Message,
+					).To(ContainSubstring("name x conflicts with existing variable"))
 				},
 			)
 

@@ -11,7 +11,6 @@ package cesium_test
 
 import (
 	"context"
-	"io"
 	"runtime"
 	"time"
 
@@ -922,7 +921,6 @@ var _ = Describe("Control", func() {
 						dataStreamerOut                     confluence.Outlet[cesium.StreamerResponse]
 						controlUpdates                      <-chan cesium.ControlUpdate
 						disconnectControl                   observe.Disconnect
-						shutdown                            io.Closer
 					)
 					BeforeEach(func(ctx SpecContext) {
 						indexChKey = GenerateChannelKey()
@@ -951,7 +949,7 @@ var _ = Describe("Control", func() {
 						)).To(Succeed())
 						start := telem.SecondTS * 10
 						By("Opening the first writer")
-						w1 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						w1 = MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 							ControlSubject: xcontrol.Subject{Name: "Writer One"},
 							Start:          start,
 							Channels: []cesium.ChannelKey{
@@ -964,7 +962,7 @@ var _ = Describe("Control", func() {
 							Sync:              new(true),
 						}))
 						By("Opening the second writer")
-						w2 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						w2 = MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 							Start:          start,
 							ControlSubject: xcontrol.Subject{Name: "Writer Two"},
 							Channels: []cesium.ChannelKey{
@@ -986,23 +984,20 @@ var _ = Describe("Control", func() {
 							}),
 						)
 						sCtx, cancel := signal.Isolated()
-						shutdown = signal.NewHardShutdown(sCtx, cancel)
+						DeferClose(signal.NewHardShutdown(sCtx, cancel))
 						dataStreamerIn, dataStreamerOut = confluence.Attach(
 							dataStreamer,
 							2,
 						)
 						dataStreamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+						DeferCleanup(func() {
+							dataStreamerIn.Close()
+							Eventually(dataStreamerOut.Outlet()).Should(BeClosed())
+						})
 						Eventually(dataStreamerOut.Outlet()).Should(Receive())
 
 						controlUpdates, disconnectControl = observeControl(db)
-						DeferCleanup(func() {
-							disconnectControl()
-							Expect(w1.Close()).To(Succeed())
-							Expect(w2.Close()).To(Succeed())
-							dataStreamerIn.Close()
-							Eventually(dataStreamerOut.Outlet()).Should(BeClosed())
-							Expect(shutdown.Close()).To(Succeed())
-						})
+						DeferCleanup(disconnectControl)
 					})
 
 					// Set up:
