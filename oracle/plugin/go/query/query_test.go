@@ -1455,9 +1455,38 @@ var _ = Describe("Go Query Plugin", func() {
 						"return compare.TextKey(string(e.Name))",
 						"value string,",
 						"compare.TextKey(string(value)),",
-					).
-					ToNotContain("return r.indexes.name.Filter(")
+						"r.indexes.name.Filter(compare.TextKey(string(v))),",
+						"return e.Name == v, nil",
+					)
 			})
+
+			It(
+				"Should match a list of strings through their text keys",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/event"
+
+					Event struct {
+						key  uuid   { @key }
+						name string {
+							@filter
+							@index sorted
+						}
+						@resource type "event"
+						@retrieve
+					}
+				`
+					resp := MustGenerate(ctx, source, "event", loader, p)
+					ExpectContent(resp, "retrieve.gen.go").
+						ToBeValidGoSource().
+						ToContain(
+							`"slices"`,
+							"keys[i] = compare.TextKey(string(v))",
+							"r.indexes.name.Filter(keys...),",
+							"return slices.Contains(vals, e.Name), nil",
+						)
+				},
+			)
 
 			It("Should sort by a sub-field", func(ctx SpecContext) {
 				source := `
