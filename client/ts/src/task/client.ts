@@ -485,6 +485,7 @@ export class Client extends query.Retriever<
       equal: (a, b) => deep.equal(a.payload, b.payload),
       watch: [query.deriveWatch(statusStore, (event) => affectedKeys(event))],
     });
+    statuses.holdOwned([store, composed], resourceID);
     const single = cache.queries<SingleRequest, Task, Key, Task>({
       name: "task",
       table: composed,

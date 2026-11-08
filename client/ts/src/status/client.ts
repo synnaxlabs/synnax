@@ -13,6 +13,7 @@ import {
   type destructor,
   errors,
   filter,
+  type record,
   scheduler,
   TimeSpan,
   uuid,
@@ -371,6 +372,22 @@ export class Client extends query.Retriever<
    */
   ownedBy(owner: resource.ID): Status | undefined {
     return this.owners.get(resource.idToString(owner))[0];
+  }
+
+  /**
+   * Keeps the status of each held record in the tables from the cache's trim.
+   * @param owner - Returns the resource that a record key names.
+   */
+  holdOwned<K extends record.Key>(
+    tables: Array<{ held: () => Iterable<K> }>,
+    owner: (key: K) => resource.ID,
+  ): void {
+    this.store.hold({
+      held: () =>
+        tables.flatMap((table) =>
+          [...table.held()].flatMap((key) => this.ownedBy(owner(key))?.key ?? []),
+        ),
+    });
   }
 
   /**

@@ -211,6 +211,7 @@ export class Client extends query.Retriever<
         ),
       ],
     });
+    this.cfg.statuses.holdOwned([composedTasks], task.resourceID);
     this.taskAnswers = cache.queries<Key, task.Task | null, task.Key, task.Task>({
       name: "Arc task",
       table: composedTasks,
