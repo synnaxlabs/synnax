@@ -56,7 +56,7 @@ var (
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	statusSvc  *status.Service
-	taskWriter task.Writer
+	taskSvc    *task.Service
 	// host is the key of the Core that the services run on.
 	host node.Key
 )
@@ -86,7 +86,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:         db,
 		HostKey:    1,
 		Status:     statusSvc,
-		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     db,
@@ -111,7 +111,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ChannelGraph: channelGraph,
 	}))
 	mqttSvc := MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{DB: db}))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      db,
 		Rack:    rackSvc,
 		Status:  statusSvc,
@@ -119,7 +119,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:    imex.NewService(),
 		Configs: MustSucceed(taskconfig.NewRegistry(mqttSvc.Stores()...)),
 	}))
-	taskWriter = taskSvc.NewWriter(nil)
 })
 
 // received is one message that a test broker delivered to a collector.

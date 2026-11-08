@@ -510,9 +510,10 @@ func (g *Graph) handleChanges(
 	g.obs.Notify(ctx, slices.Values(batch))
 	if len(updates) > 0 {
 		g.L.Info("updating channel data types", zap.Int("count", len(updates)))
-		w := g.svc.NewWriter(nil)
 		for _, ch := range updates {
-			if err := w.ChangeDataType(ctx, ch.Key(), ch.DataType); err != nil {
+			if err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
+				return g.svc.NewWriter(tx).ChangeDataType(ctx, ch.Key(), ch.DataType)
+			}); err != nil {
 				g.L.Error(
 					"failed to update channel data type",
 					zap.Stringer("channel", ch.Key()),

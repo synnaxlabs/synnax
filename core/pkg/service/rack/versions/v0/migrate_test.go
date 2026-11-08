@@ -185,7 +185,9 @@ var _ = Describe("Status backfill", func() {
 			}
 			// The rack table is not open during its own migration, so the status skips
 			// reference checks.
-			Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, legacyStatus)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewMigrationWriter(tx).Set(ctx, legacyStatus)
+			})).
 				To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would

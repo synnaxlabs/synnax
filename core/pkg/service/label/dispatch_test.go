@@ -42,7 +42,9 @@ var _ = Describe("Dispatch", func() {
 			Name:  "Nominal",
 			Color: MustSucceed(color.FromHex("#00ff00")),
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &nominal)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &nominal)
+		})).To(Succeed())
 	})
 	dispatch := func(
 		ctx context.Context,

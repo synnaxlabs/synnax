@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -44,12 +45,13 @@ func denied(u user.User, action access.Action, object resource.ID) types.GomegaM
 }
 
 // createPanel persists a panel in the suite project and returns it with its key
-// populated. Writes commit immediately (nil tx) so the api enforcer can observe the new
-// panel.
+// populated. The write commits at once so the api enforcer can observe the new panel.
 func createPanel(ctx context.Context, name string) panel.Panel {
 	GinkgoHelper()
 	p := panel.Panel{Name: name, Project: &proj.Key}
-	Expect(panelSvc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return panelSvc.NewWriter(tx).Create(ctx, &p)
+	})).To(Succeed())
 	return p
 }
 
@@ -303,7 +305,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := newUser(ctx)
 				dest := project.Project{Name: "denied destination"}
-				Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return projectSvc.NewWriter(tx).Create(ctx, &dest)
+				})).To(Succeed())
 				p := createPanel(ctx, "move-denied")
 				grant(ctx, u.ResourceID(), access.ActionUpdate,
 					p.ResourceID(), proj.ResourceID())
@@ -321,7 +325,9 @@ var _ = Describe("Service", func() {
 		It("Should move the panels into the project", func(ctx SpecContext) {
 			u := newUser(ctx)
 			dest := project.Project{Name: "destination"}
-			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return projectSvc.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			p := createPanel(ctx, "moved")
 			grant(ctx, u.ResourceID(), access.ActionUpdate,
 				p.ResourceID(), proj.ResourceID(), dest.ResourceID())
@@ -338,7 +344,9 @@ var _ = Describe("Service", func() {
 				u := newUser(ctx)
 				p := createPanel(ctx, "grouped")
 				g := createGroup(ctx, "grouped")
-				Expect(panelSvc.NewWriter(nil).SetGroup(ctx, &g.Key, p.Key)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return panelSvc.NewWriter(tx).SetGroup(ctx, &g.Key, p.Key)
+				})).
 					To(Succeed())
 				grant(ctx, u.ResourceID(), access.ActionUpdate,
 					p.ResourceID(), proj.ResourceID())
@@ -466,7 +474,9 @@ var _ = Describe("Service", func() {
 func createGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
-	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return groupSvc.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 
@@ -526,9 +536,13 @@ var _ = Describe("SetGroup", func() {
 			u = newUser(ctx)
 			x = createPanel(ctx, "Cross project")
 			dest = project.Project{Name: "Destination"}
-			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return projectSvc.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
-			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 		})
 		move := func(ctx SpecContext) (struct{}, error) {
 			return setGroup(
@@ -609,9 +623,13 @@ var _ = Describe("Create in a group", func() {
 			u = newUser(ctx)
 			grantCreate(ctx, u.ResourceID())
 			dest = project.Project{Name: "Create destination"}
-			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return projectSvc.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			g = group.Group{Name: "Create destination", Parent: new(dest.ResourceID())}
-			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 		})
 		createIn := func(
 			ctx SpecContext,

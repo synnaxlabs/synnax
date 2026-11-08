@@ -87,12 +87,20 @@ func grant(actions []access.Action, objects ...resource.ID) policy.Policy {
 // newUser creates a user that holds policies.
 func newUser(ctx SpecContext, policies ...policy.Policy) user.User {
 	GinkgoHelper()
-	u := MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+	u := MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 	for _, p := range policies {
 		MustSucceed(
-			rbactestutil.Grant(ctx, svc.RBAC, svc.User, u.Key, p.Actions, p.Objects...),
+			rbactestutil.Grant(
+				ctx,
+				db,
+				svc.RBAC,
+				svc.User,
+				u.Key,
+				p.Actions,
+				p.Objects...,
+			),
 		)
 	}
 	return u

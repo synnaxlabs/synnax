@@ -853,7 +853,11 @@ var _ = Describe("Service", func() {
 			enforcer := rbacSvc.NewEnforcer(nil)
 			Expect(enforcer).ToNot(BeNil())
 
-			subject := createUser(ctx, nil)
+			var subject resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				subject = createUser(ctx, tx)
+				return nil
+			})).To(Succeed())
 			obj := resource.ID{Type: "channel", Key: "ch1"}
 			req := access.Request{
 				Subject: subject,

@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -93,7 +94,9 @@ func createTask(ctx SpecContext) task.Task {
 		Name:     "Before",
 		Snapshot: true,
 	}
-	Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+	Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Task.NewWriter(tx).Create(ctx, &t)
+	})).To(Succeed())
 	return t
 }
 
@@ -103,7 +106,9 @@ func createRange(ctx SpecContext) ranger.Range {
 		Name:      "Snapshot Range",
 		TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
 	}
-	Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
 	return r
 }
 
@@ -197,7 +202,9 @@ var _ = Describe("Dispatch", func() {
 			Rack: svc.Rack.EmbeddedKey,
 			Name: "Alerts",
 		}
-		Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Task.NewWriter(tx).Create(ctx, &t)
+		})).To(Succeed())
 		return t
 	}
 	setRoutingKey := []task.Action{task.NewSetAction(task.SetPayload{
@@ -354,8 +361,9 @@ var _ = Describe("Retrieve", func() {
 		u := createUser(ctx)
 		withStatus := createTask(ctx)
 		withoutStatus := createTask(ctx)
-		w := svc.Status.NewWriter(nil)
-		Expect(w.DeleteOwned(ctx, withoutStatus.ResourceID())).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Status.NewWriter(tx).DeleteOwned(ctx, withoutStatus.ResourceID())
+		})).To(Succeed())
 		grant(
 			ctx, access.ActionRetrieve, u.ResourceID(),
 			withStatus.ResourceID(), withoutStatus.ResourceID(),
@@ -378,7 +386,6 @@ var _ = Describe("Retrieve", func() {
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
 			Type: resource.TypeTask,
 		})
-		w := svc.Arc.NewWriter(nil)
 		deployed := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
 			Name:   "Deployed",
 			Source: arc.Source{Variant: arc.GraphSource{}},
@@ -387,11 +394,23 @@ var _ = Describe("Retrieve", func() {
 			Name:   "Other",
 			Source: arc.Source{Variant: arc.GraphSource{}},
 		}}}
-		Expect(w.Create(ctx, &deployed)).To(Succeed())
-		Expect(w.Create(ctx, &other)).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Arc.NewWriter(tx).Create(ctx, &deployed)
+		})).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Arc.NewWriter(tx).Create(ctx, &other)
+		})).To(Succeed())
 		update := arc.TaskUpdate{Rack: new(svc.Rack.EmbeddedKey)}
-		tsk := MustSucceed(w.UpdateTask(ctx, deployed.Base().Key, update))
-		MustSucceed(w.UpdateTask(ctx, other.Base().Key, update))
+		var tsk *task.Task
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			tsk, err = svc.Arc.NewWriter(tx).
+				UpdateTask(ctx, deployed.Base().Key, update)
+			return err
+		})).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			_, err := svc.Arc.NewWriter(tx).UpdateTask(ctx, other.Base().Key, update)
+			return err
+		})).To(Succeed())
 		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
 			Where: &task.Where{Arcs: []uuid.UUID{deployed.Base().Key}},
 		}))
@@ -429,7 +448,9 @@ var _ = Describe("Retrieve", func() {
 			Name:     "Cryostat pressure",
 			Snapshot: true,
 		}
-		Expect(svc.Task.NewWriter(nil).Create(ctx, &match)).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Task.NewWriter(tx).Create(ctx, &match)
+		})).To(Succeed())
 		other := createTask(ctx)
 		grant(
 			ctx, access.ActionRetrieve, u.ResourceID(),
@@ -469,7 +490,9 @@ var _ = Describe("RetrieveRequest", func() {
 func createRunningTask(ctx SpecContext, running bool) task.Task {
 	GinkgoHelper()
 	r := rack.Rack{Name: "Driver"}
-	Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Rack.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
 	t := task.Task{
 		Type: pagerduty.AlertTaskType,
 		Rack: r.Key,
@@ -481,7 +504,9 @@ func createRunningTask(ctx SpecContext, running bool) task.Task {
 			Details: task.StatusDetails{Running: running},
 		},
 	}
-	Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+	Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Task.NewWriter(tx).Create(ctx, &t)
+	})).To(Succeed())
 	return t
 }
 
@@ -494,7 +519,9 @@ func reportStopped(ctx context.Context, t task.Task) {
 		Message: "Stopped task",
 		Time:    telem.Now(),
 	}
-	Expect(svc.Status.NewWriter(nil).Set(ctx, &stat)).To(Succeed())
+	Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Status.NewWriter(tx).Set(ctx, &stat)
+	})).To(Succeed())
 }
 
 // streamCommands sends each command written to the task command channel on the returned
@@ -543,7 +570,9 @@ func stallWrites(ctx SpecContext) {
 		DataType: telem.Float64T,
 		Virtual:  true,
 	}
-	Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+	Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+	})).To(Succeed())
 	sCtx, cancel := signal.Isolated()
 	shutdown := signal.NewHardShutdown(sCtx, cancel)
 	const streamerCount = 16
@@ -627,7 +656,9 @@ var _ = Describe("Delete", func() {
 			IsIndex:     true,
 			Leaseholder: 1,
 		}
-		Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		w := MustSucceed(svc.Framer.OpenWriter(ctx, framer.WriterConfig{
 			Keys:  channel.Keys{ch.Key()},
 			Start: telem.Now(),
@@ -647,7 +678,9 @@ var _ = Describe("Delete", func() {
 		Expect(withTimeout(10*time.Second).Delete(
 			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 		)).Error().ToNot(HaveOccurred())
-		Expect(svc.Channel.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Delete(ctx, ch.Key(), false)
+		})).To(Succeed())
 		Eventually(driver).Should(BeClosed())
 		expectGone(ctx, t.Key)
 	})
@@ -769,9 +802,11 @@ var _ = Describe("Delete", func() {
 		},
 		Entry("never started", func(ctx SpecContext) task.Task {
 			t := createTask(ctx)
-			Expect(svc.Status.NewWriter(nil).Delete(
-				ctx, t.ResourceID().String(),
-			)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Status.NewWriter(tx).Delete(
+					ctx, t.ResourceID().String(),
+				)
+			})).To(Succeed())
 			return t
 		}),
 		Entry("stopped", func(ctx SpecContext) task.Task {

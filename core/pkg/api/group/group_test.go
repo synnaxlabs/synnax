@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	apigroup "github.com/synnaxlabs/synnax/pkg/api/group"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -71,7 +72,9 @@ func newGroup(ctx SpecContext, scope resource.Type, parent *group.Group) group.G
 	if parent != nil {
 		g.Parent = new(parent.ResourceID())
 	}
-	Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Group.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 
@@ -291,12 +294,20 @@ var _ = Describe("Group", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			from, to = project.Project{Name: "From"}, project.Project{Name: "To"}
-			Expect(svc.Project.NewWriter(nil).Create(ctx, &from)).To(Succeed())
-			Expect(svc.Project.NewWriter(nil).Create(ctx, &to)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Project.NewWriter(tx).Create(ctx, &from)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Project.NewWriter(tx).Create(ctx, &to)
+			})).To(Succeed())
 			source = group.Group{Name: "source", Parent: new(from.ResourceID())}
-			Expect(svc.Group.NewWriter(nil).Create(ctx, &source)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Group.NewWriter(tx).Create(ctx, &source)
+			})).To(Succeed())
 			dest = group.Group{Name: "dest", Parent: new(to.ResourceID())}
-			Expect(svc.Group.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Group.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			nested = newGroup(ctx, resource.TypeProject, &source)
 		})
 		groupIDs := func() []resource.ID {
@@ -333,7 +344,9 @@ var _ = Describe("Group", func() {
 					Project: &from.Key,
 					Group:   &nested.Key,
 				}
-				Expect(svc.Schematic.NewWriter(nil).Create(ctx, &sc)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Schematic.NewWriter(tx).Create(ctx, &sc)
+				})).To(Succeed())
 			})
 
 			DescribeTable(

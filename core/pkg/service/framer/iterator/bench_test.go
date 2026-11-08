@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -28,12 +29,11 @@ import (
 )
 
 type benchIterEnv struct {
-	ctx           context.Context
-	node          testutil.Node
-	closer        io.MultiCloser
-	channelSvc    *channel.Service
-	channelWriter channel.Writer
-	iteratorSvc   *iterator.Service
+	ctx         context.Context
+	node        testutil.Node
+	closer      io.MultiCloser
+	channelSvc  *channel.Service
+	iteratorSvc *iterator.Service
 }
 
 func newBenchIterEnv(b *testing.B) *benchIterEnv {
@@ -85,9 +85,8 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		closer: io.MultiCloser{
 			node, groupSvc, channelSvc, statusSvc, labelSvc,
 		},
-		channelSvc:    channelSvc,
-		channelWriter: channelSvc.NewWriter(nil),
-		iteratorSvc:   iteratorSvc,
+		channelSvc:  channelSvc,
+		iteratorSvc: iteratorSvc,
 	}
 }
 
@@ -107,7 +106,9 @@ func (e *benchIterEnv) createChannels(
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
-	if err := e.channelWriter.Create(e.ctx, indexCh); err != nil {
+	if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+		return e.channelSvc.NewWriter(tx).Create(e.ctx, indexCh)
+	}); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	dataChannels := make([]*channel.Channel, numDataChannels)
@@ -117,7 +118,9 @@ func (e *benchIterEnv) createChannels(
 			DataType:   telem.Float32T,
 			LocalIndex: indexCh.LocalKey,
 		}
-		if err := e.channelWriter.Create(e.ctx, dataChannels[i]); err != nil {
+		if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+			return e.channelSvc.NewWriter(tx).Create(e.ctx, dataChannels[i])
+		}); err != nil {
 			b.Fatalf("failed to create data channel: %v", err)
 		}
 	}
@@ -175,7 +178,9 @@ func (e *benchIterEnv) createCalculation(
 		DataType:   telem.Float32T,
 		Expression: expression,
 	}
-	if err := e.channelWriter.Create(e.ctx, calc); err != nil {
+	if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+		return e.channelSvc.NewWriter(tx).Create(e.ctx, calc)
+	}); err != nil {
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
 	return calc
@@ -371,7 +376,9 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
-			if err := env.channelWriter.Create(env.ctx, indexCh); err != nil {
+			if err := env.node.DB.WithTx(env.ctx, func(tx gorp.Tx) error {
+				return env.channelSvc.NewWriter(tx).Create(env.ctx, indexCh)
+			}); err != nil {
 				b.Fatalf("failed to create index channel: %v", err)
 			}
 			dataCh := &channel.Channel{
@@ -379,7 +386,9 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			if err := env.channelWriter.Create(env.ctx, dataCh); err != nil {
+			if err := env.node.DB.WithTx(env.ctx, func(tx gorp.Tx) error {
+				return env.channelSvc.NewWriter(tx).Create(env.ctx, dataCh)
+			}); err != nil {
 				b.Fatalf("failed to create data channel: %v", err)
 			}
 

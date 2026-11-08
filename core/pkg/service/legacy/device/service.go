@@ -129,11 +129,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the device service and releases any resources that it may have acquired.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a new Writer to create, update, and delete devices. If tx is not nil,
-// the writer will use that transaction. If tx is nil, the writer will execute
-// operations directly against the underlying gorp.DB.
+// NewWriter opens a new Writer to create, update, and delete devices in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		svc:      s,
 		tx:       tx,

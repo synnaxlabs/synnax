@@ -40,14 +40,16 @@ import (
 // scopedAction is a short local alias for the Arc action envelope.
 type scopedAction = actions.Scoped[arc.Key, arc.Action]
 
-// createArc persists a fresh Arc and returns it with its key populated. Writes commit
-// immediately (nil tx) so access-control reads can observe the new Arc.
+// createArc persists a fresh Arc and returns it with its key populated. The write
+// commits at once so access-control reads can observe the new Arc.
 func createArc(ctx context.Context, name string) arc.Arc {
 	GinkgoHelper()
 	a := arc.Arc{Variant: arc.AutomationArc{
 		Base: arc.Base{Name: name, Source: arc.Source{Variant: arc.GraphSource{}}},
 	}}
-	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return arcSvc.NewWriter(tx).Create(ctx, &a)
+	})).To(Succeed())
 	return a
 }
 
@@ -88,10 +90,13 @@ var _ = Describe("Service", func() {
 						}},
 					}}},
 				}}}
-				w := arcSvc.NewWriter(nil)
-				Expect(w.Create(ctx, &a)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Create(ctx, &a)
+				})).To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
-					Expect(w.Delete(ctx, a.Base().Key)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return arcSvc.NewWriter(tx).Delete(ctx, a.Base().Key)
+					})).To(Succeed())
 				})
 				grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
 				res := MustSucceed(
@@ -127,13 +132,18 @@ var _ = Describe("Service", func() {
 						},
 					},
 				}}}
-				w := arcSvc.NewWriter(nil)
-				Expect(w.Create(ctx, &automation)).To(Succeed())
-				Expect(w.Create(ctx, &module)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Create(ctx, &automation)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Create(ctx, &module)
+				})).To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
-					Expect(w.Delete(
-						ctx, automation.Base().Key, module.Base().Key,
-					)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return arcSvc.NewWriter(tx).Delete(
+							ctx, automation.Base().Key, module.Base().Key,
+						)
+					})).To(Succeed())
 				})
 				grantOn(
 					ctx,
@@ -222,7 +232,9 @@ var _ = Describe("Service", func() {
 						Text: text.Text{Doc: text.Create("a ->")},
 					}},
 				}}}
-				Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Create(ctx, &a)
+				})).To(Succeed())
 				key := a.Base().Key
 				Expect(retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
 					Where:          &arc.Where{Key: &filter.Set[arc.Key]{Eq: &key}},

@@ -41,7 +41,9 @@ var _ = Describe("Where", Ordered, func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		svc = DeferClose(openStack(ctx, db, rack.ServiceConfig{})).rack
 		for _, r := range v.Records {
-			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
 		}
 	})
 

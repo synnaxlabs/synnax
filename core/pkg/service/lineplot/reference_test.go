@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -21,6 +22,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -38,20 +40,26 @@ var _ = Describe("Channel references", func() {
 	It(
 		"Should attach the line plot as written to the delete that detaches a channel",
 		func(ctx SpecContext) {
-			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 2))
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 2))
 			gone, kept := keys[0], keys[1]
 			plot := lineplot.LinePlot{
 				Project:  &proj.Key,
 				Name:     "edited",
 				Channels: lineplot.Channels{Y1: []channel.Key{gone, kept}},
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &plot)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, plot.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, plot.Key)
+				})).To(Succeed())
 			})
 			rec := &Recorder[lineplot.Key, lineplot.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, gone, false)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, gone, false)
+			})).To(Succeed())
 			seen := rec.Snapshot()
 			Expect(seen).To(HaveLen(1))
 			Expect(seen[0].Key).To(Equal(plot.Key))
@@ -68,14 +76,16 @@ var _ = Describe("Channel references", func() {
 			Name:     "missing",
 			Channels: lineplot.Channels{Y1: []channel.Key{ch5, 404}},
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &plot)).
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &plot)
+		})).
 			To(MatchError(ContainSubstring("channels: channel 404 does not exist")))
 	})
 
 	It(
 		"Should remove a deleted channel and keep the other channels and styles",
 		func(ctx SpecContext) {
-			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 4))
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 4))
 			x, gone, kept, y2 := keys[0], keys[1], keys[2], keys[3]
 			plot := lineplot.LinePlot{
 				Project: &proj.Key,
@@ -86,17 +96,25 @@ var _ = Describe("Channel references", func() {
 					Y2: []channel.Key{y2},
 				},
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &plot)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, plot.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, plot.Key)
+				})).To(Succeed())
 			})
 			plot.Lines[1].StrokeWidth = 7
-			Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
-			Expect(channelSvc.NewWriter(nil).DeleteMany(
-				ctx,
-				[]channel.Key{gone, x},
-				false,
-			)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &plot)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).DeleteMany(
+					ctx,
+					[]channel.Key{gone, x},
+					false,
+				)
+			})).To(Succeed())
 			res := retrieve(ctx, plot.Key)
 			Expect(res.Channels).To(Equal(lineplot.Channels{
 				Y1: []channel.Key{kept},
@@ -113,22 +131,26 @@ var _ = Describe("Channel references", func() {
 	It(
 		"Should drop channels the Core does not hold from an imported plot",
 		func(ctx SpecContext) {
-			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 2))
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 2))
 			kept, gone := keys[0], keys[1]
 			plot := lineplot.LinePlot{
 				Project:  &proj.Key,
 				Name:     "export",
 				Channels: lineplot.Channels{Y1: []channel.Key{kept, gone}},
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &plot)
+			})).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(plot.Key)))
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, gone, false)).To(Succeed())
-			id := MustSucceed(imexSvc.Import(
-				ctx,
-				db,
-				WireRoundTrip(env),
-				imex.ImportOptions{Parent: proj.ResourceID()},
-			))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, gone, false)
+			})).To(Succeed())
+			var id resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),
+					imex.ImportOptions{Parent: proj.ResourceID()})
+				return err
+			})).To(Succeed())
 			res := retrieve(ctx, MustSucceed(uuid.Parse(id.Key)))
 			Expect(res.Channels.Y1).To(Equal([]channel.Key{kept}))
 			Expect(lineKeysOf(res.Lines)).To(Equal([]string{lk(res.Key, 0, kept)}))

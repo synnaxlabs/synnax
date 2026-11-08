@@ -265,7 +265,9 @@ var _ = Describe("Service.Set access", func() {
 	createLabel := func(ctx SpecContext) label.Label {
 		GinkgoHelper()
 		l := label.Label{Name: "label"}
-		Expect(labelSvc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return labelSvc.NewWriter(tx).Create(ctx, &l)
+		})).To(Succeed())
 		return l
 	}
 
@@ -290,7 +292,9 @@ var _ = Describe("Service.Set access", func() {
 		func(ctx SpecContext) {
 			s := newStatus(nil)
 			s.Message = "Stored"
-			Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, &s)
+			})).To(Succeed())
 			grantOn(ctx, u.ResourceID(),
 				[]access.Action{access.ActionCreate},
 				status.ResourceID(s.Key))
@@ -303,7 +307,9 @@ var _ = Describe("Service.Set access", func() {
 
 	It("Should update a status with update on it", func(ctx SpecContext) {
 		s := newStatus(nil)
-		Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewWriter(tx).Set(ctx, &s)
+		})).To(Succeed())
 		grantOn(ctx, u.ResourceID(),
 			[]access.Action{access.ActionUpdate},
 			status.ResourceID(s.Key))
@@ -373,7 +379,9 @@ var _ = Describe("Service.Set access", func() {
 func createRack(ctx SpecContext) resource.ID {
 	GinkgoHelper()
 	r := rack.Rack{Key: rack.Key(65536 + rand.Uint32N(1<<16)), Name: "rack"}
-	Expect(rackSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rackSvc.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
 	return r.ResourceID()
 }
 
@@ -683,7 +691,9 @@ var _ = Describe("Service.Rename", func() {
 			Message: "hello",
 			Time:    telem.Now(),
 		}
-		Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewWriter(tx).Set(ctx, &s)
+		})).To(Succeed())
 		return s
 	}
 	retrieveStatus := func(ctx SpecContext, key string) status.Status[any] {
@@ -790,7 +800,9 @@ var _ = Describe("Service.Delete", func() {
 				Variant: status.VariantInfo,
 				Time:    telem.Now(),
 			}
-			Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, &s)
+			})).To(Succeed())
 			return s, owner
 		}
 

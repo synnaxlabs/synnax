@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -40,6 +41,7 @@ func TestAPIChannel(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db         *gorp.DB
 	channelSvc *channel.Service
 	groupSvc   *group.Service
 	statusSvc  *status.Service
@@ -60,6 +62,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
 	channelSvc, groupSvc, statusSvc, rbacSvc = svc.Channel, svc.Group, svc.Status, svc.RBAC
 	rangeSvc, aliasSvc, userSvc = svc.Ranger, svc.Alias, svc.User
@@ -75,7 +78,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	retrieveChannels = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
-		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
+		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
 })
 
@@ -88,5 +91,5 @@ func grantOn(
 ) {
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }

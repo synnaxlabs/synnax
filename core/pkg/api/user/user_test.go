@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -36,6 +37,7 @@ func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
 	GinkgoHelper()
 	u := MustSucceed(rbactestutil.CreateUser(
 		ctx,
+		db,
 		rbacSvc,
 		userSvc,
 		user.User{Name: "non-root"},
@@ -51,14 +53,15 @@ func createUser(ctx SpecContext, username string) user.User {
 	GinkgoHelper()
 	u := MustSucceed(rbactestutil.CreateUser(
 		ctx,
+		db,
 		rbacSvc,
 		userSvc,
 		user.User{Name: username},
 	))
-	Expect(
-		passwordSvc.NewWriter(nil).
-			Set(ctx, u.ResourceID(), username, hash(passwordSvc, "p")),
-	).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return passwordSvc.NewWriter(tx).
+			Set(ctx, u.ResourceID(), username, hash(passwordSvc, "p"))
+	})).To(Succeed())
 	return u
 }
 
@@ -67,6 +70,7 @@ func grantOnUsers(ctx SpecContext, u user.User, action access.Action) {
 	GinkgoHelper()
 	MustSucceed(rbactestutil.Grant(
 		ctx,
+		db,
 		rbacSvc,
 		userSvc,
 		u.Key,
@@ -80,6 +84,7 @@ func grantRoleChange(ctx SpecContext, u user.User, roles ...role.Key) {
 	GinkgoHelper()
 	MustSucceed(rbactestutil.Grant(
 		ctx,
+		db,
 		rbacSvc,
 		userSvc,
 		u.Key,
@@ -92,7 +97,9 @@ func grantRoleChange(ctx SpecContext, u user.User, roles ...role.Key) {
 func createRole(ctx SpecContext) role.Key {
 	GinkgoHelper()
 	r := &role.Role{Name: "role-" + uuid.New().String()}
-	Expect(rbacSvc.Role.NewWriter(nil, true).Create(ctx, r)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rbacSvc.Role.NewWriter(tx, true).Create(ctx, r)
+	})).To(Succeed())
 	return r.Key
 }
 
@@ -229,12 +236,18 @@ var _ = Describe("Service", func() {
 			name := "user-name-" + uuid.New().String()
 			password := "password-name-" + uuid.New().String()
 			u := MustSucceed(
-				rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: name}),
+				rbactestutil.CreateUser(
+					ctx,
+					db,
+					rbacSvc,
+					userSvc,
+					user.User{Name: name},
+				),
 			)
-			Expect(
-				passwordSvc.NewWriter(nil).
-					Set(ctx, u.ResourceID(), password, hash(passwordSvc, "p")),
-			).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return passwordSvc.NewWriter(tx).
+					Set(ctx, u.ResourceID(), password, hash(passwordSvc, "p"))
+			})).To(Succeed())
 			res := MustSucceed(retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Where: &user.Where{Usernames: []string{password}},
 			}))
@@ -279,10 +292,16 @@ var _ = Describe("Service", func() {
 		It("Should search users by name", func(ctx SpecContext) {
 			name := "searchable-" + uuid.New().String()
 			u := MustSucceed(
-				rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: name}),
+				rbactestutil.CreateUser(
+					ctx,
+					db,
+					rbacSvc,
+					userSvc,
+					user.User{Name: name},
+				),
 			)
 			other := MustSucceed(
-				rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+				rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 					Name: "hidden-" + uuid.New().String(),
 				}),
 			)
@@ -303,6 +322,7 @@ var _ = Describe("Service", func() {
 				u := MustSucceed(
 					rbactestutil.CreateUser(
 						ctx,
+						db,
 						rbacSvc,
 						userSvc,
 						user.User{Name: "rename"},
@@ -324,6 +344,7 @@ var _ = Describe("Service", func() {
 				u := MustSucceed(
 					rbactestutil.CreateUser(
 						ctx,
+						db,
 						rbacSvc,
 						userSvc,
 						user.User{Name: "rename-denied"},
@@ -670,7 +691,10 @@ var _ = Describe("Service", func() {
 			"Should move a user that is not the root user off the Owner role",
 			func(ctx SpecContext) {
 				owner := createUser(ctx, "owner-"+uuid.New().String())
-				Expect(writer.SetRole(ctx, rbacSvc.Builtin.OwnerKey, nil, owner.Key)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return userSvc.NewWriter(tx).
+						SetRole(ctx, rbacSvc.Builtin.OwnerKey, nil, owner.Key)
+				})).
 					To(Succeed())
 				Expect(setRole(rootCtx(ctx), apiuser.SetRoleRequest{
 					Keys: []user.Key{owner.Key},
@@ -684,7 +708,9 @@ var _ = Describe("Service", func() {
 		) {
 			r := createRole(ctx)
 			u := createUser(ctx, "by-role-"+uuid.New().String())
-			Expect(writer.SetRole(ctx, r, nil, u.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return userSvc.NewWriter(tx).SetRole(ctx, r, nil, u.Key)
+			})).To(Succeed())
 			res := MustSucceed(retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Where: &user.Where{Roles: []role.Key{r, uuid.New()}},
 			}))
@@ -713,17 +739,20 @@ var _ = Describe("Service", func() {
 				created := MustSucceed(
 					rbactestutil.CreateUser(
 						ctx,
+						db,
 						rbacSvc,
 						userSvc,
 						user.User{Name: username},
 					),
 				)
-				Expect(passwordSvc.NewWriter(nil).Set(
-					ctx,
-					created.ResourceID(),
-					username,
-					hash(passwordSvc, "password"),
-				)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return passwordSvc.NewWriter(tx).Set(
+						ctx,
+						created.ResourceID(),
+						username,
+						hash(passwordSvc, "password"),
+					)
+				})).To(Succeed())
 				Expect(del(
 					rootCtx(ctx),
 					apiuser.DeleteRequest{Keys: []user.Key{created.Key, uuid.New()}},
@@ -744,6 +773,7 @@ var _ = Describe("Service", func() {
 				u := MustSucceed(
 					rbactestutil.CreateUser(
 						ctx,
+						db,
 						rbacSvc,
 						userSvc,
 						user.User{Name: "delete-denied"},

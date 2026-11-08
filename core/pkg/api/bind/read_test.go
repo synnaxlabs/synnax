@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -71,7 +72,9 @@ func createLabels(ctx context.Context, n int) []label.Label {
 		labels[i] = label.Label{Key: base, Name: "label"}
 		labels[i].Key[15] = byte(i)
 	}
-	Expect(svc.Label.NewWriter(nil).CreateMany(ctx, &labels)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Label.NewWriter(tx).CreateMany(ctx, &labels)
+	})).To(Succeed())
 	return labels
 }
 

@@ -40,7 +40,6 @@ var (
 	db          *gorp.DB
 	passwordSvc *password.Service
 	userSvc     *user.Service
-	writer      user.Writer
 	apiSvc      *apiuser.Service
 	rbacSvc     *rbac.Service
 	root        user.User
@@ -70,7 +69,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
-	writer = userSvc.NewWriter(nil)
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
 	}))

@@ -28,6 +28,7 @@ import (
 )
 
 var (
+	db     *gorp.DB
 	mockFS fs.FS
 	keys   *apikey.Service
 )
@@ -64,7 +65,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 }, func(ctx SpecContext, dir []byte) {
 	mockFS = os.DirFS(string(dir))
 	ShouldNotLeakGoroutines()
-	db := DeferClose(gorp.Wrap(memkv.New()))
+	db = DeferClose(gorp.Wrap(memkv.New()))
 	racks := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
 		DB:   db,
 		Name: string(resource.TypeRack),

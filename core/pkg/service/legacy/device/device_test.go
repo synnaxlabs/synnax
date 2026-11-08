@@ -62,7 +62,7 @@ var _ = Describe("Device", func() {
 			DB:         db,
 			HostKey:    1,
 			Status:     stat,
-			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:     db,
@@ -1224,10 +1224,12 @@ var _ = Describe("Device", func() {
 				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:         db,
-				HostKey:    1,
-				Status:     stat,
-				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+				DB:      db,
+				HostKey: 1,
+				Status:  stat,
+				DriverRole: MustSucceed(
+					racktestutil.CreateDriverRole(ctx, db, roleSvc),
+				),
 			}))
 			svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 				DB:     db,
@@ -1253,7 +1255,9 @@ var _ = Describe("Device", func() {
 				Make:     "Test Make",
 				Model:    "Test Model",
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &d)
+			})).To(Succeed())
 			Eventually(created.Load).Should(Equal("Observed"))
 		})
 	})
@@ -1277,7 +1281,7 @@ var _ = Describe("Device", func() {
 					Status:              stat,
 					HealthCheckInterval: 10 * telem.Millisecond,
 					DriverRole: MustSucceed(
-						racktestutil.CreateDriverRole(ctx, roleSvc),
+						racktestutil.CreateDriverRole(ctx, db, roleSvc),
 					),
 				}))
 				svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
@@ -1287,7 +1291,9 @@ var _ = Describe("Device", func() {
 				}))
 
 				r := rack.Rack{Name: "suspect rack"}
-				Expect(rackSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rackSvc.NewWriter(tx).Create(ctx, &r)
+				})).To(Succeed())
 
 				d := device.Device{
 					Key:      "suspect-device",
@@ -1297,7 +1303,9 @@ var _ = Describe("Device", func() {
 					Make:     "Test Make",
 					Model:    "Test Model",
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &d)
+				})).To(Succeed())
 
 				Eventually(func(g Gomega) {
 					var deviceStatus device.Status
@@ -1431,7 +1439,7 @@ func createChassis(ctx context.Context, w device.Writer, rackKey rack.Key) *devi
 	return &d.Key
 }
 
-var _ = Describe("Writer with no transaction", func() {
+var _ = Describe("Writer in concurrent transactions", func() {
 	It(
 		"Should keep the group that a move writes during concurrent creates",
 		func(ctx SpecContext) {
@@ -1446,10 +1454,12 @@ var _ = Describe("Writer with no transaction", func() {
 				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:         db,
-				HostKey:    1,
-				Status:     stat,
-				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+				DB:      db,
+				HostKey: 1,
+				Status:  stat,
+				DriverRole: MustSucceed(
+					racktestutil.CreateDriverRole(ctx, db, roleSvc),
+				),
 			}))
 			svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 				DB:     db,
@@ -1462,7 +1472,9 @@ var _ = Describe("Writer with no transaction", func() {
 					Name:   fmt.Sprintf("Concurrent %d", i),
 					Parent: new(rackSvc.EmbeddedKey.ResourceID()),
 				}
-				Expect(groupSvc.NewWriter(nil).Create(ctx, &groups[i])).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return groupSvc.NewWriter(tx).Create(ctx, &groups[i])
+				})).To(Succeed())
 			}
 			d := device.Device{
 				Key:      "concurrent",
@@ -1472,7 +1484,9 @@ var _ = Describe("Writer with no transaction", func() {
 				Make:     "Test Make",
 				Model:    "Test Model",
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &d)
+			})).To(Succeed())
 			retrieveGroup := func() *group.Key {
 				GinkgoHelper()
 				var stored device.Device
@@ -1491,7 +1505,9 @@ var _ = Describe("Writer with no transaction", func() {
 					defer GinkgoRecover()
 					for !moved.Load() {
 						again := d
-						Expect(svc.NewWriter(nil).Create(ctx, &again)).To(Succeed())
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(ctx, &again)
+						})).To(Succeed())
 					}
 				})
 			}
@@ -1499,7 +1515,9 @@ var _ = Describe("Writer with no transaction", func() {
 				defer GinkgoRecover()
 				defer moved.Store(true)
 				for _, g := range groups {
-					Expect(svc.NewWriter(nil).SetGroup(ctx, &g.Key, d.Key)).
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).SetGroup(ctx, &g.Key, d.Key)
+					})).
 						To(Succeed())
 					Expect(retrieveGroup()).To(Equal(&g.Key))
 				}

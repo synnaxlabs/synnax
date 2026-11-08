@@ -50,7 +50,7 @@ func openTargets(ctx SpecContext) (
 		DB:         db,
 		HostKey:    1,
 		Status:     statuses,
-		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roles)),
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roles)),
 	}))
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     db,
@@ -59,6 +59,7 @@ func openTargets(ctx SpecContext) (
 	}))
 	return devices, statuses, racks.EmbeddedKey, tasktestutil.NewTargets(
 		tasktestutil.TargetsConfig{
+			DB:     db,
 			Device: devices,
 			Status: statuses,
 			Rack:   racks.EmbeddedKey,

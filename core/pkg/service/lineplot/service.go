@@ -151,11 +151,8 @@ func (s *Service) OnAction(
 	return s.state.OnChange(handler)
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting line plots in
-// Synnax. If tx is provided, the writer uses that transaction; if tx is nil, it
-// executes operations directly against the underlying gorp.DB.
+// NewWriter opens a new writer for creating, updating, and deleting line plots in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		svc:        s,
 		tx:         tx,

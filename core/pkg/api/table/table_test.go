@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	apitable "github.com/synnaxlabs/synnax/pkg/api/table"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -47,7 +48,9 @@ var _ = Describe("Retrieve", func() {
 		ctx SpecContext,
 	) {
 		r := table.Table{Project: &proj.Key, Name: "unretrievable"}
-		Expect(svc.Table.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Table.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		Expect(retrieve(AuthedCtx(ctx, author), apitable.RetrieveRequest{
 			Where: &table.Where{Key: &filter.Set[table.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
@@ -188,14 +191,18 @@ var _ = Describe("Dispatch", func() {
 func createGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
-	Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Group.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 
 func createTable(ctx SpecContext, name string) table.Table {
 	GinkgoHelper()
 	t := table.Table{Project: &proj.Key, Name: name}
-	Expect(svc.Table.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Table.NewWriter(tx).Create(ctx, &t)
+	})).To(Succeed())
 	return t
 }
 
@@ -255,9 +262,13 @@ var _ = Describe("SetGroup", func() {
 			u = newUser(ctx)
 			x = createTable(ctx, "Cross project")
 			dest = project.Project{Name: "Destination"}
-			Expect(svc.Project.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Project.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
-			Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Group.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 		})
 		move := func(ctx SpecContext) (struct{}, error) {
 			return setGroup(
@@ -328,9 +339,13 @@ var _ = Describe("Create in a group", func() {
 		BeforeEach(func(ctx SpecContext) {
 			u = newCreator(ctx)
 			dest = project.Project{Name: "Create destination"}
-			Expect(svc.Project.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Project.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			g = group.Group{Name: "Create destination", Parent: new(dest.ResourceID())}
-			Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Group.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 		})
 		createIn := func(
 			ctx SpecContext,
@@ -395,7 +410,9 @@ var _ = Describe("SetProject", func() {
 	createProject := func(ctx SpecContext) project.Project {
 		GinkgoHelper()
 		p := project.Project{Name: "destination"}
-		Expect(svc.Project.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Project.NewWriter(tx).Create(ctx, &p)
+		})).To(Succeed())
 		return p
 	}
 	setProject := func(
@@ -467,7 +484,9 @@ var _ = Describe("SetProject", func() {
 			u := newCreator(ctx)
 			e := createTable(ctx, "Set project grouped")
 			g := createGroup(ctx, "Set project grouped")
-			Expect(svc.Table.NewWriter(nil).SetGroup(ctx, &g.Key, e.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Table.NewWriter(tx).SetGroup(ctx, &g.Key, e.Key)
+			})).To(Succeed())
 			grant(ctx, access.ActionUpdate, u.ResourceID(), table.ResourceID(e.Key))
 			Expect(
 				setProject(ctx, u, proj.Key, e.Key),

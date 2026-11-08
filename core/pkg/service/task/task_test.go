@@ -83,7 +83,7 @@ var _ = Describe("Task", Ordered, func() {
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			DriverRole: MustSucceed(
-				racktestutil.CreateDriverRole(ctx, roleSvc),
+				racktestutil.CreateDriverRole(ctx, db, roleSvc),
 			),
 		}))
 		rangeSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
@@ -117,13 +117,17 @@ var _ = Describe("Task", Ordered, func() {
 			Configs: configs,
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
-		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rackService.NewWriter(tx).Create(ctx, testRack)
+		})).To(Succeed())
 		for _, k := range []status.Key{"st-1", "st-2", "st-a", "st-b"} {
-			Expect(stat.NewWriter(nil).Set(ctx, &status.Status[any]{
-				Key:     k,
-				Name:    string(k),
-				Variant: status.VariantInfo,
-				Time:    telem.Now(),
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
+					Key:     k,
+					Name:    string(k),
+					Variant: status.VariantInfo,
+					Time:    telem.Now(),
+				})
 			})).To(Succeed())
 		}
 	})
@@ -646,7 +650,9 @@ var _ = Describe("Task", Ordered, func() {
 					Name:   "Original",
 					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
 				}
-				Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, m)
+				})).To(Succeed())
 				openTx()
 				frames := collect()
 				copied := MustSucceed(w.WithDispatchKey("dk-copy").
@@ -654,10 +660,12 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(*frames).To(BeEmpty())
 				Expect(tx.Commit(ctx)).To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
-					Expect(svc.NewWriter(db).Delete(ctx, m.Key, true)).To(Succeed())
-					Expect(
-						svc.NewWriter(db).Delete(ctx, copied.Key, true),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, m.Key, true)
+					})).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, copied.Key, true)
+					})).To(Succeed())
 				})
 				Expect(*frames).To(HaveLen(1))
 				f := (*frames)[0]
@@ -676,9 +684,13 @@ var _ = Describe("Task", Ordered, func() {
 		// and are deleted after each spec.
 		createCommitted := func(ctx context.Context, t *task.Task) {
 			GinkgoHelper()
-			Expect(svc.NewWriter(db).Create(ctx, t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, t)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(db).Delete(ctx, t.Key, true)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, t.Key, true)
+				})).To(Succeed())
 			})
 		}
 		var alerts *task.Task
@@ -795,8 +807,9 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should rename a task that has no status", func(ctx SpecContext) {
-			sw := stat.NewWriter(db)
-			Expect(sw.DeleteOwned(ctx, alerts.ResourceID())).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return stat.NewWriter(tx).DeleteOwned(ctx, alerts.ResourceID())
+			})).
 				To(Succeed())
 			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
@@ -806,11 +819,13 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should move the task to another rack", func(ctx SpecContext) {
 			other := &rack.Rack{Name: "Other Rack"}
-			Expect(rackService.NewWriter(db).Create(ctx, other)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackService.NewWriter(tx).Create(ctx, other)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(
-					rackService.NewWriter(db).Delete(ctx, nil, other.Key),
-				).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rackService.NewWriter(tx).Delete(ctx, nil, other.Key)
+				})).To(Succeed())
 			})
 			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"rack"}, other.Key),
@@ -971,12 +986,13 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should hash and broadcast a config that a status delete detaches", func(
 			ctx SpecContext,
 		) {
-			sw := stat.NewWriter(nil)
-			Expect(sw.Set(ctx, &status.Status[any]{
-				Key:     "st-detach",
-				Name:    "st-detach",
-				Variant: status.VariantInfo,
-				Time:    telem.Now(),
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
+					Key:     "st-detach",
+					Name:    "st-detach",
+					Variant: status.VariantInfo,
+					Time:    telem.Now(),
+				})
 			})).To(Succeed())
 			detached := &task.Task{
 				Type: testType,
@@ -991,7 +1007,9 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			createCommitted(ctx, detached)
 			frames := collect()
-			Expect(sw.Delete(ctx, "st-detach")).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return stat.NewWriter(tx).Delete(ctx, "st-detach")
+			})).To(Succeed())
 			stored := retrieve(ctx, detached.Key)
 			Expect(stored.Config["alerts"]).To(HaveExactElements(
 				HaveKeyWithValue("status", ""),
@@ -1024,7 +1042,9 @@ var _ = Describe("Task", Ordered, func() {
 			Name:   "Snapshot Task",
 			Config: msgpack.EncodedJSON{"routing_key": "rk-snapshot"},
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, t)
+		})).To(Succeed())
 		var res task.Task
 		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 			return svc.NewRetrieve().Where(task.MatchKeys(t.Key)).Entry(&res).
@@ -1968,7 +1988,7 @@ var _ = Describe("MatchArcs", func() {
 	)
 })
 
-var _ = Describe("Writer with no transaction", func() {
+var _ = Describe("Writer in concurrent transactions", func() {
 	var (
 		db       *gorp.DB
 		svc      *task.Service
@@ -2000,7 +2020,7 @@ var _ = Describe("Writer with no transaction", func() {
 			DB:         db,
 			HostKey:    1,
 			Status:     stat,
-			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
@@ -2011,11 +2031,15 @@ var _ = Describe("Writer with no transaction", func() {
 			Configs: MustSucceed(config.NewRegistry(pd.Stores()...)),
 		}))
 		testRack = rack.Rack{Name: "Test Rack"}
-		Expect(racks.NewWriter(nil).Create(ctx, &testRack)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return racks.NewWriter(tx).Create(ctx, &testRack)
+		})).To(Succeed())
 		hashes = make(map[string]string)
 		for i := range 4 {
 			t := newTask(uuid.New(), i)
-			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 			hashes[routingKey(i)] = t.ConfigHash
 		}
 	})
@@ -2032,7 +2056,9 @@ var _ = Describe("Writer with no transaction", func() {
 			defer GinkgoRecover()
 			for i := 0; !done.Load(); i++ {
 				t := newTask(key, i%len(hashes))
-				Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 			}
 		}
 	}
@@ -2041,7 +2067,9 @@ var _ = Describe("Writer with no transaction", func() {
 		"Should store the hash of the stored config during concurrent creates",
 		func(ctx SpecContext) {
 			t := newTask(uuid.New(), 0)
-			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 			var (
 				wg   sync.WaitGroup
 				done atomic.Bool
@@ -2065,7 +2093,9 @@ var _ = Describe("Writer with no transaction", func() {
 		"Should copy the config that matches the copied hash during concurrent creates",
 		func(ctx SpecContext) {
 			src := newTask(uuid.New(), 0)
-			Expect(svc.NewWriter(nil).Create(ctx, &src)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &src)
+			})).To(Succeed())
 			var (
 				wg   sync.WaitGroup
 				done atomic.Bool
@@ -2077,9 +2107,12 @@ var _ = Describe("Writer with no transaction", func() {
 				defer GinkgoRecover()
 				defer done.Store(true)
 				for range 50 {
-					c := MustSucceed(
-						svc.NewWriter(nil).Copy(ctx, src.Key, "Copy", false, nil),
-					)
+					var c task.Task
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+						c, err = svc.NewWriter(tx).
+							Copy(ctx, src.Key, "Copy", false, nil)
+						return err
+					})).To(Succeed())
 					expectStoredHash(ctx, c.Key)
 				}
 			})

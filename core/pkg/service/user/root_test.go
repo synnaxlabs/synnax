@@ -222,16 +222,21 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		ctx SpecContext,
 	) {
 		provision(ctx, "old-root", "p")
-		decoy := MustSucceed(
-			svc.NewWriter(nil).Create(ctx, user.User{Name: "delta", Role: member}),
-		)
-		owner := MustSucceed(
-			svc.NewWriter(nil).Create(ctx, user.User{Name: "owner", Role: member}),
-		)
-		Expect(
-			passwordSvc.NewWriter(nil).
-				Set(ctx, owner.ResourceID(), "delta", hash(passwordSvc, "p")),
-		).To(Succeed())
+		var decoy, owner user.User
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			decoy, err = svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "delta", Role: member})
+			return err
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			owner, err = svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "owner", Role: member})
+			return err
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return passwordSvc.NewWriter(tx).
+				Set(ctx, owner.ResourceID(), "delta", hash(passwordSvc, "p"))
+		})).To(Succeed())
 		root := provision(ctx, "delta", "p")
 		Expect(root.Key).To(Equal(owner.Key))
 		Expect(root.Key).ToNot(Equal(decoy.Key))
@@ -239,9 +244,12 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 	It("Should create a root user when no password holds the username", func(
 		ctx SpecContext,
 	) {
-		other := MustSucceed(
-			svc.NewWriter(nil).Create(ctx, user.User{Name: "orphan", Role: member}),
-		)
+		var other user.User
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			other, err = svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "orphan", Role: member})
+			return err
+		})).To(Succeed())
 		root := provision(ctx, "orphan", "p")
 		Expect(root.Key).ToNot(Equal(other.Key))
 		Expect(MustSucceed(login(ctx, "orphan", "p")).Subject).

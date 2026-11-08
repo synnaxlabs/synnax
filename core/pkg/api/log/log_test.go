@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	apilog "github.com/synnaxlabs/synnax/pkg/api/log"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -53,7 +54,9 @@ func createChannel(ctx SpecContext) channel.Channel {
 		DataType: telem.Float64T,
 		Virtual:  true,
 	}
-	Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+	})).To(Succeed())
 	return ch
 }
 
@@ -62,7 +65,9 @@ var _ = Describe("Retrieve", func() {
 		ctx SpecContext,
 	) {
 		r := log.Log{Project: &proj.Key, Name: "unretrievable"}
-		Expect(svc.Log.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Log.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		Expect(retrieve(AuthedCtx(ctx, author), apilog.RetrieveRequest{
 			Where: &log.Where{Key: &filter.Set[log.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
@@ -232,14 +237,18 @@ var _ = Describe("Dispatch", func() {
 func createGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
-	Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Group.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 
 func createLog(ctx SpecContext, name string) log.Log {
 	GinkgoHelper()
 	l := log.Log{Project: &proj.Key, Name: name}
-	Expect(svc.Log.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Log.NewWriter(tx).Create(ctx, &l)
+	})).To(Succeed())
 	return l
 }
 
@@ -299,9 +308,13 @@ var _ = Describe("SetGroup", func() {
 			u = newUser(ctx)
 			x = createLog(ctx, "Cross project")
 			dest = project.Project{Name: "Destination"}
-			Expect(svc.Project.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Project.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
-			Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Group.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 		})
 		move := func(ctx SpecContext) (struct{}, error) {
 			return setGroup(
@@ -370,9 +383,13 @@ var _ = Describe("Create in a group", func() {
 		BeforeEach(func(ctx SpecContext) {
 			u = newCreator(ctx)
 			dest = project.Project{Name: "Create destination"}
-			Expect(svc.Project.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Project.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			g = group.Group{Name: "Create destination", Parent: new(dest.ResourceID())}
-			Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Group.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 		})
 		createIn := func(
 			ctx SpecContext,
@@ -435,7 +452,9 @@ var _ = Describe("SetProject", func() {
 	createProject := func(ctx SpecContext) project.Project {
 		GinkgoHelper()
 		p := project.Project{Name: "destination"}
-		Expect(svc.Project.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Project.NewWriter(tx).Create(ctx, &p)
+		})).To(Succeed())
 		return p
 	}
 	setProject := func(
@@ -507,7 +526,9 @@ var _ = Describe("SetProject", func() {
 			u := newCreator(ctx)
 			e := createLog(ctx, "Set project grouped")
 			g := createGroup(ctx, "Set project grouped")
-			Expect(svc.Log.NewWriter(nil).SetGroup(ctx, &g.Key, e.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Log.NewWriter(tx).SetGroup(ctx, &g.Key, e.Key)
+			})).To(Succeed())
 			grant(ctx, access.ActionUpdate, u.ResourceID(), log.ResourceID(e.Key))
 			Expect(
 				setProject(ctx, u, proj.Key, e.Key),

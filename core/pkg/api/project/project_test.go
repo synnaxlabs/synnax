@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -349,7 +350,9 @@ func projectExists(ctx SpecContext, key project.Key) bool {
 func createProjectGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Scope: resource.TypeProject}
-	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return groupSvc.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 

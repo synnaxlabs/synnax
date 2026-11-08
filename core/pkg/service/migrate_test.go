@@ -218,7 +218,9 @@ var _ = Describe("Ontology drop", func() {
 						Leaseholder: node.KeyFree,
 					}
 				}
-				Expect(first.Channel.NewWriter(nil).CreateMany(ctx, &chs)).To(Succeed())
+				Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return first.Channel.NewWriter(tx).CreateMany(ctx, &chs)
+				})).To(Succeed())
 				Expect(retrieve(ctx, first)).To(HaveLen(len(names)))
 				Expect(first.Close()).To(Succeed())
 				second := MustSucceed(svctestutil.OpenLayer(ctx, n))

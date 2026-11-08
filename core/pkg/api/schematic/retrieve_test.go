@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -39,11 +40,17 @@ var _ = Describe("Retrieve by snapshot and page", func() {
 			resource.ID{Type: resource.TypeSchematic},
 		)
 		paged = project.Project{Name: "paged"}
-		Expect(projectSvc.NewWriter(nil).Create(ctx, &paged)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return projectSvc.NewWriter(tx).Create(ctx, &paged)
+		})).To(Succeed())
 		editable = schematic.Schematic{Project: &paged.Key, Name: "editable"}
-		Expect(schematicSvc.NewWriter(nil).Create(ctx, &editable)).To(Succeed())
-		Expect(schematicSvc.NewWriter(nil).
-			Copy(ctx, editable.Key, "snap", true, nil, &snap)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return schematicSvc.NewWriter(tx).Create(ctx, &editable)
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return schematicSvc.NewWriter(tx).
+				Copy(ctx, editable.Key, "snap", true, nil, &snap)
+		})).To(Succeed())
 	})
 	retrieve := func(ctx SpecContext, req apischematic.RetrieveRequest) []string {
 		GinkgoHelper()

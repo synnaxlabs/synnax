@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -51,12 +52,14 @@ func denied(u user.User, action access.Action, object resource.ID) types.GomegaM
 type scopedAction = actions.Scoped[schematic.Key, schematic.Action]
 
 // createSchematic persists a fresh schematic owned by the suite project and returns it
-// with its key populated. Writes commit immediately (nil tx) so access-control reads
-// can observe the new schematic.
+// with its key populated. The write commits at once so access-control reads can observe
+// the new schematic.
 func createSchematic(ctx context.Context, name string) schematic.Schematic {
 	GinkgoHelper()
 	s := schematic.Schematic{Project: &proj.Key, Name: name}
-	Expect(schematicSvc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return schematicSvc.NewWriter(tx).Create(ctx, &s)
+	})).To(Succeed())
 	return s
 }
 
@@ -157,7 +160,9 @@ var _ = Describe("Service", func() {
 			"Should reject the request without update on the destination project",
 			func(ctx SpecContext) {
 				dest := project.Project{Name: "denied destination"}
-				Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return projectSvc.NewWriter(tx).Create(ctx, &dest)
+				})).To(Succeed())
 				s := createSchematic(ctx, "move-denied")
 				grantUpdateOn(
 					ctx,
@@ -178,7 +183,9 @@ var _ = Describe("Service", func() {
 
 		It("Should move the schematics into the project", func(ctx SpecContext) {
 			dest := project.Project{Name: "destination"}
-			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return projectSvc.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			s := createSchematic(ctx, "moved")
 			grantUpdateOn(
 				ctx,
@@ -206,7 +213,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				s := createSchematic(ctx, "grouped")
 				g := createGroup(ctx, "grouped")
-				Expect(schematicSvc.NewWriter(nil).SetGroup(ctx, &g.Key, s.Key)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return schematicSvc.NewWriter(tx).SetGroup(ctx, &g.Key, s.Key)
+				})).
 					To(Succeed())
 				grantUpdateOn(
 					ctx,
@@ -368,10 +377,10 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					s := createSchematic(ctx, "snap-source")
 					var snap schematic.Schematic
-					Expect(
-						schematicSvc.NewWriter(nil).
-							Copy(ctx, s.Key, "snap", true, nil, &snap),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return schematicSvc.NewWriter(tx).
+							Copy(ctx, s.Key, "snap", true, nil, &snap)
+					})).To(Succeed())
 					grantUpdateOn(ctx, author.ResourceID(), snap.ResourceID())
 					Expect(
 						dispatch(
@@ -467,7 +476,9 @@ var _ = Describe("Service", func() {
 func createGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
-	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return groupSvc.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 
@@ -530,9 +541,13 @@ var _ = Describe("SetGroup", func() {
 			u = newUser(ctx)
 			x = createSchematic(ctx, "Cross project")
 			dest = project.Project{Name: "Destination"}
-			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return projectSvc.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
-			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 		})
 		move := func(ctx SpecContext) (struct{}, error) {
 			return setGroup(
@@ -609,7 +624,9 @@ var _ = Describe("Create in a group", func() {
 		func(ctx SpecContext) {
 			g := createGroup(ctx, "Create keeps group")
 			sc := schematic.Schematic{Project: &proj.Key, Name: "Kept", Group: &g.Key}
-			Expect(schematicSvc.NewWriter(nil).Create(ctx, &sc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return schematicSvc.NewWriter(tx).Create(ctx, &sc)
+			})).To(Succeed())
 			ignored := createGroup(ctx, "Create ignores group")
 			sc.Name, sc.Group = "Renamed", &ignored.Key
 			grantUpdateOn(ctx, author.ResourceID(), sc.ResourceID())
@@ -658,9 +675,13 @@ var _ = Describe("Create in a group", func() {
 			)
 			grantUpdateOn(ctx, u.ResourceID(), proj.ResourceID())
 			dest = project.Project{Name: "Create destination"}
-			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return projectSvc.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			g = group.Group{Name: "Create destination", Parent: new(dest.ResourceID())}
-			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 		})
 		create := func(ctx SpecContext, carried *project.Key) (apischematic.CreateResponse, error) {
 			return create(AuthedCtx(ctx, u), apischematic.CreateRequest{

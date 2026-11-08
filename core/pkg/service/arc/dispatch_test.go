@@ -39,15 +39,20 @@ var _ = Describe("Dispatch", func() {
 					Source: arc.Source{Variant: arc.GraphSource{}},
 				},
 			)
-			Expect(writer.Create(ctx, &target)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &target)
+			})).To(Succeed())
 			other := newAutomation(
 				arc.Base{Name: "other", Source: arc.Source{Variant: arc.GraphSource{}}},
 			)
-			Expect(writer.Create(ctx, &other)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(
-					writer.Delete(ctx, target.Base().Key, other.Base().Key),
-				).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).
+						Delete(ctx, target.Base().Key, other.Base().Key)
+				})).To(Succeed())
 			})
 			Expect(dispatch(ctx, target.Base().Key, "d1", []arc.Action{
 				arc.NewCreateAction(arc.CreatePayload{
@@ -81,7 +86,9 @@ var _ = Describe("Dispatch", func() {
 					},
 				}}},
 			})
-			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
 			Expect(dispatch(ctx, a.Base().Key, "session-1", []arc.Action{
 				arc.NewSetNodePositionAction(arc.SetNodePositionPayload{
 					Key:      "n1",
@@ -110,7 +117,9 @@ var _ = Describe("Dispatch", func() {
 					Source: arc.Source{Variant: arc.GraphSource{}},
 				},
 			)
-			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
 			Expect(dispatch(ctx, a.Base().Key, "session-1", []arc.Action{
 				arc.NewSetNodeAction(
 					arc.SetNodePayload{Node: graph.Node{Key: "n1"}},
@@ -149,7 +158,9 @@ var _ = Describe("Dispatch", func() {
 					Source: arc.Source{Variant: arc.GraphSource{}},
 				},
 			)
-			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
 			rec := &Recorder[arc.Key, arc.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			actions := []arc.Action{
@@ -181,7 +192,9 @@ var _ = Describe("Dispatch", func() {
 					Source: arc.Source{Variant: arc.GraphSource{}},
 				},
 			)
-			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
 			rec := &Recorder[arc.Key, arc.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			action := []arc.Action{
@@ -255,7 +268,9 @@ var _ = Describe("Collaborative text", func() {
 					Source: arc.Source{Variant: arc.TextSource{}},
 				},
 			)
-			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
 
 			client := crdt.New(2)
 			Expect(
@@ -283,7 +298,9 @@ var _ = Describe("Collaborative text", func() {
 					Variant: arc.TextSource{Text: text.Text{Raw: "base"}},
 				},
 			})
-			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
 
 			seeded := fetch(ctx, a.Base().Key)
 			client := crdt.New(2)
@@ -336,7 +353,9 @@ var _ = Describe("Collaborative text", func() {
 					Variant: arc.TextSource{Text: text.Text{Raw: "hello world"}},
 				},
 			})
-			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
 			client := crdt.New(2)
 			seeded := fetch(ctx, a.Base().Key)
 			client.Load(
@@ -399,7 +418,9 @@ var _ = Describe("Collaborative text", func() {
 					Variant: arc.TextSource{Text: text.Text{Raw: "hello world"}},
 				},
 			})
-			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
 			client := crdt.New(2)
 			seeded := fetch(ctx, a.Base().Key)
 			client.Load(
@@ -442,7 +463,9 @@ var _ = Describe("Collaborative text", func() {
 					Variant: arc.TextSource{Text: text.Text{Raw: "hello world"}},
 				},
 			})
-			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
 			client := crdt.New(2)
 			seeded := fetch(ctx, a.Base().Key)
 			client.Load(
@@ -481,7 +504,9 @@ var _ = Describe("Collaborative text", func() {
 					Variant: arc.TextSource{Text: text.Text{Raw: "ranges.crea"}},
 				},
 			})
-			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
 			client := crdt.New(2)
 			seeded := fetch(ctx, a.Base().Key)
 			client.Load(

@@ -19,6 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/samber/lo"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
+	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -50,14 +52,18 @@ func createNamedChannel(
 ) channel.Channel {
 	GinkgoHelper()
 	ch := channel.Channel{Name: name, DataType: dt, Virtual: true}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &ch)
+	})).To(Succeed())
 	return ch
 }
 
 func createChannelGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Scope: resource.TypeChannel}
-	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return groupSvc.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 
@@ -83,16 +89,17 @@ var _ = Describe("Service", func() {
 					resource.ID{Type: resource.TypeChannel},
 				)
 				g := group.Group{Name: "API Channels", Scope: resource.TypeChannel}
-				Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return groupSvc.NewWriter(tx).Create(ctx, &g)
+				})).To(Succeed())
 				grantOn(
 					ctx,
 					author.ResourceID(),
 					[]access.Action{access.ActionUpdate},
 					group.ResourceID(g.Key),
 				)
-				created := MustSucceed(apiSvc.Create(
+				created := MustSucceed(fgorp.CreateWriteUnaryHandler(db, apiSvc.Create)(
 					AuthedCtx(ctx, author),
-					nil,
 					apichannel.CreateRequest{Channels: []apichannel.Channel{{
 						Name:     UniqueChannelName(),
 						DataType: telem.TimestampT,
@@ -124,9 +131,8 @@ var _ = Describe("Service", func() {
 					resource.ID{Type: resource.TypeChannel},
 				)
 				g := createChannelGroup(ctx, "Create denied")
-				Expect(apiSvc.Create(
+				Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Create)(
 					AuthedCtx(ctx, author),
-					nil,
 					apichannel.CreateRequest{Channels: []apichannel.Channel{{
 						Name:     UniqueChannelName(),
 						DataType: telem.TimestampT,
@@ -186,7 +192,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				ch := createChannel(ctx, telem.Float32T)
 				from := createChannelGroup(ctx, "Set group source denied")
-				Expect(channelSvc.NewWriter(nil).SetGroup(ctx, &from.Key, ch.Key())).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).SetGroup(ctx, &from.Key, ch.Key())
+				})).
 					To(Succeed())
 				to := createChannelGroup(ctx, "Set group destination granted")
 				grantOn(
@@ -228,7 +236,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				ch := createChannel(ctx, telem.Float32T)
 				from := createChannelGroup(ctx, "Set group source granted")
-				Expect(channelSvc.NewWriter(nil).SetGroup(ctx, &from.Key, ch.Key())).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).SetGroup(ctx, &from.Key, ch.Key())
+				})).
 					To(Succeed())
 				to := createChannelGroup(ctx, "Set group granted")
 				grantOn(
@@ -321,12 +331,14 @@ var _ = Describe("Service", func() {
 
 			setStatus := func(ctx SpecContext, ch channel.Channel) {
 				GinkgoHelper()
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &apichannel.Status{
-					Owner:   new(channel.ResourceID(ch.Key())),
-					Name:    ch.Name,
-					Variant: status.VariantSuccess,
-					Message: "ok",
-					Time:    telem.Now(),
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &apichannel.Status{
+						Owner:   new(channel.ResourceID(ch.Key())),
+						Name:    ch.Name,
+						Variant: status.VariantSuccess,
+						Message: "ok",
+						Time:    telem.Now(),
+					})
 				})).To(Succeed())
 			}
 
@@ -394,13 +406,17 @@ var _ = Describe("Service", func() {
 						End:   telem.TimeStamp(10 * telem.Second),
 					},
 				}
-				Expect(rangeSvc.NewWriter(nil).Create(ctx, &rng)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangeSvc.NewWriter(tx).Create(ctx, &rng)
+				})).To(Succeed())
 				term = fmt.Sprintf("probe%09d", rand.IntN(999999999))
 				byName = createNamedChannel(ctx, term, telem.Float32T)
 				byAlias = createChannel(ctx, telem.Float32T)
-				Expect(aliasSvc.NewWriter(nil).Set(
-					ctx, rng.Key, byAlias.Key(), term+" inlet",
-				)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return aliasSvc.NewWriter(tx).Set(
+						ctx, rng.Key, byAlias.Key(), term+" inlet",
+					)
+				})).To(Succeed())
 				both = &channel.Where{Key: &filter.Set[channel.Key]{
 					In: []channel.Key{byName.Key(), byAlias.Key()},
 				}}
@@ -475,9 +491,11 @@ var _ = Describe("Service", func() {
 			It("Should return a channel whose alias and name both match once", func(
 				ctx SpecContext,
 			) {
-				Expect(aliasSvc.NewWriter(nil).Set(
-					ctx, rng.Key, byName.Key(), term+" outlet",
-				)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return aliasSvc.NewWriter(tx).Set(
+						ctx, rng.Key, byName.Key(), term+" outlet",
+					)
+				})).To(Succeed())
 				Expect(retrieve(ctx, apichannel.RetrieveRequest{
 					Where:      both,
 					SearchTerm: term,
@@ -497,6 +515,7 @@ var _ = Describe("Service", func() {
 			) {
 				reader := MustSucceed(rbactestutil.CreateUser(
 					ctx,
+					db,
 					rbacSvc,
 					userSvc,
 					user.User{Name: "reader-" + uuid.New().String()},
@@ -561,6 +580,7 @@ var _ = Describe("Service", func() {
 				blocked = createNamedChannel(ctx, prefix+"_blocked", telem.Float32T)
 				reader = MustSucceed(rbactestutil.CreateUser(
 					ctx,
+					db,
 					rbacSvc,
 					userSvc,
 					user.User{Name: "reader-" + uuid.New().String()},

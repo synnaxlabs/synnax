@@ -61,7 +61,7 @@ var _ = Describe("Where", Ordered, func() {
 			DB:         db,
 			HostKey:    1,
 			Status:     stat,
-			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:     db,
@@ -70,8 +70,12 @@ var _ = Describe("Where", Ordered, func() {
 		}))
 		for _, d := range v.Records {
 			r := rack.Rack{Key: d.Rack, Name: "Rack"}
-			Expect(racks.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return racks.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &d)
+			})).To(Succeed())
 		}
 	})
 

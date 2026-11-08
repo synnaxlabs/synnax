@@ -115,11 +115,8 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-// NewWriter opens a new Writer to create, update, and delete labels. If tx is not nil
-// the writer will use it, otherwise it will execute operations directly against the
-// underlying gorp.DB.
+// NewWriter opens a new Writer to create, update, and delete labels in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		tx:         tx,
 		table:      s.table,

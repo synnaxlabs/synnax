@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -37,9 +38,13 @@ var _ = Describe("Resource", func() {
 	BeforeEach(func(ctx SpecContext) {
 		term = "probe" + uuid.New().String()[:8]
 		lbl = label.Label{Name: term}
-		Expect(svc.Label.NewWriter(nil).Create(ctx, &lbl)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Label.NewWriter(tx).Create(ctx, &lbl)
+		})).To(Succeed())
 		rck = rack.Rack{Name: term + " rack"}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &rck)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &rck)
+		})).To(Succeed())
 	})
 
 	Describe("Search", func() {
@@ -78,7 +83,9 @@ var _ = Describe("Resource", func() {
 					Name:     term,
 					Snapshot: true,
 				}
-				Expect(svc.Task.NewWriter(nil).Create(ctx, &tsk)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Task.NewWriter(tx).Create(ctx, &tsk)
+				})).To(Succeed())
 				channels := make([]channel.Channel, 3)
 				for i := range channels {
 					channels[i] = channel.Channel{
@@ -86,7 +93,9 @@ var _ = Describe("Resource", func() {
 						DataType: telem.Float64T,
 						Virtual:  true,
 					}
-					Expect(svc.Channel.NewWriter(nil).Create(ctx, &channels[i])).
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.Channel.NewWriter(tx).Create(ctx, &channels[i])
+					})).
 						To(Succeed())
 				}
 				u := createUser(ctx)

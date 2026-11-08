@@ -119,11 +119,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	setProject = bind.Write(binder, apiSvc.SetProject)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
-	author = MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))
 	proj.Name = "test-project"
-	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
 })
 
 // grantOn grants the action on the objects to the subject.
@@ -136,13 +138,13 @@ func grantOn(
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }
 
 // newUser creates a user with no policies.
 func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }

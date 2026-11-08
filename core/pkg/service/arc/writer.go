@@ -32,10 +32,8 @@ import (
 // TaskType is the task type for tasks that execute an Arc module.
 const TaskType = "arc"
 
-// Writer is used to create, update, and delete arcs within Synnax. The writer
-// executes all operations within the transaction provided to the Service.NewWriter
-// method. If no transaction is provided, the writer will execute operations directly
-// on the database.
+// Writer is used to create, update, and delete arcs within Synnax. The writer executes
+// all operations within the transaction provided to the Service.NewWriter method.
 type Writer struct {
 	tx          gorp.Tx
 	root        directory.Key
@@ -68,26 +66,9 @@ func validateType(stored, next Type) error {
 	)
 }
 
-// inTx calls f with w, or with a copy of w on a transaction of its own when w has no
-// transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	db, ok := w.tx.(*gorp.DB)
-	if !ok {
-		return f(w)
-	}
-	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		w.tx = tx
-		return f(w)
-	})
-}
-
 // Create creates the given Arc. If the Arc does not have a key,
 // a new key will be generated.
 func (w Writer) Create(ctx context.Context, a *Arc) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, a) })
-}
-
-func (w Writer) create(ctx context.Context, a *Arc) error {
 	if a.Variant == nil {
 		return errors.Wrap(
 			validate.ErrValidation, "an Arc must be an automation or a module",
@@ -175,20 +156,18 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 // Delete deletes the Arcs with the given keys. If the Arc has child tasks, those tasks
 // will also be deleted.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		for _, key := range keys {
-			if err := w.deleteChildTasks(ctx, key); err != nil {
-				return err
-			}
-		}
-		if err := w.table.NewDelete().
-			Where(gorp.MatchKeys[Key, Arc](keys...)).
-			Exec(ctx, w.tx); err != nil {
+	for _, key := range keys {
+		if err := w.deleteChildTasks(ctx, key); err != nil {
 			return err
 		}
-		w.deletes.Add(w.tx, keys...)
-		return nil
-	})
+	}
+	if err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Arc](keys...)).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.deletes.Add(w.tx, keys...)
+	return nil
 }
 
 func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {

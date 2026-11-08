@@ -142,9 +142,9 @@ var _ = Describe("Service", func() {
 		authenticators = map[auth.Method]auth.Authenticator{auth.MethodPassword: pw}
 		alice = subject()
 		username = uuid.New().String()
-		Expect(
-			pw.NewWriter(nil).Set(ctx, alice, username, hash(pw, "secret")),
-		).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return pw.NewWriter(tx).Set(ctx, alice, username, hash(pw, "secret"))
+		})).To(Succeed())
 	})
 	JustBeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
@@ -397,9 +397,10 @@ var _ = Describe("Service", func() {
 				session, _ := login(ctx)
 				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
 				defer release()
-				Expect(
-					pw.NewWriter(nil).ChangePassword(ctx, alice, hash(pw, "changed")),
-				).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return pw.NewWriter(tx).
+						ChangePassword(ctx, alice, hash(pw, "changed"))
+				})).
 					To(Succeed())
 				Expect(svc.CheckHolds(ctx)).To(Succeed())
 				Eventually(ended).Should(BeClosed())
@@ -453,7 +454,9 @@ var _ = Describe("Service", func() {
 				session, _ := login(ctx)
 				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
 				defer release()
-				Expect(svc.NewWriter(nil).RevokeCredential(ctx, session.Credential)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).RevokeCredential(ctx, session.Credential)
+				})).
 					To(Succeed())
 				Eventually(ended).Should(BeClosed())
 			},
@@ -581,9 +584,9 @@ var _ = Describe("Service", func() {
 					session, token := login(ctx)
 					bob := subject()
 					bobName := uuid.New().String()
-					Expect(
-						pw.NewWriter(nil).Set(ctx, bob, bobName, hash(pw, "p")),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return pw.NewWriter(tx).Set(ctx, bob, bobName, hash(pw, "p"))
+					})).To(Succeed())
 					_, bobToken := MustSucceed2(svc.Login(ctx, proof(bobName, "p")))
 					deleteSubject(ctx, alice)
 					Expect(svc.Authenticate(ctx, token)).Error().
@@ -602,7 +605,9 @@ var _ = Describe("Service", func() {
 			) {
 				ended, endedToken := login(ctx)
 				_, keptToken := login(ctx)
-				Expect(svc.NewWriter(nil).Delete(ctx, ended.Key, uuid.New())).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, ended.Key, uuid.New())
+				})).
 					To(Succeed())
 				Expect(svc.Authenticate(ctx, endedToken)).Error().
 					To(MatchError(auth.ErrInvalidToken))
@@ -613,7 +618,9 @@ var _ = Describe("Service", func() {
 			It("Should end every session of the credential", func(ctx SpecContext) {
 				first, firstToken := login(ctx)
 				_, secondToken := login(ctx)
-				Expect(svc.NewWriter(nil).RevokeCredential(ctx, first.Credential)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).RevokeCredential(ctx, first.Credential)
+				})).
 					To(Succeed())
 				for _, token := range []string{firstToken, secondToken} {
 					Expect(svc.Authenticate(ctx, token)).Error().
@@ -622,18 +629,20 @@ var _ = Describe("Service", func() {
 			})
 			It("Should end the sessions of several credentials", func(ctx SpecContext) {
 				a, aToken := login(ctx)
-				bobName := uuid.New().String()
-				Expect(
-					pw.NewWriter(nil).Set(ctx, subject(), bobName, hash(pw, "secret")),
-				).To(Succeed())
+				bob, bobName := subject(), uuid.New().String()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return pw.NewWriter(tx).Set(ctx, bob, bobName, hash(pw, "secret"))
+				})).To(Succeed())
 				b, bToken := MustSucceed2(
 					svc.Login(ctx, proof(bobName, "secret")),
 				)
-				Expect(svc.NewWriter(nil).RevokeCredential(
-					ctx,
-					a.Credential,
-					b.Credential,
-				)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).RevokeCredential(
+						ctx,
+						a.Credential,
+						b.Credential,
+					)
+				})).To(Succeed())
 				for _, token := range []string{aToken, bToken} {
 					Expect(svc.Authenticate(ctx, token)).Error().
 						To(MatchError(auth.ErrInvalidToken))
@@ -641,7 +650,9 @@ var _ = Describe("Service", func() {
 			})
 			It("Should leave other credentials alone", func(ctx SpecContext) {
 				_, token := login(ctx)
-				Expect(svc.NewWriter(nil).RevokeCredential(ctx, uuid.New())).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).RevokeCredential(ctx, uuid.New())
+				})).
 					To(Succeed())
 				MustSucceed(svc.Authenticate(ctx, token))
 			})
@@ -677,7 +688,10 @@ var _ = Describe("Service", func() {
 				},
 			)
 			It("Should reject an unknown credential", func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Open(ctx, alice, uuid.New())).Error().
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, _, err := svc.NewWriter(tx).Open(ctx, alice, uuid.New())
+					return err
+				})).
 					To(MatchError(query.ErrNotFound))
 			})
 		})

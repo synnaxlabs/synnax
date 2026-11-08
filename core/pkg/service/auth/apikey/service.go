@@ -95,7 +95,7 @@ func (s *Service) NewRetrieve() Retrieve {
 
 // NewWriter opens a [Writer] that runs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{svc: s, tx: gorp.OverrideTx(s.cfg.DB, tx)}
+	return Writer{svc: s, tx: tx}
 }
 
 // Authenticate implements [auth.Authenticator]. A malformed key, an unknown key, and a

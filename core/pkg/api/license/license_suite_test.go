@@ -87,6 +87,7 @@ func freshUser(ctx SpecContext) user.User {
 	return MustSucceed(
 		rbactestutil.CreateUser(
 			ctx,
+			db,
 			rbacSvc,
 			userSvc,
 			user.User{Name: "anon-" + uuid.New().String()},
@@ -103,5 +104,5 @@ func grantOn(
 ) {
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }

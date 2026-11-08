@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -52,7 +53,9 @@ var _ = Describe("ImEx", func() {
 	Describe("Export", func() {
 		It("Should export a line plot as a versioned envelope", func(ctx SpecContext) {
 			lp := lineplot.LinePlot{Project: &proj.Key, Name: "exported"}
-			Expect(svc.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &lp)
+			})).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(lp.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("lineplot"))
@@ -83,7 +86,11 @@ var _ = Describe("ImEx", func() {
 			ctx SpecContext, env imex.Envelope, opts imex.ImportOptions,
 		) lineplot.LinePlot {
 			GinkgoHelper()
-			id := MustSucceed(imexSvc.Import(ctx, db, env, opts))
+			var id resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				id, err = imexSvc.Import(ctx, tx, env, opts)
+				return err
+			})).To(Succeed())
 			Expect(id.Type).To(Equal(resource.TypeLineplot))
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res lineplot.LinePlot
@@ -185,10 +192,15 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It("Should reject a zero parent", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, db,
-				LoadEnvelope("versions/testdata/import_v5.json"),
-				imex.ImportOptions{},
-			)).Error().To(SatisfyAll(
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := imexSvc.Import(
+					ctx,
+					tx,
+					LoadEnvelope("versions/testdata/import_v5.json"),
+					imex.ImportOptions{},
+				)
+				return err
+			})).To(SatisfyAll(
 				MatchError(ContainSubstring(`parent: must be a project, got ""`)),
 				MatchError(ContainSubstring("validation error")),
 			))
@@ -197,10 +209,15 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should reject an envelope newer than the supported version",
 			func(ctx SpecContext) {
-				Expect(imexSvc.Import(ctx, db,
-					LoadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{Parent: proj.ResourceID()},
-				)).Error().To(SatisfyAll(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(
+						ctx,
+						tx,
+						LoadEnvelope("versions/testdata/import_bad_version.json"),
+						imex.ImportOptions{Parent: proj.ResourceID()},
+					)
+					return err
+				})).To(SatisfyAll(
 					MatchError(ContainSubstring("lineplot version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
 				))
@@ -211,16 +228,25 @@ var _ = Describe("ImEx", func() {
 			"Should refuse a group that is not in the parent project",
 			func(ctx SpecContext) {
 				other := project.Project{Name: "other"}
-				Expect(projectSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return projectSvc.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
 				g := group.Group{
 					Name:   "in other",
 					Parent: new(project.ResourceID(other.Key)),
 				}
-				Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
-				Expect(imexSvc.Import(ctx, db,
-					LoadEnvelope("versions/testdata/import_v5.json"),
-					imex.ImportOptions{Parent: proj.ResourceID(), Group: &g.Key},
-				)).Error().To(SatisfyAll(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return groupSvc.NewWriter(tx).Create(ctx, &g)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(
+						ctx,
+						tx,
+						LoadEnvelope("versions/testdata/import_v5.json"),
+						imex.ImportOptions{Parent: proj.ResourceID(), Group: &g.Key},
+					)
+					return err
+				})).To(SatisfyAll(
 					MatchError(ContainSubstring(fmt.Sprintf(
 						"group: group %s is not in project %s", g.Key, proj.Key,
 					))),
@@ -235,14 +261,14 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should generate a fresh key, discarding the key on the wire",
 			func(ctx SpecContext) {
-				id := MustSucceed(imexSvc.Import(
-					ctx,
-					db,
-					LoadEnvelope(
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, LoadEnvelope(
 						"versions/testdata/import_v5.json",
 					),
-					imex.ImportOptions{Parent: proj.ResourceID()},
-				))
+						imex.ImportOptions{Parent: proj.ResourceID()})
+					return err
+				})).To(Succeed())
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
 		)
@@ -258,16 +284,16 @@ var _ = Describe("ImEx", func() {
 					Channels: lineplot.Channels{Y1: []channel.Key{ch4, ch5}},
 					Ranges:   []ranger.Ref{recentRef},
 				}
-				Expect(
-					svc.NewWriter(nil).Create(ctx, &original),
-				).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &original)
+				})).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(original.Key)))
-				id := MustSucceed(imexSvc.Import(
-					ctx,
-					db,
-					WireRoundTrip(env),
-					imex.ImportOptions{Parent: proj.ResourceID()},
-				))
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),
+						imex.ImportOptions{Parent: proj.ResourceID()})
+					return err
+				})).To(Succeed())
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Key))
 				var res lineplot.LinePlot
