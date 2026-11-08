@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -154,7 +153,7 @@ func (f *tableFeed[K, E]) append(
 		deletes = telem.Series{DataType: f.del.DataType}
 	)
 	for ch := range f.cfg.Changes(ctx, c) {
-		if ch.Variant == change.VariantDelete {
+		if ch.Kind == gorp.ChangeDelete {
 			deletes.Data = append(deletes.Data, keySample(ch.Key)...)
 			continue
 		}

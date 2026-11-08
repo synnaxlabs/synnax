@@ -33,7 +33,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -1083,7 +1082,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					mu.Lock()
 					defer mu.Unlock()
 					for ch := range r {
-						if ch.Variant == change.VariantSet &&
+						if ch.Kind != gorp.ChangeDelete &&
 							ch.Value.Owner != nil && *ch.Value.Owner == owner {
 							writes = append(writes, calculation.Status{
 								Variant:     ch.Value.Variant,

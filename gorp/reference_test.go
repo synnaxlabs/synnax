@@ -11,7 +11,6 @@ package gorp_test
 
 import (
 	"context"
-	"iter"
 	"slices"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -477,7 +475,7 @@ var _ = Describe("Reference", func() {
 				var found []string
 				DeferCleanup(devices.Observe().OnChange(func(
 					context.Context,
-					iter.Seq[change.Change[string, refDevice]],
+					gorp.TxReader[string, refDevice],
 				) {
 					found = MustSucceed(deviceRef.rack.Get(ctx, nil, 1))
 				}))

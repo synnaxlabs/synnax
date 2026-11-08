@@ -45,6 +45,30 @@ func (t failingTx) Commit(ctx context.Context, opts ...any) error {
 	return t.Tx.Commit(ctx, opts...)
 }
 
+// holdingKV calls hold, when set, after each commit applies and before the commit
+// returns.
+type holdingKV struct {
+	kv.DB
+	hold func(context.Context)
+}
+
+func (d *holdingKV) OpenTx() kv.Tx { return holdingTx{Tx: d.DB.OpenTx(), db: d} }
+
+type holdingTx struct {
+	kv.Tx
+	db *holdingKV
+}
+
+func (t holdingTx) Commit(ctx context.Context, opts ...any) error {
+	if err := t.Tx.Commit(ctx, opts...); err != nil {
+		return err
+	}
+	if t.db.hold != nil {
+		t.db.hold(ctx)
+	}
+	return nil
+}
+
 var _ = Describe("Delivery", func() {
 	var (
 		db      *gorp.DB
@@ -76,17 +100,28 @@ var _ = Describe("Delivery", func() {
 			}))
 			return &commits
 		}
-		// holdFirstCommit holds the first commit until release closes. The hold is
-		// after the store applies the commit, which is after the release of the write
-		// lock and before delivery. secondApplied closes when the store applies the
-		// second commit, which has its number by then.
+		open = func(ctx context.Context, store kv.DB) {
+			GinkgoHelper()
+			db = DeferClose(gorp.Wrap(store, gorp.WithCodec(msgpack.Codec)))
+			records = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
+				DB:   db,
+				Name: "record",
+			}))
+		}
+		// holdFirstCommit reopens the DB on a store that holds the first commit until
+		// release closes. The hold is after the store applies the commit, which is
+		// after the release of the write lock and before delivery. secondApplied closes
+		// when the store applies the second commit, which has its number by then.
 		holdFirstCommit = func(
+			ctx context.Context,
 			release <-chan struct{},
 		) (firstApplied, secondApplied chan struct{}) {
 			GinkgoHelper()
 			firstApplied, secondApplied = make(chan struct{}), make(chan struct{})
+			store := &holdingKV{DB: memkv.New()}
+			open(ctx, store)
 			var applied atomic.Int32
-			DeferCleanup(db.OnChange(func(ctx context.Context, _ kv.TxReader) {
+			store.hold = func(ctx context.Context) {
 				switch applied.Add(1) {
 				case 1:
 					close(firstApplied)
@@ -97,16 +132,8 @@ var _ = Describe("Delivery", func() {
 				case 2:
 					close(secondApplied)
 				}
-			}))
+			}
 			return firstApplied, secondApplied
-		}
-		open = func(ctx context.Context, store kv.DB) {
-			GinkgoHelper()
-			db = DeferClose(gorp.Wrap(store, gorp.WithCodec(msgpack.Codec)))
-			records = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
-				DB:   db,
-				Name: "record",
-			}))
 		}
 	)
 
@@ -187,33 +214,27 @@ var _ = Describe("Delivery", func() {
 		}))
 	})
 
-	It(
-		"Should deliver after the key-value observers and before Commit returns",
-		func(ctx SpecContext) {
-			var calls []string
-			DeferCleanup(db.OnChange(func(context.Context, kv.TxReader) {
-				calls = append(calls, "observer")
-			}))
-			DeferCleanup(db.Observe().OnChange(func(context.Context, gorp.Commit) {
-				calls = append(calls, "reader")
-			}))
-			tx := DeferClose(db.OpenTx())
-			Expect(create(ctx, 1)(tx)).To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
-			calls = append(calls, "commit")
-			Expect(calls).To(Equal([]string{"observer", "reader", "commit"}))
-		},
-	)
+	It("Should deliver before Commit returns", func(ctx SpecContext) {
+		var calls []string
+		DeferCleanup(db.Observe().OnChange(func(context.Context, gorp.Commit) {
+			calls = append(calls, "reader")
+		}))
+		tx := DeferClose(db.OpenTx())
+		Expect(create(ctx, 1)(tx)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		calls = append(calls, "commit")
+		Expect(calls).To(Equal([]string{"reader", "commit"}))
+	})
 
 	It(
 		"Should deliver commits that race in the order they commit",
 		func(ctx SpecContext) {
+			release := make(chan struct{})
+			firstApplied, secondApplied := holdFirstCommit(ctx, release)
 			delivered := make(chan uint64, 2)
 			DeferCleanup(db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
 				delivered <- c.Seq
 			}))
-			release := make(chan struct{})
-			firstApplied, secondApplied := holdFirstCommit(release)
 			first := make(chan error, 1)
 			go func() { first <- create(ctx, 1)(db) }()
 			Eventually(firstApplied).Should(BeClosed())
@@ -231,9 +252,9 @@ var _ = Describe("Delivery", func() {
 	It(
 		"Should deliver every number to a reader that connects while a commit waits",
 		func(ctx SpecContext) {
-			disconnect := db.Observe().OnChange(func(context.Context, gorp.Commit) {})
 			release := make(chan struct{})
-			firstApplied, secondApplied := holdFirstCommit(release)
+			firstApplied, secondApplied := holdFirstCommit(ctx, release)
+			disconnect := db.Observe().OnChange(func(context.Context, gorp.Commit) {})
 			first := make(chan error, 1)
 			go func() { first <- create(ctx, 1)(db) }()
 			Eventually(firstApplied).Should(BeClosed())

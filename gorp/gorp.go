@@ -253,8 +253,8 @@ func (t *tx) txIdentity() *txState { return &t.state }
 
 // Commit commits the transaction and releases the write lock. Hooks registered via
 // state.OnCleanup run before the release, with committed=true on success and
-// committed=false otherwise. The release comes before the store notifies observers,
-// because an observer can open a transaction. Then the readers of DB.Observe run.
+// committed=false otherwise. Then the readers of DB.Observe run. The release comes
+// before them, because a reader can open a transaction.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	t.state.committing.Store(true)
 	applied := kv.OnApplied(func() { t.end(true) })

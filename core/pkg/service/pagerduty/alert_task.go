@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -101,7 +100,7 @@ func (t *alertTask) open(context.Context) (func(context.Context) error, error) {
 		var changed []status.Status[any]
 		for ch := range r {
 			if _, ok := t.alertsByStatus[ch.Key]; ok &&
-				ch.Variant == change.VariantSet {
+				ch.Kind != gorp.ChangeDelete {
 				changed = append(changed, ch.Value)
 			}
 		}

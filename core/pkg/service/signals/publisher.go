@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -30,15 +29,23 @@ import (
 	"go.uber.org/zap"
 )
 
+// Change is one sample that PublishFromObservable writes to the set channel, or to the
+// delete channel when Deleted is true.
+type Change struct {
+	// Sample is the sample, encoded for the data type of its channel.
+	Sample []byte
+	// Deleted is true when the sample belongs to the delete channel.
+	Deleted bool
+}
+
 // ObservablePublisherConfig is the configuration for opening a Signals pipeline that
 // subscribes to the provided observable and writes changes to the provided channels.
 // Prefer PublishTable for the changes of a Gorp table.
 type ObservablePublisherConfig struct {
-	// Observable is the observable used to subscribe to changes. This observable should
-	// return byte slice keys that are properly encoded for the channel's data type.
+	// Observable is the observable used to subscribe to changes.
 	//
 	// [REQUIRED]
-	Observable observe.Observable[[]change.Change[[]byte, struct{}]]
+	Observable observe.Observable[[]Change]
 	// Name is an optional name for the Signals pipeline, used for debugging purposes.
 	//
 	// [OPTIONAL]
@@ -46,12 +53,12 @@ type ObservablePublisherConfig struct {
 	// SetChannel is the channel used to propagate set operations. Only Name and
 	// DataType need to be provided. The config will automatically set Leaseholder to
 	// Free and Virtual to true. Leave Name empty to disable the set channel; in that
-	// case VariantSet events from the observable are dropped.
+	// case sets from the observable are dropped.
 	SetChannel channel.Channel
 	// DeleteChannel is the channel used to propagate delete operations. Only Name and
 	// DataType need to be provided. The config will automatically set Leaseholder to
 	// Free and Virtual to true. Leave Name empty to disable the delete channel; in that
-	// case VariantDelete events from the observable are dropped.
+	// case deletes from the observable are dropped.
 	DeleteChannel channel.Channel
 }
 
@@ -171,13 +178,11 @@ func (p *Provider) PublishFromObservable(
 			cfg.DeleteChannel = ch
 		}
 	}
-	t := &confluence.ObservableTransformPublisher[
-		[]change.Change[[]byte, struct{}], framer.WriterRequest,
-	]{
+	t := &confluence.ObservableTransformPublisher[[]Change, framer.WriterRequest]{
 		Instrumentation: p.cfg.Instrumentation,
 		Observable:      cfg.Observable,
 		Transform: func(
-			_ context.Context, changes []change.Change[[]byte, struct{}],
+			_ context.Context, changes []Change,
 		) (framer.WriterRequest, bool, error) {
 			if len(changes) == 0 {
 				return framer.WriterRequest{}, false, nil
@@ -188,16 +193,16 @@ func (p *Provider) PublishFromObservable(
 				deletes = telem.Series{DataType: cfg.DeleteChannel.DataType}
 			)
 			for _, ch := range changes {
-				if ch.Variant == change.VariantDelete {
+				if ch.Deleted {
 					if !deleteEnabled {
 						continue
 					}
-					deletes.Data = append(deletes.Data, ch.Key...)
+					deletes.Data = append(deletes.Data, ch.Sample...)
 				} else {
 					if !setEnabled {
 						continue
 					}
-					sets.Data = append(sets.Data, ch.Key...)
+					sets.Data = append(sets.Data, ch.Sample...)
 				}
 			}
 			if len(sets.Data) > 0 {
