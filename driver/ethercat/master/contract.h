@@ -63,9 +63,9 @@ protected:
 
     /// @brief activates the master with slaves, cycling the bus on its own thread from
     /// the start of the cycle until stop_cycle().
-    Activation activate(std::map<uint16_t, slave::Config> slaves = {}) {
+    Activation activate(const std::map<uint16_t, slave::Config> &slaves = {}) {
         return this->bus.master().activate(
-            {.period = x::telem::MILLISECOND, .slaves = std::move(slaves)},
+            {.period = x::telem::MILLISECOND, .slaves = slaves},
             [this](const Image &image) {
                 this->image = image;
                 this->cycles++;

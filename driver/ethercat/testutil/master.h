@@ -40,7 +40,7 @@ class Master final : public master::Master {
     /// @brief why the master could not restore the distributed clock of each slave.
     std::unordered_map<uint16_t, std::string> dc_restore_errors;
     std::set<uint16_t> lost_slaves;
-    master::Plan plan_;
+    master::Plan latest_plan;
     /// @brief why each slave that refuse() names refuses its state.
     std::map<uint16_t, slave::Refusal> refusing;
     std::optional<size_t> bus_slaves;
@@ -288,7 +288,7 @@ public:
     /// @brief returns the plan of the latest activate().
     [[nodiscard]] master::Plan plan() const {
         std::lock_guard lock(this->mu);
-        return this->plan_;
+        return this->latest_plan;
     }
 
     /// @brief returns the settings that the latest activate() gave the slave at
@@ -316,7 +316,7 @@ public:
         {
             std::lock_guard lock(this->mu);
             this->calls.emplace_back("activate");
-            this->plan_ = plan;
+            this->latest_plan = plan;
             if (this->inject_activate_err) return {.err = this->inject_activate_err};
             if (!this->initialized)
                 return {
@@ -545,8 +545,8 @@ private:
     }
 
     [[nodiscard]] slave::Config config_locked(const uint16_t position) const {
-        const auto it = this->plan_.slaves.find(position);
-        return it == this->plan_.slaves.end() ? slave::Config{} : it->second;
+        const auto it = this->latest_plan.slaves.find(position);
+        return it == this->latest_plan.slaves.end() ? slave::Config{} : it->second;
     }
 
     slave::DiscoveryResult &slave(const uint16_t position) {
