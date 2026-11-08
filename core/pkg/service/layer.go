@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -478,6 +480,26 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, roles) {
 		return nil, err
 	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[role.Key, role.Action]{
+			Name:     "sy_role_action_set",
+			Actions:  roles.Role.Actions(),
+			Resource: role.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[policy.Key, policy.Action]{
+			Name:     "sy_policy_action_set",
+			Actions:  roles.Policy.Actions(),
+			Resource: policy.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Password, err = password.OpenService(ctx, password.ServiceConfig{
 		Instrumentation: cfg.Child("password"),
 		DB:              cfg.Distribution.DB,
@@ -491,6 +513,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Password:        l.Password,
 		Signals:         l.Signals,
 	}); !ok(err, l.User) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[user.Key, user.Action]{
+			Name:     "sy_user_action_set",
+			Actions:  l.User.Actions(),
+			Resource: user.ResourceID,
+		},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if l.APIKey, err = apikey.OpenService(ctx, apikey.ServiceConfig{

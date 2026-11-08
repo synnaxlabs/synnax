@@ -291,7 +291,7 @@ var _ = Describe("Service", func() {
 			identity := MustSucceed(svc.Authenticate(ctx, proof(username, "secret")))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).
-					ChangePassword(ctx, alice, hash(svc, "changed"))
+					Apply(ctx, alice, password.NewSetHashAction(hash(svc, "changed")))
 			})).To(Succeed())
 			changed := MustSucceed(svc.Version(ctx, db, identity.Credential))
 			Expect(changed).To(BeNumerically(">", identity.Version))
