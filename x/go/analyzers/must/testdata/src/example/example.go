@@ -207,5 +207,10 @@ func outerVariable() {
 		err = returnsErr()
 		Expect(err).To(Succeed())
 	}()
+	func() {
+		// Should NOT match: code after the closure reads the outer error.
+		_, err = returnsValErr()
+		Expect(err).To(MatchError(errSentinel))
+	}()
 	_ = err
 }

@@ -201,7 +201,8 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
 		assignStmt, assignIdx, rhsCall := findBinding(stmts, i, m.errName)
 		if assignStmt == nil ||
 			!bindsOnlyError(pass, assignStmt, m.errName) ||
-			usesIdentIn(stmts[i+1:], m.errName) {
+			usesIdentIn(stmts[i+1:], m.errName) ||
+			!bindingDroppable(pass, stmts, assignStmt, i, m.errName) {
 			continue
 		}
 		reportInlineDiagnostic(
