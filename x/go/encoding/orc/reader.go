@@ -193,26 +193,33 @@ func (r *Reader) Bool() (bool, error) {
 	return v != 0, nil
 }
 
-// String reads a length-prefixed string (4-byte length + raw bytes). In direct mode,
-// slices into the backing data to avoid an intermediate buffer allocation. In io.Reader
-// mode, the declared length is validated against MaxStringLen to prevent a corrupt
-// prefix from causing a massive allocation.
+// String reads a length-prefixed string (4-byte length + raw bytes). In io.Reader mode,
+// a length above MaxStringLen is an error, so a corrupt prefix cannot cause a massive
+// allocation.
 func (r *Reader) String() (string, error) {
+	b, err := r.StringBytes()
+	return string(b), err
+}
+
+// StringBytes reads a length-prefixed string like String, but returns its bytes without
+// copying them. In direct mode, the bytes alias the decoded data, so the caller must
+// not modify them or keep them after the decode.
+func (r *Reader) StringBytes() ([]byte, error) {
 	n, err := r.Uint32()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if r.data != nil {
 		end := r.pos + int(n)
 		if end > len(r.data) {
-			return "", io.ErrUnexpectedEOF
+			return nil, io.ErrUnexpectedEOF
 		}
-		s := string(r.data[r.pos:end])
+		b := r.data[r.pos:end:end]
 		r.pos = end
-		return s, nil
+		return b, nil
 	}
 	if n > MaxStringLen {
-		return "", errors.Wrapf(
+		return nil, errors.Wrapf(
 			ErrExceedStringLen,
 			"length %d exceeds maximum %d",
 			n,
@@ -221,9 +228,9 @@ func (r *Reader) String() (string, error) {
 	}
 	buf := make([]byte, n)
 	if _, err = io.ReadFull(r.r, buf); err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(buf), nil
+	return buf, nil
 }
 
 // CollectionLen reads a uint32 element count and validates it against MaxCollectionLen.
