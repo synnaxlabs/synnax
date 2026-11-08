@@ -862,8 +862,8 @@ public:
     /// @param index the index to write the data at. If negative, the index is
     /// treated as an offset from the end of the series.
     /// @param count the number of samples to write.
-    /// @throws std::runtime_error if the index is out of bounds or the write would
-    /// exceed the capacity of the series.
+    /// @throws std::runtime_error if the write would start before the first sample or
+    /// run past the last one.
     template<typename NumericType>
     void set(const NumericType *d, const int &index, const size_t count) {
         static_assert(
@@ -883,7 +883,8 @@ public:
     /// @param d the vector of numeric data to be written.
     /// @param index the index to write the data at. If negative, the index is
     /// treated as an offset from the end of the series.
-    /// @throws std::runtime_error if the index is out of bounds or the write would
+    /// @throws std::runtime_error if the write would start before the first sample or
+    /// run past the last one.
     template<typename NumericType>
     void set(const std::vector<NumericType> &d, const int &index) {
         this->set(d.data(), index, d.size());

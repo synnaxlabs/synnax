@@ -68,8 +68,9 @@ optional with `.value()`: the lint cannot see that `ASSERT_TRUE(opt.has_value())
 `*opt` safe.
 
 Repo-specific rules live under `CustomChecks` in `.clang-tidy` as clang-query AST
-matchers, and run as `custom-<Name>`. Match on types and AST shape, not on names. Test a
-new matcher with `clang-query` on one file before adding it.
+matchers, and run as `custom-<Name>`. Match on types and AST shape, not on names, unless
+the check is about the name itself. Test a new matcher with `clang-query` on one file
+before adding it.
 
 ## Memory
 
