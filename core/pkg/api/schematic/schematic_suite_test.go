@@ -63,14 +63,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
-	MustSucceed2(
-		user.ProvisionRoot(
-			ctx,
-			userSvc,
-			passwordSvc,
-			auth.Credentials{Username: "suite-root", Password: "p"},
-		),
-	)
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: db,
 	}))
@@ -82,6 +74,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:   userSvc,
 		Status: statusSvc,
 	})).RBAC
+	MustSucceed2(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "suite-root", Password: "p"},
+			rbacSvc.Builtin.OwnerKey,
+		),
+	)
 	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 		DB:    db,
 		Group: groupSvc,
@@ -91,14 +92,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:      rbacSvc,
 		Schematic: schematicSvc,
 	}))
-	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+	author = MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))
 	proj.Name = "test-project"
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
 
-// grantOn grants the action on the objects to the subject through a new role.
+// grantOn grants the action on the objects to the subject.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
@@ -114,7 +115,7 @@ func grantOn(
 // newUser creates a user with no policies.
 func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }

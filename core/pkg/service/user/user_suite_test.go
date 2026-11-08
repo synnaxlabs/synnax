@@ -29,6 +29,10 @@ var (
 	writer      user.Writer
 	passwordSvc *password.Service
 	roleSvc     *role.Service
+	// member is a role for the users that specs create.
+	member role.Key
+	// owner is the role of the root user.
+	owner role.Key
 )
 
 func TestUser(t *testing.T) {
@@ -46,16 +50,27 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
+	roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB: db,
+	}))
+	member = createRole(ctx, nil, "member")
+	owner = createRole(ctx, nil, "owner")
 	MustSucceed2(
 		user.ProvisionRoot(
 			ctx,
 			svc,
 			passwordSvc,
 			auth.Credentials{Username: "suite-root", Password: "p"},
+			owner,
 		),
 	)
-	roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
-		DB: db,
-	}))
 	writer = svc.NewWriter(nil)
 })
+
+// createRole creates a role named name in tx and returns its key.
+func createRole(ctx SpecContext, tx gorp.Tx, name string) role.Key {
+	GinkgoHelper()
+	r := role.Role{Name: name}
+	Expect(roleSvc.NewWriter(tx, false).Create(ctx, &r)).To(Succeed())
+	return r.Key
+}
