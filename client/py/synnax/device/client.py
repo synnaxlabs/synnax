@@ -41,7 +41,7 @@ class _RenameRequest(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[str]
+    keys: list[Key]
 
 
 class _SetGroupRequest(BaseModel):
@@ -66,7 +66,7 @@ class Client:
     def create(
         self,
         *,
-        key: str = "",
+        key: Key = "",
         location: str = "",
         rack: rack_.Key = 0,
         name: str = "",
@@ -94,7 +94,7 @@ class Client:
         self,
         devices: list[Device] | Device | None = None,
         *,
-        key: str = "",
+        key: Key = "",
         location: str = "",
         rack: rack_.Key = 0,
         name: str = "",
@@ -128,7 +128,7 @@ class Client:
         res = self._client.send("/device/create", req, _CreateResponse)
         return res.devices[0] if is_single else res.devices
 
-    def delete(self, keys: list[str]) -> None:
+    def delete(self, keys: list[Key]) -> None:
         req = _DeleteRequest(keys=keys)
         self._client.send("/device/delete", req, Empty)
 
@@ -265,12 +265,12 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[str] | None = ...,
+        keys: list[Key] | None = ...,
         names: list[str] | None = ...,
         makes: list[str] | None = ...,
         models: list[str] | None = ...,
         locations: list[str] | None = ...,
-        racks: list[int] | None = ...,
+        racks: list[rack_.Key] | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
         one: Literal[True],
@@ -295,12 +295,12 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[str] | None = ...,
+        keys: list[Key] | None = ...,
         names: list[str] | None = ...,
         makes: list[str] | None = ...,
         models: list[str] | None = ...,
         locations: list[str] | None = ...,
-        racks: list[int] | None = ...,
+        racks: list[rack_.Key] | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
         one: Literal[True],
@@ -325,12 +325,12 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[str] | None = ...,
+        keys: list[Key] | None = ...,
         names: list[str] | None = ...,
         makes: list[str] | None = ...,
         models: list[str] | None = ...,
         locations: list[str] | None = ...,
-        racks: list[int] | None = ...,
+        racks: list[rack_.Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
         offset: int = ...,
@@ -342,12 +342,12 @@ class Client:
         self,
         *,
         where: Where | None = None,
-        keys: list[str] | None = None,
+        keys: list[Key] | None = None,
         names: list[str] | None = None,
         makes: list[str] | None = None,
         models: list[str] | None = None,
         locations: list[str] | None = None,
-        racks: list[int] | None = None,
+        racks: list[rack_.Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,

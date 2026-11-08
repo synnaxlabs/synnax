@@ -13,13 +13,12 @@ from __future__ import annotations
 import functools
 from collections.abc import Callable, Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Literal, cast, overload, override
-from uuid import UUID
 
 import numpy as np
 from pydantic import BaseModel, PrivateAttr
 
 from freighter import UnaryClient
-from synnax import channel, framer, label
+from synnax import channel, framer, label, node
 from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
 from synnax.ranger import alias as alias_, kv
@@ -214,7 +213,7 @@ class ScopedChannel(ArrayOperators):
         return self._internal[0].index
 
     @property
-    def leaseholder(self) -> int:
+    def leaseholder(self) -> node.Key:
         self._guard()
         return self._internal[0].leaseholder
 
@@ -263,7 +262,7 @@ class Range(Payload):
         *,
         name: str,
         time_range: TimeRange,
-        key: UUID = NIL,
+        key: Key = NIL,
         color: color_.Crude | None = None,
         labels: Sequence[label.Key] = (),
         parent: Key | Payload | None = None,

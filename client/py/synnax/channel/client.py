@@ -9,8 +9,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload, override
-from uuid import UUID
+from typing import TYPE_CHECKING, Any, Literal, overload, override
 
 from pydantic import PrivateAttr
 
@@ -46,6 +45,10 @@ from synnax.util import request_where, returns_one, sole
 from x import control, filter
 from x.lists import normalize
 
+# synnax.ranger imports synnax.channel at load time.
+if TYPE_CHECKING:
+    from synnax import ranger
+
 
 class Channel(Payload):
     """A channel is a logical collection of samples emitted by or representing the
@@ -63,7 +66,7 @@ class Channel(Payload):
         data_type: CrudeDataType,
         is_index: bool = False,
         index: Key = 0,
-        leaseholder: int = 0,
+        leaseholder: node.Key = 0,
         key: Key = 0,
         virtual: bool | None = None,
         internal: bool = False,
@@ -248,7 +251,7 @@ class Client:
         name: str = "",
         index: Key = 0,
         is_index: bool = False,
-        leaseholder: int = 0,
+        leaseholder: node.Key = 0,
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
@@ -274,7 +277,7 @@ class Client:
         name: str = "",
         is_index: bool = False,
         index: Key = 0,
-        leaseholder: int = 0,
+        leaseholder: node.Key = 0,
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
@@ -373,9 +376,9 @@ class Client:
         where: Where | None = ...,
         data_types: list[CrudeDataType] | None = ...,
         not_data_types: list[CrudeDataType] | None = ...,
-        node_key: int | None = ...,
+        node_key: node.Key | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
+        range_key: ranger.Key | None = ...,
         include_status: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
@@ -398,7 +401,7 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
+        range_key: ranger.Key | None = ...,
         include_status: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
@@ -421,7 +424,7 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
+        range_key: ranger.Key | None = ...,
         include_status: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
@@ -446,9 +449,9 @@ class Client:
         where: Where | None = ...,
         data_types: list[CrudeDataType] | None = ...,
         not_data_types: list[CrudeDataType] | None = ...,
-        node_key: int | None = ...,
+        node_key: node.Key | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
+        range_key: ranger.Key | None = ...,
         include_status: bool = ...,
         one: Literal[True],
     ) -> Channel: ...
@@ -473,9 +476,9 @@ class Client:
         where: Where | None = ...,
         data_types: list[CrudeDataType] | None = ...,
         not_data_types: list[CrudeDataType] | None = ...,
-        node_key: int | None = ...,
+        node_key: node.Key | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
+        range_key: ranger.Key | None = ...,
         limit: int | None = ...,
         offset: int = ...,
         include_status: bool = ...,
@@ -489,9 +492,9 @@ class Client:
         where: Where | None = None,
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
-        node_key: int | None = None,
+        node_key: node.Key | None = None,
         search_term: str = "",
-        range_key: UUID | None = None,
+        range_key: ranger.Key | None = None,
         limit: int | None = None,
         offset: int = 0,
         include_status: bool = False,
