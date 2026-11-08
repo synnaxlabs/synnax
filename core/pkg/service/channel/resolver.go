@@ -28,8 +28,9 @@ import (
 // can appear or disappear at runtime, so they cannot be snapshotted into the ambient
 // prelude at analysis time.
 type symbolResolver struct {
-	svc  *Service
-	snap gorp.Snapshot
+	svc     *Service
+	snap    gorp.Snapshot
+	filters []Filter
 }
 
 var _ symbol.Resolver = (*symbolResolver)(nil)
@@ -44,6 +45,14 @@ func toSymbol(ch Channel) *symbol.Symbol {
 	}
 }
 
+func (r *symbolResolver) retrieve() Retrieve {
+	q := r.svc.NewRetrieve()
+	for _, f := range r.filters {
+		q = q.Where(f)
+	}
+	return q
+}
+
 // Resolve resolves a single cluster channel by name or numeric key.
 func (r *symbolResolver) Resolve(
 	ctx context.Context,
@@ -51,7 +60,7 @@ func (r *symbolResolver) Resolve(
 ) (*symbol.Symbol, error) {
 	key, err := strconv.ParseUint(name, 10, 32)
 	var ch Channel
-	q := r.svc.NewRetrieve().Entry(&ch)
+	q := r.retrieve().Entry(&ch)
 	if err == nil {
 		q = q.Where(MatchKeys(Key(key)))
 	} else {
@@ -69,7 +78,7 @@ func (r *symbolResolver) Search(
 	name string,
 ) ([]*symbol.Symbol, error) {
 	var results []Channel
-	if err := r.svc.NewRetrieve().
+	if err := r.retrieve().
 		Where(MatchInternal(false)).
 		Search(name).
 		Entries(&results).Exec(ctx, r.snap); err != nil {

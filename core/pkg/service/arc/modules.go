@@ -22,12 +22,14 @@ import (
 )
 
 // moduleSource returns a loader source that reads the text of the module at an
-// import path, one directory below Arcs per segment.
+// import path, one directory below Arcs per segment. It sees only the modules that
+// every filter matches.
 func (s *Service) moduleSource(
 	snap gorp.Snapshot,
+	filters ...Filter,
 ) func(context.Context, string) (arctext.Text, error) {
 	return func(ctx context.Context, path string) (arctext.Text, error) {
-		return s.retrieveModuleText(ctx, snap, path)
+		return s.retrieveModuleText(ctx, snap, path, filters...)
 	}
 }
 
@@ -55,6 +57,7 @@ func (s *Service) retrieveModuleText(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	path string,
+	filters ...Filter,
 ) (arctext.Text, error) {
 	notFound := errors.Wrapf(symbol.ErrModuleNotFound, "unknown module %q", path)
 	segments := strings.Split(path, ".")
@@ -76,13 +79,14 @@ func (s *Service) retrieveModuleText(
 		parent = dirs[0].Key
 	}
 	var arcs []Arc
-	if err := s.NewRetrieve().
-		Where(And(
-			MatchDirectories(parent),
-			MatchNames(segments[len(segments)-1]),
-		)).
-		Entries(&arcs).
-		Exec(ctx, snap); err != nil {
+	q := s.NewRetrieve().Where(And(
+		MatchDirectories(parent),
+		MatchNames(segments[len(segments)-1]),
+	))
+	for _, f := range filters {
+		q = q.Where(f)
+	}
+	if err := q.Entries(&arcs).Exec(ctx, snap); err != nil {
 		return arctext.Text{}, err
 	}
 	if len(arcs) == 0 {

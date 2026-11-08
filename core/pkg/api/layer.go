@@ -963,6 +963,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Instrumentation: cfg.Instrumentation,
 		Arc:             cfg.Service.Arc,
 		Status:          cfg.Service.Status,
+		RBAC:            cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

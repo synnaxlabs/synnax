@@ -20,7 +20,10 @@ import (
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
@@ -58,6 +61,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// RBAC reads the access of the subject of each LSP stream.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
 }
 
 var (
@@ -72,6 +79,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -81,6 +89,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
+	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
@@ -88,6 +97,7 @@ type Service struct {
 	db       *gorp.DB
 	internal *arc.Service
 	status   *status.Service
+	rbac     *rbac.Service
 	alamos.Instrumentation
 }
 
@@ -101,6 +111,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Arc,
 		status:          cfg.Status,
+		rbac:            cfg.RBAC,
 	}, nil
 }
 
@@ -252,12 +263,23 @@ func (s *Service) Compiled(
 // LSPMessage represents a single JSON-RPC message for the LSP
 type LSPMessage = arctransport.JSONRPCMessage
 
-// LSP handles LSP protocol messages over a Freighter stream
+// LSP serves the Arc language server over stream. The server treats the channels and
+// modules that the subject of the stream cannot retrieve as unknown names.
 func (s *Service) LSP(
 	ctx context.Context,
 	stream freighter.ServerStream[LSPMessage, LSPMessage],
 ) error {
-	lsp, err := s.internal.NewLSP()
+	subject := auth.GetSubject(ctx)
+	lsp, err := s.internal.NewLSP(arc.LSPConfig{
+		Allowed: func(ctx context.Context) (allowed func(resource.ID) bool, err error) {
+			err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				allowed, err = s.rbac.NewEnforcer(snap).
+					Allowed(ctx, subject, access.ActionRetrieve)
+				return err
+			})
+			return allowed, err
+		},
+	})
 	if err != nil {
 		return err
 	}

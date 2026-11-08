@@ -211,9 +211,13 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 
 // NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by name or
 // numeric key, for analyzing and compiling Arc expressions such as calculated channels.
-// The resolver looks up channels in snap.
-func (s *Service) NewArcSymbolResolver(snap gorp.Snapshot) arc.SymbolResolver {
-	return &symbolResolver{svc: s, snap: snap}
+// The resolver looks up channels in snap and sees only the channels that every filter
+// matches.
+func (s *Service) NewArcSymbolResolver(
+	snap gorp.Snapshot,
+	filters ...Filter,
+) arc.SymbolResolver {
+	return &symbolResolver{svc: s, snap: snap, filters: filters}
 }
 
 // freeIndexResolver adapts the Service to the distribution framer writer's

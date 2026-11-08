@@ -122,7 +122,7 @@ var _ = Describe("Modules", func() {
 				return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
 			})).To(Succeed())
 		})
-		server := MustSucceed(svc.NewLSP())
+		server := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: readAll}))
 		DeferCleanup(func() { Expect(server.Shutdown(ctx)).To(Succeed()) })
 		client := &MockClient{}
 		server.SetClient(client)

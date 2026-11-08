@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	arclsptestutil "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	lsptestutil "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -35,7 +36,7 @@ var _ = Describe("LSP Rename", func() {
 				return channelSvc.NewWriter(tx).Create(ctx, ch)
 			})).To(Succeed())
 
-			server := MustSucceed(svc.NewLSP())
+			server := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: readAll}))
 			server.SetClient(&lsptestutil.MockClient{})
 			DeferCleanup(
 				func(ctx SpecContext) { Expect(server.Shutdown(ctx)).To(Succeed()) },
@@ -73,7 +74,7 @@ var _ = Describe("LSP Rename", func() {
 			return channelSvc.NewWriter(tx).Create(ctx, ch)
 		})).To(Succeed())
 
-		server := MustSucceed(svc.NewLSP())
+		server := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: readAll}))
 		server.SetClient(&lsptestutil.MockClient{})
 		DeferCleanup(
 			func(ctx SpecContext) { Expect(server.Shutdown(ctx)).To(Succeed()) },

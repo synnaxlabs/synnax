@@ -12,6 +12,7 @@ package arc
 import (
 	"context"
 	"slices"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -193,19 +195,19 @@ func standardSymbols() []*symbol.Symbol {
 	return slices.Concat(stl.NewSymbols(), arcstatus.NewSymbols(), ranges.NewSymbols())
 }
 
-func (s *Service) NewLSP() (*lsp.Server, error) {
+// LSPConfig configures the language server of one editor session.
+type LSPConfig struct {
+	// Allowed reads the access of the subject of the session and returns whether the
+	// subject can retrieve a record. The server calls it once for each analysis.
+	Allowed func(context.Context) (func(resource.ID) bool, error)
+}
+
+// NewLSP opens the language server of one editor session. The server treats the
+// channels and modules that the subject cannot retrieve as unknown names.
+func (s *Service) NewLSP(cfg LSPConfig) (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
-		Instrumentation: s.cfg.Child("lsp"),
-		// The LSP analyzes outside any scope the Core holds, so its roots read the DB
-		// with no snapshot.
-		NewRoot: func() *symbol.Symbol {
-			return s.newRoot(
-				channel.NewConsistentResolver(
-					s.cfg.Channel.NewArcSymbolResolver(s.cfg.DB),
-				),
-				s.moduleSource(s.cfg.DB),
-			)
-		},
+		Instrumentation:  s.cfg.Child("lsp"),
+		NewRoot:          func() *symbol.Symbol { return s.newLSPRoot(cfg.Allowed) },
 		AllowDashedNames: s.AllowDashedNames(),
 		OnRename: func(
 			ctx context.Context,
@@ -231,6 +233,49 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 			},
 		},
 	})
+}
+
+// newLSPRoot builds a root that reads the DB with no snapshot, since the LSP analyzes
+// outside any scope the Core holds. It hides the records that allowed rejects.
+func (s *Service) newLSPRoot(
+	allowed func(context.Context) (func(resource.ID) bool, error),
+) *symbol.Symbol {
+	access := &readAccess{read: allowed}
+	return s.newRoot(
+		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(
+			s.cfg.DB,
+			channel.Match(func(
+				ctx gorp.Context,
+				_ channel.Retrieve,
+				ch *channel.Channel,
+			) (bool, error) {
+				return access.allows(ctx, ch.ResourceID())
+			}),
+		)),
+		s.moduleSource(s.cfg.DB, Match(func(
+			ctx gorp.Context,
+			_ Retrieve,
+			a *Arc,
+		) (bool, error) {
+			return access.allows(ctx, a.ResourceID())
+		})),
+	)
+}
+
+// readAccess reads the access of an LSP subject at the first lookup of one root.
+type readAccess struct {
+	read    func(context.Context) (func(resource.ID) bool, error)
+	once    sync.Once
+	allowed func(resource.ID) bool
+	err     error
+}
+
+func (a *readAccess) allows(ctx context.Context, id resource.ID) (bool, error) {
+	a.once.Do(func() { a.allowed, a.err = a.read(ctx) })
+	if a.err != nil {
+		return false, a.err
+	}
+	return a.allowed(id), nil
 }
 
 func (s *Service) Close() error { return s.closer.Close() }

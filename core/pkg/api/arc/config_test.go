@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
@@ -26,6 +27,7 @@ var _ = Describe("ServiceConfig", func() {
 			DB:              &gorp.DB{},
 			Arc:             &arc.Service{},
 			Status:          &status.Service{},
+			RBAC:            &rbac.Service{},
 		}
 	}
 
@@ -56,6 +58,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apiarc.ServiceConfig) { c.Status = nil },
 				"status: must be non-nil",
 			),
+			Entry(
+				"rbac",
+				func(c *apiarc.ServiceConfig) { c.RBAC = nil },
+				"rbac: must be non-nil",
+			),
 		)
 	})
 
@@ -66,6 +73,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Arc).To(BeIdenticalTo(cfg.Arc))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
+			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Meta).To(Equal(cfg.Meta))
 		})
 
@@ -75,6 +83,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Arc).To(BeIdenticalTo(cfg.Arc))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
+			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Meta).To(Equal(cfg.Meta))
 		})
 	})

@@ -52,12 +52,13 @@ func TestAPIArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	rbacSvc *rbac.Service
-	userSvc *user.Service
-	arcSvc  *arc.Service
-	taskSvc *task.Service
-	apiSvc  *apiarc.Service
+	db         *gorp.DB
+	rbacSvc    *rbac.Service
+	userSvc    *user.Service
+	arcSvc     *arc.Service
+	channelSvc *channel.Service
+	taskSvc    *task.Service
+	apiSvc     *apiarc.Service
 	// The routes, bound as the API layer binds them.
 	create     freighter.UnaryHandler[apiarc.CreateRequest, apiarc.CreateResponse]
 	del        freighter.UnaryHandler[apiarc.DeleteRequest, struct{}]
@@ -138,7 +139,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Configs:      configs,
 		ImExExcluded: []string{arctask.Type},
 	}))
-	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
 		DB:      db,
 		HostKey: node.Identity.HostKey,
@@ -157,6 +158,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:     db,
 		Arc:    arcSvc,
 		Status: statusSvc,
+		RBAC:   rbacSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
 	create = bind.Write(binder, apiSvc.Create)
