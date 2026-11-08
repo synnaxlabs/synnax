@@ -611,9 +611,11 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
     const auto pos = props.position;
     x::errors::Error layout_err;
+    std::pair<uint16_t, uint8_t> last_read;
     if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) != 0) {
         auto [syncs, err] = coe::read_layout(
-            [this, pos](const uint16_t index, const uint8_t sub_index) {
+            [this, pos, &last_read](const uint16_t index, const uint8_t sub_index) {
+                last_read = {index, sub_index};
                 return this->read_sdo(pos, index, sub_index);
             },
             EC_MAXSM
@@ -651,9 +653,12 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
             return;
         }
     }
-    // SOEM maps a slave from its SII when CoE gives no process data, a failed read
-    // included.
-    if (props.input_pdos.empty() && props.output_pdos.empty())
+    // SOEM maps a slave from its SII when CoE gives no process data, as when 0x1C00:00
+    // fails. After a later failed read, SOEM maps the CoE PDOs it reads, which
+    // discovery cannot predict.
+    const std::pair<uint16_t, uint8_t> sync_count{ECT_SDO_SMCOMMTYPE, 0};
+    if (props.input_pdos.empty() && props.output_pdos.empty() &&
+        (!layout_err || last_read == sync_count))
         this->discover_pdos_sii(slave);
     if (layout_err) {
         auto &msg = slave.status.pdo_discovery_error;
