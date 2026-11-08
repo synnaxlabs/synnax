@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -72,7 +73,7 @@ var _ = Describe("Directories", func() {
 	}
 	Describe("RetrieveDirectories", func() {
 		retrieve := func(ctx SpecContext) ([]directory.Directory, error) {
-			res, err := apiSvc.RetrieveDirectories(
+			res, err := retrieveDirectories(
 				AuthedCtx(ctx, author),
 				apiarcdirectory.RetrieveRequest{
 					Where: &directory.Where{Parents: []directory.Key{root}},
@@ -85,10 +86,31 @@ var _ = Describe("Directories", func() {
 			grantOn(ctx, author.ResourceID(), access.ActionRetrieve, d.ResourceID())
 			Expect(retrieve(ctx)).To(ContainElement(d))
 		})
-		It("Should deny a caller without retrieve access", func(ctx SpecContext) {
-			newDirectory(ctx)
-			Expect(retrieve(ctx)).Error().To(MatchError(access.ErrDenied))
-		})
+		It(
+			"Should leave out the directories that the caller cannot retrieve",
+			func(ctx SpecContext) {
+				d := newDirectory(ctx)
+				Expect(retrieve(ctx)).ToNot(ContainElement(d))
+			},
+		)
+		It(
+			"Should deny a named directory that the caller cannot retrieve",
+			func(ctx SpecContext) {
+				d := newDirectory(ctx)
+				Expect(retrieveDirectories(
+					AuthedCtx(ctx, author),
+					apiarcdirectory.RetrieveRequest{
+						Where: &directory.Where{
+							Key: &filter.Set[directory.Key]{Eq: new(d.Key)},
+						},
+					},
+				)).Error().To(MatchError(access.Denied(
+					author.ResourceID(),
+					access.ActionRetrieve,
+					d.ResourceID(),
+				).Error()))
+			},
+		)
 	})
 
 	Describe("CreateDirectory", func() {

@@ -11,11 +11,10 @@ package ranger
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -32,24 +31,8 @@ type (
 	Range = ranger.Range
 )
 
-func rangeAccessResourceIDs(ranges []Range) []resource.ID {
-	ids := make([]resource.ID, 0, len(ranges))
-	for _, r := range ranges {
-		ids = append(ids, r.ResourceID())
-		if r.Parent == nil {
-			continue
-		}
-		ids = append(ids, ranger.ResourceID(*r.Parent))
-	}
-	return ids
-}
-
 // ServiceConfig is the configuration for the range API service.
 type ServiceConfig struct {
-	// RBAC checks the access of retrieve requests.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Ranger stores and retrieves ranges.
 	//
 	// [REQUIRED]
@@ -64,7 +47,6 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	return c
 }
@@ -72,13 +54,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.ranger")
-	v.NotNil("rbac", c.RBAC)
 	v.NotNil("ranger", c.Ranger)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *ranger.Service
 }
 
@@ -88,7 +68,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.RBAC,
 		internal: cfg.Ranger,
 	}, nil
 }
@@ -137,8 +116,23 @@ func (s *Service) Dispatch(
 		Apply(ctx, req.Key, req.Actions...)
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the ranges that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, ranger.ResourceID)
+}
+
+// Retrieve returns the ranges that req selects and that the subject can retrieve. A
+// child range passes only when the subject can also retrieve its parent, and a named
+// child with a denied parent fails the request with an access error.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -146,15 +140,27 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	// A range holds only the keys of its labels, so reading it needs no access to them.
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: rangeAccessResourceIDs(res.Ranges),
-	}); err != nil {
+	named := req.Named()
+	if err = q.Where(ranger.Match(func(
+		_ gorp.Context,
+		_ ranger.Retrieve,
+		r *ranger.Range,
+	) (bool, error) {
+		if !snap.Allowed(r.ResourceID()) {
+			return false, nil
+		}
+		if r.Parent == nil {
+			return true, nil
+		}
+		parent := ranger.ResourceID(*r.Parent)
+		if snap.Allowed(parent) {
+			return true, nil
+		}
+		if slices.Contains(named, r.ResourceID()) {
+			return false, snap.Enforce(parent)
+		}
+		return false, nil
+	})).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil

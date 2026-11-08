@@ -372,6 +372,17 @@ var _ = Describe("Rename", func() {
 })
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the racks that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		granted := createRackWithStatus(ctx, "leave-out-granted")
+		createRackWithStatus(ctx, "leave-out-denied")
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{}))
+		Expect(res.Racks).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should attach only each rack's own status", func(ctx SpecContext) {
 		u := createUser(ctx)
 		withStatus := rack.Rack{Name: "With Status"}
@@ -389,7 +400,7 @@ var _ = Describe("Retrieve", func() {
 			ctx, access.ActionRetrieve, u.ResourceID(),
 			withStatus.ResourceID(), withoutStatus.ResourceID(),
 		)
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
 			Where: &rack.Where{Key: &filter.Set[rack.Key]{
 				In: []rack.Key{withoutStatus.Key, withStatus.Key},
 			}},
@@ -408,10 +419,17 @@ var _ = Describe("Retrieve", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Rack.NewWriter(tx).Create(ctx, &r)
 		})).To(Succeed())
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
+		missing := rack.NewKey(9, 9)
+		grant(
+			ctx,
+			access.ActionRetrieve,
+			u.ResourceID(),
+			r.ResourceID(),
+			missing.ResourceID(),
+		)
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
 			Where: &rack.Where{Key: &filter.Set[rack.Key]{
-				In: []rack.Key{r.Key, rack.NewKey(9, 9)},
+				In: []rack.Key{r.Key, missing},
 			}},
 		}))
 		Expect(res.Racks).To(HaveLen(1))
@@ -420,7 +438,7 @@ var _ = Describe("Retrieve", func() {
 
 	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
 		u := createUser(ctx)
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
 			Where: &rack.Where{Name: &filter.String{Regex: new("(a")}},
 		})).Error().To(SatisfyAll(
 			BeAssignableToTypeOf(validate.PathError{}),
@@ -448,7 +466,7 @@ var _ = Describe("Retrieve", func() {
 					Details: "not an object",
 				}}},
 			)).Error().To(MatchError(ContainSubstring("statuses.0.details")))
-			retrieved := MustSucceed(apiSvc.Retrieve(
+			retrieved := MustSucceed(retrieve(
 				AuthedCtx(ctx, u),
 				apirack.RetrieveRequest{
 					Where:         &rack.Where{Key: &filter.Set[rack.Key]{Eq: &r.Key}},

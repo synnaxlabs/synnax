@@ -50,7 +50,7 @@ var _ = Describe("ImEx", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &s)
 			})).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, schematic.ResourceID(s.Key)))
+			env := MustSucceed(svc.Export(ctx, db, schematic.ResourceID(s.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("schematic"))
 			Expect(env.Name).To(Equal("exported"))
@@ -67,12 +67,15 @@ var _ = Describe("ImEx", func() {
 				Type: resource.TypeSchematic,
 				Key:  uuid.New().String(),
 			}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
+			Expect(svc.Export(ctx, db, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
 			id := resource.ID{Type: resource.TypeSchematic, Key: "not-a-uuid"}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
+			Expect(
+				svc.Export(ctx, db, id),
+			).Error().
+				To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 
@@ -254,7 +257,9 @@ var _ = Describe("ImEx", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &original)
 				})).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, schematic.ResourceID(original.Key)))
+				env := MustSucceed(
+					svc.Export(ctx, db, schematic.ResourceID(original.Key)),
+				)
 				var id resource.ID
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 					id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),

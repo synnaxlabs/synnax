@@ -14,6 +14,7 @@
 package api
 
 import (
+	"context"
 	"slices"
 
 	"github.com/samber/lo"
@@ -548,10 +549,22 @@ func (l *Layer) BindTo(t Transport) {
 	))
 	t.AuthSessionCreate.BindHandler(l.Auth.CreateSession)
 	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
-	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
+	t.AuthSessionRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req auth.SessionRetrieveRequest,
+	) (auth.SessionRetrieveResponse, error) {
+		return l.Auth.RetrieveSessions(ctx, snap, req)
+	}))
 	t.AuthSessionDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteSessions))
 	t.AuthKeyCreate.BindHandler(bind.Write(l.binder, l.Auth.CreateKey))
-	t.AuthKeyRetrieve.BindHandler(l.Auth.RetrieveKeys)
+	t.AuthKeyRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req auth.KeyRetrieveRequest,
+	) (auth.KeyRetrieveResponse, error) {
+		return l.Auth.RetrieveKeys(ctx, snap, req)
+	}))
 	t.AuthKeyDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteKeys))
 	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
 		l.binder,
@@ -560,7 +573,7 @@ func (l *Layer) BindTo(t Transport) {
 	))
 
 	// LICENSE
-	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
+	t.LicenseRetrieve.BindHandler(bind.Read(l.binder, l.License.Retrieve))
 	t.LicenseActivate.BindHandler(l.License.Activate)
 	t.LicenseDeactivate.BindHandler(l.License.Deactivate)
 
@@ -571,12 +584,12 @@ func (l *Layer) BindTo(t Transport) {
 		bind.WritePrepared(l.binder, l.User.PrepareCreate, l.User.Create),
 	)
 	t.UserDelete.BindHandler(bind.Write(l.binder, l.User.Delete))
-	t.UserRetrieve.BindHandler(l.User.Retrieve)
+	t.UserRetrieve.BindHandler(bind.Read(l.binder, l.User.Retrieve))
 	t.UserSetRole.BindHandler(bind.Write(l.binder, l.User.SetRole))
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Create))
-	t.ChannelRetrieve.BindHandler(l.Channel.Retrieve)
+	t.ChannelRetrieve.BindHandler(bind.Read(l.binder, l.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Delete))
 	t.ChannelRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Rename))
@@ -589,18 +602,18 @@ func (l *Layer) BindTo(t Transport) {
 	t.FrameRead.BindHandler(l.Framer.Read)
 
 	// CONTROL
-	t.ControlRetrieve.BindHandler(l.Control.Retrieve)
+	t.ControlRetrieve.BindHandler(bind.Read(l.binder, l.Control.Retrieve))
 
 	// RESOURCE
-	t.ResourceSearch.BindHandler(l.Resource.Search)
-	t.ResourceRetrieve.BindHandler(l.Resource.Retrieve)
+	t.ResourceSearch.BindHandler(bind.Read(l.binder, l.Resource.Search))
+	t.ResourceRetrieve.BindHandler(bind.Read(l.binder, l.Resource.Retrieve))
 
 	// GROUP
 	t.GroupCreate.BindHandler(bind.Write(l.binder, l.Group.Create))
 	t.GroupDelete.BindHandler(bind.Write(l.binder, l.Group.Delete))
 	t.GroupRename.BindHandler(bind.Write(l.binder, l.Group.Rename))
-	t.GroupRetrieve.BindHandler(l.Group.Retrieve)
-	t.GroupRetrieveAncestors.BindHandler(l.Group.RetrieveAncestors)
+	t.GroupRetrieve.BindHandler(bind.Read(l.binder, l.Group.Retrieve))
+	t.GroupRetrieveAncestors.BindHandler(bind.Read(l.binder, l.Group.RetrieveAncestors))
 
 	// GROUP MEMBERSHIP
 	t.GroupSetParent.BindHandler(bind.Write(l.binder, l.Group.SetParent))
@@ -626,7 +639,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.Batch.BindHandler(bind.Write(l.binder, l.Batch.Exec))
 
 	// RANGE
-	t.RangeRetrieve.BindHandler(l.Range.Retrieve)
+	t.RangeRetrieve.BindHandler(bind.Read(l.binder, l.Range.Retrieve))
 	t.RangeCreate.BindHandler(bind.Write(l.binder, l.Range.Create))
 	t.RangeDelete.BindHandler(bind.Write(l.binder, l.Range.Delete))
 	t.RangeRename.BindHandler(bind.Write(l.binder, l.Range.Rename))
@@ -634,28 +647,28 @@ func (l *Layer) BindTo(t Transport) {
 	t.RangeDispatch.BindHandler(bind.Write(l.binder, l.Range.Dispatch))
 
 	// KV
-	t.KVGet.BindHandler(l.KV.Get)
+	t.KVGet.BindHandler(bind.Read(l.binder, l.KV.Get))
 	t.KVSet.BindHandler(bind.Write(l.binder, l.KV.Set))
 	t.KVDelete.BindHandler(bind.Write(l.binder, l.KV.Delete))
 
 	// ALIAS
 	t.AliasSet.BindHandler(bind.Write(l.binder, l.Alias.Set))
-	t.AliasResolve.BindHandler(l.Alias.Resolve)
-	t.AliasRetrieve.BindHandler(l.Alias.Retrieve)
-	t.AliasList.BindHandler(l.Alias.List)
+	t.AliasResolve.BindHandler(bind.Read(l.binder, l.Alias.Resolve))
+	t.AliasRetrieve.BindHandler(bind.Read(l.binder, l.Alias.Retrieve))
+	t.AliasList.BindHandler(bind.Read(l.binder, l.Alias.List))
 	t.AliasDelete.BindHandler(bind.Write(l.binder, l.Alias.Delete))
 
 	// PROJECT
 	t.ProjectCreate.BindHandler(bind.Write(l.binder, l.Project.Create))
 	t.ProjectDelete.BindHandler(bind.Write(l.binder, l.Project.Delete))
-	t.ProjectRetrieve.BindHandler(l.Project.Retrieve)
+	t.ProjectRetrieve.BindHandler(bind.Read(l.binder, l.Project.Retrieve))
 	t.ProjectRename.BindHandler(bind.Write(l.binder, l.Project.Rename))
-	t.ProjectExport.BindHandler(l.Project.Export)
+	t.ProjectExport.BindHandler(bind.Read(l.binder, l.Project.Export))
 	t.ProjectImport.BindHandler(bind.Write(l.binder, l.Project.Import))
 
 	// SCHEMATIC
 	t.SchematicCreate.BindHandler(bind.Write(l.binder, l.Schematic.Create))
-	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
+	t.SchematicRetrieve.BindHandler(bind.Read(l.binder, l.Schematic.Retrieve))
 	t.SchematicDelete.BindHandler(bind.Write(l.binder, l.Schematic.Delete))
 	t.SchematicDispatch.BindHandler(bind.Write(l.binder, l.Schematic.Dispatch))
 	t.SchematicCopy.BindHandler(bind.Write(l.binder, l.Schematic.Copy))
@@ -664,14 +677,16 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicSymbolCreate.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Create),
 	)
-	t.SchematicSymbolRetrieve.BindHandler(l.Symbol.Retrieve)
+	t.SchematicSymbolRetrieve.BindHandler(bind.Read(l.binder, l.Symbol.Retrieve))
 	t.SchematicSymbolDelete.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Delete),
 	)
 	t.SchematicSymbolRename.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Rename),
 	)
-	t.SchematicSymbolExportGroup.BindHandler(l.Symbol.ExportGroup)
+	t.SchematicSymbolExportGroup.BindHandler(
+		bind.Read(l.binder, l.Symbol.ExportGroup),
+	)
 	t.SchematicSymbolImportGroup.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Symbol.ImportGroup),
 	)
@@ -682,30 +697,30 @@ func (l *Layer) BindTo(t Transport) {
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(bind.Write(l.binder, l.LinePlot.Create))
 	t.LinePlotDispatch.BindHandler(bind.Write(l.binder, l.LinePlot.Dispatch))
-	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
+	t.LinePlotRetrieve.BindHandler(bind.Read(l.binder, l.LinePlot.Retrieve))
 	t.LinePlotDelete.BindHandler(bind.Write(l.binder, l.LinePlot.Delete))
 
 	// PANEL
 	t.PanelCreate.BindHandler(bind.Write(l.binder, l.Panel.Create))
-	t.PanelRetrieve.BindHandler(l.Panel.Retrieve)
+	t.PanelRetrieve.BindHandler(bind.Read(l.binder, l.Panel.Retrieve))
 	t.PanelDelete.BindHandler(bind.Write(l.binder, l.Panel.Delete))
 	t.PanelDispatch.BindHandler(bind.Write(l.binder, l.Panel.Dispatch))
 
 	// LOG
 	t.LogCreate.BindHandler(bind.Write(l.binder, l.Log.Create))
-	t.LogRetrieve.BindHandler(l.Log.Retrieve)
+	t.LogRetrieve.BindHandler(bind.Read(l.binder, l.Log.Retrieve))
 	t.LogDelete.BindHandler(bind.Write(l.binder, l.Log.Delete))
 	t.LogDispatch.BindHandler(bind.Write(l.binder, l.Log.Dispatch))
 
 	// TABLE
 	t.TableCreate.BindHandler(bind.Write(l.binder, l.Table.Create))
-	t.TableRetrieve.BindHandler(l.Table.Retrieve)
+	t.TableRetrieve.BindHandler(bind.Read(l.binder, l.Table.Retrieve))
 	t.TableDelete.BindHandler(bind.Write(l.binder, l.Table.Delete))
 	t.TableDispatch.BindHandler(bind.Write(l.binder, l.Table.Dispatch))
 
 	// LABEL
 	t.LabelCreate.BindHandler(bind.Write(l.binder, l.Label.Create))
-	t.LabelRetrieve.BindHandler(l.Label.Retrieve)
+	t.LabelRetrieve.BindHandler(bind.Read(l.binder, l.Label.Retrieve))
 	t.LabelDelete.BindHandler(bind.Write(l.binder, l.Label.Delete))
 	t.LabelAdd.BindHandler(bind.Write(l.binder, l.Label.Add))
 	t.LabelRemove.BindHandler(bind.Write(l.binder, l.Label.Remove))
@@ -713,13 +728,13 @@ func (l *Layer) BindTo(t Transport) {
 
 	// RACK
 	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
-	t.RackRetrieve.BindHandler(l.Rack.Retrieve)
+	t.RackRetrieve.BindHandler(bind.Read(l.binder, l.Rack.Retrieve))
 	t.RackDelete.BindHandler(bind.Write(l.binder, l.Rack.Delete))
 	t.RackRename.BindHandler(bind.Write(l.binder, l.Rack.Rename))
 
 	// TASK
 	t.TaskCreate.BindHandler(bind.Write(l.binder, l.Task.Create))
-	t.TaskRetrieve.BindHandler(l.Task.Retrieve)
+	t.TaskRetrieve.BindHandler(bind.Read(l.binder, l.Task.Retrieve))
 	t.TaskDelete.BindHandler(l.Task.Delete)
 	t.TaskCopy.BindHandler(bind.Write(l.binder, l.Task.Copy))
 	t.TaskRename.BindHandler(bind.Write(l.binder, l.Task.Rename))
@@ -727,38 +742,38 @@ func (l *Layer) BindTo(t Transport) {
 
 	// DEVICE
 	t.DeviceCreate.BindHandler(bind.Write(l.binder, l.Device.Create))
-	t.DeviceRetrieve.BindHandler(l.Device.Retrieve)
+	t.DeviceRetrieve.BindHandler(bind.Read(l.binder, l.Device.Retrieve))
 	t.DeviceDelete.BindHandler(bind.Write(l.binder, l.Device.Delete))
 	t.DeviceRename.BindHandler(bind.Write(l.binder, l.Device.Rename))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
 	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
-	t.AccessRetrievePolicy.BindHandler(l.Policy.Retrieve)
+	t.AccessRetrievePolicy.BindHandler(bind.Read(l.binder, l.Policy.Retrieve))
 	t.AccessCreateRole.BindHandler(bind.Write(l.binder, l.Role.Create))
 	t.AccessDeleteRole.BindHandler(bind.Write(l.binder, l.Role.Delete))
-	t.AccessRetrieveRole.BindHandler(l.Role.Retrieve)
+	t.AccessRetrieveRole.BindHandler(bind.Read(l.binder, l.Role.Retrieve))
 
 	// STATUS
 	t.StatusSet.BindHandler(bind.Write(l.binder, l.Status.Set))
-	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
+	t.StatusRetrieve.BindHandler(bind.Read(l.binder, l.Status.Retrieve))
 	t.StatusDelete.BindHandler(bind.Write(l.binder, l.Status.Delete))
 	t.StatusRename.BindHandler(bind.Write(l.binder, l.Status.Rename))
 	t.StatusSetByKeyOrName.BindHandler(bind.Write(l.binder, l.Status.SetByKeyOrName))
 
 	// VIEW
 	t.ViewCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Create))
-	t.ViewRetrieve.BindHandler(l.View.Retrieve)
+	t.ViewRetrieve.BindHandler(bind.Read(l.binder, l.View.Retrieve))
 	t.ViewDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Delete))
 	t.ViewRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Rename))
 
 	// ARC
 	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
 	t.ArcDelete.BindHandler(bind.Write(l.binder, l.Arc.Delete))
-	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
+	t.ArcRetrieve.BindHandler(l.Arc.Compiled(bind.Read(l.binder, l.Arc.Retrieve)))
 	t.ArcDispatch.BindHandler(bind.Write(l.binder, l.Arc.Dispatch))
 	t.ArcUpdateTask.BindHandler(bind.Write(l.binder, l.Arc.UpdateTask))
-	t.ArcRetrieveDirectory.BindHandler(l.Arc.RetrieveDirectories)
+	t.ArcRetrieveDirectory.BindHandler(bind.Read(l.binder, l.Arc.RetrieveDirectories))
 	t.ArcCreateDirectory.BindHandler(bind.Write(l.binder, l.Arc.CreateDirectory))
 	t.ArcRenameDirectory.BindHandler(bind.Write(l.binder, l.Arc.RenameDirectory))
 	t.ArcDeleteDirectory.BindHandler(bind.Write(l.binder, l.Arc.DeleteDirectory))
@@ -767,7 +782,7 @@ func (l *Layer) BindTo(t Transport) {
 
 	// IMPORT/EXPORT
 	t.ImExImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ImEx.Import))
-	t.ImExExport.BindHandler(l.ImEx.Export)
+	t.ImExExport.BindHandler(bind.Read(l.binder, l.ImEx.Export))
 }
 
 // NewLayer instantiates the server API layer using the provided Configs. This should
@@ -830,7 +845,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Control, err = control.NewService(control.ServiceConfig{
 		Control: cfg.Service.Control,
-		RBAC:    cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
@@ -848,43 +862,36 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Resource, err = apiresource.NewService(apiresource.ServiceConfig{
 		Resource: cfg.Service.Resource,
-		RBAC:     cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Range, err = ranger.NewService(ranger.ServiceConfig{
-		RBAC:   cfg.Service.RBAC,
 		Ranger: cfg.Service.Ranger,
 	}); err != nil {
 		return nil, err
 	}
 	if l.KV, err = kv.NewService(kv.ServiceConfig{
-		RBAC: cfg.Service.RBAC,
-		KV:   cfg.Service.KV,
+		KV: cfg.Service.KV,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Alias, err = alias.NewService(alias.ServiceConfig{
-		RBAC:  cfg.Service.RBAC,
 		Alias: cfg.Service.Alias,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Group, err = group.NewService(group.ServiceConfig{
-		RBAC:  cfg.Service.RBAC,
 		Group: cfg.Service.Group,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Project, err = project.NewService(project.ServiceConfig{
-		RBAC:    cfg.Service.RBAC,
 		Project: cfg.Service.Project,
 		Bundle:  cfg.Service.Bundle,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.NewService(schematic.ServiceConfig{
-		RBAC:      cfg.Service.RBAC,
 		Schematic: cfg.Service.Schematic,
 	}); err != nil {
 		return nil, err
@@ -897,12 +904,10 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.LinePlot, err = lineplot.NewService(lineplot.ServiceConfig{
 		LinePlot: cfg.Service.LinePlot,
-		RBAC:     cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Panel, err = panel.NewService(panel.ServiceConfig{
-		RBAC:  cfg.Service.RBAC,
 		Panel: cfg.Service.Panel,
 	}); err != nil {
 		return nil, err
@@ -911,7 +916,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Label:  cfg.Service.Label,
 		Ranger: cfg.Service.Ranger,
 		Status: cfg.Service.Status,
-		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
@@ -940,26 +944,22 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Log, err = log.NewService(log.ServiceConfig{
-		Log:  cfg.Service.Log,
-		RBAC: cfg.Service.RBAC,
+		Log: cfg.Service.Log,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Table, err = table.NewService(table.ServiceConfig{
 		Table: cfg.Service.Table,
-		RBAC:  cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Status, err = status.NewService(status.ServiceConfig{
 		Status: cfg.Service.Status,
-		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Arc, err = arc.NewService(arc.ServiceConfig{
 		Instrumentation: cfg.Instrumentation,
-		RBAC:            cfg.Service.RBAC,
 		Arc:             cfg.Service.Arc,
 		Status:          cfg.Service.Status,
 	}); err != nil {

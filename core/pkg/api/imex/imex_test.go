@@ -20,8 +20,11 @@ import (
 	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -47,6 +50,19 @@ func (r *recordingImporter) Import(
 func (*recordingImporter) Match(body map[string]any) bool {
 	_, ok := body["legacy_marker"]
 	return ok
+}
+
+// namingExporter exports a channel as an envelope named by the key of the channel.
+type namingExporter struct{}
+
+func (namingExporter) Type() resource.Type { return resource.TypeChannel }
+
+func (namingExporter) Export(
+	_ context.Context,
+	_ gorp.Snapshot,
+	id resource.ID,
+) (imex.Envelope, error) {
+	return imex.Envelope{Version: 1, Type: string(id.Type), Name: id.Key}, nil
 }
 
 func testEnvelope(name string) apiimex.ImportRequest {
@@ -243,6 +259,29 @@ var _ = Describe("Import", func() {
 				MatchError(ContainSubstring("invalid params")),
 				MatchError(ContainSubstring("validation error")),
 			))
+	})
+})
+
+var _ = Describe("Export", func() {
+	id := resource.ID{Type: resource.TypeChannel, Key: "12"}
+
+	It("Should export a resource the subject can retrieve", func(ctx SpecContext) {
+		Expect(MustSucceed(export(rootCtx(ctx), apiimex.ExportRequest(id))).Name).
+			To(Equal("12"))
+	})
+
+	It("Should deny a resource the subject cannot retrieve", func(ctx SpecContext) {
+		u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+			Name: "exporter-" + uuid.New().String(),
+		}))
+		Expect(export(subjectCtx(ctx, u), apiimex.ExportRequest(id))).Error().To(
+			SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(
+					ContainSubstring("%s cannot retrieve %s", u.ResourceID(), id),
+				),
+			),
+		)
 	})
 })
 

@@ -300,13 +300,7 @@ func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 	if !ok {
 		return nil
 	}
-	return errors.Wrapf(
-		access.ErrDenied,
-		"%s cannot %s %s",
-		req.Subject,
-		req.Action,
-		denied,
-	)
+	return access.Denied(req.Subject, req.Action, denied)
 }
 
 // Allowed returns a function that reports whether the policies of the subject's roles

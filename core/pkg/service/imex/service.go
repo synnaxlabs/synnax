@@ -178,10 +178,12 @@ func (s *Service) Import(
 	return id, nil
 }
 
-// Export routes resource to its Exporter and returns the resulting envelope. It returns
-// a validation error scoped to the "type" field when no Exporter is registered.
+// Export routes resource to its Exporter, which reads it from snap, and returns the
+// resulting envelope. It returns a validation error scoped to the "type" field when no
+// Exporter is registered.
 func (s *Service) Export(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	resource resource.ID,
 ) (Envelope, error) {
 	s.mu.RLock()
@@ -190,7 +192,7 @@ func (s *Service) Export(
 	if !ok {
 		return Envelope{}, notFoundError(resource.Type, "exporter")
 	}
-	env, err := exporter.Export(ctx, resource)
+	env, err := exporter.Export(ctx, snap, resource)
 	if err != nil {
 		return Envelope{}, errors.Wrap(err, "export resource")
 	}

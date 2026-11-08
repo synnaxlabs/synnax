@@ -41,14 +41,18 @@ var (
 	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apilog.Service
-	// create, del, dispatch, setGroup, and setProject run their routes as the API
-	// layer binds them.
+	// create, del, dispatch, setGroup, setProject, and retrieve run their routes as the
+	// API layer binds them.
 	create     freighter.UnaryHandler[apilog.CreateRequest, apilog.CreateResponse]
 	del        freighter.UnaryHandler[apilog.DeleteRequest, struct{}]
 	dispatch   freighter.UnaryHandler[apilog.DispatchRequest, struct{}]
 	setGroup   freighter.UnaryHandler[apilog.SetGroupRequest, struct{}]
 	setProject freighter.UnaryHandler[apilog.SetProjectRequest, struct{}]
-	proj       project.Project
+	retrieve   freighter.UnaryHandler[
+		apilog.RetrieveRequest,
+		apilog.RetrieveResponse,
+	]
+	proj project.Project
 	// author can do nothing until a spec grants it access.
 	author user.User
 )
@@ -59,8 +63,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apilog.NewService(apilog.ServiceConfig{
-		RBAC: svc.RBAC,
-		Log:  svc.Log,
+		Log: svc.Log,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   db,
@@ -71,6 +74,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	setProject = bind.Write(binder, apiSvc.SetProject)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	proj = project.Project{Name: "test-project"}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return svc.Project.NewWriter(tx).Create(ctx, &proj)

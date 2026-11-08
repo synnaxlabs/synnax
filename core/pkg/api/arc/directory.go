@@ -12,19 +12,18 @@ package arc
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	apidirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
-// RetrieveDirectories retrieves Arc directories. The caller must hold retrieve access
-// to each directory it returns.
+// RetrieveDirectories returns the Arc directories that req selects and that the subject
+// can retrieve.
 func (s *Service) RetrieveDirectories(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req apidirectory.RetrieveRequest,
 ) (apidirectory.RetrieveResponse, error) {
 	var res apidirectory.RetrieveResponse
@@ -35,19 +34,7 @@ func (s *Service) RetrieveDirectories(
 	if err != nil {
 		return apidirectory.RetrieveResponse{}, err
 	}
-	if err = q.Exec(ctx, nil); err != nil {
-		return apidirectory.RetrieveResponse{}, err
-	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: lo.Map(
-			res.Directories,
-			func(d directory.Directory, _ int) resource.ID {
-				return d.ResourceID()
-			},
-		),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, directory.Match)).Exec(ctx, snap); err != nil {
 		return apidirectory.RetrieveResponse{}, err
 	}
 	return res, nil

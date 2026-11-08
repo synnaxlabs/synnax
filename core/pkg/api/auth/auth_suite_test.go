@@ -10,6 +10,7 @@
 package auth_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -59,8 +60,16 @@ var (
 	]
 	deleteKeys     freighter.UnaryHandler[apiauth.KeyDeleteRequest, struct{}]
 	deleteSessions freighter.UnaryHandler[apiauth.SessionDeleteRequest, struct{}]
-	root           user.User
-	creds          = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
+	retrieveKeys   freighter.UnaryHandler[
+		apiauth.KeyRetrieveRequest,
+		apiauth.KeyRetrieveResponse,
+	]
+	retrieveSessions freighter.UnaryHandler[
+		apiauth.SessionRetrieveRequest,
+		apiauth.SessionRetrieveResponse,
+	]
+	root  user.User
+	creds = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -115,6 +124,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		apiSvc.SetPassword,
 	)
 	createKey = bind.Write(binder, apiSvc.CreateKey)
+	retrieveKeys = bind.Read(binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req apiauth.KeyRetrieveRequest,
+	) (apiauth.KeyRetrieveResponse, error) {
+		return apiSvc.RetrieveKeys(ctx, snap, req)
+	})
+	retrieveSessions = bind.Read(binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req apiauth.SessionRetrieveRequest,
+	) (apiauth.SessionRetrieveResponse, error) {
+		return apiSvc.RetrieveSessions(ctx, snap, req)
+	})
 	deleteKeys = bind.Write(binder, apiSvc.DeleteKeys)
 	deleteSessions = bind.Write(binder, apiSvc.DeleteSessions)
 })

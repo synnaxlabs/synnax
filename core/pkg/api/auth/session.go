@@ -17,7 +17,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -143,30 +142,25 @@ type SessionRetrieveResponse struct {
 	Sessions []auth.Session `json:"sessions" msgpack:"sessions"`
 }
 
-// RetrieveSessions lists the caller's sessions, or the sessions of the given subjects
-// when the caller may retrieve those subjects.
+// Holders implements bind.Held.
+func (r SessionRetrieveRequest) Holders() []resource.ID { return r.Subjects }
+
+// RetrieveSessions lists the sessions of the given subjects in snap, or the caller's
+// sessions when the request names no subject.
 func (s *Service) RetrieveSessions(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	req SessionRetrieveRequest,
 ) (SessionRetrieveResponse, error) {
-	caller := GetSubject(ctx)
 	subjects := req.Subjects
 	if len(subjects) == 0 {
-		subjects = []resource.ID{caller}
-	}
-	if err := s.enforceOthers(
-		ctx,
-		caller,
-		access.ActionRetrieve,
-		subjects,
-	); err != nil {
-		return SessionRetrieveResponse{}, err
+		subjects = []resource.ID{GetSubject(ctx)}
 	}
 	sessions := make([]auth.Session, 0)
 	if err := s.auth.NewRetrieve().
 		Where(auth.MatchSubjects(subjects...)).
 		Entries(&sessions).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, snap); err != nil {
 		return SessionRetrieveResponse{}, err
 	}
 	return SessionRetrieveResponse{Sessions: sessions}, nil
@@ -189,23 +183,4 @@ func (s *Service) DeleteSessions(
 		freighter.MDFromContext(ctx).Set(SessionCookieParam, SessionCookie{})
 	}
 	return struct{}{}, s.auth.NewWriter(tx).Delete(ctx, req.Keys...)
-}
-
-func (s *Service) enforceOthers(
-	ctx context.Context,
-	caller resource.ID,
-	action access.Action,
-	subjects []resource.ID,
-) error {
-	others := lo.Filter(subjects, func(id resource.ID, _ int) bool {
-		return id != caller
-	})
-	if len(others) == 0 {
-		return nil
-	}
-	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: caller,
-		Action:  action,
-		Objects: others,
-	})
 }

@@ -59,12 +59,11 @@ type Authenticator interface {
 	// Authenticate checks the proof and returns the identity it proves. It returns
 	// [ErrInvalidCredentials] when the proof matches no stored credential.
 	Authenticate(ctx context.Context, proof Proof) (Identity, error)
-	// Version returns the [Identity.Version] of the credential within tx. It returns
-	// an error wrapping query.ErrNotFound when the authenticator holds no such
-	// credential.
+	// Version returns the [Identity.Version] of the credential in snap. It returns an
+	// error wrapping query.ErrNotFound when the authenticator holds no such credential.
 	Version(
 		ctx context.Context,
-		tx gorp.Tx,
+		snap gorp.Snapshot,
 		credential uuid.UUID,
 	) (telem.TimeStamp, error)
 }

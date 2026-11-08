@@ -195,23 +195,51 @@ var _ = Describe("Create", func() {
 })
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the policies that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		granted := createPolicy(ctx, createRole(ctx).Key)
+		createPolicy(ctx, createRole(ctx).Key)
+		grantOn(ctx, u.ResourceID(), access.ActionRetrieve, granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{}))
+		Expect(res.Policies).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should return the policies of a subject when retrieve is granted", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		p := grantOn(ctx, u.ResourceID(), access.ActionRetrieve, policyType)
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
 			Where: &policy.Where{Subjects: []resource.ID{u.ResourceID()}},
 		}))
 		Expect(res.Policies).To(HaveExactElements(HaveField("Key", p.Key)))
 	})
+
+	It(
+		"Should deny the policies of a subject when retrieve is not granted on one",
+		func(
+			ctx SpecContext,
+		) {
+			u := createUser(ctx)
+			p := grantOn(ctx, u.ResourceID(), access.ActionUpdate, u.ResourceID())
+			Expect(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+				Where: &policy.Where{Subjects: []resource.ID{u.ResourceID()}},
+			})).Error().To(MatchError(access.Denied(
+				u.ResourceID(),
+				access.ActionRetrieve,
+				policy.ResourceID(p.Key),
+			).Error()))
+		},
+	)
 
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		p := grantOn(ctx, u.ResourceID(), access.ActionUpdate, u.ResourceID())
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
 			Where: &policy.Where{Key: &filter.Set[policy.Key]{Eq: &p.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
@@ -219,7 +247,7 @@ var _ = Describe("Retrieve", func() {
 	It("Should retrieve the policies of the roles a subject holds", func(
 		ctx SpecContext,
 	) {
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, root),
 			apipolicy.RetrieveRequest{
 				Where: &policy.Where{Subjects: []resource.ID{root.ResourceID()}},
@@ -231,7 +259,7 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	It("Should retrieve the policies of a role", func(ctx SpecContext) {
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, root),
 			apipolicy.RetrieveRequest{
 				Where: &policy.Where{Roles: []role.Key{svc.RBAC.Builtin.ViewerKey}},
@@ -245,7 +273,7 @@ var _ = Describe("Retrieve", func() {
 	It("Should retrieve no policies for a subject whose role has none", func(
 		ctx SpecContext,
 	) {
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, root),
 			apipolicy.RetrieveRequest{
 				Where: &policy.Where{

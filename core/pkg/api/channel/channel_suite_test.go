@@ -50,9 +50,13 @@ var (
 	aliasSvc   *alias.Service
 	userSvc    *user.Service
 	apiSvc     *apichannel.Service
-	// setGroup runs the SetGroup route as the API layer binds it.
-	setGroup freighter.UnaryHandler[apichannel.SetGroupRequest, struct{}]
-	author   user.User
+	// setGroup and retrieveChannels run their routes as the API layer binds them.
+	setGroup         freighter.UnaryHandler[apichannel.SetGroupRequest, struct{}]
+	retrieveChannels freighter.UnaryHandler[
+		apichannel.AliasedRetrieveRequest,
+		apichannel.RetrieveResponse,
+	]
+	author user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -72,6 +76,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		bind.NewService(bind.ServiceConfig{DB: node.DB, RBAC: rbacSvc}),
 	)
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	retrieveChannels = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),
 	)

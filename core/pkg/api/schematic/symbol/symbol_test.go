@@ -202,6 +202,18 @@ var _ = Describe("SetGroup", func() {
 })
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the symbols that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		g := createGroup(ctx, "leave-out")
+		granted := createSymbol(ctx, g, "leave-out-granted")
+		createSymbol(ctx, g, "leave-out-denied")
+		grantRetrieveOn(ctx, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apisymbol.RetrieveRequest{}))
+		Expect(res.Symbols).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should return the symbols the keys name when retrieve is granted", func(
 		ctx SpecContext,
 	) {
@@ -215,7 +227,7 @@ var _ = Describe("Retrieve", func() {
 			symbol.ResourceID(first.Key),
 			symbol.ResourceID(second.Key),
 		)
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
 				Where: &symbol.Where{
 					Key: &filter.Set[symbol.Key]{
@@ -231,15 +243,17 @@ var _ = Describe("Retrieve", func() {
 	It("Should return the symbols the search term matches", func(ctx SpecContext) {
 		sym := createSymbol(ctx, createGroup(ctx, "searchable"), "Pyrometer")
 		grantRetrieveOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
-		Eventually(apiSvc.Retrieve).WithArguments(
+		Eventually(retrieve).WithArguments(
 			AuthedCtx(ctx, author),
 			apisymbol.RetrieveRequest{SearchTerm: "Pyrometer"},
 		).Should(HaveField("Symbols", ConsistOf(HaveField("Key", sym.Key))))
 	})
 	It("Should return no symbols when a key names no symbol", func(ctx SpecContext) {
+		missing := uuid.New()
+		grantRetrieveOn(ctx, author.ResourceID(), symbol.ResourceID(missing))
 		res := MustSucceed(
-			apiSvc.Retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
-				Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: new(uuid.New())}},
+			retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
+				Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: &missing}},
 			}),
 		)
 		Expect(res.Symbols).To(BeEmpty())
@@ -249,7 +263,7 @@ var _ = Describe("Retrieve", func() {
 	) {
 		g := createGroup(ctx, "unretrievable")
 		sym := createSymbol(ctx, g, "Inlet")
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
 			Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: &sym.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
@@ -313,7 +327,7 @@ var _ = Describe("ExportGroup", func() {
 			grantRetrieveOn(
 				ctx, author.ResourceID(), g.ResourceID(), symbol.ResourceID(sym.Key),
 			)
-			Expect(MustSucceed(apiSvc.ExportGroup(
+			Expect(MustSucceed(exportGroup(
 				AuthedCtx(ctx, author),
 				apisymbol.ExportGroupRequest{
 					Key:      g.Key,
@@ -325,7 +339,7 @@ var _ = Describe("ExportGroup", func() {
 	It("Should reject an unsupported encoding", func(ctx SpecContext) {
 		g := createGroup(ctx, "bad-encoding")
 		grantRetrieveOn(ctx, author.ResourceID(), g.ResourceID())
-		Expect(apiSvc.ExportGroup(
+		Expect(exportGroup(
 			AuthedCtx(ctx, author),
 			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: "YAML"},
 		)).Error().To(MatchError(ContainSubstring("unsupported encoding")))
@@ -336,7 +350,7 @@ var _ = Describe("ExportGroup", func() {
 		g := createGroup(ctx, "ungranted-group")
 		sym := createSymbol(ctx, g, "Outlet")
 		grantRetrieveOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
-		Expect(apiSvc.ExportGroup(
+		Expect(exportGroup(
 			AuthedCtx(ctx, author),
 			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))
@@ -349,7 +363,7 @@ var _ = Describe("ExportGroup", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return groupSvc.NewWriter(tx).Create(ctx, &nested)
 		})).To(Succeed())
-		Expect(apiSvc.ExportGroup(
+		Expect(exportGroup(
 			AuthedCtx(ctx, createUser(ctx)),
 			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))
@@ -360,7 +374,7 @@ var _ = Describe("ExportGroup", func() {
 		g := createGroup(ctx, "ungranted-member")
 		createSymbol(ctx, g, "Vent")
 		grantRetrieveOn(ctx, author.ResourceID(), g.ResourceID())
-		Expect(apiSvc.ExportGroup(
+		Expect(exportGroup(
 			AuthedCtx(ctx, author),
 			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))

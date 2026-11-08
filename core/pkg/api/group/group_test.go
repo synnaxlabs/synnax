@@ -415,7 +415,7 @@ var _ = Describe("Group", func() {
 		) apigroup.RetrieveResponse {
 			GinkgoHelper()
 			u := newUser(ctx, grant([]access.Action{access.ActionRetrieve}, groups))
-			return MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), req))
+			return MustSucceed(retrieveGroups(AuthedCtx(ctx, u), req))
 		}
 		all := func() []group.Key { return []group.Key{top.Key, nested.Key, devices.Key} }
 
@@ -453,7 +453,7 @@ var _ = Describe("Group", func() {
 			"Should reject the request when retrieve is not granted on a match",
 			func(ctx SpecContext) {
 				u := newUser(ctx)
-				Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apigroup.RetrieveRequest{
+				Expect(retrieveGroups(AuthedCtx(ctx, u), apigroup.RetrieveRequest{
 					Where: &group.Where{Key: &filter.Set[group.Key]{Eq: &top.Key}},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
@@ -466,7 +466,7 @@ var _ = Describe("Group", func() {
 			mid := newGroup(ctx, resource.TypeChannel, &top)
 			leaf := newGroup(ctx, resource.TypeChannel, &mid)
 			u := newUser(ctx, grant([]access.Action{access.ActionRetrieve}, groups))
-			res := MustSucceed(apiSvc.RetrieveAncestors(
+			res := MustSucceed(retrieveAncestors(
 				AuthedCtx(ctx, u),
 				apigroup.RetrieveAncestorsRequest{Keys: []group.Key{leaf.Key}},
 			))
@@ -474,14 +474,33 @@ var _ = Describe("Group", func() {
 		})
 
 		It(
-			"Should reject the request when retrieve is not granted",
+			"Should reject the request when retrieve is not granted on a named group",
 			func(ctx SpecContext) {
 				top := newGroup(ctx, resource.TypeChannel, nil)
 				leaf := newGroup(ctx, resource.TypeChannel, &top)
-				Expect(apiSvc.RetrieveAncestors(
+				Expect(retrieveAncestors(
 					AuthedCtx(ctx, newUser(ctx)),
 					apigroup.RetrieveAncestorsRequest{Keys: []group.Key{leaf.Key}},
 				)).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+
+		It(
+			"Should leave out the ancestors that the subject cannot retrieve",
+			func(ctx SpecContext) {
+				top := newGroup(ctx, resource.TypeChannel, nil)
+				mid := newGroup(ctx, resource.TypeChannel, &top)
+				leaf := newGroup(ctx, resource.TypeChannel, &mid)
+				u := newUser(ctx, grant(
+					[]access.Action{access.ActionRetrieve},
+					leaf.ResourceID(),
+					mid.ResourceID(),
+				))
+				res := MustSucceed(retrieveAncestors(
+					AuthedCtx(ctx, u),
+					apigroup.RetrieveAncestorsRequest{Keys: []group.Key{leaf.Key}},
+				))
+				Expect(keys(res.Groups)).To(Equal([]group.Key{mid.Key}))
 			},
 		)
 	})

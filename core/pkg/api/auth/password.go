@@ -64,12 +64,11 @@ func (s *Service) PrepareSetPassword(
 	}
 	if subject != caller {
 		// Each hash is slow, so a caller that cannot update the user costs none.
-		if err := s.enforceOthers(
-			ctx,
-			caller,
-			access.ActionUpdate,
-			[]resource.ID{subject},
-		); err != nil {
+		if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+			Subject: caller,
+			Action:  access.ActionUpdate,
+			Objects: []resource.ID{subject},
+		}); err != nil {
 			return password.Hash{}, err
 		}
 		return s.password.Hash(req.Password)

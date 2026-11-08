@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apicontrol "github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -47,6 +48,11 @@ var (
 	rbacSvc    *rbac.Service
 	userSvc    *user.Service
 	apiSvc     *apicontrol.Service
+	// retrieve runs the Retrieve route as the API layer binds it.
+	retrieve freighter.UnaryHandler[
+		apicontrol.RetrieveRequest,
+		apicontrol.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -98,8 +104,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	apiSvc = MustSucceed(apicontrol.NewService(apicontrol.ServiceConfig{
 		Control: controlSvc,
-		RBAC:    rbacSvc,
 	}))
+	binder := MustSucceed(
+		bind.NewService(bind.ServiceConfig{DB: dist.DB, RBAC: rbacSvc}),
+	)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

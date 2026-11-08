@@ -38,10 +38,6 @@ import (
 
 // Config is the configuration for creating a Service.
 type Config struct {
-	// DB is the database bundles are read from and written to.
-	//
-	// [REQUIRED]
-	DB *gorp.DB
 	// Resource names the members of a bundle.
 	//
 	// [REQUIRED]
@@ -68,7 +64,6 @@ var _ config.Config[Config] = Config{}
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
-	c.DB = override.Nil(c.DB, other.DB)
 	c.Resource = override.Nil(c.Resource, other.Resource)
 	c.Project = override.Nil(c.Project, other.Project)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -80,7 +75,6 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("project.bundle")
-	v.NotNil("db", c.DB)
 	v.NotNil("resource", c.Resource)
 	v.NotNil("project", c.Project)
 	v.NotNil("group", c.Group)
@@ -115,12 +109,12 @@ var unreachedTypes = set.New(
 	resource.TypeArc,
 )
 
-// Export serializes the project identified by key and the groups and visualizations it
-// owns as a bundle: one envelope per member document and panel, group children as
-// directories, and a manifest naming the project at the root. It also returns the
-// resource ID of every document, panel, and group that shaped the artifact, so a caller
-// can enforce access on them. The encoder decides both the serialization and the
-// extension every file takes.
+// Export serializes the project identified by key, as snap holds it, and the groups and
+// visualizations it owns as a bundle: one envelope per member document and panel, group
+// children as directories, and a manifest naming the project at the root. It also
+// returns the resource ID of every document, panel, and group that shaped the artifact,
+// so a caller can enforce access on them. The encoder decides both the serialization
+// and the extension every file takes.
 //
 // A child that is not a panel, a group, or a type the leaf registry exports is skipped,
 // along with every panel tab that references it. The tasks and Arcs a panel's tabs
@@ -131,36 +125,37 @@ var unreachedTypes = set.New(
 // no project has key.
 func (s *Service) Export(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	key project.Key,
 	encoder encoding.FileEncoder,
-) (files zip.Files, members []resource.ID, err error) {
-	tx := s.cfg.DB.OpenTx()
-	defer func() { err = errors.Combine(err, tx.Close()) }()
+) (zip.Files, []resource.ID, error) {
 	var proj project.Project
-	if err = s.cfg.Project.NewRetrieve().
+	if err := s.cfg.Project.NewRetrieve().
 		Where(project.MatchKeys(key)).
 		Entry(&proj).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, nil, err
 	}
 	w := &bundleWalk{
 		svc:     s,
-		tx:      tx,
+		snap:    snap,
 		ext:     encoder.Extension(),
 		visited: set.New[resource.ID](),
 		refs:    map[resource.ID]string{},
 	}
-	if w.grouped, err = s.groupedMembers(ctx, tx, project.ResourceID(key)); err != nil {
+	grouped, err := s.groupedMembers(ctx, snap, project.ResourceID(key))
+	if err != nil {
 		return nil, nil, err
 	}
+	w.grouped = grouped
 	manifestFileName := imex.ManifestBaseName + w.ext
 	claims := imex.NewClaims(manifestFileName)
 	if err = w.directory(ctx, project.ResourceID(key), "", claims); err != nil {
 		return nil, nil, err
 	}
-	files = make(zip.Files, len(w.refs)+len(w.panels)+1)
+	files := make(zip.Files, len(w.refs)+len(w.panels)+1)
 	for id, path := range w.refs {
-		env, err := s.cfg.ImEx.Export(ctx, id)
+		env, err := s.cfg.ImEx.Export(ctx, snap, id)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -187,9 +182,9 @@ func (s *Service) Export(
 // project's groups.
 type bundleWalk struct {
 	svc *Service
-	// tx is the transaction every read in the walk runs on, so the bundle reflects one
-	// snapshot of the cluster.
-	tx gorp.Tx
+	// snap is the snapshot every read in the walk runs on, so the bundle reflects one
+	// committed state.
+	snap gorp.Snapshot
 	// ext is the extension the encoder gives every member file.
 	ext string
 	// visited holds every resource the walk already placed, so a resource with multiple
@@ -305,7 +300,7 @@ func (w *bundleWalk) children(
 		if err != nil {
 			return nil, err
 		}
-		deps, err := w.svc.cfg.Project.Children(ctx, w.tx, key)
+		deps, err := w.svc.cfg.Project.Children(ctx, w.snap, key)
 		if err != nil {
 			return nil, err
 		}
@@ -319,18 +314,18 @@ func (w *bundleWalk) children(
 		if err != nil {
 			return nil, err
 		}
-		if ids, err = w.svc.cfg.Group.Children(ctx, w.tx, key); err != nil {
+		if ids, err = w.svc.cfg.Group.Children(ctx, w.snap, key); err != nil {
 			return nil, err
 		}
 	}
-	return w.svc.cfg.Resource.Retrieve(ctx, w.tx, ids...)
+	return w.svc.cfg.Resource.Retrieve(ctx, w.snap, ids...)
 }
 
 // groupedMembers returns every member of the groups under the project with id, as seen
-// by tx.
+// by snap.
 func (s *Service) groupedMembers(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	id resource.ID,
 ) (set.Set[resource.ID], error) {
 	var (
@@ -342,12 +337,12 @@ func (s *Service) groupedMembers(
 		if err := s.cfg.Group.NewRetrieve().
 			Where(group.MatchParents(next...)).
 			Entries(&groups).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, snap); err != nil {
 			return nil, err
 		}
 		next = next[:0]
 		for _, g := range groups {
-			children, err := s.cfg.Group.Children(ctx, tx, g.Key)
+			children, err := s.cfg.Group.Children(ctx, snap, g.Key)
 			if err != nil {
 				return nil, err
 			}
@@ -358,7 +353,7 @@ func (s *Service) groupedMembers(
 	return members, nil
 }
 
-// retrievePanel reads the panel document behind id on the walk's transaction.
+// retrievePanel reads the panel document behind id from the snapshot of the walk.
 func (w *bundleWalk) retrievePanel(
 	ctx context.Context,
 	id resource.ID,
@@ -371,7 +366,7 @@ func (w *bundleWalk) retrievePanel(
 	err = w.svc.cfg.Panel.NewRetrieve().
 		Where(panel.MatchKeys(keys...)).
 		Entry(&p).
-		Exec(ctx, w.tx)
+		Exec(ctx, w.snap)
 	return p, err
 }
 
@@ -392,7 +387,7 @@ func (w *bundleWalk) panelRefs(
 			ids = append(ids, id)
 		}
 	}
-	members, err := w.svc.cfg.Resource.Retrieve(ctx, w.tx, ids...)
+	members, err := w.svc.cfg.Resource.Retrieve(ctx, w.snap, ids...)
 	if err != nil {
 		return err
 	}

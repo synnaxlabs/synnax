@@ -15,10 +15,8 @@ import (
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
@@ -32,10 +30,6 @@ import (
 
 // ServiceConfig is the configuration for the project API service.
 type ServiceConfig struct {
-	// RBAC checks the access of retrieve and export requests.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Project stores and retrieves projects.
 	//
 	// [REQUIRED]
@@ -54,7 +48,6 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Project = override.Nil(c.Project, other.Project)
 	c.Bundle = override.Nil(c.Bundle, other.Bundle)
 	return c
@@ -63,14 +56,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.project")
-	v.NotNil("rbac", c.RBAC)
 	v.NotNil("project", c.Project)
 	v.NotNil("bundle", c.Bundle)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *project.Service
 	bundle   *bundle.Service
 }
@@ -81,7 +72,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.RBAC,
 		internal: cfg.Project,
 		bundle:   cfg.Bundle,
 	}, nil
@@ -120,8 +110,21 @@ func (s *Service) Rename(
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the projects that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, project.ResourceID)
+}
+
+// Retrieve returns the projects that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -129,14 +132,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: project.ResourceIDsFromProjects(res.Projects),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, project.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -156,37 +152,29 @@ type (
 	ExportResponse = zip.Files
 )
 
+var _ bind.Named = ExportRequest{}
+
+// Named implements bind.Named.
+func (r ExportRequest) Named() []resource.ID {
+	return []resource.ID{project.ResourceID(r.Key)}
+}
+
 // Export exports the project and the records it owns as a bundle. It requires retrieve
-// access on the project, which it enforces before it reads a member, and on every
-// document, panel, and group the bundle carries.
+// access on every document, panel, and group the bundle carries.
 func (s *Service) Export(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req ExportRequest,
 ) (ExportResponse, error) {
 	encoder, err := imex.ResolveEncoding(req.Encoding)
 	if err != nil {
 		return nil, err
 	}
-	var (
-		enforcer = s.access.NewEnforcer(nil)
-		subject  = auth.GetSubject(ctx)
-	)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{project.ResourceID(req.Key)},
-	}); err != nil {
-		return nil, err
-	}
-	files, members, err := s.bundle.Export(ctx, req.Key, encoder)
+	files, members, err := s.bundle.Export(ctx, snap, req.Key, encoder)
 	if err != nil {
 		return nil, err
 	}
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionRetrieve,
-		Objects: members,
-	}); err != nil {
+	if err = snap.Enforce(members...); err != nil {
 		return nil, err
 	}
 	return files, nil

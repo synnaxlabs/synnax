@@ -48,6 +48,17 @@ func denied(u user.User, action access.Action, object resource.ID) types.GomegaM
 }
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the line plots that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := newUser(ctx)
+		granted := createLinePlot(ctx, "leave-out-granted")
+		createLinePlot(ctx, "leave-out-denied")
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apilineplot.RetrieveRequest{}))
+		Expect(res.LinePlots).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
 	) {
@@ -55,7 +66,7 @@ var _ = Describe("Retrieve", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.LinePlot.NewWriter(tx).Create(ctx, &r)
 		})).To(Succeed())
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apilineplot.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, author), apilineplot.RetrieveRequest{
 			Where: &lineplot.Where{Key: &filter.Set[lineplot.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})

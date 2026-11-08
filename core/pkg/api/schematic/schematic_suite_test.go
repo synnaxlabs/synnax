@@ -48,8 +48,8 @@ var (
 	rbacSvc      *rbac.Service
 	schematicSvc *schematic.Service
 	apiSvc       *apischematic.Service
-	// create, del, dispatch, copySchematic, setGroup, and setProject run their routes
-	// as the API layer binds them.
+	// create, del, dispatch, copySchematic, setGroup, setProject, and retrieve run
+	// their routes as the API layer binds them.
 	create freighter.UnaryHandler[
 		apischematic.CreateRequest,
 		apischematic.CreateResponse,
@@ -62,6 +62,10 @@ var (
 	]
 	setGroup   freighter.UnaryHandler[apischematic.SetGroupRequest, struct{}]
 	setProject freighter.UnaryHandler[apischematic.SetProjectRequest, struct{}]
+	retrieve   freighter.UnaryHandler[
+		apischematic.RetrieveRequest,
+		apischematic.RetrieveResponse,
+	]
 	proj       project.Project
 	projectSvc *project.Service
 	author     user.User
@@ -105,7 +109,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:  imex.NewService(),
 	}))
 	apiSvc = MustSucceed(apischematic.NewService(apischematic.ServiceConfig{
-		RBAC:      rbacSvc,
 		Schematic: schematicSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
@@ -115,6 +118,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	copySchematic = bind.Write(binder, apiSvc.Copy)
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	setProject = bind.Write(binder, apiSvc.SetProject)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))

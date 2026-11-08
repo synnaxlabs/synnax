@@ -12,10 +12,9 @@ package group
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -25,10 +24,6 @@ import (
 
 // ServiceConfig is the configuration for the group API service.
 type ServiceConfig struct {
-	// RBAC checks the access of retrieve requests.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Group stores and retrieves groups.
 	//
 	// [REQUIRED]
@@ -43,7 +38,6 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Group = override.Nil(c.Group, other.Group)
 	return c
 }
@@ -51,13 +45,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.group")
-	v.NotNil("rbac", c.RBAC)
 	v.NotNil("group", c.Group)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *group.Service
 }
 
@@ -67,7 +59,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.RBAC,
 		internal: cfg.Group,
 	}, nil
 }
@@ -98,8 +89,21 @@ func (s *Service) Create(
 	return CreateResponse{Group: g}, nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the groups that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, group.ResourceID)
+}
+
+// Retrieve returns the groups that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -107,14 +111,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: group.ResourceIDsFromGroups(res.Groups),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, group.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -129,31 +126,31 @@ type (
 	}
 )
 
-// RetrieveAncestors returns every group above the groups with the requested keys.
+var _ bind.Named = RetrieveAncestorsRequest{}
+
+// Named implements bind.Named.
+func (r RetrieveAncestorsRequest) Named() []resource.ID {
+	return group.ResourceIDs(r.Keys)
+}
+
+// RetrieveAncestors returns every group above the groups with the requested keys that
+// the subject can retrieve.
 func (s *Service) RetrieveAncestors(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveAncestorsRequest,
 ) (RetrieveAncestorsResponse, error) {
-	var (
-		res RetrieveAncestorsResponse
-		err error
-	)
-	if len(req.Keys) > 0 {
-		if res.Groups, err = s.internal.Ancestors(ctx, nil, req.Keys...); err != nil {
-			return RetrieveAncestorsResponse{}, err
-		}
+	if len(req.Keys) == 0 {
+		return RetrieveAncestorsResponse{}, nil
 	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: append(
-			group.ResourceIDs(req.Keys),
-			group.ResourceIDsFromGroups(res.Groups)...,
-		),
-	}); err != nil {
+	ancestors, err := s.internal.Ancestors(ctx, snap, req.Keys...)
+	if err != nil {
 		return RetrieveAncestorsResponse{}, err
 	}
-	return res, nil
+	return RetrieveAncestorsResponse{Groups: lo.Filter(
+		ancestors,
+		func(g group.Group, _ int) bool { return snap.Allowed(g.ResourceID()) },
+	)}, nil
 }
 
 type DeleteRequest struct {

@@ -11,15 +11,14 @@ package alias
 
 import (
 	"context"
+	"maps"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -29,10 +28,6 @@ import (
 
 // ServiceConfig is the configuration for the alias API service.
 type ServiceConfig struct {
-	// RBAC checks the access of resolve, list, and retrieve requests.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Alias stores and retrieves channel aliases on ranges.
 	//
 	// [REQUIRED]
@@ -47,7 +42,6 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Alias = override.Nil(c.Alias, other.Alias)
 	return c
 }
@@ -55,14 +49,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.ranger.alias")
-	v.NotNil("rbac", c.RBAC)
 	v.NotNil("alias", c.Alias)
 	return v.Error()
 }
 
 type Service struct {
-	access *rbac.Service
-	alias  *alias.Service
+	alias *alias.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -71,8 +63,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access: cfg.RBAC,
-		alias:  cfg.Alias,
+		alias: cfg.Alias,
 	}, nil
 }
 
@@ -107,28 +98,23 @@ type (
 	}
 )
 
+// Resolve returns the channel of each alias on the range. It leaves out an alias that
+// names no channel or that the subject cannot retrieve.
 func (s *Service) Resolve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req ResolveRequest,
 ) (ResolveResponse, error) {
-	reader := s.alias.NewReader(nil)
+	reader := s.alias.NewReader(snap)
 	aliases := make(map[string]channel.Key, len(req.Aliases))
 	for _, a := range req.Aliases {
 		ch, err := reader.Resolve(ctx, req.Range, a)
 		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return ResolveResponse{}, err
 		}
-		if ch != 0 {
+		if ch != 0 && snap.Allowed(alias.ResourceID(req.Range, ch)) {
 			aliases[a] = ch
 		}
-	}
-	keys := lo.Values(aliases)
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: alias.ResourceIDs(req.Range, keys),
-	}); err != nil {
-		return ResolveResponse{}, err
 	}
 	return ResolveResponse{Aliases: aliases}, nil
 }
@@ -163,23 +149,19 @@ type (
 	}
 )
 
+// List returns the alias of each channel on the range that the subject can retrieve.
 func (s *Service) List(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req ListRequest,
 ) (ListResponse, error) {
-	reader := s.alias.NewReader(nil)
-	aliases, err := reader.List(ctx, req.Range)
+	aliases, err := s.alias.NewReader(snap).List(ctx, req.Range)
 	if err != nil {
 		return ListResponse{}, err
 	}
-	keys := lo.Keys(aliases)
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: alias.ResourceIDs(req.Range, keys),
-	}); err != nil {
-		return ListResponse{}, err
-	}
+	maps.DeleteFunc(aliases, func(ch channel.Key, _ string) bool {
+		return !snap.Allowed(alias.ResourceID(req.Range, ch))
+	})
 	return ListResponse{Aliases: aliases}, nil
 }
 
@@ -193,18 +175,21 @@ type (
 	}
 )
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It names the alias of each channel on the range.
+func (r RetrieveRequest) Named() []resource.ID {
+	return alias.ResourceIDs(r.Range, r.Channels)
+}
+
+// Retrieve returns the alias of each channel on the range. It leaves out a channel with
+// no alias.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: alias.ResourceIDs(req.Range, req.Channels),
-	}); err != nil {
-		return RetrieveResponse{}, err
-	}
-	reader := s.alias.NewReader(nil)
+	reader := s.alias.NewReader(snap)
 	aliases := make(map[channel.Key]string)
 	for _, ch := range req.Channels {
 		al, err := reader.Retrieve(ctx, req.Range, ch)

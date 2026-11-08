@@ -44,6 +44,17 @@ func denied(u user.User, action access.Action, object resource.ID) types.GomegaM
 }
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the tables that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := newUser(ctx)
+		granted := createTable(ctx, "leave-out-granted")
+		createTable(ctx, "leave-out-denied")
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apitable.RetrieveRequest{}))
+		Expect(res.Tables).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
 	) {
@@ -51,7 +62,7 @@ var _ = Describe("Retrieve", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Table.NewWriter(tx).Create(ctx, &r)
 		})).To(Succeed())
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apitable.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, author), apitable.RetrieveRequest{
 			Where: &table.Where{Key: &filter.Set[table.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})

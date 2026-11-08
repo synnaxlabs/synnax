@@ -1042,7 +1042,9 @@ var _ = Describe("Task", Ordered, func() {
 			Name:   "Snapshot Task",
 			Config: msgpack.EncodedJSON{"routing_key": "rk-snapshot"},
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, t)
+		})).To(Succeed())
 		var res task.Task
 		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 			return svc.NewRetrieve().Where(task.MatchKeys(t.Key)).Entry(&res).

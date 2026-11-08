@@ -206,12 +206,31 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Retrieve", func() {
+		It("Should leave out the users that the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			fctx, u := nonRootCtx(ctx)
+			granted := createUser(ctx, "leave-out-granted-"+uuid.New().String())
+			createUser(ctx, "leave-out-denied-"+uuid.New().String())
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				u.Key,
+				[]access.Action{access.ActionRetrieve},
+				granted.ResourceID(),
+			))
+			res := MustSucceed(retrieve(fctx, apiuser.RetrieveRequest{}))
+			Expect(res.Users).To(HaveExactElements(HaveField("Key", granted.Key)))
+		})
+
 		It(
 			"Should retrieve users by key when the subject has retrieve access",
 			func(ctx SpecContext) {
 				u := createUser(ctx, "retrieve-by-key-"+uuid.New().String())
 				res := MustSucceed(
-					apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+					retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 						Where: &user.Where{
 							Key: &filter.Set[user.Key]{In: []user.Key{u.Key}},
 						},
@@ -225,7 +244,7 @@ var _ = Describe("Service", func() {
 		) {
 			username := "retrieve-by-username-" + uuid.New().String()
 			u := createUser(ctx, username)
-			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+			res := MustSucceed(retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Where: &user.Where{Usernames: []string{username}},
 			}))
 			Expect(res.Users).To(ConsistOf(u))
@@ -248,18 +267,18 @@ var _ = Describe("Service", func() {
 				return passwordSvc.NewWriter(tx).
 					Set(ctx, u.ResourceID(), password, hash(passwordSvc, "p"))
 			})).To(Succeed())
-			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+			res := MustSucceed(retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Where: &user.Where{Usernames: []string{password}},
 			}))
 			Expect(res.Users).To(HaveLen(1))
 			Expect(res.Users[0].Key).To(Equal(u.Key))
-			res = MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+			res = MustSucceed(retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Where: &user.Where{Usernames: []string{name}},
 			}))
 			Expect(res.Users).To(BeEmpty())
 		})
 		It("Should return no users for an unknown username", func(ctx SpecContext) {
-			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+			res := MustSucceed(retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Where: &user.Where{
 					Usernames: []string{"unknown-" + uuid.New().String()},
 				},
@@ -271,7 +290,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx, "retrieve-denied-"+uuid.New().String())
 				fctx, _ := nonRootCtx(ctx)
-				Expect(apiSvc.Retrieve(fctx, apiuser.RetrieveRequest{
+				Expect(retrieve(fctx, apiuser.RetrieveRequest{
 					Where: &user.Where{Key: &filter.Set[user.Key]{Eq: &u.Key}},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
@@ -280,7 +299,7 @@ var _ = Describe("Service", func() {
 			"Should return no users for a key that does not exist",
 			func(ctx SpecContext) {
 				res := MustSucceed(
-					apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+					retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 						Where: &user.Where{
 							Key: &filter.Set[user.Key]{Eq: new(uuid.New())},
 						},
@@ -305,7 +324,7 @@ var _ = Describe("Service", func() {
 					Name: "hidden-" + uuid.New().String(),
 				}),
 			)
-			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+			res := MustSucceed(retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Where: &user.Where{
 					Key: &filter.Set[user.Key]{In: []user.Key{u.Key, other.Key}},
 				},
@@ -389,7 +408,7 @@ var _ = Describe("Service", func() {
 				).Error().
 					ToNot(HaveOccurred())
 
-				res := MustSucceed(apiSvc.Retrieve(
+				res := MustSucceed(retrieve(
 					rootCtx(ctx),
 					apiuser.RetrieveRequest{
 						Where: &user.Where{Usernames: []string{newName}},
@@ -714,7 +733,7 @@ var _ = Describe("Service", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return userSvc.NewWriter(tx).SetRole(ctx, r, nil, u.Key)
 			})).To(Succeed())
-			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+			res := MustSucceed(retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Where: &user.Where{Roles: []role.Key{r, uuid.New()}},
 			}))
 			Expect(res.Users).To(HaveExactElements(HaveField("Key", u.Key)))

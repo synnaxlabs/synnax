@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -29,8 +30,7 @@ import (
 
 // ServiceConfig is the configuration for the user API service.
 type ServiceConfig struct {
-	// RBAC checks the access of retrieve requests, and of the user writes that it must
-	// check before they run.
+	// RBAC checks the user writes that it must check before they run.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -212,9 +212,21 @@ func (s *Service) Rename(
 		ChangeName(ctx, req.Key, req.Name)
 }
 
-// Retrieve returns the users that the request selects.
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the users that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, user.ResourceID)
+}
+
+// Retrieve returns the users that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -222,14 +234,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: user.ResourceIDsFromUsers(res.Users),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, user.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil

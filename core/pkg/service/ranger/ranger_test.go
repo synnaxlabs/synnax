@@ -71,7 +71,9 @@ var _ = Describe("Ranger", func() {
 			Expect(w.Create(ctx, &r)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, parent.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, parent.Key)
+				})).To(Succeed())
 			})
 			var pKey uuid.UUID
 			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {

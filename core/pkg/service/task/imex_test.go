@@ -118,7 +118,7 @@ var _ = Describe("ImEx", Ordered, func() {
 					return svc.NewWriter(tx).Create(ctx, t)
 				})).To(Succeed())
 
-				env := MustSucceed(svc.Export(ctx, t.ResourceID()))
+				env := MustSucceed(svc.Export(ctx, db, t.ResourceID()))
 				Expect(env.Version).To(Equal(pdversions.Latest))
 				Expect(env.Type).To(Equal(pagerduty.AlertTaskType))
 				Expect(env.Name).To(Equal("Exported Task"))
@@ -140,7 +140,7 @@ var _ = Describe("ImEx", Ordered, func() {
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
 			id := task.ResourceID(uuid.New())
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
+			Expect(svc.Export(ctx, db, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -181,7 +181,7 @@ var _ = Describe("ImEx", Ordered, func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, t)
 				})).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, t.ResourceID()))
+				env := MustSucceed(svc.Export(ctx, db, t.ResourceID()))
 				imported := reimport(ctx, MustSucceed(json.Marshal(env)))
 
 				Expect(imported.Key).ToNot(Equal(t.Key))
@@ -338,10 +338,13 @@ var _ = Describe("ImEx", Ordered, func() {
 			Expect(excluded.db.WithTx(ctx, func(tx gorp.Tx) error {
 				return excluded.task.NewWriter(tx).Create(ctx, t)
 			})).To(Succeed())
-			Expect(excluded.task.Export(ctx, t.ResourceID())).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("have no file form")),
-			))
+			Expect(
+				excluded.task.Export(ctx, excluded.db, t.ResourceID()),
+			).Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("have no file form")),
+				))
 		})
 	})
 })

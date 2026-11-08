@@ -41,8 +41,3 @@ func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 		return resource.ParseUUIDKey(id)
 	})
 }
-
-// ResourceIDsFromViews converts a slice of views to a slice of resource IDs.
-func ResourceIDsFromViews(views []View) []resource.ID {
-	return lo.Map(views, func(v View, _ int) resource.ID { return v.ResourceID() })
-}

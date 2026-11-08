@@ -16,7 +16,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -36,24 +38,28 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db       *gorp.DB
+	rbacSvc  *rbac.Service
+	userSvc  *user.Service
 	imexSvc  *imex.Service
 	apiSvc   *apiimex.Service
 	importer *recordingImporter
 	root     user.User
+	// export runs its route as the API layer binds it.
+	export freighter.UnaryHandler[apiimex.ExportRequest, apiimex.ExportResponse]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Password: passwordSvc,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
 	}))
-	rbacSvc := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 		DB:     db,
 		User:   userSvc,
 		Status: statusSvc,
@@ -70,10 +76,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	imexSvc = imex.NewService()
 	importer = &recordingImporter{}
 	Expect(imexSvc.RegisterImporter(string(importer.Type()), importer)).To(Succeed())
+	Expect(imexSvc.RegisterExporter(namingExporter{})).To(Succeed())
 	apiSvc = MustSucceed(apiimex.NewService(apiimex.ServiceConfig{
 		ImEx: imexSvc,
 		RBAC: rbacSvc,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	export = bind.Read(binder, apiSvc.Export)
 	Expect(userSvc.NewRetrieve().
 		Where(user.MatchRootUser(true)).
 		Entry(&root).Exec(ctx, nil)).To(Succeed())
@@ -82,8 +91,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // rootCtx returns a freighter.Context with the suite-level root user installed as the
 // request subject. The root user holds the Owner role, so every RBAC enforcement call
 // passes.
-func rootCtx(ctx SpecContext) freighter.Context {
+func rootCtx(ctx SpecContext) freighter.Context { return subjectCtx(ctx, root) }
+
+// subjectCtx returns a freighter.Context with u installed as the request subject.
+func subjectCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", root.ResourceID())
+	fctx.Set("Subject", u.ResourceID())
 	return fctx
 }

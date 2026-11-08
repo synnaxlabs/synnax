@@ -42,11 +42,16 @@ var (
 	svc       *service.Layer
 	apiSvc    *apirack.Service
 	statusAPI *apistatus.Service
-	// These handlers run their routes as the API layer binds them.
+	// create, rename, setGroup, del, and retrieve run their routes as the API layer
+	// binds them.
 	create   freighter.UnaryHandler[apirack.CreateRequest, apirack.CreateResponse]
 	rename   freighter.UnaryHandler[apirack.RenameRequest, struct{}]
 	setGroup freighter.UnaryHandler[apirack.SetGroupRequest, struct{}]
 	del      freighter.UnaryHandler[apirack.DeleteRequest, struct{}]
+	retrieve freighter.UnaryHandler[
+		apirack.RetrieveRequest,
+		apirack.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -62,7 +67,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	statusAPI = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
 		Status: svc.Status,
-		RBAC:   svc.RBAC,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,
@@ -72,6 +76,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	rename = bind.Write(binder, apiSvc.Rename)
 	del = bind.Write(binder, apiSvc.Delete)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 // createUser creates a user that can do nothing.

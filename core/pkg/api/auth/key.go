@@ -14,7 +14,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -81,30 +80,25 @@ type KeyRetrieveResponse struct {
 	Keys []APIKey `json:"keys" msgpack:"keys"`
 }
 
-// RetrieveKeys lists the caller's API keys, or the keys of the given subjects when the
-// caller may retrieve those subjects.
+// Holders implements bind.Held.
+func (r KeyRetrieveRequest) Holders() []resource.ID { return r.Subjects }
+
+// RetrieveKeys lists the API keys of the given subjects in snap, or the caller's keys
+// when the request names no subject.
 func (s *Service) RetrieveKeys(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	req KeyRetrieveRequest,
 ) (KeyRetrieveResponse, error) {
-	caller := GetSubject(ctx)
 	subjects := req.Subjects
 	if len(subjects) == 0 {
-		subjects = []resource.ID{caller}
-	}
-	if err := s.enforceOthers(
-		ctx,
-		caller,
-		access.ActionRetrieve,
-		subjects,
-	); err != nil {
-		return KeyRetrieveResponse{}, err
+		subjects = []resource.ID{GetSubject(ctx)}
 	}
 	var keys []apikey.APIKey
 	if err := s.apiKey.NewRetrieve().
 		Where(apikey.MatchSubjects(subjects...)).
 		Entries(&keys).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, snap); err != nil {
 		return KeyRetrieveResponse{}, err
 	}
 	return KeyRetrieveResponse{Keys: lo.Map(keys, func(k apikey.APIKey, _ int) APIKey {

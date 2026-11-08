@@ -175,12 +175,23 @@ var _ = Describe("Delete", func() {
 })
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the roles that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		granted := createRole(ctx)
+		createRole(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionRetrieve, granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apirole.RetrieveRequest{}))
+		Expect(res.Roles).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should return the roles the request selects when retrieve is granted", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		r := grantOn(ctx, u.ResourceID(), access.ActionRetrieve, roleType)
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirole.RetrieveRequest{
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apirole.RetrieveRequest{
 			Where: &role.Where{Key: &filter.Set[role.Key]{Eq: &r.Key}},
 		}))
 		Expect(res.Roles).To(HaveExactElements(HaveField("Key", r.Key)))
@@ -190,7 +201,7 @@ var _ = Describe("Retrieve", func() {
 		ctx SpecContext,
 	) {
 		r := createRole(ctx)
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, createUser(ctx)), apirole.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, createUser(ctx)), apirole.RetrieveRequest{
 			Where: &role.Where{Key: &filter.Set[role.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})

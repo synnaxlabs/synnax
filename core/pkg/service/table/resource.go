@@ -10,7 +10,6 @@
 package table
 
 import (
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -28,9 +27,4 @@ func (s *Service) Resources() *resource.TableProvider[Key, Table] {
 // ResourceID returns the resource ID of the table with key.
 func ResourceID(k Key) resource.ID {
 	return resource.ID{Type: resource.TypeTable, Key: k.String()}
-}
-
-// ResourceIDsFromTables returns the resource IDs of the tables.
-func ResourceIDsFromTables(tables []Table) []resource.ID {
-	return lo.Map(tables, func(t Table, _ int) resource.ID { return t.ResourceID() })
 }

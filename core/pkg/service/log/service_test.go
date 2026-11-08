@@ -89,7 +89,7 @@ var _ = Describe("OpenService", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &l)
 			})).To(Succeed())
-			env := MustSucceed(imexSvc.Export(ctx, l.ResourceID()))
+			env := MustSucceed(imexSvc.Export(ctx, db, l.ResourceID()))
 			Expect(env.Type).To(Equal("log"))
 		},
 	)

@@ -226,21 +226,37 @@ func (s *Service) CheckHolds(ctx context.Context) error {
 	if len(held) == 0 {
 		return nil
 	}
-	var sessions []Session
-	if err := s.NewRetrieve().
-		Where(MatchKeys(held...)).
-		Entries(&sessions).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	live := make(set.Set[SessionKey], len(sessions))
-	for _, e := range sessions {
-		current, err := s.check(ctx, e)
-		if err != nil {
+	var (
+		live  set.Set[SessionKey]
+		stale []SessionKey
+	)
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		var sessions []Session
+		if err := s.NewRetrieve().
+			Where(MatchKeys(held...)).
+			Entries(&sessions).
+			Exec(ctx, snap); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
-		if current {
-			live.Add(e.Key)
+		live = make(set.Set[SessionKey], len(sessions))
+		for _, e := range sessions {
+			current, err := s.current(ctx, snap, e)
+			if err != nil {
+				return err
+			}
+			if current {
+				live.Add(e.Key)
+			} else {
+				stale = append(stale, e.Key)
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if len(stale) > 0 {
+		if err := s.Logout(ctx, stale...); err != nil {
+			return err
 		}
 	}
 	for _, key := range held {
@@ -255,11 +271,11 @@ func (s *Service) CheckHolds(ctx context.Context) error {
 // query.ErrNotFound when no authenticator holds it.
 func (s *Service) version(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	credential uuid.UUID,
 ) (telem.TimeStamp, error) {
 	for _, a := range s.cfg.Authenticators {
-		v, err := a.Version(ctx, tx, credential)
+		v, err := a.Version(ctx, snap, credential)
 		if !errors.Is(err, query.ErrNotFound) {
 			return v, err
 		}
@@ -267,17 +283,18 @@ func (s *Service) version(
 	return 0, errors.Wrapf(query.ErrNotFound, "credential %s", credential)
 }
 
-// check returns true when the session holds its credential's current version, or
-// deletes it and returns false. A session's version never changes after login.
-func (s *Service) check(ctx context.Context, session Session) (bool, error) {
-	v, err := s.version(ctx, nil, session.Credential)
-	if err == nil && session.CredentialVersion == v {
-		return true, nil
+// current returns true when the session holds the current version of its credential in
+// snap. A session's version never changes after login.
+func (s *Service) current(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	session Session,
+) (bool, error) {
+	v, err := s.version(ctx, snap, session.Credential)
+	if errors.Is(err, query.ErrNotFound) {
+		return false, nil
 	}
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		return false, err
-	}
-	return false, s.Logout(ctx, session.Key)
+	return err == nil && session.CredentialVersion == v, err
 }
 
 func (s *Service) endHold(key SessionKey) {
@@ -368,30 +385,39 @@ func (s *Service) Login(
 // Authenticate returns the session a token belongs to and counts the request as
 // activity. It returns [ErrInvalidToken] when no session matches the token or the
 // session's credential changed since login, and [ErrExpiredToken] when the session has
-// been idle for the idle timeout. Both of the latter delete the session.
+// been idle for the idle timeout. Both of the latter delete the session. It reads two
+// records under the shared read lock, so it waits for a write that is in progress.
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error) {
 	key, hash, err := ParseToken(tokenPrefix, token)
 	if err != nil {
 		return Session{}, err
 	}
-	var session Session
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&session).
-		Exec(ctx, nil); err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return Session{}, ErrInvalidToken
+	var (
+		session Session
+		current bool
+	)
+	if err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		if err := s.NewRetrieve().
+			Where(MatchKeys(key)).
+			Entry(&session).
+			Exec(ctx, snap); err != nil {
+			if errors.Is(err, query.ErrNotFound) {
+				return ErrInvalidToken
+			}
+			return err
 		}
-		return Session{}, err
-	}
-	if subtle.ConstantTimeCompare(session.Hash, hash) != 1 {
-		return Session{}, ErrInvalidToken
-	}
-	current, err := s.check(ctx, session)
-	if err != nil {
+		if subtle.ConstantTimeCompare(session.Hash, hash) != 1 {
+			return ErrInvalidToken
+		}
+		current, err = s.current(ctx, snap, session)
+		return err
+	}); err != nil {
 		return Session{}, err
 	}
 	if !current {
+		if err = s.Logout(ctx, key); err != nil {
+			return Session{}, err
+		}
 		return Session{}, ErrInvalidToken
 	}
 	now := s.now()

@@ -32,12 +32,23 @@ import (
 )
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the projects that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		granted := createProject(ctx, "leave-out-granted")
+		createProject(ctx, "leave-out-denied")
+		grantRetrieveOn(ctx, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiproject.RetrieveRequest{}))
+		Expect(res.Projects).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		p := createProject(ctx, "unretrievable")
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apiproject.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, u), apiproject.RetrieveRequest{
 			Where: &project.Where{Key: &filter.Set[project.Key]{Eq: &p.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
@@ -55,7 +66,7 @@ var _ = Describe("Export", func() {
 				project.ResourceID(proj.Key),
 				log.ResourceID(l.Key),
 			)
-			Expect(MustSucceed(apiSvc.Export(
+			Expect(MustSucceed(export(
 				AuthedCtx(ctx, author),
 				apiproject.ExportRequest{Key: proj.Key, Encoding: apiimex.EncodingJSON},
 			))).To(SatisfyAll(HaveKey("manifest.json"), HaveKey("Metrics.json")))
@@ -64,7 +75,7 @@ var _ = Describe("Export", func() {
 	It("Should reject an unsupported encoding", func(ctx SpecContext) {
 		proj := createProject(ctx, "bad-encoding")
 		grantRetrieveOn(ctx, author.ResourceID(), project.ResourceID(proj.Key))
-		Expect(apiSvc.Export(
+		Expect(export(
 			AuthedCtx(ctx, author),
 			apiproject.ExportRequest{Key: proj.Key, Encoding: "YAML"},
 		)).Error().To(MatchError(ContainSubstring("unsupported encoding")))
@@ -73,7 +84,7 @@ var _ = Describe("Export", func() {
 		ctx SpecContext,
 	) {
 		proj := createProject(ctx, "ungranted-project")
-		Expect(apiSvc.Export(
+		Expect(export(
 			AuthedCtx(ctx, author),
 			apiproject.ExportRequest{Key: proj.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))
@@ -84,7 +95,7 @@ var _ = Describe("Export", func() {
 		proj := createProject(ctx, "ungranted-member")
 		createLog(ctx, proj.Key, "Metrics")
 		grantRetrieveOn(ctx, author.ResourceID(), project.ResourceID(proj.Key))
-		Expect(apiSvc.Export(
+		Expect(export(
 			AuthedCtx(ctx, author),
 			apiproject.ExportRequest{Key: proj.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))

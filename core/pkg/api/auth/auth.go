@@ -61,8 +61,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	User *user.Service
-	// RBAC checks the access of requests that list API keys or sessions, and of a
-	// password change for another user before its hash.
+	// RBAC checks update on the user whose password another caller sets.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service

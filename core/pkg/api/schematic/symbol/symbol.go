@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -35,7 +36,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Symbol *symbol.Service
-	// RBAC checks the access of every request except set group.
+	// RBAC checks the access of create, rename, delete, import group, and delete group
+	// requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -137,10 +139,21 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-// Retrieve returns the symbols that the request selects. It requires retrieve access
-// on every match.
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the symbols that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, symbol.ResourceID)
+}
+
+// Retrieve returns the symbols that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -148,14 +161,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: symbol.ResourceIDsFromSymbols(res.Symbols),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, symbol.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -221,37 +227,29 @@ type (
 	ExportGroupResponse = zip.Files
 )
 
+var _ bind.Named = ExportGroupRequest{}
+
+// Named implements bind.Named.
+func (r ExportGroupRequest) Named() []resource.ID {
+	return []resource.ID{group.ResourceID(r.Key)}
+}
+
 // ExportGroup exports every symbol in the group as a bundle. It requires retrieve
-// access on the group, which it enforces before it reads a symbol, and on every symbol
-// the group holds.
+// access on every symbol the group holds.
 func (s *Service) ExportGroup(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req ExportGroupRequest,
 ) (ExportGroupResponse, error) {
 	encoder, err := imex.ResolveEncoding(req.Encoding)
 	if err != nil {
 		return nil, err
 	}
-	var (
-		enforcer = s.access.NewEnforcer(nil)
-		subject  = auth.GetSubject(ctx)
-	)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{group.ResourceID(req.Key)},
-	}); err != nil {
-		return nil, err
-	}
-	files, members, err := s.internal.ExportGroup(ctx, req.Key, encoder)
+	files, members, err := s.internal.ExportGroup(ctx, snap, req.Key, encoder)
 	if err != nil {
 		return nil, err
 	}
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionRetrieve,
-		Objects: members,
-	}); err != nil {
+	if err = snap.Enforce(members...); err != nil {
 		return nil, err
 	}
 	return files, nil

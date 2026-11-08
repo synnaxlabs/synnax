@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiview "github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -35,9 +37,10 @@ func TestAPIView(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db     *gorp.DB
-	svc    *service.Layer
-	apiSvc *apiview.Service
+	db       *gorp.DB
+	svc      *service.Layer
+	apiSvc   *apiview.Service
+	retrieve freighter.UnaryHandler[apiview.RetrieveRequest, apiview.RetrieveResponse]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -49,6 +52,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		View: svc.View,
 		RBAC: svc.RBAC,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: svc.RBAC}))
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 // createUser creates a user that can do nothing.
@@ -59,11 +64,16 @@ func createUser(ctx SpecContext) user.User {
 	}))
 }
 
-// grantUpdateOn grants update on the objects to the subject.
-func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
+// grantOn grants the action on the objects to the subject.
+func grantOn(
+	ctx SpecContext,
+	subject resource.ID,
+	action access.Action,
+	objects ...resource.ID,
+) {
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	actions := []access.Action{access.ActionUpdate}
+	actions := []access.Action{action}
 	MustSucceed(
 		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, key, actions, objects...),
 	)

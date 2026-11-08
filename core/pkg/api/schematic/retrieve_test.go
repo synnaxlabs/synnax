@@ -58,7 +58,7 @@ var _ = Describe("Retrieve by snapshot and page", func() {
 			req.Where = &schematic.Where{}
 		}
 		req.Where.Projects = []project.Key{paged.Key}
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), req))
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), req))
 		return lo.Map(res.Schematics, func(s schematic.Schematic, _ int) string {
 			return s.Name
 		})
@@ -86,5 +86,18 @@ var _ = Describe("Retrieve by snapshot and page", func() {
 		Expect(first).To(HaveLen(1))
 		Expect(second).To(HaveLen(1))
 		Expect(append(first, second...)).To(ConsistOf("editable", "snap"))
+	})
+})
+
+var _ = Describe("Retrieve access", func() {
+	It("Should leave out the schematics that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := newUser(ctx)
+		granted := createSchematic(ctx, "leave-out-granted")
+		createSchematic(ctx, "leave-out-denied")
+		grantOn(ctx, u.ResourceID(), access.ActionRetrieve, granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apischematic.RetrieveRequest{}))
+		Expect(res.Schematics).To(HaveExactElements(HaveField("Key", granted.Key)))
 	})
 })

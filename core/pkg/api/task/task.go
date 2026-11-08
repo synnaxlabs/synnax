@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -43,8 +44,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC checks the access of retrieve and delete requests, and the read access that
-	// a dispatch response needs.
+	// RBAC checks the access of delete requests, and the read access that a dispatch
+	// response needs.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -177,8 +178,21 @@ func (s *Service) Dispatch(
 	return DispatchResponse{Actions: computed}, nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the tasks that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, task.ResourceID)
+}
+
+// Retrieve returns the tasks that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -186,13 +200,13 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
+	if err := q.Where(bind.Filter(snap, task.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if req.IncludeStatus {
 		statuses, err := s.status.Join[task.StatusDetails](
 			ctx,
-			nil,
+			snap,
 			task.ResourceIDsFromTasks(res.Tasks),
 		)
 		if err != nil {
@@ -201,13 +215,6 @@ func (s *Service) Retrieve(
 		for i, st := range statuses {
 			res.Tasks[i].Status = st
 		}
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: task.ResourceIDsFromTasks(res.Tasks),
-	}); err != nil {
-		return RetrieveResponse{}, err
 	}
 	return res, nil
 }
