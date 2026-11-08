@@ -66,7 +66,11 @@ func BenchmarkLookupSetup(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db := OpenGorpMsgpackDB()
-			defer func() { _ = db.Close() }()
+			defer func() {
+				if err := db.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
 			if err := gorp.NewCreate[int32, indexBenchEntry]().
@@ -89,7 +93,9 @@ func BenchmarkLookupSetup(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				_ = table.Close()
+				if err := table.Close(); err != nil {
+					b.Fatal(err)
+				}
 			}
 		})
 	}
@@ -102,7 +108,11 @@ func BenchmarkLookupQueryViaIndex(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db := OpenGorpMsgpackDB()
-			defer func() { _ = db.Close() }()
+			defer func() {
+				if err := db.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
 			if err := gorp.NewCreate[int32, indexBenchEntry]().
@@ -122,7 +132,11 @@ func BenchmarkLookupQueryViaIndex(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			defer func() { _ = table.Close() }()
+			defer func() {
+				if err := table.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			target := "name-" + strconv.Itoa(size/2)
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -148,7 +162,11 @@ func BenchmarkLookupQueryViaScan(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db := OpenGorpMsgpackDB()
-			defer func() { _ = db.Close() }()
+			defer func() {
+				if err := db.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
 			if err := gorp.NewCreate[int32, indexBenchEntry]().
@@ -162,7 +180,11 @@ func BenchmarkLookupQueryViaScan(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			defer func() { _ = table.Close() }()
+			defer func() {
+				if err := table.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			target := "name-" + strconv.Itoa(size/2)
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -189,7 +211,11 @@ func BenchmarkLookupUpdate(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db := OpenGorpMsgpackDB()
-			defer func() { _ = db.Close() }()
+			defer func() {
+				if err := db.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
 			if err := gorp.NewCreate[int32, indexBenchEntry]().
@@ -209,7 +235,11 @@ func BenchmarkLookupUpdate(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			defer func() { _ = table.Close() }()
+			defer func() {
+				if err := table.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
@@ -236,7 +266,11 @@ func BenchmarkSortedSetup(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db := OpenGorpMsgpackDB()
-			defer func() { _ = db.Close() }()
+			defer func() {
+				if err := db.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
 			if err := gorp.NewCreate[int32, indexBenchEntry]().
@@ -259,7 +293,9 @@ func BenchmarkSortedSetup(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				_ = table.Close()
+				if err := table.Close(); err != nil {
+					b.Fatal(err)
+				}
 			}
 		})
 	}
@@ -272,7 +308,11 @@ func BenchmarkSortedUpdate(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db := OpenGorpMsgpackDB()
-			defer func() { _ = db.Close() }()
+			defer func() {
+				if err := db.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
 			if err := gorp.NewCreate[int32, indexBenchEntry]().
@@ -292,7 +332,11 @@ func BenchmarkSortedUpdate(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			defer func() { _ = table.Close() }()
+			defer func() {
+				if err := table.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			midScore := int64(size / 2)
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -360,7 +404,11 @@ func BenchmarkComposeAndIndexed(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db, table, nameIdx, categoryIdx := compositionFixture(b, size)
-			defer func() { _ = table.Close() }()
+			defer func() {
+				if err := table.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			ctx := context.Background()
 			targetName := "name-" + strconv.Itoa(size/2)
 			targetCat := "cat-" + strconv.Itoa((size/2)%indexBenchCategoryCount)
@@ -392,7 +440,11 @@ func BenchmarkComposeAndScan(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db := OpenGorpMsgpackDB()
-			defer func() { _ = db.Close() }()
+			defer func() {
+				if err := db.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
 			if err := gorp.NewCreate[int32, indexBenchEntry]().
@@ -406,7 +458,11 @@ func BenchmarkComposeAndScan(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			defer func() { _ = table.Close() }()
+			defer func() {
+				if err := table.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			targetName := "name-" + strconv.Itoa(size/2)
 			targetCat := "cat-" + strconv.Itoa((size/2)%indexBenchCategoryCount)
 			b.ReportAllocs()
@@ -445,7 +501,11 @@ func BenchmarkComposeOrIndexed(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db, table, nameIdx, _ := compositionFixture(b, size)
-			defer func() { _ = table.Close() }()
+			defer func() {
+				if err := table.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			ctx := context.Background()
 			targetA := "name-" + strconv.Itoa(size/4)
 			targetB := "name-" + strconv.Itoa((3*size)/4)
@@ -477,7 +537,11 @@ func BenchmarkComposeOrIndexedShared(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db, table, nameIdx, _ := compositionFixture(b, size)
-			defer func() { _ = table.Close() }()
+			defer func() {
+				if err := table.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			ctx := context.Background()
 			targetA := "name-" + strconv.Itoa(size/4)
 			targetB := "name-" + strconv.Itoa((3*size)/4)
@@ -511,7 +575,11 @@ func BenchmarkComposeNestedAnd(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db, table, nameIdx, categoryIdx := compositionFixture(b, size)
-			defer func() { _ = table.Close() }()
+			defer func() {
+				if err := table.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
 			ctx := context.Background()
 			targetName := "name-" + strconv.Itoa(size/2)
 			targetCat := "cat-" + strconv.Itoa((size/2)%indexBenchCategoryCount)

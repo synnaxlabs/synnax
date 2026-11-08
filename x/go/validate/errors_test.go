@@ -20,14 +20,16 @@ var _ = Describe("Errors", func() {
 	Describe("PathedError", func() {
 		It("Should add a path to an error", func() {
 			base := errors.New("cat")
-			pathed := validate.PathedError(base, "field")
-			Expect(pathed).To(MatchError(ContainSubstring("field: cat")))
+			Expect(
+				validate.PathedError(base, "field"),
+			).To(MatchError(ContainSubstring("field: cat")))
 		})
 		It("Should append nested paths correctly", func() {
 			base := errors.New("cat")
 			first := validate.PathedError(base, "first")
-			parent := validate.PathedError(first, "parent")
-			Expect(parent).To(MatchError(ContainSubstring("parent.first: cat")))
+			Expect(
+				validate.PathedError(first, "parent"),
+			).To(MatchError(ContainSubstring("parent.first: cat")))
 		})
 		It("Should prefix every member of a joined error independently", func() {
 			joined := errors.Join(
@@ -47,8 +49,9 @@ var _ = Describe("Errors", func() {
 				base := errors.New("cat")
 				pathed := validate.PathedError(base, "field")
 				encoded := errors.Encode(ctx, pathed, false)
-				decoded := errors.Decode(ctx, encoded)
-				Expect(decoded).To(MatchError(ContainSubstring("field: cat")))
+				Expect(
+					errors.Decode(ctx, encoded),
+				).To(MatchError(ContainSubstring("field: cat")))
 			})
 
 			It("Should have the correct encoded representation", func(ctx SpecContext) {
@@ -68,9 +71,8 @@ var _ = Describe("Errors", func() {
 					first := validate.PathedError(base, "first")
 					parent := validate.PathedError(first, "parent")
 					encoded := errors.Encode(ctx, parent, false)
-					decoded := errors.Decode(ctx, encoded)
 					Expect(
-						decoded,
+						errors.Decode(ctx, encoded),
 					).To(MatchError(ContainSubstring("parent.first: cat")))
 				},
 			)

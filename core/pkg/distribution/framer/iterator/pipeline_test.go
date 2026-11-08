@@ -89,7 +89,7 @@ var _ = Describe("Pipeline", func() {
 		})
 		var value []iterator.Response
 		expectReturns(func() {
-			Expect(p.Exec(iterator.Request{}, &value)).To(BeTrue())
+			Expect(p.Exec(iterator.Request{}, &value).Ack).To(BeTrue())
 			Expect(value).To(HaveLen(1))
 			Expect(value[0].SeqNum).To(Equal(3))
 			Expect(p.Close()).To(Succeed())
@@ -109,11 +109,11 @@ var _ = Describe("Pipeline", func() {
 		Eventually(exited).Should(BeClosed())
 		var value []iterator.Response
 		expectReturns(func() {
-			Expect(p.Exec(iterator.Request{}, &value)).Error().To(MatchError(errRead))
-			Expect(p.Exec(iterator.Request{}, &value)).Error().To(MatchError(errRead))
+			Expect(p.Exec(iterator.Request{}, &value).Error).To(MatchError(errRead))
+			Expect(p.Exec(iterator.Request{}, &value).Error).To(MatchError(errRead))
 			Expect(p.Close()).To(MatchError(errRead))
 			Expect(p.Close()).To(Succeed())
-			Expect(p.Exec(iterator.Request{}, &value)).Error().
+			Expect(p.Exec(iterator.Request{}, &value).Error).
 				To(MatchError(iterator.ErrClosed))
 		})
 	})
@@ -129,7 +129,7 @@ var _ = Describe("Pipeline", func() {
 		})
 		var value []iterator.Response
 		expectReturns(func() {
-			Expect(p.Exec(iterator.Request{}, &value)).Error().To(MatchError(errRead))
+			Expect(p.Exec(iterator.Request{}, &value).Error).To(MatchError(errRead))
 			Expect(p.Close()).To(MatchError(errRead))
 		})
 	})
@@ -144,7 +144,7 @@ var _ = Describe("Pipeline", func() {
 		})
 		var value []iterator.Response
 		expectReturns(func() {
-			Expect(p.Exec(iterator.Request{}, &value)).Error().To(SatisfyAll(
+			Expect(p.Exec(iterator.Request{}, &value).Error).To(SatisfyAll(
 				MatchError(iterator.ErrClosed),
 				MatchError(ContainSubstring("without a response")),
 			))
@@ -164,7 +164,7 @@ var _ = Describe("Pipeline", func() {
 		})
 		var value []iterator.Response
 		expectReturns(func() {
-			Expect(p.Exec(iterator.Request{}, &value)).Error().To(MatchError(errRead))
+			Expect(p.Exec(iterator.Request{}, &value).Error).To(MatchError(errRead))
 			Expect(p.Close()).To(MatchError(errRead))
 		})
 	})
