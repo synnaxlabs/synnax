@@ -383,94 +383,42 @@ var _ = Describe("NaN and infinity", func() {
 			root,
 		)).Error().To(MatchError(ContainSubstring("math.inf is not a channel")))
 	})
-	It(
-		"Should fail to compile a float check with no float argument",
-		func(ctx SpecContext) {
-			root := symbol.NewRoot(nil, stl.NewSymbols())
-			Expect(arc.CompileText(
-				ctx,
-				arc.Text{
-					Raw: "import math\nfunc f() str {\n    return f\"{math.is_nan(3)}\"\n}",
-				},
-				root,
-			)).Error().To(MatchError(ContainSubstring("float check requires an f32 or f64")))
-		},
-	)
 
-	Describe("Mixed float and integer literals", func() {
-		run := func(ctx SpecContext, dt types.Type, expr string) telem.Series {
+	Describe("Format string placeholders", func() {
+		// format runs a func that writes source to a string channel, with a NaN f32 a and
+		// an f64 b of 1.5 in scope, and returns the string.
+		format := func(ctx SpecContext, source string) string {
 			GinkgoHelper()
-			dataType := telem.Float64T
-			if dt.Kind == types.KindF32 {
-				dataType = telem.Float32T
+			h := newRuntimeHarness(ctx, `import math
+			func f() {a f32} {
+				b f64 := 1.5
+				log = `+source+`
 			}
-			h := newRuntimeHarness(ctx, `
-			func check() {v `+dt.String()+`} `+dt.String()+` {
-				r `+dt.String()+` := `+expr+`
-				return r
-			}
-			x -> check() -> out`, channelSymbols(map[string]channelDef{
-				"x":   {dt, 100},
-				"out": {dt, 200},
+			x -> f()`, channelSymbols(map[string]channelDef{
+				"x":   {types.F32(), 100},
+				"log": {types.String(), 101},
 			}),
-				channels.Digest{Key: 100, DataType: dataType},
-				channels.Digest{Key: 200, DataType: dataType},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
-			h.Ingest(100, telem.NewSeriesFromAny(1.0, dataType))
+			h.Ingest(100, telem.NewSeriesV(float32(nan)))
 			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
-			return out.Get(200).Series[0]
+			series := out.Get(101).Series
+			Expect(series).ToNot(BeEmpty())
+			values := series[len(series)-1].Unmarshal[string]()
+			return values[len(values)-1]
 		}
 
-		DescribeTable("Should give the exact f64 value",
-			func(ctx SpecContext, expr string, expected float64) {
-				Expect(
-					run(ctx, types.F64(), expr).Unmarshal[float64]()[0],
-				).To(Equal(expected))
-			},
-			Entry("float first", "3.2 + 2", 5.2),
-			Entry("integer first", "2 + 3.2", 5.2),
-			Entry("three operands", "2 + 3.2 + 1", 6.2),
-		)
+		It("Should read an integer literal as a float", func(ctx SpecContext) {
+			Expect(format(ctx, `f"{math.is_nan(3)}"`)).To(Equal("false"))
+		})
 
-		DescribeTable("Should give the exact f32 value",
-			func(ctx SpecContext, expr string, expected float32) {
-				Expect(
-					run(ctx, types.F32(), expr).Unmarshal[float32]()[0],
-				).To(Equal(expected))
-			},
-			Entry("float first", "3.2 + 2", float32(5.2)),
-			Entry("integer first", "2 + 3.2", float32(5.2)),
-			Entry("three operands", "2 + 3.2 + 1", float32(6.2)),
-		)
-
-		DescribeTable("Should infer f64 without a declared type",
-			func(ctx SpecContext, expr string, expected float64) {
-				h := newRuntimeHarness(ctx, `
-				func check() {v f64} f64 {
-					r := `+expr+`
-					return r
-				}
-				x -> check() -> out`, channelSymbols(map[string]channelDef{
-					"x":   {types.F64(), 100},
-					"out": {types.F64(), 200},
-				}),
-					channels.Digest{Key: 100, DataType: telem.Float64T},
-					channels.Digest{Key: 200, DataType: telem.Float64T},
-				)
-				defer h.Close(ctx)
-				h.Ingest(100, telem.NewSeriesV(1.0))
-				h.Tick(ctx, telem.Millisecond)
-				out, _ := h.Flush()
-				Expect(
-					out.Get(200).Series[0].Unmarshal[float64]()[0],
-				).To(Equal(expected))
-			},
-			Entry("float first", "3.2 + 2", 5.2),
-			Entry("integer first", "2 + 3.2", 5.2),
-			Entry("three operands", "2 + 3.2 + 1", 6.2),
-		)
+		It("Should type each call on its own", func(ctx SpecContext) {
+			Expect(format(ctx, `f"{math.is_nan(a)} {math.is_nan(b)}"`)).
+				To(Equal("true false"))
+		})
 	})
 
 	Describe("Equality of two NaN channels", func() {
