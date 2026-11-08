@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -1278,32 +1279,21 @@ func tryAnalyzeFmtStrLiteral(
 	if strTerm == nil {
 		return nodeResult{}, false, false
 	}
-	_, flags, ok := literal.StripQuotes(strTerm.GetText())
-	if !ok || !flags.Format {
+	if !lo.SomeBy(
+		ctx.FmtStrings[strTerm],
+		func(seg parser.FmtSegment) bool { return seg.Expr != nil },
+	) {
 		return nodeResult{}, false, false
 	}
 	outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
-	parsedValue, err := literal.Parse(literalCtx, outputType)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return nodeResult{}, true, false
-	}
-	body := parsedValue.Value.(string)
-	segments, err := literal.FmtStrParse(body)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return nodeResult{}, true, false
-	}
-	if !literal.FmtStrHasPlaceholder(segments) {
-		return nodeResult{}, false, false
-	}
+	body, _, _ := literal.StripQuotes(strTerm.GetText())
 	key := kg.generate("fmt", "")
 	synthKey := compiler.FmtStrSyntheticPrefix + key
 	// Renamed so the compiler resolves the synthetic's scope by function key.
 	sym.Name = synthKey
 	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
 		Key:      synthKey,
-		Body:     ir.Body{Raw: body},
+		Body:     ir.Body{Raw: body, AST: literalCtx},
 		Inputs:   sym.Type.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		Channels: sym.Channels.Copy(),
@@ -1481,7 +1471,11 @@ func analyze(
 		aCtx = acontext.NewRoot(ctx, t.AST, root).
 			WithConfig(parser.ConfigOf(cfgs...)).
 			WithModule(module)
-		i = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
+		i = ir.IR{
+			Symbols:    aCtx.Scope,
+			TypeMap:    aCtx.TypeMap,
+			FmtStrings: aCtx.FmtStrings,
+		}
 	)
 
 	analyzer.AnalyzeProgram(aCtx)
@@ -1494,7 +1488,7 @@ func analyze(
 		if c.Kind != symbol.KindFunction || c.AST == nil {
 			continue
 		}
-		// Format-string fns compile from their raw body as fmt$ synthetics.
+		// Format-string fns compile as fmt$ synthetics from the stored placeholders.
 		if expr, ok := c.AST.(parser.IExpressionContext); ok && parser.IsLiteral(expr) {
 			continue
 		}
