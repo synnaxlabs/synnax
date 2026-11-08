@@ -443,6 +443,11 @@ var _ = Describe("@ref", func() {
 				}
 			}`,
 			"@ref field rack needs one value for kind, not 2"),
+		Entry(
+			"with a flag before another flag",
+			`rack rack.Key @ref acyclic unique`,
+			"@ref field rack needs no value for acyclic, not 1",
+		),
 		Entry("named search", `search rack.Key {
 				@ref on_delete restrict
 				@ref kind use
