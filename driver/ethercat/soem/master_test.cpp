@@ -463,6 +463,37 @@ TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
     EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
 }
 
+/// @brief it should read the PDO layout of each slave from that slave's own object
+/// dictionary.
+TEST_F(SOEMMasterTest, CoEDiscoveryReadsEachSlaveFromItsOwnDictionary) {
+    for (const uint32_t mapping: {0x60000110U, 0x60100120U}) {
+        MockSlaveInfo slave;
+        slave.state = EC_STATE_PRE_OP;
+        slave.mbx_proto = ECT_MBXPROT_COE;
+        slave.sdo_objects = {
+            {{0x1C00, 0}, 4},
+            {{0x1C00, 3}, 3},
+            {{0x1C00, 4}, 4},
+            {{ECT_SDO_RXPDOASSIGN, 0}, 0},
+            {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+            {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+            {{0x1A00, 0}, 1},
+            {{0x1A00, 1}, mapping},
+        };
+        this->add_slave(slave);
+    }
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves.size(), 2);
+    ASSERT_EQ(slaves[0].properties.input_pdos.size(), 1);
+    EXPECT_EQ(slaves[0].properties.input_pdos[0].index, 0x6000);
+    EXPECT_EQ(slaves[0].properties.input_pdos[0].bit_length, 16);
+    ASSERT_EQ(slaves[1].properties.input_pdos.size(), 1);
+    EXPECT_EQ(slaves[1].properties.input_pdos[0].index, 0x6010);
+    EXPECT_EQ(slaves[1].properties.input_pdos[0].bit_length, 32);
+}
+
 /// @brief it should wait for the slaves to reach PRE-OP before it reads PDOs from the
 /// CoE object dictionary.
 TEST_F(SOEMMasterTest, CoEDiscoveryWaitsForPreOp) {
