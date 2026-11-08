@@ -68,7 +68,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of import requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service

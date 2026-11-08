@@ -21,11 +21,11 @@ import (
 
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
-	// DB opens the transaction of each write.
+	// DB opens the transaction of each write and the snapshot of each read.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// RBAC checks the access of each write.
+	// RBAC checks the access of each read and write.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service

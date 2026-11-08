@@ -30,7 +30,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	View *view.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of create, rename, and delete requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service

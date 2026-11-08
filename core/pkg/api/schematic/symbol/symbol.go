@@ -36,7 +36,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Symbol *symbol.Service
-	// RBAC checks the access of every request except set group.
+	// RBAC checks the access of create, rename, delete, import group, and delete group
+	// requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
