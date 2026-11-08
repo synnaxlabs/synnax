@@ -590,7 +590,7 @@ var _ = Describe("Control", func() {
 									Virtual:  true,
 								},
 							)).To(Succeed())
-							holder := MustSucceed(
+							MustOpen(
 								db.OpenWriter(ctx, cesium.WriterConfig{
 									ControlSubject: xcontrol.Subject{Name: "Holder"},
 									Channels:       []cesium.ChannelKey{heldKey},
@@ -608,14 +608,12 @@ var _ = Describe("Control", func() {
 								Authorities:       []xcontrol.Authority{100},
 								ErrOnUnauthorized: new(true),
 							})).Error().To(MatchError(xcontrol.ErrUnauthorized))
-							next := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 								ControlSubject:    xcontrol.Subject{Name: "Next"},
 								Channels:          []cesium.ChannelKey{freeKey},
 								Authorities:       []xcontrol.Authority{1},
 								ErrOnUnauthorized: new(true),
 							}))
-							Expect(next.Close()).To(Succeed())
-							Expect(holder.Close()).To(Succeed())
 						},
 					)
 				})

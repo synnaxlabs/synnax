@@ -281,7 +281,15 @@ func (s *Service) enforceRetrieve(
 	subject resource.ID,
 	keys channel.Keys,
 ) error {
-	inputs, err := s.channel.CalculationInputs(ctx, keys)
+	var calculated []channel.Channel
+	if err := s.channel.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Where(channel.MatchCalculated()).
+		Entries(&calculated).
+		Exec(ctx, nil); err != nil {
+		return err
+	}
+	inputs, err := s.channel.CalculationInputs(ctx, nil, calculated)
 	if err != nil {
 		return err
 	}

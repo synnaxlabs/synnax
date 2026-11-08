@@ -209,39 +209,58 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return &symbolResolver{svc: s, tx: tx}
 }
 
-// CalculationInputs returns the channels that the calculated channels among keys read,
-// directly or through other calculated channels. A calculated channel whose expression
-// fails analysis adds nothing, since it cannot run.
-func (s *Service) CalculationInputs(ctx context.Context, keys Keys) (Keys, error) {
-	analyzer := NewCalculationAnalyzer(s.NewArcSymbolResolver(nil), parser.Config{
+// CalculationInputs returns the channels that the calculated channels among channels
+// read, directly or through other calculated channels, including the channels that
+// reset their operations. The channels need not be stored yet. A calculation whose
+// expression fails analysis adds nothing, since it cannot run. A failed read returns
+// its error. tx scopes the reads; nil reads the service DB directly.
+func (s *Service) CalculationInputs(
+	ctx context.Context,
+	tx gorp.Tx,
+	channels []Channel,
+) (Keys, error) {
+	resolver := &readErrorResolver{SymbolResolver: s.NewArcSymbolResolver(tx)}
+	analyzer := NewCalculationAnalyzer(resolver, parser.Config{
 		AllowDashedNames: !s.ShouldValidateNames(),
 	})
 	var (
 		inputs  Keys
-		visited = set.New(keys...)
+		visited = set.New(KeysFromChannels(channels)...)
 	)
-	for len(keys) > 0 {
-		var calculated []Channel
-		if err := s.NewRetrieve().
-			Where(MatchKeys(keys...)).
-			Where(MatchCalculated()).
-			Entries(&calculated).
-			Exec(ctx, nil); err != nil {
-			return nil, err
-		}
-		keys = nil
-		for _, ch := range calculated {
+	for len(channels) > 0 {
+		var next Keys
+		for _, ch := range channels {
+			if !ch.IsCalculated() {
+				continue
+			}
 			result, err := analyzer.Analyze(ctx, ch)
+			if resolver.err != nil {
+				return nil, resolver.err
+			}
 			if err != nil {
 				continue
 			}
-			for _, dep := range result.Deps {
-				if !visited.Contains(dep) {
-					visited.Add(dep)
-					inputs = append(inputs, dep)
-					keys = append(keys, dep)
+			reads := result.Deps
+			for _, op := range ch.Operations {
+				if op.ResetChannel != 0 {
+					reads = append(reads, op.ResetChannel)
 				}
 			}
+			for _, k := range reads {
+				if !visited.Contains(k) {
+					visited.Add(k)
+					inputs = append(inputs, k)
+					next = append(next, k)
+				}
+			}
+		}
+		channels = nil
+		if err := s.NewRetrieve().
+			Where(MatchKeys(next...)).
+			Where(MatchCalculated()).
+			Entries(&channels).
+			Exec(ctx, tx); err != nil {
+			return nil, err
 		}
 	}
 	return inputs, nil
