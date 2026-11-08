@@ -216,9 +216,10 @@ describe("actions.Controller", () => {
       const { docs, controller, send } = setupStore();
       prime(docs, "k", { a: 0 });
       await controller.dispatch("k", [set("a", 1)]);
-      const since = docs.stamp();
-      controller.applyRemote("k", 1, send.mock.calls[0][2], [set("a", 1)]);
-      docs.ingest({ key: "k", values: { a: 0 } }, { since });
+      await docs.track(async (since) => {
+        controller.applyRemote("k", 1, send.mock.calls[0][2], [set("a", 1)]);
+        docs.ingest({ key: "k", values: { a: 0 } }, { since });
+      });
       expect(docs.get("k")).toEqual({ values: { a: 1 } });
     });
   });

@@ -316,21 +316,24 @@ export class Client extends query.Retriever<
       .toArray(devices)
       .map((device) => deviceZ(schemas).parse(device) as Device);
     const apply = () => [this.store.set(normalized.map(stripStatus))];
+    const { store: statuses } = this.cfg.statuses;
     // A status streamed during the request is newer than the reply.
-    const since = this.cfg.statuses.store.stamp();
-    const res = await query.optimistic({
-      rollbacks: apply(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/device/create",
-          { devices: normalized },
-          createReqZ(schemas),
-          createResZ(schemas),
-        ),
-    });
-    res.devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statuses.store.ingest(st, { since });
+    const res = await statuses.track(async (since) => {
+      const res = await query.optimistic({
+        rollbacks: apply(),
+        onOptimistic: opts.onOptimistic,
+        commit: async () =>
+          await this.cfg.unary.send(
+            "/device/create",
+            { devices: normalized },
+            createReqZ(schemas),
+            createResZ(schemas),
+          ),
+      });
+      res.devices.forEach(({ status: st }) => {
+        if (st != null) statuses.ingest(st, { since });
+      });
+      return res;
     });
     this.store.set(res.devices.map(stripStatus));
     return isSingle ? res.devices[0] : res.devices;
@@ -409,14 +412,18 @@ export class Client extends query.Retriever<
     req: RetrieveParams | OneParams | FilterParams,
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
-    const since = this.store.stamp();
-    const statusSince = this.cfg.statuses.store.stamp();
-    const devices = await this.execRetrieve(req, schemas);
-    this.store.ingest(devices.map(stripStatus), { since });
-    devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statuses.store.ingest(st, { since: statusSince });
-    });
-    return devices;
+    const { store: statuses } = this.cfg.statuses;
+    return await this.store.track(
+      async (since) =>
+        await statuses.track(async (statusSince) => {
+          const devices = await this.execRetrieve(req, schemas);
+          this.store.ingest(devices.map(stripStatus), { since });
+          devices.forEach(({ status: st }) => {
+            if (st != null) statuses.ingest(st, { since: statusSince });
+          });
+          return devices;
+        }),
+    );
   }
 
   private async fetchSingle(q: SingleQuery): Promise<Device> {

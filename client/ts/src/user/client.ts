@@ -133,14 +133,14 @@ export class Client extends query.Retriever<
     const single = cache.queries<SingleParams, User, Key, User>({
       name: "user",
       table: store,
-      fetch: async (params) => {
-        // A user written after since keeps that write, since the fetch predates it.
-        const since = store.stamp();
-        const users = await this.execRetrieve(params);
-        checkSingle(params, users);
-        store.ingest(users, { since });
-        return users.map((u) => u.key);
-      },
+      // A user written after since keeps that write, since the fetch predates it.
+      fetch: async (params) =>
+        await store.track(async (since) => {
+          const users = await this.execRetrieve(params);
+          checkSingle(params, users);
+          store.ingest(users, { since });
+          return users.map((u) => u.key);
+        }),
       compose: (records) => records[0],
       keyOf: (params) => ("key" in params ? params.key : null),
       single: true,

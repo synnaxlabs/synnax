@@ -816,13 +816,15 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(req: RetrieveRequest): Promise<Task[]> {
+    const { store: statuses } = this.cfg.statuses;
     // A status that streams in during the fetch is newer than the fetched one.
-    const since = this.cfg.statuses.store.stamp();
-    const tasks = await this.execRetrieve({ ...req, includeStatus: true });
-    tasks.forEach((t) => {
-      if (t.status != null) this.cfg.statuses.store.ingest(t.status, { since });
+    return await statuses.track(async (since) => {
+      const tasks = await this.execRetrieve({ ...req, includeStatus: true });
+      tasks.forEach((t) => {
+        if (t.status != null) statuses.ingest(t.status, { since });
+      });
+      return tasks;
     });
-    return tasks;
   }
 
   private async fetchSingle(q: SingleRequest): Promise<Task> {
@@ -843,13 +845,16 @@ export class Client extends query.Retriever<
       );
       return this.compose(tasks[0]);
     }
-    const since = this.store.stamp();
-    const statusSince = this.cfg.statuses.store.stamp();
     const where = singleWhere(q);
-    const tasks = await this.execRetrieve({ where, includeStatus: true });
-    checkForMultipleOrNoResults("task", { where }, tasks, true);
-    this.hydrate(tasks[0], since, statusSince);
-    return tasks[0];
+    return await this.store.track(
+      async (since) =>
+        await this.cfg.statuses.store.track(async (statusSince) => {
+          const tasks = await this.execRetrieve({ where, includeStatus: true });
+          checkForMultipleOrNoResults("task", { where }, tasks, true);
+          this.hydrate(tasks[0], since, statusSince);
+          return tasks[0];
+        }),
+    );
   }
 
   sugar<S extends Schemas = Schemas>(payloads: Payload<S>[], schemas?: S): Task<S>[];

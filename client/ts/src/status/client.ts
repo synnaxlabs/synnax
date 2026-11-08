@@ -107,35 +107,35 @@ export class Client extends query.Retriever<
   private readonly writeHandlers = new Set<(status: Status) => void>();
   private readonly ownedFetches = new scheduler.Batcher<resource.ID[], Status[]>({
     interval: OWNED_FETCH_DEBOUNCE,
-    exec: async (requests) => {
-      const owners = requests.flatMap(({ req }) => req);
-      const since = this.store.stamp();
-      let statuses: Status[];
-      try {
-        statuses = await this.execRetrieve({ where: { owners } });
-      } catch (exc) {
-        if (!AccessDeniedError.matches(exc) || requests.length === 1)
-          throw errors.fromUnknown(exc);
-        // A denied status fails the whole batch, so each caller fetches alone.
-        await Promise.all(
-          requests.map(async ({ req, resolve, reject }) => {
-            try {
-              const own = await this.execRetrieve({ where: { owners: req } });
-              this.store.ingest(own, { since });
-              resolve(own);
-            } catch (exc) {
-              reject(exc);
-            }
-          }),
-        );
-        return;
-      }
-      this.store.ingest(statuses, { since });
-      requests.forEach(({ req, resolve }) => {
-        const wanted = new Set(resource.idToString(req));
-        resolve(statuses.filter((s) => wanted.has(ownerOf(s) ?? "")));
-      });
-    },
+    exec: async (requests) =>
+      await this.store.track(async (since) => {
+        const owners = requests.flatMap(({ req }) => req);
+        let statuses: Status[];
+        try {
+          statuses = await this.execRetrieve({ where: { owners } });
+        } catch (exc) {
+          if (!AccessDeniedError.matches(exc) || requests.length === 1)
+            throw errors.fromUnknown(exc);
+          // A denied status fails the whole batch, so each caller fetches alone.
+          await Promise.all(
+            requests.map(async ({ req, resolve, reject }) => {
+              try {
+                const own = await this.execRetrieve({ where: { owners: req } });
+                this.store.ingest(own, { since });
+                resolve(own);
+              } catch (exc) {
+                reject(exc);
+              }
+            }),
+          );
+          return;
+        }
+        this.store.ingest(statuses, { since });
+        requests.forEach(({ req, resolve }) => {
+          const wanted = new Set(resource.idToString(req));
+          resolve(statuses.filter((s) => wanted.has(ownerOf(s) ?? "")));
+        });
+      }),
   });
 
   constructor(cfg: ClientConfig) {

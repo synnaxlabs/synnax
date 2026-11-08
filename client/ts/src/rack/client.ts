@@ -220,16 +220,19 @@ export class Client extends query.Retriever<
   async create(racks: New[]): Promise<Rack[]>;
   async create(rack: New | New[]): Promise<Rack | Rack[]> {
     const isSingle = !Array.isArray(rack);
+    const { store: statuses } = this.cfg.statuses;
     // A status streamed during the request is newer than the reply.
-    const since = this.cfg.statuses.store.stamp();
-    const res = await this.cfg.unary.send(
-      "/rack/create",
-      { racks: array.toArray(rack) },
-      createReqZ,
-      createResZ,
-    );
-    res.racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statuses.store.ingest(st, { since });
+    const res = await statuses.track(async (since) => {
+      const res = await this.cfg.unary.send(
+        "/rack/create",
+        { racks: array.toArray(rack) },
+        createReqZ,
+        createResZ,
+      );
+      res.racks.forEach(({ status: st }) => {
+        if (st != null) statuses.ingest(st, { since });
+      });
+      return res;
     });
     this.store.set(res.racks.map(stripStatus));
     const sugared = this.sugar(res.racks);
@@ -282,14 +285,18 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(req: RetrieveParams): Promise<Payload[]> {
-    const since = this.store.stamp();
-    const statusSince = this.cfg.statuses.store.stamp();
-    const racks = await this.execRetrieve(req);
-    this.store.ingest(racks.map(stripStatus), { since });
-    racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statuses.store.ingest(st, { since: statusSince });
-    });
-    return racks;
+    const { store: statuses } = this.cfg.statuses;
+    return await this.store.track(
+      async (since) =>
+        await statuses.track(async (statusSince) => {
+          const racks = await this.execRetrieve(req);
+          this.store.ingest(racks.map(stripStatus), { since });
+          racks.forEach(({ status: st }) => {
+            if (st != null) statuses.ingest(st, { since: statusSince });
+          });
+          return racks;
+        }),
+    );
   }
 
   private async fetchSingle(q: SingleQuery): Promise<Rack> {

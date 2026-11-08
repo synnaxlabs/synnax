@@ -681,15 +681,16 @@ export class Client extends query.Retriever<
     );
     if (missing.length === 0) return;
     const { aliases } = this.cfg.ranges;
-    const since = aliases.stamp();
-    const fetched = await this.cfg.ranges.retrieveAliases(rangeKey, missing);
-    Object.entries(fetched).forEach(([channel, alias]) => {
-      const entry: ranger.alias.Alias = {
-        range: rangeKey,
-        channel: Number(channel),
-        alias,
-      };
-      aliases.ingest(createKey(entry), entry, { since });
+    await aliases.track(async (since) => {
+      const fetched = await this.cfg.ranges.retrieveAliases(rangeKey, missing);
+      Object.entries(fetched).forEach(([channel, alias]) => {
+        const entry: ranger.alias.Alias = {
+          range: rangeKey,
+          channel: Number(channel),
+          alias,
+        };
+        aliases.ingest(createKey(entry), entry, { since });
+      });
     });
   }
 
@@ -701,18 +702,20 @@ export class Client extends query.Retriever<
     request: RetrieveRequest,
     rangeKey?: ranger.Key,
   ): Promise<Payload[]> {
+    const { store } = this.cfg.statuses;
     // A status that streams in during the fetch is newer than the fetched one.
-    const since = this.cfg.statuses.store.stamp();
-    const res = await this.cfg.unary.send(
-      "/channel/retrieve",
-      { request, rangeKey },
-      aliasedRetrieveRequestZ,
-      retrieveResZ,
-    );
-    res.channels.forEach(({ status }) => {
-      if (status != null) this.cfg.statuses.store.ingest(status, { since });
+    return await store.track(async (since) => {
+      const res = await this.cfg.unary.send(
+        "/channel/retrieve",
+        { request, rangeKey },
+        aliasedRetrieveRequestZ,
+        retrieveResZ,
+      );
+      res.channels.forEach(({ status }) => {
+        if (status != null) store.ingest(status, { since });
+      });
+      return res.channels;
     });
-    return res.channels;
   }
 
   private async fetchSingle(query: RetrieveSingleParams): Promise<Channel> {
@@ -758,12 +761,14 @@ export class Client extends query.Retriever<
   }: RetrieveMultipleParams): Promise<Channel[]> {
     if (rangeKey == null) return await this.fetchChannels(req);
     const { aliases } = this.cfg.ranges;
-    const since = aliases.stamp();
-    const payloads = await this.execRetrieve(req, rangeKey);
-    payloads.forEach(({ key: channel, alias }) => {
-      if (alias == null) return;
-      const entry: ranger.alias.Alias = { range: rangeKey, channel, alias };
-      aliases.ingest(createKey(entry), entry, { since });
+    const payloads = await aliases.track(async (since) => {
+      const payloads = await this.execRetrieve(req, rangeKey);
+      payloads.forEach(({ key: channel, alias }) => {
+        if (alias == null) return;
+        const entry: ranger.alias.Alias = { range: rangeKey, channel, alias };
+        aliases.ingest(createKey(entry), entry, { since });
+      });
+      return payloads;
     });
     return payloads.map((p) => this.sugar(stripComposed(p)));
   }

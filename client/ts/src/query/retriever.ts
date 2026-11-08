@@ -373,10 +373,11 @@ export abstract class Retriever<
       fetch: async (query, options) => {
         const keys = keysOnly(query);
         if (keys != null) return (await table.retrieve(keys as K[])).map((r) => r.key);
-        const since = table.stamp();
-        const records = await fetch(query, options);
-        table.ingest(records, { since });
-        return records.map((r) => r.key);
+        return await table.track(async (since) => {
+          const records = await fetch(query, options);
+          table.ingest(records, { since });
+          return records.map((r) => r.key);
+        });
       },
       compose: (records, q) => records.map((r) => compose(r, q)),
       keysOf: (query) => keysOnly(query) as K[] | null,
@@ -414,9 +415,11 @@ export abstract class Retriever<
       name,
       table,
       fetch: async (query, options) => {
-        const since = table.stamp();
-        const records = await fetch(query, options);
-        table.ingest(records, { since });
+        const records = await table.track(async (since) => {
+          const records = await fetch(query, options);
+          table.ingest(records, { since });
+          return records;
+        });
         const { where, searchTerm } = isObject(query) ? query : {};
         checkForMultipleOrNoResults(
           name,

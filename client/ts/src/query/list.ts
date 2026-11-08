@@ -443,25 +443,26 @@ export class Lists<
     const { generation } = entry;
     const rechecks = new Set<K>();
     entry.rechecks = rechecks;
-    const since = table.stamp();
     // A change that lands during the fetch reaches no unmaintained window.
     const before = this.seen();
-    let records: V[];
-    try {
-      records = await fetch(query, options);
-    } finally {
-      if (entry.rechecks === rechecks) entry.rechecks = undefined;
-    }
-    if (entry.generation !== generation) return null;
-    const missed = !unchanged(before, this.seen());
-    entry.ingesting = true;
-    try {
-      table.ingest(records, { since });
-    } finally {
-      entry.ingesting = false;
-    }
-    if (entry.teardown == null) entry.seen = missed ? before : this.seen();
-    return { records, rechecks };
+    return await table.track(async (since) => {
+      let records: V[];
+      try {
+        records = await fetch(query, options);
+      } finally {
+        if (entry.rechecks === rechecks) entry.rechecks = undefined;
+      }
+      if (entry.generation !== generation) return null;
+      const missed = !unchanged(before, this.seen());
+      entry.ingesting = true;
+      try {
+        table.ingest(records, { since });
+      } finally {
+        entry.ingesting = false;
+      }
+      if (entry.teardown == null) entry.seen = missed ? before : this.seen();
+      return { records, rechecks };
+    });
   }
 
   private endOf(entry: Entry<Q, K, D, V, C>, records: V[], limit?: number): C | null {
