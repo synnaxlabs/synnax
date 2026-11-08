@@ -93,8 +93,8 @@ type SearchQuery struct {
 
 // Search returns the resources that match q, closest match first. For an empty term,
 // it lists the resources in order of type, then in the order of each Provider. Search
-// reads through snap, or through the database when snap is nil. A limit or offset out
-// of bounds, or a type with no Provider, is a validation error.
+// reads through snap. A limit or offset out of bounds, or a type with no Provider, is a
+// validation error.
 func (s *Service) Search(
 	ctx context.Context,
 	snap gorp.Snapshot,
