@@ -101,7 +101,11 @@ describe("user", () => {
 
     it("should allow the caller to delete users with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, [
-        { name: "test", objects: [user.resourceID("")], actions: ["delete", "update"] },
+        {
+          name: "test",
+          objects: [user.resourceID("")],
+          actions: ["delete", "update", "retrieve"],
+        },
         { name: "test", objects: [role.TYPE_RESOURCE_ID], actions: ["update"] },
       ]);
       const randomUser = await client.users.create({

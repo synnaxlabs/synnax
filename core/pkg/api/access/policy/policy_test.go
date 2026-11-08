@@ -206,6 +206,23 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Policies).To(HaveExactElements(HaveField("Key", p.Key)))
 	})
 
+	It(
+		"Should deny the policies of a subject when retrieve is not granted on one",
+		func(
+			ctx SpecContext,
+		) {
+			u := createUser(ctx)
+			p := grantOn(ctx, u.ResourceID(), access.ActionUpdate, u.ResourceID())
+			Expect(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+				Where: &policy.Where{Subjects: []resource.ID{u.ResourceID()}},
+			})).Error().To(MatchError(access.Denied(
+				u.ResourceID(),
+				access.ActionRetrieve,
+				policy.ResourceID(p.Key),
+			).Error()))
+		},
+	)
+
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
 	) {
