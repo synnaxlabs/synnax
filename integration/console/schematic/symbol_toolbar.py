@@ -9,8 +9,7 @@
 
 """Symbol Toolbar client for managing symbol groups and symbols."""
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 from pydantic import JsonValue
 
 from console.layout import LayoutClient

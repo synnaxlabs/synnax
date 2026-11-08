@@ -11,16 +11,19 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import (
+    Annotated,
+    Any,
+    Literal,
+    TypeAlias,
+    TypedDict,
+    override as _override,
+)
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
-from synnax import device as device_
-from synnax import rack as rack_
-from synnax import ranger
-from synnax import status as status_
+from synnax import device as device_, rack as rack_, ranger, status as status_
 from synnax.resource import ID
 from x import filter, telem
 from x.filter import shorthand
