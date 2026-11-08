@@ -11,7 +11,6 @@ package symbol
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -105,24 +104,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-		signalsCfg.SetName = "sy_schematic_symbol_set"
-		signalsCfg.DeleteName = "sy_schematic_symbol_delete"
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, signalsCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Symbol]{
+			Changes:    s.table.Changes,
+			Resource:   ResourceID,
+			SetName:    "sy_schematic_symbol_set",
+			DeleteName: "sy_schematic_symbol_delete",
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
 	return s, nil
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting symbols in Synnax.
-// If tx is provided, the writer will use that transaction. If tx is nil, the Writer
-// will execute the operations directly on the underlying gorp.DB.
+// NewWriter opens a new writer for creating, updating, and deleting symbols in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		svc:   s,
 		tx:    tx,
 		table: s.table,
 	}
@@ -132,7 +128,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
 	}
 }

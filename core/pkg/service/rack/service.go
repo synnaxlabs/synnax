@@ -164,9 +164,9 @@ func OpenService(
 	return s, nil
 }
 
-// Observe returns an observable that notifies callers of changes to rack entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Rack]] {
-	return s.table.Observe()
+// Changes returns the changes that c made to racks.
+func (s *Service) Changes(ctx context.Context, c gorp.Commit) gorp.TxReader[Key, Rack] {
+	return s.table.Changes(ctx, c)
 }
 
 // OnSuspect calls handler with the outage of each rack that stops reporting, once for
@@ -241,9 +241,7 @@ func (s *Service) RetrieveOrCreateEmbedded(
 func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		svc:        s,
 		tx:         tx,
 		newKey:     s.newKey,
 		status:     s.Status.NewWriter(tx),
@@ -261,7 +259,6 @@ func (s *Service) newKey(ctx context.Context) (Key, error) {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes: s.indexes,
-		baseTX:  s.DB,
 		gorp:    s.table.NewRetrieve(),
 	}
 }

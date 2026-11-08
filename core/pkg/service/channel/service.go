@@ -162,7 +162,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // on, and they check the limit at commit time.
 func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
-		baseTX:  s.db,
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
 	}
@@ -171,6 +170,14 @@ func (s *Service) newRetrieve() Retrieve {
 // Observe returns an observable that notifies callers of changes to channels.
 func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
 	return s.table.Observe()
+}
+
+// Changes returns the changes that c made to channels.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Channel] {
+	return s.table.Changes(ctx, c)
 }
 
 // NewRetrieve opens a retrieve query that fails when a retrieved external channel is
@@ -204,9 +211,9 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 
 // NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by name or
 // numeric key, for analyzing and compiling Arc expressions such as calculated channels.
-// tx scopes channel lookups; nil consults the service DB directly.
-func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
-	return &symbolResolver{svc: s, tx: tx}
+// The resolver looks up channels in snap.
+func (s *Service) NewArcSymbolResolver(snap gorp.Snapshot) arc.SymbolResolver {
+	return &symbolResolver{svc: s, snap: snap}
 }
 
 // freeIndexResolver adapts the Service to the distribution framer writer's
@@ -218,10 +225,12 @@ func (r freeIndexResolver) ResolveFreeIndexes(
 	keys Keys,
 ) (map[Key]Key, error) {
 	var channels []Channel
-	if err := r.svc.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+	if err := r.svc.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return r.svc.NewRetrieve().
+			Where(MatchKeys(keys...)).
+			Entries(&channels).
+			Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
 	indexes := make(map[Key]Key)
@@ -239,10 +248,8 @@ func (s *Service) FreeIndexResolver() writer.FreeIndexResolver {
 	return freeIndexResolver{svc: s}
 }
 
-// NewWriter returns a Writer scoped to the provided transaction (nil writes directly to
-// the service DB).
+// NewWriter returns a Writer scoped to tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = s.db.OverrideTx(tx)
 	return Writer{
 		svc: s,
 		tx:  tx,

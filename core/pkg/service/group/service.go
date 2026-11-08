@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -131,15 +130,17 @@ func (s *Service) CreateOrRetrieve(
 	return g, nil
 }
 
-// Observe returns an observable that notifies callers of changes to group entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Group]] {
-	return s.table.Observe()
+// Changes returns the changes that c made to groups.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Group] {
+	return s.table.Changes(ctx, c)
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:    s,
-		tx:     gorp.OverrideTx(s.cfg.DB, tx),
+		tx:     tx,
 		table:  s.table,
 		onMove: s.cfg.MoveMembers,
 	}
@@ -147,7 +148,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
 	}
@@ -157,7 +157,7 @@ func (s *Service) NewRetrieve() Retrieve {
 // each once. The walk stops at a parent that is not a group.
 func (s *Service) Ancestors(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	keys ...Key,
 ) ([]Group, error) {
 	var (
@@ -168,7 +168,7 @@ func (s *Service) Ancestors(
 	if err := s.NewRetrieve().
 		Where(MatchKeys(keys...)).
 		Entries(&level).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	for {
@@ -193,7 +193,7 @@ func (s *Service) Ancestors(
 		if err := s.NewRetrieve().
 			Where(MatchKeys(parents...)).
 			Entries(&level).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, snap); err != nil {
 			return nil, err
 		}
 		out = append(out, level...)
@@ -201,13 +201,13 @@ func (s *Service) Ancestors(
 }
 
 // Children returns the ID of every record and group that sits in the group with key, as
-// seen by tx.
+// seen by snap.
 func (s *Service) Children(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	key Key,
 ) ([]resource.ID, error) {
-	return resource.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), s.table, key)
+	return resource.Dependents(ctx, snap, s.table, key)
 }
 
 func (s *Service) Close() error {
@@ -218,20 +218,9 @@ func (s *Service) Close() error {
 }
 
 type Writer struct {
-	svc    *Service
 	tx     gorp.Tx
 	table  *gorp.Table[Key, Group]
 	onMove MoveMembers
-}
-
-// inTx calls f with w, or with a Writer on a transaction of its own when w has no
-// transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	db, ok := w.tx.(*gorp.DB)
-	if !ok {
-		return f(w)
-	}
-	return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
 }
 
 // Create creates g, assigning a new key when g.Key is zero. A group with a parent takes
@@ -239,10 +228,6 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 // An existing group with g.Key keeps its stored parent and scope; only SetParent moves
 // a group.
 func (w Writer) Create(ctx context.Context, g *Group) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, g) })
-}
-
-func (w Writer) create(ctx context.Context, g *Group) error {
 	if g.Key == uuid.Nil() {
 		g.Key = uuid.New()
 	}
@@ -282,12 +267,6 @@ func (w Writer) create(ctx context.Context, g *Group) error {
 // device, or project cannot move under a new top parent. A move under a new top parent
 // runs the MoveMembers hook.
 func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		return w.setParent(ctx, parent, keys...)
-	})
-}
-
-func (w Writer) setParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
 	var scope resource.Type
 	if parent != nil {
 		var err error
@@ -379,7 +358,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Group](keys...)).
 		Guard(func(ctx gorp.Context, g Group) error {
-			deps, err := w.table.Dependents(ctx, ctx.Tx, g.Key)
+			deps, err := w.table.Dependents(ctx, ctx.Snapshot, g.Key)
 			if err != nil {
 				return err
 			}

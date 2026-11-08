@@ -138,7 +138,12 @@ func (f *factory) configureWrite(
 	if cfg.Topic == "" {
 		return nil, errors.Wrap(validate.ErrValidation, "topic: must not be empty")
 	}
-	if _, err := resolveProperties(ctx, f.cfg.Device, cfg.Device); err != nil {
+	if _, err := resolveProperties(
+		ctx,
+		f.cfg.DB,
+		f.cfg.Device,
+		cfg.Device,
+	); err != nil {
 		return nil, err
 	}
 	var keys channel.Keys
@@ -158,7 +163,7 @@ func (f *factory) configureWrite(
 			validate.ErrValidation, "channels: at least one must be enabled",
 		)
 	}
-	channels, err := retrieveChannels(ctx, f.cfg.Channel, keys)
+	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, keys)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +452,12 @@ func (t *writeTask) stop(
 // open connects the producer and streams the channels into it. It writes no
 // statuses: start owns them.
 func (t *writeTask) open(ctx context.Context) (err error) {
-	props, err := resolveProperties(ctx, t.factoryCfg.Device, t.cfg.Device)
+	props, err := resolveProperties(
+		ctx,
+		t.factoryCfg.DB,
+		t.factoryCfg.Device,
+		t.cfg.Device,
+	)
 	if err != nil {
 		return err
 	}

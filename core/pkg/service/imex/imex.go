@@ -12,8 +12,8 @@
 //
 //	{"version":1,"type":"log","name":"...","channels":[...]}
 //
-// Version, Type, and Name are promoted to typed fields for routing, access control, and
-// file naming; the rest of the body is opaque, decoded by Decode and built by Encode.
+// Version, Type, and Name are promoted to typed fields for routing and file naming; the
+// rest of the body is opaque, decoded by Decode and built by Encode.
 // Services register with the Service registry and are routed by Type.
 package imex
 
@@ -423,19 +423,14 @@ type Importer interface {
 	// markers Match tests are frozen — they describe historical file shapes. Importers
 	// with no typeless legacy formats return false.
 	Match(map[string]any) bool
-	// Type returns the broader resource type the importer creates. For services with
-	// asymmetric registration (e.g. a task service registered under "http_read" and
-	// "opc_scan") this is the coarser resource type ("task"); it is the resource type
-	// used for access control.
-	Type() resource.Type
 }
 
 // Exporter serializes a stored resource as an Envelope, stamping its own per-schema
 // version on the returned value.
 type Exporter interface {
-	// Export retrieves the resource identified by id and serializes it, stamping the
-	// exporter's per-schema Version.
-	Export(context.Context, resource.ID) (Envelope, error)
+	// Export retrieves the resource identified by id from the snapshot and serializes
+	// it, stamping the exporter's per-schema Version.
+	Export(context.Context, gorp.Snapshot, resource.ID) (Envelope, error)
 	// Type returns the resource type this exporter handles.
 	Type() resource.Type
 }

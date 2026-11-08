@@ -24,12 +24,13 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
+		db    *gorp.DB
 		svc   *kafka.Service
 		tasks *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
 		// The suite's DB holds a kafka service and a task service of its own.
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: db}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
@@ -75,7 +76,7 @@ var _ = Describe("Service", func() {
 					}},
 				}},
 			}))
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
 			Expect(data["topic"]).To(Equal("telemetry"))
@@ -96,7 +97,7 @@ var _ = Describe("Service", func() {
 					"fields": []any{map[string]any{"key": "f-1"}},
 				}},
 			}))
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["start_offset"]).To(Equal("latest"))
 			Expect(data["records"]).To(HaveExactElements(SatisfyAll(
 				HaveKeyWithValue("record_key", ""),
@@ -112,7 +113,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{"key": "ch-1"}},
 			}))
-			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			data := MustSucceed(svc.Write.Read(ctx, db, key))
 			Expect(data["record_key"]).To(Equal("channel_name"))
 			Expect(data["record"]).To(And(
 				HaveKeyWithValue("value_pointer", "/value"),
@@ -132,7 +133,7 @@ var _ = Describe("Service", func() {
 					"timestamp_pointer": "/time",
 				},
 			}))
-			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			data := MustSucceed(svc.Write.Read(ctx, db, key))
 			Expect(data["record"]).To(And(
 				HaveKeyWithValue("channel_pointer", "/name"),
 				HaveKeyWithValue("timestamp_pointer", "/time"),
@@ -143,13 +144,13 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
+			data := MustSucceed(svc.Scan.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 
 		It("Should return the read validation error for an invalid start offset",
 			func(ctx SpecContext) {
-				Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
 					"start_offset": "bogus",
 				})).Error().To(MatchError(ContainSubstring("invalid start_offset: bogus")))
 			},
@@ -159,12 +160,12 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(
 				tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{"rate": 0}),
 			)
-			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
+			data := MustSucceed(svc.Scan.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0))
 		})
 
 		It("Should reject an explicit empty start offset", func(ctx SpecContext) {
-			Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
 				"start_offset": "",
 			})).Error().To(MatchError(ContainSubstring("invalid start_offset")))
 		})
@@ -173,13 +174,13 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"record": map[string]any{"value_pointer": ""},
 			}))
-			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			data := MustSucceed(svc.Write.Read(ctx, db, key))
 			Expect(data["record"]).To(HaveKeyWithValue("value_pointer", ""))
 		})
 
 		It("Should return the write validation error for an invalid record key",
 			func(ctx SpecContext) {
-				Expect(svc.Write.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Write.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
 					"record_key": "bogus",
 				})).Error().To(MatchError(ContainSubstring("invalid record_key: bogus")))
 			},
