@@ -43,6 +43,7 @@ from synnax import (
     view,
 )
 from synnax.config import DESKTOP_NOT_RUNNING_MSG, try_load_options_if_none_provided
+from synnax.exceptions import ValidationError
 from synnax.options import Options
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
@@ -142,7 +143,7 @@ class Synnax(framer.Client):
             certificate, such as the ca.crt that the Core generates.
         """
         if api_key and (username or password):
-            raise exceptions.ValidationError(
+            raise ValidationError(
                 "give either an API key or a username and password, not both"
             )
         opts, embedded = try_load_options_if_none_provided(
