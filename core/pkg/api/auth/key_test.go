@@ -227,6 +227,17 @@ var _ = Describe("API keys", func() {
 				apiauth.SessionCreateRequest{Proof: keyProof(res.Token)},
 			))
 		})
+		It("Should let a caller that may update a subject delete its key", func(
+			ctx SpecContext,
+		) {
+			res := MustSucceed(create(ctx, rootToken, eng.ResourceID()))
+			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
+			Expect(del(ctx, bobToken, res.Key.Key)).To(Succeed())
+			Expect(apiSvc.CreateSession(
+				requestCtx(ctx),
+				apiauth.SessionCreateRequest{Proof: keyProof(res.Token)},
+			)).Error().To(MatchError(auth.ErrInvalidCredentials))
+		})
 		It("Should ignore unknown keys", func(ctx SpecContext) {
 			Expect(del(ctx, bobToken, uuid.New())).To(Succeed())
 		})
