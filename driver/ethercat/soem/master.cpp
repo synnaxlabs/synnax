@@ -610,6 +610,7 @@ Master::read_sdo(const uint16_t pos, const uint16_t index, const uint8_t sub_ind
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
     const auto pos = props.position;
+    x::errors::Error layout_err;
     if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) != 0) {
         auto [syncs, err] = coe::read_layout(
             [this, pos](const uint16_t index, const uint8_t sub_index) {
@@ -617,12 +618,7 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
             },
             EC_MAXSM
         );
-        if (err) {
-            slave.status.pdo_discovery_error = "failed to read the PDO layout: " +
-                                               err.data;
-            esi::fill(slave);
-            return;
-        }
+        layout_err = err;
         for (auto &sync: syncs)
             for (auto &pdo: sync.pdos) {
                 pdo.name = this->read_object_name(pos, pdo.index);
@@ -655,9 +651,20 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
             return;
         }
     }
-    // SOEM maps a slave from its SII when CoE gives no process data.
+    // SOEM maps a slave from its SII when CoE gives no process data, a failed read
+    // included.
     if (props.input_pdos.empty() && props.output_pdos.empty())
         this->discover_pdos_sii(slave);
+    if (layout_err) {
+        const auto msg = "failed to read the PDO layout: " + layout_err.data;
+        if (props.input_pdos.empty() && props.output_pdos.empty()) {
+            slave.status.pdo_discovery_error = msg;
+            esi::fill(slave);
+            return;
+        }
+        LOG(WARNING) << "[ethercat] slave " << pos << " (" << props.name << "): " << msg
+                     << ", using the PDOs in its SII";
+    }
     slave.status.pdos_discovered = true;
     esi::fill(slave);
 }
