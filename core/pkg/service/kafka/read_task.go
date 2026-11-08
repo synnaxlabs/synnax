@@ -380,8 +380,9 @@ func (t *readTask) start(ctx context.Context, cmdKey string) (err, answerErr err
 		ctx, cmdKey, status.VariantSuccess, true, "Started task", "",
 	); answerErr != nil {
 		// The caller sees the start fail, so the consumer must not outlive it. The
-		// consumer never ran, so the writer is still this start's to close.
-		return errors.Combine(t.closeWriter(), t.release()), answerErr
+		// consumer never ran, so the start closes the writer, after release cancels it
+		// so that no peer can hold the close.
+		return errors.Combine(t.release(), t.closeWriter()), answerErr
 	}
 	// The consumer writes statuses too, so it starts after this one to not be replaced.
 	t.sCtx.Go(
