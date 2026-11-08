@@ -354,6 +354,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/range/alias/delete",
 		),
+		AliasDispatch: unary[alias.DispatchRequest, struct{}](
+			router,
+			"/api/v1/range/alias/dispatch",
+		),
 
 		// PROJECT
 		ProjectCreate: unary[project.CreateRequest, project.CreateResponse](

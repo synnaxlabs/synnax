@@ -120,6 +120,8 @@ type Transport struct {
 	AliasDelete   freighter.UnaryServer[alias.DeleteRequest, struct{}]
 	AliasList     freighter.UnaryServer[alias.ListRequest, alias.ListResponse]
 	AliasRetrieve freighter.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]
+	// AliasDispatch applies path actions to a range alias.
+	AliasDispatch freighter.UnaryServer[alias.DispatchRequest, struct{}]
 	// RESOURCE
 	ResourceSearch   freighter.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]
 	ResourceRetrieve freighter.UnaryServer[apiresource.RetrieveRequest, apiresource.RetrieveResponse]
@@ -407,6 +409,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.AliasRetrieve,
 		t.AliasList,
 		t.AliasDelete,
+		t.AliasDispatch,
 
 		// PROJECT
 		t.ProjectDelete,
@@ -671,6 +674,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.AliasRetrieve.BindHandler(bind.Read(l.binder, l.Alias.Retrieve))
 	t.AliasList.BindHandler(bind.Read(l.binder, l.Alias.List))
 	t.AliasDelete.BindHandler(bind.Write(l.binder, l.Alias.Delete))
+	t.AliasDispatch.BindHandler(bind.Write(l.binder, l.Alias.Dispatch))
 
 	// PROJECT
 	t.ProjectCreate.BindHandler(bind.Write(l.binder, l.Project.Create))

@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
+	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
@@ -159,6 +160,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// RANGE
 	t.RangeDispatch = noop.UnaryServer[apiranger.DispatchRequest, struct{}]{}
+	t.AliasDispatch = noop.UnaryServer[apialias.DispatchRequest, struct{}]{}
 
 	// SCHEMATIC
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
