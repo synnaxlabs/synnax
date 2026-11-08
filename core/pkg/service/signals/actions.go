@@ -25,7 +25,7 @@ import (
 )
 
 // ActionConfig configures an action channel. Each sample is the JSON of one
-// actions.Scoped batch, with Seq set to the number of its commit.
+// actions.Scoped batch.
 type ActionConfig[K gorp.Key, A any] struct {
 	// Name is the name of the channel.
 	//
