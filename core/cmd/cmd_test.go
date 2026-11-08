@@ -16,6 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/cmd"
 	"github.com/synnaxlabs/synnax/pkg/version"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Cmd", func() {
@@ -25,5 +27,18 @@ var _ = Describe("Cmd", func() {
 		cmd.Cmd.SetOut(&buf)
 		Expect(cmd.Cmd.Execute()).To(Succeed())
 		Expect(buf.String()).To(Equal("Synnax " + version.Full() + "\n"))
+	})
+
+	It("Should report a flag that does not parse as a validation error", func() {
+		cmd.Cmd.SetArgs([]string{"version", "--bogus"})
+		cmd.Cmd.SetOut(new(bytes.Buffer))
+		cmd.Cmd.SetErr(new(bytes.Buffer))
+		Expect(cmd.Cmd.Execute()).To(And(
+			MatchError(
+				func(err error) bool { return errors.Is(err, validate.ErrValidation) },
+				"validate.ErrValidation",
+			),
+			MatchError("unknown flag: --bogus"),
+		))
 	})
 })
