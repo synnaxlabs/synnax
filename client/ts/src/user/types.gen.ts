@@ -19,8 +19,8 @@ export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 /**
- * User is an account entity representing a person accessing the Synnax system. Users
- * can have roles assigned for permission management.
+ * User is an account entity representing a person accessing the Synnax system. Each
+ * user holds one role, which grants its permissions.
  */
 export const userZ = z.object({
   /** key is the unique identifier for this user. */
@@ -32,8 +32,8 @@ export const userZ = z.object({
    * cannot be deleted.
    */
   rootUser: z.boolean().default(false),
-  /** roles are the roles that grant the user its permissions. */
-  roles: role.keyZ.array().default(() => []),
+  /** role is the role that grants the user its permissions. */
+  role: role.keyZ.min(1, "role is required"),
 });
 export interface User extends z.infer<typeof userZ> {}
 

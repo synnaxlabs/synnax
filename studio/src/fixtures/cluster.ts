@@ -200,8 +200,8 @@ export interface UserSpec {
   password?: string;
   firstName?: string;
   lastName?: string;
-  /** Name of a built-in role to assign; a user without one stays hidden. */
-  role?: string;
+  /** Name of the built-in role the user holds. */
+  role: string;
 }
 
 /** createUsers registers users on the cluster so user-management shots have rows. */
@@ -221,7 +221,7 @@ export const createUsers = async (
       specs.map(({ role, ...s }) => ({
         password: "seldon-demo",
         ...s,
-        roles: role == null ? [] : [roleKey(role)],
+        role: roleKey(role),
       })),
     );
   } finally {

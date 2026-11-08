@@ -55,8 +55,8 @@ type Rack struct {
 	Version *string `protobuf:"bytes,6,opt,name=version,proto3,oneof" json:"version,omitempty"`
 	// group is the group the rack sits in, if any.
 	Group *string `protobuf:"bytes,7,opt,name=group,proto3,oneof" json:"group,omitempty"`
-	// roles are the roles that grant the rack its permissions.
-	Roles         []string `protobuf:"bytes,8,rep,name=roles,proto3" json:"roles,omitempty"`
+	// role is the role that grants the rack its permissions.
+	Role          string `protobuf:"bytes,8,opt,name=role,proto3" json:"role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -140,11 +140,11 @@ func (x *Rack) GetGroup() string {
 	return ""
 }
 
-func (x *Rack) GetRoles() []string {
+func (x *Rack) GetRole() string {
 	if x != nil {
-		return x.Roles
+		return x.Role
 	}
-	return nil
+	return ""
 }
 
 type WhereList struct {
@@ -557,7 +557,7 @@ var File_core_pkg_service_rack_pb_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bx/go/filter/pb/filter.proto\"\x95\x02\n" +
+	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bx/go/filter/pb/filter.proto\"\x93\x02\n" +
 	"\x04Rack\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -565,8 +565,8 @@ const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\x06status\x18\x04 \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\"\n" +
 	"\fintegrations\x18\x05 \x03(\tR\fintegrations\x12\x1d\n" +
 	"\aversion\x18\x06 \x01(\tH\x01R\aversion\x88\x01\x01\x12\x19\n" +
-	"\x05group\x18\a \x01(\tH\x02R\x05group\x88\x01\x01\x12\x14\n" +
-	"\x05roles\x18\b \x03(\tR\x05rolesB\t\n" +
+	"\x05group\x18\a \x01(\tH\x02R\x05group\x88\x01\x01\x12\x12\n" +
+	"\x04role\x18\b \x01(\tR\x04roleB\t\n" +
 	"\a_statusB\n" +
 	"\n" +
 	"\b_versionB\b\n" +

@@ -112,12 +112,12 @@ export const payloadZ = z.object({
   version: z.string().optional(),
   /** group is the group the rack sits in, if any. */
   group: group.keyZ.optional(),
-  /** roles are the roles that grant the rack its permissions. */
-  roles: role.keyZ.array().default(() => []),
+  /** role is the role that grants the rack its permissions. */
+  role: role.keyZ,
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
-export const newZ = payloadZ.omit({ embedded: true, roles: true, key: true }).extend({
+export const newZ = payloadZ.omit({ embedded: true, role: true, key: true }).extend({
   key: keyZ.refine((v) => v !== 0, "key is required").default(0),
 });
 export interface New extends z.input<typeof newZ> {}

@@ -35,8 +35,8 @@ type MigrationConfig struct {
 
 // Migration (Phase 2) reads the persisted user-to-policy mapping from KV (written by
 // Phase 1 in the policy package), queries users for their RootUser flag, determines the
-// appropriate role for each user, and adds it to the user's roles. It does nothing for
-// a store that a v0.53 Core already migrated.
+// appropriate role for each user, and sets it as the user's role. It does nothing for a
+// store that a v0.53 Core already migrated.
 func NewMigration(cfg MigrationConfig) gorp.Migration {
 	return migrate.New(
 		"v0.permission_assignment",
@@ -82,7 +82,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 			for _, u := range users {
 				policies := policyByUser[u.ResourceID().String()]
 				roleKey := determineRole(u, policies, cfg.Roles)
-				if err = userWriter.AssignRole(ctx, roleKey, u.Key); err != nil {
+				if err = userWriter.SetRole(ctx, roleKey, u.Key); err != nil {
 					return err
 				}
 			}

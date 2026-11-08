@@ -15,7 +15,6 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
@@ -31,7 +30,7 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 		Name:         r.Name,
 		Embedded:     r.Embedded,
 		Integrations: r.Integrations,
-		Roles:        lo.Map(r.Roles, func(u role.Key, _ int) string { return uuid.UUID(u).String() }),
+		Role:         r.Role.String(),
 	}
 	if r.Status != nil {
 		var err error
@@ -57,17 +56,7 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 		return r, nil
 	}
 	var err error
-	r.Roles, err = func() ([]role.Key, error) {
-		result := make([]role.Key, len(pb.Roles))
-		for i, s := range pb.Roles {
-			parsed, err := uuid.Parse(s)
-			if err != nil {
-				return nil, err
-			}
-			result[i] = role.Key(parsed)
-		}
-		return result, nil
-	}()
+	r.Role, err = uuid.Parse(pb.Role)
 	if err != nil {
 		return rack.Rack{}, err
 	}

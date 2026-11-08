@@ -230,17 +230,17 @@ export class Client extends query.Retriever<
     const sugared = array
       .toArray(payloads)
       .map(
-        ({ key, name, status, integrations, embedded, version, group: g, roles }) =>
+        ({ key, name, role, status, integrations, embedded, version, group: g }) =>
           new Rack(
             key,
             name,
+            role,
             this.cfg.tasks,
             status,
             integrations,
             embedded,
             version,
             g,
-            roles,
           ),
       );
     return isSingle ? sugared[0] : sugared;
@@ -307,29 +307,29 @@ export class Rack {
   embedded: boolean;
   version?: string;
   group?: group.Key;
-  roles: role.Key[];
+  role: role.Key;
   private readonly tasks: task.Client;
 
   constructor(
     key: Key,
     name: string,
+    role: role.Key,
     taskClient: task.Client,
     status?: Status,
     integrations: string[] = [],
     embedded: boolean = false,
     version?: string,
     groupKey?: group.Key,
-    roles: role.Key[] = [],
   ) {
     this.key = key;
     this.name = name;
+    this.role = role;
     this.tasks = taskClient;
     this.status = status;
     this.integrations = integrations;
     this.embedded = embedded;
     this.version = version;
     this.group = groupKey;
-    this.roles = roles;
   }
 
   async listTasks(): Promise<task.Task[]> {
@@ -363,7 +363,7 @@ export class Rack {
       embedded: this.embedded,
       version: this.version,
       group: this.group,
-      roles: this.roles,
+      role: this.role,
     };
   }
 }
