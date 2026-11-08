@@ -641,6 +641,19 @@ var _ = Describe("Reference", func() {
 			Expect(racks.Dependents(ctx, db, 1)).To(BeEmpty())
 		})
 
+		It("Should list the entries that hold a target through a snapshot", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			var deps []gorp.Target
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				deps, err = racks.Dependents(ctx, snap, 1)
+				return err
+			})).To(Succeed())
+			Expect(deps).To(Equal([]gorp.Target{{Table: "device", Key: "a"}}))
+		})
+
 		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
 			createRack(ctx, 1)
 			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
