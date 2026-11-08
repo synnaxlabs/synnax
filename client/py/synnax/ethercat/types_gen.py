@@ -11,15 +11,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
-from typing import override as _override
+from typing import Annotated, Literal, override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_
-from synnax import device as device_
-from synnax import task
+from synnax import channel as channel_, device as device_, task
 from x import telem
 
 

@@ -29,8 +29,7 @@ from review import (
     load,
     run,
 )
-from review.__main__ import claude as launch
-from review.__main__ import main
+from review.__main__ import claude as launch, main
 
 ROOT = Path(__file__).resolve().parents[3]
 WORK = Path("/work")
