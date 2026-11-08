@@ -25,13 +25,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // openServices opens the iterator service and the services it depends on over node.
@@ -2578,7 +2578,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				store := &storage.Layer{
-					KV: DeferClose(storagetestutil.OpenKV()),
+					KV: DeferClose(memkv.New()),
 					TS: DeferClose(MustSucceed(cesium.Open(
 						ctx,
 						"",
@@ -2832,7 +2832,7 @@ var _ = Describe("Read failure", func() {
 	BeforeEach(func(ctx SpecContext) {
 		faulty = WrapFaultyFS(xfs.NewMem())
 		store := &storage.Layer{
-			KV: DeferClose(storagetestutil.OpenKV()),
+			KV: DeferClose(memkv.New()),
 			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
 		}
 		node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
