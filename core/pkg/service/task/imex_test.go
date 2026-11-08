@@ -10,6 +10,7 @@
 package task_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/v2"
 	"os"
@@ -72,6 +73,7 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 	}))
 	secretSvc := secrettestutil.OpenService(ctx, db)
+	createRoutingKeys(ctx, secretSvc, routingKey1)
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 		DB:     db,
 		Secret: secretSvc,
@@ -96,6 +98,9 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 		rack:   r,
 	}
 }
+
+// stampedRoutingKey is the routing key in testdata/import_typed_stamped.json.
+const stampedRoutingKey = "5a3c0e7d-91b4-4f2e-8d6a-3b7f0c1e2d48"
 
 var _ = Describe("ImEx", Ordered, func() {
 	var (
@@ -242,6 +247,7 @@ var _ = Describe("ImEx", Ordered, func() {
 					Variant: status.VariantInfo,
 					Time:    telem.Now(),
 				})).To(Succeed())
+				createRoutingKeys(ctx, secretSvc, stampedRoutingKey)
 				raw := MustSucceed(os.ReadFile(
 					filepath.Join("testdata", "import_typed_stamped.json"),
 				))
@@ -257,6 +263,20 @@ var _ = Describe("ImEx", Ordered, func() {
 				for k, v := range body {
 					Expect(config[k]).To(BeComparableTo(v), "field %q changed", k)
 				}
+			},
+		)
+
+		It(
+			"Should drop a routing key that names no secret on import",
+			func(ctx SpecContext) {
+				raw := bytes.ReplaceAll(
+					MustSucceed(os.ReadFile(
+						filepath.Join("testdata", "import_typed_stamped.json"),
+					)),
+					[]byte(stampedRoutingKey),
+					[]byte(uuid.New().String()),
+				)
+				Expect(reimport(ctx, raw).Config).ToNot(HaveKey("routing_key"))
 			},
 		)
 

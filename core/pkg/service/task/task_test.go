@@ -38,6 +38,7 @@ import (
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -63,6 +64,18 @@ const (
 	routingKey1 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b01"
 	routingKey2 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b02"
 )
+
+// createRoutingKeys creates a stored secret under each key, so that an alert config
+// can name it.
+func createRoutingKeys(ctx context.Context, secrets *secret.Service, keys ...string) {
+	GinkgoHelper()
+	for _, key := range keys {
+		s := secret.Secret{Variant: secret.StoredSecret{
+			Base: secret.Base{Key: uuid.MustParse(key), Name: key},
+		}}
+		Expect(secrets.NewWriter(nil).Create(ctx, &s, []byte(key))).To(Succeed())
+	}
+}
 
 var _ = Describe("Task", Ordered, func() {
 	var (
@@ -104,9 +117,11 @@ var _ = Describe("Task", Ordered, func() {
 			DB:    db,
 			Group: g,
 		}))
+		secrets := secrettestutil.OpenService(ctx, db)
+		createRoutingKeys(ctx, secrets, routingKey1, routingKey2)
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 			DB:     db,
-			Secret: secrettestutil.OpenService(ctx, db),
+			Secret: secrets,
 		}))
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		a := arc.Arc{
@@ -1039,7 +1054,7 @@ var _ = Describe("Task", Ordered, func() {
 				Rack: testRack.Key,
 				Name: "Detached",
 				Config: msgpack.EncodedJSON{
-					"routing_key": "rk-1",
+					"routing_key": routingKey1,
 					"alerts": []any{
 						map[string]any{"key": "a", "status": "st-detach"},
 					},
@@ -1972,7 +1987,10 @@ var _ = Describe("MatchArcs", func() {
 		"Should filter tasks by Arc through the configured matcher",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+				DB:     db,
+				Secret: secrettestutil.OpenService(ctx, db),
+			}))
 			var (
 				want  task.Key
 				asked []arc.Key
@@ -1987,9 +2005,7 @@ var _ = Describe("MatchArcs", func() {
 			}))
 			create := func() task.Key {
 				GinkgoHelper()
-				return MustSucceed(tasks.Create(ctx, pd.Alert, msgpack.EncodedJSON{
-					"routing_key": "rk",
-				}))
+				return MustSucceed(tasks.Create(ctx, pd.Alert, msgpack.EncodedJSON{}))
 			}
 			want = create()
 			create()
@@ -2013,7 +2029,9 @@ var _ = Describe("Writer with no transaction", func() {
 		testRack rack.Rack
 		hashes   map[string]string
 	)
-	routingKey := func(i int) string { return fmt.Sprintf("rk-%d", i) }
+	routingKey := func(i int) string {
+		return fmt.Sprintf("6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7c%02d", i)
+	}
 	newTask := func(key task.Key, i int) task.Task {
 		return task.Task{
 			Key:    key,
@@ -2040,7 +2058,12 @@ var _ = Describe("Writer with no transaction", func() {
 			Status:       stat,
 			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 		}))
-		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+		secrets := secrettestutil.OpenService(ctx, db)
+		createRoutingKeys(ctx, secrets, lo.Times(4, routingKey)...)
+		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+			DB:     db,
+			Secret: secrets,
+		}))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:      db,
 			Rack:    racks,

@@ -119,7 +119,6 @@ var _ = Describe("References", Ordered, func() {
 			}
 			Expect(layer.Status.NewWriter(nil).Set(ctx, &st)).To(Succeed())
 			tsk := createTask(ctx, pagerduty.AlertTaskType, msgpack.EncodedJSON{
-				"routing_key": "rk",
 				"alerts": []any{map[string]any{
 					"key":    "alert-1",
 					"status": string(st.Key),
