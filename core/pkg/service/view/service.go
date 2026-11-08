@@ -70,6 +70,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{
 		DB:              s.cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: s.cfg.Instrumentation,
