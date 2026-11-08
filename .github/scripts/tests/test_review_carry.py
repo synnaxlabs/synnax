@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from review import Target, carry
+from review import Target, carry, render
 from review.__main__ import main
 
 REPO = "synnaxlabs/synnax"
@@ -110,9 +110,10 @@ class TestCarry:
         assert "text" not in output
 
     def test_should_keep_the_text_of_the_review(self, gh: FakeGH) -> None:
-        gh.runs[OLD] = [check_run(output=check_run()["output"] | {"text": "Listed."})]
+        listing = render.listing([])
+        gh.runs[OLD] = [check_run(output=check_run()["output"] | {"text": listing})]
         assert carry(TARGET, gh, key=KEY)
-        assert gh.writes[0][2]["output"]["text"] == "Listed."
+        assert gh.writes[0][2]["output"]["text"] == listing
 
     def test_should_carry_a_diff_whose_lines_moved(self, gh: FakeGH) -> None:
         moved = PATCH.replace("@@ -1,3 +1,4 @@", "@@ -11,3 +12,4 @@")

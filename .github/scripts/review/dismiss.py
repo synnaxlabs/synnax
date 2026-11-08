@@ -10,21 +10,26 @@
 """Lets a member tell the bot to stop reporting a finding on a pull request, with a
 reply of `@sedosaur dismiss` on the thread of the finding."""
 
-import re
-from typing import Any
-
 from review import render
-from review.findings import Dismissal
-from review.post import GH, Target, Thread, newest, threads, write
+from review.post import (
+    DISMISSED,
+    GH,
+    Target,
+    Thread,
+    command,
+    dismissed,
+    member,
+    newest,
+    threads,
+    write,
+)
 
-COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.I)
-MEMBERS = {"OWNER", "MEMBER", "COLLABORATOR"}
 USAGE = (
     "To dismiss this finding, reply `@sedosaur dismiss` and a reason. To ask for a "
     "review, comment `@sedosaur review` on the pull request."
 )
 REFUSED = "Only a member can dismiss a finding, not an agent."
-DISMISSED = "Dismissed. Later reviews of this pull request will not report it."
+DONE = "Dismissed. Later reviews of this pull request will not report it."
 PASSED = (
     " Every finding of the review of the head is dismissed, so the head scores 5/5."
 )
@@ -36,16 +41,6 @@ _REPLY = """mutation($t: ID!, $b: String!) {
 _RESOLVE = """mutation($t: ID!) {
   resolveReviewThread(input: {threadId: $t}) { thread { id } }
 }"""
-
-
-def dismissed(found: list[Thread]) -> list[Dismissal]:
-    """Returns each finding that a member dismissed in one of the threads."""
-    out: list[Dismissal] = []
-    for th in found:
-        reason = next((r for c in th.replies if (r := _reason(c)) is not None), None)
-        if reason is not None:
-            out.append(Dismissal(path=th.path, title=th.title, reason=reason))
-    return out
 
 
 def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
@@ -63,12 +58,12 @@ def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
     if not hits:
         raise ValueError(f"comment {comment} is not a reply to a finding of {t.bot}")
     [(thread, reply)] = hits
-    if not COMMAND.search(reply["body"]):
+    if command(reply["body"]) is None:
         _reply(gh, thread, USAGE)
-    elif _reason(reply) is None:
+    elif not member(reply):
         _reply(gh, thread, REFUSED)
     else:
-        _reply(gh, thread, DISMISSED + (PASSED if _pass(t, gh, found, key) else ""))
+        _reply(gh, thread, DONE + (PASSED if _pass(t, gh, found, key) else ""))
         gh("api", "graphql", "-f", f"query={_RESOLVE}", "-f", f"t={thread.id}")
 
 
@@ -85,20 +80,6 @@ def _reply(gh: GH, thread: Thread, body: str) -> None:
     )
 
 
-def _reason(comment: dict[str, Any]) -> str | None:
-    """Returns what a member wrote beside the command, or None when the comment is not
-    a dismissal by a member."""
-    author = comment["author"]
-    if (
-        author is None
-        or author["__typename"] != "User"
-        or comment["authorAssociation"] not in MEMBERS
-        or not COMMAND.search(comment["body"])
-    ):
-        return None
-    return COMMAND.sub("", comment["body"]).strip()
-
-
 def _pass(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
     """Scores the head 5/5 in a new check run when a member dismissed every finding of
     its newest review. Returns whether it did."""
@@ -112,8 +93,7 @@ def _pass(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
         return False
     output = {
         "title": render.scored(5),
-        "summary": "A member dismissed every finding of the review.\n\n"
-        + run["output"]["summary"],
+        "summary": f"{DISMISSED}\n\n{run['output']['summary']}",
         "text": run["output"]["text"],
     }
     payload = {

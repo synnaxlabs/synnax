@@ -11,11 +11,11 @@ import json
 import re
 import subprocess
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from review import render
-from review.findings import Finding, Review
+from review.findings import Dismissal, Finding, Review
 
 GH = Callable[..., str]
 """Runs `gh` with the given arguments and optional stdin, and returns its stdout."""
@@ -53,6 +53,11 @@ THREAD_NODES = (
 )
 
 
+COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.I)
+"""The reply on the thread of a finding that dismisses it."""
+MEMBERS = {"OWNER", "MEMBER", "COLLABORATOR"}
+DISMISSED = "A member dismissed every finding of the review."
+
 _SUMMARY = re.compile(
     f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.S
 )
@@ -81,16 +86,19 @@ class Target:
 
 
 def post(review: Review, *, target: Target, gh: GH) -> None:
-    """Posts a review. Findings on lines of the diff become one review of inline
+    """Posts a review, without the findings that a member dismissed. A review with
+    none left scores 5. Findings on lines of the diff become one review of inline
     threads, skipping any finding an unresolved thread of the bot already holds. The
     rest go in one comment the bot edits on each review. The summary in the pull
     request body is replaced, and the check run completes.
     """
     t = target
+    found = threads(t, gh)
+    review = _drop(review, {(d.path, d.title) for d in dismissed(found)})
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
     inline = [f for f in review.findings if set(f.lines) <= diff.get(f.path, set())]
-    posted = open_findings(t, gh)
+    posted = {(th.path, th.title) for th in found if not th.resolved}
     fresh = [f for f in inline if (f.path, f.title) not in posted]
     if fresh:
         comments = [_anchor(f) | {"body": render.comment(f, blob=blob)} for f in fresh]
@@ -121,6 +129,15 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
         "output": render.check(review),
     }
     write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
+
+
+def _drop(review: Review, gone: set[tuple[str, str]]) -> Review:
+    kept = [f for f in review.findings if (f.path, f.title) not in gone]
+    if len(kept) == len(review.findings):
+        return review
+    if kept:
+        return replace(review, findings=kept)
+    return replace(review, score=5, verdict=DISMISSED, findings=[])
 
 
 def _commentable(patch: str) -> set[int]:
@@ -202,9 +219,34 @@ def threads(t: Target, gh: GH) -> list[Thread]:
     return found
 
 
-def open_findings(t: Target, gh: GH) -> set[tuple[str, str]]:
-    """Returns the path and title of each finding in an unresolved thread of the bot."""
-    return {(th.path, th.title) for th in threads(t, gh) if not th.resolved}
+def dismissed(found: list[Thread]) -> list[Dismissal]:
+    """Returns each finding that a member dismissed in one of the threads."""
+    out: list[Dismissal] = []
+    for th in found:
+        reasons = (command(c["body"]) for c in th.replies if member(c))
+        reason = next((r for r in reasons if r is not None), None)
+        if reason is not None:
+            out.append(Dismissal(path=th.path, title=th.title, reason=reason))
+    return out
+
+
+def command(body: str) -> str | None:
+    """Returns the text of a reply beside the dismiss command, or None when the reply
+    holds no command. Quoted lines do not count."""
+    text = "\n".join(r for r in body.splitlines() if not r.lstrip().startswith(">"))
+    if not COMMAND.search(text):
+        return None
+    return COMMAND.sub("", text).strip().lstrip(",:;").strip()
+
+
+def member(comment: dict[str, Any]) -> bool:
+    """Reports whether a person who is a member of the repository wrote a comment."""
+    author = comment["author"]
+    return (
+        author is not None
+        and author["__typename"] == "User"
+        and comment["authorAssociation"] in MEMBERS
+    )
 
 
 def newest(t: Target, gh: GH, commit: str, key: str) -> dict[str, Any] | None:

@@ -30,12 +30,6 @@ on:
 
 permissions: {}
 
-# Each answer reads the dismissals before it, so two of one pull request never run at
-# once.
-concurrency:
-  group: dismiss-sedosaur-${{ inputs.pr }}
-  cancel-in-progress: false
-
 jobs:
   dismiss:
     name: Answer the reply

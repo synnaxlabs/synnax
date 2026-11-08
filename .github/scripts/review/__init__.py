@@ -12,9 +12,9 @@ its review as a check run, inline threads, and a summary in the pull request bod
 
 from review import compare
 from review.carry import carry
-from review.dismiss import dismiss, dismissed
+from review.dismiss import dismiss
 from review.findings import SEVERITIES, Dismissal, Finding, Review, parse
-from review.post import GH, Target, Thread, gh, open_findings, post, reviewed, threads
+from review.post import GH, Target, Thread, dismissed, gh, post, reviewed, threads
 from review.run import (
     Claude,
     Config,
@@ -50,7 +50,6 @@ __all__ = [
     "dismissed",
     "gh",
     "load",
-    "open_findings",
     "parse",
     "post",
     "reviewed",

@@ -819,6 +819,41 @@ class TestMain:
             "limits": {},
         }
 
+    def test_should_show_the_open_and_dismissed_findings(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        def node(title: str, *replies: str) -> dict[str, Any]:
+            bot = {"__typename": "Bot", "login": "sedosaur"}
+            first = {"author": bot, "body": f"<img> **{title}**"}
+            person = {"__typename": "User", "login": "m"}
+            later = [
+                {"author": person, "authorAssociation": "MEMBER", "body": r}
+                for r in replies
+            ]
+            comments = [first, *later]
+            return {
+                "id": title,
+                "path": "a.go",
+                "resolved": bool(replies),
+                "comments": comments,
+            }
+
+        nodes = "".join(
+            json.dumps(n) + "\n"
+            for n in [node("Open bug"), node("Meant", "@sedosaur dismiss, on purpose")]
+        )
+        executable(
+            tmp_path / "bin" / "gh",
+            "if 'graphql' not in sys.argv:\n"
+            "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
+            "elif any('reviewThreads' in a for a in sys.argv):\n"
+            f"    print({nodes!r}, end='')\n",
+        )
+        main(["run", str(tmp_path / "review.json")])
+        text = (tmp_path / "prompt.txt").read_text()
+        assert "# Earlier findings still open\n\n- `a.go`: Open bug\n" in text
+        assert "\n\n- `a.go`: Meant. Reason: on purpose\n" in text
+
     def test_should_replay_without_the_open_threads_or_a_check_run(
         self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
     ) -> None:

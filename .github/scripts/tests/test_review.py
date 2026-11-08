@@ -203,6 +203,38 @@ class TestInlineFindings:
         assert len(gh.written("POST", "pulls/7/reviews")) == 1
 
 
+class TestDismissedFindings:
+    """Tests leaving out the findings that a member dismissed."""
+
+    def test_should_leave_out_a_dismissed_finding(self, gh: FakeGH) -> None:
+        gh.threads = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
+        post(
+            review(finding(), finding(severity="P2", title="Nit")), target=TARGET, gh=gh
+        )
+        [posted] = gh.written("POST", "pulls/7/reviews")
+        assert [c["body"].count("**Nit**") for c in posted["comments"]] == [1]
+        [done] = gh.written("PATCH", "check-runs/55")
+        assert done["output"]["title"] == "Confidence Score: 4/5"
+        assert render.listed(done["output"]["text"]) == {("a.go", "Nit")}
+
+    def test_should_score_5_when_every_finding_is_dismissed(self, gh: FakeGH) -> None:
+        gh.threads = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
+        post(review(finding()), target=TARGET, gh=gh)
+        assert gh.written("POST", "pulls/7/reviews") == []
+        [done] = gh.written("PATCH", "check-runs/55")
+        assert done["output"]["title"] == "Confidence Score: 5/5"
+        assert done["output"]["summary"] == (
+            "A member dismissed every finding of the review.\n\nFindings: none."
+        )
+
+    def test_should_keep_a_finding_whose_dismissal_is_quoted(self, gh: FakeGH) -> None:
+        reply = "> reply `@sedosaur dismiss` and a reason\n\nNo, I disagree."
+        gh.threads = [thread("sedosaur", reply)]
+        post(review(finding()), target=TARGET, gh=gh)
+        [done] = gh.written("PATCH", "check-runs/55")
+        assert done["output"]["title"] == "Confidence Score: 4/5"
+
+
 class TestOutsideFindings:
     """Tests listing findings off the diff in the bot's one outside-diff comment."""
 
@@ -331,16 +363,15 @@ class TestListing:
         assert render.listed("Findings: 1 P1.") is None
 
 
-def thread(login: str, *, resolved: bool = False) -> dict[str, Any]:
+def thread(login: str, *replies: str, resolved: bool = False) -> dict[str, Any]:
+    def comment(body: str, kind: str, author: str) -> dict[str, Any]:
+        who = {"__typename": kind, "login": author}
+        return {"author": who, "authorAssociation": "MEMBER", "body": body}
+
     body = "<picture></picture> **Samples return old data**\n\nOld text."
-    author = {"__typename": "Bot", "login": login}
-    first = {
-        "databaseId": 1,
-        "author": author,
-        "authorAssociation": "NONE",
-        "body": body,
-    }
-    return {"id": "T", "path": "a.go", "resolved": resolved, "comments": [first]}
+    comments = [comment(body, "Bot", login)]
+    comments += [comment(r, "User", "member") for r in replies]
+    return {"id": "T", "path": "a.go", "resolved": resolved, "comments": comments}
 
 
 def summary_edit(commit: str, login: str = "sedosaur") -> dict[str, Any]:

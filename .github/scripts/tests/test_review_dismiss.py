@@ -136,6 +136,7 @@ class TestDismissed:
             comment(2, "@sedosaur dismiss", kind="Bot"),
             comment(2, "@sedosaur dismiss", association="CONTRIBUTOR"),
             comment(2, "@sedosaur dismissal is wrong"),
+            comment(2, "> reply `@sedosaur dismiss` and a reason\n\nNo."),
             comment(2, "Please dismiss this."),
             {**comment(2, "@sedosaur dismiss"), "author": None},
         ],
