@@ -13,9 +13,9 @@ import { type Keyed, type Table, type TableEvent } from "@/query/table";
 
 /**
  * A foreign-table trigger for a derived table: projects that table's events onto the
- * source keys whose composition they change. Build with {@link deriveWatch}.
+ * source keys whose composition they change. Build with {@link deriveTrigger}.
  */
-export interface DeriveWatch<K extends record.Key> {
+export interface DeriveTrigger<K extends record.Key> {
   attach: (recompose: (keys: K[] | "all") => void) => destructor.Destructor;
 }
 
@@ -24,14 +24,14 @@ export interface DeriveWatch<K extends record.Key> {
  * maps an event to the source keys whose composition it touches, "all" to
  * recompose every entry, or null when unaffected.
  */
-export const deriveWatch = <
+export const deriveTrigger = <
   K extends record.Key,
   ForeignKey extends record.Key,
   ForeignValue extends state.State,
 >(
   table: Table<ForeignKey, ForeignValue>,
   affects: (event: TableEvent<ForeignKey, ForeignValue>) => K[] | "all" | null,
-): DeriveWatch<K> => ({
+): DeriveTrigger<K> => ({
   attach: (recompose) =>
     // Batched so one foreign write recomposes once: an "all" verdict for any event
     // supersedes the batch's keys, which otherwise union.
@@ -58,12 +58,12 @@ export interface DeriveParams<
   /** Builds the composed entry for one source record. Pure; no network. */
   compose: (record: V) => CV;
   /** Foreign tables whose events change composition. */
-  watch?: Array<DeriveWatch<K>>;
+  triggers?: Array<DeriveTrigger<K>>;
 }
 
 /**
  * Keeps a derived table materialized from its source: composed entries are
- * replaced (never mutated) on source and watch events, so an entry's identity
+ * replaced (never mutated) on source and trigger events, so an entry's identity
  * changes exactly when its composition changes, with equal recompositions
  * silenced by the table's equality check. Existing source entries are composed
  * immediately. Returns a destructor that detaches every subscription.
@@ -74,7 +74,7 @@ export const bindDerived = <
   CV extends Keyed<K>,
 >(
   into: Table<K, CV>,
-  { source, compose, watch }: DeriveParams<K, V, CV>,
+  { source, compose, triggers }: DeriveParams<K, V, CV>,
 ): destructor.Destructor => {
   const recompose = (keys: K[] | "all"): void => {
     const targets = keys === "all" ? source.get() : source.get(keys);
@@ -94,7 +94,7 @@ export const bindDerived = <
         }),
       ),
     ),
-    ...(watch ?? []).map((w) => w.attach(recompose)),
+    ...(triggers ?? []).map((t) => t.attach(recompose)),
     // A record the derived table needs is needed in the source, which composes it.
     source.hold({ held: () => into.held() }),
   ];

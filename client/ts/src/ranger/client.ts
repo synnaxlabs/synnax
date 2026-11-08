@@ -379,9 +379,9 @@ export class Client extends query.Retriever<
       },
       compose: (records) => records[0] ?? null,
       matches: (r, query) => this.store.get(query)?.parent === r.key,
-      watch: [
+      triggers: [
         // A change to the child range can move it to another parent.
-        query.watch<Key, Key, Key, Range>(ranges, (event, query) =>
+        query.trigger<Key, Key, Key, Range>(ranges, (event, query) =>
           event.key === query ? "refetch" : null,
         ),
       ],

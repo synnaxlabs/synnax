@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type destructor, record } from "@synnaxlabs/x";
+import { record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { query } from "@/query";
@@ -165,54 +165,23 @@ export class Client {
   }
 
   /**
-   * Returns the live list of the resources that match the search, closest match first.
-   * An empty term lists the resources in order of type.
+   * Returns the live resource that the ID names, or the live list of the resources that
+   * match the search, closest match first. An empty term lists the resources in order
+   * of type. Renames, creates, and deletes of the types that the client has change
+   * channels for keep the answer current.
    */
-  list(params: SearchParams): query.List<Resource, string> {
-    const { searchTerm, types, limit } = params;
+  watch(id: ID): query.Live<Resource>;
+  watch(params: SearchParams): query.List<Resource, string>;
+  watch(
+    target: ID | SearchParams,
+  ): query.Live<Resource> | query.List<Resource, string> {
+    if (isID(target)) return this.byKey.watch(idToString(target));
+    const { searchTerm, types, limit } = target;
     return this.lists.list({
       ...(searchTerm != null && searchTerm !== "" && { searchTerm }),
       ...(types != null && types.length > 0 && { types }),
       ...(limit != null && { limit }),
     });
-  }
-
-  /**
-   * @returns the cached answer of the search, or undefined when nothing is cached. The
-   * answer may be stale when no subscriber keeps the search current.
-   */
-  getCached(id: ID): query.Cached<Resource> | undefined;
-  getCached(params: SearchParams): query.Cached<Resource[]> | undefined;
-  getCached(
-    target: ID | SearchParams,
-  ): query.Cached<Resource> | query.Cached<Resource[]> | undefined {
-    if (isID(target)) return this.byKey.getCached(idToString(target));
-    return this.searches.getCached(normalize(target));
-  }
-
-  /**
-   * Calls the handler with the new answer each time it changes: the resource that the
-   * ID names, or the answer of the search. Renames, creates, and deletes of the types
-   * that the client has change channels for change the answer.
-   */
-  onChange(id: ID, handler: query.ChangeHandler<Resource>): destructor.Destructor;
-  onChange(
-    params: SearchParams,
-    handler: query.ChangeHandler<Resource[]>,
-  ): destructor.Destructor;
-  onChange(
-    target: ID | SearchParams,
-    handler: query.ChangeHandler<Resource> | query.ChangeHandler<Resource[]>,
-  ): destructor.Destructor {
-    if (isID(target))
-      return this.byKey.onChange(
-        idToString(target),
-        handler as query.ChangeHandler<Resource>,
-      );
-    return this.searches.onChange(
-      normalize(target),
-      handler as query.ChangeHandler<Resource[]>,
-    );
   }
 
   /**

@@ -36,17 +36,14 @@ export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
 }
 
 /**
- * The read surface of a domain client that a list reads. The types come from `list`
- * alone, since a client's other reads are overloaded.
+ * The read surface of a domain client that a list reads. TypeScript infers the types
+ * from the last overload of `watch`, so the list overload comes last.
  */
 export interface ListSource<Q, E extends record.Keyed<record.Key>, I> {
-  list: (query: Q) => query.List<E, unknown>;
-  retrieve: (item: NoInfer<I>) => Promise<NoInfer<E>>;
-  onChange: (
-    item: NoInfer<I>,
-    handler: query.ChangeHandler<NoInfer<E>>,
-  ) => destructor.Destructor;
-  getCached: (item: NoInfer<I>) => query.Cached<NoInfer<E>> | undefined;
+  watch: {
+    (item: NoInfer<I>): query.Live<NoInfer<E>>;
+    (query: Q): query.List<E, unknown>;
+  };
 }
 
 export interface UseListParams<Q, E extends record.Keyed<record.Key>, I = E["key"]> {
@@ -150,7 +147,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   const listQuery = useMemoDeepEqual(next);
   const retriever = client == null ? null : source(client);
   const list =
-    retriever == null || listQuery == null ? null : retriever.list(listQuery);
+    retriever == null || listQuery == null ? null : retriever.watch(listQuery);
   const current = useSyncExternalStore(
     (callback) => (list == null ? noop : list.onChange(callback)),
     () => list?.getCached(),
@@ -204,7 +201,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     const member = members.get(key);
     if (member != null) return keep(member);
     if (retriever == null || primitive.isZero(key)) return undefined;
-    const cached = retriever.getCached(itemQuery(key));
+    const cached = retriever.watch(itemQuery(key)).getCached();
     return keep(query.isLive(cached) ? cached : undefined);
   };
   const getItem = ((keys: K | K[]) => {
@@ -214,10 +211,10 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
 
   const subscribe = (callback: () => void, key: K): destructor.Destructor => {
     if (retriever == null || primitive.isZero(key)) return noop;
-    const params = itemQuery(key);
-    const release = retriever.onChange(params, () => callback());
-    if (retriever.getCached(params) === undefined)
-      retriever.retrieve(params).then(callback, (error: unknown) => {
+    const live = retriever.watch(itemQuery(key));
+    const release = live.onChange(() => callback());
+    if (live.getCached() === undefined)
+      live.retrieve().then(callback, (error: unknown) => {
         // The subscriber reads a missing record from getItem.
         if (!NotFoundError.matches(error)) console.error(error);
       });

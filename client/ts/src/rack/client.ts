@@ -142,7 +142,7 @@ export class Client extends query.Retriever<
       source: store,
       compose: (record) => this.compose(record, true),
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      watch: [query.deriveWatch(statusStore, (event) => affectedRackKeys(event))],
+      triggers: [query.deriveTrigger(statusStore, (event) => affectedRackKeys(event))],
     });
     statuses.holdOwned(store, resourceID);
     const single = cache.queries<SingleQuery, Rack, Key, Rack>({
@@ -166,8 +166,8 @@ export class Client extends query.Retriever<
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
         matches: (r, req) => matches(LINES, r, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
-        watch: [
-          query.watch(
+        triggers: [
+          query.trigger(
             statusStore,
             (event, q: RetrieveRequest) => {
               if (q.includeStatus !== true) return null;

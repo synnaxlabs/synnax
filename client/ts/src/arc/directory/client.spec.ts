@@ -49,7 +49,7 @@ describe("arc.directory", () => {
     const key = uuid.create();
     const name = uniqueName();
     const created = client.arcs.directories.create({ parent: root.key, key, name });
-    expect(client.arcs.directories.getCached(key)).toEqual({
+    expect(client.arcs.directories.watch(key).getCached()).toEqual({
       key,
       name,
       parent: root.key,
@@ -62,7 +62,7 @@ describe("arc.directory", () => {
     const parent = uuid.create();
     const created = client.arcs.directories.create({ parent, key, name: uniqueName() });
     await expect(created).rejects.toThrow(`parent: arc_directory ${parent}`);
-    expect(query.isLive(client.arcs.directories.getCached(key))).toBe(false);
+    expect(query.isLive(client.arcs.directories.watch(key).getCached())).toBe(false);
   });
 
   it("should rename a directory", async () => {
@@ -165,7 +165,7 @@ describe("arc.directory", () => {
       watcher: Synnax,
       key: arc.directory.Key,
     ): arc.directory.Directory | undefined => {
-      const cached = watcher.arcs.directories.getCached(key);
+      const cached = watcher.arcs.directories.watch(key).getCached();
       return query.isLive(cached) ? cached : undefined;
     };
 
@@ -194,7 +194,9 @@ describe("arc.directory", () => {
       const { watcher, dir } = await watchDirectory();
       await client.arcs.directories.delete(dir.key);
       await expect
-        .poll(() => query.Deleted.matches(watcher.arcs.directories.getCached(dir.key)))
+        .poll(() =>
+          query.Deleted.matches(watcher.arcs.directories.watch(dir.key).getCached()),
+        )
         .toBe(true);
     });
   });

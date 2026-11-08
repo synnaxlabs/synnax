@@ -11,6 +11,7 @@ import { type rack } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 const RESOURCE_NAME = "rack";
 const PLURAL_RESOURCE_NAME = "racks";
@@ -46,8 +47,8 @@ export const { use, useResult, useEnsure, createSelector } = Flux.createRetrieve
   name: RESOURCE_NAME,
   normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
   retrieve: async ({ client, query }) => await client.racks.retrieve(query),
-  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
-  getCached: ({ client, query }) => client.racks.getCached(query),
+  onChange: ({ client, query }, handler) => client.racks.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.racks.watch(query).getCached(),
 });
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
@@ -56,9 +57,7 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
 >({
   name: PLURAL_RESOURCE_NAME,
   normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.racks.retrieve(query),
-  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
-  getCached: ({ client, query }) => client.racks.getCached(query),
+  ...flux.listReads(({ client, query }) => client.racks.watch(query)),
 });
 
 export const useName = createSelector(({ name }) => name);

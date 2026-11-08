@@ -89,27 +89,45 @@ export interface ChangeHandler<D extends Data> {
   (result: Cached<D> | undefined): void;
 }
 
+/** The answer of one query, kept current while a handler is subscribed. */
+export interface Live<D extends Data> {
+  /**
+   * Returns the answer. Serves the cache while the answer is fresh, and fetches
+   * otherwise.
+   */
+  retrieve: (options?: FetchOptions) => Promise<D>;
+  /**
+   * Returns the cached answer without touching the network, or undefined when nothing
+   * is cached. May be stale while no handler is subscribed.
+   */
+  getCached: () => Cached<D> | undefined;
+  /**
+   * Calls the handler with each new answer. The answer stays current while a handler is
+   * subscribed, and for a grace period after the last one leaves. Returns a destructor
+   * that unsubscribes.
+   */
+  onChange: (handler: ChangeHandler<D>) => destructor.Destructor;
+}
+
 /**
- * The read surface of one query space: fetch, subscribe, snapshot. The public
- * face of every answer space, including the named spaces domain clients
- * expose (children, parents, kv).
+ * The read surface of one query space: fetch once, or watch. The public face of every
+ * answer space, including the named spaces domain clients expose (parent, kv).
  */
 export interface Retrieves<P extends Params, D extends Data> {
   retrieve: (params: P, options?: FetchOptions) => Promise<D>;
-  onChange: (params: P, handler: ChangeHandler<D>) => destructor.Destructor;
-  getCached: (params: P) => Cached<D> | undefined;
+  watch: (params: P) => Live<D>;
 }
 
 /**
  * A foreign-table subscription for an answer space: projects that table's
- * events onto the space's primary keys. Build with {@link watch}.
+ * events onto the space's primary keys. Build with {@link trigger}.
  */
-export interface Watch<P extends Params, K extends record.Key> {
+export interface Trigger<P extends Params, K extends record.Key> {
   attach: (
     params: P,
     onEvent: (result: K[] | "refetch") => void,
   ) => destructor.Destructor;
-  /** The watched table's {@link Table.version}. */
+  /** The foreign table's {@link Table.version}. */
   version: () => number;
   /**
    * Whether the table's changes leave the matches of every query as they were, so a
@@ -124,7 +142,7 @@ export interface Watch<P extends Params, K extends record.Key> {
  * touches, "refetch" to invalidate wholesale, or null when unaffected. Set
  * `contentOnly` when no query matches on the table's records.
  */
-export const watch = <
+export const trigger = <
   P extends Params,
   K extends record.Key,
   ForeignKey extends record.Key,
@@ -136,7 +154,7 @@ export const watch = <
     params: P,
   ) => K[] | "refetch" | null,
   { contentOnly = false }: { contentOnly?: boolean } = {},
-): Watch<P, K> => ({
+): Trigger<P, K> => ({
   attach: (params, onEvent) =>
     // Batched so one foreign write fires onEvent once: a refetch verdict for any event
     // supersedes the batch's keys, which otherwise union.
@@ -215,7 +233,7 @@ export interface SpaceConfig<
   /** Rule 3: whether only the server can evaluate the query, such as a regex. */
   serverComputed?: (params: P) => boolean;
   /** Foreign tables whose events affect this space's answers. */
-  watch?: Watch<P, K>[];
+  triggers?: Trigger<P, K>[];
   /**
    * Marks a space whose answer addresses one record and cannot compose an empty
    * membership: rule-2 eviction of the last member flips the query to deleted (when the
@@ -464,6 +482,15 @@ export class Space<
     return members;
   }
 
+  /** Returns the live answer of the query. The handle holds no state of its own. */
+  watch(params: P): Live<D> {
+    return {
+      retrieve: async (options) => await this.retrieve(params, options),
+      getCached: () => this.getCached(params),
+      onChange: (handler) => this.onChange(params, handler),
+    };
+  }
+
   /**
    * Subscribes to changes in the query's cached answer. The handler fires with the new
    * answer on every change or deletion. Maintenance for the query runs while at least
@@ -690,7 +717,7 @@ export class Space<
 
   /** Notifies every subscriber with the query's current answer. */
   private touch(query: Query<P, K, D, V>): void {
-    // A watched foreign table is an input the records do not carry, so an
+    // A trigger's foreign table is an input the records do not carry, so an
     // event is the only signal that a composed answer changed.
     query.composed = undefined;
     if (query.handlers.size === 0) return;
@@ -842,8 +869,8 @@ export class Space<
   }
 
   private basis(): Basis {
-    const { table, watch: watches = [] } = this.config;
-    const versions = [table.version(), ...watches.map((w) => w.version())];
+    const { table, triggers = [] } = this.config;
+    const versions = [table.version(), ...triggers.map((t) => t.version())];
     return { epoch: this.liveEpoch(), versions, mark: this.marks };
   }
 
@@ -919,7 +946,7 @@ export class Space<
   private maintain(query: Query<P, K, D, V>): void {
     const teardown: destructor.Destructor[] = [];
     query.teardown = teardown;
-    const { table, keyOf, matches, watch: watches } = this.config;
+    const { table, keyOf, matches, triggers } = this.config;
     const { params } = query;
     // Rules 2 and 3 build membership from events, and none reached the answer or the
     // fetch in flight before now, so it is reconfirmed when one may have. Rule 1
@@ -964,11 +991,11 @@ export class Space<
           );
         }),
       );
-      watches?.forEach((w) =>
+      triggers?.forEach((t) =>
         teardown.push(
-          w.attach(params, (result) => {
+          t.attach(params, (result) => {
             if (result === "refetch") return this.scheduleRefetch(query);
-            if (w.contentOnly !== true) this.scheduleRefetch(query);
+            if (t.contentOnly !== true) this.scheduleRefetch(query);
             this.touchMembers(query, result);
           }),
         ),
@@ -1013,9 +1040,9 @@ export class Space<
           this.touch(query);
         }, key),
       );
-      watches?.forEach((w) =>
+      triggers?.forEach((t) =>
         teardown.push(
-          w.attach(params, (result) => {
+          t.attach(params, (result) => {
             if (result === "refetch") return this.scheduleRefetch(query);
             if (result.includes(key) && query.state.variant === "ready")
               this.touch(query);
@@ -1034,9 +1061,9 @@ export class Space<
         ),
       ),
     );
-    watches?.forEach((w) =>
+    triggers?.forEach((t) =>
       teardown.push(
-        w.attach(params, (result) => {
+        t.attach(params, (result) => {
           if (result === "refetch") return this.scheduleRefetch(query);
           void this.recheckMany(query, result);
         }),

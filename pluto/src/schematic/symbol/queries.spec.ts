@@ -154,7 +154,7 @@ describe("Symbol queries", () => {
       });
       // The cache answers only queries it maintains, so the read needs a live
       // subscriber before it is within reach of getCached.
-      const stopSymbol = client.schematics.symbols.onChange(symbol.key, () => {});
+      const stopSymbol = client.schematics.symbols.watch(symbol.key).onChange(() => {});
       try {
         await client.schematics.symbols.retrieve(symbol.key);
         // A plain renderHook resolves only if the read never suspends.

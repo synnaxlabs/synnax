@@ -57,7 +57,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   initialValues: ZERO_VALUES,
   retrieve: async ({ client, query: { key } }) => await client.views.retrieve(key),
   getCached: ({ client, query: { key } }) => {
-    const cached = client.views.getCached(key);
+    const cached = client.views.watch(key).getCached();
     return query.isLive(cached) ? cached : undefined;
   },
   update: async ({ client, value, reset }) => {
@@ -65,7 +65,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     reset(updated);
   },
   mountListeners: ({ client, query: { key }, reset }) =>
-    client.views.onChange(key, (result) => {
+    client.views.watch(key).onChange((result) => {
       if (query.isLive(result)) reset(result);
     }),
 });

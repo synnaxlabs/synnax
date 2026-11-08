@@ -54,7 +54,7 @@ const NAME_ORDER: NameOrder["order"] = { field: "name" };
 
 /** A typed client that keeps live lists of the records that queries match. */
 export interface Retriever<Q, D extends record.Keyed<record.Key>> {
-  list: (query: Q & NameOrder) => query.List<D, unknown>;
+  watch: (query: Q & NameOrder) => query.List<D, unknown>;
 }
 
 /** Builds a source that lists the records a typed client matches for the query. */
@@ -63,7 +63,7 @@ export const createSource = <Q, D extends record.Keyed<record.Key>>(
   q: Q,
   toResource: (record: D) => Resource,
 ): Source => {
-  const list = retriever.list({ ...q, order: NAME_ORDER });
+  const list = retriever.watch({ ...q, order: NAME_ORDER });
   // A record keeps its identity until it changes, so a row reads the same resource
   // until then.
   const resources = new WeakMap<D, Resource>();

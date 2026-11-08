@@ -107,8 +107,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
         fetch: async (req) => await this.execRetrieve(req),
         matches: (policy, req) => matches(LINES, policy, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
-        watch: [
-          query.watch(cfg.users.store, ({ key }, req: RetrieveRequest) =>
+        triggers: [
+          query.trigger(cfg.users.store, ({ key }, req: RetrieveRequest) =>
             namesUser(req.where, key) ? "refetch" : null,
           ),
         ],

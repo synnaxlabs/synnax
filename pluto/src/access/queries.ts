@@ -20,7 +20,7 @@ export type PermissionsQuery = {
 };
 
 const granteeOf = (client: Synnax): access.Grantee | null => {
-  const u = client.users.current.getCached();
+  const u = client.users.current.watch().getCached();
   return query.isLive(u) ? u : null;
 };
 
@@ -38,7 +38,7 @@ const subscribeForCurrent = (
 ): destructor.Destructor => {
   let grantee = granteeOf(client);
   let release = grantee == null ? undefined : subscribe(grantee);
-  const stop = client.users.current.onChange(() => {
+  const stop = client.users.current.watch().onChange(() => {
     const next = granteeOf(client);
     if (sameGrantee(next, grantee)) return;
     release?.();
@@ -61,7 +61,7 @@ export const isGranted = ({ client, query }: IsGrantedParams): boolean => {
   if (client == null) return false;
   const grantee = granteeOf(client);
   if (grantee == null) return false;
-  return client.access.granted.getCached(grantee, query) ?? false;
+  return client.access.granted.watch(grantee, query).getCached() === true;
 };
 
 export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
@@ -76,13 +76,13 @@ const { useResult: useResultGranted } = Flux.createRetrieve<PermissionsQuery, bo
   onChange: ({ client, query }, handler) =>
     subscribeForCurrent(
       client,
-      (grantee) => client.access.granted.onChange(grantee, query, handler),
+      (grantee) => client.access.granted.watch(grantee, query).onChange(handler),
       () => handler(undefined),
     ),
   getCached: ({ client, query }) => {
     const grantee = granteeOf(client);
     if (grantee == null) return undefined;
-    return client.access.granted.getCached(grantee, query);
+    return client.access.granted.watch(grantee, query).getCached();
   },
 });
 
@@ -133,19 +133,22 @@ export const {
   // No workspace renders until this read lands, so a moment of dead connection must not
   // settle into a wall the subject has to clear by hand.
   retryUnreachable: true,
-  retrieve: async ({ client }) =>
-    await client.access.policies.retrieve({
-      roles: [(await client.users.current.retrieve()).role],
-    }),
+  retrieve: async ({ client }) => {
+    const { role } = await client.users.current.retrieve();
+    return (await client.access.policies.watch({ roles: [role] }).retrieve()).records;
+  },
   onChange: ({ client }, handler) =>
     subscribeForCurrent(
       client,
-      ({ role }) => client.access.policies.onChange({ roles: [role] }, handler),
+      ({ role }) =>
+        client.access.policies
+          .watch({ roles: [role] })
+          .onChange((w) => handler(w?.records)),
       () => handler(undefined),
     ),
   getCached: ({ client }) => {
     const grantee = granteeOf(client);
     if (grantee == null) return undefined;
-    return client.access.policies.getCached({ roles: [grantee.role] });
+    return client.access.policies.watch({ roles: [grantee.role] }).getCached()?.records;
   },
 });

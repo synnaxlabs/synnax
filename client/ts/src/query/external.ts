@@ -14,7 +14,7 @@ export {
   type TableConfig,
 } from "@/query/cache";
 export { Deleted } from "@/query/deleted";
-export { type DeriveWatch, deriveWatch } from "@/query/derived";
+export { type DeriveTrigger, deriveTrigger } from "@/query/derived";
 export { LookupIndex } from "@/query/indexes";
 export {
   type List,
@@ -30,12 +30,13 @@ export {
   type ChangeHandler,
   hash,
   isLive,
+  type Live,
   requireCorpse,
   type Retrieves,
   type Space,
   type SpaceConfig,
-  type Watch,
-  watch,
+  type Trigger,
+  trigger,
 } from "@/query/query";
 export {
   addressesOne,

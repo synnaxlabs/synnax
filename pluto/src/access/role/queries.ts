@@ -28,7 +28,7 @@ const retrieveForUser = async (
 };
 
 const cachedRoleKey = (client: Synnax, key: user.Key): access.role.Key | undefined => {
-  const u = client.users.getCached(key);
+  const u = client.users.watch(key).getCached();
   return query.isLive(u) ? u.role : undefined;
 };
 
@@ -37,15 +37,15 @@ const getCachedForUser = (
   key: user.Key,
 ): query.Cached<access.role.Role> | undefined => {
   const role = cachedRoleKey(client, key);
-  return role == null ? undefined : client.access.roles.getCached(role);
+  return role == null ? undefined : client.access.roles.watch(role).getCached();
 };
 
 export const { use } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.roles.retrieve(query),
   onChange: ({ client, query }, handler) =>
-    client.access.roles.onChange(query, handler),
-  getCached: ({ client, query }) => client.access.roles.getCached(query),
+    client.access.roles.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.access.roles.watch(query).getCached(),
 });
 
 export type ForUserQuery = {
@@ -69,12 +69,12 @@ export const { useResult: useResultForUser } = Flux.createRetrieve<
       detachRole =
         role == null
           ? () => {}
-          : client.access.roles.onChange(role, () =>
-              handler(getCachedForUser(client, key)),
-            );
+          : client.access.roles
+              .watch(role)
+              .onChange(() => handler(getCachedForUser(client, key)));
     };
     watchRole();
-    const detachUser = client.users.onChange(key, () => {
+    const detachUser = client.users.watch(key).onChange(() => {
       watchRole();
       retrieveForUser(client, key).then(handler, (error: unknown) =>
         console.error(`failed to retrieve the role of user ${key}`, error),

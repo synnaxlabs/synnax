@@ -133,7 +133,7 @@ const seedPlot = async (): Promise<lineplot.LinePlot> => {
 };
 
 const cachedName = (key: lineplot.LinePlot["key"]): string | undefined => {
-  const cached = client.lineplots.getCached(key);
+  const cached = client.lineplots.watch(key).getCached();
   return query.isLive(cached) ? cached.name : undefined;
 };
 
@@ -151,7 +151,7 @@ describe("store", () => {
     });
     await client.batch.send([client.lineplots.setGroupRequest(plot.key, g.key)]);
     await expect
-      .poll(() => expectLive(client.lineplots.getCached(plot.key)).group)
+      .poll(() => expectLive(client.lineplots.watch(plot.key).getCached()).group)
       .toBe(g.key);
   });
 
@@ -160,9 +160,9 @@ describe("store", () => {
     const plot = await seedPlot();
     await client.lineplots.delete(plot.key);
     await expect
-      .poll(() => query.Deleted.matches(client.lineplots.getCached(plot.key)))
+      .poll(() => query.Deleted.matches(client.lineplots.watch(plot.key).getCached()))
       .toBe(true);
-    const cached = expectDeleted(client.lineplots.getCached(plot.key));
+    const cached = expectDeleted(client.lineplots.watch(plot.key).getCached());
     expect(cached.corpse.name).toEqual(plot.name);
   });
 
@@ -176,9 +176,9 @@ describe("store", () => {
       await client.connect();
       const plot = await seedPlot();
       await expect
-        .poll(() => query.isLive(remote.lineplots.getCached(plot.key)))
+        .poll(() => query.isLive(remote.lineplots.watch(plot.key).getCached()))
         .toBe(true);
-      const cached = remote.lineplots.getCached(plot.key);
+      const cached = remote.lineplots.watch(plot.key).getCached();
       if (query.isLive(cached)) expect(cached.name).toEqual(plot.name);
     } finally {
       await remote.close();
@@ -201,9 +201,9 @@ describe("store", () => {
     expect(plot.lines).toHaveLength(1);
     await client.channels.delete(ch.key);
     await expect
-      .poll(() => expectLive(client.lineplots.getCached(plot.key)).channels.y1)
+      .poll(() => expectLive(client.lineplots.watch(plot.key).getCached()).channels.y1)
       .toEqual([]);
-    expect(expectLive(client.lineplots.getCached(plot.key)).lines).toEqual([]);
+    expect(expectLive(client.lineplots.watch(plot.key).getCached()).lines).toEqual([]);
   });
 
   it("reduces broadcast dispatch frames into the cached document", async () => {

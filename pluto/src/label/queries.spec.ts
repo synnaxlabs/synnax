@@ -200,7 +200,7 @@ describe("queries", () => {
       expect(result.current.variant).toEqual("success");
       const expected = [kept.key, added.key].toSorted();
       await waitFor(() => {
-        const cached = observer.ranges.getCached(rng.key);
+        const cached = observer.ranges.watch(rng.key).getCached();
         expect(query.isLive(cached) && cached.labels.toSorted()).toEqual(expected);
       });
     });

@@ -351,7 +351,9 @@ export class Client extends query.Retriever<
       source: store,
       compose: (record) => this.compose(record.payload),
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      watch: [query.deriveWatch(statusStore, (event) => affectedChannelKeys(event))],
+      triggers: [
+        query.deriveTrigger(statusStore, (event) => affectedChannelKeys(event)),
+      ],
     });
     statuses.holdOwned(store, resourceID);
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
@@ -371,8 +373,8 @@ export class Client extends query.Retriever<
         (rangeKey == null ||
           aliasStore.has(createKey({ range: rangeKey, channel: key }))),
       single: true,
-      watch: [
-        query.watch(aliasStore, (event, query: RetrieveSingleParams) => {
+      triggers: [
+        query.trigger(aliasStore, (event, query: RetrieveSingleParams) => {
           if (query.rangeKey == null) return null;
           const aliasKey = createKey({ range: query.rangeKey, channel: query.key });
           return event.key === aliasKey ? [query.key] : null;
@@ -388,8 +390,8 @@ export class Client extends query.Retriever<
         fetch: async (query) => await this.fetchRequest(query),
         matches: (ch, query) => matches(LINES, ch, query.where),
         serverComputed: (query) => serverComputed(LINES, query.where),
-        watch: [
-          query.watch(aliasStore, (event, query: RetrieveMultipleParams) => {
+        triggers: [
+          query.trigger(aliasStore, (event, query: RetrieveMultipleParams) => {
             if (query.rangeKey == null) return null;
             if (event.variant === "set")
               return event.value.range === query.rangeKey
@@ -398,7 +400,7 @@ export class Client extends query.Retriever<
             const decoded = decodeDeleteChange(event.key);
             return decoded.range === query.rangeKey ? [decoded.channel] : null;
           }),
-          query.watch(
+          query.trigger(
             statusStore,
             (event, query: RetrieveMultipleParams) =>
               query.includeStatus === true ? affectedChannelKeys(event) : null,

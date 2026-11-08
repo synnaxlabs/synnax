@@ -914,9 +914,9 @@ describe("store", () => {
     });
     await client.tables.delete(created.key);
     await expect
-      .poll(() => query.Deleted.matches(client.tables.getCached(created.key)))
+      .poll(() => query.Deleted.matches(client.tables.watch(created.key).getCached()))
       .toBe(true);
-    const cached = expectDeleted(client.tables.getCached(created.key));
+    const cached = expectDeleted(client.tables.watch(created.key).getCached());
     expect(cached.corpse.name).toEqual(created.name);
   });
 });

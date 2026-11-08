@@ -53,14 +53,14 @@ describe("Group", () => {
         parent: RACK,
       });
       const rollback = apply?.();
-      expect(client.groups.getCached(key)).toEqual({
+      expect(client.groups.watch(key).getCached()).toEqual({
         key,
         name: "Pumps",
         scope: "device",
         parent: RACK,
       });
       rollback?.();
-      expect(query.isLive(client.groups.getCached(key))).toBe(false);
+      expect(query.isLive(client.groups.watch(key).getCached())).toBe(false);
     });
     it("should not write a group with no scope to the cache", () => {
       expect(
@@ -119,7 +119,7 @@ describe("Group", () => {
       await expect(
         client.groups.create({ key, name: "", scope: "channel" }),
       ).rejects.toThrow("name: required");
-      expect(query.isLive(client.groups.getCached(key))).toBe(false);
+      expect(query.isLive(client.groups.watch(key).getCached())).toBe(false);
     });
     it("should update an existing group", async () => {
       const g = await createTopLevel();
@@ -155,16 +155,16 @@ describe("Group", () => {
     });
     it("should keep a parent query live as a matching group lands", async () => {
       const parent = await createTopLevel();
-      const params = { parents: [group.resourceID(parent.key)] };
+      const list = client.groups.watch({ parents: [group.resourceID(parent.key)] });
       const handler = vi.fn();
-      const stop = client.groups.onChange(params, handler);
-      expect(await client.groups.retrieve(params)).toEqual([]);
+      const stop = list.onChange(handler);
+      expect((await list.retrieve()).records).toEqual([]);
       const child = await client.groups.create({
         name: "child",
         parent: group.resourceID(parent.key),
       });
       await expect
-        .poll(() => client.groups.getCached(params))
+        .poll(() => list.getCached()?.records)
         .toEqual([expect.objectContaining({ key: child.key })]);
       stop();
     });
@@ -292,7 +292,7 @@ describe("Group", () => {
       await expect(
         client.groups.setParent(parent.key, group.resourceID(child.key)),
       ).rejects.toThrow("would form a cycle");
-      expect(client.groups.getCached(parent.key)).toEqual(
+      expect(client.groups.watch(parent.key).getCached()).toEqual(
         expect.objectContaining({ parent: undefined }),
       );
     });
@@ -350,7 +350,7 @@ describe("Group", () => {
         virtual: true,
       });
       const sent = client.batch.send([client.channels.setGroupRequest(ch.key, g.key)]);
-      expect(client.channels.getCached(ch.key)).toEqual(
+      expect(client.channels.watch(ch.key).getCached()).toEqual(
         expect.objectContaining({ group: g.key }),
       );
       await sent;
@@ -376,7 +376,7 @@ describe("Group", () => {
           client.groups.setParentRequest(g.key, group.resourceID(g.key)),
         ]),
       ).rejects.toThrow("would form a cycle");
-      expect(client.channels.getCached(ch.key)).toEqual(
+      expect(client.channels.watch(ch.key).getCached()).toEqual(
         expect.objectContaining({ group: undefined }),
       );
     });

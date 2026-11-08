@@ -11,6 +11,7 @@ import { type group, query, type Synnax } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 export const RESOURCE_NAME = "group";
 const PLURAL_RESOURCE_NAME = "groups";
@@ -28,9 +29,7 @@ export const { useResult: useResultList } = Flux.createRetrieve<
   group.Group[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.groups.retrieve(query),
-  onChange: ({ client, query }, handler) => client.groups.onChange(query, handler),
-  getCached: ({ client, query }) => client.groups.getCached(query),
+  ...flux.listReads(({ client, query }) => client.groups.watch(query)),
 });
 
 export type RetrieveAncestorsQuery = { keys: group.Key[] };
@@ -39,7 +38,7 @@ const getCachedAncestry = (
   client: Synnax,
   keys: group.Key[],
 ): group.Group[] | undefined => {
-  const groups = client.groups.getCached(keys);
+  const groups = client.groups.watch(keys).getCached();
   const ancestors = client.groups.getCachedAncestors(keys);
   if (!query.isLive(groups) || ancestors == null) return undefined;
   return [...groups, ...ancestors];

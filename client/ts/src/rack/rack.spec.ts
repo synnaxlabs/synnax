@@ -67,7 +67,7 @@ describe("Rack", () => {
       const local = createTestClient();
       await local.connect();
       const r = await local.racks.create({ name: "cached-status" });
-      const cached = local.racks.getCached({ key: r.key, includeStatus: true });
+      const cached = local.racks.watch({ key: r.key, includeStatus: true }).getCached();
       expect(cached).toBeInstanceOf(rack.Rack);
       expect((cached as rack.Rack).status?.owner).toEqual(rack.resourceID(r.key));
     });
@@ -138,10 +138,12 @@ describe("Rack", () => {
       await responded;
       const name = `rack-renamed-${id.create()}`;
       await client.racks.rename(r.key, name);
-      await expect.poll(() => expectLive(local.racks.getCached(r.key)).name).toBe(name);
+      await expect
+        .poll(() => expectLive(local.racks.watch(r.key).getCached()).name)
+        .toBe(name);
       release();
       await fetching;
-      expect(expectLive(local.racks.getCached(r.key)).name).toBe(name);
+      expect(expectLive(local.racks.watch(r.key).getCached()).name).toBe(name);
     });
     it("should reject an empty name", async () => {
       const r = await client.racks.create({ name: "rack-rename-empty" });
@@ -380,7 +382,7 @@ describe("Rack", () => {
       const params = { key: r.key, includeStatus: true };
       await client.racks.retrieve(params);
       const seen: rack.Rack[] = [];
-      const stop = client.racks.onChange(params, (cached) => {
+      const stop = client.racks.watch(params).onChange((cached) => {
         if (query.isLive(cached)) seen.push(cached);
       });
       try {
@@ -401,11 +403,14 @@ describe("Rack", () => {
     });
     it("should compose streamed statuses onto a request query answer", async () => {
       const r = await client.racks.create({ name: "status-compose-request" });
-      const params = { where: { key: { in: [r.key] } }, includeStatus: true };
-      await client.racks.retrieve(params);
+      const list = client.racks.watch({
+        where: { key: { in: [r.key] } },
+        includeStatus: true,
+      });
+      await list.retrieve();
       const seen: rack.Rack[][] = [];
-      const stop = client.racks.onChange(params, (cached) => {
-        if (query.isLive(cached)) seen.push(cached);
+      const stop = list.onChange((w) => {
+        if (w != null) seen.push(w.records);
       });
       try {
         await client.statuses.set(
@@ -433,14 +438,14 @@ describe("Rack", () => {
         const local = createTestClient();
         await local.racks.retrieve(r.key);
         const params = { key: r.key, includeStatus: true };
-        expect(local.racks.getCached(params)).toBeUndefined();
+        expect(local.racks.watch(params).getCached()).toBeUndefined();
         const retrieved = await local.racks.retrieve(params);
         expect(retrieved.status?.owner).toEqual(rack.resourceID(r.key));
       });
       it("should fetch the status after a rack arrives on the stream", async () => {
         const r = await client.racks.create({ name: "stream-cached" });
         const local = createTestClient();
-        const stop = local.racks.onChange(r.key, () => {});
+        const stop = local.racks.watch(r.key).onChange(() => {});
         await waitForStreamLive(local.connection);
         try {
           // A rename would also stream the status, so this update keeps the name.
@@ -451,12 +456,12 @@ describe("Rack", () => {
           });
           await expect
             .poll(() => {
-              const cached = local.racks.getCached(r.key);
+              const cached = local.racks.watch(r.key).getCached();
               return query.isLive(cached) ? cached.integrations : undefined;
             })
             .toEqual(["ni"]);
           const params = { key: r.key, includeStatus: true };
-          expect(local.racks.getCached(params)).toBeUndefined();
+          expect(local.racks.watch(params).getCached()).toBeUndefined();
           const retrieved = await local.racks.retrieve(params);
           expect(retrieved.status?.owner).toEqual(rack.resourceID(r.key));
         } finally {
@@ -468,12 +473,11 @@ describe("Rack", () => {
         const local = createTestClient();
         await local.racks.retrieve(r.key);
         const seen: (rack.Status | undefined)[] = [];
-        const stop = local.racks.onChange(
-          { key: r.key, includeStatus: true },
-          (cached) => {
+        const stop = local.racks
+          .watch({ key: r.key, includeStatus: true })
+          .onChange((cached) => {
             if (query.isLive(cached)) seen.push(cached.status);
-          },
-        );
+          });
         try {
           await expect.poll(() => seen.at(-1)?.owner).toEqual(rack.resourceID(r.key));
           expect(seen.every((st) => st != null)).toBe(true);
@@ -488,7 +492,7 @@ describe("Rack", () => {
         await waitForStreamLive(local.connection);
         const send = spyOnSend(local);
         const params = { key: r.key, includeStatus: true };
-        const stop = local.racks.onChange(params, () => {});
+        const stop = local.racks.watch(params).onChange(() => {});
         try {
           const retrieved = await local.racks.retrieve(params);
           expect(retrieved.status?.owner).toEqual(rack.resourceID(r.key));
@@ -506,7 +510,7 @@ describe("Rack", () => {
         const { responded, release } = holdResponses(local, "/rack/retrieve");
         const send = spyOnSend(local);
         const params = { key: r.key, includeStatus: true };
-        const stop = local.racks.onChange(params, () => {});
+        const stop = local.racks.watch(params).onChange(() => {});
         try {
           await responded;
           const reading = local.racks.retrieve(params);
@@ -530,7 +534,7 @@ describe("Rack", () => {
         const params = { key: r.key, includeStatus: true };
         const retrieved = await local.racks.retrieve(params);
         expect(retrieved.status).toBeUndefined();
-        const cached = local.racks.getCached(params);
+        const cached = local.racks.watch(params).getCached();
         expect(cached).toBeInstanceOf(rack.Rack);
         expect((cached as rack.Rack).status).toBeUndefined();
       });
@@ -540,7 +544,7 @@ describe("Rack", () => {
       const params = { key: r.key, includeStatus: true };
       await client.racks.retrieve(params);
       const seen: (string | undefined)[] = [];
-      const stop = client.racks.onChange(params, (cached) => {
+      const stop = client.racks.watch(params).onChange((cached) => {
         if (query.isLive(cached)) seen.push(cached.status?.message);
       });
       const impostor = (message: string) =>

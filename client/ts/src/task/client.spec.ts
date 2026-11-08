@@ -129,7 +129,7 @@ describe("task.Client", () => {
       const { stream, tasks } = await createStreamedClient();
       const key = "0a7d3c2e-6f1b-4c5d-9e8f-1a2b3c4d5e6f";
       const cachedMessage = () => {
-        const cached = tasks.getCached(key);
+        const cached = tasks.watch(key).getCached();
         return query.isLive(cached) ? cached.status?.message : undefined;
       };
       stream.push(
@@ -154,7 +154,7 @@ describe("task.Client", () => {
           ]),
         }),
       );
-      await expect.poll(() => query.isLive(tasks.getCached(key))).toBe(true);
+      await expect.poll(() => query.isLive(tasks.watch(key).getCached())).toBe(true);
       expect(cachedMessage()).toBe("Task not deployed");
       stream.push(
         new framer.Frame({
@@ -171,9 +171,9 @@ describe("task.Client", () => {
     it("should keep the status of a held task when it trims statuses", async () => {
       const { stream, tasks, statuses } = await createStreamedClient(10);
       const key = "3b8e1f4a-7c2d-4e9b-a5f6-2c3d4e5f6a7b";
-      onTestFinished(tasks.onChange(key, () => {}));
+      onTestFinished(tasks.watch(key).onChange(() => {}));
       const cachedMessage = () => {
-        const cached = tasks.getCached(key);
+        const cached = tasks.watch(key).getCached();
         return query.isLive(cached) ? cached.status?.message : undefined;
       };
       stream.push(

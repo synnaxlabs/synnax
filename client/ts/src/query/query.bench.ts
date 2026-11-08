@@ -46,11 +46,11 @@ const stableParams = { minSize: 3 };
 test("Retriever.getCached", async ({ bench }) => {
   await bench.compare(
     bench("repeat params object (memoized route)", () => {
-      client.getCached(stableParams);
+      client.watch(stableParams).getCached();
     }),
 
     bench("fresh params object per call", () => {
-      client.getCached({ minSize: 3 });
+      client.watch({ minSize: 3 }).getCached();
     }),
   );
 });

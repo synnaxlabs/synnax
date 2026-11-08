@@ -31,10 +31,9 @@ import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
 const cachedPoliciesOf = (c: Synnax): access.policy.Policy[] => {
-  const u = c.users.current.getCached();
+  const u = c.users.current.watch().getCached();
   assert(query.isLive(u), "client has no signed-in user");
-  const cached = c.access.policies.getCached({ roles: [u.role] });
-  return query.isLive(cached) ? cached : [];
+  return c.access.policies.watch({ roles: [u.role] }).getCached()?.records ?? [];
 };
 
 describe("Access Queries", () => {
@@ -184,7 +183,7 @@ describe("Access Queries", () => {
 
       it("should re-evaluate the grant when mounted before the first login", async () => {
         const userClient = createTestClient({ username, password: "test" });
-        expect(userClient.users.current.getCached()).toBeUndefined();
+        expect(userClient.users.current.watch().getCached()).toBeUndefined();
         const { result } = renderGranted(userClient);
         await waitFor(() => {
           expect(result.current).toBe(true);
@@ -199,7 +198,7 @@ describe("Access Queries", () => {
         const userClient = createTestClient({ username, password: "test" });
         await userClient.connect();
         userClient.reauthenticate({ username, password: "test" });
-        expect(userClient.users.current.getCached()).toBeUndefined();
+        expect(userClient.users.current.watch().getCached()).toBeUndefined();
         const { result } = renderGranted(userClient);
         await waitFor(() => {
           expect(result.current).toBe(true);
@@ -235,7 +234,7 @@ describe("Access Queries", () => {
         objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
-      const spy = vi.spyOn(userClient.access.granted, "getCached");
+      const spy = vi.spyOn(userClient.access.granted, "watch");
       const { result, rerender } = renderHook(
         () =>
           Access.useGranted({ objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" }),

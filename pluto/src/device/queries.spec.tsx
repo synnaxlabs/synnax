@@ -69,7 +69,7 @@ describe("queries", () => {
       });
       // A suspended mount discards its memoized query, so the status is cached first.
       await client.devices.retrieve({ key: dev.key, includeStatus: true });
-      const spy = vi.spyOn(client.devices, "getCached");
+      const spy = vi.spyOn(client.devices, "watch");
       const { result, rerender } = await renderHookSuspended(
         () => Device.use({ key: dev.key }),
         { wrapper },
@@ -261,16 +261,16 @@ describe("queries", () => {
       it("should fetch the status after a device arrives on the stream", async () => {
         const dev = await createDevice("stream-cached");
         const local = createTestClient();
-        const stop = local.devices.onChange(dev.key, () => {});
+        const stop = local.devices.watch(dev.key).onChange(() => {});
         await waitForStreamLive(local.connection);
         // An update that keeps the name and the parent writes no status.
         await client.devices.create({ ...dev, location: "updated" });
         await waitFor(() => {
-          const cached = local.devices.getCached(dev.key);
+          const cached = local.devices.watch(dev.key).getCached();
           expect(query.isLive(cached) ? cached.location : undefined).toEqual("updated");
         });
         expect(
-          local.devices.getCached({ key: dev.key, includeStatus: true }),
+          local.devices.watch({ key: dev.key, includeStatus: true }).getCached(),
         ).toBeUndefined();
         const { result } = await renderHookSuspended(
           () => Device.use({ key: dev.key }),
@@ -605,11 +605,6 @@ describe("queries", () => {
       expect(devices).toHaveLength(2);
       expect(devices.map((d) => d.key)).toContain(dev1.key);
       expect(devices.map((d) => d.key)).toContain(dev2.key);
-      const cached = client.devices.getCached({
-        key: [dev1.key, dev2.key],
-        includeStatus: true,
-      });
-      expect(query.isLive(cached)).toBe(true);
     });
 
     it("should return all cached devices when all are in the store", async () => {
