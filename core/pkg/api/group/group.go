@@ -12,12 +12,11 @@ package group
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -25,10 +24,6 @@ import (
 
 // ServiceConfig is the configuration for the group API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Group stores and retrieves groups.
 	//
 	// [REQUIRED]
@@ -43,7 +38,6 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Group = override.Nil(c.Group, other.Group)
 	return c
 }
@@ -51,13 +45,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.group")
-	v.NotNil("rbac", c.RBAC)
 	v.NotNil("group", c.Group)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *group.Service
 }
 
@@ -67,79 +59,111 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.RBAC,
 		internal: cfg.Group,
 	}, nil
 }
 
 type (
 	CreateRequest struct {
-		Parent ontology.ID `json:"parent" msgpack:"parent"`
-		Name   string      `json:"name"   msgpack:"name"`
-		Key    group.Key   `json:"key"    msgpack:"key"`
+		Parent *resource.ID  `json:"parent" msgpack:"parent"`
+		Name   string        `json:"name"   msgpack:"name"`
+		Scope  resource.Type `json:"scope"  msgpack:"scope"`
+		Key    group.Key     `json:"key"    msgpack:"key"`
 	}
 	CreateResponse struct {
 		Group group.Group `json:"group" msgpack:"group"`
 	}
 )
 
+// Create creates a group. An existing group with the key keeps its stored parent and
+// scope.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeGroup}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	g, err := s.internal.NewWriter(tx).CreateWithKey(ctx, req.Key, req.Name, req.Parent)
-	if err != nil {
+	g := group.Group{Key: req.Key, Name: req.Name, Scope: req.Scope, Parent: req.Parent}
+	if err := s.internal.NewWriter(tx).Create(ctx, &g); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Group: g}, nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the groups that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, group.ResourceID)
+}
+
+// Retrieve returns the groups that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Groups))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Groups))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: group.OntologyIDsFromGroups(res.Groups),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, group.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
+}
+
+type (
+	RetrieveAncestorsRequest struct {
+		Keys []group.Key `json:"keys" msgpack:"keys"`
+	}
+	RetrieveAncestorsResponse struct {
+		Groups []group.Group `json:"groups" msgpack:"groups"`
+	}
+)
+
+var _ bind.Named = RetrieveAncestorsRequest{}
+
+// Named implements bind.Named.
+func (r RetrieveAncestorsRequest) Named() []resource.ID {
+	return group.ResourceIDs(r.Keys)
+}
+
+// RetrieveAncestors returns every group above the groups with the requested keys that
+// the subject can retrieve.
+func (s *Service) RetrieveAncestors(
+	ctx context.Context,
+	snap bind.Snapshot,
+	req RetrieveAncestorsRequest,
+) (RetrieveAncestorsResponse, error) {
+	if len(req.Keys) == 0 {
+		return RetrieveAncestorsResponse{}, nil
+	}
+	ancestors, err := s.internal.Ancestors(ctx, snap, req.Keys...)
+	if err != nil {
+		return RetrieveAncestorsResponse{}, err
+	}
+	return RetrieveAncestorsResponse{Groups: lo.Filter(
+		ancestors,
+		func(g group.Group, _ int) bool { return snap.Allowed(g.ResourceID()) },
+	)}, nil
 }
 
 type DeleteRequest struct {
 	Keys []group.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the groups with the given keys. It returns a validation error when a
+// group holds a member or a group that the request does not name.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: group.OntologyIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -148,17 +172,27 @@ type RenameRequest struct {
 	Key  group.Key `json:"key"  msgpack:"key"`
 }
 
+// Rename renames the group with the given key.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+}
+
+// SetParentRequest moves groups under Parent, or to the top level when Parent is nil.
+type SetParentRequest struct {
+	Parent *resource.ID `json:"parent" msgpack:"parent"`
+	Keys   []group.Key  `json:"keys"   msgpack:"keys"`
+}
+
+// SetParent moves the groups under a parent. A move under a new top parent moves the
+// visualizations in the groups to the project of that top parent.
+func (s *Service) SetParent(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetParentRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).SetParent(ctx, req.Parent, req.Keys...)
 }

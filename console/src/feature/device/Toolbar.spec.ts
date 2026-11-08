@@ -12,6 +12,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
+import { Rack } from "@/feature/rack";
 import { createTestDevice } from "@/platform/device/testutil";
 import { findTreeRow, renderToolbar } from "@/platform/tree/testutil";
 import {
@@ -29,7 +30,7 @@ describe("device/Toolbar", () => {
     const rack = await client.racks.retrieve(dev.rack);
     await renderToolbar(Device.TOOLBAR.content, {
       client,
-      items: Device.TREE_ITEMS,
+      items: { ...Rack.TREE_ITEMS, ...Device.TREE_ITEMS },
     });
     await screen.findByText("Devices");
     fireEvent.click(await findTreeRow(rack.name));

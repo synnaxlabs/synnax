@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,69 +23,53 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Alias", Ordered, func() {
 	var (
 		db         *gorp.DB
-		otg        *ontology.Ontology
 		rangerSvc  *ranger.Service
 		aliasSvc   *alias.Service
 		channelSvc *channel.Service
-		tx         gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
 		db = node.DB
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
+			DB: node.DB,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB: node.DB,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
+			DB: node.DB,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Ontology:     otg,
-			Group:        groupSvc,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
+			DB:    node.DB,
+			Group: groupSvc,
 		}))
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              node.DB,
-			Ontology:        otg,
 			Channel:         channelSvc,
 			ParentRetriever: rangerSvc,
 		}))
 	})
-	BeforeEach(func() {
-		tx = DeferClose(db.OpenTx())
-	})
-
 	channelCount := 0
 	createChannel := func(ctx context.Context) channel.Channel {
 		GinkgoHelper()
@@ -94,12 +79,16 @@ var _ = Describe("Alias", Ordered, func() {
 			Name:     fmt.Sprintf("test_%d", channelCount),
 			Virtual:  true,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		return ch
 	}
 
 	Describe("Set", func() {
 		It("Should set an alias for a channel on a range", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -108,7 +97,6 @@ var _ = Describe("Alias", Ordered, func() {
 				},
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			ch := createChannel(ctx)
 			Expect(
 				aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias"),
 			).To(Succeed())
@@ -117,6 +105,8 @@ var _ = Describe("Alias", Ordered, func() {
 
 	Describe("Retrieve", func() {
 		It("Should get an alias for a channel on a range", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -125,7 +115,6 @@ var _ = Describe("Alias", Ordered, func() {
 				},
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			ch := createChannel(ctx)
 			Expect(
 				aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias"),
 			).To(Succeed())
@@ -134,6 +123,8 @@ var _ = Describe("Alias", Ordered, func() {
 		})
 
 		It("Should return an error if an alias can't be found", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -142,7 +133,6 @@ var _ = Describe("Alias", Ordered, func() {
 				},
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			ch := createChannel(ctx)
 			Expect(
 				aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key()),
 			).Error().
@@ -152,6 +142,8 @@ var _ = Describe("Alias", Ordered, func() {
 		It(
 			"Should fallback to the parent range if the alias is not found",
 			func(ctx SpecContext) {
+				ch := createChannel(ctx)
+				tx := DeferClose(db.OpenTx())
 				parent := ranger.Range{
 					Name: "Parent",
 					TimeRange: telem.TimeRange{
@@ -160,7 +152,6 @@ var _ = Describe("Alias", Ordered, func() {
 					},
 				}
 				Expect(rangerSvc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
-				ch := createChannel(ctx)
 				Expect(
 					aliasSvc.NewWriter(tx).Set(ctx, parent.Key, ch.Key(), "Alias"),
 				).To(Succeed())
@@ -170,7 +161,7 @@ var _ = Describe("Alias", Ordered, func() {
 						Start: telem.TimeStamp(7 * telem.Second),
 						End:   telem.TimeStamp(9 * telem.Second),
 					},
-					Parent: &parent,
+					Parent: &parent.Key,
 				}
 				Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 				a := MustSucceed(aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key()))
@@ -179,8 +170,83 @@ var _ = Describe("Alias", Ordered, func() {
 		)
 	})
 
+	It("Should fall back to the parent range through a snapshot", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx)
+		tx := DeferClose(db.OpenTx())
+		parent := ranger.Range{
+			Name: "Parent",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
+		Expect(
+			aliasSvc.NewWriter(tx).Set(ctx, parent.Key, ch.Key(), "Alias"),
+		).To(Succeed())
+		r := ranger.Range{
+			Name: "Range",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(7 * telem.Second),
+				End:   telem.TimeStamp(9 * telem.Second),
+			},
+			Parent: &parent.Key,
+		}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var a string
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			a, err = aliasSvc.NewReader(snap).Retrieve(ctx, r.Key, ch.Key())
+			return err
+		})).To(Succeed())
+		Expect(a).To(Equal("Alias"))
+	})
+
+	It("Should resolve, list, and search aliases through a snapshot", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx)
+		r := ranger.Range{
+			Name: "Range",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := rangerSvc.NewWriter(tx).Create(ctx, &r); err != nil {
+				return err
+			}
+			return aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "snapshot alias")
+		})).To(Succeed())
+		var (
+			resolved channel.Key
+			listed   map[channel.Key]string
+			found    []channel.Key
+		)
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			reader := aliasSvc.NewReader(snap)
+			resolved, err = reader.Resolve(ctx, r.Key, "snapshot alias")
+			if err != nil {
+				return err
+			}
+			if listed, err = reader.List(ctx, r.Key); err != nil {
+				return err
+			}
+			found, err = reader.Search(ctx, r.Key, "snapshot", visible)
+			return err
+		})).To(Succeed())
+		Expect(resolved).To(Equal(ch.Key()))
+		Expect(listed).To(Equal(map[channel.Key]string{ch.Key(): "snapshot alias"}))
+		Expect(found).To(Equal([]channel.Key{ch.Key()}))
+	})
+
 	Describe("Delete", func() {
 		It("Should delete an alias for a channel on a range", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -189,7 +255,6 @@ var _ = Describe("Alias", Ordered, func() {
 				},
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			ch := createChannel(ctx)
 			Expect(
 				aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias"),
 			).To(Succeed())
@@ -203,6 +268,8 @@ var _ = Describe("Alias", Ordered, func() {
 
 	Describe("Resolve", func() {
 		It("Should resolve an alias for a channel on a range", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -211,7 +278,6 @@ var _ = Describe("Alias", Ordered, func() {
 				},
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			ch := createChannel(ctx)
 			Expect(
 				aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias"),
 			).To(Succeed())
@@ -222,6 +288,8 @@ var _ = Describe("Alias", Ordered, func() {
 		It(
 			"Should return an error if an alias can't be resolved",
 			func(ctx SpecContext) {
+				ch := createChannel(ctx)
+				tx := DeferClose(db.OpenTx())
 				r := ranger.Range{
 					Name: "Range",
 					TimeRange: telem.TimeRange{
@@ -230,7 +298,6 @@ var _ = Describe("Alias", Ordered, func() {
 					},
 				}
 				Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-				ch := createChannel(ctx)
 				Expect(
 					aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias"),
 				).To(Succeed())
@@ -244,6 +311,8 @@ var _ = Describe("Alias", Ordered, func() {
 		It(
 			"Should fallback to the parent range if the alias is not found",
 			func(ctx SpecContext) {
+				ch := createChannel(ctx)
+				tx := DeferClose(db.OpenTx())
 				parent := ranger.Range{
 					Name: "Parent",
 					TimeRange: telem.TimeRange{
@@ -252,7 +321,6 @@ var _ = Describe("Alias", Ordered, func() {
 					},
 				}
 				Expect(rangerSvc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
-				ch := createChannel(ctx)
 				Expect(
 					aliasSvc.NewWriter(tx).Set(ctx, parent.Key, ch.Key(), "Alias"),
 				).To(Succeed())
@@ -262,7 +330,7 @@ var _ = Describe("Alias", Ordered, func() {
 						Start: telem.TimeStamp(7 * telem.Second),
 						End:   telem.TimeStamp(9 * telem.Second),
 					},
-					Parent: &parent,
+					Parent: &parent.Key,
 				}
 				Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 				resolved := MustSucceed(
@@ -275,6 +343,8 @@ var _ = Describe("Alias", Ordered, func() {
 		It(
 			"Should return an error if the alias can't be resolved on both the child range and its parent",
 			func(ctx SpecContext) {
+				ch := createChannel(ctx)
+				tx := DeferClose(db.OpenTx())
 				parent := ranger.Range{
 					Name: "Parent",
 					TimeRange: telem.TimeRange{
@@ -283,7 +353,6 @@ var _ = Describe("Alias", Ordered, func() {
 					},
 				}
 				Expect(rangerSvc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
-				ch := createChannel(ctx)
 				Expect(
 					aliasSvc.NewWriter(tx).Set(ctx, parent.Key, ch.Key(), "Alias"),
 				).To(Succeed())
@@ -293,7 +362,7 @@ var _ = Describe("Alias", Ordered, func() {
 						Start: telem.TimeStamp(7 * telem.Second),
 						End:   telem.TimeStamp(9 * telem.Second),
 					},
-					Parent: &parent,
+					Parent: &parent.Key,
 				}
 				Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 				Expect(
@@ -308,8 +377,11 @@ var _ = Describe("Alias", Ordered, func() {
 		var (
 			r, other      ranger.Range
 			inlet, outlet channel.Channel
+			tx            gorp.Tx
 		)
 		BeforeEach(func(ctx SpecContext) {
+			inlet, outlet = createChannel(ctx), createChannel(ctx)
+			tx = DeferClose(db.OpenTx())
 			r = ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -320,7 +392,6 @@ var _ = Describe("Alias", Ordered, func() {
 			other = r
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-			inlet, outlet = createChannel(ctx), createChannel(ctx)
 			w := aliasSvc.NewWriter(tx)
 			Expect(w.Set(ctx, r.Key, inlet.Key(), "turbopump inlet")).To(Succeed())
 			Expect(w.Set(ctx, r.Key, outlet.Key(), "turbopump")).To(Succeed())
@@ -329,32 +400,44 @@ var _ = Describe("Alias", Ordered, func() {
 
 		It("Should return the channels whose alias on the range matches the term",
 			func(ctx SpecContext) {
-				Expect(aliasSvc.NewReader(tx).Search(ctx, r.Key, "turbopump")).
+				Expect(aliasSvc.NewReader(tx).Search(ctx, r.Key, "turbopump", visible)).
 					To(Equal([]channel.Key{outlet.Key(), inlet.Key()}))
-				Expect(aliasSvc.NewReader(tx).Search(ctx, r.Key, "valve")).To(BeEmpty())
+				Expect(aliasSvc.NewReader(tx).Search(ctx, r.Key, "valve", visible)).
+					To(BeEmpty())
 			})
 
-		It("Should find aliases through the ontology search", func(ctx SpecContext) {
-			Expect(otg.Search(
-				ctx, tx, ontology.SearchQuery{Term: "turbopump inlet"},
-			)).To(Equal([]ontology.ID{alias.OntologyID(r.Key, inlet.Key())}))
+		It("Should skip the aliases of channels that visible rejects",
+			func(ctx SpecContext) {
+				Expect(aliasSvc.NewReader(tx).Search(
+					ctx,
+					r.Key,
+					"turbopump",
+					func(ch channel.Key) bool { return ch != outlet.Key() },
+				)).To(Equal([]channel.Key{inlet.Key()}))
+			})
+
+		It("Should find aliases through the resource search", func(ctx SpecContext) {
+			q := search.Query[resource.ID]{Term: "turbopump inlet", Limit: 10}
+			Expect(MustSucceed(aliasSvc.Resources().Search(ctx, tx, q)).Keys).
+				To(Equal([]resource.ID{alias.ResourceID(r.Key, inlet.Key())}))
 		})
 
 		It(
-			"Should drop a deleted alias from the ontology search",
+			"Should drop a deleted alias from the resource search",
 			func(ctx SpecContext) {
-				id := alias.OntologyID(r.Key, inlet.Key())
+				id := alias.ResourceID(r.Key, inlet.Key())
+				q := search.Query[resource.ID]{Term: "turbopump inlet", Limit: 10}
 				Expect(tx.Commit(ctx)).To(Succeed())
-				Expect(otg.Search(
-					ctx, nil, ontology.SearchQuery{Term: "turbopump inlet"},
-				)).To(ContainElement(id))
+				Expect(MustSucceed(aliasSvc.Resources().Search(ctx, db, q)).Keys).
+					To(ContainElement(id))
 				del := DeferClose(db.OpenTx())
 				Expect(aliasSvc.NewWriter(del).Delete(ctx, r.Key, inlet.Key())).
 					To(Succeed())
 				Expect(del.Commit(ctx)).To(Succeed())
-				Expect(otg.Search(
-					ctx, nil, ontology.SearchQuery{Term: "turbopump inlet"},
-				)).ToNot(ContainElement(id))
+				Expect(MustSucceed(aliasSvc.Resources().Search(ctx, db, q)).Keys).
+					ToNot(ContainElement(id))
+				Expect(aliasSvc.Resources().Retrieve(ctx, db, []resource.ID{id})).
+					To(BeEmpty())
 			},
 		)
 	})
@@ -373,18 +456,23 @@ var _ = Describe("Alias", Ordered, func() {
 					End:   telem.TimeStamp(10 * telem.Second),
 				},
 			}
-			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
 			term = fmt.Sprintf("probe%09d", rand.IntN(999999999))
 			byName = channel.Channel{
 				DataType: telem.Float32T,
 				Name:     term,
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &byName)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &byName)
+			})).To(Succeed())
 			byAlias = createChannel(ctx)
-			Expect(
-				aliasSvc.NewWriter(tx).Set(ctx, r.Key, byAlias.Key(), term+" inlet"),
-			).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return aliasSvc.NewWriter(tx).
+					Set(ctx, r.Key, byAlias.Key(), term+" inlet")
+			})).
 				To(Succeed())
 		})
 
@@ -392,8 +480,8 @@ var _ = Describe("Alias", Ordered, func() {
 			ctx SpecContext, q channel.Retrieve, limit, offset int,
 		) []channel.Key {
 			GinkgoHelper()
-			chs := MustSucceed(aliasSvc.NewReader(tx).SearchChannels(
-				ctx, q, r.Key, term, limit, offset,
+			chs := MustSucceed(aliasSvc.NewReader(db).SearchChannels(
+				ctx, q, r.Key, term, visible, limit, offset,
 			))
 			return lo.Map(chs, func(ch channel.Channel, _ int) channel.Key {
 				return ch.Key()
@@ -412,6 +500,18 @@ var _ = Describe("Alias", Ordered, func() {
 				To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
 		})
 
+		It("Should search the channels through a snapshot", func(ctx SpecContext) {
+			var chs []channel.Channel
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				chs, err = aliasSvc.NewReader(snap).
+					SearchChannels(ctx, both(), r.Key, term, visible, 0, 0)
+				return err
+			})).To(Succeed())
+			Expect(lo.Map(chs, func(ch channel.Channel, _ int) channel.Key {
+				return ch.Key()
+			})).To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
+		})
+
 		It("Should page the merged channels", func(ctx SpecContext) {
 			Expect(search(ctx, both(), 1, 0)).To(Equal([]channel.Key{byAlias.Key()}))
 			Expect(search(ctx, both(), 1, 1)).To(Equal([]channel.Key{byName.Key()}))
@@ -421,15 +521,18 @@ var _ = Describe("Alias", Ordered, func() {
 		It("Should list a channel that matches by alias and by name once", func(
 			ctx SpecContext,
 		) {
-			Expect(
-				aliasSvc.NewWriter(tx).Set(ctx, r.Key, byName.Key(), term+" outlet"),
-			).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return aliasSvc.NewWriter(tx).
+					Set(ctx, r.Key, byName.Key(), term+" outlet")
+			})).To(Succeed())
 			second := channel.Channel{
 				DataType: telem.Float32T,
 				Name:     term + "_second",
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &second)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &second)
+			})).To(Succeed())
 			q := func() channel.Retrieve {
 				return channelSvc.NewRetrieve().
 					Where(channel.MatchKeys(byName.Key(), second.Key()))
@@ -447,7 +550,9 @@ var _ = Describe("Alias", Ordered, func() {
 		})
 
 		It("Should skip the alias of a deleted channel", func(ctx SpecContext) {
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, byAlias.Key(), false)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, byAlias.Key(), false)
+			})).
 				To(Succeed())
 			Expect(search(ctx, channelSvc.NewRetrieve(), 0, 0)).
 				To(Equal([]channel.Key{byName.Key()}))
@@ -456,6 +561,8 @@ var _ = Describe("Alias", Ordered, func() {
 
 	Describe("List", func() {
 		It("Should list the aliases on a range", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -464,7 +571,6 @@ var _ = Describe("Alias", Ordered, func() {
 				},
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			ch := createChannel(ctx)
 			Expect(
 				aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias"),
 			).To(Succeed())
@@ -473,6 +579,8 @@ var _ = Describe("Alias", Ordered, func() {
 		})
 
 		It("Should list the aliases on a range and its parent", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
 			parent := ranger.Range{
 				Name: "RetrieveParent",
 				TimeRange: telem.TimeRange{
@@ -481,7 +589,6 @@ var _ = Describe("Alias", Ordered, func() {
 				},
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
-			ch := createChannel(ctx)
 			Expect(
 				aliasSvc.NewWriter(tx).Set(ctx, parent.Key, ch.Key(), "Alias"),
 			).To(Succeed())
@@ -491,7 +598,7 @@ var _ = Describe("Alias", Ordered, func() {
 					Start: telem.TimeStamp(7 * telem.Second),
 					End:   telem.TimeStamp(9 * telem.Second),
 				},
-				Parent: &parent,
+				Parent: &parent.Key,
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			aliases := MustSucceed(aliasSvc.NewReader(tx).List(ctx, r.Key))
@@ -499,35 +606,97 @@ var _ = Describe("Alias", Ordered, func() {
 		})
 	})
 
-	Context("Ontology", func() {
-		It("Should find a created alias in the ontology", func(ctx SpecContext) {
+	Context("Range delete", func() {
+		It("Should delete the aliases of a deleted range", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			r := ranger.Range{Name: "Range", TimeRange: telem.NewRangeSeconds(5, 10)}
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).
+				To(Succeed())
+			Expect(rangerSvc.NewWriter(tx).Delete(ctx, r.Key)).To(Succeed())
+			Expect(aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key())).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+		It(
+			"Should reject an alias on a range that does not exist",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx)
+				tx := DeferClose(db.OpenTx())
+				missing := uuid.New()
+				err := aliasSvc.NewWriter(tx).Set(ctx, missing, ch.Key(), "Alias")
+				Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+				Expect(err).To(MatchError(
+					"range: range " + missing.String() + " does not exist: validation error",
+				))
+			},
+		)
+	})
+
+	Describe("Resources", func() {
+		It("Should name each alias by its alias text", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
 			r := ranger.Range{
-				Name: "Range",
-				TimeRange: telem.TimeRange{
-					Start: telem.TimeStamp(5 * telem.Second),
-					End:   telem.TimeStamp(10 * telem.Second),
-				},
+				Name:      "Burn",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Tank pressure")).
+				To(Succeed())
+			id := alias.ResourceID(r.Key, ch.Key())
+			Expect(aliasSvc.Resources().Retrieve(ctx, tx, []resource.ID{id})).
+				To(Equal([]resource.Resource{{ID: id, Name: "Tank pressure"}}))
+		})
+
+		It(
+			"Should return a validation error for a malformed key",
+			func(ctx SpecContext) {
+				Expect(aliasSvc.Resources().Retrieve(
+					ctx,
+					db,
+					[]resource.ID{{Type: resource.TypeRangeAlias, Key: "pump"}},
+				)).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(`invalid range alias key "pump"`)),
+				))
+			},
+		)
+
+		It("Should leave out an ID that names no alias", func(ctx SpecContext) {
 			ch := createChannel(ctx)
-			Expect(
-				aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias"),
-			).To(Succeed())
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(alias.OntologyID(r.Key, ch.Key())).
-				Entry(&res).
-				Exec(ctx, tx),
-			).To(Succeed())
-			Expect(res).To(Equal(ontology.Resource{
-				ID:   alias.OntologyID(r.Key, ch.Key()),
-				Name: "Alias",
-				Data: map[string]any{
-					"range":   r.Key.String(),
-					"channel": ch.Key().StorageKey(),
-					"alias":   "Alias",
-				},
-			}))
+			tx := DeferClose(db.OpenTx())
+			r := ranger.Range{
+				Name:      "Burn",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Tank pressure")).
+				To(Succeed())
+			id := alias.ResourceID(r.Key, ch.Key())
+			Expect(aliasSvc.Resources().Retrieve(
+				ctx,
+				tx,
+				[]resource.ID{alias.ResourceID(uuid.New(), ch.Key()), id},
+			)).To(Equal([]resource.Resource{{ID: id, Name: "Tank pressure"}}))
+		})
+
+		It("Should list each alias by its alias text", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			r := ranger.Range{
+				Name:      "Burn",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Listed alias")).
+				To(Succeed())
+			id := alias.ResourceID(r.Key, ch.Key())
+			Expect(aliasSvc.Resources().List(ctx, tx, 10000, nil)).
+				To(ContainElement(resource.Resource{ID: id, Name: "Listed alias"}))
 		})
 	})
 })
+
+// visible accepts every channel.
+func visible(channel.Key) bool { return true }

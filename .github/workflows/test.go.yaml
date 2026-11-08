@@ -204,6 +204,10 @@ jobs:
             shard: 1
             codegen: true
     runs-on: ${{ matrix.os }}
+    # Tests read no DWARF, and race reports get function names and lines without it.
+    # Dropping it cuts compile time and halves link time.
+    env:
+      GOFLAGS: -gcflags=all=-dwarf=false -ldflags=-w
     steps:
       # The matrix holds four shards, so a larger count would skip suites.
       - name: Check the shard count

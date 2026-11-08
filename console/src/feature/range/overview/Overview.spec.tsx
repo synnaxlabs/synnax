@@ -9,12 +9,12 @@
 
 import {
   label,
-  type ontology,
   panel,
   project,
   query,
   type ranger,
   ranger as rangerClient,
+  type resource,
   schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -68,11 +68,16 @@ const renderOverview = async (
       onClick: onSnapshotClick,
       onDelete: onSnapshotDelete,
     },
+    task: {
+      icon: <Icon.Task />,
+      onClick: onSnapshotClick,
+      onDelete: onSnapshotDelete,
+    },
   };
   const { wrapper } = await createConsoleWrapper({ client: as });
   const { panelKey, tabKey } = await createResourceTab(
     client,
-    rangerClient.ontologyID(rangeKey),
+    rangerClient.resourceID(rangeKey),
   );
   await primePanel(wrapper, panelKey);
   const statuses: Status.NotificationSpec[] = [];
@@ -98,7 +103,7 @@ const renderOverview = async (
       await client.panels.dispatch(panelKey, [
         panel.setTabResource({
           key: tabKey,
-          resource: rangerClient.ontologyID(nextKey),
+          resource: rangerClient.resourceID(nextKey),
         }),
       ]);
     });
@@ -110,25 +115,25 @@ const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => 
   return await client.ranges.create({
     name: uniqueRangeName("child"),
     timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
-    parent: { key: parent.key },
+    parent: parent.key,
   });
 };
 
-const createSnapshot = async (rng: ranger.Range): Promise<ontology.ID> => {
+const createSnapshot = async (rng: ranger.Range): Promise<resource.ID> => {
   const project = await client.projects.create({
     name: uniqueName("proj"),
   });
-  const sch = await client.schematics.create(project.key, {
+  const sch = await client.schematics.create({
+    project: project.key,
     name: uniqueName("sch"),
   });
   const snap = await client.schematics.copy({
     key: sch.key,
     name: uniqueName("snap"),
     snapshot: true,
+    range: rng.key,
   });
-  const id = schematic.ontologyID(snap.key);
-  await client.ontology.addChildren(rangerClient.ontologyID(rng.key), id);
-  return id;
+  return schematic.resourceID(snap.key);
 };
 
 describe("range/overview/Overview", () => {
@@ -169,21 +174,39 @@ describe("range/overview/Overview", () => {
     const rng = await createTestRange(client);
     const snapID = await createSnapshot(rng);
     const { onSnapshotClick, statuses } = await renderOverview(rng.key);
-    const item = await screen.findByText((await client.ontology.retrieve(snapID)).name);
+    const item = await screen.findByText(
+      (await client.resources.retrieve(snapID)).name,
+    );
     fireEvent.click(item);
     await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
-    const [resource] = onSnapshotClick.mock.calls[0] as [ontology.Resource];
-    expect(resource.id.key).toBe(snapID.key);
+    const [clicked] = onSnapshotClick.mock.calls[0] as [resource.Resource];
+    expect(clicked.id.key).toBe(snapID.key);
     await act(async () => {});
     expect(statuses).not.toContainEqual(
       expect.objectContaining({ message: "Failed to open snapshot" }),
     );
   });
 
+  it("lists the task snapshots in the range", async () => {
+    const rng = await createTestRange(client);
+    const rack = await client.racks.create({ name: uniqueName("rack") });
+    const source = await rack.createTask({
+      name: uniqueName("tsk"),
+      type: "pagerduty_alert",
+      config: {},
+    });
+    const snap = await client.tasks.copy(source.key, uniqueName("snap"), true, rng.key);
+    const { onSnapshotClick } = await renderOverview(rng.key);
+    fireEvent.click(await screen.findByText(snap.name));
+    await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
+    const [clicked] = onSnapshotClick.mock.calls[0] as [resource.Resource];
+    expect(clicked.id).toEqual({ type: "task", key: snap.key });
+  });
+
   it("deletes a snapshot through its service after confirmation", async () => {
     const rng = await createTestRange(client);
     const snapID = await createSnapshot(rng);
-    const name = (await client.ontology.retrieve(snapID)).name;
+    const name = (await client.resources.retrieve(snapID)).name;
     const { onSnapshotDelete } = await renderOverview(rng.key);
     await screen.findByText(name);
     fireEvent.click(await waitFor(() => getIconButton(document.body, "delete")));
@@ -213,7 +236,7 @@ describe("range/overview tab", () => {
   });
 
   it("shows the restored range's details after retry", async () => {
-    const { restore } = Range.Overview.TABS[rangerClient.TYPE_ONTOLOGY_ID.type];
+    const { restore } = Range.Overview.TABS[rangerClient.TYPE_RESOURCE_ID.type];
     assert(restore != null);
     const rng = await createTestRange(client);
     const Probe = ({ resetErrorBoundary }: Errors.FallbackProps) => (
@@ -233,14 +256,14 @@ describe("range/overview tab", () => {
       name: uniqueName("proj"),
     });
     await act(async () => {
-      await restore({ client, project: project.key, resource: rng.ontologyID });
+      await restore({ client, project: project.key, resource: rng.resourceID });
     });
     fireEvent.click(screen.getByTestId("restore"));
     expect(await screen.findByDisplayValue(rng.name)).toBeTruthy();
   });
 
   it("restores a deleted range under its original key", async () => {
-    const { restore } = Range.Overview.TABS[rangerClient.TYPE_ONTOLOGY_ID.type];
+    const { restore } = Range.Overview.TABS[rangerClient.TYPE_RESOURCE_ID.type];
     assert(restore != null);
     const rng = await createTestRange(client);
     // Restore rebuilds from the corpse the cache holds, which exists only once
@@ -254,7 +277,7 @@ describe("range/overview tab", () => {
     const project = await client.projects.create({
       name: uniqueName("proj"),
     });
-    await restore({ client, project: project.key, resource: rng.ontologyID });
+    await restore({ client, project: project.key, resource: rng.resourceID });
 
     // The tab heals off the cache going live again, not off the create call.
     await waitFor(() =>
@@ -266,20 +289,19 @@ describe("range/overview tab", () => {
     const [restored] = await remote.ranges.retrieve([rng.key]);
     expect(restored.name).toEqual(rng.name);
     expect(restored.timeRange).toEqual(rng.timeRange);
-    // The tab chip and every tree view read the range through the ontology, not
-    // the range store.
-    const resource = await remote.ontology.retrieve(rng.ontologyID);
-    expect(resource.name).toEqual(rng.name);
+    // Name lookups read the range through the resource service, not the range store.
+    const named = await remote.resources.retrieve(rng.resourceID);
+    expect(named.name).toEqual(rng.name);
   });
 });
 
 describe("range/overview/ChildRanges permissions", () => {
   const READS = [
-    rangerClient.TYPE_ONTOLOGY_ID,
-    label.TYPE_ONTOLOGY_ID,
-    panel.TYPE_ONTOLOGY_ID,
-    project.TYPE_ONTOLOGY_ID,
-    schematic.TYPE_ONTOLOGY_ID,
+    rangerClient.TYPE_RESOURCE_ID,
+    label.TYPE_RESOURCE_ID,
+    panel.TYPE_RESOURCE_ID,
+    project.TYPE_RESOURCE_ID,
+    schematic.TYPE_RESOURCE_ID,
   ];
 
   const createSubject = async (grants: Grants) =>
@@ -295,14 +317,14 @@ describe("range/overview/ChildRanges permissions", () => {
   };
 
   it("should withhold the add button from a subject who cannot create ranges", async () => {
-    await renderAs(await createSubject({ update: [rangerClient.TYPE_ONTOLOGY_ID] }));
+    await renderAs(await createSubject({ update: [rangerClient.TYPE_RESOURCE_ID] }));
     const header = screen.getByText("Child ranges").closest("header");
     if (header == null) throw new Error("no child ranges header");
     expect(queryIconButton(header, "add")).toBeNull();
   });
 
   it("should offer the add button to a subject who may create ranges", async () => {
-    await renderAs(await createSubject({ create: [rangerClient.TYPE_ONTOLOGY_ID] }));
+    await renderAs(await createSubject({ create: [rangerClient.TYPE_RESOURCE_ID] }));
     await waitFor(() => expect(getHeaderIconButton("Child ranges")).toBeTruthy());
   });
 });

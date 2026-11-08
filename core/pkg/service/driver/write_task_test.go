@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -93,13 +94,16 @@ var _ = Describe("WriteTask", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		t = task.Task{Key: uuid.New(), Name: "write-task-test", Type: "mock"}
+		createTask(ctx, t)
 		sink = &recordingSink{health: make(chan error, 1)}
 		cmdCh = channel.Channel{
 			Name:     UniqueChannelName(),
 			DataType: telem.Float32T,
 			Virtual:  true,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &cmdCh)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &cmdCh)
+		})).To(Succeed())
 	})
 
 	open := func() *driver.WriteTask {
@@ -117,7 +121,7 @@ var _ = Describe("WriteTask", func() {
 
 	retrieve := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 	}
 
 	// command writes value to the command channel until check passes, because a

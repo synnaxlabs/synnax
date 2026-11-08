@@ -26,8 +26,8 @@ import (
 // can appear or disappear at runtime, so they cannot be snapshotted into the ambient
 // prelude at analysis time.
 type symbolResolver struct {
-	svc *Service
-	tx  gorp.Tx
+	svc  *Service
+	snap gorp.Snapshot
 }
 
 var _ symbol.Resolver = (*symbolResolver)(nil)
@@ -55,7 +55,7 @@ func (r *symbolResolver) Resolve(
 	} else {
 		q = q.Where(MatchNames(name))
 	}
-	if err = q.Exec(ctx, r.tx); err != nil {
+	if err = q.Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
 	return toSymbol(ch), nil
@@ -70,7 +70,7 @@ func (r *symbolResolver) Search(
 	if err := r.svc.NewRetrieve().
 		Where(MatchInternal(false)).
 		Search(name).
-		Entries(&results).Exec(ctx, r.tx); err != nil {
+		Entries(&results).Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
 	return lo.Map(results, func(item Channel, _ int) *symbol.Symbol {

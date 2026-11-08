@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  NotFoundError,
-  type ontology,
-  panel,
-  project,
-  query,
-} from "@synnaxlabs/client";
+import { NotFoundError, panel, query, type resource } from "@synnaxlabs/client";
 import { Access, type Flux, Panel, Synnax } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 
@@ -136,7 +130,7 @@ export const useOpenTabs = (): OpenTabs => {
     createPanel({
       name: "New panel",
       root: { variant: "leaf", tabs: params.map((p) => panel.tabZ.parse({ ...p })) },
-      parent: project.ontologyID(getSelectedProject()),
+      project: getSelectedProject(),
     });
   };
 };
@@ -149,11 +143,11 @@ export const useOpenTab = (): OpenTab => {
 };
 
 // The panel a gesture in this window acts on: the scoped one, else the selected one.
-const useActiveID = (): ontology.ID | null => {
+const useActiveID = (): resource.ID | null => {
   const scoped = Panel.useOptionalKey();
   const selected = Session.Panel.useSelectSelected();
   const key = scoped ?? selected;
-  return key != null ? panel.ontologyID(key) : null;
+  return key != null ? panel.resourceID(key) : null;
 };
 
 /**
@@ -165,13 +159,13 @@ export const useCanOpenTab = (): boolean => {
   return Access.useGranted(
     id != null
       ? { objects: id, action: "update" }
-      : { objects: panel.TYPE_ONTOLOGY_ID, action: "create" },
+      : { objects: panel.TYPE_RESOURCE_ID, action: "create" },
   );
 };
 
 /** Reports whether this window can restructure the panel it is acting on. */
 export const useCanEditActive = (): boolean =>
   Access.useGranted({
-    objects: useActiveID() ?? panel.TYPE_ONTOLOGY_ID,
+    objects: useActiveID() ?? panel.TYPE_RESOURCE_ID,
     action: "update",
   });

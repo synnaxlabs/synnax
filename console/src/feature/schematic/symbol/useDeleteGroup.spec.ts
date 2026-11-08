@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, NotFoundError, type schematic } from "@synnaxlabs/client";
+import { type group, NotFoundError, type schematic } from "@synnaxlabs/client";
 import { errors } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -20,9 +20,8 @@ import { uniqueName } from "@/testutil";
 const createSymbolGroup = async (
   symbolNames: string[],
 ): Promise<{ grp: group.Group; symbols: schematic.symbol.Symbol[] }> => {
-  const root = await client.schematics.symbols.retrieveGroup();
   const grp = await client.groups.create({
-    parent: group.ontologyID(root.key),
+    scope: "schematic_symbol",
     name: uniqueName("delete_grp"),
   });
   const symbols: schematic.symbol.Symbol[] = [];
@@ -30,7 +29,7 @@ const createSymbolGroup = async (
     symbols.push(
       await client.schematics.symbols.create({
         ...createSymbolPayload(name),
-        parent: group.ontologyID(grp.key),
+        group: grp.key,
       }),
     );
   return { grp, symbols };
@@ -38,7 +37,7 @@ const createSymbolGroup = async (
 
 const groupExists = async (key: group.Key): Promise<boolean> => {
   try {
-    await client.ontology.retrieve(group.ontologyID(key));
+    await client.groups.retrieve(key);
     return true;
   } catch (e) {
     if (NotFoundError.matches(e)) return false;
@@ -57,9 +56,7 @@ describe("Schematic.Symbol.useDeleteGroup", () => {
     fireEvent.click(findButton("Delete"));
     await waitFor(async () => expect(await groupExists(grp.key)).toBe(false));
     const keys = symbols.map((s) => s.key);
-    expect(
-      await client.schematics.symbols.retrieve({ where: { key: { in: keys } } }),
-    ).toEqual([]);
+    expect(await client.schematics.symbols.retrieve({ key: keys })).toEqual([]);
   });
 
   it("keeps the group when the deletion is cancelled", async () => {

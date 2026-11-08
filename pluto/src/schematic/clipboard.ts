@@ -64,23 +64,11 @@ export const useClipboard = ({
       dispatch(actions);
       if (actions.length > 0) onPaste?.(Object.values(remap));
     },
-    remove: ({ nodes, edges }) => {
-      // removeNode does not cascade, so cut unselected connected edges too;
-      // they would otherwise persist as invisible dangling edges.
-      const cut = new Set(nodes);
-      const cached = client?.schematics.getCached(key);
-      const connected = query.isLive(cached)
-        ? cached.edges
-            .filter((e) => cut.has(e.source.node) || cut.has(e.target.node))
-            .map((e) => e.key)
-        : [];
+    remove: ({ nodes, edges }) =>
       dispatch([
         ...nodes.map((key) => schematic.removeNode({ key })),
-        ...[...new Set([...edges, ...connected])].map((key) =>
-          schematic.removeEdge({ key }),
-        ),
-      ]);
-    },
+        ...edges.map((key) => schematic.removeEdge({ key })),
+      ]),
   };
   return Diagram.useClipboard({ adapter, selected, onCut, container });
 };

@@ -18,16 +18,11 @@ import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/rack/pb";
 
-// StatusDetails contains rack-specific status details.
-message StatusDetails {
-  // rack is the key of the rack this status pertains to.
-  uint32 rack = 1;
-}
-
 // Rack is a collection container for hardware devices and tasks running on a specific
 // Core. Racks are the integration point between the Core and physical hardware through
 // the Driver.
 message Rack {
+  reserved 8;
   // key is the composite identifier for this rack.
   uint32 key = 1;
   // name is a human-readable name for the rack.
@@ -42,6 +37,8 @@ message Rack {
   // version is the version of the Driver that runs the rack, written at each connect.
   // Absent until a Driver reports it.
   optional string version = 6;
+  // group is the group the rack sits in, if any.
+  optional string group = 7;
 }
 message WhereList {
   repeated Where values = 1;
@@ -67,6 +64,9 @@ message StringContains {
   // any matches an array that holds an element of any.
   StringList any = 1;
 }
+message GroupKeyList {
+  repeated string values = 1;
+}
 
 // Where is a filter that selects racks.
 message Where {
@@ -84,7 +84,8 @@ message Where {
   optional .x.filter.pb.Bool embedded = 6;
   // integrations selects by integrations.
   optional StringContains integrations = 7;
-  // host_is_node matches racks on the Core that serves the request, or racks on other
-  // Cores when false.
-  optional bool host_is_node = 8;
+  // groups matches the racks in any of the given groups.
+  GroupKeyList groups = 8;
+  // grouped matches the racks in a group, or in no group when false.
+  optional bool grouped = 9;
 }
