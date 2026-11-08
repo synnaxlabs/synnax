@@ -50,7 +50,7 @@ describe("Label Commands permissions", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(label.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(label.TYPE_RESOURCE_ID),
       }),
       { client: await roles.get("Viewer") },
     );

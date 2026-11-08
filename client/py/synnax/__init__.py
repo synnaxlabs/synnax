@@ -23,6 +23,7 @@ from synnax import (
     node,
     opcua,
     pagerduty,
+    resource,
     status,
 )
 from synnax.access.policy import Policy
@@ -119,8 +120,7 @@ from synnax.telem import (
 from synnax.timing import Loop, Timer, poll, sleep
 from synnax.user.payload import User
 from synnax.view import View
-from x import color
-from x import filter as filter
+from x import color, filter as filter
 from x.color import Color
 from x.exceptions import ContiguityError, Error
 
@@ -232,10 +232,10 @@ __all__ = [
     "mqtt",
     "ni",
     "node",
-    "ontology",
     "opcua",
     "pagerduty",
     "poll",
+    "resource",
     "sleep",
     "status",
 ]

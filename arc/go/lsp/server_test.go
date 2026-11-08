@@ -10,6 +10,7 @@
 package lsp_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -490,6 +491,25 @@ var _ = Describe("External Change Notifications", func() {
 	)
 
 	It(
+		"Should republish diagnostics after the context of the change ends",
+		func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := my_channel\n}")
+			Expect(client.Diagnostics()).To(HaveLen(1))
+			resolver.Add(symbol.Symbol{
+				Name: "my_channel",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+			})
+			changeCtx, cancel := context.WithCancel(ctx)
+			cancel()
+			observer.Notify(changeCtx, struct{}{})
+			Eventually(
+				func() []protocol.Diagnostic { return client.Diagnostics() },
+			).Should(BeEmpty())
+		},
+	)
+
+	It(
 		"Should refresh semantic tokens when external state changes",
 		func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := my_channel\n}")
@@ -567,6 +587,7 @@ var _ = Describe("External Change Notifications", func() {
 			wg.Add(workers)
 			for range workers {
 				go func() {
+					defer GinkgoRecover()
 					defer wg.Done()
 					params := &protocol.PrepareRenameParams{
 						TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -577,9 +598,9 @@ var _ = Describe("External Change Notifications", func() {
 						case <-done:
 							return
 						default:
-							// Errors are irrelevant here; the assertion is the race
-							// detector observing no concurrent access to the IR.
-							_, _ = server.PrepareRename(ctx, params)
+							// The race detector checks that no query reads the IR as it
+							// changes.
+							MustSucceed(server.PrepareRename(ctx, params))
 						}
 					}
 				}()

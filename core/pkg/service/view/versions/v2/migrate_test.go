@@ -15,8 +15,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	rangerv1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	rangerv2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v2"
 	filter "github.com/synnaxlabs/x/filter/versions/v0"
@@ -80,11 +81,11 @@ var _ = Describe("Migration", func() {
 		)
 		Expect(out[ranges.Key]).To(Equal(v2.View{Variant: v2.RangeView{
 			Base:  ranges,
-			Where: &rangerv1.Where{Labels: []uuid.UUID{label}},
+			Where: &rangerv2.Where{Labels: []uuid.UUID{label}},
 		}}))
 		Expect(out[statuses.Key]).To(Equal(v2.View{Variant: v2.StatusView{
 			Base: statuses,
-			Where: &statusv1.Where{
+			Where: &statusv2.Where{
 				Labels: []uuid.UUID{label},
 				Variant: &filter.Set[statusv1.Variant]{In: []statusv1.Variant{
 					statusv1.VariantError,
@@ -94,7 +95,7 @@ var _ = Describe("Migration", func() {
 		}}))
 		Expect(out[variants.Key]).To(Equal(v2.View{Variant: v2.StatusView{
 			Base: variants,
-			Where: &statusv1.Where{Variant: &filter.Set[statusv1.Variant]{
+			Where: &statusv2.Where{Variant: &filter.Set[statusv1.Variant]{
 				In: []statusv1.Variant{statusv1.VariantError},
 			}},
 		}}))

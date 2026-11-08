@@ -167,6 +167,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14' && !inputs.lowest
         run: uv run ruff check .
 
+      - name: Check docstrings
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14' && !inputs.lowest
+        run: uv run python "$GITHUB_WORKSPACE/scripts/check_docstrings_py.py"
+
       - name: Check formatting
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14' && !inputs.lowest
         run: |

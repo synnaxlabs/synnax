@@ -16,7 +16,6 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -30,33 +29,15 @@ import (
 // Config is the configuration for opening the telemetry relay. See its fields for more
 // information.
 type Config struct {
-	// Transport is the network transport used to move telemetry streams. This is used
-	// to both send telemetry streams from the host node to peer nodes, and to stream
-	// telemetry from peer nodes to the host node.
-	//
-	// Remote nodes are one of the three available data sources for the relay. Data for
-	// channels whose leaseholder is not the host node will be streamed from remote
-	// nodes.
-	//
-	// [REQUIRED]
-	Transport Transport
-	// HostResolver is used to retrieve information about the host node.
-	//
-	// [REQUIRED]
-	HostResolver cluster.HostResolver
-	// TS is the underlying time-series database engine that serves as one of the three
-	// main data sources for the relay.
-	//
-	// This is the second of the three available data sources for the relay. Data for
-	// channels whose leaseholder is the host node will be streamed from the time-series
-	// engine's streaming mechanism.
+	// TS is the underlying time-series database engine. The relay streams stored
+	// channels from it.
 	//
 	// [REQUIRED]
 	TS *ts.DB
 	// FreeWrites is the pipeline for moving data for free virtual channels. Free
-	// virtual channels are not leased to any node and their data is not stored in the
-	// cluster; their writes are propagated straight through the relay. This is mostly
-	// used for signaling changes in cluster meta-data.
+	// virtual channels are not leased to any node and their data is not stored; their
+	// writes are propagated straight through the relay. Most free channels carry
+	// metadata change notices.
 	//
 	// [REQUIRED]
 	FreeWrites confluence.Outlet[Response]
@@ -99,8 +80,6 @@ var (
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Transport = override.Nil(c.Transport, other.Transport)
-	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
 	c.StreamerBufferSize = override.Numeric(
@@ -118,8 +97,6 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("relay")
-	v.NotNil("transport", c.Transport)
-	v.NotNil("host_resolver", c.HostResolver)
 	v.NotNil("ts", c.TS)
 	v.NotNil("free_writes", c.FreeWrites)
 	v.Positive("streamer_buffer_size", c.StreamerBufferSize)
@@ -148,7 +125,7 @@ func Open(configs ...Config) (*Relay, error) {
 
 	tpr := newTapper(cfg)
 	demands := confluence.NewStream[demand](cfg.DemandBufferSize)
-	demands.SetOutletAddress("peer_demands")
+	demands.SetOutletAddress("demands")
 	demands.Acquire(1)
 	tpr.InFrom(demands)
 	r.demands = demands
@@ -176,8 +153,6 @@ func Open(configs ...Config) (*Relay, error) {
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
 	)
-
-	startServer(cfg, r.NewStreamer)
 
 	return r, nil
 }

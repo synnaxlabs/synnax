@@ -11,18 +11,18 @@
 
 package v2
 
-import v1 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
+import (
+	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+)
 
 // Key is a composite identifier for a rack. The high 16 bits contain the Core key, and
 // the low 16 bits contain the local sequential key. A rack is leased to the Core named
 // in its high bits, so writes route to the Core running its Driver.
 type Key = v1.Key
 
-// StatusDetails contains rack-specific status details.
-type StatusDetails = v1.StatusDetails
-
 // Status is rack-specific status information including operational state.
-type Status = v1.Status
+type Status = status.Status[struct{}]
 
 // Rack is a collection container for hardware devices and tasks running on a specific
 // Core. Racks are the integration point between the Core and physical hardware through

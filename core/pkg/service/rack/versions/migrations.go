@@ -27,6 +27,11 @@ func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 	return slices.Concat(
 		[]gorp.Migration{v0.NormalizeKeys},
 		v0.NewMigrations(cfg),
-		[]gorp.Migration{v1.Migration, v2.Migration, v3.Migration},
+		[]gorp.Migration{
+			v1.Migration,
+			v2.Migration,
+			v3.Migration,
+			v3.MembersMigration,
+		},
 	)
 }

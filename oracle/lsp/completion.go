@@ -164,9 +164,9 @@ var (
 			Detail: protocol.NewOptional("Retrieve requests can filter on the field"),
 		},
 		{
-			Label:  "ontology",
+			Label:  "resource",
 			Kind:   protocol.CompletionItemKindProperty,
-			Detail: protocol.NewOptional("Ontology resource type"),
+			Detail: protocol.NewOptional("Resource type"),
 		},
 		{
 			Label:  "create",
@@ -187,6 +187,11 @@ var (
 			Label:  "index",
 			Kind:   protocol.CompletionItemKindProperty,
 			Detail: protocol.NewOptional("Index configuration for the field"),
+		},
+		{
+			Label:  "ref",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("The field holds the keys of other resources"),
 		},
 		{
 			Label:  "response",
@@ -302,11 +307,11 @@ var (
 		},
 	)
 
-	ontologyExpressionCompletions = []protocol.CompletionItem{
+	resourceExpressionCompletions = []protocol.CompletionItem{
 		{
 			Label:  "type",
 			Kind:   protocol.CompletionItemKindValue,
-			Detail: protocol.NewOptional("Ontology type name"),
+			Detail: protocol.NewOptional("Resource type name"),
 		},
 	}
 
@@ -376,8 +381,8 @@ func getCompletionsForContext(linePrefix string) []protocol.CompletionItem {
 			return validateExpressionCompletions
 		case strings.HasPrefix(rest, "ts "):
 			return tsExpressionCompletions
-		case strings.HasPrefix(rest, "ontology "):
-			return ontologyExpressionCompletions
+		case strings.HasPrefix(rest, "resource "):
+			return resourceExpressionCompletions
 		case strings.HasPrefix(rest, "go "):
 			return goExpressionCompletions
 		case strings.HasPrefix(rest, "py "),

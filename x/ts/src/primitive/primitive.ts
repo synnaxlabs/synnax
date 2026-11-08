@@ -57,7 +57,9 @@ export interface Stringer {
   toString: () => string;
 }
 
-/** @returns true if the value implements primitive.Stringer, otherwise returns false. */
+/**
+ * @returns true if the value implements primitive.Stringer, otherwise returns false.
+ */
 export const isStringer = (value: unknown): boolean =>
   value != null && typeof value === "object" && "toString" in value;
 
@@ -75,7 +77,9 @@ export interface Hashable {
   hash: () => string;
 }
 
-/** @returns true if the value implements primitive.Hashable, otherwise returns false. */
+/**
+ * @returns true if the value implements primitive.Hashable, otherwise returns false.
+ */
 export const isHashable = (value: unknown): value is Hashable =>
   value != null &&
   typeof value === "object" &&

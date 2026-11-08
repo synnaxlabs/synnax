@@ -341,6 +341,7 @@ class _TestConductor:
                 "core": t.core,
                 "error_message": t.error_message,
                 "skip_reason": t.skip_reason,
+                "metrics": dict(t.metrics),
                 "bundle_dir": (
                     os.path.relpath(t.bundle_dir, str(self.run_dir))
                     if t.bundle_dir

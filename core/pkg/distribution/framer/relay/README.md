@@ -2,8 +2,8 @@
 
 ## 0 - Introduction
 
-The distribution layer handles the real-time movement of telemetry throughout a Synnax
-cluster. Specifically, it taps into the Synnax write pipeline, taking written frames and
+The distribution layer handles the real-time movement of telemetry through a Core.
+Specifically, it taps into the Synnax write pipeline, taking written frames and
 forwarding them to a set of subscribers. As with the write and iteration pipelines, the
 relay relies heavily on the use of goroutines and channels to move telemetry in an
 efficient manner.
@@ -19,7 +19,7 @@ subscribers smoothly disconnect and reconnect.
     <img src="./img/relay.png" width="80%px" style="max-width: 800px">
 </p>
 
-The relay has five main components:
+The relay has four main components:
 
 ### 1.0 - The streamer
 
@@ -45,31 +45,24 @@ When a streamer is closed, it can also clear its demands.
 
 ### 1.2 - The tap
 
-The Tap (`tap`) comes in two flavors: a gateway tap and a peer tap. The gateway tap taps
-into the hosts storage layer relay, while the peer tap streams data from a peers relay.
-Taps are exclusively managed by a tapper. Taps receive requests from the tapper
-containing a list of channel keys they should stream, and they send responses containing
-received frames of telemetry. These frames are NOT sent back to the tapper, and are
-instead forwarded to the delta.
+The Tap (`tap`) comes in two flavors: a storage tap and a free write tap. The storage
+tap taps into the storage layer relay, while the free write tap filters the writes to
+free channels (see 1.4). Taps are exclusively managed by a tapper. Taps receive requests
+from the tapper containing a list of channel keys they should stream, and they send
+responses containing received frames of telemetry. These frames are NOT sent back to the
+tapper, and are instead forwarded to the delta.
 
 ### 1.3 - The dynamic delta
 
 The dynamic delta is used to multiply responses received from taps to the streamers that
 requested them. It is dynamic because streamers can be added or removed at any time.
 
-### 1.4 - The server
-
-The final component is the `server`, which acts as the end of a peer tap existing on the
-peer node. When a new peer tap is opened, the server opens a new streamer onto its own
-relay, and forwards the frames it receives to the peer tap on the gateway. Through this,
-any node can stream data from any other node.
-
-### 1.5 - An additional note on free writes
+### 1.4 - An additional note on free writes
 
 Synnax v0.10 introduced a new channel type called a "Free Channel". Free channels are
 not stored on disk, and have no leaseholder. This means that we can't tap into them in a
-traditional manner. Instead, we directly expose the write inlet to the delta as part of
-the relay (`Relay.Writes`). This lets the distribution layer write pipeline directly
+traditional manner. Instead, the relay config takes the outlet of the free write
+pipeline (`Config.FreeWrites`). This lets the distribution layer write pipeline directly
 write values for free channels to the delta, which then forwards them to the streamers.
 
 ## 2 - Component life cycles

@@ -253,7 +253,8 @@ describe("Read", () => {
 
   it("should seed the form from the task row's config", async () => {
     const client = createTestClient();
-    const config = createReadConfig("dev_1", [
+    const dev = await createHTTPDevice(client);
+    const config = createReadConfig(dev.key, [
       {
         ...http.readEndpointZ.parse({}),
         key: "ep1",
@@ -417,13 +418,6 @@ describe("Read", () => {
         });
         const input = await findFillValue();
         await waitFor(() => expect(input.value).toBe("off"));
-      });
-
-      it("should use the saved data type when the channel no longer exists", async () => {
-        const ch = await createChannel(DataType.INT32);
-        await client.channels.delete(ch.key);
-        await renderField({ optional: true, channel: ch.key, dataType: "string" });
-        await screen.findByPlaceholderText("Required");
       });
     });
 

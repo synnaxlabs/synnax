@@ -26,8 +26,6 @@ type Entry[K Key] interface {
 	// GorpKey returns a unique key for the entry. gorp.DB will not raise an error if
 	// the key is a duplicate. Key must be serializable by encoder and decoder.
 	GorpKey() K
-	// SetOptions returns a slice of options passed to kv.db.set.
-	SetOptions() []any
 }
 
 // Entries is a query option used to bind entities from a retrieve query or

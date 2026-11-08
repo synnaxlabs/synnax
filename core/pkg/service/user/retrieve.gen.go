@@ -15,13 +15,19 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 )
+
+// tableName names the User table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "user"
 
 // indexes bundles the per-Service secondary indexes registered on the
 // User table. Each index is constructed via newIndexes and threaded
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	role   *gorp.KeyReference[Key, User, role.Key]
 	search *gorp.SearchIndex[Key, User]
 }
 
@@ -30,6 +36,15 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		role: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, User, role.Key]{
+			Name:     "role",
+			Table:    "role",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Place,
+			Targets: func(e *User) []role.Key {
+				return []role.Key{e.Role}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, User](
 			"search",
 			func(e *User) []string {
@@ -44,6 +59,14 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, User] {
 	return []gorp.Index[Key, User]{
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, User] {
+	return []gorp.Reference[Key, User]{
+		i.role,
 	}
 }
 
@@ -117,6 +140,15 @@ func MatchRootUser(v bool) Filter {
 	}
 }
 
+// MatchRoles returns a filter for users
+// whose Role matches any of the provided
+// values.
+func MatchRoles(vals ...role.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, User] {
+		return r.indexes.role.Filter(vals...)
+	}
+}
+
 // Where applies the provided filter to the query, binding it to the Retrieve
 // so service-bound filters can read from r.indexes, r.label, r.hostProvider,
 // etc. To compose multiple filters, chain Where calls or pass a combined
@@ -158,17 +190,19 @@ func (r Retrieve) SkipMissingKeys() Retrieve {
 	return r
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of users matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of users in snap that match
+// the query. It panics when snap is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any users match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exists checks whether any users in snap match the
+// query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }

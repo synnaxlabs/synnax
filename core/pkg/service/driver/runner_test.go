@@ -17,68 +17,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 )
 
 var errCommit = errors.New("commit failed")
 
-// uncommittableDB is a kv.DB whose transactions fail to commit.
-type uncommittableDB struct{ kv.DB }
-
-func (d uncommittableDB) OpenTx() kv.Tx { return uncommittableTx{Tx: d.DB.OpenTx()} }
-
-type uncommittableTx struct{ kv.Tx }
-
-func (uncommittableTx) Commit(context.Context, ...any) error { return errCommit }
-
-// cancelingDB is a kv.DB whose transactions call cancel once they commit.
-type cancelingDB struct {
-	kv.DB
-	cancel context.CancelFunc
-}
-
-func (d cancelingDB) OpenTx() kv.Tx { return cancelingTx{Tx: d.DB.OpenTx(), db: d} }
-
-type cancelingTx struct {
-	kv.Tx
-	db cancelingDB
-}
-
-func (t cancelingTx) Commit(ctx context.Context, opts ...any) error {
-	err := t.Tx.Commit(ctx, opts...)
-	t.db.cancel()
-	return err
-}
-
-// gatedDB is a kv.DB that, once gated, holds the next commit until release closes.
-type gatedDB struct {
-	kv.DB
-	gated   atomic.Bool
-	held    chan struct{}
-	release chan struct{}
-}
-
-func (d *gatedDB) OpenTx() kv.Tx { return gatedTx{Tx: d.DB.OpenTx(), db: d} }
-
-type gatedTx struct {
-	kv.Tx
-	db *gatedDB
-}
-
-func (t gatedTx) Commit(ctx context.Context, opts ...any) error {
-	if t.db.gated.CompareAndSwap(true, false) {
-		close(t.db.held)
-		<-t.db.release
-	}
-	return t.Tx.Commit(ctx, opts...)
-}
+// refuse fails the commit it intercepts.
+func refuse(func() error) error { return errCommit }
 
 var _ = Describe("Runner", func() {
 	var (
@@ -91,15 +42,16 @@ var _ = Describe("Runner", func() {
 		return runErr
 	}
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		t = task.Task{Key: uuid.New(), Name: "runner-test", Type: "mock"}
+		createTask(ctx, t)
 		opened, runErr = 0, nil
 	})
 
-	openOn := func(statusDB *gorp.DB, run func(context.Context) error) *driver.Runner {
+	open := func(run func(context.Context) error) *driver.Runner {
 		GinkgoHelper()
 		r := MustSucceed(driver.NewRunner(driver.RunnerConfig{
-			DB:     statusDB,
+			DB:     db,
 			Status: statusSvc,
 			Task:   t,
 			Open: func(context.Context) (func(context.Context) error, error) {
@@ -110,14 +62,10 @@ var _ = Describe("Runner", func() {
 		DeferCleanup(func() { Expect(r.Stop(false)).To(Succeed()) })
 		return r
 	}
-	open := func(run func(context.Context) error) *driver.Runner {
-		GinkgoHelper()
-		return openOn(db, run)
-	}
 
 	retrieve := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 	}
 
 	Describe("NewRunner", func() {
@@ -150,14 +98,14 @@ var _ = Describe("Runner", func() {
 			"Should stop the run when the running status cannot be written",
 			func(ctx SpecContext) {
 				ended := make(chan struct{}, 2)
-				unwritable := gorp.Wrap(uncommittableDB{DB: db.KV()})
-				r := openOn(unwritable, func(ctx context.Context) error {
+				r := open(func(ctx context.Context) error {
 					defer func() { ended <- struct{}{} }()
 					return waitRun(ctx)
 				})
-				Expect(r.Start(ctx, "cmd-1")).To(MatchError(errCommit))
+				refuseCtx := hookkv.WithHook(ctx, refuse)
+				Expect(r.Start(refuseCtx, "cmd-1")).To(MatchError(errCommit))
 				Eventually(ended).Should(Receive())
-				Expect(r.Start(ctx, "cmd-2")).To(MatchError(errCommit))
+				Expect(r.Start(refuseCtx, "cmd-2")).To(MatchError(errCommit))
 				Expect(opened).To(Equal(2))
 			},
 		)
@@ -203,8 +151,13 @@ var _ = Describe("Runner", func() {
 		It("Should return no error from Exec for a start answered before ctx ended",
 			func(ctx SpecContext) {
 				cmdCtx, cancel := context.WithCancel(ctx)
+				cmdCtx = hookkv.WithHook(cmdCtx, func(commit func() error) error {
+					err := commit()
+					cancel()
+					return err
+				})
 				r := MustSucceed(driver.NewRunner(driver.RunnerConfig{
-					DB:     gorp.Wrap(cancelingDB{DB: db.KV(), cancel: cancel}),
+					DB:     db,
 					Status: statusSvc,
 					Task:   t,
 					Open: func(context.Context) (func(context.Context) error, error) {
@@ -223,10 +176,11 @@ var _ = Describe("Runner", func() {
 		DescribeTable(
 			"Should return the error from Exec for a command it could not answer",
 			func(ctx SpecContext, cmdType string) {
-				unwritable := gorp.Wrap(uncommittableDB{DB: db.KV()})
-				r := openOn(unwritable, waitRun)
-				Expect(r.Exec(ctx, task.Command{Type: cmdType, Key: "cmd-1"})).
-					To(MatchError(errCommit))
+				r := open(waitRun)
+				Expect(r.Exec(
+					hookkv.WithHook(ctx, refuse),
+					task.Command{Type: cmdType, Key: "cmd-1"},
+				)).To(MatchError(errCommit))
 			},
 			Entry("start", "start"),
 			Entry("stop", "stop"),
@@ -269,14 +223,9 @@ var _ = Describe("Runner", func() {
 
 		It("Should report a start as running after the status of a run that ended",
 			func(ctx SpecContext) {
-				gated := &gatedDB{
-					DB:      db.KV(),
-					held:    make(chan struct{}),
-					release: make(chan struct{}),
-				}
 				fail := make(chan struct{})
 				var runs atomic.Int32
-				r := openOn(gorp.Wrap(gated), func(ctx context.Context) error {
+				r := open(func(ctx context.Context) error {
 					if runs.Add(1) > 1 {
 						return waitRun(ctx)
 					}
@@ -289,12 +238,16 @@ var _ = Describe("Runner", func() {
 				})
 				// Cleanup runs in reverse, so a failed spec opens the gate before the
 				// stop waits on the run that holds it.
-				release := sync.OnceFunc(func() { close(gated.release) })
+				held, gate := make(chan struct{}), make(chan struct{})
+				release := sync.OnceFunc(func() { close(gate) })
 				DeferCleanup(release)
 				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
-				gated.gated.Store(true)
+				DeferCleanup(hookedKV.HookKey(
+					[]byte(retrieve(ctx).Key),
+					hookkv.Hold(held, gate),
+				))
 				close(fail)
-				Eventually(gated.held).Should(BeClosed())
+				Eventually(held).Should(BeClosed())
 				started := make(chan error, 1)
 				go func() { started <- r.Start(ctx, "cmd-2") }()
 				Consistently(started).ShouldNot(Receive())
@@ -316,13 +269,8 @@ var _ = Describe("Runner", func() {
 					release func(),
 				) {
 					GinkgoHelper()
-					gated := &gatedDB{
-						DB:      db.KV(),
-						held:    make(chan struct{}),
-						release: make(chan struct{}),
-					}
 					fail, ended := make(chan struct{}), make(chan struct{})
-					r = openOn(gorp.Wrap(gated), func(ctx context.Context) error {
+					r = open(func(ctx context.Context) error {
 						defer close(ended)
 						select {
 						case <-fail:
@@ -333,13 +281,17 @@ var _ = Describe("Runner", func() {
 					})
 					// Cleanup runs in reverse, so a failed spec opens the gate before
 					// the stop waits on the start that holds it.
-					release = sync.OnceFunc(func() { close(gated.release) })
+					held, gate := make(chan struct{}), make(chan struct{})
+					release = sync.OnceFunc(func() { close(gate) })
 					DeferCleanup(release)
 					Expect(r.Start(ctx, "cmd-1")).To(Succeed())
-					gated.gated.Store(true)
+					DeferCleanup(hookedKV.HookKey(
+						[]byte(retrieve(ctx).Key),
+						hookkv.Hold(held, gate),
+					))
 					started = make(chan error, 1)
 					go func() { started <- r.Start(ctx, "cmd-2") }()
-					Eventually(gated.held).Should(BeClosed())
+					Eventually(held).Should(BeClosed())
 					close(fail)
 					Eventually(ended).Should(BeClosed())
 					return r, started, release
