@@ -61,11 +61,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Alias:   aliasSvc,
 	}))
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
+		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
 })
 
-// grantOn grants the actions on the objects to the subject through a new role.
+// grantOn grants the actions on the objects to the subject.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,

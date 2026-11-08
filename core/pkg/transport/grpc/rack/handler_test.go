@@ -17,12 +17,35 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/rack/pb"
 	svcrack "github.com/synnaxlabs/synnax/pkg/service/rack"
+	rackpb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
 	grpcrack "github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
+
+var _ = Describe("Create", func() {
+	It("Should accept a rack with no role, as the C++ client sends", func(
+		ctx SpecContext,
+	) {
+		var received rack.CreateRequest
+		transport.RackCreate.BindHandler(func(
+			_ context.Context,
+			req rack.CreateRequest,
+		) (rack.CreateResponse, error) {
+			received = req
+			return rack.CreateResponse{}, nil
+		})
+		MustSucceed(grpcrack.NewRackCreateServiceClient(conn).Exec(
+			ctx,
+			&grpcrack.CreateRequest{
+				Racks: []*rackpb.Rack{{Key: 65537, Name: "Driver rack"}},
+			},
+		))
+		Expect(received.Racks).To(Equal([]rack.Rack{{Key: 65537, Name: "Driver rack"}}))
+	})
+})
 
 var _ = Describe("Retrieve", func() {
 	var (

@@ -326,6 +326,11 @@ private:
     /// go down.
     [[nodiscard]] bool refuses(uint16_t pos, uint16_t state) const;
 
+    /// @brief marks a slave lost when it is in EC_STATE_NONE after a second read, and
+    /// clears the mark when it answers. A state read that gets no reply sets every
+    /// slave to EC_STATE_NONE.
+    void update_lost(uint16_t pos);
+
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
     /// slave that lost power. A slave in SAFE-OP whose clock restore failed goes back
