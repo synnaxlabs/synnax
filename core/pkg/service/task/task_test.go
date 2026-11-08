@@ -793,6 +793,42 @@ var _ = Describe("Task", Ordered, func() {
 			))
 		})
 
+		It("Should set a field of a list entry by its key", func(ctx SpecContext) {
+			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"config", "alerts", "a", "status"}, "st-b"),
+			}))
+			Expect(retrieve(ctx, alerts.Key).Config["alerts"]).To(HaveExactElements(
+				SatisfyAll(
+					HaveKeyWithValue("key", "a"),
+					HaveKeyWithValue("status", "st-b"),
+				),
+			))
+		})
+
+		It("Should do nothing for a path through a missing list entry", func(
+			ctx SpecContext,
+		) {
+			computed := MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"config", "alerts", "z", "status"}, "st-b"),
+			}))
+			Expect(computed).To(Equal([]task.Action{
+				set([]string{"config_hash"}, alerts.ConfigHash),
+			}))
+			expectUnchanged(ctx)
+		})
+
+		It("Should leave the config and its hash alone for a rename", func(
+			ctx SpecContext,
+		) {
+			computed := MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"name"}, "Renamed"),
+			}))
+			Expect(computed).To(BeEmpty())
+			res := retrieve(ctx, alerts.Key)
+			Expect(res.Config).To(Equal(alerts.Config))
+			Expect(res.ConfigHash).To(Equal(alerts.ConfigHash))
+		})
+
 		It("Should rename the task and its status", func(ctx SpecContext) {
 			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
@@ -848,7 +884,7 @@ var _ = Describe("Task", Ordered, func() {
 				set([]string{"config", "routng_key"}, "rk-2"),
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(`unknown object member name "routng_key"`)),
+				MatchError(ContainSubstring("the path names no editable field")),
 			))
 			expectUnchanged(ctx)
 		})

@@ -24,6 +24,7 @@ type Action interface {
 	// target returns the path that the action writes.
 	target() []string
 	guards() []Guard
+	cursor() Cursor
 }
 
 func (s Set) target() []string { return s.Path }

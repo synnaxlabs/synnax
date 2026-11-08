@@ -99,7 +99,7 @@ func NewLexer(source string, cfg Config) *ArcLexer {
 //	    }
 //	`)
 func Parse(source string, cfgs ...Config) (IProgramContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Program)
+	return parseWithContext(source, ConfigOf(cfgs...), nil, (*ArcParser).Program)
 }
 
 // ParseExpression parses a single Arc expression.
@@ -115,7 +115,26 @@ func ParseExpression(
 	source string,
 	cfgs ...Config,
 ) (IExpressionContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Expression)
+	return parseWithContext(source, ConfigOf(cfgs...), nil, (*ArcParser).Expression)
+}
+
+// Position maps the index of a rune in a source to its 1-based line and its column in
+// an enclosing source.
+type Position func(index int) (line, column int)
+
+// ParseExpressionAt parses an Arc expression that sits inside an enclosing source. Its
+// tokens and diagnostics carry the positions that position gives.
+func ParseExpressionAt(
+	source string,
+	position Position,
+	cfgs ...Config,
+) (IExpressionContext, *diagnostics.Diagnostics) {
+	return parseWithContext(
+		source,
+		ConfigOf(cfgs...),
+		position,
+		(*ArcParser).Expression,
+	)
 }
 
 // ParseStatement parses a single Arc statement.
@@ -131,7 +150,7 @@ func ParseStatement(
 	source string,
 	cfgs ...Config,
 ) (IStatementContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Statement)
+	return parseWithContext(source, ConfigOf(cfgs...), nil, (*ArcParser).Statement)
 }
 
 // ParseBlock parses an Arc block (sequence of statements enclosed in braces).
@@ -146,7 +165,7 @@ func ParseBlock(
 	source string,
 	cfgs ...Config,
 ) (IBlockContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Block)
+	return parseWithContext(source, ConfigOf(cfgs...), nil, (*ArcParser).Block)
 }
 
 // parseWithContext executes the parsing with proper error handling.
@@ -155,18 +174,30 @@ func ParseBlock(
 func parseWithContext[T any](
 	source string,
 	cfg Config,
+	position Position,
 	parseFn func(*ArcParser) T,
 ) (T, *diagnostics.Diagnostics) {
 	var (
-		lexer  = NewLexer(source, cfg)
-		stream = antlr.NewCommonTokenStream(lexer, 0)
+		lexer              = NewLexer(source, cfg)
+		tokens antlr.Lexer = lexer
+		diag               = &diagnostics.Diagnostics{}
+		errLis             = &errorListener{Diagnostics: diag}
+		lexLis             = errLis
+	)
+	if position != nil {
+		tokens = &positionedTokens{ArcLexer: lexer, position: position}
+		lexLis = &errorListener{
+			Diagnostics: diag,
+			position:    lexerPosition([]rune(source), position),
+		}
+	}
+	var (
+		stream = antlr.NewCommonTokenStream(tokens, 0)
 		parser = NewArcParser(stream)
-		diag   = &diagnostics.Diagnostics{}
-		errLis = &errorListener{Diagnostics: diag}
 		sllErr = &syntaxErrorFlag{}
 	)
 	lexer.RemoveErrorListeners()
-	lexer.AddErrorListener(errLis)
+	lexer.AddErrorListener(lexLis)
 	parser.RemoveErrorListeners()
 	// SLL prediction is much faster than LL, and when it reports no syntax error it
 	// returns the tree LL would. Only source that fails SLL is parsed again with LL.
@@ -211,6 +242,45 @@ func (f *syntaxErrorFlag) SyntaxError(
 type errorListener struct {
 	*antlr.DefaultErrorListener
 	*diagnostics.Diagnostics
+	// position, when set, maps a line and column the lexer counts to the enclosing
+	// source.
+	position func(line, column int) (int, int)
+}
+
+// positionedTokens gives each token the position of its first rune in an enclosing
+// source.
+type positionedTokens struct {
+	*ArcLexer
+	position Position
+}
+
+func (p *positionedTokens) NextToken() antlr.Token {
+	t := p.ArcLexer.NextToken()
+	line, column := p.position(t.GetStart())
+	return antlr.CommonTokenFactoryDEFAULT.Create(
+		t.GetSource(),
+		t.GetTokenType(),
+		"",
+		t.GetChannel(),
+		t.GetStart(),
+		t.GetStop(),
+		line,
+		column,
+	)
+}
+
+// lexerPosition converts the line and column the lexer counts in source to the
+// position in the enclosing source.
+func lexerPosition(source []rune, position Position) func(line, column int) (int, int) {
+	return func(line, column int) (int, int) {
+		index := 0
+		for l := 1; l < line && index < len(source); index++ {
+			if source[index] == '\n' {
+				l++
+			}
+		}
+		return position(index + column)
+	}
 }
 
 // SyntaxError is called by ANTLR when a syntax error is encountered.
@@ -223,6 +293,9 @@ func (e *errorListener) SyntaxError(
 	msg string,
 	_ antlr.RecognitionException,
 ) {
+	if e.position != nil {
+		line, column = e.position(line, column)
+	}
 	e.Add(diagnostics.Diagnostic{
 		Severity: protocol.DiagnosticSeverityError,
 		Range: protocol.Range{
@@ -266,3 +339,16 @@ func (p *ArcParser) CalleeTouchesParen() bool {
 	return paren != nil && paren.GetTokenType() == ArcLexerLPAREN &&
 		p.TokensAdjacent(stream.LT(nameIndex), paren)
 }
+
+// FmtSegment is one piece of a format string: literal text, or a placeholder.
+type FmtSegment struct {
+	// Text is the literal text with its escapes applied, or the placeholder's source.
+	Text string
+	// Spec is the placeholder's format spec, or empty.
+	Spec string
+	// Expr is the placeholder's parsed expression, or nil for literal text.
+	Expr IExpressionContext
+}
+
+// FmtStrings maps each analyzed format string token to its segments, in order.
+type FmtStrings map[antlr.TerminalNode][]FmtSegment
