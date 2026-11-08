@@ -208,7 +208,9 @@ var _ = Describe("Write task", func() {
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			dev := createDevice(ctx, clusterProperties())
 			topic := uniqueTopic()
 			startTask(ctx, kafka.WriteConfig{

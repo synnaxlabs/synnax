@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -38,7 +39,9 @@ var _ = Describe("Writer", func() {
 				"b": textCfg("B"),
 			},
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &s)
+		})).To(Succeed())
 		return s
 	}
 
@@ -204,7 +207,9 @@ var _ = Describe("Writer", func() {
 			"Should reject an action that leaves the table invalid",
 			func(ctx SpecContext) {
 				s := table.Table{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
 					table.NewRenameAction(table.RenamePayload{}),
 				})).To(MatchError(ContainSubstring("name: required")))
@@ -237,9 +242,13 @@ var _ = Describe("Writer", func() {
 			"Should reject a create without changing the table it names",
 			func(ctx SpecContext) {
 				target := table.Table{Project: &proj.Key, Name: "target"}
-				Expect(svc.NewWriter(nil).Create(ctx, &target)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &target)
+				})).To(Succeed())
 				other := table.Table{Project: &proj.Key, Name: "other"}
-				Expect(svc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
 				Expect(dispatch(ctx, target.Key, "d1", []table.Action{
 					table.NewCreateAction(table.CreatePayload{
 						Table: table.Table{Key: other.Key, Name: "overwritten"},
@@ -256,7 +265,9 @@ var _ = Describe("Writer", func() {
 
 		It("Should rename a Table via a Rename action", func(ctx SpecContext) {
 			s := table.Table{Project: &proj.Key, Name: "test"}
-			Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &s)
+			})).To(Succeed())
 			Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
 				table.NewRenameAction(table.RenamePayload{Name: "test2"}),
 			})).To(Succeed())

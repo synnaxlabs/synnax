@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -66,13 +67,14 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}
-	w := svc.NewWriter(nil)
 	idx := channel.Channel{
 		Name:     "bench_time",
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
-	if err := w.Create(b.Context(), &idx); err != nil {
+	if err := node.DB.WithTx(b.Context(), func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).Create(b.Context(), &idx)
+	}); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	base := channel.Channel{
@@ -80,7 +82,9 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 		DataType:   telem.Float32T,
 		LocalIndex: idx.LocalKey,
 	}
-	if err := w.Create(b.Context(), &base); err != nil {
+	if err := node.DB.WithTx(b.Context(), func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).Create(b.Context(), &base)
+	}); err != nil {
 		b.Fatalf("failed to create base channel: %v", err)
 	}
 	calcs := make([]channel.Channel, count)
@@ -91,7 +95,9 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 			Expression: "return bench_base * 2",
 		}
 	}
-	if err := w.CreateMany(b.Context(), &calcs); err != nil {
+	if err := node.DB.WithTx(b.Context(), func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).CreateMany(b.Context(), &calcs)
+	}); err != nil {
 		b.Fatalf("failed to create calculated channels: %v", err)
 	}
 	indexes := make([]channel.Key, len(calcs))

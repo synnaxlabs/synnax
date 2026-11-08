@@ -69,14 +69,18 @@ var _ = Describe("Migrations", func() {
 				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:         db,
-				HostKey:    1,
-				Status:     stat,
-				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+				DB:      db,
+				HostKey: 1,
+				Status:  stat,
+				DriverRole: MustSucceed(
+					racktestutil.CreateDriverRole(ctx, db, roleSvc),
+				),
 			}))
 
 			testRack := &rack.Rack{Name: "Migration Test Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, testRack)
+			})).To(Succeed())
 
 			legacyKey := v1.Key(uint64(testRack.Key)<<32 | 99)
 			legacyTask := v1.Task{
@@ -114,7 +118,9 @@ var _ = Describe("Migrations", func() {
 					"cmd":     "start",
 				},
 			}
-			Expect(stat.NewMigrationWriter(nil).Set(ctx, legacyStatus)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return stat.NewMigrationWriter(tx).Set(ctx, legacyStatus)
+			})).To(Succeed())
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
@@ -175,14 +181,19 @@ var _ = Describe("Migrations", func() {
 				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:         db,
-				HostKey:    1,
-				Status:     stat,
-				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+				DB:      db,
+				HostKey: 1,
+				Status:  stat,
+				DriverRole: MustSucceed(
+					racktestutil.CreateDriverRole(ctx, db, roleSvc),
+				),
 			}))
 			testRack := &rack.Rack{Name: "Decompose Test Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, testRack)
+			})).To(Succeed())
 			targets := tasktestutil.NewTargets(tasktestutil.TargetsConfig{
+				DB: db,
 				Device: MustOpen(device.OpenService(ctx, device.ServiceConfig{
 					DB:     db,
 					Status: stat,
@@ -199,7 +210,7 @@ var _ = Describe("Migrations", func() {
 				HostKey: node.Identity.HostKey,
 				Status:  stat,
 			}))
-			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 4))
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 4))
 			cmdKey, stateKey, tcKey, freqKey := keys[0], keys[1], keys[2], keys[3]
 
 			MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))

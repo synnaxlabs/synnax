@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -37,6 +38,7 @@ func TestAPIAlias(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db  *gorp.DB
 	svc *service.Layer
 	// set and del run the Set and Delete routes as the API layer binds them.
 	set freighter.UnaryHandler[apialias.SetRequest, struct{}]
@@ -46,6 +48,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc := MustSucceed(apialias.NewService(apialias.ServiceConfig{
 		RBAC:  svc.RBAC,
@@ -62,7 +65,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // createUser creates a user that can do nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
@@ -71,7 +74,9 @@ func createUser(ctx SpecContext) user.User {
 func grant(ctx SpecContext, u user.User, action access.Action, objects ...resource.ID) {
 	GinkgoHelper()
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, svc.RBAC, svc.User, u.Key, actions, objects...))
+	MustSucceed(
+		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, u.Key, actions, objects...),
+	)
 }
 
 // denied matches an error that denies u the action on object.

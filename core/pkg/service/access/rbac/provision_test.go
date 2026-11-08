@@ -279,7 +279,9 @@ var _ = Describe("Provision", func() {
 			cfg := newRolesConfig(ctx)
 			svc1 := MustSucceed(rbac.OpenRoles(ctx, cfg))
 			custom := role.Role{Name: "Driver", Description: "custom"}
-			Expect(svc1.Role.NewWriter(nil, false).Create(ctx, &custom)).
+			Expect(cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc1.Role.NewWriter(tx, false).Create(ctx, &custom)
+			})).
 				To(Succeed())
 			Expect(svc1.Close()).To(Succeed())
 			svc2 := MustOpen(rbac.OpenRoles(ctx, cfg))

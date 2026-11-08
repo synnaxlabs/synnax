@@ -119,9 +119,11 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		alice = subject()
 		username = uuid.New().String()
-		Expect(svc.NewWriter(nil).Set(ctx, alice, auth.Credentials{
-			Username: username,
-			Password: "secret",
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Set(ctx, alice, auth.Credentials{
+				Username: username,
+				Password: "secret",
+			})
 		})).To(Succeed())
 	})
 	Describe("Authenticate", func() {
@@ -223,9 +225,11 @@ var _ = Describe("Service", func() {
 		var bob resource.ID
 		BeforeEach(func(ctx SpecContext) {
 			bob = subject()
-			Expect(svc.NewWriter(nil).Set(ctx, bob, auth.Credentials{
-				Username: uuid.New().String(),
-				Password: "secret",
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, bob, auth.Credentials{
+					Username: uuid.New().String(),
+					Password: "secret",
+				})
 			})).To(Succeed())
 		})
 		It("Should find a password by key", func(ctx SpecContext) {
@@ -272,13 +276,16 @@ var _ = Describe("Service", func() {
 	Describe("Version", func() {
 		It("Should move each time the password is set", func(ctx SpecContext) {
 			identity := MustSucceed(svc.Authenticate(ctx, proof(username, "secret")))
-			w := svc.NewWriter(nil)
-			Expect(w.ChangePassword(ctx, alice, "changed")).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).ChangePassword(ctx, alice, "changed")
+			})).To(Succeed())
 			changed := MustSucceed(svc.Version(ctx, nil, identity.Credential))
 			Expect(changed).To(BeNumerically(">", identity.Version))
-			Expect(w.Set(ctx, alice, auth.Credentials{
-				Username: username,
-				Password: "again",
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, alice, auth.Credentials{
+					Username: username,
+					Password: "again",
+				})
 			})).To(Succeed())
 			Expect(svc.Version(ctx, nil, identity.Credential)).
 				To(BeNumerically(">", changed))
@@ -293,7 +300,9 @@ var _ = Describe("Service", func() {
 	})
 	Describe("DeleteFor", func() {
 		It("Should remove the subject's password", func(ctx SpecContext) {
-			Expect(svc.DeleteFor(ctx, nil, alice)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.DeleteFor(ctx, tx, alice)
+			})).To(Succeed())
 			Expect(svc.Authenticate(ctx, proof(username, "secret"))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		})
@@ -311,9 +320,11 @@ var _ = Describe("Service with FIPS", func() {
 	It("Should hash new passwords with PBKDF2", func(ctx SpecContext) {
 		alice := subject()
 		name := uuid.New().String()
-		Expect(svc.NewWriter(nil).Set(ctx, alice, auth.Credentials{
-			Username: name,
-			Password: "secret",
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Set(ctx, alice, auth.Credentials{
+				Username: name,
+				Password: "secret",
+			})
 		})).To(Succeed())
 		Expect(storedHash(ctx, svc, alice)).To(HavePrefix("$pbkdf2-sha256$"))
 		Expect(MustSucceed(svc.Authenticate(ctx, proof(name, "secret"))).Subject).
@@ -334,9 +345,11 @@ var _ = Describe("Service with FIPS", func() {
 		alice := subject()
 		name := uuid.New().String()
 		plain := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-		Expect(plain.NewWriter(nil).Set(ctx, alice, auth.Credentials{
-			Username: name,
-			Password: "p",
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return plain.NewWriter(tx).Set(ctx, alice, auth.Credentials{
+				Username: name,
+				Password: "p",
+			})
 		})).To(Succeed())
 		Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().To(SatisfyAll(
 			MatchError(auth.ErrInvalidCredentials),
@@ -348,9 +361,11 @@ var _ = Describe("Service with FIPS", func() {
 		func(ctx SpecContext) {
 			alice := subject()
 			name := uuid.New().String()
-			Expect(svc.NewWriter(nil).Set(ctx, alice, auth.Credentials{
-				Username: name,
-				Password: "p",
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, alice, auth.Credentials{
+					Username: name,
+					Password: "p",
+				})
 			})).To(Succeed())
 			plain := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 			MustSucceed(plain.Authenticate(ctx, proof(name, "p")))

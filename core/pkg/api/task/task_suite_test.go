@@ -71,9 +71,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // createUser creates a user that can do nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
-		Name: "user-" + uuid.New().String(),
-	}))
+	return MustSucceed(
+		rbactestutil.CreateUser(ctx, node.DB, svc.RBAC, svc.User, user.User{
+			Name: "user-" + uuid.New().String(),
+		}),
+	)
 }
 
 // grant grants the action on the objects to the subject.
@@ -86,5 +88,7 @@ func grant(
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, svc.RBAC, svc.User, key, actions, objects...))
+	MustSucceed(
+		rbactestutil.Grant(ctx, node.DB, svc.RBAC, svc.User, key, actions, objects...),
+	)
 }

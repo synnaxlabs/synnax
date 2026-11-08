@@ -72,8 +72,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	setProject = bind.Write(binder, apiSvc.SetProject)
 	proj = project.Project{Name: "test-project"}
-	Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
-	author = MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Project.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
+	author = MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "author",
 	}))
 })
@@ -81,7 +83,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // newUser creates a user with no policies.
 func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
@@ -105,5 +107,7 @@ func grant(
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, svc.RBAC, svc.User, key, actions, objects...))
+	MustSucceed(
+		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, key, actions, objects...),
+	)
 }

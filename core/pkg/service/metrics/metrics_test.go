@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -237,7 +238,9 @@ var _ = Describe("Metrics", func() {
 			custom := MustSucceed(groupSvc.CreateOrRetrieve(
 				ctx, "Custom Metrics Group", resource.TypeChannel,
 			))
-			Expect(channelSvc.NewWriter(nil).SetGroup(ctx, &custom.Key, mem.Key())).
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).SetGroup(ctx, &custom.Key, mem.Key())
+			})).
 				To(Succeed())
 			Expect(svc.Close()).To(Succeed())
 			svc = open(ctx)
@@ -286,17 +289,21 @@ var _ = Describe("Metrics", func() {
 				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(
-				ctx, indexCh, channel.RetrieveIfNameExists(),
-			)).To(Succeed())
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(
+					ctx, indexCh, channel.RetrieveIfNameExists(),
+				)
+			})).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "metrics_test_data",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(
-				ctx, dataCh, channel.RetrieveIfNameExists(),
-			)).To(Succeed())
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(
+					ctx, dataCh, channel.RetrieveIfNameExists(),
+				)
+			})).To(Succeed())
 			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{indexCh.Key(), dataCh.Key()},

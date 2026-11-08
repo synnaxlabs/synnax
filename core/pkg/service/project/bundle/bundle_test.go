@@ -51,9 +51,13 @@ func decode(b []byte) map[string]any {
 func createProject(ctx SpecContext, name string) project.Project {
 	GinkgoHelper()
 	p := project.Project{Name: name}
-	Expect(writer.Create(ctx, &p)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &p)
+	})).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return projectSvc.NewWriter(tx).Delete(ctx, p.Key)
+		})).To(Succeed())
 	})
 	return p
 }
@@ -61,9 +65,13 @@ func createProject(ctx SpecContext, name string) project.Project {
 func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 	GinkgoHelper()
 	l := log.Log{Project: &proj, Name: name}
-	Expect(logSvc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return logSvc.NewWriter(tx).Create(ctx, &l)
+	})).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(logSvc.NewWriter(nil).Delete(ctx, l.Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return logSvc.NewWriter(tx).Delete(ctx, l.Key)
+		})).To(Succeed())
 	})
 	return l
 }
@@ -71,9 +79,13 @@ func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 func createLinePlot(ctx SpecContext, proj project.Key, name string) lineplot.LinePlot {
 	GinkgoHelper()
 	lp := lineplot.LinePlot{Project: &proj, Name: name}
-	Expect(lineplotSvc.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return lineplotSvc.NewWriter(tx).Create(ctx, &lp)
+	})).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(lineplotSvc.NewWriter(nil).Delete(ctx, lp.Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return lineplotSvc.NewWriter(tx).Delete(ctx, lp.Key)
+		})).To(Succeed())
 	})
 	return lp
 }
@@ -81,9 +93,13 @@ func createLinePlot(ctx SpecContext, proj project.Key, name string) lineplot.Lin
 func createGroup(ctx SpecContext, name string, parent resource.ID) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: &parent}
-	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return groupSvc.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return groupSvc.NewWriter(tx).Delete(ctx, g.Key)
+		})).To(Succeed())
 	})
 	return g
 }
@@ -95,9 +111,13 @@ func createTask(ctx SpecContext, name string) task.Task {
 		Name: name,
 		Type: pagerduty.AlertTaskType,
 	}
-	Expect(taskSvc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return taskSvc.NewWriter(tx).Create(ctx, &t)
+	})).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(taskSvc.NewWriter(nil).Delete(ctx, t.Key, false)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return taskSvc.NewWriter(tx).Delete(ctx, t.Key, false)
+		})).To(Succeed())
 	})
 	return t
 }
@@ -110,9 +130,13 @@ func createArc(ctx SpecContext, name, source string) arc.Arc {
 			Source: arc.Source{Variant: arc.TextSource{Text: text.Text{Raw: source}}},
 		},
 	}}
-	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return arcSvc.NewWriter(tx).Create(ctx, &a)
+	})).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return arcSvc.NewWriter(tx).Delete(ctx, a.Base().Key)
+		})).To(Succeed())
 	})
 	return a
 }
@@ -122,16 +146,22 @@ func createPanel(
 ) panel.Panel {
 	GinkgoHelper()
 	p := panel.Panel{Name: name, Root: root, Project: &proj}
-	Expect(panelSvc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return panelSvc.NewWriter(tx).Create(ctx, &p)
+	})).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(panelSvc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return panelSvc.NewWriter(tx).Delete(ctx, p.Key)
+		})).To(Succeed())
 	})
 	return p
 }
 
 func moveToGroup(ctx SpecContext, l log.Log, g group.Group) {
 	GinkgoHelper()
-	Expect(logSvc.NewWriter(nil).SetGroup(ctx, &g.Key, l.Key)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return logSvc.NewWriter(tx).SetGroup(ctx, &g.Key, l.Key)
+	})).To(Succeed())
 }
 
 func resourceTab(id resource.ID) panel.Tab {

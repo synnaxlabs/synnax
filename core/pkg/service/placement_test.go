@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -34,6 +35,7 @@ import (
 var _ = Describe("Visualization exports", Ordered, func() {
 	var (
 		l    *service.Layer
+		db   *gorp.DB
 		proj project.Project
 		g    group.Group
 		rng  ranger.Range
@@ -46,28 +48,48 @@ var _ = Describe("Visualization exports", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		l = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+		node := testutil.NewNode(ctx)
+		db = node.DB
+		l = MustOpen(svctestutil.OpenLayer(ctx, node))
 		proj = project.Project{Name: "Exported"}
-		Expect(l.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Project.NewWriter(tx).Create(ctx, &proj)
+		})).To(Succeed())
 		g = group.Group{Name: "Propulsion", Parent: new(project.ResourceID(proj.Key))}
-		Expect(l.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Group.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
 		sch = schematic.Schematic{Name: "Schematic", Project: &proj.Key, Group: &g.Key}
-		Expect(l.Schematic.NewWriter(nil).Create(ctx, &sch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Schematic.NewWriter(tx).Create(ctx, &sch)
+		})).To(Succeed())
 		lp = lineplot.LinePlot{Name: "Plot", Project: &proj.Key, Group: &g.Key}
-		Expect(l.LinePlot.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.LinePlot.NewWriter(tx).Create(ctx, &lp)
+		})).To(Succeed())
 		lg = log.Log{Name: "Log", Project: &proj.Key, Group: &g.Key}
-		Expect(l.Log.NewWriter(nil).Create(ctx, &lg)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Log.NewWriter(tx).Create(ctx, &lg)
+		})).To(Succeed())
 		tb = table.Table{Name: "Table", Project: &proj.Key, Group: &g.Key}
-		Expect(l.Table.NewWriter(nil).Create(ctx, &tb)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Table.NewWriter(tx).Create(ctx, &tb)
+		})).To(Succeed())
 		pn := panel.Panel{Name: "Panel", Project: &proj.Key, Group: &g.Key}
-		Expect(l.Panel.NewWriter(nil).Create(ctx, &pn)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Panel.NewWriter(tx).Create(ctx, &pn)
+		})).To(Succeed())
 		rng = ranger.Range{
 			Name:      "Run",
 			TimeRange: telem.SecondTS.SpanRange(telem.Second),
 		}
-		Expect(l.Ranger.NewWriter(nil).Create(ctx, &rng)).To(Succeed())
-		Expect(l.Schematic.NewWriter(nil).
-			Copy(ctx, sch.Key, "Snapshot", true, &rng.Key, &snap)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Ranger.NewWriter(tx).Create(ctx, &rng)
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Schematic.NewWriter(tx).
+				Copy(ctx, sch.Key, "Snapshot", true, &rng.Key, &snap)
+		})).To(Succeed())
 	})
 
 	expectUnplaced := func(data []byte) {

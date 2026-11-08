@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
@@ -31,6 +32,7 @@ func TestSignals(t *testing.T) {
 }
 
 var (
+	db         *gorp.DB
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 )
@@ -38,6 +40,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: node.DB,
 	}))

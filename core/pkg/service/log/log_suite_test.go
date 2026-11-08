@@ -63,7 +63,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:  statusSvc,
 	}))
 	chs := []*channel.Key{&ch1, &ch2, &ch3, &ch4, &ch5, &ch10, &ch42, &ch99}
-	keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, len(chs)))
+	keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, len(chs)))
 	for i, ch := range chs {
 		*ch = keys[i]
 	}
@@ -76,7 +76,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx: imexSvc,
 	}))
 	proj.Name = "test-project"
-	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
 })
 
 // dispatch runs Writer.Apply in a transaction of its own.

@@ -79,7 +79,9 @@ var _ = Describe("Alias", Ordered, func() {
 			Name:     fmt.Sprintf("test_%d", channelCount),
 			Virtual:  true,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		return ch
 	}
 
@@ -370,18 +372,23 @@ var _ = Describe("Alias", Ordered, func() {
 					End:   telem.TimeStamp(10 * telem.Second),
 				},
 			}
-			Expect(rangerSvc.NewWriter(db).Create(ctx, &r)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
 			term = fmt.Sprintf("probe%09d", rand.IntN(999999999))
 			byName = channel.Channel{
 				DataType: telem.Float32T,
 				Name:     term,
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &byName)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &byName)
+			})).To(Succeed())
 			byAlias = createChannel(ctx)
-			Expect(
-				aliasSvc.NewWriter(db).Set(ctx, r.Key, byAlias.Key(), term+" inlet"),
-			).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return aliasSvc.NewWriter(tx).
+					Set(ctx, r.Key, byAlias.Key(), term+" inlet")
+			})).
 				To(Succeed())
 		})
 
@@ -418,15 +425,18 @@ var _ = Describe("Alias", Ordered, func() {
 		It("Should list a channel that matches by alias and by name once", func(
 			ctx SpecContext,
 		) {
-			Expect(
-				aliasSvc.NewWriter(db).Set(ctx, r.Key, byName.Key(), term+" outlet"),
-			).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return aliasSvc.NewWriter(tx).
+					Set(ctx, r.Key, byName.Key(), term+" outlet")
+			})).To(Succeed())
 			second := channel.Channel{
 				DataType: telem.Float32T,
 				Name:     term + "_second",
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &second)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &second)
+			})).To(Succeed())
 			q := func() channel.Retrieve {
 				return channelSvc.NewRetrieve().
 					Where(channel.MatchKeys(byName.Key(), second.Key()))
@@ -444,7 +454,9 @@ var _ = Describe("Alias", Ordered, func() {
 		})
 
 		It("Should skip the alias of a deleted channel", func(ctx SpecContext) {
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, byAlias.Key(), false)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, byAlias.Key(), false)
+			})).
 				To(Succeed())
 			Expect(search(ctx, channelSvc.NewRetrieve(), 0, 0)).
 				To(Equal([]channel.Key{byName.Key()}))

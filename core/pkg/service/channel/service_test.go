@@ -52,7 +52,9 @@ var _ = Describe("Service", func() {
 					DataType: telem.Float32T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
 				sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, ch.Name))
 				Expect(sym.Name).To(Equal(ch.Name))
 				Expect(sym.ID).To(Equal(int(ch.Key())))
@@ -64,7 +66,9 @@ var _ = Describe("Service", func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			Expect(svc.NewArcSymbolResolver(nil).Search(ctx, ch.Name)).
 				To(ContainElement(HaveField("Name", ch.Name)))
 		})
@@ -79,7 +83,9 @@ var _ = Describe("Service", func() {
 					DataType: telem.Float64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
 				var retrieved channel.Channel
 				Expect(svc.NewRetrieve().Where(
 					channel.MatchKeys(ch.Key()),
@@ -108,7 +114,9 @@ var _ = Describe("Service", func() {
 				IsIndex:     true,
 				Leaseholder: 1,
 			}
-			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			Eventually(called.Load).Should(BeTrue())
 		})
 	})
@@ -129,7 +137,9 @@ var _ = Describe("Service", func() {
 				IsIndex:     true,
 				Leaseholder: 1,
 			}
-			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			Expect(names).To(Equal([]string{ch.Name}))
 		})
 	})
@@ -138,13 +148,14 @@ var _ = Describe("Service", func() {
 		It(
 			"Should create a writer that infers types for calculated channels",
 			func(ctx SpecContext) {
-				w := svc.NewWriter(nil)
 				ch := channel.Channel{
 					Name:       UniqueChannelName(),
 					Expression: "return 1 + 1",
 					Virtual:    true,
 				}
-				Expect(w.Create(ctx, &ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
 				Expect(ch.DataType).To(Equal(telem.Int64T))
 			},
 		)

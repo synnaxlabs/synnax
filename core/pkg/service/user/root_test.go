@@ -226,15 +226,23 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		ctx SpecContext,
 	) {
 		provision(ctx, "old-root", "p")
-		decoy := MustSucceed(
-			svc.NewWriter(nil).Create(ctx, user.User{Name: "delta", Role: member}),
-		)
-		owner := MustSucceed(
-			svc.NewWriter(nil).Create(ctx, user.User{Name: "owner", Role: member}),
-		)
-		Expect(passwordSvc.NewWriter(nil).Set(ctx, owner.ResourceID(), auth.Credentials{
-			Username: "delta",
-			Password: "p",
+		var decoy, owner user.User
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			decoy, err = svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "delta", Role: member})
+			return err
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			owner, err = svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "owner", Role: member})
+			return err
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return passwordSvc.NewWriter(tx).
+				Set(ctx, owner.ResourceID(), auth.Credentials{
+					Username: "delta",
+					Password: "p",
+				})
 		})).To(Succeed())
 		root := provision(ctx, "delta", "p")
 		Expect(root.Key).To(Equal(owner.Key))
@@ -243,9 +251,12 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 	It("Should create a root user when no password holds the username", func(
 		ctx SpecContext,
 	) {
-		other := MustSucceed(
-			svc.NewWriter(nil).Create(ctx, user.User{Name: "orphan", Role: member}),
-		)
+		var other user.User
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			other, err = svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "orphan", Role: member})
+			return err
+		})).To(Succeed())
 		root := provision(ctx, "orphan", "p")
 		Expect(root.Key).ToNot(Equal(other.Key))
 		Expect(MustSucceed(login(ctx, "orphan", "p")).Subject).
@@ -254,16 +265,20 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 	It("Should reject a username whose password is not held by a user", func(
 		ctx SpecContext,
 	) {
-		Expect(passwordSvc.NewWriter(nil).Set(
-			ctx,
-			resource.ID{Type: "rack", Key: "1"},
-			auth.Credentials{Username: "rack-held", Password: "p"},
-		)).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(passwordSvc.NewWriter(nil).DeleteFor(
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return passwordSvc.NewWriter(tx).Set(
 				ctx,
 				resource.ID{Type: "rack", Key: "1"},
-			)).To(Succeed())
+				auth.Credentials{Username: "rack-held", Password: "p"},
+			)
+		})).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return passwordSvc.NewWriter(tx).DeleteFor(
+					ctx,
+					resource.ID{Type: "rack", Key: "1"},
+				)
+			})).To(Succeed())
 		})
 		Expect(user.ProvisionRoot(ctx, svc, passwordSvc, auth.Credentials{
 			Username: "rack-held",

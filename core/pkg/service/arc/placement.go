@@ -30,14 +30,6 @@ func (w Writer) Move(
 	from, to directory.Key,
 	ids ...resource.ID,
 ) error {
-	return w.inTx(ctx, func(w Writer) error { return w.move(ctx, from, to, ids) })
-}
-
-func (w Writer) move(
-	ctx context.Context,
-	from, to directory.Key,
-	ids []resource.ID,
-) error {
 	var arcKeys, dirKeys []uuid.UUID
 	for _, id := range ids {
 		switch {

@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -244,7 +245,7 @@ var _ = Describe("Writer", func() {
 	})
 })
 
-var _ = Describe("Writer with no transaction", func() {
+var _ = Describe("Writer in concurrent transactions", func() {
 	retrieveGroup := func(ctx context.Context, key project.Key) *group.Key {
 		GinkgoHelper()
 		var res project.Project
@@ -256,18 +257,26 @@ var _ = Describe("Writer with no transaction", func() {
 	}
 	createGroup := func(ctx context.Context, g group.Group) group.Group {
 		GinkgoHelper()
-		Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return groupSvc.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Delete(ctx, g.Key)
+			})).To(Succeed())
 		})
 		return g
 	}
 	createProject := func(ctx context.Context, name string) project.Project {
 		GinkgoHelper()
 		p := project.Project{Name: name}
-		Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &p)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, p.Key)
+			})).To(Succeed())
 		})
 		return p
 	}
@@ -292,7 +301,9 @@ var _ = Describe("Writer with no transaction", func() {
 					defer GinkgoRecover()
 					for !moved.Load() {
 						again := project.Project{Key: proj.Key, Name: proj.Name}
-						Expect(svc.NewWriter(nil).Create(ctx, &again)).To(Succeed())
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(ctx, &again)
+						})).To(Succeed())
 					}
 				})
 			}
@@ -300,7 +311,9 @@ var _ = Describe("Writer with no transaction", func() {
 				defer GinkgoRecover()
 				defer moved.Store(true)
 				for _, g := range groups {
-					Expect(svc.NewWriter(nil).SetGroup(ctx, &g.Key, proj.Key)).
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).SetGroup(ctx, &g.Key, proj.Key)
+					})).
 						To(Succeed())
 					Expect(retrieveGroup(ctx, proj.Key)).To(Equal(&g.Key))
 				}
@@ -325,11 +338,15 @@ var _ = Describe("Writer with no transaction", func() {
 					joinErr, moveErr error
 				)
 				wg.Go(func() {
-					joinErr = svc.NewWriter(nil).SetGroup(ctx, &g.Key, proj.Key)
+					joinErr = db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).SetGroup(ctx, &g.Key, proj.Key)
+					})
 				})
 				wg.Go(func() {
-					moveErr = groupSvc.NewWriter(nil).
-						SetParent(ctx, new(owner.ResourceID()), g.Key)
+					moveErr = db.WithTx(ctx, func(tx gorp.Tx) error {
+						return groupSvc.NewWriter(tx).
+							SetParent(ctx, new(owner.ResourceID()), g.Key)
+					})
 				})
 				wg.Wait()
 				Expect([]error{joinErr, moveErr}).To(ContainElement(HaveOccurred()))

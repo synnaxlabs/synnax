@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -26,7 +27,9 @@ import (
 func createProject(ctx SpecContext) project.Project {
 	GinkgoHelper()
 	p := project.Project{Name: "Owner"}
-	Expect(writer.Create(ctx, &p)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).Create(ctx, &p)
+	})).To(Succeed())
 	return p
 }
 
@@ -38,7 +41,9 @@ func createGroup(
 ) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: "Owner", Parent: parent, Scope: scope}
-	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return groupSvc.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 

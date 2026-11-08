@@ -54,7 +54,7 @@ var (
 	deviceSvc  *device.Service
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
-	taskWriter task.Writer
+	taskSvc    *task.Service
 	cluster    *kfake.Cluster
 )
 
@@ -80,7 +80,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:         db,
 		HostKey:    1,
 		Status:     statusSvc,
-		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     db,
@@ -105,7 +105,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ChannelGraph: channelGraph,
 	}))
 	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: db}))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      db,
 		Rack:    rackSvc,
 		Status:  statusSvc,
@@ -113,7 +113,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:    imex.NewService(),
 		Configs: MustSucceed(taskconfig.NewRegistry(kafkaSvc.Stores()...)),
 	}))
-	taskWriter = taskSvc.NewWriter(nil)
 	cluster = MustSucceed(kfake.NewCluster(
 		kfake.NumBrokers(1),
 		kfake.AllowAutoTopicCreation(),
@@ -220,7 +219,9 @@ func createDevice(ctx context.Context, props kafka.Properties) device.Device {
 		Configured: true,
 		Properties: toJSON(props),
 	}
-	Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return deviceSvc.NewWriter(tx).Create(ctx, &dev)
+	})).To(Succeed())
 	return dev
 }
 
@@ -236,13 +237,17 @@ func createIndexed(
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &index)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &index)
+	})).To(Succeed())
 	data = channel.Channel{
 		Name:       "data_" + suffix,
 		DataType:   dt,
 		LocalIndex: index.LocalKey,
 	}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &data)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &data)
+	})).To(Succeed())
 	return index, data
 }
 
@@ -260,7 +265,9 @@ func newTask(ctx context.Context, typ string, cfg any) task.Task {
 	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
 		To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+		})).To(Succeed())
 	})
 	return t
 }

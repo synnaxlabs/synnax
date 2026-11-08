@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -59,9 +60,13 @@ var _ = Describe("Directories", func() {
 	newDirectory := func(ctx SpecContext) directory.Directory {
 		GinkgoHelper()
 		d := directory.Directory{Name: uniqueName()}
-		Expect(arcSvc.NewWriter(nil).CreateDirectory(ctx, &d, root)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return arcSvc.NewWriter(tx).CreateDirectory(ctx, &d, root)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(arcSvc.NewWriter(nil).DeleteDirectory(ctx, d.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return arcSvc.NewWriter(tx).DeleteDirectory(ctx, d.Key)
+			})).To(Succeed())
 		})
 		return d
 	}
@@ -111,9 +116,10 @@ var _ = Describe("Directories", func() {
 				grantUpdateOn(ctx, author.ResourceID(), directory.ResourceID(root))
 				res := MustSucceed(createIn(ctx, root))
 				DeferCleanup(func(ctx SpecContext) {
-					Expect(
-						arcSvc.NewWriter(nil).DeleteDirectory(ctx, res.Directory.Key),
-					).
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return arcSvc.NewWriter(tx).
+							DeleteDirectory(ctx, res.Directory.Key)
+					})).
 						To(Succeed())
 				})
 				Expect(parentsOf(ctx, res.Directory.ResourceID())).
@@ -180,7 +186,9 @@ var _ = Describe("Directories", func() {
 			"Should delete a directory with delete access and update on its parent",
 			func(ctx SpecContext) {
 				d := directory.Directory{Name: uniqueName()}
-				Expect(arcSvc.NewWriter(nil).CreateDirectory(ctx, &d, root)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).CreateDirectory(ctx, &d, root)
+				})).
 					To(Succeed())
 				grantOn(ctx, author.ResourceID(), access.ActionDelete, d.ResourceID())
 				grantUpdateOn(ctx, author.ResourceID(), directory.ResourceID(root))
@@ -217,9 +225,13 @@ var _ = Describe("Directories", func() {
 			GinkgoHelper()
 			a := createArc(ctx, uniqueName())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Delete(ctx, a.Base().Key)
+				})).To(Succeed())
 			})
-			Expect(arcSvc.NewWriter(nil).Move(ctx, root, d.Key, a.ResourceID())).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return arcSvc.NewWriter(tx).Move(ctx, root, d.Key, a.ResourceID())
+			})).
 				To(Succeed())
 			return a
 		}
@@ -308,9 +320,11 @@ var _ = Describe("Directories", func() {
 				src := newDirectory(ctx)
 				dst := newDirectory(ctx)
 				sub := newDirectory(ctx)
-				Expect(arcSvc.NewWriter(nil).Move(
-					ctx, root, src.Key, sub.ResourceID(),
-				)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Move(
+						ctx, root, src.Key, sub.ResourceID(),
+					)
+				})).To(Succeed())
 				grantUpdateOn(
 					ctx,
 					author.ResourceID(),
@@ -329,9 +343,11 @@ var _ = Describe("Directories", func() {
 				src := newDirectory(ctx)
 				dst := newDirectory(ctx)
 				sub := newDirectory(ctx)
-				Expect(arcSvc.NewWriter(nil).Move(
-					ctx, root, src.Key, sub.ResourceID(),
-				)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Move(
+						ctx, root, src.Key, sub.ResourceID(),
+					)
+				})).To(Succeed())
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,
@@ -354,9 +370,11 @@ var _ = Describe("Directories", func() {
 				src := newDirectory(ctx)
 				dst := newDirectory(ctx)
 				sub := newDirectory(ctx)
-				Expect(arcSvc.NewWriter(nil).Move(
-					ctx, root, src.Key, sub.ResourceID(),
-				)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Move(
+						ctx, root, src.Key, sub.ResourceID(),
+					)
+				})).To(Succeed())
 				a := createArcIn(ctx, src)
 				grantUpdateOn(
 					ctx,

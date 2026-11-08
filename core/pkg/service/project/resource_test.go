@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/search"
@@ -119,8 +120,12 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext) {
 				a := project.Project{Key: uuid.New(), Name: "turbopump test"}
 				b := project.Project{Key: uuid.New(), Name: "turbopump"}
-				Expect(writer.Create(ctx, &a)).To(Succeed())
-				Expect(writer.Create(ctx, &b)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &a)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &b)
+				})).To(Succeed())
 				q := search.Query[resource.ID]{Term: "turbopump", Limit: 10}
 				Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).
 					To(Equal([]resource.ID{b.ResourceID(), a.ResourceID()}))

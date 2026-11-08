@@ -1018,7 +1018,9 @@ var _ = Describe("Read task", func() {
 				DataType:   telem.StringT,
 				LocalIndex: index.LocalKey,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &text)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &text)
+			})).To(Succeed())
 			fields := stampedFields(index, data)
 			fields = slices.Insert(fields, 1, kafka.ReadField{
 				Key:      "s",
@@ -1103,7 +1105,9 @@ var _ = Describe("Read task", func() {
 			DataType:   telem.Float64T,
 			LocalIndex: index.LocalKey,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &inner)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &inner)
+		})).To(Succeed())
 		fields := stampedFields(index, data)
 		fields[1].DataType = telem.JSONT
 		fields = append(fields, kafka.ReadField{
@@ -1582,7 +1586,9 @@ var _ = Describe("Read task", func() {
 				DataType:   telem.Float64T,
 				LocalIndex: index.LocalKey,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
 			dev := createDevice(ctx, clusterProperties())
 			field := func(key string, ch channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{

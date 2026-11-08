@@ -164,10 +164,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Exec(ctx, nil)).To(Succeed())
 	root = r.Key
 	author = MustSucceed(
-		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
+		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
 	testRack = &rack.Rack{Name: "API Test Rack"}
-	Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rackSvc.NewWriter(tx).Create(ctx, testRack)
+	})).To(Succeed())
 })
 
 // grantOn grants the action on the objects to the subject through a new policy, which
@@ -182,10 +184,12 @@ func grantOn(
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
 	p := MustSucceed(
-		rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...),
+		rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...),
 	)
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(rbacSvc.Policy.NewWriter(nil, false).Delete(ctx, p.Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Policy.NewWriter(tx, false).Delete(ctx, p.Key)
+		})).To(Succeed())
 	})
 }
 

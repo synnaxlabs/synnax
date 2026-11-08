@@ -17,6 +17,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
+	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
@@ -57,11 +59,13 @@ func authed(ctx context.Context, token string) freighter.Context {
 func createUser(ctx context.Context, username, pwd string) user.User {
 	GinkgoHelper()
 	u := MustSucceed(
-		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: username}),
+		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: username}),
 	)
-	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.ResourceID(), auth.Credentials{
-		Username: username,
-		Password: pwd,
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return passwordSvc.NewWriter(tx).Set(ctx, u.ResourceID(), auth.Credentials{
+			Username: username,
+			Password: pwd,
+		})
 	})).To(Succeed())
 	return u
 }
@@ -112,18 +116,19 @@ var _ = Describe("ChangePassword", func() {
 	var own auth.Credentials
 	BeforeEach(func(ctx SpecContext) {
 		own = auth.Credentials{Username: uuid.New().String(), Password: "old"}
-		u := MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+		u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 			Name: own.Username,
 		}))
-		Expect(passwordSvc.NewWriter(nil).Set(ctx, u.ResourceID(), own)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return passwordSvc.NewWriter(tx).Set(ctx, u.ResourceID(), own)
+		})).To(Succeed())
 	})
 	It(
 		"Should replace the password when the current one is right",
 		func(ctx SpecContext) {
 			Expect(
-				apiSvc.ChangePassword(
+				fgorp.CreateWriteUnaryHandler(db, apiSvc.ChangePassword)(
 					requestCtx(ctx),
-					nil,
 					apiauth.ChangePasswordRequest{
 						Credentials: own,
 						NewPassword: "new",
@@ -143,10 +148,16 @@ var _ = Describe("ChangePassword", func() {
 	It("Should keep the password when the current one is wrong", func(ctx SpecContext) {
 		creds := auth.Credentials{Username: own.Username, Password: "wrong"}
 		Expect(
-			apiSvc.ChangePassword(requestCtx(ctx), nil, apiauth.ChangePasswordRequest{
-				Credentials: creds,
-				NewPassword: "new",
-			}),
+			fgorp.CreateWriteUnaryHandler(
+				db,
+				apiSvc.ChangePassword,
+			)(
+				requestCtx(ctx),
+				apiauth.ChangePasswordRequest{
+					Credentials: creds,
+					NewPassword: "new",
+				},
+			),
 		).Error().
 			To(MatchError(auth.ErrInvalidCredentials))
 		MustSucceed(apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)))
@@ -160,9 +171,8 @@ var _ = Describe("ChangePassword", func() {
 			other := MustSucceed(
 				apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
 			)
-			Expect(apiSvc.ChangePassword(
+			Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.ChangePassword)(
 				authed(ctx, caller.Token),
-				nil,
 				apiauth.ChangePasswordRequest{Credentials: own, NewPassword: "new"},
 			)).Error().ToNot(HaveOccurred())
 			for _, token := range []string{caller.Token, other.Token} {
@@ -191,7 +201,13 @@ var _ = Describe("SetPassword", func() {
 		token string,
 		req apiauth.PasswordSetRequest,
 	) (apiauth.PasswordSetResponse, error) {
-		return apiSvc.SetPassword(authed(ctx, token), nil, req)
+		return fgorp.CreateWriteUnaryHandler(
+			db,
+			apiSvc.SetPassword,
+		)(
+			authed(ctx, token),
+			req,
+		)
 	}
 	BeforeEach(func(ctx SpecContext) {
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "old")
@@ -219,11 +235,19 @@ var _ = Describe("SetPassword", func() {
 		ctx SpecContext,
 	) {
 		fctx := authed(ctx, bobToken)
-		res := MustSucceed(apiSvc.SetPassword(fctx, nil, apiauth.PasswordSetRequest{
-			Password:        "new",
-			CurrentPassword: "old",
-			Cookie:          true,
-		}))
+		res := MustSucceed(
+			fgorp.CreateWriteUnaryHandler(
+				db,
+				apiSvc.SetPassword,
+			)(
+				fctx,
+				apiauth.PasswordSetRequest{
+					Password:        "new",
+					CurrentPassword: "old",
+					Cookie:          true,
+				},
+			),
+		)
 		Expect(res.Token).To(BeEmpty())
 		cookie := MustBeOk(fctx.Get(apiauth.SessionCookieParam)).(apiauth.SessionCookie)
 		Expect(authSvc.Authenticate(ctx, cookie.Token)).To(Equal(*res.Session))
@@ -231,9 +255,8 @@ var _ = Describe("SetPassword", func() {
 	It("Should open no session for a caller logged in with an API key", func(
 		ctx SpecContext,
 	) {
-		key := MustSucceed(apiSvc.CreateKey(
+		key := MustSucceed(fgorp.CreateWriteUnaryHandler(db, apiSvc.CreateKey)(
 			authed(ctx, bobToken),
-			nil,
 			apiauth.KeyCreateRequest{Name: "spec"},
 		))
 		keyToken := MustSucceed(apiSvc.CreateSession(
@@ -288,7 +311,7 @@ var _ = Describe("SetPassword", func() {
 		})).Error().To(MatchError(validate.ErrValidation))
 	})
 	It("Should report a user with no password as not found", func(ctx SpecContext) {
-		u := MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+		u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 			Name: "nopass-" + uuid.New().String(),
 		}))
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{

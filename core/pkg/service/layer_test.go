@@ -60,8 +60,9 @@ var _ = Describe("Layer", func() {
 		signer := svctestutil.NewSigner()
 		lic := svctestutil.NewLicense()
 		lic.Channels = 50
+		node := testutil.NewNode(ctx)
 		layer := MustOpen(
-			svctestutil.OpenLayer(ctx, testutil.NewNode(ctx), service.LayerConfig{
+			svctestutil.OpenLayer(ctx, node, service.LayerConfig{
 				License: license.ServiceConfig{
 					Key:     signer.Sign(lic),
 					Anchors: signer.Anchors,
@@ -84,9 +85,13 @@ var _ = Describe("Layer", func() {
 				}
 			})
 		}
-		w := layer.Channel.NewWriter(nil)
-		Expect(w.CreateMany(ctx, new(newIndices(50-external)))).To(Succeed())
-		Expect(w.CreateMany(ctx, new(newIndices(1)))).To(And(
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Channel.NewWriter(tx).
+				CreateMany(ctx, new(newIndices(50-external)))
+		})).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Channel.NewWriter(tx).CreateMany(ctx, new(newIndices(1)))
+		})).To(And(
 			MatchError(license.ErrTooMany),
 			MatchError(ContainSubstring("limit is 50 channels")),
 		))
@@ -311,9 +316,12 @@ var _ = Describe("Layer", func() {
 			)).To(Succeed())
 			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
 			g := group.Group{Name: "Valves", Scope: resource.TypeChannel}
-			w := layer.Group.NewWriter(nil)
-			Expect(w.Create(ctx, &g)).To(Succeed())
-			Expect(w.Delete(ctx, g.Key)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Group.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Group.NewWriter(tx).Delete(ctx, g.Key)
+			})).To(Succeed())
 		},
 	)
 })
@@ -450,6 +458,7 @@ var _ = Describe("Resource search", Ordered, func() {
 var _ = Describe("Group moves", Ordered, func() {
 	var (
 		l      *service.Layer
+		db     *gorp.DB
 		src    project.Project
 		dest   project.Project
 		g      group.Group
@@ -458,23 +467,41 @@ var _ = Describe("Group moves", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		l = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+		node := testutil.NewNode(ctx)
+		db = node.DB
+		l = MustOpen(svctestutil.OpenLayer(ctx, node))
 		src = project.Project{Name: "Source"}
-		Expect(l.Project.NewWriter(nil).Create(ctx, &src)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Project.NewWriter(tx).Create(ctx, &src)
+		})).To(Succeed())
 		dest = project.Project{Name: "Destination"}
-		Expect(l.Project.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Project.NewWriter(tx).Create(ctx, &dest)
+		})).To(Succeed())
 		g = group.Group{Name: "Moved", Parent: new(project.ResourceID(src.Key))}
-		Expect(l.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Group.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
 		sch := schematic.Schematic{Name: "Schematic", Group: &g.Key}
-		Expect(l.Schematic.NewWriter(nil).Create(ctx, &sch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Schematic.NewWriter(tx).Create(ctx, &sch)
+		})).To(Succeed())
 		lp := lineplot.LinePlot{Name: "Plot", Group: &g.Key}
-		Expect(l.LinePlot.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.LinePlot.NewWriter(tx).Create(ctx, &lp)
+		})).To(Succeed())
 		lg := log.Log{Name: "Log", Group: &g.Key}
-		Expect(l.Log.NewWriter(nil).Create(ctx, &lg)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Log.NewWriter(tx).Create(ctx, &lg)
+		})).To(Succeed())
 		tb := table.Table{Name: "Table", Group: &g.Key}
-		Expect(l.Table.NewWriter(nil).Create(ctx, &tb)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Table.NewWriter(tx).Create(ctx, &tb)
+		})).To(Succeed())
 		pn := panel.Panel{Name: "Panel", Group: &g.Key}
-		Expect(l.Panel.NewWriter(nil).Create(ctx, &pn)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Panel.NewWriter(tx).Create(ctx, &pn)
+		})).To(Succeed())
 		owners = func(ctx SpecContext) []*project.Key {
 			GinkgoHelper()
 			Expect(l.Schematic.NewRetrieve().
@@ -510,8 +537,10 @@ var _ = Describe("Group moves", Ordered, func() {
 	It(
 		"Should move the visualizations of a group into the project it moves under",
 		func(ctx SpecContext) {
-			Expect(l.Group.NewWriter(nil).
-				SetParent(ctx, new(project.ResourceID(dest.Key)), g.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return l.Group.NewWriter(tx).
+					SetParent(ctx, new(project.ResourceID(dest.Key)), g.Key)
+			})).To(Succeed())
 			Expect(owners(ctx)).To(HaveEach(Equal(&dest.Key)))
 		},
 	)
@@ -519,7 +548,9 @@ var _ = Describe("Group moves", Ordered, func() {
 	It(
 		"Should reject a move of a group that holds visualizations to the top level",
 		func(ctx SpecContext) {
-			Expect(l.Group.NewWriter(nil).SetParent(ctx, nil, g.Key)).To(MatchError(
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return l.Group.NewWriter(tx).SetParent(ctx, nil, g.Key)
+			})).To(MatchError(
 				"group: a schematic sits only in a group under a project: validation error",
 			))
 			Expect(owners(ctx)).To(HaveEach(Equal(&dest.Key)))

@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/search"
@@ -128,12 +129,18 @@ var _ = Describe("Resource", func() {
 	Describe("Search", func() {
 		DescribeTable("Should search users by each word of their name",
 			func(ctx SpecContext, term string) {
-				created := MustSucceed(writer.Create(ctx, user.User{
-					Name: "Persephone Quintarelli",
-					Role: member,
-				}))
+				var created user.User
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					created, err = svc.NewWriter(tx).Create(ctx, user.User{
+						Name: "Persephone Quintarelli",
+						Role: member,
+					})
+					return err
+				})).To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
-					Expect(writer.Delete(ctx, created.Key)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, created.Key)
+					})).To(Succeed())
 				})
 				q := search.Query[resource.ID]{Term: term, Limit: 10}
 				Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).

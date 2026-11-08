@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -34,7 +35,7 @@ import (
 // newUser creates a user that may take every action on resources of types.
 func newUser(ctx context.Context, types ...resource.Type) user.User {
 	GinkgoHelper()
-	u := MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+	u := MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 	objects := make([]resource.ID, len(types))
@@ -43,6 +44,7 @@ func newUser(ctx context.Context, types ...resource.Type) user.User {
 	}
 	MustSucceed(rbactestutil.Grant(
 		ctx,
+		db,
 		svc.RBAC,
 		svc.User,
 		u.Key,
@@ -83,7 +85,9 @@ var _ = Describe("Layer", func() {
 		func(ctx SpecContext) {
 			u := newUser(ctx, resource.TypeGroup, resource.TypeProject)
 			proj := project.Project{Name: "batched"}
-			Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Project.NewWriter(tx).Create(ctx, &proj)
+			})).To(Succeed())
 			key := uuid.New()
 			MustSucceed(execBatch(ctx, u, fmt.Sprintf(`{"requests": [
 				{
@@ -109,7 +113,9 @@ var _ = Describe("Layer", func() {
 		func(ctx SpecContext) {
 			u := newUser(ctx, resource.TypeGroup)
 			proj := project.Project{Name: "denied"}
-			Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Project.NewWriter(tx).Create(ctx, &proj)
+			})).To(Succeed())
 			key := uuid.New()
 			Expect(execBatch(ctx, u, fmt.Sprintf(`{"requests": [
 				{
@@ -138,7 +144,9 @@ var _ = Describe("Layer", func() {
 	It("Should commit nothing when a later request fails", func(ctx SpecContext) {
 		u := newUser(ctx, resource.TypeGroup, resource.TypeProject)
 		proj := project.Project{Name: "unbatched"}
-		Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Project.NewWriter(tx).Create(ctx, &proj)
+		})).To(Succeed())
 		key, missing := uuid.New(), uuid.New()
 		Expect(execBatch(ctx, u, fmt.Sprintf(`{"requests": [
 			{
@@ -164,7 +172,9 @@ var _ = Describe("Layer", func() {
 		func(ctx SpecContext) {
 			u := newUser(ctx, resource.TypeStatus, resource.TypeLabel)
 			l := label.Label{Name: "batched"}
-			Expect(svc.Label.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Label.NewWriter(tx).Create(ctx, &l)
+			})).To(Succeed())
 			key := uuid.New().String()
 			MustSucceed(execBatch(ctx, u, fmt.Sprintf(`{"requests": [
 				{

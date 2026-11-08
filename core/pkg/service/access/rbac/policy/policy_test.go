@@ -558,21 +558,25 @@ var _ = Describe("Resources", func() {
 	})
 })
 
-var _ = Describe("Writer with no transaction", func() {
+var _ = Describe("Writer in concurrent transactions", func() {
 	It(
 		"Should not overwrite a policy that moves to a built-in role at once",
 		func(ctx SpecContext) {
 			custom := role.Role{Name: "custom"}
 			builtin := role.Role{Name: "built-in", Internal: true}
-			Expect(roleSvc.NewWriter(nil, true).Create(ctx, &custom)).To(Succeed())
-			Expect(roleSvc.NewWriter(nil, true).Create(ctx, &builtin)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return roleSvc.NewWriter(tx, true).Create(ctx, &custom)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return roleSvc.NewWriter(tx, true).Create(ctx, &builtin)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(
-					roleSvc.NewWriter(nil, true).Delete(ctx, custom.Key),
-				).To(Succeed())
-				Expect(
-					roleSvc.NewWriter(nil, true).Delete(ctx, builtin.Key),
-				).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return roleSvc.NewWriter(tx, true).Delete(ctx, custom.Key)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return roleSvc.NewWriter(tx, true).Delete(ctx, builtin.Key)
+				})).To(Succeed())
 			})
 			for range 30 {
 				key := uuid.New()
@@ -586,7 +590,9 @@ var _ = Describe("Writer with no transaction", func() {
 					}
 				}
 				p := newPolicy(custom.Key)
-				Expect(svc.NewWriter(nil, false).Create(ctx, &p)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx, false).Create(ctx, &p)
+				})).To(Succeed())
 				var (
 					wg      sync.WaitGroup
 					userErr error
@@ -594,13 +600,15 @@ var _ = Describe("Writer with no transaction", func() {
 				wg.Go(func() {
 					defer GinkgoRecover()
 					internal := newPolicy(builtin.Key)
-					Expect(
-						svc.NewWriter(nil, true).Create(ctx, &internal),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx, true).Create(ctx, &internal)
+					})).To(Succeed())
 				})
 				wg.Go(func() {
 					user := newPolicy(custom.Key)
-					userErr = svc.NewWriter(nil, false).Create(ctx, &user)
+					userErr = db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx, false).Create(ctx, &user)
+					})
 				})
 				wg.Wait()
 				Expect(userErr).To(Or(

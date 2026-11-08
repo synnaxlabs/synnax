@@ -46,7 +46,6 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	db         *gorp.DB
 	svc        *arc.Service
-	writer     arc.Writer
 	groupSvc   *group.Service
 	channelSvc *channel.Service
 	taskSvc    *task.Service
@@ -83,7 +82,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostKey:             1,
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
-		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DriverRole: MustSucceed(
+			racktestutil.CreateDriverRole(ctx, db, roleSvc),
+		),
 	}))
 	imexSvc = imex.NewService()
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
@@ -100,7 +101,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImExExcluded: []string{arctask.Type},
 	}))
 	testRack = &rack.Rack{Name: "Test Rack"}
-	Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rackSvc.NewWriter(tx).Create(ctx, testRack)
+	})).To(Succeed())
 	svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:                  db,
 		Table:               arcTable,
@@ -114,7 +117,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		TaskSyncDebounce:    5 * telem.Millisecond,
 		Now:                 func() telem.TimeStamp { return arcClock() },
 	}))
-	writer = svc.NewWriter(nil)
 })
 
 // rootDirectory returns the directory that holds every Arc.

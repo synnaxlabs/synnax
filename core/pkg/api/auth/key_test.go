@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -45,7 +46,9 @@ func setBuiltinRole(ctx context.Context, subject user.Key, name string) {
 		})).
 		Entry(&r).
 		Exec(ctx, nil)).To(Succeed())
-	Expect(userSvc.NewWriter(nil).SetRole(ctx, r.Key, nil, subject)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return userSvc.NewWriter(tx).SetRole(ctx, r.Key, nil, subject)
+	})).To(Succeed())
 }
 
 // grant grants the action on the object to the subject.
@@ -57,7 +60,7 @@ func grant(
 ) {
 	GinkgoHelper()
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, subject, actions, object))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, subject, actions, object))
 }
 
 var _ = Describe("API keys", func() {
@@ -79,9 +82,8 @@ var _ = Describe("API keys", func() {
 		token string,
 		subject resource.ID,
 	) (apiauth.KeyCreateResponse, error) {
-		return apiSvc.CreateKey(
+		return fgorp.CreateWriteUnaryHandler(db, apiSvc.CreateKey)(
 			authed(ctx, token),
-			nil,
 			apiauth.KeyCreateRequest{Subject: subject, Name: "ci"},
 		)
 	}
@@ -93,7 +95,9 @@ var _ = Describe("API keys", func() {
 		engToken = login(ctx, passwordProof(eng.Name, "p"))
 		rootToken = login(ctx, passwordProof(creds.Username, creds.Password))
 		r := rack.Rack{Name: "rack-" + uuid.New().String()}
-		Expect(rackSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rackSvc.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		rackID = r.ResourceID()
 	})
 	Describe("CreateKey", func() {
@@ -214,9 +218,8 @@ var _ = Describe("API keys", func() {
 	})
 	Describe("DeleteKeys", func() {
 		del := func(ctx context.Context, token string, keys ...apikey.Key) error {
-			_, err := apiSvc.DeleteKeys(
+			_, err := fgorp.CreateWriteUnaryHandler(db, apiSvc.DeleteKeys)(
 				authed(ctx, token),
-				nil,
 				apiauth.KeyDeleteRequest{Keys: keys},
 			)
 			return err

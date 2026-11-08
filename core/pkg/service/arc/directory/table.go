@@ -88,9 +88,9 @@ func (t *Table) NewRetrieve() Retrieve {
 	return Retrieve{baseTX: t.db, gorp: t.table.NewRetrieve(), indexes: t.indexes}
 }
 
-// NewWriter opens a writer that runs on tx, or on the database when tx is nil.
+// NewWriter opens a writer that runs on tx.
 func (t *Table) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(t.db, tx), table: t.table}
+	return Writer{tx: tx, table: t.table}
 }
 
 // Changes returns the changes that c made to directories.

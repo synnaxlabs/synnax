@@ -156,7 +156,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		svc:        s,
-		tx:         gorp.OverrideTx(s.cfg.DB, tx),
+		tx:         tx,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}

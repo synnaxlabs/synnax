@@ -26,8 +26,7 @@ import (
 
 // Writer is used to create, update, and delete tables within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter
-// method. If no transaction is provided, the writer will execute operations directly on
-// the database.
+// method.
 type Writer struct {
 	svc        *Service
 	tx         gorp.Tx
@@ -42,29 +41,11 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
-// dispatch key of w when w has no transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	db, ok := w.tx.(*gorp.DB)
-	if !ok {
-		return f(w)
-	}
-	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		bound := w.svc.NewWriter(tx)
-		bound.dispatcher = w.dispatcher
-		return f(bound)
-	})
-}
-
 // Create creates the given table, assigning a new key when t.Key is zero. The table
 // must belong to exactly one of a project and a range. An existing table keeps its
 // group, project, and range. A new table in a group belongs to the project that holds
 // the group.
 func (w Writer) Create(ctx context.Context, t *Table) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, t) })
-}
-
-func (w Writer) create(ctx context.Context, t *Table) error {
 	var (
 		exists bool
 		err    error
@@ -114,32 +95,28 @@ func (w Writer) create(ctx context.Context, t *Table) error {
 // SetGroup moves the tables with keys into g, or out of their group when g is nil. A
 // table in a group belongs to the project that holds the group.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		p, err := project.GroupProject(ctx, w.tx, g, resource.TypeTable)
-		if err != nil {
-			return err
-		}
-		if err = setGroup(w.tbl, g, keys...).Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		w.attachGroup(g, keys)
-		if p == nil {
-			return nil
-		}
-		return w.setProject(ctx, *p, keys...)
-	})
+	p, err := project.GroupProject(ctx, w.tx, g, resource.TypeTable)
+	if err != nil {
+		return err
+	}
+	if err = setGroup(w.tbl, g, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.attachGroup(g, keys)
+	if p == nil {
+		return nil
+	}
+	return w.setProject(ctx, *p, keys...)
 }
 
 // SetProject moves the tables with keys out of their group and into the project p. It
 // returns a validation error when a table belongs to a range.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		if err := setGroup(w.tbl, nil, keys...).Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		w.attachGroup(nil, keys)
-		return w.setProject(ctx, p, keys...)
-	})
+	if err := setGroup(w.tbl, nil, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.attachGroup(nil, keys)
+	return w.setProject(ctx, p, keys...)
 }
 
 // setProject moves the tables with keys that are not in the project p into p, and

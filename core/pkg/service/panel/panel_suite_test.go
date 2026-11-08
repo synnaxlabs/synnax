@@ -42,7 +42,6 @@ var (
 	db         *gorp.DB
 	groupSvc   *group.Service
 	svc        *panel.Service
-	writer     panel.Writer
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
 	projectSvc *project.Service
@@ -90,12 +89,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Signals: sigs,
 	}))
 	MustOpen(sigs.Start(ctx))
-	writer = svc.NewWriter(nil)
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: node.DB,
 	}))
 	proj = project.Project{Name: "panel-project"}
-	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
 	plotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:   node.DB,
 		ImEx: imex.NewService(),

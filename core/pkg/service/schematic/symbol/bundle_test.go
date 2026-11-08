@@ -75,9 +75,13 @@ var _ = Describe("ExportGroup", func() {
 			Scope:  resource.TypeSchematicSymbol,
 			Parent: parent,
 		}
-		Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return groupSvc.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Delete(ctx, g.Key)
+			})).To(Succeed())
 		})
 		return g
 	}
@@ -92,9 +96,13 @@ var _ = Describe("ExportGroup", func() {
 			Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 			Group: &g.Key,
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &sym)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &sym)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, sym.Key)
+			})).To(Succeed())
 		})
 		return sym
 	}
@@ -291,7 +299,9 @@ var _ = Describe("ImportGroup", func() {
 		src := group.Group{Name: "Valves", Scope: resource.TypeSchematicSymbol}
 		Expect(groupSvc.NewWriter(tx).Create(ctx, &src)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(groupSvc.NewWriter(nil).Delete(ctx, src.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Delete(ctx, src.Key)
+			})).To(Succeed())
 		})
 		sym := symbol.Symbol{
 			Name:  "Inlet",
@@ -300,7 +310,9 @@ var _ = Describe("ImportGroup", func() {
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, sym.Key)
+			})).To(Succeed())
 		})
 		Expect(tx.Commit(ctx)).To(Succeed())
 		files, _ := MustSucceed2(svc.ExportGroup(ctx, src.Key, xjson.Codec))

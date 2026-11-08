@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
@@ -28,13 +29,14 @@ import (
 )
 
 var (
-	channelSvc    *channel.Service
-	channelWriter channel.Writer
+	db         *gorp.DB
+	channelSvc *channel.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: node.DB,
 	}))
@@ -47,7 +49,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
-	channelWriter = channelSvc.NewWriter(nil)
 })
 
 var _ = Describe("Graph", func() {
@@ -62,14 +63,18 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "base1", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calc := channel.Channel{
 				Name:       "calc1",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return base1 * 2",
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
@@ -79,21 +84,27 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "base2", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calc1 := channel.Channel{
 				Name:       "calc2",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return base2 + 1",
 			}
-			Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc1)
+			})).To(Succeed())
 			calc2 := channel.Channel{
 				Name:       "calc3",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return calc2 * 2",
 			}
-			Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc2)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calc2)).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
@@ -107,16 +118,22 @@ var _ = Describe("Graph", func() {
 				Virtual:    true,
 				Expression: "return 1",
 			}
-			Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc1)
+			})).To(Succeed())
 			calc2 := channel.Channel{
 				Name:       "circ2",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return circ1",
 			}
-			Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc2)
+			})).To(Succeed())
 			calc1.Expression = "return circ2"
-			Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc1)
+			})).To(Succeed())
 			Expect(
 				g.Add(ctx, calc1),
 			).To(MatchError(ContainSubstring("circular dependency")))
@@ -126,14 +143,18 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "base3", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calc := channel.Channel{
 				Name:       "calc4",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return base3",
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			grouped := g.CalculateGrouped()
@@ -150,7 +171,9 @@ var _ = Describe("Graph", func() {
 				{Name: "base4", DataType: telem.Int64T, Virtual: true},
 				{Name: "base5", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "calc5",
@@ -171,7 +194,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return base5 - 1",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 			Expect(g.Add(ctx, calcs[2])).To(Succeed())
@@ -184,7 +209,9 @@ var _ = Describe("Graph", func() {
 				{Name: "base6", DataType: telem.Int64T, Virtual: true},
 				{Name: "base7", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "calc8",
@@ -199,7 +226,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return base6 + base7",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 			grouped := g.CalculateGrouped()
@@ -214,7 +243,9 @@ var _ = Describe("Graph", func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
 				calcs := make([]channel.Channel, 8)
 				for i := range calcs {
 					calcs[i] = channel.Channel{
@@ -224,7 +255,9 @@ var _ = Describe("Graph", func() {
 						Expression: "return base_order + 1",
 					}
 				}
-				Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+				})).To(Succeed())
 				for _, calc := range calcs {
 					Expect(g.Add(ctx, calc)).To(Succeed())
 				}
@@ -250,7 +283,9 @@ var _ = Describe("Graph", func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
 				calcs := []channel.Channel{
 					{
 						Name:       "calc_nested_order_a",
@@ -271,12 +306,16 @@ var _ = Describe("Graph", func() {
 						Expression: "return base_nested_order + 2",
 					},
 				}
-				Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+				})).To(Succeed())
 				for _, calc := range calcs {
 					Expect(g.Add(ctx, calc)).To(Succeed())
 				}
 				calcs[0].Expression = "return calc_nested_order_b + calc_nested_order_c"
-				Expect(channelWriter.Create(ctx, &calcs[0])).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calcs[0])
+				})).To(Succeed())
 				Expect(g.Update(ctx, calcs[0])).To(Succeed())
 				order := func() []channel.Key {
 					GinkgoHelper()
@@ -306,7 +345,9 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "flatbase1", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "flat1",
@@ -327,7 +368,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return flat2 + 1",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[2])).To(Succeed())
 			flat := g.CalculateFlat()
 			Expect(flat).To(HaveLen(3))
@@ -347,14 +390,18 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "base8", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calc := channel.Channel{
 				Name:       "calc10",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return base8",
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
@@ -365,7 +412,9 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "base9", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "calc11",
@@ -380,7 +429,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return base9 * 2",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 			Expect(MustSucceed(g.Remove(calcs[0].Key()))).To(BeTrue())
@@ -401,14 +452,18 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "base12", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calc := channel.Channel{
 				Name:       "calc16",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return base12",
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
@@ -424,7 +479,9 @@ var _ = Describe("Graph", func() {
 				bases := []channel.Channel{
 					{Name: "base13", DataType: telem.Int64T, Virtual: true},
 				}
-				Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+				})).To(Succeed())
 				calcs := []channel.Channel{
 					{
 						Name:       "calc17",
@@ -439,7 +496,9 @@ var _ = Describe("Graph", func() {
 						Expression: "return calc17 * 2",
 					},
 				}
-				Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+				})).To(Succeed())
 				Expect(g.Add(ctx, calcs[1])).To(Succeed())
 				grouped := g.CalculateGrouped()
 				Expect(grouped[0]).To(HaveLen(2))
@@ -454,7 +513,9 @@ var _ = Describe("Graph", func() {
 				bases := []channel.Channel{
 					{Name: "base14", DataType: telem.Int64T, Virtual: true},
 				}
-				Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+				})).To(Succeed())
 				calcs := []channel.Channel{
 					{
 						Name:       "calc19",
@@ -475,7 +536,9 @@ var _ = Describe("Graph", func() {
 						Expression: "return calc19 * 2",
 					},
 				}
-				Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+				})).To(Succeed())
 				Expect(g.Add(ctx, calcs[1])).To(Succeed())
 				Expect(g.Add(ctx, calcs[2])).To(Succeed())
 				grouped := g.CalculateGrouped()
@@ -492,7 +555,9 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "base15", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "calc22",
@@ -507,7 +572,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return calc22 + 1",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 			Expect(MustSucceed(g.Remove(calcs[1].Key()))).To(BeTrue())
@@ -524,7 +591,9 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "base16", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "calc24",
@@ -539,7 +608,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return calc24 * 2",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 
 			keys := g.CalculatedKeys()
@@ -558,14 +629,18 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "base17", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calc := channel.Channel{
 				Name:       "calc26",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return base17",
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 
 			keys := g.CalculatedKeys()
@@ -587,7 +662,9 @@ var _ = Describe("Graph", func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &base)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "contains_calc_a",
@@ -602,7 +679,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return contains_calc_a * 2",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 			Expect(g.Contains(calcs[0].Key())).To(BeTrue())
 			Expect(g.Contains(calcs[1].Key())).To(BeTrue())
@@ -615,14 +694,18 @@ var _ = Describe("Graph", func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &base)
+			})).To(Succeed())
 			calc := channel.Channel{
 				Name:       "contains_removed_calc",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return contains_removed_base",
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			Expect(g.Contains(calc.Key())).To(BeFalse())
@@ -637,7 +720,9 @@ var _ = Describe("Graph", func() {
 				{Name: "basekeys_a", DataType: telem.Int64T, Virtual: true},
 				{Name: "basekeys_b", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "basekeys_calc_a",
@@ -652,7 +737,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return basekeys_b",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 			Expect(MustSucceed(g.BaseKeys(calcs[0].Key())).Slice()).
@@ -667,21 +754,27 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "basekeys_nested", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			inner := channel.Channel{
 				Name:       "basekeys_inner",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return basekeys_nested",
 			}
-			Expect(channelWriter.Create(ctx, &inner)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &inner)
+			})).To(Succeed())
 			outer := channel.Channel{
 				Name:       "basekeys_outer",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return basekeys_inner * 2",
 			}
-			Expect(channelWriter.Create(ctx, &outer)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &outer)
+			})).To(Succeed())
 			Expect(g.Add(ctx, outer)).To(Succeed())
 			Expect(MustSucceed(g.BaseKeys(outer.Key())).Slice()).
 				To(ConsistOf(bases[0].Key()))
@@ -692,17 +785,23 @@ var _ = Describe("Graph", func() {
 				{Name: "basekeys_old", DataType: telem.Int64T, Virtual: true},
 				{Name: "basekeys_new", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calc := channel.Channel{
 				Name:       "basekeys_updated",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return basekeys_old",
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			calc.Expression = "return basekeys_new"
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Update(ctx, calc)).To(Succeed())
 			Expect(MustSucceed(g.BaseKeys(calc.Key())).Slice()).
 				To(ConsistOf(bases[1].Key()))
@@ -720,7 +819,9 @@ var _ = Describe("Graph", func() {
 				{Name: "base18", DataType: telem.Int64T, Virtual: true},
 				{Name: "base19", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "calc27",
@@ -735,7 +836,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return base18 + base19",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 
@@ -751,7 +854,9 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "base20", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "calc29",
@@ -766,7 +871,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return calc29 * 2",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 
 			baseKeys := g.ConcreteBaseKeys()
@@ -785,7 +892,9 @@ var _ = Describe("Graph", func() {
 				{Name: "base21", DataType: telem.Int64T, Virtual: true},
 				{Name: "base22", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "calc31",
@@ -800,7 +909,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return base22",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 
@@ -822,18 +933,24 @@ var _ = Describe("Graph", func() {
 				bases := []channel.Channel{
 					{Name: "upbase1", DataType: telem.Int64T, Virtual: true},
 				}
-				Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+				})).To(Succeed())
 				calc := channel.Channel{
 					Name:       "upcalc1",
 					DataType:   telem.Int64T,
 					Virtual:    true,
 					Expression: "return upbase1 * 2",
 				}
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
 				Expect(g.Add(ctx, calc)).To(Succeed())
 
 				calc.Expression = "return upbase1 * 4"
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
 				Expect(g.Update(ctx, calc)).To(Succeed())
 				grouped := g.CalculateGrouped()
 				Expect(grouped).To(HaveLen(1))
@@ -848,18 +965,24 @@ var _ = Describe("Graph", func() {
 				{Name: "upbase2", DataType: telem.Int64T, Virtual: true},
 				{Name: "upbase3", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calc := channel.Channel{
 				Name:       "upcalc2",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return upbase2",
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 
 			calc.Expression = "return upbase2 + upbase3"
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Update(ctx, calc)).To(Succeed())
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys).To(HaveLen(2))
@@ -872,18 +995,24 @@ var _ = Describe("Graph", func() {
 				{Name: "upbase4", DataType: telem.Int64T, Virtual: true},
 				{Name: "upbase5", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calc := channel.Channel{
 				Name:       "upcalc3",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return upbase4 + upbase5",
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 
 			calc.Expression = "return upbase4"
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Update(ctx, calc)).To(Succeed())
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys).To(HaveLen(1))
@@ -896,7 +1025,9 @@ var _ = Describe("Graph", func() {
 				{Name: "upbase6", DataType: telem.Int64T, Virtual: true},
 				{Name: "upbase7", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "upcalc4",
@@ -911,7 +1042,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return upbase7",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 
@@ -919,7 +1052,9 @@ var _ = Describe("Graph", func() {
 			Expect(grouped).To(HaveLen(2))
 
 			calcs[0].Expression = "return upbase7"
-			Expect(channelWriter.Create(ctx, &calcs[0])).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calcs[0])
+			})).To(Succeed())
 			Expect(g.Update(ctx, calcs[0])).To(Succeed())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
@@ -929,19 +1064,25 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "upbase8", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calc := channel.Channel{
 				Name:       "upcalc6",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return upbase8",
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 
 			calc.Expression = "return upbase8 * 3"
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Update(ctx, calc)).To(Succeed())
 			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
@@ -957,7 +1098,9 @@ var _ = Describe("Graph", func() {
 				bases := []channel.Channel{
 					{Name: "upbase9", DataType: telem.Int64T, Virtual: true},
 				}
-				Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+				})).To(Succeed())
 				calcs := []channel.Channel{
 					{
 						Name:       "upcalc7",
@@ -972,11 +1115,15 @@ var _ = Describe("Graph", func() {
 						Expression: "return upbase9",
 					},
 				}
-				Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+				})).To(Succeed())
 				Expect(g.Add(ctx, calcs[1])).To(Succeed())
 
 				calcs[1].Expression = "return upcalc7 + 1"
-				Expect(channelWriter.Create(ctx, &calcs[1])).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calcs[1])
+				})).To(Succeed())
 				Expect(g.Update(ctx, calcs[1])).To(Succeed())
 				flat := g.CalculateFlat()
 				Expect(flat).To(HaveLen(2))
@@ -989,7 +1136,9 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "upbase10", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "upcalc9",
@@ -1004,14 +1153,18 @@ var _ = Describe("Graph", func() {
 					Expression: "return upcalc9 + 1",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 
 			calcKeys := g.CalculatedKeys()
 			Expect(calcKeys).To(HaveLen(2))
 
 			calcs[1].Expression = "return upbase10"
-			Expect(channelWriter.Create(ctx, &calcs[1])).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calcs[1])
+			})).To(Succeed())
 			Expect(g.Update(ctx, calcs[1])).To(Succeed())
 			calcKeys = g.CalculatedKeys()
 			Expect(calcKeys).To(HaveLen(1))
@@ -1026,7 +1179,9 @@ var _ = Describe("Graph", func() {
 				Virtual:    true,
 				Expression: "return 1 + 1",
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(g.Update(ctx, calc)).To(MatchError(query.ErrNotFound))
 		})
 
@@ -1034,7 +1189,9 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "upbase12", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "upcirc1",
@@ -1049,12 +1206,16 @@ var _ = Describe("Graph", func() {
 					Expression: "return upcirc1",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 
 			calcs[0].Expression = "return upcirc2"
-			Expect(channelWriter.Create(ctx, &calcs[0])).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calcs[0])
+			})).To(Succeed())
 			Expect(
 				g.Update(ctx, calcs[0]),
 			).To(MatchError(ContainSubstring("circular dependency")))
@@ -1064,7 +1225,9 @@ var _ = Describe("Graph", func() {
 			bases := []channel.Channel{
 				{Name: "upbase13", DataType: telem.Int64T, Virtual: true},
 			}
-			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
 			calcs := []channel.Channel{
 				{
 					Name:       "upcalc11",
@@ -1085,7 +1248,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return upcalc11 * 3",
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 			Expect(g.Add(ctx, calcs[2])).To(Succeed())
 
@@ -1093,7 +1258,9 @@ var _ = Describe("Graph", func() {
 			Expect(calcKeys).To(HaveLen(3))
 
 			calcs[1].Expression = "return upbase13"
-			Expect(channelWriter.Create(ctx, &calcs[1])).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calcs[1])
+			})).To(Succeed())
 			Expect(g.Update(ctx, calcs[1])).To(Succeed())
 			calcKeys = g.CalculatedKeys()
 			Expect(calcKeys).To(HaveLen(3))
@@ -1107,7 +1274,9 @@ var _ = Describe("Graph", func() {
 					DataType: telem.Float32T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &raw)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &raw)
+				})).To(Succeed())
 
 				calc1 := channel.Channel{
 					Name:       "cascade_calc1",
@@ -1115,7 +1284,9 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return f32(cascade_raw * 1)",
 				}
-				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc1)
+				})).To(Succeed())
 
 				calc2 := channel.Channel{
 					Name:       "cascade_calc2",
@@ -1123,7 +1294,9 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return cascade_calc1 * 2",
 				}
-				Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc2)
+				})).To(Succeed())
 
 				Expect(g.Add(ctx, calc2)).To(Succeed())
 				flat := g.CalculateFlat()
@@ -1132,7 +1305,9 @@ var _ = Describe("Graph", func() {
 				// Update calc1 to return f64 instead of f32
 				calc1.Expression = "return f64(cascade_raw * 1.0)"
 				calc1.DataType = telem.Float64T
-				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc1)
+				})).To(Succeed())
 				// The update should trigger recompilation of calc2. Since calc2's
 				// stored DataType is f32 but calc1 now provides f64, the expression
 				// `cascade_calc1 * 2` resolves to f64 which doesn't match calc2's
@@ -1149,7 +1324,9 @@ var _ = Describe("Graph", func() {
 					DataType: telem.Float64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &raw)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &raw)
+				})).To(Succeed())
 
 				calc1 := channel.Channel{
 					Name:       "chain3_c1",
@@ -1157,7 +1334,9 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return chain3_raw + 1.0",
 				}
-				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc1)
+				})).To(Succeed())
 
 				calc2 := channel.Channel{
 					Name:       "chain3_c2",
@@ -1165,7 +1344,9 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return chain3_c1 + 2.0",
 				}
-				Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc2)
+				})).To(Succeed())
 
 				calc3 := channel.Channel{
 					Name:       "chain3_c3",
@@ -1173,7 +1354,9 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return chain3_c2 + 3.0",
 				}
-				Expect(channelWriter.Create(ctx, &calc3)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc3)
+				})).To(Succeed())
 
 				Expect(g.Add(ctx, calc3)).To(Succeed())
 				Expect(g.CalculateFlat()).To(HaveLen(3))
@@ -1183,7 +1366,9 @@ var _ = Describe("Graph", func() {
 				// but calc1 now provides f32.
 				calc1.Expression = "return f32(chain3_raw)"
 				calc1.DataType = telem.Float32T
-				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc1)
+				})).To(Succeed())
 				Expect(g.Update(ctx, calc1)).To(MatchError(ContainSubstring(
 					"failed to recompile dependent channel",
 				)))
@@ -1197,7 +1382,9 @@ var _ = Describe("Graph", func() {
 					DataType: telem.Float64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &raw)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &raw)
+				})).To(Succeed())
 
 				left := channel.Channel{
 					Name:       "diamond_left",
@@ -1205,7 +1392,9 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return diamond_raw * 2.0",
 				}
-				Expect(channelWriter.Create(ctx, &left)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &left)
+				})).To(Succeed())
 
 				right := channel.Channel{
 					Name:       "diamond_right",
@@ -1213,7 +1402,9 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return diamond_raw * 3.0",
 				}
-				Expect(channelWriter.Create(ctx, &right)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &right)
+				})).To(Succeed())
 
 				bottom := channel.Channel{
 					Name:       "diamond_bottom",
@@ -1221,7 +1412,9 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return diamond_left + diamond_right",
 				}
-				Expect(channelWriter.Create(ctx, &bottom)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &bottom)
+				})).To(Succeed())
 
 				Expect(g.Add(ctx, bottom)).To(Succeed())
 				flat := g.CalculateFlat()
@@ -1231,7 +1424,9 @@ var _ = Describe("Graph", func() {
 				// but not affect right, since right depends on raw, not left.
 				left.Expression = "return f32(diamond_raw)"
 				left.DataType = telem.Float32T
-				Expect(channelWriter.Create(ctx, &left)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &left)
+				})).To(Succeed())
 				Expect(g.Update(ctx, left)).To(MatchError(ContainSubstring(
 					"failed to recompile dependent channel",
 				)))
@@ -1246,7 +1441,9 @@ var _ = Describe("Graph", func() {
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, &raw)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &raw)
+			})).To(Succeed())
 
 			calc1 := channel.Channel{
 				Name:       "nocascade_c1",
@@ -1254,7 +1451,9 @@ var _ = Describe("Graph", func() {
 				Virtual:    true,
 				Expression: "return nocascade_raw + 1.0",
 			}
-			Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc1)
+			})).To(Succeed())
 
 			calc2 := channel.Channel{
 				Name:       "nocascade_c2",
@@ -1262,7 +1461,9 @@ var _ = Describe("Graph", func() {
 				Virtual:    true,
 				Expression: "return nocascade_c1 + 2.0",
 			}
-			Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc2)
+			})).To(Succeed())
 
 			Expect(g.Add(ctx, calc2)).To(Succeed())
 			Expect(g.CalculateFlat()).To(HaveLen(2))
@@ -1270,7 +1471,9 @@ var _ = Describe("Graph", func() {
 			// Change calc1's expression but keep the same DataType.
 			// This should NOT trigger cascade recompilation.
 			calc1.Expression = "return nocascade_raw + 99.0"
-			Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc1)
+			})).To(Succeed())
 			Expect(g.Update(ctx, calc1)).To(Succeed())
 			Expect(g.CalculateFlat()).To(HaveLen(2))
 		})
@@ -1282,7 +1485,9 @@ var _ = Describe("Graph", func() {
 					DataType: telem.Float64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &raw)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &raw)
+				})).To(Succeed())
 
 				calc1 := channel.Channel{
 					Name:       "rb_c1",
@@ -1290,7 +1495,9 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return rb_raw + 1.0",
 				}
-				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc1)
+				})).To(Succeed())
 
 				// calc2 uses an explicit cast, so it compiles regardless of
 				// calc1's type. Its output is always f64.
@@ -1300,7 +1507,9 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return f64(rb_c1)",
 				}
-				Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc2)
+				})).To(Succeed())
 
 				// calc3 references both calc1 and calc2 without casting.
 				// When calc1 is f64, this is f64+f64 which works. When calc1
@@ -1311,7 +1520,9 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return rb_c1 + rb_c2",
 				}
-				Expect(channelWriter.Create(ctx, &calc3)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc3)
+				})).To(Succeed())
 
 				Expect(g.Add(ctx, calc3)).To(Succeed())
 				flat := g.CalculateFlat()
@@ -1332,7 +1543,9 @@ var _ = Describe("Graph", func() {
 				// but calc3 fails (i64 + f64 is a type mismatch).
 				calc1.Expression = "return i64(rb_raw)"
 				calc1.DataType = telem.Int64T
-				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc1)
+				})).To(Succeed())
 				Expect(g.Update(ctx, calc1)).To(MatchError(ContainSubstring(
 					"failed to recompile dependent channel",
 				)))
@@ -1372,14 +1585,18 @@ var _ = Describe("Graph", func() {
 				bases := []channel.Channel{
 					{Name: "err_base", DataType: telem.Int64T, Virtual: true},
 				}
-				Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+				})).To(Succeed())
 				calc := channel.Channel{
 					Name:       "bad_calc_update",
 					DataType:   telem.Int64T,
 					Virtual:    true,
 					Expression: "return err_base * 2",
 				}
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
 				Expect(g.Add(ctx, calc)).To(Succeed())
 				calc.Expression = "return invalid_syntax {{"
 				Expect(

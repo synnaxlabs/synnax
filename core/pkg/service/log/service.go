@@ -174,11 +174,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	)
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If
-// tx is provided, the writer will use that transaction. If tx is nil, the Writer will
-// execute the operations directly on the underlying gorp.DB.
+// NewWriter opens a new writer for creating, updating, and deleting logs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		svc:        s,
 		tx:         tx,

@@ -107,7 +107,9 @@ var _ = Describe("Migration", func() {
 			}
 			// The device table is not open during its own migration, so the status
 			// skips reference checks.
-			Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, existing.ToAny())).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewMigrationWriter(tx).Set(ctx, existing.ToAny())
+			})).
 				To(Succeed())
 
 			runMigration(ctx)

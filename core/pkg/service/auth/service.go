@@ -325,7 +325,7 @@ func (s *Service) NewRetrieve() Retrieve {
 
 // NewWriter opens a [Writer] that runs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{svc: s, tx: gorp.OverrideTx(s.cfg.DB, tx)}
+	return Writer{svc: s, tx: tx}
 }
 
 // Login checks the proof with the authenticator for its method and opens a session for
@@ -351,7 +351,15 @@ func (s *Service) Login(
 	if err != nil {
 		return Session{}, "", err
 	}
-	return s.NewWriter(nil).open(ctx, identity)
+	var (
+		session Session
+		token   string
+	)
+	err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		session, token, err = s.NewWriter(tx).open(ctx, identity)
+		return err
+	})
+	return session, token, err
 }
 
 // Authenticate returns the session a token belongs to and counts the request as

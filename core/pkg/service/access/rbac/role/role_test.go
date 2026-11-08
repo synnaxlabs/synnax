@@ -312,9 +312,10 @@ var _ = Describe("Retrieve", func() {
 
 var _ = Describe("Search", func() {
 	It("Should retrieve roles matching the search term", func(ctx SpecContext) {
-		w := svc.NewWriter(nil, true)
 		r := role.Role{Name: "quasar-operator", Description: "Quasar operator"}
-		Expect(w.Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx, true).Create(ctx, &r)
+		})).To(Succeed())
 		var rs []role.Role
 		Expect(svc.NewRetrieve().
 			Search("quasar").

@@ -259,12 +259,14 @@ var _ = Describe("NewMigration", func() {
 			Config: msgpack.EncodedJSON{"anything": true},
 		})
 		taskID := resource.ID{Type: resource.TypeTask, Key: key.String()}
-		Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, status.Status[any]{
-			Key:     uuid.New().String(),
-			Owner:   &taskID,
-			Name:    "Bogus Task",
-			Variant: status.VariantSuccess,
-			Time:    telem.Now(),
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewMigrationWriter(tx).Set(ctx, status.Status[any]{
+				Key:     uuid.New().String(),
+				Owner:   &taskID,
+				Name:    "Bogus Task",
+				Variant: status.VariantSuccess,
+				Time:    telem.Now(),
+			})
 		})).To(Succeed())
 		run(ctx, openArcStore(ctx))
 

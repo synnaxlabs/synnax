@@ -262,6 +262,7 @@ func (l *Layer) Close() error { return l.closer.Close() }
 
 func revokePasswordSessions(
 	ctx context.Context,
+	db *gorp.DB,
 	passwords *password.Service,
 	sessions *auth.Service,
 	subject resource.ID,
@@ -273,7 +274,9 @@ func revokePasswordSessions(
 		Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "load the root password")
 	}
-	return sessions.NewWriter(nil).RevokeCredential(ctx, p.Key)
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return sessions.NewWriter(tx).RevokeCredential(ctx, p.Key)
+	})
 }
 
 // OpenLayer opens the service layer using the provided configurations. Later
@@ -559,6 +562,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if rootPasswordChanged {
 		if err = revokePasswordSessions(
 			ctx,
+			cfg.Distribution.DB,
 			l.Password,
 			l.Auth,
 			root.ResourceID(),

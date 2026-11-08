@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -34,6 +35,7 @@ func TestAPIResource(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apiresource.Service
 )
@@ -41,6 +43,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apiresource.NewService(apiresource.ServiceConfig{
 		Resource: svc.Resource,
@@ -50,7 +53,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
@@ -59,6 +62,7 @@ func grant(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	MustSucceed(rbactestutil.Grant(
 		ctx,
+		db,
 		svc.RBAC,
 		svc.User,
 		MustSucceed(user.KeyFromResourceID(subject)),

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	apilineplot "github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -51,7 +52,9 @@ var _ = Describe("Retrieve", func() {
 		ctx SpecContext,
 	) {
 		r := lineplot.LinePlot{Project: &proj.Key, Name: "unretrievable"}
-		Expect(svc.LinePlot.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.LinePlot.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apilineplot.RetrieveRequest{
 			Where: &lineplot.Where{Key: &filter.Set[lineplot.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
@@ -113,7 +116,9 @@ var _ = Describe("Create", func() {
 			DataType: telem.Float64T,
 			Virtual:  true,
 		}
-		Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		req := apilineplot.CreateRequest{
 			LinePlots: []lineplot.LinePlot{{
 				Name:     "Plotted",
@@ -260,14 +265,18 @@ var _ = Describe("Dispatch", func() {
 func createGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
-	Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Group.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 
 func createLinePlot(ctx SpecContext, name string) lineplot.LinePlot {
 	GinkgoHelper()
 	lp := lineplot.LinePlot{Project: &proj.Key, Name: name}
-	Expect(svc.LinePlot.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.LinePlot.NewWriter(tx).Create(ctx, &lp)
+	})).To(Succeed())
 	return lp
 }
 
@@ -333,9 +342,13 @@ var _ = Describe("SetGroup", func() {
 			u = newUser(ctx)
 			x = createLinePlot(ctx, "Cross project")
 			dest = project.Project{Name: "Destination"}
-			Expect(svc.Project.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Project.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
-			Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Group.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 		})
 		move := func(ctx SpecContext) (struct{}, error) {
 			return setGroup(
@@ -416,9 +429,13 @@ var _ = Describe("Create in a group", func() {
 		BeforeEach(func(ctx SpecContext) {
 			u = newCreator(ctx)
 			dest = project.Project{Name: "Create destination"}
-			Expect(svc.Project.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Project.NewWriter(tx).Create(ctx, &dest)
+			})).To(Succeed())
 			g = group.Group{Name: "Create destination", Parent: new(dest.ResourceID())}
-			Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Group.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 		})
 		createIn := func(
 			ctx SpecContext,
@@ -483,7 +500,9 @@ var _ = Describe("SetProject", func() {
 	createProject := func(ctx SpecContext) project.Project {
 		GinkgoHelper()
 		p := project.Project{Name: "destination"}
-		Expect(svc.Project.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Project.NewWriter(tx).Create(ctx, &p)
+		})).To(Succeed())
 		return p
 	}
 	setProject := func(
@@ -558,7 +577,9 @@ var _ = Describe("SetProject", func() {
 			u := newCreator(ctx)
 			e := createLinePlot(ctx, "Set project grouped")
 			g := createGroup(ctx, "Set project grouped")
-			Expect(svc.LinePlot.NewWriter(nil).SetGroup(ctx, &g.Key, e.Key)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.LinePlot.NewWriter(tx).SetGroup(ctx, &g.Key, e.Key)
+			})).
 				To(Succeed())
 			grant(ctx, access.ActionUpdate, u.ResourceID(), lineplot.ResourceID(e.Key))
 			Expect(

@@ -116,7 +116,7 @@ func OpenService(
 // The [Writer] operates within the given transaction [gorp.Tx].
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		tx:    tx,
 		svc:   s,
 		table: s.table,
 	}

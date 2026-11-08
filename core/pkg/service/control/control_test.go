@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -29,7 +30,9 @@ import (
 func createChannel(ctx SpecContext, name string) channel.Channel {
 	GinkgoHelper()
 	ch := channel.Channel{Name: name, DataType: telem.Float64T, Virtual: true}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+	Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &ch)
+	})).To(Succeed())
 	return ch
 }
 

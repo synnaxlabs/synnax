@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	apirole "github.com/synnaxlabs/synnax/pkg/api/access/role"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -129,7 +130,9 @@ var _ = Describe("Delete", func() {
 			Objects: []resource.ID{{Type: resource.TypeChannel}},
 			Actions: []access.Action{access.ActionRetrieve},
 		}
-		Expect(svc.RBAC.Policy.NewWriter(nil, false).Create(ctx, &p)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.RBAC.Policy.NewWriter(tx, false).Create(ctx, &p)
+		})).To(Succeed())
 		return r, p, []need{
 			{access.ActionUpdate, r.ResourceID()},
 			{access.ActionDelete, r.ResourceID()},

@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
@@ -42,9 +43,13 @@ var _ = Describe("Dispatch", func() {
 	var hotFire ranger.Range
 	BeforeEach(func(ctx SpecContext) {
 		hotFire = ranger.Range{Name: "Hot fire", TimeRange: telem.NewRangeSeconds(1, 5)}
-		Expect(svc.NewWriter(db).Create(ctx, &hotFire)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &hotFire)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(db).Delete(ctx, hotFire.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, hotFire.Key)
+			})).To(Succeed())
 		})
 	})
 

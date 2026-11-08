@@ -93,7 +93,9 @@ var _ = Describe("StatusHandler", func() {
 
 	deleteStored := func(ctx SpecContext) {
 		GinkgoHelper()
-		Expect(statusSvc.NewWriter(nil).DeleteOwned(ctx, t.ResourceID())).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewWriter(tx).DeleteOwned(ctx, t.ResourceID())
+		})).To(Succeed())
 	}
 
 	retrieve := func(ctx SpecContext) task.Status {
@@ -187,9 +189,10 @@ var _ = Describe("StatusHandler", func() {
 				"Started task",
 				"",
 			)).To(Succeed())
-			Expect(
-				statusSvc.NewWriter(nil).RenameOwned(ctx, t.ResourceID(), "renamed"),
-			).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).
+					RenameOwned(ctx, t.ResourceID(), "renamed")
+			})).
 				To(Succeed())
 			Expect(handler.Ack(ctx, "cmd-2", true)).To(Succeed())
 			Expect(retrieve(ctx).Name).To(Equal("renamed"))

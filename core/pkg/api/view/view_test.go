@@ -14,6 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	apiview "github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -24,7 +26,9 @@ import (
 func createView(ctx SpecContext) view.View {
 	GinkgoHelper()
 	v := view.View{Variant: view.RangeView{Name: "Before"}}
-	Expect(svc.View.NewWriter(nil).Create(ctx, &v)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.View.NewWriter(tx).Create(ctx, &v)
+	})).To(Succeed())
 	return v
 }
 
@@ -43,8 +47,8 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		v := createView(ctx)
 		grantUpdateOn(ctx, u.ResourceID(), v.ResourceID())
-		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
+		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Rename)(
+			AuthedCtx(ctx, u),
 			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
 		)).Error().ToNot(HaveOccurred())
 		renamed := retrieveView(ctx, v.GorpKey())
@@ -55,8 +59,8 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		v := createView(ctx)
 		grantUpdateOn(ctx, u.ResourceID(), v.ResourceID())
-		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
+		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Rename)(
+			AuthedCtx(ctx, u),
 			apiview.RenameRequest{Key: v.GorpKey(), Name: ""},
 		)).Error().To(MatchError(ContainSubstring("name: required")))
 		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
@@ -65,16 +69,16 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		key := uuid.New()
 		grantUpdateOn(ctx, u.ResourceID(), view.ResourceID(key))
-		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
+		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Rename)(
+			AuthedCtx(ctx, u),
 			apiview.RenameRequest{Key: key, Name: "After"},
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		v := createView(ctx)
-		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
+		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Rename)(
+			AuthedCtx(ctx, u),
 			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))

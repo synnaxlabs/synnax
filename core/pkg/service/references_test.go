@@ -28,16 +28,23 @@ import (
 )
 
 var _ = Describe("References", Ordered, func() {
-	var layer *service.Layer
+	var (
+		layer *service.Layer
+		db    *gorp.DB
+	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		layer = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+		node := testutil.NewNode(ctx)
+		db = node.DB
+		layer = MustOpen(svctestutil.OpenLayer(ctx, node))
 	})
 
 	createTask := func(ctx SpecContext, typ string, cfg msgpack.EncodedJSON) task.Task {
 		GinkgoHelper()
 		t := task.Task{Name: typ, Type: typ, Config: cfg}
-		Expect(layer.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Task.NewWriter(tx).Create(ctx, &t)
+		})).To(Succeed())
 		return t
 	}
 
@@ -53,7 +60,9 @@ var _ = Describe("References", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(layer.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Channel.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			dev = device.Device{
 				Key:      device.Key(UniqueChannelName()),
 				Rack:     layer.Rack.EmbeddedKey,
@@ -62,7 +71,9 @@ var _ = Describe("References", Ordered, func() {
 				Model:    "modbus",
 				Location: "127.0.0.1:502",
 			}
-			Expect(layer.Device.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Device.NewWriter(tx).Create(ctx, &dev)
+			})).To(Succeed())
 			tsk = createTask(ctx, "modbus_read", msgpack.EncodedJSON{
 				"device": string(dev.Key),
 				"channels": []any{map[string]any{
@@ -76,7 +87,9 @@ var _ = Describe("References", Ordered, func() {
 		It("Should refuse deleting a channel that a task config names", func(
 			ctx SpecContext,
 		) {
-			Expect(layer.Channel.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Channel.NewWriter(tx).Delete(ctx, ch.Key(), false)
+			})).To(
 				MatchError(gorp.RestrictError{
 					Target:    gorp.NewTarget("channel", ch.Key()),
 					Holder:    gorp.NewTarget("modbus_read_config", tsk.Key),
@@ -88,7 +101,9 @@ var _ = Describe("References", Ordered, func() {
 		It("Should refuse deleting a device that a task config names", func(
 			ctx SpecContext,
 		) {
-			Expect(layer.Device.NewWriter(nil).Delete(ctx, dev.Key)).To(
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Device.NewWriter(tx).Delete(ctx, dev.Key)
+			})).To(
 				MatchError(gorp.RestrictError{
 					Target:    gorp.NewTarget("device", dev.Key),
 					Holder:    gorp.NewTarget("modbus_read_config", tsk.Key),
@@ -100,11 +115,17 @@ var _ = Describe("References", Ordered, func() {
 		It("Should delete the channel and device once the task is gone", func(
 			ctx SpecContext,
 		) {
-			Expect(layer.Task.NewWriter(nil).Delete(ctx, tsk.Key, false)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Task.NewWriter(tx).Delete(ctx, tsk.Key, false)
+			})).
 				To(Succeed())
-			Expect(layer.Channel.NewWriter(nil).Delete(ctx, ch.Key(), false)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Channel.NewWriter(tx).Delete(ctx, ch.Key(), false)
+			})).
 				To(Succeed())
-			Expect(layer.Device.NewWriter(nil).Delete(ctx, dev.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Device.NewWriter(tx).Delete(ctx, dev.Key)
+			})).To(Succeed())
 		})
 	})
 
@@ -117,7 +138,9 @@ var _ = Describe("References", Ordered, func() {
 				Variant: status.VariantWarning,
 				Time:    telem.Now(),
 			}
-			Expect(layer.Status.NewWriter(nil).Set(ctx, &st)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Status.NewWriter(tx).Set(ctx, &st)
+			})).To(Succeed())
 			tsk := createTask(ctx, pagerduty.AlertTaskType, msgpack.EncodedJSON{
 				"routing_key": "rk",
 				"alerts": []any{map[string]any{
@@ -125,7 +148,9 @@ var _ = Describe("References", Ordered, func() {
 					"status": string(st.Key),
 				}},
 			})
-			Expect(layer.Status.NewWriter(nil).Delete(ctx, st.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Status.NewWriter(tx).Delete(ctx, st.Key)
+			})).To(Succeed())
 			var res task.Task
 			Expect(layer.Task.NewRetrieve().
 				Where(task.MatchKeys(tsk.Key)).

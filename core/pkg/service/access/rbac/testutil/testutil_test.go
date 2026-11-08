@@ -30,11 +30,12 @@ import (
 
 var _ = Describe("Grant", func() {
 	var (
+		db      *gorp.DB
 		users   *user.Service
 		rbacSvc *rbac.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		passwords := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		users = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 			DB:       db,
@@ -53,6 +54,7 @@ var _ = Describe("Grant", func() {
 	It("Should create a user that can do nothing", func(ctx SpecContext) {
 		u := MustSucceed(rbactestutil.CreateUser(
 			ctx,
+			db,
 			rbacSvc,
 			users,
 			user.User{Name: "u"},
@@ -67,6 +69,7 @@ var _ = Describe("Grant", func() {
 	It("Should let the user take the actions on the objects", func(ctx SpecContext) {
 		u := MustSucceed(rbactestutil.CreateUser(
 			ctx,
+			db,
 			rbacSvc,
 			users,
 			user.User{Name: "u"},
@@ -80,6 +83,7 @@ var _ = Describe("Grant", func() {
 			To(MatchError(access.ErrDenied))
 		p := MustSucceed(rbactestutil.Grant(
 			ctx,
+			db,
 			rbacSvc,
 			users,
 			u.Key,
@@ -93,6 +97,7 @@ var _ = Describe("Grant", func() {
 	It("Should add up the grants to one user", func(ctx SpecContext) {
 		u := MustSucceed(rbactestutil.CreateUser(
 			ctx,
+			db,
 			rbacSvc,
 			users,
 			user.User{Name: "u"},
@@ -100,6 +105,7 @@ var _ = Describe("Grant", func() {
 		for _, a := range []access.Action{access.ActionUpdate, access.ActionDelete} {
 			MustSucceed(rbactestutil.Grant(
 				ctx,
+				db,
 				rbacSvc,
 				users,
 				u.Key,
@@ -120,12 +126,15 @@ var _ = Describe("Grant", func() {
 		"Should give a user that holds a shared role a role of its own",
 		func(ctx SpecContext) {
 			viewer := rbacSvc.Builtin.ViewerKey
-			u := MustSucceed(users.NewWriter(nil).Create(
-				ctx,
-				user.User{Name: "u", Role: viewer},
-			))
+			var u user.User
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				u, err = users.NewWriter(tx).
+					Create(ctx, user.User{Name: "u", Role: viewer})
+				return err
+			})).To(Succeed())
 			p := MustSucceed(rbactestutil.Grant(
 				ctx,
+				db,
 				rbacSvc,
 				users,
 				u.Key,
@@ -151,6 +160,7 @@ var _ = Describe("Grant", func() {
 	It("Should return not found when the user does not exist", func(ctx SpecContext) {
 		Expect(rbactestutil.Grant(
 			ctx,
+			db,
 			rbacSvc,
 			users,
 			uuid.New(),

@@ -96,12 +96,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // and Retrieve(s)).
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a new Writer to create, update, and delete views. If tx is not nil,
-// the writer will use it to execute all operations. If tx is nil, the writer will
-// execute all operations directly against the underlying gorp.DB.
+// NewWriter opens a new Writer to create, update, and delete views in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		tx:    tx,
 		table: s.table,
 	}
 }

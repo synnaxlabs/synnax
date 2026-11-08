@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -69,7 +70,15 @@ var _ = Describe("Import", func() {
 				key,
 				groupKey,
 			))
-			id := MustSucceed(apiSvc.Import(fctx, db, testEnvelope("with-options")))
+			id := MustSucceed(
+				fgorp.CreateWriteUnaryHandler(
+					db,
+					apiSvc.Import,
+				)(
+					fctx,
+					testEnvelope("with-options"),
+				),
+			)
 			Expect(id.Key).To(Equal("with-options"))
 			Expect(importer.opts.FileName).To(Equal("Metrics Log.json"))
 			Expect(importer.opts.Parent).To(Equal(resource.ID{
@@ -84,7 +93,15 @@ var _ = Describe("Import", func() {
 		func(ctx SpecContext) {
 			fctx := rootCtx(ctx)
 			fctx.Set("params", `{"file_name":"Metrics Log.json"}`)
-			MustSucceed(apiSvc.Import(fctx, db, testEnvelope("no-parent")))
+			MustSucceed(
+				fgorp.CreateWriteUnaryHandler(
+					db,
+					apiSvc.Import,
+				)(
+					fctx,
+					testEnvelope("no-parent"),
+				),
+			)
 			Expect(importer.opts.Parent.IsZero()).To(BeTrue())
 			Expect(importer.opts.Group).To(BeNil())
 		},
@@ -101,7 +118,9 @@ var _ = Describe("Import", func() {
 			fctx.Set("params", fmt.Sprintf(
 				`{"file_name":"Legacy State.json","parent":"project:%s"}`, uuid.New(),
 			))
-			id := MustSucceed(apiSvc.Import(fctx, db, env))
+			id := MustSucceed(
+				fgorp.CreateWriteUnaryHandler(db, apiSvc.Import)(fctx, env),
+			)
 			Expect(id.Key).To(Equal("Legacy State"))
 		},
 	)
@@ -115,13 +134,21 @@ var _ = Describe("Import", func() {
 		fctx.Set("params", fmt.Sprintf(
 			`{"file_name":"Mystery.json","parent":"project:%s"}`, uuid.New(),
 		))
-		Expect(apiSvc.Import(fctx, db, env)).Error().To(
+		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Import)(fctx, env)).Error().To(
 			MatchError(ContainSubstring("does not match any known resource format")),
 		)
 	})
 
 	It("Should reject a request with no params", func(ctx SpecContext) {
-		Expect(apiSvc.Import(rootCtx(ctx), db, testEnvelope("no-params"))).Error().
+		Expect(
+			fgorp.CreateWriteUnaryHandler(
+				db,
+				apiSvc.Import,
+			)(
+				rootCtx(ctx),
+				testEnvelope("no-params"),
+			),
+		).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("params")),
 				MatchError(ContainSubstring("required")),
@@ -131,7 +158,15 @@ var _ = Describe("Import", func() {
 	It("Should reject empty params", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", "")
-		Expect(apiSvc.Import(fctx, db, testEnvelope("empty-params"))).Error().
+		Expect(
+			fgorp.CreateWriteUnaryHandler(
+				db,
+				apiSvc.Import,
+			)(
+				fctx,
+				testEnvelope("empty-params"),
+			),
+		).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("params")),
 				MatchError(ContainSubstring("required")),
@@ -141,7 +176,15 @@ var _ = Describe("Import", func() {
 	It("Should reject params without a file_name", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", fmt.Sprintf(`{"parent":"project:%s"}`, uuid.New()))
-		Expect(apiSvc.Import(fctx, db, testEnvelope("no-file-name"))).Error().
+		Expect(
+			fgorp.CreateWriteUnaryHandler(
+				db,
+				apiSvc.Import,
+			)(
+				fctx,
+				testEnvelope("no-file-name"),
+			),
+		).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("file_name")),
 				MatchError(ContainSubstring("required")),
@@ -151,7 +194,15 @@ var _ = Describe("Import", func() {
 	It("Should reject a parent with an empty key", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", `{"file_name":"Metrics Log.json","parent":"project:"}`)
-		Expect(apiSvc.Import(fctx, db, testEnvelope("empty-parent-key"))).Error().
+		Expect(
+			fgorp.CreateWriteUnaryHandler(
+				db,
+				apiSvc.Import,
+			)(
+				fctx,
+				testEnvelope("empty-parent-key"),
+			),
+		).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("parent")),
 				MatchError(ContainSubstring("must carry a non-empty key")),
@@ -162,7 +213,13 @@ var _ = Describe("Import", func() {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", `{"file_name":"Metrics Log.json","parent":"no-colon"}`)
 		Expect(
-			apiSvc.Import(fctx, db, testEnvelope("bad-parent")),
+			fgorp.CreateWriteUnaryHandler(
+				db,
+				apiSvc.Import,
+			)(
+				fctx,
+				testEnvelope("bad-parent"),
+			),
 		).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("failed to parse id: no-colon")),
@@ -174,7 +231,13 @@ var _ = Describe("Import", func() {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", "not-json")
 		Expect(
-			apiSvc.Import(fctx, db, testEnvelope("bad-params")),
+			fgorp.CreateWriteUnaryHandler(
+				db,
+				apiSvc.Import,
+			)(
+				fctx,
+				testEnvelope("bad-params"),
+			),
 		).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("invalid params")),

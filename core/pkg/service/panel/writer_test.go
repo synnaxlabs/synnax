@@ -300,7 +300,9 @@ var _ = Describe("Writer", func() {
 		create := func(ctx context.Context, root panel.Node) panel.Key {
 			GinkgoHelper()
 			p := panel.Panel{Name: "test", Root: root, Project: &proj.Key}
-			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &p)
+			})).To(Succeed())
 			return p.Key
 		}
 

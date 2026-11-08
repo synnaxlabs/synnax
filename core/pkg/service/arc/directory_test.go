@@ -345,18 +345,23 @@ var _ = Describe("Dispatched Arc names", func() {
 				Source: arc.Source{Variant: arc.TextSource{}},
 			},
 		)
-		Expect(writer.Create(ctx, &taken)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &taken)
+		})).To(Succeed())
 		renamed := newAutomation(
 			arc.Base{
 				Name:   "dispatch_free",
 				Source: arc.Source{Variant: arc.TextSource{}},
 			},
 		)
-		Expect(writer.Create(ctx, &renamed)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &renamed)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(
-				writer.Delete(ctx, taken.Base().Key, renamed.Base().Key),
-			).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).
+					Delete(ctx, taken.Base().Key, renamed.Base().Key)
+			})).To(Succeed())
 		})
 		Expect(dispatch(ctx, renamed.Base().Key, "", []arc.Action{
 			arc.NewRenameAction(arc.RenamePayload{Name: "dispatch_taken"}),
@@ -368,22 +373,31 @@ var _ = Describe("Move broadcast", func() {
 	It("Should attach the moved Arc as a create to the transaction of the move", func(
 		ctx SpecContext,
 	) {
-		w := svc.NewWriter(nil)
 		root := rootDirectory(ctx, db).Key
 		lib := directory.Directory{Name: "moved_into"}
-		Expect(w.CreateDirectory(ctx, &lib, root)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).CreateDirectory(ctx, &lib, root)
+		})).To(Succeed())
 		a := newArc(arc.TypeModule, arc.Base{
 			Name:   "moved",
 			Source: arc.Source{Variant: arc.TextSource{}},
 		})
-		Expect(w.Create(ctx, &a)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &a)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(w.Delete(ctx, a.Base().Key)).To(Succeed())
-			Expect(w.DeleteDirectory(ctx, lib.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).DeleteDirectory(ctx, lib.Key)
+			})).To(Succeed())
 		})
 		rec := &Recorder[arc.Key, arc.Action]{}
 		DeferCleanup(svc.OnAction(rec.Record))
-		Expect(w.Move(ctx, root, lib.Key, a.ResourceID())).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Move(ctx, root, lib.Key, a.ResourceID())
+		})).To(Succeed())
 		seen := rec.Snapshot()
 		Expect(seen).To(HaveLen(1))
 		Expect(seen[0].Key).To(Equal(a.Base().Key))

@@ -117,13 +117,12 @@ func (t cancelingTx) Commit(ctx context.Context, opts ...any) error {
 
 var _ = Describe("Task", Ordered, func() {
 	var (
-		db            *gorp.DB
-		statusSvc     *status.Service
-		channelSvc    *channel.Service
-		channelWriter channel.Writer
-		framerSvc     *framer.Service
-		rangerSvc     *ranger.Service
-		taskWriter    task.Writer
+		db         *gorp.DB
+		statusSvc  *status.Service
+		channelSvc *channel.Service
+		framerSvc  *framer.Service
+		rangerSvc  *ranger.Service
+		taskSvc    *task.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -145,7 +144,6 @@ var _ = Describe("Task", Ordered, func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		channelWriter = channelSvc.NewWriter(nil)
 		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 			DB:      node.DB,
 			Channel: channelSvc,
@@ -168,12 +166,12 @@ var _ = Describe("Task", Ordered, func() {
 			DB:         node.DB,
 			HostKey:    node.Identity.HostKey,
 			Status:     statusSvc,
-			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 			DB: node.DB,
 		}))
-		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:      node.DB,
 			Rack:    rackSvc,
 			Status:  statusSvc,
@@ -181,7 +179,6 @@ var _ = Describe("Task", Ordered, func() {
 			ImEx:    imex.NewService(),
 			Configs: MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...)),
 		}))
-		taskWriter = taskSvc.NewWriter(nil)
 	})
 
 	// createTask stores t so that it can own a status. It skips task.Writer, which
@@ -191,7 +188,9 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
 			To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+			})).To(Succeed())
 		})
 	}
 
@@ -296,7 +295,9 @@ var _ = Describe("Task", Ordered, func() {
 			Virtual:  true,
 			DataType: dataType,
 		}
-		Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, ch)
+		})).To(Succeed())
 		return ch
 	}
 
@@ -328,13 +329,17 @@ var _ = Describe("Task", Ordered, func() {
 			IsIndex:  true,
 			DataType: telem.TimestampT,
 		}
-		Expect(channelWriter.Create(ctx, &idx)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &idx)
+		})).To(Succeed())
 		data = channel.Channel{
 			Name:       prefix + "_" + uuid.New().String()[:8],
 			LocalIndex: idx.LocalKey,
 			DataType:   telem.Uint8T,
 		}
-		Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &data)
+		})).To(Succeed())
 		return idx, data
 	}
 
@@ -444,7 +449,9 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 			Expect(t).ToNot(BeNil())
 		})
@@ -572,7 +579,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-config-success",
@@ -601,7 +610,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-start-ack",
@@ -638,7 +649,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-auto-start",
@@ -702,7 +715,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-silent-stop",
@@ -824,7 +839,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-boot-silent-success",
@@ -851,7 +868,9 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			svcTask := task.Task{
 				Key:  uuid.New(),
 				Name: "test-boot-auto-start",
@@ -968,7 +987,9 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			arcTask = newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 		})
 
@@ -1042,7 +1063,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-start-fail",
@@ -1124,7 +1147,9 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 
 			alarmNodes, alarmConfigs := buildGraphNodes(
 				graphNodeSpec{
@@ -2100,7 +2125,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 
 				dupName := "dup_alarm_" + uuid.New().String()[:8]
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -2199,13 +2226,17 @@ var _ = Describe("Task", Ordered, func() {
 				IsIndex:  true,
 				DataType: telem.TimestampT,
 			}
-			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, indexCh)
+			})).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "interval_data_" + uuid.New().String()[:8],
 				LocalIndex: indexCh.LocalKey,
 				DataType:   telem.Uint8T,
 			}
-			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, dataCh)
+			})).To(Succeed())
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`
@@ -2293,13 +2324,17 @@ var _ = Describe("Task", Ordered, func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, idxCh)
+				})).To(Succeed())
 				dataCh := &channel.Channel{
 					Name:       "timer_wall_data_" + uuid.New().String()[:8],
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Uint8T,
 				}
-				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, dataCh)
+				})).To(Succeed())
 
 				prog := arc.Text{Raw: fmt.Sprintf(
 					"interval(period=50ms) -> %s\n", dataCh.Name,
@@ -2359,13 +2394,17 @@ var _ = Describe("Task", Ordered, func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, idxCh)
+				})).To(Succeed())
 				dataCh := &channel.Channel{
 					Name:       "stepped_data_" + uuid.New().String()[:8],
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Int64T,
 				}
-				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, dataCh)
+				})).To(Succeed())
 				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, dataCh.Name)}
 				responses, closeStreamer := openTestStreamer(
 					ctx, channel.Keys{idxCh.Key()}, 10,
@@ -2759,13 +2798,17 @@ var _ = Describe("Task", Ordered, func() {
 						IsIndex:  true,
 						DataType: telem.TimestampT,
 					}
-					Expect(channelWriter.Create(ctx, idx)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, idx)
+					})).To(Succeed())
 					ch := &channel.Channel{
 						Name:       prefix + "_" + uuid.New().String()[:8],
 						LocalIndex: idx.LocalKey,
 						DataType:   telem.Uint8T,
 					}
-					Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, ch)
+					})).To(Succeed())
 					return writeCh{ch: ch, idx: idx}
 				},
 			},
@@ -3760,25 +3803,33 @@ var _ = Describe("Task", Ordered, func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, idxCh)
+				})).To(Succeed())
 				p3 := &channel.Channel{
 					Name:       "trig_align_p3_" + suffix,
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, p3)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, p3)
+				})).To(Succeed())
 				goCh := &channel.Channel{
 					Name:     "trig_align_go_" + suffix,
 					Virtual:  true,
 					DataType: telem.Uint8T,
 				}
-				Expect(channelWriter.Create(ctx, goCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, goCh)
+				})).To(Succeed())
 				marker := &channel.Channel{
 					Name:     "trig_align_marker_" + suffix,
 					Virtual:  true,
 					DataType: telem.Uint8T,
 				}
-				Expect(channelWriter.Create(ctx, marker)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, marker)
+				})).To(Succeed())
 
 				prog := arc.Text{
 					Raw: fmt.Sprintf(`

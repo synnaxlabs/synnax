@@ -26,6 +26,7 @@ import (
 )
 
 var (
+	db     *gorp.DB
 	mockFS fs.FS
 	keys   *apikey.Service
 )
@@ -62,6 +63,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 }, func(ctx SpecContext, dir []byte) {
 	mockFS = os.DirFS(string(dir))
 	ShouldNotLeakGoroutines()
-	db := DeferClose(gorp.Wrap(memkv.New()))
+	db = DeferClose(gorp.Wrap(memkv.New()))
 	keys = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
 })
