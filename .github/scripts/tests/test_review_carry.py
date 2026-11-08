@@ -23,7 +23,7 @@ TARGET = Target(
     pr=7,
     head=HEAD,
     base="base",
-    check_run=None,
+    check_run=55,
     run_url="https://github.com/synnaxlabs/synnax/actions/runs/2",
     bot="sedosaur",
 )
@@ -73,7 +73,7 @@ class FakeGH:
         if args[:2] == ("api", "-X"):
             assert stdin is not None
             self.writes.append((args[2], args[3], json.loads(stdin)))
-            return json.dumps({"id": 99}) if args[2] == "POST" else ""
+            return ""
         path = args[2] if args[1] == "--paginate" else args[1]
         if path == "graphql":
             return lines(self.edits)
@@ -96,19 +96,9 @@ class TestCarry:
 
     def test_should_give_the_head_the_review_of_the_same_diff(self, gh: FakeGH) -> None:
         assert carry(TARGET, gh, key=KEY)
-        [start, done] = gh.writes
-        assert start == (
-            "POST",
-            f"repos/{REPO}/check-runs",
-            {
-                "name": "Sedosaur Review",
-                "head_sha": HEAD,
-                "external_id": KEY,
-                "status": "in_progress",
-                "details_url": TARGET.run_url,
-            },
-        )
-        assert done[:2] == ("PATCH", f"repos/{REPO}/check-runs/99")
+        [done] = gh.writes
+        assert done[:2] == ("PATCH", f"repos/{REPO}/check-runs/55")
+        assert done[2]["status"] == "completed"
         assert done[2]["conclusion"] == "success"
         output = done[2]["output"]
         assert output["title"] == "Confidence Score: 4/5"
@@ -121,7 +111,7 @@ class TestCarry:
     def test_should_keep_the_text_of_the_review(self, gh: FakeGH) -> None:
         gh.runs[OLD] = [check_run(output=check_run()["output"] | {"text": "Listed."})]
         assert carry(TARGET, gh, key=KEY)
-        assert gh.writes[1][2]["output"]["text"] == "Listed."
+        assert gh.writes[0][2]["output"]["text"] == "Listed."
 
     def test_should_carry_a_diff_whose_lines_moved(self, gh: FakeGH) -> None:
         moved = PATCH.replace("@@ -1,3 +1,4 @@", "@@ -11,3 +12,4 @@")

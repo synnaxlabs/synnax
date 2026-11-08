@@ -24,10 +24,11 @@ Claude Code. A replay needs no CHECK_RUN.
 `run` writes a record of the review: when it ran, the pull request, the commits, the
 policy commit, the usage, the review, and each pass before the join. `post` posts the
 review in a record. `carry` gives the head the newest review of the pull request when
-the diff did not change, and prints `true` if it did. It takes KEY, the external ID of
-the check run, `<pr>:<base ref>`, and no CHECK_RUN. `compare` takes only GH_TOKEN and
-GITHUB_REPOSITORY, runs in a clone with full history, and prints a Markdown comparison
-of the records of the last days with Greptile's reviews of the same commits.
+the diff did not change, completes CHECK_RUN with it, and prints `true` if it did. It
+also takes KEY, the external ID of the check run, `<pr>:<base ref>`. `compare` takes
+only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and prints a
+Markdown comparison of the records of the last days with Greptile's reviews of the same
+commits.
 """
 
 import contextlib
