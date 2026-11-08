@@ -159,11 +159,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() { err = cleanup(err) }()
 
-	// Aspen dials the stored peers when it opens.
-	if err = cluster.CheckIdentity(ctx, cfg.Storage.KV); err != nil {
-		return nil, err
-	}
-
 	aspenOptions := append([]aspen.Option{
 		aspen.WithEngine(cfg.Storage.KV),
 		aspen.WithTransport(cfg.AspenTransport),

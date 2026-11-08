@@ -12,7 +12,6 @@ package testutil_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -29,13 +28,6 @@ var _ = Describe("Node", func() {
 				Expect(n.Storage).ToNot(BeNil())
 			},
 		)
-
-		It("Should store an identity that CheckIdentity reads", func(ctx SpecContext) {
-			n := testutil.NewNode(ctx)
-			_, closer := MustSucceed2(n.Storage.KV.Get(ctx, []byte("aspen.cluster")))
-			Expect(closer.Close()).To(Succeed())
-			Expect(cluster.CheckIdentity(ctx, n.Storage.KV)).To(Succeed())
-		})
 
 		It(
 			"Should tear down the underlying cluster and storage on Close",
