@@ -323,7 +323,12 @@ export abstract class Retriever<
       serverComputed,
       watch,
     } = request;
-    this.requestSpace = cache.queries<z.output<Z>, D[], K, V>({
+    const requestSpace: Retrieves<z.output<Z>, D[]> = cache.queries<
+      z.output<Z>,
+      D[],
+      K,
+      V
+    >({
       name,
       table,
       fetch: async (query, options) => {
@@ -340,15 +345,25 @@ export abstract class Retriever<
       serverFields,
       serverComputed,
       watch,
-    }) as Retrieves<Params, D | D[]>;
-    this.oneSpace = cache.queries<z.output<Z>, D, K, V>({
+    });
+    this.requestSpace = requestSpace as Retrieves<Params, D | D[]>;
+    const oneSpace: Retrieves<z.output<Z>, D> = cache.queries<z.output<Z>, D, K, V>({
       name,
       table,
       fetch: async (query, options) => {
         const since = table.stamp();
         const records = await fetch(query, options);
         table.ingest(records, { since });
-        checkForMultipleOrNoResults(name, query, records, true);
+        const { where, searchTerm } = isObject(query) ? query : {};
+        checkForMultipleOrNoResults(
+          name,
+          {
+            where: isObject(where) ? where : undefined,
+            searchTerm: typeof searchTerm === "string" ? searchTerm : undefined,
+          },
+          records,
+          true,
+        );
         return records.map((r) => r.key);
       },
       compose: (records, q) => compose(records[0], q),
@@ -357,7 +372,8 @@ export abstract class Retriever<
       serverComputed,
       watch,
       single: true,
-    }) as Retrieves<Params, D | D[]>;
+    });
+    this.oneSpace = oneSpace as Retrieves<Params, D | D[]>;
     const singleSchema = single?.schema;
     this.normalizeRequest = (p) => {
       const res = schema.safeParse(p);
@@ -388,7 +404,7 @@ export abstract class Retriever<
     } else {
       // The default path binds SingleQuery = K: `{ key }` params resolve through the
       // table's fetch. The casts are the one seam the defaults can't prove.
-      this.singleSpace = cache.queries<K, D, K, V>({
+      const singleSpace: Retrieves<K, D> = cache.queries<K, D, K, V>({
         name,
         table,
         fetch: async (key) => {
@@ -400,7 +416,8 @@ export abstract class Retriever<
         compose: (records, q) => compose(records[0], q),
         keyOf: (query) => query,
         single: true,
-      }) as Retrieves<Params, D | D[]>;
+      });
+      this.singleSpace = singleSpace as Retrieves<Params, D | D[]>;
       this.trySingle = (p) => {
         if (isBareKey(p)) return { query: p as Params as SingleQuery };
         if (!isObject(p) || !isBareKey(p.key) || soleMember(p)?.[0] !== "key")

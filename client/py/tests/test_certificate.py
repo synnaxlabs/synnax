@@ -75,7 +75,7 @@ class TestCertificate:
         assert isinstance(c, certificate.StoredCertificate)
         assert c.private_key is not None
         key = client.secrets.retrieve(key=c.private_key, include_uses=True)
-        assert key.uses == [certificate.ontology_id(c.key)]
+        assert key.uses == [certificate.resource_id(c.key)]
 
     def test_create_mismatched_key(self, client: sy.Synnax) -> None:
         """Should reject a private key that does not match the certificate."""
@@ -129,7 +129,9 @@ class TestCertificate:
         """Should delete a certificate."""
         c = client.certificates.create(certificate.NewStored(name="Delete", pem=PEM))
         client.certificates.delete(c.key)
-        with pytest.raises(sy.NotFoundError, match=rf"Certificate matching .*{c.key}"):
+        with pytest.raises(
+            sy.NotFoundError, match=f'Found no certificate where key = "{c.key}"'
+        ):
             client.certificates.retrieve(c.key)
 
     def test_delete_used_private_key(self, client: sy.Synnax) -> None:
@@ -141,8 +143,8 @@ class TestCertificate:
         assert c.private_key is not None
         with pytest.raises(
             sy.ValidationError,
-            match=r'^cannot delete secret "In use private key" because certificate '
-            r'"In use" uses it: validation error$',
+            match=r"^cannot delete secret In use private key because certificate "
+            r"In use uses it as its private_key: validation error$",
         ):
             client.secrets.delete(c.private_key)
         assert client.secrets.retrieve(key=c.private_key).key == c.private_key

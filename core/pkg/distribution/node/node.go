@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Package node exposes the node domain type over aspen's membership primitives. The
-// cluster-membership view lives in pkg/distribution/cluster; the ontology service that
-// publishes nodes as resources lives in pkg/service/node.
+// cluster-membership view lives in pkg/distribution/cluster; the service that serves
+// nodes as resources lives in pkg/service/node.
 package node
 
 import "github.com/synnaxlabs/aspen"

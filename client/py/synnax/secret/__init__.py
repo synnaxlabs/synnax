@@ -10,7 +10,7 @@
 from synnax.secret.client import Client
 from synnax.secret.payload import New, NewFile, NewStored
 from synnax.secret.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     FileSecret,
     Key,
     Secret,
@@ -18,11 +18,11 @@ from synnax.secret.types_gen import (
     StoredSecret,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "FileSecret",
     "Key",
@@ -34,5 +34,5 @@ __all__ = [
     "StoredSecret",
     "Where",
     "WhereInput",
-    "ontology_id",
+    "resource_id",
 ]

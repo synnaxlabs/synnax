@@ -17,8 +17,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import ontology
-from synnax.ontology.payload import ID
+from synnax import resource
+from synnax.resource import ID
 from x import filter, telem
 
 SOURCE_STORED: Literal["stored"] = "stored"
@@ -45,7 +45,7 @@ class Base(BaseModel):
     key: Key = Field(default_factory=uuid4)
     name: str
     updated: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
-    uses: list[ontology.ID] | None = None
+    uses: list[resource.ID] | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -138,8 +138,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="secret")
+TYPE_RESOURCE_ID = ID(type="secret")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="secret", key=str(key))

@@ -11,10 +11,12 @@ package user
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -26,13 +28,13 @@ import (
 type Writer struct {
 	svc   *Service
 	tx    gorp.Tx
-	otg   ontology.Writer
 	table *gorp.Table[Key, User]
 }
 
 // Create persists a new user record from u. If u.Key is the zero UUID, a new key is
 // assigned. The returned User has Key populated. Returns an error if u.RootUser is
-// true, and a validation error if u.Name is empty or a user with u.Key already exists.
+// true, and a validation error if u.Name is empty, a user with u.Key already exists, or
+// a role in u.Roles does not exist.
 func (w Writer) Create(ctx context.Context, u User) (User, error) {
 	if u.RootUser {
 		return User{}, errors.New(
@@ -62,9 +64,6 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 	if err := w.table.NewCreate().Entry(&u).Exec(ctx, w.tx); err != nil {
 		return User{}, err
 	}
-	if err := w.otg.DefineResources(ctx, u.OntologyID()); err != nil {
-		return User{}, err
-	}
 	return u, nil
 }
 
@@ -81,6 +80,53 @@ func (w Writer) ChangeName(ctx context.Context, key Key, name string) error {
 		}).Exec(ctx, w.tx)
 }
 
+// SetRoles removes the roles in remove from each user with the given keys, then puts
+// each role in add that the user does not hold ahead of the roles it keeps. A role in
+// both lists is held after the call. SetRoles returns a validation error when a role in
+// add does not exist or a user is a root user, and query.ErrNotFound when a user does
+// not exist.
+func (w Writer) SetRoles(
+	ctx context.Context,
+	add, remove []role.Key,
+	keys ...Key,
+) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, User](keys...)).
+		ChangeErr(func(_ gorp.Context, u User) (User, error) {
+			if u.RootUser {
+				return User{}, errors.Wrapf(
+					validate.ErrValidation,
+					"cannot change the roles of root user %s",
+					u.Name,
+				)
+			}
+			u.Roles = mergeRoles(u.Roles, add, remove)
+			return u, nil
+		}).
+		Exec(ctx, w.tx)
+}
+
+// AssignRole puts the role r ahead of the roles of each user with the given keys that
+// does not hold it, root users included. It returns a validation error when r does not
+// exist.
+func (w Writer) AssignRole(ctx context.Context, r role.Key, keys ...Key) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, User](keys...)).
+		Change(func(_ gorp.Context, u User) User {
+			u.Roles = mergeRoles(u.Roles, []role.Key{r}, nil)
+			return u
+		}).
+		Exec(ctx, w.tx)
+}
+
+func mergeRoles(held, add, remove []role.Key) []role.Key {
+	kept := lo.Without(held, remove...)
+	added := lo.Reject(lo.Uniq(add), func(r role.Key, _ int) bool {
+		return slices.Contains(kept, r)
+	})
+	return append(added, kept...)
+}
+
 func (w Writer) setRootUser(ctx context.Context, key Key, root bool) error {
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, User](key)).
@@ -91,14 +137,11 @@ func (w Writer) setRootUser(ctx context.Context, key Key, root bool) error {
 // Delete removes the users with the given keys from the key-value store.
 // Deleting a root user is rejected.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, User](keys...)).
+	return w.table.NewDelete().Where(gorp.MatchKeys[Key, User](keys...)).
 		Guard(func(_ gorp.Context, u User) error {
 			if u.RootUser {
 				return errors.New("cannot delete root user")
 			}
 			return nil
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otg.DeleteResources(ctx, OntologyIDsFromKeys(keys)...)
+		}).Exec(ctx, w.tx)
 }

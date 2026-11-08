@@ -79,7 +79,8 @@ public:
         const std::shared_ptr<task::Context> &ctx
     ) override;
 
-    /// @brief handles device updates to sync enabled flag to engine.
+    /// @brief sets the status of a changed slave device, or an error status when its
+    /// properties are invalid.
     void on_device_set(const synnax::device::Device &dev) override;
 
 private:
@@ -93,8 +94,9 @@ private:
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;
 
-    /// @brief creates a slave device for the given slave. The status reflects the
-    /// slave's live state when health holds an entry for it.
+    /// @brief creates a slave device for the given slave. The status names any invalid
+    /// property, and otherwise reflects the slave's live state when health holds an
+    /// entry for it.
     [[nodiscard]] synnax::device::Device create_slave_device(
         const slave::DiscoveryResult &slave,
         const std::vector<slave::Health> &health,

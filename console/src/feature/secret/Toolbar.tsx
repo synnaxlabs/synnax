@@ -24,7 +24,7 @@ import { Toolbar } from "@/platform/toolbar";
 
 const EmptyContent = (): ReactElement => {
   const openCreate = useCreateModal();
-  const canCreate = Access.useCreateGranted(secret.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No credentials"
@@ -38,7 +38,7 @@ const EMPTY_CONTENT = <EmptyContent />;
 
 const Content = (): ReactElement => {
   const openCreate = useCreateModal();
-  const canCreate = Access.useCreateGranted(secret.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   return (
     <Toolbar.Content className={CSS.B("credentials")}>
       <Toolbar.Header>

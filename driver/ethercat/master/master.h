@@ -9,10 +9,15 @@
 
 #pragma once
 
+#include <cstdint>
+#include <format>
+#include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -20,10 +25,41 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
+#include "driver/ethercat/dc/dc.h"
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::master {
+/// @brief the distributed clock epoch, 2000-01-01, as a Unix timestamp.
+inline const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
+
+/// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
+/// message about one or more such slaves ends with it once.
+inline constexpr std::string_view DC_SYNC_ADVICE =
+    "A slave that reports \"Invalid DC SYNC configuration\" expects a synchronization "
+    "mode that the Driver did not set up. Set the DC mode of the slave in its device "
+    "settings. With no setting, the Driver uses SM sync when the slave lists an SM "
+    "mode, and its first DC mode when it lists only DC modes. If the slave does not "
+    "list the mode it expects, change its mode with the configuration tool of its "
+    "vendor.";
+
+/// @brief returns the error for an entry on a slave that the bus started without.
+inline x::errors::Error left_out_error(
+    const uint16_t position,
+    const std::string &name,
+    const slave::Refusal &refusal
+) {
+    auto msg = std::format(
+        "Slave {} ({}) is not on the network: it {}. Fix the device, then stop every "
+        "task on the network to try it again.",
+        position,
+        name,
+        refusal.reason
+    );
+    if (refusal.dc_sync_invalid) msg.append(" ").append(DC_SYNC_ADVICE);
+    return x::errors::Error(errors::STATE_CHANGE_REFUSED, msg);
+}
 
 /// @brief information about an available EtherCAT master or network.
 struct Info {
@@ -45,13 +81,36 @@ public:
     /// state. Valid between initialize() and deactivate().
     [[nodiscard]] virtual std::pair<size_t, x::errors::Error> count_slaves() = 0;
 
-    /// @brief sets whether a slave joins cyclic exchange. Takes effect at the next
-    /// activate().
-    virtual void set_slave_enabled(uint16_t position, bool enabled) = 0;
+    /// @brief replaces the settings of every slave. A slave missing from configs goes
+    /// back to the defaults of slave::Config. Takes effect at the next activate().
+    virtual void replace_slave_configs(std::map<uint16_t, slave::Config> configs) = 0;
 
-    /// @brief maps the process data of every enabled slave and transitions the enabled
-    /// slaves to OP.
-    [[nodiscard]] virtual x::errors::Error activate() = 0;
+    /// @brief maps the process data of every enabled slave, calls start_cycle once
+    /// send() and receive() work, starts the DC sync of each slave in a DC mode for a
+    /// bus cycle of period, then moves the enabled slaves to OP while the caller cycles
+    /// the bus. After an error, the caller stops the cycle it started before it calls
+    /// deactivate(). Only the SOEM master starts DC sync.
+    /// @returns errors::SLAVE_CONFIG_ERROR when the DC mode of a slave gives values its
+    /// registers cannot hold at the period, or errors::STATE_CHANGE_REFUSED when a
+    /// slave refuses SAFE-OP or OP.
+    [[nodiscard]] virtual x::errors::Error
+    activate(x::telem::TimeSpan period, const std::function<void()> &start_cycle) = 0;
+
+    /// @brief returns why each slave refused a state in the last activate(), keyed by
+    /// position. Empty when no slave refused, or when every enabled slave with process
+    /// data refused, as the bus then has nothing to run.
+    [[nodiscard]] virtual std::map<uint16_t, slave::Refusal> refusals() const = 0;
+
+    /// @brief returns whether a slave that kept the last activate() from finishing
+    /// reports "Invalid DC SYNC configuration", so that the error of a failed start
+    /// ends with DC_SYNC_ADVICE.
+    [[nodiscard]] virtual bool dc_sync_refused() const = 0;
+
+    /// @brief leaves each slave in slaves out of every activate() until the next
+    /// leave_out(), as if it were disabled. Meanwhile, pdo_offset() returns
+    /// left_out_error() for an entry on a left-out slave, and check() reports the slave
+    /// with why the bus starts without it.
+    virtual void leave_out(std::map<uint16_t, slave::Refusal> slaves) = 0;
 
     /// @brief deactivates the master and stops cyclic communication.
     virtual void deactivate() = 0;
@@ -65,8 +124,14 @@ public:
     /// @brief returns the distributed clock system time, as a Unix timestamp, at which
     /// the latest received frame passed the reference clock. Returns nullopt when no
     /// enabled slave has a distributed clock or the master does not read it. The DC
-    /// clock is not aligned to the host clock. Valid after a successful receive().
+    /// clock is not aligned to the host clock. Valid after a receive() that returns
+    /// NIL, or errors::WORKING_COUNTER_ERROR while the slaves move to OP. After that, a
+    /// short frame can miss the reference clock and leave the previous time.
     [[nodiscard]] virtual std::optional<x::telem::TimeStamp> dc_time() const = 0;
+
+    /// @brief returns the DC registers of each enabled slave whose SYNC0 events the
+    /// master starts. Valid from the start_cycle call of activate() until deactivate().
+    [[nodiscard]] virtual std::vector<dc::Registers> dc_sync() const = 0;
 
     /// @brief returns the input data buffer (TxPDO, slave→master).
     [[nodiscard]] virtual std::span<const uint8_t> input_data() = 0;
@@ -84,10 +149,11 @@ public:
     [[nodiscard]] virtual std::vector<slave::DiscoveryResult> slaves() const = 0;
 
     /// @brief reads the condition of each enabled slave and asks each slave that left
-    /// OP to return to it. Takes no further recovery step once breaker stops. Safe to
-    /// call from one thread while another runs receive() and send(). Valid between
-    /// activate() and deactivate().
-    /// @returns the condition of each enabled slave before any recovery step.
+    /// OP to return to it. Reports each left-out slave with its reason. Takes no
+    /// further recovery step once breaker stops. Safe to call from one thread while
+    /// another runs receive() and send(). Valid between activate() and deactivate().
+    /// @returns the condition of each enabled slave before any recovery step, then each
+    /// left-out slave with its refusal.
     [[nodiscard]] virtual std::vector<slave::Health>
     check(const x::breaker::Breaker &breaker) = 0;
 

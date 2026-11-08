@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/status/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	grpcstatus "github.com/synnaxlabs/synnax/pkg/transport/grpc/status"
 	"github.com/synnaxlabs/x/filter"
@@ -55,10 +56,10 @@ var _ = Describe("Retrieve", func() {
 						Eq: new(svcstatus.VariantError),
 					}}},
 				},
+				Owners: []resource.ID{{Type: resource.TypeTask, Key: "1"}},
 			},
-			SearchTerm:    "cryostat",
-			Limit:         new(uint32(10)),
-			IncludeLabels: true,
+			SearchTerm: "cryostat",
+			Limit:      new(uint32(10)),
 		}
 		MustSucceed(client.Exec(ctx, &grpcstatus.RetrieveRequest{
 			Request: MustSucceed(pb.RetrieveRequestToPB(msg)),

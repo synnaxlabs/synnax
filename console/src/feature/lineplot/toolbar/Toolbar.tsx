@@ -35,7 +35,7 @@ const Internal = (): ReactElement => {
   const name = LinePlot.useName();
   const dispatch = Session.useDispatch();
   const activeTab = Session.LinePlot.useSelectActiveToolbarTab();
-  const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(lineplot.resourceID(key));
   const handleTabSelect = (tabKey: string): void => {
     dispatch(
       Session.LinePlot.setActiveToolbarTab({
@@ -67,10 +67,10 @@ const Internal = (): ReactElement => {
               >
                 <Icon.CSV />
               </Button.Button>
-              <Export.ToolbarButton id={lineplot.ontologyID(key)} />
+              <Export.ToolbarButton id={lineplot.resourceID(key)} />
               <Core.CopyLinkToolbarButton
                 name={name}
-                ontologyID={lineplot.ontologyID(key)}
+                resourceID={lineplot.resourceID(key)}
               />
             </Flex.Box>
             {hasUpdatePermission && (

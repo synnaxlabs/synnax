@@ -82,6 +82,10 @@ export interface EditorProps<V> extends BaseProps {
    * the dialog.
    */
   inline?: boolean;
+  /** Shown at the end of an inline field, where a unit sits. */
+  endContent?: ReactNode;
+  /** Shown after an inline field, joined to it, such as a reset button. */
+  after?: ReactNode;
   /**
    * Returns why a value cannot be committed, or null when it can. The editor drops
    * readings that fail, and shows the first one's reason when none is left.
@@ -129,6 +133,8 @@ export const Editor = <V,>({
   tooltip,
   hideTooltip,
   inline = false,
+  endContent,
+  after,
   check,
   ...rest
 }: EditorProps<V>): ReactElement => {
@@ -269,11 +275,15 @@ export const Editor = <V,>({
           status={status}
           aria-invalid={rest["aria-invalid"]}
           aria-describedby={rest["aria-describedby"]}
+          aria-label={rest["aria-label"]}
           tooltip={tooltip}
           // The open editor covers the place a tooltip shows.
           hideTooltip={draft != null ? true : hideTooltip}
           className={CSS.BE("time-editor", "field")}
-        />
+          endContent={endContent}
+        >
+          {after}
+        </Text>
       ) : (
         <Dialog.Trigger
           hideCaret
