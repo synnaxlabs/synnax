@@ -56,7 +56,8 @@ read_layout(const API &api, ec_master_t *master, const uint16_t position) {
                 value |= static_cast<uint32_t>(data[i]) << (8 * i);
             return {value, x::errors::NIL};
         },
-        EC_MAX_SYNC_MANAGERS
+        EC_MAX_SYNC_MANAGERS,
+        coe::OnError::FAIL
     );
 }
 
