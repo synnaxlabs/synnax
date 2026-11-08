@@ -580,27 +580,6 @@ func extractRetrieveInfo(
 		}
 	}
 
-	if len(search) > 0 {
-		for _, idx := range indexes {
-			if idx.StructField == "search" {
-				return nil, errors.Newf(
-					"%s: @index field %s collides with the search index",
-					typ.QualifiedName,
-					idx.FieldName,
-				)
-			}
-		}
-		for _, ref := range refs {
-			if ref.StructField == "search" {
-				return nil, errors.Newf(
-					"%s: @ref field %s collides with the search index",
-					typ.QualifiedName,
-					ref.FieldName,
-				)
-			}
-		}
-	}
-
 	walked, err := newRefWalker(table).walk(typ)
 	if err != nil {
 		return nil, err
@@ -617,6 +596,31 @@ func extractRetrieveInfo(
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(search) > 0 {
+		for _, idx := range indexes {
+			if idx.StructField == "search" {
+				return nil, errors.Newf(
+					"%s: @index field %s collides with the search index",
+					typ.QualifiedName,
+					idx.FieldName,
+				)
+			}
+		}
+		// A union's variant references have no dotted path, so one can be named search.
+		nestedRefs := lo.Map(nested, func(n nestedRef, _ int) refInfo {
+			return n.refInfo
+		})
+		for _, ref := range slices.Concat(refs, nestedRefs) {
+			if ref.StructField == "search" {
+				return nil, errors.Newf(
+					"%s: @ref field %s collides with the search index",
+					typ.QualifiedName,
+					ref.FieldName,
+				)
+			}
+		}
 	}
 
 	info := &retrieveInfo{
