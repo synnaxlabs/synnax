@@ -12,6 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax import group as group_
 from synnax import project as project_
 from synnax import ranger
 from synnax.lineplot.types_gen import (
@@ -107,6 +108,8 @@ class Client:
         key: Key,
         projects: project_.Key | list[project_.Key] = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -121,6 +124,8 @@ class Client:
         key: filter.SetInput[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -136,6 +141,8 @@ class Client:
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -165,6 +172,9 @@ class Client:
         :param keys: Keeps line plots with one of these keys.
         :param projects: Keeps the line plots owned by any of these projects.
         :param ranges: Keeps the line plots owned by any of these ranges.
+        :param groups: Keeps line plots in any of these groups.
+        :param grouped: Keeps only line plots in a group when True, and only line plots
+            in no group when False.
         :param one: Returns one line plot for any filter.
         :returns: One line plot for a plain ``key`` or when ``one`` is set, otherwise a
             list of line plots. The list leaves out keys that do not exist.
