@@ -80,15 +80,15 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const dispatch = Session.useDispatch();
   const client = Synnax.use();
   const ranges = Range.useResolveMultiple();
-  const id = ranger.ontologyID(key ?? "");
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const id = ranger.resourceID(key ?? "");
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const hasUpdatePermission = Access.useUpdateGranted(id);
   const hasDeletePermission = Access.useDeleteGranted(id);
   const hasLinePlotUpdatePermission = Access.useUpdateGranted(
-    lineplot.TYPE_ONTOLOGY_ID,
+    lineplot.TYPE_RESOURCE_ID,
   );
   const hasLinePlotCreatePermission = Access.useCreateGranted(
-    lineplot.TYPE_ONTOLOGY_ID,
+    lineplot.TYPE_RESOURCE_ID,
   );
 
   const handleRemove = (keys: string[]): void => {
@@ -136,7 +136,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
             <Menu.Item
               itemKey="details"
               onClick={() =>
-                openTab({ variant: "resource", resource: ranger.ontologyID(rng.key) })
+                openTab({ variant: "resource", resource: ranger.resourceID(rng.key) })
               }
             >
               <Icon.Details />
@@ -176,7 +176,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
           {rng.variant === "persisted" && (
             <Link.CopyContextMenuItem
               onClick={() =>
-                handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) })
+                handleLink({ name: rng.name, resourceID: ranger.resourceID(rng.key) })
               }
             />
           )}

@@ -10,6 +10,7 @@
 package v3_test
 
 import (
+	"context"
 	"encoding/json/v2"
 	"fmt"
 	"math"
@@ -19,18 +20,29 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
+
+func resourceExists(ctx context.Context, db *gorp.DB, id resource.ID) (bool, error) {
+	return gorp.NewRetrieve[string, ontology.Resource]().
+		Where(gorp.MatchKeys[string, ontology.Resource](id.String())).
+		Exists(ctx, db)
+}
 
 var _ = Describe("QuarantineKVKey", func() {
 	It("Should scope the task key under the quarantine prefix", func() {
@@ -43,60 +55,76 @@ var _ = Describe("QuarantineKVKey", func() {
 
 var _ = Describe("NewMigration", func() {
 	var (
-		memDB kv.DB
-		db    *gorp.DB
-		otg   *ontology.Ontology
+		memDB     kv.DB
+		db        *gorp.DB
+		statusSvc *status.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		memDB = memkv.New()
 		db = DeferClose(gorp.Wrap(memDB))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB: db,
+		}))
+		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB: db,
+		}))
 	})
 
 	seed := func(ctx SpecContext, t v2.Task) {
 		GinkgoHelper()
 		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&t).Exec(ctx, db)).
 			To(Succeed())
-		Expect(otg.NewWriter(nil).DefineResources(ctx, ontology.ID{
-			Type: ontology.ResourceTypeTask,
+		Expect(ontology.DefineResources(ctx, db, resource.ID{
+			Type: resource.TypeTask,
 			Key:  t.Key.String(),
 		})).To(Succeed())
 	}
 
+	// run migrates the stored tasks as the task table does when it opens.
 	run := func(ctx SpecContext, stores ...config.Store) {
 		GinkgoHelper()
 		configs := MustSucceed(config.NewRegistry(stores...))
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Task",
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Task]{
+			DB:   db,
+			Name: string(resource.TypeTask),
 			Migrations: []gorp.Migration{
 				v3.NewMigration(v3.MigrationConfig{
-					Ontology: otg,
-					Configs:  configs,
+					Status:  statusSvc,
+					Configs: configs,
 				}),
 			},
-		})).To(Succeed())
+		}))
 	}
 
+	// openArcStore opens the Arc table and the Arc task config store, in the order the
+	// Core opens them.
 	openArcStore := func(ctx SpecContext) config.Store {
 		GinkgoHelper()
-		return MustOpen(config.OpenService(
-			ctx,
-			config.ServiceConfig[arctask.Config]{
-				DB:            db,
-				Type:          "arc",
-				Ladder:        arcversions.ConfigLadder,
-				SetEntryKey:   (*arctask.Config).SetKey,
-				ValidateEntry: (*arctask.Config).Validate,
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
+		return MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db})).Config
+	}
+
+	createArc := func(ctx SpecContext) arc.Key {
+		GinkgoHelper()
+		a := arc.Arc{
+			Variant: arc.AutomationArc{
+				Base: arc.Base{
+					Key:    uuid.New(),
+					Name:   "Stored Arc",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
 			},
-		))
+		}
+		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entry(&a).Exec(ctx, db)).
+			To(Succeed())
+		return a.Base().Key
 	}
 
 	It(
 		"Should normalize the config into its record store under the task's key",
 		func(ctx SpecContext) {
 			store := openArcStore(ctx)
-			key, arcKey := uuid.New(), uuid.New()
+			key, arcKey := uuid.New(), createArc(ctx)
 			seed(ctx, v2.Task{
 				Key:  key,
 				Name: "Stored Arc Task",
@@ -190,6 +218,38 @@ var _ = Describe("NewMigration", func() {
 		},
 	)
 
+	It("Should store a record for every task it converts", func(ctx SpecContext) {
+		store := openArcStore(ctx)
+		rt := MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{DB: db}))
+		arcKeys := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
+		for i, k := range arcKeys {
+			seed(ctx, v2.Task{
+				Key:    k,
+				Name:   fmt.Sprintf("Arc Task %d", i),
+				Type:   "arc",
+				Config: msgpack.EncodedJSON{"arcKey": createArc(ctx).String()},
+			})
+		}
+		statusKey := uuid.New()
+		seed(ctx, v2.Task{
+			Key:      statusKey,
+			Name:     "Rack Status",
+			Type:     "Rack Status",
+			Internal: true,
+		})
+		run(ctx, append(rt.Stores(), store)...)
+
+		var migrated []v2.Task
+		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
+			Entries(&migrated).Exec(ctx, db)).To(Succeed())
+		Expect(migrated).To(HaveLen(4))
+		for _, k := range arcKeys {
+			Expect(store.Read(ctx, nil, k)).To(HaveKeyWithValue("key", k.String()))
+		}
+		Expect(rt.Status.Read(ctx, nil, statusKey)).
+			To(HaveKeyWithValue("key", statusKey.String()))
+	})
+
 	It("Should quarantine a task of an unknown type", func(ctx SpecContext) {
 		key := uuid.New()
 		seed(ctx, v2.Task{
@@ -198,17 +258,49 @@ var _ = Describe("NewMigration", func() {
 			Type:   "bogus",
 			Config: msgpack.EncodedJSON{"anything": true},
 		})
+		taskID := resource.ID{Type: resource.TypeTask, Key: key.String()}
+		Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, status.Status[any]{
+			Key:     uuid.New().String(),
+			Owner:   &taskID,
+			Name:    "Bogus Task",
+			Variant: status.VariantSuccess,
+			Time:    telem.Now(),
+		})).To(Succeed())
 		run(ctx, openArcStore(ctx))
+
+		Expect(statusSvc.NewRetrieve[any]().
+			Where(status.MatchOwners[any](taskID)).
+			Entry(new(status.Status[any])).
+			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
+			Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
+			Exists(ctx, db)).To(BeFalse())
+		Expect(resourceExists(ctx, db, resource.ID{
+			Type: resource.TypeTask,
+			Key:  key.String(),
+		})).To(BeFalse())
+		staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
+		Expect(string(staged)).To(ContainSubstring("Bogus Task"))
+		Expect(closer.Close()).To(Succeed())
+	})
+
+	It("Should quarantine a task whose Arc does not exist", func(ctx SpecContext) {
+		store := openArcStore(ctx)
+		key, missing := uuid.New(), uuid.New()
+		seed(ctx, v2.Task{
+			Key:    key,
+			Name:   "Orphaned Arc Task",
+			Type:   "arc",
+			Config: msgpack.EncodedJSON{"arcKey": missing.String()},
+		})
+		run(ctx, store)
 
 		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
 			Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
 			Exists(ctx, db)).To(BeFalse())
-		Expect(otg.NewRetrieve().WhereIDs(ontology.ID{
-			Type: ontology.ResourceTypeTask,
-			Key:  key.String(),
-		}).Exists(ctx, nil)).To(BeFalse())
+		Expect(store.Read(ctx, nil, key)).Error().To(MatchError(query.ErrNotFound))
 		staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
-		Expect(string(staged)).To(ContainSubstring("Bogus Task"))
+		Expect(string(staged)).To(ContainSubstring("Orphaned Arc Task"))
 		Expect(closer.Close()).To(Succeed())
 	})
 
@@ -249,8 +341,8 @@ var _ = Describe("NewMigration", func() {
 			}
 			Expect(gorp.NewCreate[v2.Key, v2.Task]().
 				Entry(&t).Exec(ctx, legacyDB)).To(Succeed())
-			Expect(otg.NewWriter(nil).DefineResources(ctx, ontology.ID{
-				Type: ontology.ResourceTypeTask,
+			Expect(ontology.DefineResources(ctx, db, resource.ID{
+				Type: resource.TypeTask,
 				Key:  key.String(),
 			})).To(Succeed())
 			run(ctx, openArcStore(ctx))

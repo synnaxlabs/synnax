@@ -14,7 +14,8 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -25,86 +26,95 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	table     *gorp.Table[Key, Symbol]
+	svc   *Service
+	tx    gorp.Tx
+	table *gorp.Table[Key, Symbol]
 }
 
-// Create creates the given symbol as a child of the ontology.Resource with the given
-// parent ID. If the symbol does not have a key, a new key will be generated. If the
-// symbol already exists, it will be updated and the existing parent relationship will
-// be deleted and replaced with the new parent relationship.
-func (w Writer) Create(
-	ctx context.Context,
-	s *Symbol,
-	parent ontology.ID,
-) (err error) {
-	if err = s.Validate(); err != nil {
+// inTx calls f with w, or with a Writer on a transaction of its own when w has no
+// transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
+}
+
+// Create creates the given symbol. If the symbol does not have a key, a new key will be
+// generated. An existing symbol keeps its group, and a new symbol takes s.Group.
+func (w Writer) Create(ctx context.Context, s *Symbol) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, s) })
+}
+
+func (w Writer) create(ctx context.Context, s *Symbol) error {
+	if err := s.Validate(); err != nil {
 		return err
 	}
 	var (
-		exists   bool
-		existing Symbol
+		exists bool
+		stored Symbol
 	)
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
-		err = w.table.NewRetrieve().
+		err := w.table.NewRetrieve().
 			Where(gorp.MatchKeys[Key, Symbol](s.Key)).
-			Entry(&existing).
+			Entry(&stored).
 			Exec(ctx, w.tx)
 		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
-		exists = err == nil
+		if exists = err == nil; exists {
+			s.Group = stored.Group
+		}
 	}
 	// A zero scale draws the symbol at size zero. A stored scale that the write keeps
 	// passes, so a stored zero does not block a rename or another edit.
-	if s.Data.Scale <= 0 && (!exists || s.Data.Scale != existing.Data.Scale) {
+	if s.Data.Scale <= 0 && (!exists || s.Data.Scale != stored.Data.Scale) {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"data.scale: must be positive, got %v",
 			s.Data.Scale,
 		)
 	}
-	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	otgID := s.OntologyID()
-	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	// Symbol already exists = delete incoming relationships and define new parent
-	// Symbol does not exist = define parent
-	if exists {
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
+	if !exists {
+		if err := group.CheckMember(
 			ctx,
-			otgID,
-			ontology.RelationshipTypeParentOf,
+			w.tx,
+			s.Group,
+			resource.TypeSchematicSymbol,
+			nil,
 		); err != nil {
 			return err
 		}
 	}
-	return w.otgWriter.DefineRelationships(
-		ctx, parent, ontology.RelationshipTypeParentOf, otgID,
-	)
+	return w.table.NewCreate().Entry(s).Exec(ctx, w.tx)
 }
 
-// CreateMany creates the given symbols as children of the ontology.Resource with the
-// given parent ID. If symbols with the same key already exist, they will be
-// overwritten.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	symbols *[]Symbol,
-	parent ontology.ID,
-) error {
+// CreateMany creates the given symbols. If symbols with the same key already exist,
+// they will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, symbols *[]Symbol) error {
 	for i := range *symbols {
-		if err := w.Create(ctx, &(*symbols)[i], parent); err != nil {
+		if err := w.Create(ctx, &(*symbols)[i]); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// SetGroup moves the symbols with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := group.CheckMember(
+		ctx,
+		w.tx,
+		g,
+		resource.TypeSchematicSymbol,
+		nil,
+	); err != nil {
+		return err
+	}
+	return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
 }
 
 // Rename renames the symbol with the given key to the provided name.
@@ -120,10 +130,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 
 // Delete deletes the symbols with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Symbol](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+		Exec(ctx, w.tx)
 }

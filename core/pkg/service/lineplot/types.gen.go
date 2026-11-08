@@ -12,7 +12,10 @@
 package lineplot
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/filter"
 )
 
@@ -138,4 +141,12 @@ type Where struct {
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Groups matches the line plots in any of the given groups.
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	// Grouped matches the line plots in a group, or in no group when false.
+	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
+	// Projects matches the line plots owned by any of the given projects.
+	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
+	// Ranges matches the line plots owned by any of the given ranges.
+	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges,omitempty"`
 }

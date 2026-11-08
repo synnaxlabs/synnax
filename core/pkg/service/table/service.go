@@ -13,11 +13,14 @@ import (
 	"context"
 	stdio "io"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	"github.com/synnaxlabs/x/config"
@@ -38,11 +41,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between tables and other entities in the
-	// Synnax resource graph.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Signals is used to propagate changes to tables throughout the cluster. When nil,
 	// the service does not broadcast action sequences and gorp delete events are not
 	// published. Dispatch still applies actions to local state.
@@ -62,7 +60,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
@@ -72,7 +69,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("table")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("imex", c.ImEx)
 	return v.Error()
 }
@@ -103,13 +99,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Table]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -190,9 +187,8 @@ func (s *Service) Dispatch(
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
+		svc:        s,
 		tx:         tx,
-		otgWriter:  s.cfg.Ontology.NewWriter(tx),
-		otg:        s.cfg.Ontology,
 		tbl:        s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
@@ -205,4 +201,28 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
 	}
+}
+
+// MoveGroups moves the tables in groups into the project top, in tx, after those groups
+// move under top. It returns a validation error when one of the groups holds a table
+// and top is not a project.
+func (s *Service) MoveGroups(
+	ctx context.Context,
+	tx gorp.Tx,
+	groups []group.Key,
+	top *resource.ID,
+) error {
+	var moved []Table
+	if err := s.NewRetrieve().
+		Where(MatchGroups(groups...)).
+		Entries(&moved).
+		Exec(ctx, tx); err != nil || len(moved) == 0 {
+		return err
+	}
+	p, err := project.TopParentProject(top, resource.TypeTable)
+	if err != nil {
+		return err
+	}
+	keys := lo.Map(moved, func(e Table, _ int) Key { return e.Key })
+	return s.NewWriter(tx).setProject(ctx, *p, keys...)
 }

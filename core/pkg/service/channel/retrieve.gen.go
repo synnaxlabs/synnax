@@ -16,9 +16,14 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/x/telem"
 )
+
+// tableName names the Channel table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "channel"
 
 // Retrieve is used to retrieve Channel records from the database using a
 // builder pattern for constructing queries.
@@ -33,9 +38,9 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name       *gorp.LookupIndex[Key, Channel, Name]
-	localIndex *gorp.LookupIndex[Key, Channel, LocalKey]
-	search     *gorp.SearchIndex[Key, Channel]
+	name   *gorp.LookupIndex[Key, Channel, Name]
+	group  *gorp.KeyReference[Key, Channel, group.Key]
+	search *gorp.SearchIndex[Key, Channel]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -47,10 +52,18 @@ func newIndexes() indexes {
 			"name",
 			func(e *Channel) Name { return e.Name },
 		),
-		localIndex: gorp.NewLookupIndex[Key, Channel, LocalKey](
-			"local_index",
-			func(e *Channel) LocalKey { return e.LocalIndex },
-		),
+		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Channel, group.Key]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: gorp.Detach,
+			Targets: func(e *Channel) []group.Key {
+				if e.Group == nil {
+					return nil
+				}
+				return []group.Key{*e.Group}
+			},
+			Detach: func(e *Channel, _ group.Key) { e.Group = nil },
+		}),
 		search: gorp.NewSearchIndex[Key, Channel](
 			"search",
 			func(e *Channel) []string {
@@ -65,8 +78,15 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Channel] {
 	return []gorp.Index[Key, Channel]{
 		i.name,
-		i.localIndex,
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Channel] {
+	return []gorp.Reference[Key, Channel]{
+		i.group,
 	}
 }
 
@@ -179,6 +199,38 @@ func MatchInternal(v bool) Filter {
 			return e.Internal == v, nil
 		})
 	}
+}
+
+// MatchGroups returns a filter for channels
+// whose Group matches any of the provided
+// values.
+func MatchGroups(vals ...group.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		return r.indexes.group.Filter(vals...)
+	}
+}
+
+// MatchHasGroup returns a filter for channels whose
+// Group holds a target when has is true, and holds none when has is false.
+func MatchHasGroup(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		return r.indexes.group.FilterHolding(has)
+	}
+}
+
+// setGroup returns an update that sets the Group of the
+// channels with keys to v.
+func setGroup(
+	table *gorp.Table[Key, Channel],
+	v *group.Key,
+	keys ...Key,
+) gorp.Update[Key, Channel] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Channel](keys...)).
+		Change(func(_ gorp.Context, e Channel) Channel {
+			e.Group = v
+			return e
+		})
 }
 
 // Where applies the provided filter to the query, binding it to the Retrieve

@@ -21,9 +21,8 @@ import (
 // RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
 func RetrieveRequestToPB(r status.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
-		SearchTerm:    r.SearchTerm,
-		Offset:        r.Offset,
-		IncludeLabels: r.IncludeLabels,
+		SearchTerm: r.SearchTerm,
+		Offset:     r.Offset,
 	}
 	if r.Where != nil {
 		var err error
@@ -50,7 +49,6 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (status.RetrieveRequest, error) 
 	defaults.Prefill(&r)
 	r.SearchTerm = pb.SearchTerm
 	r.Offset = pb.Offset
-	r.IncludeLabels = pb.IncludeLabels
 	if pb.Where != nil {
 		val, err := statuspb.WhereFromPB(pb.Where)
 		if err != nil {

@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -185,22 +184,12 @@ func createIndexed(
 	dataTypes ...telem.DataType,
 ) (channel.Channel, []channel.Channel) {
 	GinkgoHelper()
-	return createIndexedOn(ctx, host, dataTypes...)
-}
-
-// createIndexedOn is createIndexed on the Core that leaseholder names.
-func createIndexedOn(
-	ctx context.Context,
-	leaseholder node.Key,
-	dataTypes ...telem.DataType,
-) (channel.Channel, []channel.Channel) {
-	GinkgoHelper()
 	w := channelSvc.NewWriter(nil)
 	idx := channel.Channel{
 		Name:        UniqueChannelName(),
 		DataType:    telem.TimestampT,
 		IsIndex:     true,
-		Leaseholder: leaseholder,
+		Leaseholder: host,
 	}
 	Expect(w.Create(ctx, &idx)).To(Succeed())
 	data := make([]channel.Channel, len(dataTypes))
@@ -208,21 +197,11 @@ func createIndexedOn(
 		data[i] = channel.Channel{
 			Name:        UniqueChannelName(),
 			DataType:    dt,
-			Leaseholder: leaseholder,
+			Leaseholder: host,
 			LocalIndex:  idx.LocalKey,
 		}
 		Expect(w.Create(ctx, &data[i])).To(Succeed())
 	}
-	// A peer's channels reach the host by gossip.
-	keys := append(channel.Keys{idx.Key()}, channel.KeysFromChannels(data)...)
-	Eventually(func(g Gomega) {
-		var found []channel.Channel
-		g.Expect(channelSvc.NewRetrieve().
-			Where(channel.MatchKeys(keys...)).
-			Entries(&found).
-			Exec(ctx, nil)).To(Succeed())
-		g.Expect(found).To(HaveLen(len(keys)))
-	}).Should(Succeed())
 	return idx, data
 }
 
@@ -233,18 +212,29 @@ func createVirtual(ctx context.Context, dt telem.DataType) channel.Channel {
 	return ch
 }
 
+// newTask stores and returns a task of taskType on rackKey. It skips task.Writer,
+// which writes a status of its own, so a spec sees only the statuses the factory
+// writes.
 func newTask(
+	ctx context.Context,
 	rackKey rack.Key,
 	taskType string,
 	cfg msgpack.EncodedJSON,
 ) task.Task {
-	return task.Task{
+	GinkgoHelper()
+	t := task.Task{
 		Key:    uuid.New(),
 		Name:   "mqtt-task",
 		Type:   taskType,
 		Rack:   rackKey,
 		Config: cfg,
 	}
+	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+		To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+	})
+	return t
 }
 
 // configure configures t with a start command key and stops the task at the end of
@@ -262,7 +252,7 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 	var stat task.Status
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+			Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 			Entry(&stat).
 			Exec(ctx, nil),
 		query.ErrNotFound,
@@ -380,7 +370,7 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 	var stat device.Status
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[device.StatusDetails]().
-			Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
+			Where(status.MatchOwners[device.StatusDetails](dev.ResourceID())).
 			Entry(&stat).
 			Exec(ctx, nil),
 		query.ErrNotFound,

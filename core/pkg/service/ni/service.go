@@ -80,6 +80,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.AnalogRead, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogReadConfig]{
 			DB:              cfg.DB,
+			References:      analogReadConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_analog_read",
 			LegacyVersion:   legacy.LastVersion,
@@ -94,6 +95,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.AnalogWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogWriteConfig]{
 			DB:              cfg.DB,
+			References:      analogWriteConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_analog_write",
 			LegacyVersion:   legacy.LastVersion,
@@ -108,6 +110,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.CounterRead, err = config.OpenService(
 		ctx, config.ServiceConfig[CounterReadConfig]{
 			DB:              cfg.DB,
+			References:      counterReadConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_counter_read",
 			LegacyVersion:   legacy.LastVersion,
@@ -122,6 +125,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.DigitalRead, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalReadConfig]{
 			DB:              cfg.DB,
+			References:      digitalReadConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_digital_read",
 			LegacyVersion:   legacy.LastVersion,
@@ -135,6 +139,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.DigitalWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalWriteConfig]{
 			DB:              cfg.DB,
+			References:      digitalWriteConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_digital_write",
 			LegacyVersion:   legacy.LastVersion,

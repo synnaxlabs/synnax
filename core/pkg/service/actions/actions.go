@@ -24,23 +24,27 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	xsync "github.com/synnaxlabs/x/sync"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// Scoped wraps an action sequence with the targeted entry key, the
-// dispatch-batch identifier supplied by the originating client, and a
-// monotonic sequence number assigned by the node that handled the dispatch.
-// Subscribers compare Seq against the last value they applied for the same
-// Key to decide whether the frame is fresh or a stale echo. DispatchKey is
-// carried verbatim so the originating client can match the echo against the
-// set of outstanding local replays it registered before sending, and skip a
-// redundant reduce when no foreign action interleaved.
+// CoreOnlyError returns the validation error that rejects a client dispatch of an
+// action only the Core emits. what names the action, such as "a log create".
+func CoreOnlyError(what string) error {
+	return errors.Wrapf(validate.ErrValidation, "only the Core dispatches %s", what)
+}
+
+// Scoped wraps an action sequence with the targeted entry key, the dispatch-batch
+// identifier supplied by the originating client, and a monotonic sequence number
+// assigned by the Core that handled the dispatch. Subscribers compare Seq against the
+// last value they applied for the same Key to decide whether the frame is fresh or a
+// stale echo. DispatchKey is carried verbatim so the originating client can match the
+// echo against the set of outstanding local replays it registered before sending, and
+// skip a redundant reduce when no foreign action interleaved.
 //
-// Seq is monotonic per originating node: in multi-node deployments two nodes
-// may emit overlapping Seq values for the same Key, so cross-node ordering is
-// best-effort until a cluster-wide ordering primitive lands as part of the
-// broader server-side undo work.
+// Seq is monotonic within a Core.
 type Scoped[K comparable, A any] struct {
 	// Key identifies the entry the action sequence targets.
 	Key K `json:"key" msgpack:"key"`
@@ -84,10 +88,9 @@ type DispatchResponse[A any] struct {
 // expose subscriptions via OnChange, and execute dispatches through Dispatch. The
 // observer is always non-nil so writers do not need to nil-check it.
 //
-// Seq is in-memory and resets on process restart. Clients reload service state
-// on reconnect and reset their per-key high-water marks alongside it, so the
-// reset is observable but not destructive. In multi-node deployments each node
-// has its own counter, making cross-node ordering best-effort.
+// Seq is in-memory and resets on process restart. Clients reload service state on
+// reconnect and reset their per-key high-water marks alongside it, so the reset is
+// observable but not destructive.
 type State[K comparable, A any] struct {
 	observer observe.Observer[Scoped[K, A]]
 	seq      atomic.Uint64

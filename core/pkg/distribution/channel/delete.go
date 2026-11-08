@@ -9,29 +9,15 @@
 
 package channel
 
-import "context"
+import (
+	"context"
 
-// Delete deletes the storage channels for the provided keys, routing each key to its
-// leaseholder. Free channels have no storage registration and are skipped. It does not
-// touch channel metadata.
+	"github.com/samber/lo"
+)
+
+// Delete deletes the storage channels for the provided keys. Free channels have no
+// storage registration and are skipped. It does not touch channel metadata.
 func (s *Service) Delete(ctx context.Context, keys Keys) error {
-	batch := s.deleteRouter.Batch(keys)
-	for nodeKey, entries := range batch.Peers {
-		addr, err := s.cfg.HostResolver.Resolve(nodeKey)
-		if err != nil {
-			return err
-		}
-		if _, err := s.cfg.Transport.DeleteClient().Send(
-			ctx, addr, DeleteRequest{Keys: entries},
-		); err != nil {
-			return err
-		}
-	}
-	return s.cfg.TS.DeleteChannels(Keys(batch.Gateway).Storage())
-}
-
-func (s *Service) deleteHandler(
-	ctx context.Context, req DeleteRequest,
-) (struct{}, error) {
-	return struct{}{}, s.cfg.TS.DeleteChannels(req.Keys.Storage())
+	stored := Keys(lo.Reject(keys, func(key Key, _ int) bool { return key.Free() }))
+	return s.cfg.TS.DeleteChannels(stored.Storage())
 }
