@@ -167,7 +167,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
    * Lets a subject read secrets once, within a minute, such as for a rack to test a
    * connection before the device that uses them is saved. Only racks can be subjects.
    * @returns the key of the grant to send to the subject with the command.
-   * @throws {AccessDeniedError} if the caller cannot create devices.
+   * @throws {AccessDeniedError} if the caller cannot create devices or cannot retrieve
+   * one of the secrets.
    * @throws {NotFoundError} if a secret does not exist.
    */
   async grant(params: GrantParams): Promise<GrantKey> {
