@@ -118,7 +118,7 @@ def _wait_for_device_status(
 ) -> list[sy.status.Status]:
     """Wait until a device emits a status with the given message.
 
-    Filter by ``device_key`` (exact match on ``device:<key>``) or
+    Filter by ``device_key`` (match on the status owner) or
     ``device_name`` (match on status ``name`` field). At least one must
     be provided.
 
@@ -140,11 +140,11 @@ def _wait_for_device_status(
         for raw in frame["sy_status_set"]:
             s = sy.status.Status.model_validate(raw)
             diag.all_keys.append(s.key)
-            if device_key and s.key != f"device:{device_key}":
+            if s.owner is None or s.owner.type != "device":
+                continue
+            if device_key and s.owner != sy.device.resource_id(device_key):
                 continue
             if device_name and s.name != device_name:
-                continue
-            if not s.key.startswith("device:"):
                 continue
             matched.append(s)
             if s.message == message:
