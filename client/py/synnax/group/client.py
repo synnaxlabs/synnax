@@ -78,7 +78,7 @@ class Client:
         return self._client.send(
             "/group/create",
             _CreateReq(
-                key=key,
+                key=key or None,
                 name=name,
                 scope=scope,
                 parent=ID(parent) if parent is not None else None,
