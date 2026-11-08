@@ -79,7 +79,9 @@ var _ = Describe("Alias", Ordered, func() {
 			Name:     fmt.Sprintf("test_%d", channelCount),
 			Virtual:  true,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		return ch
 	}
 
@@ -166,6 +168,79 @@ var _ = Describe("Alias", Ordered, func() {
 				Expect(a).To(Equal("Alias"))
 			},
 		)
+	})
+
+	It("Should fall back to the parent range through a snapshot", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx)
+		tx := DeferClose(db.OpenTx())
+		parent := ranger.Range{
+			Name: "Parent",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
+		Expect(
+			aliasSvc.NewWriter(tx).Set(ctx, parent.Key, ch.Key(), "Alias"),
+		).To(Succeed())
+		r := ranger.Range{
+			Name: "Range",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(7 * telem.Second),
+				End:   telem.TimeStamp(9 * telem.Second),
+			},
+			Parent: &parent.Key,
+		}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var a string
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			a, err = aliasSvc.NewReader(snap).Retrieve(ctx, r.Key, ch.Key())
+			return err
+		})).To(Succeed())
+		Expect(a).To(Equal("Alias"))
+	})
+
+	It("Should resolve, list, and search aliases through a snapshot", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx)
+		r := ranger.Range{
+			Name: "Range",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := rangerSvc.NewWriter(tx).Create(ctx, &r); err != nil {
+				return err
+			}
+			return aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "snapshot alias")
+		})).To(Succeed())
+		var (
+			resolved channel.Key
+			listed   map[channel.Key]string
+			found    []channel.Key
+		)
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			reader := aliasSvc.NewReader(snap)
+			resolved, err = reader.Resolve(ctx, r.Key, "snapshot alias")
+			if err != nil {
+				return err
+			}
+			if listed, err = reader.List(ctx, r.Key); err != nil {
+				return err
+			}
+			found, err = reader.Search(ctx, r.Key, "snapshot", visible)
+			return err
+		})).To(Succeed())
+		Expect(resolved).To(Equal(ch.Key()))
+		Expect(listed).To(Equal(map[channel.Key]string{ch.Key(): "snapshot alias"}))
+		Expect(found).To(Equal([]channel.Key{ch.Key()}))
 	})
 
 	Describe("Delete", func() {
@@ -325,9 +400,20 @@ var _ = Describe("Alias", Ordered, func() {
 
 		It("Should return the channels whose alias on the range matches the term",
 			func(ctx SpecContext) {
-				Expect(aliasSvc.NewReader(tx).Search(ctx, r.Key, "turbopump")).
+				Expect(aliasSvc.NewReader(tx).Search(ctx, r.Key, "turbopump", visible)).
 					To(Equal([]channel.Key{outlet.Key(), inlet.Key()}))
-				Expect(aliasSvc.NewReader(tx).Search(ctx, r.Key, "valve")).To(BeEmpty())
+				Expect(aliasSvc.NewReader(tx).Search(ctx, r.Key, "valve", visible)).
+					To(BeEmpty())
+			})
+
+		It("Should skip the aliases of channels that visible rejects",
+			func(ctx SpecContext) {
+				Expect(aliasSvc.NewReader(tx).Search(
+					ctx,
+					r.Key,
+					"turbopump",
+					func(ch channel.Key) bool { return ch != outlet.Key() },
+				)).To(Equal([]channel.Key{inlet.Key()}))
 			})
 
 		It("Should find aliases through the resource search", func(ctx SpecContext) {
@@ -370,18 +456,23 @@ var _ = Describe("Alias", Ordered, func() {
 					End:   telem.TimeStamp(10 * telem.Second),
 				},
 			}
-			Expect(rangerSvc.NewWriter(db).Create(ctx, &r)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
 			term = fmt.Sprintf("probe%09d", rand.IntN(999999999))
 			byName = channel.Channel{
 				DataType: telem.Float32T,
 				Name:     term,
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &byName)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &byName)
+			})).To(Succeed())
 			byAlias = createChannel(ctx)
-			Expect(
-				aliasSvc.NewWriter(db).Set(ctx, r.Key, byAlias.Key(), term+" inlet"),
-			).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return aliasSvc.NewWriter(tx).
+					Set(ctx, r.Key, byAlias.Key(), term+" inlet")
+			})).
 				To(Succeed())
 		})
 
@@ -390,7 +481,7 @@ var _ = Describe("Alias", Ordered, func() {
 		) []channel.Key {
 			GinkgoHelper()
 			chs := MustSucceed(aliasSvc.NewReader(db).SearchChannels(
-				ctx, q, r.Key, term, limit, offset,
+				ctx, q, r.Key, term, visible, limit, offset,
 			))
 			return lo.Map(chs, func(ch channel.Channel, _ int) channel.Key {
 				return ch.Key()
@@ -409,6 +500,18 @@ var _ = Describe("Alias", Ordered, func() {
 				To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
 		})
 
+		It("Should search the channels through a snapshot", func(ctx SpecContext) {
+			var chs []channel.Channel
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				chs, err = aliasSvc.NewReader(snap).
+					SearchChannels(ctx, both(), r.Key, term, visible, 0, 0)
+				return err
+			})).To(Succeed())
+			Expect(lo.Map(chs, func(ch channel.Channel, _ int) channel.Key {
+				return ch.Key()
+			})).To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
+		})
+
 		It("Should page the merged channels", func(ctx SpecContext) {
 			Expect(search(ctx, both(), 1, 0)).To(Equal([]channel.Key{byAlias.Key()}))
 			Expect(search(ctx, both(), 1, 1)).To(Equal([]channel.Key{byName.Key()}))
@@ -418,15 +521,18 @@ var _ = Describe("Alias", Ordered, func() {
 		It("Should list a channel that matches by alias and by name once", func(
 			ctx SpecContext,
 		) {
-			Expect(
-				aliasSvc.NewWriter(db).Set(ctx, r.Key, byName.Key(), term+" outlet"),
-			).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return aliasSvc.NewWriter(tx).
+					Set(ctx, r.Key, byName.Key(), term+" outlet")
+			})).To(Succeed())
 			second := channel.Channel{
 				DataType: telem.Float32T,
 				Name:     term + "_second",
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &second)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &second)
+			})).To(Succeed())
 			q := func() channel.Retrieve {
 				return channelSvc.NewRetrieve().
 					Where(channel.MatchKeys(byName.Key(), second.Key()))
@@ -444,7 +550,9 @@ var _ = Describe("Alias", Ordered, func() {
 		})
 
 		It("Should skip the alias of a deleted channel", func(ctx SpecContext) {
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, byAlias.Key(), false)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, byAlias.Key(), false)
+			})).
 				To(Succeed())
 			Expect(search(ctx, channelSvc.NewRetrieve(), 0, 0)).
 				To(Equal([]channel.Key{byName.Key()}))
@@ -589,3 +697,6 @@ var _ = Describe("Alias", Ordered, func() {
 		})
 	})
 })
+
+// visible accepts every channel.
+func visible(channel.Key) bool { return true }

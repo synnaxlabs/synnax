@@ -30,11 +30,6 @@ func ResourceID(k Key) resource.ID {
 	return resource.ID{Type: resource.TypePanel, Key: k.String()}
 }
 
-// ResourceIDs returns the resource ID of the panel with each key.
-func ResourceIDs(keys []Key) []resource.ID {
-	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
-}
-
 // ResourceIDsFromPanels returns the resource ID of each panel.
 func ResourceIDsFromPanels(panels []Panel) []resource.ID {
 	return lo.Map(panels, func(p Panel, _ int) resource.ID { return p.ResourceID() })

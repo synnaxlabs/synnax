@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
@@ -36,6 +37,7 @@ func TestHistory(t *testing.T) {
 const flushInterval = 100 * telem.Millisecond
 
 var (
+	db         *gorp.DB
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	// clock only advances when a spec flushes, so every change before it merges.
@@ -45,6 +47,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: node.DB,
 	}))
@@ -71,7 +74,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
 		DB:      node.DB,
 		Channel: channelSvc,
-		Framer:  framerSvc,
+		Framer:  node.Framer,
 	}))
 	MustOpen(history.Publish(ctx, history.Config{
 		Framer:        node.Framer,

@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/stl/variable"
 	"github.com/synnaxlabs/arc/stl/wasm"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
@@ -151,8 +152,16 @@ func (t *impl) start(ctx context.Context, cmdKey string) (err, answerErr error) 
 // open builds and flows the Arc runtime. It writes no statuses: start owns them.
 func (t *impl) open(ctx context.Context) (err error) {
 	drt := dataRuntime{clock: telem.MonoClock{Source: t.factoryCfg.Now}}
-	deps, err := runtime.NewDependencies(ctx, t.factoryCfg.Channel, *t.prog.Program)
-	if err != nil {
+	var deps runtime.Dependencies
+	if err = t.factoryCfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		deps, err = runtime.NewDependencies(
+			ctx,
+			snap,
+			t.factoryCfg.Channel,
+			*t.prog.Program,
+		)
+		return err
+	}); err != nil {
 		return err
 	}
 

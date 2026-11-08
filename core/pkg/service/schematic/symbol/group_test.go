@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // createGroup creates a symbol group, under parent when one is given.
@@ -34,9 +33,13 @@ func createGroup(ctx SpecContext, parent *group.Group) group.Group {
 	if parent != nil {
 		g.Parent = new(parent.ResourceID())
 	}
-	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return groupSvc.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return groupSvc.NewWriter(tx).Delete(ctx, g.Key)
+		})).To(Succeed())
 	})
 	return g
 }
@@ -48,27 +51,23 @@ func createSymbol(ctx SpecContext, g group.Group) symbol.Symbol {
 		Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 		Group: &g.Key,
 	})
-	Expect(svc.NewWriter(nil).Create(ctx, &sym)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).Create(ctx, &sym)
+	})).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Delete(ctx, sym.Key)
+		})).To(Succeed())
 	})
 	return sym
 }
 
 var _ = Describe("DeleteGroup", func() {
-	// The api reads the members through the same tx it deletes under, which every spec
-	// below mirrors.
-	deleteGroup := func(ctx SpecContext, tx gorp.Tx, key group.Key) error {
-		GinkgoHelper()
-		return svc.DeleteGroup(ctx, tx, key, MustSucceed(
-			svc.RetrieveGroupSymbols(ctx, tx, key),
-		))
-	}
 	It("Should delete the group and every symbol in it", func(ctx SpecContext) {
 		g := createGroup(ctx, nil)
 		sym := createSymbol(ctx, g)
 		tx := DeferClose(db.OpenTx())
-		Expect(deleteGroup(ctx, tx, g.Key)).To(Succeed())
+		Expect(svc.DeleteGroup(ctx, tx, g.Key)).To(Succeed())
 		Expect(svc.NewRetrieve().
 			Where(symbol.MatchKeys(sym.Key)).
 			Entry(&symbol.Symbol{}).
@@ -77,7 +76,7 @@ var _ = Describe("DeleteGroup", func() {
 	It("Should delete an empty group", func(ctx SpecContext) {
 		g := createGroup(ctx, nil)
 		tx := DeferClose(db.OpenTx())
-		Expect(deleteGroup(ctx, tx, g.Key)).To(Succeed())
+		Expect(svc.DeleteGroup(ctx, tx, g.Key)).To(Succeed())
 	})
 	It(
 		"Should refuse to delete a group that holds another group",
@@ -85,54 +84,20 @@ var _ = Describe("DeleteGroup", func() {
 			g := createGroup(ctx, nil)
 			createGroup(ctx, &g)
 			tx := DeferClose(db.OpenTx())
-			Expect(deleteGroup(ctx, tx, g.Key)).To(MatchError(
+			Expect(svc.DeleteGroup(ctx, tx, g.Key)).To(MatchError(
 				ContainSubstring(
 					"cannot delete group deletable because it is not empty",
 				),
 			))
 		},
 	)
-	It("Should reject an id no symbol key can come from", func(ctx SpecContext) {
-		g := createGroup(ctx, nil)
-		tx := DeferClose(db.OpenTx())
-		Expect(svc.DeleteGroup(ctx, tx, g.Key, []resource.ID{
-			{Type: resource.TypeSchematicSymbol, Key: "not-a-uuid"},
-		})).To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`key "not-a-uuid"`)),
-		))
-	})
-})
-
-var _ = Describe("RetrieveGroupSymbols", func() {
-	It("Should return the group's symbols", func(ctx SpecContext) {
-		g := createGroup(ctx, nil)
-		sym := createSymbol(ctx, g)
-		tx := DeferClose(db.OpenTx())
-		Expect(svc.RetrieveGroupSymbols(ctx, tx, g.Key)).
-			To(ConsistOf(symbol.ResourceID(sym.Key)))
-	})
-	It("Should return nothing for an empty group", func(ctx SpecContext) {
-		g := createGroup(ctx, nil)
-		tx := DeferClose(db.OpenTx())
-		Expect(svc.RetrieveGroupSymbols(ctx, tx, g.Key)).To(BeEmpty())
-	})
-	It("Should skip a child that is not a schematic symbol", func(ctx SpecContext) {
-		g := createGroup(ctx, nil)
-		createGroup(ctx, &g)
-		sym := createSymbol(ctx, g)
-		tx := DeferClose(db.OpenTx())
-		Expect(svc.RetrieveGroupSymbols(ctx, tx, g.Key)).
-			To(ConsistOf(symbol.ResourceID(sym.Key)))
-	})
 	It("Should return not found for a missing group", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		Expect(svc.RetrieveGroupSymbols(ctx, tx, uuid.New())).Error().
-			To(MatchError(query.ErrNotFound))
+		Expect(svc.DeleteGroup(ctx, tx, uuid.New())).To(MatchError(query.ErrNotFound))
 	})
 })
 
-var _ = Describe("Writer with no transaction", func() {
+var _ = Describe("Writer in concurrent transactions", func() {
 	It(
 		"Should keep the group that a move writes during concurrent creates",
 		func(ctx SpecContext) {
@@ -142,20 +107,28 @@ var _ = Describe("Writer with no transaction", func() {
 					Name:  fmt.Sprintf("Concurrent %d", i),
 					Scope: resource.TypeSchematicSymbol,
 				}
-				Expect(groupSvc.NewWriter(nil).Create(ctx, &groups[i])).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return groupSvc.NewWriter(tx).Create(ctx, &groups[i])
+				})).To(Succeed())
 			}
 			DeferCleanup(func(ctx SpecContext) {
 				for _, g := range groups {
-					Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return groupSvc.NewWriter(tx).Delete(ctx, g.Key)
+					})).To(Succeed())
 				}
 			})
 			created := defaults.Fill(symbol.Symbol{
 				Name: "concurrent",
 				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 			})
-			Expect(svc.NewWriter(nil).Create(ctx, &created)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &created)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, created.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, created.Key)
+				})).To(Succeed())
 			})
 			retrieveGroup := func() *group.Key {
 				GinkgoHelper()
@@ -175,7 +148,9 @@ var _ = Describe("Writer with no transaction", func() {
 					defer GinkgoRecover()
 					for !moved.Load() {
 						again := created
-						Expect(svc.NewWriter(nil).Create(ctx, &again)).
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(ctx, &again)
+						})).
 							To(Succeed())
 					}
 				})
@@ -184,7 +159,9 @@ var _ = Describe("Writer with no transaction", func() {
 				defer GinkgoRecover()
 				defer moved.Store(true)
 				for _, g := range groups {
-					Expect(svc.NewWriter(nil).SetGroup(ctx, &g.Key, created.Key)).
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).SetGroup(ctx, &g.Key, created.Key)
+					})).
 						To(Succeed())
 					Expect(retrieveGroup()).To(Equal(&g.Key))
 				}

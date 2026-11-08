@@ -12,19 +12,18 @@ package arc
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	apidirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
-// RetrieveDirectories retrieves Arc directories. The caller must hold retrieve access
-// to each directory it returns.
+// RetrieveDirectories returns the Arc directories that req selects and that the subject
+// can retrieve.
 func (s *Service) RetrieveDirectories(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req apidirectory.RetrieveRequest,
 ) (apidirectory.RetrieveResponse, error) {
 	var res apidirectory.RetrieveResponse
@@ -35,19 +34,7 @@ func (s *Service) RetrieveDirectories(
 	if err != nil {
 		return apidirectory.RetrieveResponse{}, err
 	}
-	if err = q.Exec(ctx, nil); err != nil {
-		return apidirectory.RetrieveResponse{}, err
-	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: lo.Map(
-			res.Directories,
-			func(d directory.Directory, _ int) resource.ID {
-				return d.ResourceID()
-			},
-		),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, directory.Match)).Exec(ctx, snap); err != nil {
 		return apidirectory.RetrieveResponse{}, err
 	}
 	return res, nil
@@ -65,20 +52,12 @@ type (
 	}
 )
 
-// CreateDirectory creates a directory of Arcs. The caller must hold create access to
-// directories.
+// CreateDirectory creates a directory of Arcs.
 func (s *Service) CreateDirectory(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateDirectoryRequest,
 ) (CreateDirectoryResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeArcDirectory}},
-	}); err != nil {
-		return CreateDirectoryResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		CreateDirectory(ctx, &req.Directory, req.Parent); err != nil {
 		return CreateDirectoryResponse{}, err
@@ -92,19 +71,12 @@ type RenameDirectoryRequest struct {
 	Name string        `json:"name" msgpack:"name"`
 }
 
-// RenameDirectory renames a directory. The caller must hold update access to it.
+// RenameDirectory renames a directory.
 func (s *Service) RenameDirectory(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameDirectoryRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{directory.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).RenameDirectory(ctx, req.Key, req.Name)
 }
 
@@ -113,24 +85,12 @@ type DeleteDirectoryRequest struct {
 	Keys []directory.Key `json:"keys" msgpack:"keys"`
 }
 
-// DeleteDirectory deletes empty directories. The caller must hold delete access to
-// them.
+// DeleteDirectory deletes empty directories.
 func (s *Service) DeleteDirectory(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteDirectoryRequest,
 ) (struct{}, error) {
-	ids := make([]resource.ID, len(req.Keys))
-	for i, k := range req.Keys {
-		ids[i] = directory.ResourceID(k)
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: ids,
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).DeleteDirectory(ctx, req.Keys...)
 }
 
@@ -142,23 +102,11 @@ type MoveRequest struct {
 	IDs  []resource.ID `json:"ids"  msgpack:"ids"`
 }
 
-// Move moves Arcs and directories between directories. The caller must hold update
-// access to each moved entry, to the source, and to the destination.
+// Move moves Arcs and directories between directories in one transaction.
 func (s *Service) Move(
 	ctx context.Context,
 	tx gorp.Tx,
 	req MoveRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: append(
-			req.IDs,
-			directory.ResourceID(req.From),
-			directory.ResourceID(req.To),
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Move(ctx, req.From, req.To, req.IDs...)
 }

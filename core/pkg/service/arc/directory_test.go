@@ -346,61 +346,66 @@ var _ = Describe("Dispatched Arc names", func() {
 				Source: arc.Source{Variant: arc.TextSource{}},
 			},
 		)
-		Expect(writer.Create(ctx, &taken)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &taken)
+		})).To(Succeed())
 		renamed := newAutomation(
 			arc.Base{
 				Name:   "dispatch_free",
 				Source: arc.Source{Variant: arc.TextSource{}},
 			},
 		)
-		Expect(writer.Create(ctx, &renamed)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &renamed)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(
-				writer.Delete(ctx, taken.Base().Key, renamed.Base().Key),
-			).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).
+					Delete(ctx, taken.Base().Key, renamed.Base().Key)
+			})).To(Succeed())
 		})
-		Expect(svc.Dispatch(ctx, renamed.Base().Key, "", []arc.Action{
+		Expect(dispatch(ctx, renamed.Base().Key, "", []arc.Action{
 			arc.NewRenameAction(arc.RenamePayload{Name: "dispatch_taken"}),
 		})).To(MatchError(ContainSubstring("already used")))
 	})
 })
 
 var _ = Describe("Move broadcast", func() {
-	It(
-		"Should broadcast an edit that commits between a move and its broadcast",
-		func(ctx SpecContext) {
-			w := svc.NewWriter(nil)
-			root := rootDirectory(ctx, db).Key
-			lib := directory.Directory{Name: "moved_into"}
-			Expect(w.CreateDirectory(ctx, &lib, root)).To(Succeed())
-			a := newArc(arc.TypeModule, arc.Base{
-				Name:   "moved",
-				Source: arc.Source{Variant: arc.TextSource{}},
-			})
-			Expect(w.Create(ctx, &a)).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(w.Delete(ctx, a.Base().Key)).To(Succeed())
-				Expect(w.DeleteDirectory(ctx, lib.Key)).To(Succeed())
-			})
-			rec := &Recorder[arc.Key, arc.Action]{}
-			DeferCleanup(svc.OnAction(rec.Record))
-			tx := DeferClose(db.OpenTx())
-			gorp.OnCommit(tx, func() {
-				Expect(svc.Dispatch(ctx, a.Base().Key, "", []arc.Action{
-					arc.NewRenameAction(arc.RenamePayload{Name: "renamed"}),
-				})).To(Succeed())
-			})
-			Expect(svc.NewWriter(tx).Move(ctx, root, lib.Key, a.ResourceID())).
-				To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
-			seen := rec.Snapshot()
-			Expect(seen).ToNot(BeEmpty())
-			last := seen[len(seen)-1]
-			Expect(last.Actions).To(HaveLen(1))
-			Expect(last.Actions[0].Create).ToNot(BeNil())
-			moved := last.Actions[0].Create.Arc.Base()
-			Expect(moved.Name).To(Equal("renamed"))
-			Expect(moved.Directory).To(Equal(&lib.Key))
-		},
-	)
+	It("Should attach the moved Arc as a create to the transaction of the move", func(
+		ctx SpecContext,
+	) {
+		root := rootDirectory(ctx, db).Key
+		lib := directory.Directory{Name: "moved_into"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).CreateDirectory(ctx, &lib, root)
+		})).To(Succeed())
+		a := newArc(arc.TypeModule, arc.Base{
+			Name:   "moved",
+			Source: arc.Source{Variant: arc.TextSource{}},
+		})
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &a)
+		})).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).DeleteDirectory(ctx, lib.Key)
+			})).To(Succeed())
+		})
+		rec := &Recorder[arc.Key, arc.Action]{}
+		DeferCleanup(svc.OnAction(rec.Record))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Move(ctx, root, lib.Key, a.ResourceID())
+		})).To(Succeed())
+		seen := rec.Snapshot()
+		Expect(seen).To(HaveLen(1))
+		Expect(seen[0].Key).To(Equal(a.Base().Key))
+		Expect(seen[0].Actions).To(HaveLen(1))
+		Expect(seen[0].Actions[0].Create).ToNot(BeNil())
+		moved := seen[0].Actions[0].Create.Arc.Base()
+		Expect(moved.Name).To(Equal("moved"))
+		Expect(moved.Directory).To(Equal(&lib.Key))
+	})
 })

@@ -352,6 +352,7 @@ func BootupCore(
 			Address:             cfg.listeners.AdvertiseAddress(),
 			RackKey:             serviceLayer.Rack.EmbeddedKey,
 			Keys:                serviceLayer.APIKey,
+			DB:                  distributionLayer.DB,
 			KeyDirname:          lo.Ternary(*cfg.memBacked, "", cfg.dataPath),
 			Debug:               cfg.debug,
 			TrustAnchorsPEM:     driverTrustAnchors,

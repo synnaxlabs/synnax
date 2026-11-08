@@ -105,10 +105,17 @@ var _ = Describe("Modules", func() {
 	})
 
 	It("Should resolve a user module in the LSP", func(ctx SpecContext) {
-		w = svc.NewWriter(nil)
-		a := createArc(ctx, arc.TypeModule, "lsp_module", textSource(source))
+		a := newArc(
+			arc.TypeModule,
+			arc.Base{Name: "lsp_module", Source: textSource(source)},
+		)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &a)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
+			})).To(Succeed())
 		})
 		server := MustSucceed(svc.NewLSP())
 		DeferCleanup(func() { Expect(server.Shutdown(ctx)).To(Succeed()) })
