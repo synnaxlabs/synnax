@@ -55,10 +55,10 @@ func createUser(ctx SpecContext, username string) user.User {
 		userSvc,
 		user.User{Name: username},
 	))
-	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.ResourceID(), auth.Credentials{
-		Username: username,
-		Password: "p",
-	})).To(Succeed())
+	Expect(
+		passwordSvc.NewWriter(nil).
+			Set(ctx, u.ResourceID(), username, hash(passwordSvc, "p")),
+	).To(Succeed())
 	return u
 }
 
@@ -96,6 +96,19 @@ func createRole(ctx SpecContext) role.Key {
 	return r.Key
 }
 
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
+}
+
 // beDeniedUpdateOn matches the error that denies the subject update on the role.
 func beDeniedUpdateOn(r role.Key) types.GomegaMatcher {
 	return SatisfyAll(
@@ -121,7 +134,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				username := uuid.New().String()
 				res := MustSucceed(
-					apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
+					create(rootCtx(ctx), apiuser.CreateRequest{
 						Users: []apiuser.NewUser{
 							{
 								Username: username,
@@ -140,7 +153,7 @@ var _ = Describe("Service", func() {
 		)
 		It("Should name a user after its username by default", func(ctx SpecContext) {
 			username := uuid.New().String()
-			res := MustSucceed(apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
+			res := MustSucceed(create(rootCtx(ctx), apiuser.CreateRequest{
 				Users: []apiuser.NewUser{{
 					Username: username,
 					Password: "p",
@@ -152,24 +165,28 @@ var _ = Describe("Service", func() {
 		It(
 			"Should deny access when the subject lacks create permission",
 			func(ctx SpecContext) {
-				fctx, _ := nonRootCtx(ctx)
-				Expect(apiSvc.Create(fctx, db, apiuser.CreateRequest{
+				fctx, subject := nonRootCtx(ctx)
+				key := uuid.New()
+				Expect(create(fctx, apiuser.CreateRequest{
 					Users: []apiuser.NewUser{{
+						Key:      key,
 						Username: "should-not-exist-" + uuid.New().String(),
 						Password: "p",
 						Role:     rbacSvc.Builtin.ViewerKey,
 					}},
-				})).Error().To(MatchError(access.ErrDenied))
+				})).Error().To(denied(
+					subject,
+					access.ActionCreate,
+					resource.ID{Type: resource.TypeUser},
+				))
 			},
 		)
 		It(
-			"Should roll back the password when user creation fails inside the tx",
+			"Should roll back the users when one fails to create",
 			func(ctx SpecContext) {
-				// the second user's repeated username must roll back the first
 				username := "rollback-" + uuid.New().String()
 				viewer := rbacSvc.Builtin.ViewerKey
-				tx := DeferClose(db.OpenTx())
-				Expect(apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
+				Expect(create(rootCtx(ctx), apiuser.CreateRequest{
 					Users: []apiuser.NewUser{
 						{Username: username, Password: "p", Role: viewer},
 						{Username: username, Password: "p", Role: viewer},
@@ -214,10 +231,10 @@ var _ = Describe("Service", func() {
 			u := MustSucceed(
 				rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: name}),
 			)
-			Expect(passwordSvc.NewWriter(nil).Set(ctx, u.ResourceID(), auth.Credentials{
-				Username: password,
-				Password: "p",
-			})).To(Succeed())
+			Expect(
+				passwordSvc.NewWriter(nil).
+					Set(ctx, u.ResourceID(), password, hash(passwordSvc, "p")),
+			).To(Succeed())
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Where: &user.Where{Usernames: []string{password}},
 			}))
@@ -341,9 +358,8 @@ var _ = Describe("Service", func() {
 				u := createUser(ctx, oldName)
 
 				Expect(
-					apiSvc.ChangeUsername(
+					changeUsername(
 						rootCtx(ctx),
-						db,
 						apiuser.ChangeUsernameRequest{
 							Key:      u.Key,
 							Username: newName,
@@ -370,9 +386,8 @@ var _ = Describe("Service", func() {
 				username := "change-username-noop-" + uuid.New().String()
 				u := createUser(ctx, username)
 				Expect(
-					apiSvc.ChangeUsername(
+					changeUsername(
 						rootCtx(ctx),
-						db,
 						apiuser.ChangeUsernameRequest{
 							Key:      u.Key,
 							Username: username,
@@ -386,7 +401,7 @@ var _ = Describe("Service", func() {
 			"Should reject a self-rename through the user service",
 			func(ctx SpecContext) {
 				fctx, subject := nonRootCtx(ctx)
-				Expect(apiSvc.ChangeUsername(fctx, db, apiuser.ChangeUsernameRequest{
+				Expect(changeUsername(fctx, apiuser.ChangeUsernameRequest{
 					Key:      subject.Key,
 					Username: "anything",
 				})).Error().To(MatchError(ContainSubstring("change your own username")))
@@ -396,9 +411,8 @@ var _ = Describe("Service", func() {
 			"Should return an error when the target user does not exist",
 			func(ctx SpecContext) {
 				Expect(
-					apiSvc.ChangeUsername(
+					changeUsername(
 						rootCtx(ctx),
-						db,
 						apiuser.ChangeUsernameRequest{
 							Key:      uuid.New(),
 							Username: "does-not-matter-" + uuid.New().String(),
@@ -412,11 +426,25 @@ var _ = Describe("Service", func() {
 			"Should deny access when the subject lacks update permission",
 			func(ctx SpecContext) {
 				u := createUser(ctx, "change-username-denied-"+uuid.New().String())
-				fctx, _ := nonRootCtx(ctx)
-				Expect(apiSvc.ChangeUsername(fctx, db, apiuser.ChangeUsernameRequest{
+				fctx, subject := nonRootCtx(ctx)
+				Expect(changeUsername(fctx, apiuser.ChangeUsernameRequest{
 					Key:      u.Key,
 					Username: "should-not-apply-" + uuid.New().String(),
-				})).Error().To(MatchError(access.ErrDenied))
+				})).Error().To(denied(subject, access.ActionUpdate, u.ResourceID()))
+			},
+		)
+		It(
+			"Should change the username for a subject with update on the user",
+			func(ctx SpecContext) {
+				u := createUser(ctx, "change-username-granted-"+uuid.New().String())
+				fctx, subject := nonRootCtx(ctx)
+				grantOnUsers(ctx, subject, access.ActionUpdate)
+				newName := "change-username-granted-new-" + uuid.New().String()
+				MustSucceed(changeUsername(fctx, apiuser.ChangeUsernameRequest{
+					Key:      u.Key,
+					Username: newName,
+				}))
+				MustSucceed(login(ctx, newName, "p"))
 			},
 		)
 		It(
@@ -429,9 +457,8 @@ var _ = Describe("Service", func() {
 					"change-username-collide-"+uuid.New().String(),
 				)
 				Expect(
-					apiSvc.ChangeUsername(
+					changeUsername(
 						rootCtx(ctx),
-						db,
 						apiuser.ChangeUsernameRequest{
 							Key:      target.Key,
 							Username: taken,
@@ -446,7 +473,7 @@ var _ = Describe("Service", func() {
 	Describe("Role", func() {
 		It("Should give new users the provided role", func(ctx SpecContext) {
 			viewer := rbacSvc.Builtin.ViewerKey
-			res := MustSucceed(apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
+			res := MustSucceed(create(rootCtx(ctx), apiuser.CreateRequest{
 				Users: []apiuser.NewUser{{
 					Username: uuid.New().String(),
 					Password: "p",
@@ -457,7 +484,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should refuse to create a user with no role", func(ctx SpecContext) {
 			username := uuid.New().String()
-			Expect(apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
+			Expect(create(rootCtx(ctx), apiuser.CreateRequest{
 				Users: []apiuser.NewUser{{Username: username, Password: "p"}},
 			})).Error().To(SatisfyAll(
 				BeAssignableToTypeOf(validate.PathError{}),
@@ -469,7 +496,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should refuse to create a user with a role that does not exist",
 			func(ctx SpecContext) {
-				Expect(apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
+				Expect(create(rootCtx(ctx), apiuser.CreateRequest{
 					Users: []apiuser.NewUser{{
 						Username: uuid.New().String(),
 						Password: "p",
@@ -486,7 +513,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				fctx, u := nonRootCtx(ctx)
 				grantOnUsers(ctx, u, access.ActionCreate)
-				Expect(apiSvc.Create(fctx, db, apiuser.CreateRequest{
+				Expect(create(fctx, apiuser.CreateRequest{
 					Users: []apiuser.NewUser{{
 						Username: uuid.New().String(),
 						Password: "p",
@@ -502,7 +529,7 @@ var _ = Describe("Service", func() {
 				grantOnUsers(ctx, u, access.ActionCreate)
 				grantOnUsers(ctx, u, access.ActionUpdate)
 				r := createRole(ctx)
-				Expect(apiSvc.Create(fctx, db, apiuser.CreateRequest{
+				Expect(create(fctx, apiuser.CreateRequest{
 					Users: []apiuser.NewUser{{
 						Username: uuid.New().String(),
 						Password: "p",
@@ -518,7 +545,7 @@ var _ = Describe("Service", func() {
 				grantOnUsers(ctx, u, access.ActionCreate)
 				r := createRole(ctx)
 				grantRoleChange(ctx, u, r)
-				res := MustSucceed(apiSvc.Create(fctx, db, apiuser.CreateRequest{
+				res := MustSucceed(create(fctx, apiuser.CreateRequest{
 					Users: []apiuser.NewUser{{
 						Username: uuid.New().String(),
 						Password: "p",
@@ -670,9 +697,8 @@ var _ = Describe("Service", func() {
 			"Should be a no-op when none of the supplied keys exist",
 			func(ctx SpecContext) {
 				Expect(
-					apiSvc.Delete(
+					del(
 						rootCtx(ctx),
-						db,
 						apiuser.DeleteRequest{Keys: []user.Key{uuid.New()}},
 					),
 				).
@@ -695,11 +721,11 @@ var _ = Describe("Service", func() {
 				Expect(passwordSvc.NewWriter(nil).Set(
 					ctx,
 					created.ResourceID(),
-					auth.Credentials{Username: username, Password: "password"},
+					username,
+					hash(passwordSvc, "password"),
 				)).To(Succeed())
-				Expect(apiSvc.Delete(
+				Expect(del(
 					rootCtx(ctx),
-					db,
 					apiuser.DeleteRequest{Keys: []user.Key{created.Key, uuid.New()}},
 				)).Error().ToNot(HaveOccurred())
 				Expect(
@@ -723,26 +749,40 @@ var _ = Describe("Service", func() {
 						user.User{Name: "delete-denied"},
 					),
 				)
-				fctx, _ := nonRootCtx(ctx)
+				fctx, subject := nonRootCtx(ctx)
+				grantRoleChange(ctx, subject, roleOf(ctx, u.Key))
 				Expect(
-					apiSvc.Delete(
+					del(
 						fctx,
-						db,
 						apiuser.DeleteRequest{Keys: []user.Key{u.Key}},
 					),
 				).
 					Error().
-					To(MatchError(access.ErrDenied))
+					To(denied(subject, access.ActionDelete, u.ResourceID()))
 				Expect(
 					userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).Exists(ctx, nil),
 				).
 					To(BeTrue())
 			},
 		)
+		It("Should require update on the user and on its role", func(ctx SpecContext) {
+			u := createUser(ctx, "delete-role-"+uuid.New().String())
+			fctx, subject := nonRootCtx(ctx)
+			grantOnUsers(ctx, subject, access.ActionDelete)
+			Expect(del(fctx, apiuser.DeleteRequest{Keys: []user.Key{u.Key}})).
+				Error().To(denied(subject, access.ActionUpdate, u.ResourceID()))
+			grantRoleChange(ctx, subject)
+			Expect(del(fctx, apiuser.DeleteRequest{Keys: []user.Key{u.Key}})).
+				Error().To(beDeniedUpdateOn(roleOf(ctx, u.Key)))
+			grantRoleChange(ctx, subject, roleOf(ctx, u.Key))
+			MustSucceed(del(fctx, apiuser.DeleteRequest{Keys: []user.Key{u.Key}}))
+			Expect(login(ctx, u.Name, "p")).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+		})
 		It("Should refuse to delete the root user", func(ctx SpecContext) {
 			fctx, u := nonRootCtx(ctx)
 			grantOnUsers(ctx, u, access.ActionDelete)
-			Expect(apiSvc.Delete(fctx, db, apiuser.DeleteRequest{
+			Expect(del(fctx, apiuser.DeleteRequest{
 				Keys: []user.Key{root.Key},
 			})).Error().To(MatchError(ContainSubstring("cannot delete root user")))
 			Expect(

@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -86,6 +85,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Password]{
 		DB:              cfg.DB,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
@@ -177,17 +177,68 @@ func (s *Service) verify(
 	return p, h, nil
 }
 
-func identityOf(p Password) auth.Identity {
-	return auth.Identity{Subject: p.Subject, Credential: p.Key, Version: p.Created}
+// Hash is a password hash made outside any write transaction, since hashing is slow.
+// Only Service.Hash and Service.HashProven make one.
+type Hash struct {
+	value []byte
+	// proven is the identity whose password a proof matched before the hash, or nil.
+	proven *auth.Identity
 }
 
-// DeleteFor implements [auth.Authenticator].
-func (s *Service) DeleteFor(
+// Proven returns the identity whose password the caller proved before the hash, and
+// false when no proof came before it.
+func (h Hash) Proven() (auth.Identity, bool) {
+	if h.proven == nil {
+		return auth.Identity{}, false
+	}
+	return *h.proven, true
+}
+
+// check returns auth.ErrInvalidCredentials when a proof came before h and stored is no
+// longer the password it proved.
+func (h Hash) check(stored Password) error {
+	if h.proven == nil ||
+		(h.proven.Credential == stored.Key && h.proven.Version == stored.Created) {
+		return nil
+	}
+	return errors.Wrap(
+		auth.ErrInvalidCredentials,
+		"the password changed after its proof",
+	)
+}
+
+// Hash hashes plaintext with the current algorithm. It returns a validation error when
+// plaintext is empty.
+func (s *Service) Hash(plaintext string) (Hash, error) {
+	if plaintext == "" {
+		return Hash{}, errors.Wrap(validate.ErrValidation, "password: required")
+	}
+	value, err := s.current.hash(plaintext)
+	return Hash{value: value}, err
+}
+
+// HashProven checks proof against the stored passwords, then hashes plaintext. A write
+// of the hash returns auth.ErrInvalidCredentials when the proven password changes
+// first. HashProven returns the errors of Verify and Hash.
+func (s *Service) HashProven(
 	ctx context.Context,
-	tx gorp.Tx,
-	subjects ...resource.ID,
-) error {
-	return s.NewWriter(tx).DeleteFor(ctx, subjects...)
+	proof auth.PasswordProof,
+	plaintext string,
+) (Hash, error) {
+	identity, err := s.Verify(ctx, nil, proof)
+	if err != nil {
+		return Hash{}, err
+	}
+	h, err := s.Hash(plaintext)
+	if err != nil {
+		return Hash{}, err
+	}
+	h.proven = &identity
+	return h, nil
+}
+
+func identityOf(p Password) auth.Identity {
+	return auth.Identity{Subject: p.Subject, Credential: p.Key, Version: p.Created}
 }
 
 // Version implements [auth.Authenticator]. A password's version changes each time the

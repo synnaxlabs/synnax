@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
@@ -29,7 +28,6 @@ var _ = Describe("ServiceConfig", func() {
 			Auth:     &auth.Service{},
 			Password: &password.Service{},
 			APIKey:   &apikey.Service{},
-			Rack:     &rack.Service{},
 			User:     &user.Service{},
 			RBAC:     &rbac.Service{},
 			Identity: node.Identity,
@@ -62,11 +60,6 @@ var _ = Describe("ServiceConfig", func() {
 				"api key",
 				func(c *apiauth.ServiceConfig) { c.APIKey = nil },
 				"api_key: must be non-nil",
-			),
-			Entry(
-				"rack",
-				func(c *apiauth.ServiceConfig) { c.Rack = nil },
-				"rack: must be non-nil",
 			),
 			Entry(
 				"user",

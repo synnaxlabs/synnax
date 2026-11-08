@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -78,6 +77,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, APIKey]{
 		DB:              cfg.DB,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
@@ -148,13 +148,4 @@ func (s *Service) Version(
 	var k APIKey
 	err := s.NewRetrieve().Where(MatchKeys(credential)).Entry(&k).Exec(ctx, tx)
 	return k.Created, err
-}
-
-// DeleteFor implements [auth.Authenticator].
-func (s *Service) DeleteFor(
-	ctx context.Context,
-	tx gorp.Tx,
-	subjects ...resource.ID,
-) error {
-	return s.NewWriter(tx).deleteFor(ctx, subjects...)
 }

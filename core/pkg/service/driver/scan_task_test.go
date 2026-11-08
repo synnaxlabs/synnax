@@ -10,7 +10,6 @@
 package driver_test
 
 import (
-	"bytes"
 	"context"
 	"strings"
 	"sync"
@@ -28,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -116,35 +114,6 @@ func (s *mapScanner) Exec(
 	return nil, driver.ErrUnsupportedCommand
 }
 
-// refusingDB is a kv.DB whose transactions fail to commit when they set a key that
-// holds marker.
-type refusingDB struct {
-	kv.DB
-	marker []byte
-}
-
-func (d refusingDB) OpenTx() kv.Tx {
-	return &refusingTx{Tx: d.DB.OpenTx(), marker: d.marker}
-}
-
-type refusingTx struct {
-	kv.Tx
-	marker  []byte
-	refused bool
-}
-
-func (t *refusingTx) Set(ctx context.Context, key, value []byte) error {
-	t.refused = t.refused || bytes.Contains(key, t.marker)
-	return t.Tx.Set(ctx, key, value)
-}
-
-func (t *refusingTx) Commit(ctx context.Context, opts ...any) error {
-	if t.refused {
-		return errCommit
-	}
-	return t.Tx.Commit(ctx, opts...)
-}
-
 var _ = Describe("Fit", func() {
 	It("Should keep every item that fits", func() {
 		kept, truncated := MustSucceed2(driver.Fit(nil, [][]string{{"a", "b"}, {"c"}}))
@@ -198,11 +167,11 @@ var _ = Describe("ScanTask", func() {
 		checkTimeout = 0
 	})
 
-	openOn := func(statusDB *gorp.DB, interval time.Duration) *driver.ScanTask {
+	open := func(interval time.Duration) *driver.ScanTask {
 		GinkgoHelper()
 		st := MustSucceed(driver.NewScanTask(driver.ScanTaskConfig{
 			Scanner: scanner,
-			DB:      statusDB, Status: statusSvc,
+			DB:      db, Status: statusSvc,
 			Device:             deviceSvc,
 			Make:               deviceMake,
 			ReachableMessage:   "Broker connected",
@@ -213,10 +182,6 @@ var _ = Describe("ScanTask", func() {
 		}))
 		DeferCleanup(func() { Expect(st.Stop(false)).To(Succeed()) })
 		return st
-	}
-	open := func(interval time.Duration) *driver.ScanTask {
-		GinkgoHelper()
-		return openOn(db, interval)
 	}
 
 	// writeDevices runs write in one transaction, as the API does, so a device and its
@@ -416,11 +381,8 @@ var _ = Describe("ScanTask", func() {
 				Where(status.MatchOwners[any](dev.ResourceID())).
 				Entry(&devStatus).
 				Exec(ctx, nil)).To(Succeed())
-			statusKey := devStatus.Key
-			st := openOn(
-				gorp.Wrap(refusingDB{DB: db.KV(), marker: []byte(statusKey)}),
-				time.Hour,
-			)
+			DeferCleanup(hookedKV.HookKey([]byte(devStatus.Key), refuse))
+			st := open(time.Hour)
 			Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
 			Eventually(func(g Gomega) {
 				stat := taskStatus(ctx)
