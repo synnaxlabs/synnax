@@ -49,11 +49,8 @@ var _ = Describe("View", func() {
 		}))
 	})
 	BeforeEach(func() {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
 	})
 
 	Describe("Writer", func() {

@@ -122,7 +122,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		return err
 	}
 	v := w.keyCodec.Encode(entry.GorpKey())
-	if err := w.tx.Set(ctx, v, data, entry.SetOptions()...); err != nil {
+	if err := w.tx.Set(ctx, v, data); err != nil {
 		return err
 	}
 	for _, idx := range w.indexes {

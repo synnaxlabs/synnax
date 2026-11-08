@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -185,52 +184,25 @@ func createIndexed(
 	dataTypes ...telem.DataType,
 ) (channel.Channel, []channel.Channel) {
 	GinkgoHelper()
-	return createIndexedOn(ctx, host, dataTypes...)
-}
-
-// createIndexedOn is createIndexed on the Core that leaseholder names.
-func createIndexedOn(
-	ctx context.Context,
-	leaseholder node.Key,
-	dataTypes ...telem.DataType,
-) (channel.Channel, []channel.Channel) {
-	GinkgoHelper()
 	w := channelSvc.NewWriter(nil)
 	idx := channel.Channel{
 		Name:        UniqueChannelName(),
 		DataType:    telem.TimestampT,
 		IsIndex:     true,
-		Leaseholder: leaseholder,
+		Leaseholder: host,
 	}
 	Expect(w.Create(ctx, &idx)).To(Succeed())
-	// The host checks that the index of a data channel exists.
-	gossiped(ctx, idx.Key())
 	data := make([]channel.Channel, len(dataTypes))
 	for i, dt := range dataTypes {
 		data[i] = channel.Channel{
 			Name:        UniqueChannelName(),
 			DataType:    dt,
-			Leaseholder: leaseholder,
+			Leaseholder: host,
 			LocalIndex:  idx.LocalKey,
 		}
 		Expect(w.Create(ctx, &data[i])).To(Succeed())
 	}
-	gossiped(ctx, channel.KeysFromChannels(data)...)
 	return idx, data
-}
-
-// gossiped waits until the host holds the channels with keys. A peer's channels reach
-// the host by gossip.
-func gossiped(ctx context.Context, keys ...channel.Key) {
-	GinkgoHelper()
-	Eventually(func(g Gomega) {
-		var found []channel.Channel
-		g.Expect(channelSvc.NewRetrieve().
-			Where(channel.MatchKeys(keys...)).
-			Entries(&found).
-			Exec(ctx, nil)).To(Succeed())
-		g.Expect(found).To(HaveLen(len(keys)))
-	}).Should(Succeed())
 }
 
 func createVirtual(ctx context.Context, dt telem.DataType) channel.Channel {

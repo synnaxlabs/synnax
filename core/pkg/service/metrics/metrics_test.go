@@ -36,7 +36,7 @@ var _ = Describe("Metrics", func() {
 				Group:              groupSvc,
 				Framer:             framerSvc,
 				DB:                 dist.DB,
-				HostProvider:       dist.Cluster,
+				HostKey:            dist.Identity.HostKey,
 				Storage:            dist.Storage,
 				CollectionInterval: 5 * time.Second,
 			}))
@@ -44,65 +44,59 @@ var _ = Describe("Metrics", func() {
 		})
 		It("Should fail with missing Channel service", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Framer:       framerSvc,
-				HostProvider: dist.Cluster,
-				Storage:      dist.Storage,
+				Framer:  framerSvc,
+				HostKey: dist.Identity.HostKey,
+				Storage: dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
 		})
 		It("Should fail with missing Framer service", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:      channelSvc,
-				HostProvider: dist.Cluster,
-				Storage:      dist.Storage,
+				Channel: channelSvc,
+				HostKey: dist.Identity.HostKey,
+				Storage: dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("framer: must be non-nil")))
 		})
-		It("Should fail with missing HostProvider", func(ctx SpecContext) {
+		It("Should fail with a missing host key", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel: channelSvc,
 				Framer:  framerSvc,
 				Storage: dist.Storage,
-			})).Error().To(MatchError(ContainSubstring("host_provider: must be non-nil")))
+			})).Error().To(MatchError(ContainSubstring("host_key: must be non-zero")))
 		})
 		It("Should fail with missing Storage", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:      channelSvc,
-				Framer:       framerSvc,
-				HostProvider: dist.Cluster,
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				HostKey: dist.Identity.HostKey,
 			})).Error().To(MatchError(ContainSubstring("storage: must be non-nil")))
 		})
 		It("Should apply default collection interval", func(ctx SpecContext) {
 			cfg := metrics.DefaultServiceConfig.Override(metrics.ServiceConfig{
-				Channel:      channelSvc,
-				Framer:       framerSvc,
-				HostProvider: dist.Cluster,
-				Storage:      dist.Storage,
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				HostKey: dist.Identity.HostKey,
+				Storage: dist.Storage,
 			})
 			Expect(cfg.CollectionInterval).To(Equal(2 * time.Second))
 		})
 	})
 	Describe("Channel Creation", func() {
-		var (
-			svc   *metrics.Service
-			names []string
-		)
-		// context.Background() is used because svc is stored in a shared var
-		// used by It blocks, so the context must outlive JustBeforeEach.
+		var names []string
+		// context.Background() is used because the service must outlive
+		// JustBeforeEach.
 		JustBeforeEach(func() {
-			svc = MustSucceed(
+			MustOpen(
 				metrics.OpenService(context.Background(), metrics.ServiceConfig{
 					Channel:            channelSvc,
 					Group:              groupSvc,
 					Framer:             framerSvc,
-					HostProvider:       dist.Cluster,
+					HostKey:            dist.Identity.HostKey,
 					DB:                 dist.DB,
 					Storage:            dist.Storage,
 					CollectionInterval: 100 * time.Millisecond,
 				}),
 			)
-			names = getNames(dist.Cluster.HostKey())
-		})
-		JustAfterEach(func(ctx SpecContext) {
-			Expect(svc.Close()).To(Succeed())
+			names = getNames(dist.Identity.HostKey)
 		})
 		It("Should create index channel with correct naming", func(ctx SpecContext) {
 			expectedName := names[0]
@@ -184,7 +178,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
+				HostKey:            dist.Identity.HostKey,
 				DB:                 dist.DB,
 				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
@@ -207,7 +201,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
+				HostKey:            dist.Identity.HostKey,
 				DB:                 dist.DB,
 				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
@@ -230,14 +224,14 @@ var _ = Describe("Metrics", func() {
 				metricsGroup := MustSucceed(
 					groupSvc.CreateOrRetrieve(ctx, "Metrics", resource.TypeChannel),
 				)
-				Expect(retrieve(ctx, getNames(dist.Cluster.HostKey())[1]).Group).
+				Expect(retrieve(ctx, getNames(dist.Identity.HostKey)[1]).Group).
 					To(Equal(&metricsGroup.Key))
 				Expect(svc.Close()).To(Succeed())
 			},
 		)
 
 		It("Should keep a channel in the group it was moved to", func(ctx SpecContext) {
-			names := getNames(dist.Cluster.HostKey())
+			names := getNames(dist.Identity.HostKey)
 			svc := open(ctx)
 			mem := retrieve(ctx, names[2])
 			custom := MustSucceed(groupSvc.CreateOrRetrieve(
@@ -257,7 +251,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
+				HostKey:            dist.Identity.HostKey,
 				DB:                 dist.DB,
 				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
@@ -272,19 +266,18 @@ var _ = Describe("Metrics", func() {
 				}
 				return holders
 			}).Should(ContainElement(fmt.Sprintf(
-				"Node %v Metrics Writer", dist.Cluster.HostKey(),
+				"Node %v Metrics Writer", dist.Identity.HostKey,
 			)))
 		})
 	})
 	Describe("Metric Collection", func() {
 		var (
-			svc       *metrics.Service
 			streamer  framer.Streamer
 			requests  confluence.Inlet[framer.StreamerRequest]
 			responses confluence.Outlet[framer.StreamerResponse]
 		)
-		// context.Background() is used because svc, streamer, etc. are stored in
-		// shared vars used by It blocks, so the context must outlive BeforeEach.
+		// context.Background() is used because the service and streamer are used by It
+		// blocks, so the context must outlive BeforeEach.
 		BeforeEach(func() {
 			ctx := context.Background()
 			// Write some data to time-series database so disk size metrics are non-zero
@@ -314,17 +307,17 @@ var _ = Describe("Metrics", func() {
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())
 
-			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				DB:                 dist.DB,
 				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
+				HostKey:            dist.Identity.HostKey,
 				Storage:            dist.Storage,
 				CollectionInterval: 50 * time.Millisecond,
 			}))
 			var channels []channel.Channel
-			names := getNames(dist.Cluster.HostKey())
+			names := getNames(dist.Identity.HostKey)
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(names...)).
 				Entries(&channels).
@@ -341,10 +334,9 @@ var _ = Describe("Metrics", func() {
 		AfterEach(func(ctx SpecContext) {
 			requests.Close()
 			Eventually(responses.Outlet()).Should(BeClosed())
-			Expect(svc.Close()).To(Succeed())
 		})
 		It("Should write metrics at configured interval", func(ctx SpecContext) {
-			names := getNames(dist.Cluster.HostKey())
+			names := getNames(dist.Identity.HostKey)
 			var channels []channel.Channel
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(names...)).

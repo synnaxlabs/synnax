@@ -34,7 +34,7 @@ describe("Status", () => {
       await waitForStreamLive(local.connection);
       await local.statuses.retrieve(s.key);
       const { responded, release } = holdResponses(local, "/status/retrieve");
-      const fetching = local.statuses.retrieve({ where: { key: { eq: s.key } } });
+      const fetching = local.statuses.retrieve({ key: { eq: s.key } });
       await responded;
       await client.statuses.set({ ...s, message: "after" });
       await expect
@@ -521,17 +521,9 @@ describe("Status", () => {
         });
       }
 
-      const page1 = await client.statuses.retrieve({
-        where: { key: { in: keys } },
-        limit: 2,
-        offset: 0,
-      });
+      const page1 = await client.statuses.retrieve({ key: keys, limit: 2, offset: 0 });
 
-      const page2 = await client.statuses.retrieve({
-        where: { key: { in: keys } },
-        limit: 2,
-        offset: 2,
-      });
+      const page2 = await client.statuses.retrieve({ key: keys, limit: 2, offset: 2 });
 
       expect(page1).toHaveLength(2);
       expect(page2).toHaveLength(2);
@@ -650,9 +642,7 @@ describe("Status", () => {
 
       await client.statuses.delete(keys);
 
-      expect(
-        await client.statuses.retrieve({ where: { key: { in: keys } } }),
-      ).toHaveLength(0);
+      expect(await client.statuses.retrieve({ key: keys })).toHaveLength(0);
     });
 
     it("should be idempotent", async () => {
@@ -780,10 +770,8 @@ describe("Status", () => {
       ]);
 
       const results = await client.statuses.retrieve({
-        where: {
-          key: { in: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`] },
-          variant: { eq: "error" },
-        },
+        key: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
+        variant: "error",
       });
 
       expect(results).toHaveLength(1);
@@ -817,10 +805,8 @@ describe("Status", () => {
       ]);
 
       const results = await client.statuses.retrieve({
-        where: {
-          key: { in: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`] },
-          variant: { in: ["info", "success"] },
-        },
+        key: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`],
+        variant: ["info", "success"],
       });
 
       expect(results).toHaveLength(2);
@@ -841,7 +827,8 @@ describe("Status", () => {
       });
 
       const results = await client.statuses.retrieve({
-        where: { key: { eq: `${prefix}-info` }, variant: { eq: "error" } },
+        key: [`${prefix}-info`],
+        variant: "error",
       });
 
       expect(results).toHaveLength(0);

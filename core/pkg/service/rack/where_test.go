@@ -39,7 +39,6 @@ var _ = Describe("Where", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		// The stack's host is node 1, so racks a and b are on the host.
 		svc = DeferClose(openStack(ctx, db, rack.ServiceConfig{})).rack
 		for _, r := range v.Records {
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())

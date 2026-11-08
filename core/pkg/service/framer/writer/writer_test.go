@@ -86,7 +86,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				Expect(writerSvc.Open(ctx, writer.Config{
 					Keys: channel.Keys{
-						distchannel.NewKey(mockNode.Cluster.HostKey(), 9999),
+						distchannel.NewKey(mockNode.Identity.HostKey, 9999),
 					},
 					Start: telem.SecondTS,
 				})).Error().To(MatchError(query.ErrNotFound))
@@ -97,7 +97,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				Expect(writerSvc.NewStream(ctx, writer.Config{
 					Keys: channel.Keys{
-						distchannel.NewKey(mockNode.Cluster.HostKey(), 9999),
+						distchannel.NewKey(mockNode.Identity.HostKey, 9999),
 					},
 					Start: telem.SecondTS,
 				})).Error().To(MatchError(query.ErrNotFound))

@@ -264,7 +264,7 @@ def run_and_expect_rejection(
                     if status.owner != sy.task.resource_id(task.key):
                         continue
                     if status.variant in ("warning", "error"):
-                        return _status_text(status)
+                        return status_text(status)
         finally:
             internal.execute_command("stop")
     return None
@@ -331,11 +331,11 @@ def _buffered_task_errors(statuses: sy.Streamer, task_key: sy.task.Key) -> list[
             if status.owner != sy.task.resource_id(task_key):
                 continue
             if status.variant in ("warning", "error"):
-                errors.append(f"{status.variant}: {_status_text(status)}")
+                errors.append(f"{status.variant}: {status_text(status)}")
     return errors
 
 
-def _status_text(status: sy.task.Status) -> str:
+def status_text(status: sy.task.Status) -> str:
     """Join the message and description of a status."""
     return ": ".join(part for part in (status.message, status.description) if part)
 

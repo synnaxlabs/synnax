@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { rack, status } from "@synnaxlabs/client";
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/platform/device";
@@ -16,6 +17,7 @@ const createRack = (key: rack.Key, integrations: string[], running: boolean) =>
   rack.payloadZ.parse({
     key,
     name: `Rack ${key}`,
+    role: uuid.create(),
     integrations,
     status: running
       ? status.create({ variant: "success", message: "Running" })
@@ -58,6 +60,7 @@ describe("getBlockedReason", () => {
       const r = rack.payloadZ.parse({
         key: 1,
         name: "Rack 1",
+        role: uuid.create(),
         integrations: ["opc"],
         status: status.create({
           variant: "error",

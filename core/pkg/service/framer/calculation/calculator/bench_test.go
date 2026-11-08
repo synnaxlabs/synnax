@@ -53,10 +53,10 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		DB: node.DB,
 	}))
 	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	return &benchEnv{
 		ctx:           b.Context(),
@@ -154,7 +154,9 @@ func BenchmarkCalculator_SingleInput(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		advanceAlignment(inputFrame)
-		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
+			b.Fatal(err)
+		}
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -195,7 +197,9 @@ func BenchmarkCalculator_TwoInputs_Add(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		advanceAlignment(inputFrame)
-		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
+			b.Fatal(err)
+		}
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -240,7 +244,9 @@ func BenchmarkCalculator_MultipleInputs(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		advanceAlignment(inputFrame)
-		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
+			b.Fatal(err)
+		}
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -327,7 +333,9 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				advanceAlignment(inputFrame)
-				_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+				if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
+					b.Fatal(err)
+				}
 			}
 			b.StopTimer()
 			b.ReportMetric(float64(count*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -370,7 +378,9 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		advanceAlignment(inputFrame)
-		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
+			b.Fatal(err)
+		}
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")

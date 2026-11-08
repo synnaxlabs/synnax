@@ -72,18 +72,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
-	MustSucceed2(
-		user.ProvisionRoot(
-			ctx,
-			userSvc,
-			passwordSvc,
-			auth.Credentials{Username: "suite-root", Password: "p"},
-		),
-	)
 	roles := MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
-		HostProvider:        testutil.NewStaticHostProvider(1),
+		HostKey:             1,
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
 		DriverRole:          roles.Builtin.DriverKey,
@@ -94,6 +86,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:  userSvc,
 		Rack:  rackSvc,
 	}))
+	MustSucceed2(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "suite-root", Password: "p"},
+			roles.Builtin.OwnerKey,
+		),
+	)
 	imexSvc := imex.NewService()
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
@@ -107,10 +108,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImExExcluded: []string{arctask.Type},
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           db,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:         db,
@@ -127,13 +128,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status: statusSvc,
 	}))
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
+		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
 	testRack = &rack.Rack{Name: "API Test Rack"}
 	Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 })
 
-// grantOn grants the action on the objects to the subject through a new role, which
+// grantOn grants the action on the objects to the subject through a new policy, which
 // is deleted on spec cleanup so a grant cannot leak into later specs.
 func grantOn(
 	ctx SpecContext,
@@ -144,11 +145,11 @@ func grantOn(
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
-	r := MustSucceed(
+	p := MustSucceed(
 		rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...),
 	)
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(rbacSvc.Role.NewWriter(nil, false).Delete(ctx, r)).To(Succeed())
+		Expect(rbacSvc.Policy.NewWriter(nil, false).Delete(ctx, p.Key)).To(Succeed())
 	})
 }
 

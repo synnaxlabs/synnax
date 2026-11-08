@@ -103,7 +103,7 @@ class TestAccessClient:
             ]
         )
         user = client.users.create(
-            username=str(uuid.uuid4()), password="test", roles=[role.key]
+            username=str(uuid.uuid4()), password="test", role=role.key
         )
         subjects = [user.resource_id]
         keys = [held.key, other.key]
@@ -280,56 +280,80 @@ class TestRoleClient:
             client.access.roles.retrieve(role.key)
 
     def test_delete_cascades(self, client: sy.Synnax) -> None:
-        """Should delete the policies of a role and take it from its users."""
+        """Should delete the policies of a role."""
         role = client.access.roles.create(sy.Role(name="Doomed"))
-        kept = client.access.roles.create(sy.Role(name="Kept"))
         policy = client.access.policies.create(
             sy.Policy(name="Doomed Policy", actions=["retrieve"], role=role.key)
         )
-        user = client.users.create(
-            username=str(uuid.uuid4()),
-            password="testpass",
-            roles=[role.key, kept.key],
-        )
         client.access.roles.delete(role.key)
         assert client.access.policies.retrieve(keys=[policy.key]) == []
-        assert client.users.retrieve(key=user.key).roles == [kept.key]
+
+    def test_delete_held(self, client: sy.Synnax) -> None:
+        """Should reject deleting a role that a user holds."""
+        role = client.access.roles.create(sy.Role(name="Held"))
+        username = str(uuid.uuid4())
+        client.users.create(username=username, password="testpass", role=role.key)
+        with pytest.raises(
+            sy.ValidationError,
+            match=f"cannot delete role Held because user {username} uses it",
+        ):
+            client.access.roles.delete(role.key)
+        assert client.access.roles.retrieve(key=role.key).key == role.key
 
     def test_assign_on_create(
         self, two_roles: list[sy.Role], client: sy.Synnax
     ) -> None:
-        """Should give a new user the roles it is created with."""
+        """Should give a new user the role it is created with."""
         user = client.users.create(
-            username=str(uuid.uuid4()),
-            password="testpass",
-            roles=[two_roles[0].key],
+            username=str(uuid.uuid4()), password="testpass", role=two_roles[0].key
         )
-        assert user.roles == [two_roles[0].key]
-        assert client.users.retrieve(key=user.key).roles == [two_roles[0].key]
+        assert user.role == two_roles[0].key
+        assert client.users.retrieve(key=user.key).role == two_roles[0].key
 
-    def test_set_roles(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
-        """Should remove and add the roles of a user."""
-        kept = client.access.roles.create(sy.Role(name="Kept"))
-        user = client.users.create(
-            username=str(uuid.uuid4()),
-            password="testpass",
-            roles=[two_roles[0].key, kept.key],
+    def test_set_role(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
+        """Should replace the role of each given user."""
+        users = client.users.create(
+            users=[
+                sy.user.New(
+                    username=str(uuid.uuid4()),
+                    password="testpass",
+                    role=two_roles[0].key,
+                )
+                for _ in range(2)
+            ]
         )
-        client.users.set_roles(
-            user.key, add=[two_roles[1].key], remove=[two_roles[0].key]
-        )
-        assert client.users.retrieve(key=user.key).roles == [
-            two_roles[1].key,
-            kept.key,
-        ]
+        keys = [u.key for u in users]
+        client.users.set_role(keys, two_roles[1].key)
+        retrieved = client.users.retrieve(keys=keys)
+        assert [u.role for u in retrieved] == [two_roles[1].key] * 2
 
-    def test_retrieve_users_by_role(self, client: sy.Synnax) -> None:
+    def test_set_role_root(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
+        """Should reject changing the role of the root user."""
+        root = client.users.retrieve(username="synnax")
+        with pytest.raises(
+            sy.ValidationError, match="cannot change the role of root user synnax"
+        ):
+            client.users.set_role(root.key, two_roles[0].key)
+
+    def test_set_role_not_found(
+        self, two_roles: list[sy.Role], client: sy.Synnax
+    ) -> None:
+        """Should raise NotFoundError for a user that does not exist."""
+        key = uuid.uuid4()
+        with pytest.raises(sy.NotFoundError, match=rf"Users with keys \[{key}\]"):
+            client.users.set_role(key, two_roles[0].key)
+
+    def test_retrieve_users_by_role(
+        self, client: sy.Synnax, empty_role: sy.Role
+    ) -> None:
         """Should retrieve the users that hold a role."""
         role = client.access.roles.create(sy.Role(name="Holders"))
         holder = client.users.create(
-            username=str(uuid.uuid4()), password="testpass", roles=[role.key]
+            username=str(uuid.uuid4()), password="testpass", role=role.key
         )
-        client.users.create(username=str(uuid.uuid4()), password="testpass")
+        client.users.create(
+            username=str(uuid.uuid4()), password="testpass", role=empty_role.key
+        )
         users = client.users.retrieve(roles=[role.key])
         assert [u.key for u in users] == [holder.key]
 
@@ -357,12 +381,15 @@ class TestRoleClient:
 @pytest.mark.auth
 class TestAccessAuthClient:
     def test_new_user_cannot_create_users(
-        self, client: sy.Synnax, login_info: tuple[str, int, str, str]
+        self,
+        client: sy.Synnax,
+        login_info: tuple[str, int, str, str],
+        empty_role: sy.Role,
     ) -> None:
-        """Should prevent a newly created user from creating other users."""
+        """Should prevent a user with no permissions from creating other users."""
         host, port, _, _ = login_info
         username = str(uuid.uuid4())
-        client.users.create(username=username, password="pwd2")
+        client.users.create(username=username, password="pwd2", role=empty_role.key)
         client2 = sy.Synnax(
             host=host,
             port=port,
@@ -371,4 +398,6 @@ class TestAccessAuthClient:
         )
 
         with pytest.raises(sy.AccessDenied):
-            client2.users.create(username=str(uuid.uuid4()), password="pwd3")
+            client2.users.create(
+                username=str(uuid.uuid4()), password="pwd3", role=empty_role.key
+            )

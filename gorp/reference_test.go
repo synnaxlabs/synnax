@@ -24,8 +24,6 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -35,13 +33,11 @@ import (
 
 type refRack struct{ Key uint32 }
 
-func (r refRack) GorpKey() uint32   { return r.Key }
-func (r refRack) SetOptions() []any { return nil }
+func (r refRack) GorpKey() uint32 { return r.Key }
 
 type refLabel struct{ Key string }
 
-func (l refLabel) GorpKey() string   { return l.Key }
-func (l refLabel) SetOptions() []any { return nil }
+func (l refLabel) GorpKey() string { return l.Key }
 
 type refDevice struct {
 	Key    string
@@ -50,14 +46,12 @@ type refDevice struct {
 	Labels []string
 }
 
-func (d refDevice) GorpKey() string   { return d.Key }
-func (d refDevice) SetOptions() []any { return nil }
+func (d refDevice) GorpKey() string { return d.Key }
 
 // refDeviceName reads the table of refDevice as another entry type.
 type refDeviceName struct{ Key string }
 
 func (d refDeviceName) GorpKey() string      { return d.Key }
-func (d refDeviceName) SetOptions() []any    { return nil }
 func (refDeviceName) CustomTypeName() string { return types.Name[refDevice]() }
 
 type refOwner struct {
@@ -70,21 +64,18 @@ type refStatus struct {
 	Owner *refOwner
 }
 
-func (s refStatus) GorpKey() string   { return s.Key }
-func (s refStatus) SetOptions() []any { return nil }
+func (s refStatus) GorpKey() string { return s.Key }
 
 type refProject struct{ Key string }
 
-func (p refProject) GorpKey() string   { return p.Key }
-func (p refProject) SetOptions() []any { return nil }
+func (p refProject) GorpKey() string { return p.Key }
 
 type refGroup struct {
 	Key     string
 	Project string
 }
 
-func (g refGroup) GorpKey() string   { return g.Key }
-func (g refGroup) SetOptions() []any { return nil }
+func (g refGroup) GorpKey() string { return g.Key }
 
 type refSchematic struct {
 	Key     string
@@ -92,8 +83,7 @@ type refSchematic struct {
 	Group   string
 }
 
-func (s refSchematic) GorpKey() string   { return s.Key }
-func (s refSchematic) SetOptions() []any { return nil }
+func (s refSchematic) GorpKey() string { return s.Key }
 
 // deviceRefs are the references of a refDevice, in the shape that Oracle generates.
 type deviceRefs struct {
@@ -439,7 +429,7 @@ var _ = Describe("Reference", func() {
 
 	Describe("NewUncheckedWriter", func() {
 		BeforeEach(func(ctx SpecContext) {
-			open(ctx, gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}))
+			open(ctx)
 		})
 
 		It("Should keep the indexes current without checks", func(ctx SpecContext) {
@@ -464,7 +454,7 @@ var _ = Describe("Reference", func() {
 
 	Describe("Get", func() {
 		BeforeEach(func(ctx SpecContext) {
-			open(ctx, gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}))
+			open(ctx)
 		})
 
 		It(
