@@ -15,7 +15,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Flux, Ranger } from "@synnaxlabs/pluto";
 import { location, TimeStamp } from "@synnaxlabs/x";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/feature/range/list/Item";
@@ -55,20 +55,41 @@ const useStage = (where: view.View["where"], stage: Ranger.Stage, now: TimeStamp
 
 const Internal = () => {
   const [where, setWhere] = useState(View.useContext().getInitialView().where);
-  // Ranges change stage as time passes; the lists keep the stage they had at mount.
-  const [now] = useState(() => TimeStamp.now());
+  const [now, setNow] = useState(() => TimeStamp.now());
   const toDo = useStage(where, "to_do", now);
   const inProgress = useStage(where, "in_progress", now);
   const completed = useStage(where, "completed", now);
   const stages = [toDo, inProgress, completed];
-  const handleMore = () => stages.forEach((s) => s.more());
+  // A range that crossed into another stage since now, such as one created to start
+  // at once, lists again under a later now.
+  useEffect(() => {
+    const at = TimeStamp.now();
+    const crossed = stages.some(({ data, getItem }, i) =>
+      getItem(data).some(
+        ({ timeRange }) =>
+          Ranger.getStage(timeRange, now) === Ranger.STAGES[i] &&
+          Ranger.getStage(timeRange, at) !== Ranger.STAGES[i],
+      ),
+    );
+    if (crossed) setNow(at);
+  });
+  // A stage shows once every stage before it is complete, so pages arrive in order.
+  const incomplete = stages.findIndex((s) => !s.complete);
+  const shown = incomplete === -1 ? stages : stages.slice(0, incomplete + 1);
+  const handleMore = () => {
+    stages.forEach((s) => {
+      if (!s.answered) s.more();
+    });
+    const first = stages[incomplete];
+    if (first?.answered) first.more();
+  };
   const handleSearch = (term: string) => stages.forEach((s) => s.search(term));
   const openCreate = Range.useCreateModal();
   const handleCreate = () => openCreate();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   return (
     <View.Form
-      data={[...toDo.data, ...inProgress.data, ...completed.data]}
+      data={shown.flatMap((s) => s.data)}
       getItem={toDo.getItem}
       subscribe={toDo.subscribe}
       answered={stages.every((s) => s.answered)}

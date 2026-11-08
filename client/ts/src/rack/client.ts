@@ -167,10 +167,14 @@ export class Client extends query.Retriever<
         matches: (r, req) => matches(LINES, r, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
         watch: [
-          query.watch(statusStore, (event, q: RetrieveRequest) => {
-            if (q.includeStatus !== true) return null;
-            return affectedRackKeys(event);
-          }),
+          query.watch(
+            statusStore,
+            (event, q: RetrieveRequest) => {
+              if (q.includeStatus !== true) return null;
+              return affectedRackKeys(event);
+            },
+            { contentOnly: true },
+          ),
         ],
       },
       compose: (record, q) =>

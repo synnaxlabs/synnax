@@ -398,9 +398,10 @@ export abstract class Retriever<
                 ? undefined
                 : (query) => serverComputed(query as z.output<Z>),
             cursor: list.cursor,
-            watch: watch?.map(({ attach, version }) => ({
+            watch: watch?.map(({ attach, version, contentOnly }) => ({
               attach: (query, onEvent) => attach(query as z.output<Z>, onEvent),
               version,
+              contentOnly,
             })),
             compare: list.compare,
           });

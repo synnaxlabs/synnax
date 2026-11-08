@@ -215,7 +215,7 @@ export const useList = ({
     ...rest,
     name: PLURAL_RESOURCE_NAME,
     query: query === null ? null : normalizeListQuery(query ?? {}),
-    item: (key) => ({ key, rangeKey: query?.rangeKey }),
+    itemQuery: (key) => ({ key, rangeKey: query?.rangeKey }),
   });
 
 export const { useResult: useResultList } = Flux.createRetrieve<

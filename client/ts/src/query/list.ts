@@ -571,11 +571,16 @@ export class Lists<
    * Handles a change to a watched table. The window's records are the same objects, so
    * a change to a member composes the window again.
    */
-  private onWatch(entry: Entry<Q, K, D, V, C>, result: K[] | "refetch"): void {
+  private onWatch(
+    entry: Entry<Q, K, D, V, C>,
+    watch: Watch<Q, K>,
+    result: K[] | "refetch",
+  ): void {
     if (entry.ingesting || !entry.fetched) return;
     if (result === "refetch") return this.scheduleRefetch(entry);
-    if (entry.ranked) this.scheduleRefetch(entry);
-    else this.admit(entry, result);
+    if (watch.contentOnly !== true)
+      if (entry.ranked) this.scheduleRefetch(entry);
+      else this.admit(entry, result);
     const members = new Set(entry.keys);
     if (!result.some((key) => members.has(key))) return;
     entry.composed = undefined;
@@ -587,7 +592,7 @@ export class Lists<
     const releases = [
       table.subscribeBatch((events) => this.onEvents(entry, events)),
       ...watch.map((w) =>
-        w.attach(entry.query, (result) => this.onWatch(entry, result)),
+        w.attach(entry.query, (result) => this.onWatch(entry, w, result)),
       ),
     ];
     entry.teardown = () => releases.forEach((release) => release());

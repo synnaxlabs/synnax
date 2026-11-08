@@ -205,10 +205,14 @@ export class Client extends query.Retriever<
         serverComputed: (req) => serverComputed(LINES, req.where),
         serverFields: SERVER_FIELDS,
         watch: [
-          query.watch(statusStore, (event, q: RetrieveRequest) => {
-            if (q.includeStatus !== true) return null;
-            return affectedDeviceKeys(event);
-          }),
+          query.watch(
+            statusStore,
+            (event, q: RetrieveRequest) => {
+              if (q.includeStatus !== true) return null;
+              return affectedDeviceKeys(event);
+            },
+            { contentOnly: true },
+          ),
         ],
       },
       compose: (record, q) =>

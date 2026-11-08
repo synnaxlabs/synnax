@@ -2286,6 +2286,28 @@ describe("Answers", () => {
       key: string;
     }
 
+    it("notifies a server-computed answer of a content-only change without a fetch", async () => {
+      const primary = new query.Table<string, Rec>({ onError: () => {} });
+      const foreign = new query.Table<string, Rel>({ onError: () => {} });
+      primary.set("a", rec("a", 1));
+      const fetch = vi.fn(async () => ["a"]);
+      const answers = new Space<{ tag: string }, Rec[], string, Rec>({
+        name: "things",
+        table: primary,
+        fetch,
+        compose: (records) => records,
+        watch: [query.watch(foreign, (event) => [event.key], { contentOnly: true })],
+      });
+      const handler = vi.fn();
+      answers.onChange({ tag: "t" }, handler);
+      await answers.retrieve({ tag: "t" });
+      handler.mockClear();
+      foreign.set("a", { key: "a" });
+      expect(handler).toHaveBeenCalled();
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
     it("rechecks and backfills keys surfaced by a foreign-table projection", async () => {
       const primary = new query.Table<string, Rec>({
         onError: () => {},

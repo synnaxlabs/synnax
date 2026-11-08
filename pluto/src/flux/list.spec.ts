@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type label, type ranger } from "@synnaxlabs/client";
-import { createTestClient, holdResponses } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  holdResponses,
+  spyOnSend,
+} from "@synnaxlabs/client/testutil";
 import { color, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -221,10 +225,80 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.data).toEqual([match.key]));
   });
 
+  it("should report a failed read and show no records of the last query", async () => {
+    await create("a");
+    const local = createTestClient();
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, { name: "ranges", query: byName(), searchDebounce: 0 }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    spyOnSend(local).mockRejectedValue(new Error("boom"));
+    act(() => result.current.search(randomWord()));
+    await waitFor(() => expect(result.current.variant).toEqual("error"));
+    expect(result.current.data).toEqual([]);
+    expect(result.current.answered).toBe(false);
+  });
+
+  it("should read nothing on more while a read runs", async () => {
+    await create("a");
+    await create("b");
+    const local = createTestClient();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName(), pageSize: 1 }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    const send = spyOnSend(local);
+    act(() => {
+      result.current.more();
+      result.current.more();
+    });
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    expect(
+      send.mock.calls.filter(([target]) => target === "/range/retrieve"),
+    ).toHaveLength(1);
+  });
+
+  it("should read nothing on more once the list is complete", async () => {
+    await create("a");
+    const local = createTestClient();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.complete).toBe(true));
+    const send = spyOnSend(local);
+    act(() => result.current.more());
+    await sleep.sleep(TimeSpan.milliseconds(20));
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("should show the cached records on a remount before the first more", async () => {
+    const a = await create("a");
+    const first = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper },
+    );
+    act(() => first.result.current.more());
+    await waitFor(() => expect(first.result.current.data).toEqual([a.key]));
+    first.unmount();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper },
+    );
+    expect(result.current.data).toEqual([a.key]);
+    expect(result.current.answered).toBe(true);
+  });
+
   it("should read no record for a zero key", () => {
     const item = vi.fn((key: string) => key);
     const { result } = renderHook(
-      () => Flux.useList(ranges, { name: "ranges", item }),
+      () => Flux.useList(ranges, { name: "ranges", itemQuery: item }),
       { wrapper },
     );
     expect(result.current.getItem("")).toBeUndefined();

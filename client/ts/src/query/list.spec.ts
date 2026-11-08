@@ -429,7 +429,7 @@ describe("Lists", () => {
   });
 
   describe("watched tables", () => {
-    const setupWatched = (records: Rec[]) => {
+    const setupWatched = (records: Rec[], contentOnly = false) => {
       const statuses = new query.Table<string, { key: string; variant: string }>({
         onError: () => {},
       });
@@ -451,7 +451,7 @@ describe("Lists", () => {
           matches,
           cursor,
           compare: compareCursors,
-          watch: [query.watch(statuses, ({ key }) => [key])],
+          watch: [query.watch(statuses, ({ key }) => [key], { contentOnly })],
         },
         { teardownGrace: TimeSpan.ZERO },
       );
@@ -474,6 +474,27 @@ describe("Lists", () => {
       ]);
       expect(handler).toHaveBeenCalledTimes(1);
       release();
+    });
+
+    it("should fetch a search again when a watched change can change its matches", async () => {
+      const { statuses, fetch, lists } = setupWatched([rec("1", "ab")]);
+      const list = lists.list({ searchTerm: "a" });
+      list.onChange(vi.fn());
+      await list.retrieve();
+      statuses.set("1", { key: "1", variant: "error" });
+      await list.retrieve();
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should compose a search again without a fetch on a content-only change", async () => {
+      const { statuses, fetch, lists } = setupWatched([rec("1", "ab")], true);
+      const list = lists.list({ searchTerm: "a" });
+      list.onChange(vi.fn());
+      await list.retrieve();
+      statuses.set("1", { key: "1", variant: "error" });
+      expect(list.getCached()?.records[0].variant).toEqual("error");
+      await list.retrieve();
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it("should fetch a window again when a watched table changed while unwatched", async () => {
