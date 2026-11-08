@@ -52,6 +52,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":slaves",
         "//client/cpp:synnax",
         "//client/cpp/ethercat",
         "//client/cpp/task",
@@ -62,7 +63,6 @@ cc_library(
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
         "//driver/ethercat/soem",
-        ":slaves",
         "//driver/ethercat/telem",
         "//driver/pipeline",
         "//driver/task",
