@@ -105,7 +105,7 @@ var _ = Describe("Actions", func() {
 			sigs := MustSucceed(signals.New(signals.Config{
 				DB:              db,
 				Channel:         channelSvc,
-				Framer:          framerSvc,
+				Framer:          nodeFramer,
 				Instrumentation: alamos.New("signals", alamos.WithLogger(logger)),
 			}))
 			state = actions.NewState[uuid.UUID, action](db)
