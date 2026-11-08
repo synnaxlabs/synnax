@@ -334,19 +334,21 @@ TEST(TaskTests, testRetrieveTasksByNamesWithLimit) {
     ASSERT_EQ(tasks.size(), 1);
 }
 
-/// @brief it should reject a limit on a retrieve of one task.
+/// @brief it should reject a limit or a cursor on a retrieve of one task.
 TEST(TaskTests, testRetrieveTaskRejectsPage) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
-    const auto options = RetrieveOptions{.limit = 1};
-    const auto [_, err] = r.tasks.retrieve("test_module", options);
-    ASSERT_MATCHES(err, x::errors::VALIDATION);
-    ASSERT_EQ(
-        err.data,
-        "a query for one record takes no limit or cursor, since a page could hide "
-        "a second match"
-    );
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.after = Cursor{}}}) {
+        const auto [_, err] = r.tasks.retrieve("test_module", options);
+        ASSERT_MATCHES(err, x::errors::VALIDATION);
+        ASSERT_EQ(
+            err.data,
+            "a query for one record takes no limit or cursor, since a page could "
+            "hide a second match"
+        );
+    }
 }
 
 /// @brief it should page a retrieve of the tasks on a rack that a filter matches.

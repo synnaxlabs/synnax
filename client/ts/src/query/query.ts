@@ -817,16 +817,16 @@ export class Space<
     try {
       keys = await this.config.fetch(query.params);
     } catch (reason) {
+      if (query.refetchRechecks === rechecks) query.refetchRechecks = undefined;
       if (query.generation !== generation) return;
-      query.refetchRechecks = undefined;
       // A refetch revalidates an answer the caller already has. Failing to
       // confirm it is not grounds for taking it away, but reads stop trusting it.
       if (query.state.variant === "ready") return this.markStale(query);
       query.state = { variant: "error", error: errors.fromUnknown(reason) };
       return;
     }
+    if (query.refetchRechecks === rechecks) query.refetchRechecks = undefined;
     if (query.generation !== generation) return;
-    query.refetchRechecks = undefined;
     this.confirm(query, { variant: "ready", keys }, basis);
     // The answer is as of when the Core ran the fetch, so a change that raced it
     // applies again.
