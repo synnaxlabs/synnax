@@ -215,7 +215,7 @@ struct Config {
 struct Properties {
     /// @brief network interface the slave is connected to.
     std::string network;
-    /// @brief position of the slave on the EtherCAT bus (0-based index).
+    /// @brief position of the slave on the bus, counting from 1.
     uint16_t position{};
     /// @brief EtherCAT vendor ID assigned by ETG.
     uint32_t vendor_id{};
