@@ -26,15 +26,8 @@ const auto READ_TIMEOUT_SLACK = x::telem::MILLISECOND * 200;
 Engine::Reader::Reader(Engine &engine, std::shared_ptr<Input> input):
     engine(engine), input(std::move(input)) {
     size_t width = 0;
-    this->decoders.reserve(this->input->entries.size());
-    for (size_t i = 0; i < this->input->entries.size(); ++i) {
-        const auto &decoder = this->decoders.emplace_back(
-            this->input->offsets[i].bit,
-            this->input->entries[i].bit_length,
-            this->input->entries[i].data_type
-        );
-        width = std::max(width, decoder.type().density());
-    }
+    for (const auto &entry: this->input->entries)
+        width = std::max(width, entry.decoder.type().density());
     this->values.resize(this->input->samples_per_read * width);
 }
 
@@ -93,9 +86,9 @@ x::errors::Error Engine::Reader::read(
     }
     const auto slot = [&](const size_t s) { return (tail + s) % in.capacity; };
     for (size_t i = 0; i < in.entries.size(); ++i) {
-        const auto &decoder = this->decoders[i];
+        const auto &decoder = in.entries[i].decoder;
         const size_t width = decoder.type().density();
-        const uint8_t *entry = in.samples.get() + in.sample_offsets[i];
+        const uint8_t *entry = in.samples.get() + in.entries[i].sample_offset;
         for (size_t s = 0; s < count; ++s)
             decoder.decode(
                 entry + slot(s) * in.sample_size,

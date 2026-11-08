@@ -66,12 +66,20 @@ struct Slaves {
         return &this->by_key.emplace(key, std::move(props)).first->second;
     }
 
-    /// @brief checks that each slave is at its saved position on bus.
+    /// @brief checks, in position order, that each slave is at its saved position on
+    /// bus.
     /// @returns errors::TOPOLOGY_MISMATCH when a position holds no slave or another
     /// product.
     [[nodiscard]] x::errors::Error
     validate(const std::vector<slave::DiscoveryResult> &bus) const {
-        for (const auto &[key, saved]: this->by_key) {
+        std::vector<const slave::Properties *> by_position;
+        for (const auto &[_, saved]: this->by_key)
+            by_position.push_back(&saved);
+        std::ranges::sort(by_position, {}, [](const slave::Properties *s) {
+            return s->position;
+        });
+        for (const auto *saved_ptr: by_position) {
+            const auto &saved = *saved_ptr;
             const auto found = std::ranges::find(
                 bus,
                 saved.position,
@@ -81,9 +89,9 @@ struct Slaves {
                 return x::errors::Error(
                     errors::TOPOLOGY_MISMATCH,
                     std::format(
-                        "device {} expected at position {} not found on bus",
-                        key,
-                        saved.position
+                        "slave {} ({}) is not on the bus",
+                        saved.position,
+                        saved.name
                     )
                 );
             const auto &actual = found->properties;
@@ -91,10 +99,9 @@ struct Slaves {
                 return x::errors::Error(
                     errors::TOPOLOGY_MISMATCH,
                     std::format(
-                        "device {} at position {}: expected {} {:#010x}, found "
-                        "{:#010x}",
-                        key,
+                        "slave {} ({}): expected {} {:#010x}, found {:#010x}",
                         saved.position,
+                        saved.name,
                         field,
                         want,
                         got

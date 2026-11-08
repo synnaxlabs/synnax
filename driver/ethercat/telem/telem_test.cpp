@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstring>
+
 #include "gtest/gtest.h"
 
 #include "driver/ethercat/telem/telem.h"
@@ -260,6 +262,28 @@ TEST(Decoder, Signed24BitNegativeValue) {
     x::telem::Series series(x::telem::INT32_T, 1);
     decode(buffer, 0, 24, x::telem::INT32_T, series);
     EXPECT_EQ(series.at<int32_t>(0), static_cast<int32_t>(0xFF800000));
+}
+
+/// @brief it should decode a 16 bit value that starts at bit 4, after a 4 bit entry.
+TEST(Decoder, SixteenBitWithBitOffset) {
+    uint8_t buffer[] = {0x4A, 0x23, 0xF1};
+    x::telem::Series series(x::telem::INT16_T, 1);
+    decode(buffer, 4, 16, x::telem::INT16_T, series);
+    EXPECT_EQ(series.at<int16_t>(0), 0x1234);
+}
+
+/// @brief it should decode a 32 bit float that starts at bit 3.
+TEST(Decoder, FloatWithBitOffset) {
+    const float want = -12.5F;
+    uint32_t bits = 0;
+    std::memcpy(&bits, &want, sizeof(bits));
+    const uint64_t shifted = (static_cast<uint64_t>(bits) << 3) | 0x5;
+    uint8_t buffer[5];
+    for (size_t i = 0; i < sizeof(buffer); ++i)
+        buffer[i] = static_cast<uint8_t>(shifted >> (8 * i));
+    x::telem::Series series(x::telem::FLOAT32_T, 1);
+    decode(buffer, 3, 32, x::telem::FLOAT32_T, series);
+    EXPECT_EQ(series.at<float>(0), want);
 }
 
 /// @brief it should decode a 24 bit value that starts at bit 2.

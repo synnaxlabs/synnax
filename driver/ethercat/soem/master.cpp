@@ -1106,16 +1106,14 @@ bool Master::refuses(const uint16_t pos, const uint16_t state) const {
 
 master::Activation
 Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
-    const auto target = slave::slave_state_to_string(slave::from_al_state(state));
+    const auto target = slave::to_string(slave::from_al_state(state));
     std::string msg;
     std::map<uint16_t, slave::Refusal> refusing;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
         msg += "slave " + std::to_string(pos) + " (" + this->slave(pos).name +
                ") is in " +
-               slave::slave_state_to_string(
-                   slave::from_al_state(this->slave(pos).state)
-               );
+               slave::to_string(slave::from_al_state(this->slave(pos).state));
         if (!this->al_error(pos)) continue;
         const auto code = this->slave(pos).ALstatuscode;
         const std::string text = ec_ALstatuscode2string(code);

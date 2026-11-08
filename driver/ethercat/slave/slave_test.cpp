@@ -15,13 +15,14 @@
 
 namespace driver::ethercat::slave {
 
-TEST(SlaveStateToString, ConvertsAllStatesToExpectedStrings) {
-    ASSERT_EQ(slave_state_to_string(State::INIT), "INIT");
-    ASSERT_EQ(slave_state_to_string(State::PRE_OP), "PRE-OP");
-    ASSERT_EQ(slave_state_to_string(State::SAFE_OP), "SAFE-OP");
-    ASSERT_EQ(slave_state_to_string(State::OP), "OP");
-    ASSERT_EQ(slave_state_to_string(State::BOOT), "BOOT");
-    ASSERT_EQ(slave_state_to_string(State::UNKNOWN), "UNKNOWN");
+/// @brief it should name each slave state as the EtherCAT standard does.
+TEST(StateToString, NamesEachState) {
+    ASSERT_EQ(to_string(State::INIT), "INIT");
+    ASSERT_EQ(to_string(State::PRE_OP), "PRE-OP");
+    ASSERT_EQ(to_string(State::SAFE_OP), "SAFE-OP");
+    ASSERT_EQ(to_string(State::OP), "OP");
+    ASSERT_EQ(to_string(State::BOOT), "BOOT");
+    ASSERT_EQ(to_string(State::UNKNOWN), "UNKNOWN");
 }
 
 TEST(FromAlState, ConvertsStandardStates) {

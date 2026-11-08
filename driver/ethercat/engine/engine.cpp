@@ -166,22 +166,23 @@ x::errors::Error left_out_error(
 }
 
 Engine::Input::Input(
-    std::vector<pdo::Entry> entries,
-    std::vector<pdo::Offset> offsets,
+    const std::vector<pdo::Entry> &entries,
+    const std::vector<pdo::Offset> &offsets,
     const x::telem::Rate rate,
     const size_t samples_per_read
 ):
-    entries(std::move(entries)),
-    rate(rate),
-    samples_per_read(samples_per_read),
-    offsets(std::move(offsets)) {
-    for (size_t i = 0; i < this->entries.size(); ++i) {
-        const auto length = telem::pdo_required_bytes(
-            this->offsets[i].bit,
-            this->entries[i].bit_length
-        );
-        this->sample_offsets.push_back(this->sample_size);
-        this->lengths.push_back(length);
+    rate(rate), samples_per_read(samples_per_read) {
+    this->entries.reserve(entries.size());
+    for (size_t i = 0; i < entries.size(); ++i) {
+        const auto &entry = entries[i];
+        const auto &offset = offsets[i];
+        const auto length = telem::pdo_required_bytes(offset.bit, entry.bit_length);
+        this->entries.push_back({
+            .image_byte = offset.byte,
+            .sample_offset = this->sample_size,
+            .length = length,
+            .decoder = telem::Decoder(offset.bit, entry.bit_length, entry.data_type),
+        });
         this->sample_size += length;
     }
     this->capacity = std::max(
@@ -201,11 +202,11 @@ void Engine::Input::push(const uint8_t *image, const x::telem::TimeStamp time) {
     }
     const size_t slot = h % this->capacity;
     uint8_t *sample = this->samples.get() + slot * this->sample_size;
-    for (size_t i = 0; i < this->entries.size(); ++i)
+    for (const auto &entry: this->entries)
         std::memcpy(
-            sample + this->sample_offsets[i],
-            image + this->offsets[i].byte,
-            this->lengths[i]
+            sample + entry.sample_offset,
+            image + entry.image_byte,
+            entry.length
         );
     this->times[slot] = time;
     // Pairs with the reader's store of waiting, so one of the two sees the other.
@@ -648,7 +649,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     if (err) return {nullptr, err};
     auto input = std::make_shared<Input>(
         entries,
-        std::move(joined.offsets),
+        joined.offsets,
         sample_rate,
         samples_per_read
     );
