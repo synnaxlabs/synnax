@@ -213,6 +213,13 @@ when most types need it, declare it file-level and omit the exceptions.
   `@go wire omit` keeps it out of JSON and msgpack (`json:"-" msgpack:"-"`), so the API
   can return a stored record without a secret. Both are version-owned.
 
+## Path actions
+
+`@patch` marks a field of a document (a struct with `action Set extends patch.Set`) that
+path actions may edit. A path to any other field fails, so a Core-owned field such as
+`labels` gets no tag. Go generates a `Patch` method for the document and for every
+struct that a `@patch` field reaches, in the version package that declares the struct.
+
 ## Rules
 
 - Never hand-edit generated output — edit the schema, then sync (see Sync Workflow). For

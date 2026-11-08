@@ -87,26 +87,29 @@ var _ = Describe("Actions", func() {
 			Expect(res.Labels).To(Equal(base.Labels))
 			Expect(res.Parent).To(Equal(base.Parent))
 		})
-		DescribeTable("Should reject", func(path []string, value any) {
+		DescribeTable("Should reject", func(path []string, value any, msg string) {
 			Expect(ranger.Reduce(base, set(path, value))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("decoding document")),
+				MatchError(ContainSubstring(msg)),
 			))
 		},
 			Entry(
 				"a path outside the document",
 				[]string{"key"},
 				uuid.New().String(),
+				"[key]: the path names no editable field",
 			),
 			Entry(
 				"a set of the labels",
 				[]string{"labels"},
 				[]string{uuid.New().String()},
+				"[labels]: the path names no editable field",
 			),
 			Entry(
 				"a value the time range cannot hold",
 				[]string{"time_range", "end"},
 				"soon",
+				"[time_range, end]: decoding value",
 			),
 		)
 	})
@@ -165,17 +168,24 @@ var _ = Describe("Actions", func() {
 				}),
 			)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("decoding document")),
+				MatchError(
+					ContainSubstring("[tags]: the path names no editable field"),
+				),
 			))
 		})
 	})
 
 	Describe("MovePayload", func() {
-		It("Should leave the range unchanged when the list is missing", func() {
+		It("Should reject a list the range does not declare", func() {
 			Expect(ranger.Reduce(base, ranger.NewMoveAction(ranger.MovePayload{
 				Path: []string{"tags"},
 				Key:  "a",
-			}))).To(Equal(base))
+			}))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("[tags]: the path names no editable field"),
+				),
+			))
 		})
 	})
 })
