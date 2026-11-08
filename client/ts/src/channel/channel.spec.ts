@@ -248,7 +248,9 @@ describe("Channel", () => {
     });
     test("reject a condition whose operator is undefined", async () => {
       const name: string | undefined = undefined;
-      await expect(client.channels.retrieve({ name: [name] })).rejects.toThrow(
+      await expect(
+        client.channels.retrieve({ where: { name: { eq: name } } }),
+      ).rejects.toThrow(
         new PathError(
           ["where", "name"],
           new ValidationError("no operator set: validation error"),
@@ -293,8 +295,7 @@ describe("Channel", () => {
         { name: `${prefix}_c`, virtual: true, dataType: DataType.FLOAT32 },
       ]);
       const res = await client.channels.retrieve({
-        name: { regex: `^${prefix}` },
-        dataType: DataType.FLOAT32,
+        where: { name: { regex: `^${prefix}` }, dataType: { eq: DataType.FLOAT32 } },
       });
       expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
     });
