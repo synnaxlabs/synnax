@@ -31,7 +31,11 @@ var _ = Describe("Storage", func() {
 		Entry("Memory-backed storage implementation"),
 		Entry(
 			"FS-backed storage implementation",
-			storage.LayerConfig{InMemory: new(false), Dirname: "./tmp"},
+			storage.LayerConfig{
+				InMemory: new(false),
+				Dirname:  "./tmp",
+				Version:  "0.0.0",
+			},
 		),
 	)
 })

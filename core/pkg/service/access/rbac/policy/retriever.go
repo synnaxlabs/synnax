@@ -13,54 +13,58 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Retrieve struct {
-	baseTX   gorp.Tx
-	gorp     gorp.Retrieve[Key, Policy]
-	indexes  indexes
-	ontology *ontology.Ontology
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, Policy]
+	indexes indexes
+	rolesOf RolesOf
 }
 
-// ResolveSubjects walks the ontology from each subject up to its parent roles and back
-// down to the policies attached to those roles, returning the policy keys. A subject
-// that does not exist has no policies.
-func (s *Service) ResolveSubjects(
+// RolesOf returns the keys of the roles that the subjects hold, as seen by tx. It
+// returns query.ErrNotFound when a subject does not exist.
+type RolesOf func(
 	ctx context.Context,
 	tx gorp.Tx,
-	subjects ...ontology.ID,
-) ([]Key, error) {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
-	return resolveSubjects(ctx, tx, s.cfg.Ontology.NewRetrieve().WhereIDs(subjects...))
+	subjects ...resource.ID,
+) ([]role.Key, error)
+
+// ResolveRolesWith returns r with the function that [MatchSubjects] reads the roles of
+// each subject through.
+func (r Retrieve) ResolveRolesWith(rolesOf RolesOf) Retrieve {
+	r.rolesOf = rolesOf
+	return r
 }
 
 // MatchSubjects returns a filter that matches the policies of the roles that any of the
-// subjects hold. A subject that does not exist holds no roles.
-func MatchSubjects(subjects ...ontology.ID) Filter {
+// subjects hold. A subject that does not exist holds no roles. The filter fails on a
+// retrieve opened without [Retrieve.ResolveRolesWith].
+func MatchSubjects(subjects ...resource.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Policy] {
 		return gorp.MatchKeysFunc[Key, Policy](func(ctx gorp.Context) ([]Key, error) {
-			start := r.ontology.NewRetrieve().WhereIDs(subjects...).SkipMissingIDs()
-			return resolveSubjects(ctx, ctx.Tx, start)
+			if r.rolesOf == nil {
+				return nil, errors.New("this policy retrieve cannot filter by subject")
+			}
+			var roles []role.Key
+			for _, subject := range subjects {
+				held, err := r.rolesOf(ctx, ctx.Tx, subject)
+				if errors.Is(err, query.ErrNotFound) {
+					continue
+				}
+				if err != nil {
+					return nil, err
+				}
+				roles = append(roles, held...)
+			}
+			if len(roles) == 0 {
+				return nil, nil
+			}
+			return r.indexes.role.Get(ctx, ctx.Tx, roles...)
 		})
 	}
-}
-
-func resolveSubjects(
-	ctx context.Context,
-	tx gorp.Tx,
-	subjects ontology.Retrieve,
-) ([]Key, error) {
-	var policyResources []ontology.Resource
-	if err := subjects.
-		ExcludeFieldData(true).
-		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.ResourceTypeRole).
-		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(ontology.ResourceTypePolicy).
-		Entries(&policyResources).
-		Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	return KeysFromOntologyIDs(ontology.ResourceIDs(policyResources))
 }

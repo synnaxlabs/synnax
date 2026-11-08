@@ -11,13 +11,25 @@ package migrations
 
 import (
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
 // Config is the configuration for New.
-type Config = v0.MigrationConfig
+type Config struct {
+	// User holds the roles of each user.
+	User *user.Service
+	// Roles is the set of provisioned built-in roles.
+	Roles builtin.ProvisionResult
+}
 
 // New returns the ordered migration chain for RBAC.
 func New(cfg Config) []gorp.Migration {
-	return []gorp.Migration{v0.NewMigration(cfg)}
+	return []gorp.Migration{
+		v0.NewMigration(v0.MigrationConfig{
+			User:  cfg.User,
+			Roles: cfg.Roles,
+		}),
+	}
 }

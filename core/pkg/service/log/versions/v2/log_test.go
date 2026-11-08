@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ = Describe("Log", func() {
@@ -31,11 +31,11 @@ var _ = Describe("Log", func() {
 			Expect(v2.Log{}.SetOptions()).To(BeNil())
 		})
 	})
-	Describe("OntologyID", func() {
-		It("Should return the log ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the log resource identifier", func() {
 			k := uuid.New()
-			Expect(v2.Log{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeLog, Key: k.String(),
+			Expect(v2.Log{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeLog, Key: k.String(),
 			}))
 		})
 	})

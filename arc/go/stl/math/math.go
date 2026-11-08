@@ -93,11 +93,9 @@ var (
 			"sensor -> math.avg(count=100) -> output\nsensor -> math.avg(duration=5s) -> output",
 		),
 		doc.Divider(),
-		doc.Paragraph("An optional reset input clears the accumulated average:"),
-		doc.Divider(),
-		doc.Code(
-			"arc",
-			"sensor -> math.avg() -> output\nreset_signal -> math.avg().reset",
+		doc.Paragraph(
+			"In a graph, wire a `bool` signal to the reset input to clear the "+
+				"average. Text mode cannot wire it.",
 		),
 	)
 	minDoc = doc.New(

@@ -47,7 +47,7 @@ protected:
 TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
     Pool pool(testutil::create_store());
 
-    // Acquire and release 100 times over ~10 seconds
+    // Acquire and release 100 times over ~1 second
     // This simulates normal task operation patterns
     for (int i = 0; i < 100; ++i) {
         auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -61,7 +61,7 @@ TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
             << "Iteration " << i << ": Session not activated";
 
         // Simulate some work
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
         // Connection auto-released when connection goes out of scope
     }
@@ -83,8 +83,8 @@ TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
 
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
 
-    // Wait 5 seconds (simulating idle time)
-    std::this_thread::sleep_for(std::chrono::seconds(5));
+    // Wait 500 ms (simulating idle time)
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Acquire again - should get same connection, still alive
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -177,14 +177,14 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
 
     // Configure very short timeouts for testing
     Config short_cfg = conn_cfg_;
-    short_cfg.secure_channel_lifetime_ms = 15000; // 15 seconds
-    short_cfg.session_timeout_ms = 30000; // 30 seconds
-    short_cfg.client_timeout_ms = 15000; // 15 seconds
+    short_cfg.secure_channel_lifetime_ms = 2000; // 2 seconds
+    short_cfg.session_timeout_ms = 4000; // 4 seconds
+    short_cfg.client_timeout_ms = 2000; // 2 seconds
 
     // Keep acquiring at regular intervals to trigger keep-alive
     // Interval is less than half the lifetime to ensure renewal happens
-    constexpr int num_iterations = 8;
-    constexpr int interval_seconds = 4; // 4s interval < 15s/2 lifetime
+    constexpr int num_iterations = 10;
+    constexpr auto interval = std::chrono::milliseconds(500);
 
     for (int i = 0; i < num_iterations; ++i) {
         auto connection = ASSERT_NIL_P(pool.acquire(short_cfg, "[test] "));
@@ -199,12 +199,11 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
 
         // Wait before next iteration
         // Connection released when connection goes out of scope
-        if (i < num_iterations - 1)
-            std::this_thread::sleep_for(std::chrono::seconds(interval_seconds));
+        if (i < num_iterations - 1) std::this_thread::sleep_for(interval);
     }
 
-    // Total time elapsed: 8 iterations * 4s = 32 seconds
-    // SecureChannel would have expired at 15s without keep-alive
+    // Total time elapsed: 9 intervals * 500 ms = 4.5 seconds
+    // SecureChannel would have expired at 2s without keep-alive
     // We've gone through 2+ full SecureChannel lifetimes successfully
 
     // Pool should have at most 1 connection (stale ones get cleaned up on acquire)

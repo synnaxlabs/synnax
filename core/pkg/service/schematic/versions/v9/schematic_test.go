@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 )
 
@@ -31,11 +31,11 @@ var _ = Describe("Schematic", func() {
 			Expect(v9.Schematic{}.SetOptions()).To(BeNil())
 		})
 	})
-	Describe("OntologyID", func() {
-		It("Should return the schematic ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the schematic resource identifier", func() {
 			k := uuid.New()
-			Expect(v9.Schematic{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeSchematic, Key: k.String(),
+			Expect(v9.Schematic{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeSchematic, Key: k.String(),
 			}))
 		})
 	})
