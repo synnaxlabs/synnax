@@ -27,6 +27,7 @@ import (
 	arcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
@@ -289,6 +290,7 @@ type Layer struct {
 	Status       *status.Service
 	ImEx         *imex.Service
 	Batch        *batch.Service
+	binder       *bind.Service
 	config       config.LayerConfig
 }
 
@@ -691,10 +693,10 @@ func (l *Layer) BindTo(t Transport) {
 	)
 
 	// LINE PLOT
-	t.LinePlotCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Create))
+	t.LinePlotCreate.BindHandler(bind.Write(l.binder, l.LinePlot.Create))
 	t.LinePlotDispatch.BindHandler(l.LinePlot.Dispatch)
 	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
-	t.LinePlotDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Delete))
+	t.LinePlotDelete.BindHandler(bind.Write(l.binder, l.LinePlot.Delete))
 
 	// PANEL
 	t.PanelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Create))
@@ -805,6 +807,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	l := &Layer{config: cfg}
+	if l.binder, err = bind.NewService(bind.ServiceConfig{
+		DB:   cfg.Distribution.DB,
+		RBAC: cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
 	if l.Auth, err = auth.NewService(auth.ServiceConfig{
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,
