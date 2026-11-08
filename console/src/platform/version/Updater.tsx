@@ -11,11 +11,13 @@ import { status } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { id, TimeSpan } from "@synnaxlabs/x";
+import { type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
   use,
+  useRef,
   useState,
 } from "react";
 
@@ -25,6 +27,7 @@ import {
   STATUS_KEY_PREFIX,
   useTarget,
 } from "@/platform/version/check";
+import { useInstallMiddleware } from "@/platform/version/Install";
 
 const CHECK_INTERVAL = TimeSpan.seconds(30);
 
@@ -34,19 +37,46 @@ export type Check =
   | { variant: "error"; status: status.Status }
   | { variant: "success"; available: Available | null };
 
-const Context = createContext<Check>({ variant: "success", available: null });
+/**
+ * Downloads and installs an update that the Provider found, and sends the download
+ * events to onEvent. Rejects when the download or the install fails.
+ */
+export type Install = (
+  update: Update,
+  onEvent: (event: DownloadEvent) => void,
+) => Promise<void>;
+
+interface ContextValue {
+  check: Check;
+  install: Install;
+}
+
+const Context = createContext<ContextValue>({
+  check: { variant: "success", available: null },
+  install: async () => {
+    throw new Error("Version.Provider is missing");
+  },
+});
 Context.displayName = "Version.Context";
+
+interface Installing {
+  update: Update;
+  /** True when the checks started again and left the update to the install. */
+  released: boolean;
+}
 
 /**
  * Checks for an update now and every 30 seconds until it finds one, then adds a status.
  * A change of the Core, its version, or the grant starts the checks again. The found
  * update stays open for {@link useCheck} until the checks start again or the Provider
- * unmounts.
+ * unmounts, and while {@link useInstall} installs it.
  */
 export const Provider = ({ children }: PropsWithChildren): ReactElement => {
   const addStatus = Status.useAdder();
+  const installMiddleware = useInstallMiddleware();
   const target = useTarget();
   const [check, setCheck] = useState<Check>({ variant: "loading" });
+  const installing = useRef<Installing | null>(null);
   useAsyncEffect(
     async (signal) => {
       setCheck({ variant: "loading" });
@@ -84,16 +114,33 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
       await run();
       return () => {
         clearTimeout(timer);
-        found?.update.close().catch(console.error);
+        if (found == null) return;
+        if (installing.current?.update === found.update)
+          installing.current.released = true;
+        else found.update.close().catch(console.error);
       };
     },
     [target?.endpoint, target?.version, target?.latestGranted],
   );
-  return <Context value={check}>{children}</Context>;
+  const install: Install = async (update, onEvent) => {
+    const current: Installing = { update, released: false };
+    installing.current = current;
+    await update
+      .download(onEvent)
+      .then(async () => await installMiddleware(async () => await update.install()))
+      .finally(async () => {
+        installing.current = null;
+        if (current.released) await update.close().catch(console.error);
+      });
+  };
+  return <Context value={{ check, install }}>{children}</Context>;
 };
 
 /**
  * @returns the result of the last check of the nearest Provider. Without one, no update
  * is available.
  */
-export const useCheck = (): Check => use(Context);
+export const useCheck = (): Check => use(Context).check;
+
+/** @returns the function that installs an update that the nearest Provider found. */
+export const useInstall = (): Install => use(Context).install;

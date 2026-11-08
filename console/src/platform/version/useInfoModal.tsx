@@ -27,8 +27,7 @@ import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
 import { type Available } from "@/platform/version/check";
-import { useInstallMiddleware } from "@/platform/version/Install";
-import { useCheck } from "@/platform/version/Updater";
+import { useCheck, useInstall } from "@/platform/version/Updater";
 import { Session } from "@/session";
 
 interface Download {
@@ -52,12 +51,12 @@ interface UseDownloadReturn {
 const useDownload = (): UseDownloadReturn => {
   const [download, setDownload] = useState<Download>(ZERO_DOWNLOAD);
   const addStatus = Status.useAdder();
-  const installMiddleware = useInstallMiddleware();
+  const install = useInstall();
   const start = (update: Update): void =>
     void (async () => {
       setDownload({ ...ZERO_DOWNLOAD, variant: "loading" });
       try {
-        await update.download((prog) => {
+        await install(update, (prog) => {
           switch (prog.event) {
             case "Started":
               setDownload((p) => ({
@@ -76,7 +75,6 @@ const useDownload = (): UseDownloadReturn => {
               break;
           }
         });
-        await installMiddleware(async () => await update.install());
         if (Session.Runtime.ENGINE === "tauri") await relaunch();
       } catch (error) {
         const st = status.fromException(error, "Failed to update Console");

@@ -19,17 +19,20 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
+import { Modals } from "@/platform/modals";
 import { Version } from "@/platform/version";
 import {
   callsOf,
   clearUpdater,
+  createStatus,
   createWrapper,
   type CreateWrapperParams,
   type IPC,
   mockUpdater,
   VERSION_RESOURCE_ID,
 } from "@/platform/version/testutil";
-import { createTestClientWithGrants } from "@/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
+import { createTestClientWithGrants, renderWithStatus } from "@/testutil";
 
 const client = createTestClient();
 
@@ -164,6 +167,72 @@ describe("version useInfoModal", () => {
     );
     expect(callsOf(ipc, "plugin:updater|download")).toHaveLength(0);
     expect(restarted(ipc)).toBe(false);
+  });
+
+  describe("when the Core changes during an install", () => {
+    const startInstall = async (
+      download: Promise<void>,
+    ): Promise<{ ipc: IPC; rid: unknown }> => {
+      const ipc = mockUpdater({
+        served: "1.4.2",
+        download: async () => await download,
+      });
+      const core = createCore("Local");
+      const { setStatus } = await renderWithStatus(
+        <Version.Provider>
+          <Version.Badge />
+          <Modals.Stack />
+        </Version.Provider>,
+        {
+          client: null,
+          status: createStatus("1.5.0"),
+          preloadedState: createCoreState([core], core.key),
+        },
+      );
+      fireEvent.click(await screen.findByText("Update available"));
+      await clickUpdate();
+      await waitFor(() =>
+        expect(callsOf(ipc, "plugin:updater|download")).toHaveLength(1),
+      );
+      const [[, args]] = callsOf(ipc, "plugin:updater|download");
+      const { rid } = args as { rid: unknown };
+      setStatus(createStatus("1.5.1"));
+      await waitFor(() => expect(callsOf(ipc, "updater_check")).toHaveLength(2));
+      return { ipc, rid };
+    };
+
+    const closed = (ipc: IPC): unknown[] =>
+      callsOf(ipc, "plugin:resources|close").map(
+        ([, args]) => (args as { rid: unknown }).rid,
+      );
+
+    it("should keep the update open until it installs", async () => {
+      let finish = (): void => {};
+      const { ipc, rid } = await startInstall(
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+      );
+      expect(closed(ipc)).not.toContain(rid);
+      finish();
+      await waitFor(() => expect(restarted(ipc)).toBe(true));
+      expect(callsOf(ipc, "plugin:updater|install")[0][1]).toMatchObject({
+        updateRid: rid,
+      });
+    });
+
+    it("should release the update when the install fails", async () => {
+      let fail = (): void => {};
+      const { ipc, rid } = await startInstall(
+        new Promise<void>((_, reject) => {
+          fail = () => reject(new Error("download failed"));
+        }),
+      );
+      fail();
+      expect(await screen.findByText("Failed to update Console")).toBeTruthy();
+      await waitFor(() => expect(closed(ipc)).toContain(rid));
+      expect(installed(ipc)).toBe(false);
+    });
   });
 
   describe("newest release past the Core", () => {
