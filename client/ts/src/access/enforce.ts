@@ -10,7 +10,7 @@
 import { array } from "@synnaxlabs/x";
 
 import { type Action } from "@/access/action/types.gen";
-import { type Policy, resourceID as policyID } from "@/access/policy/types.gen";
+import { type Policy, resourceID } from "@/access/policy/types.gen";
 import { type resource } from "@/resource";
 
 /**
@@ -34,7 +34,7 @@ const retrievesOwn = (
   obj: resource.ID,
   policies: Policy[],
 ): boolean =>
-  sameID(obj, subject) || policies.some(({ key }) => sameID(obj, policyID(key)));
+  sameID(obj, subject) || policies.some(({ key }) => sameID(obj, resourceID(key)));
 
 /**
  * Checks if a request is allowed based on the provided policies.
