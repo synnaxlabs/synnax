@@ -34,15 +34,10 @@ export interface Validity {
   status?: "warning" | "error";
 }
 
-/** Describes whether a certificate is valid at the given time. */
-export const describeCertificate = (
-  c: certificate.Certificate,
+const describeDetails = (
+  { notBefore, notAfter }: certificate.Details,
   now: TimeStamp,
 ): Validity => {
-  const { details } = c;
-  if (details == null)
-    return { text: c.source === "file" ? c.certificatePath : "Expiry unknown" };
-  const { notBefore, notAfter } = details;
   const formatDate = (ts: TimeStamp) => UTC.format(ts.date());
   if (now.before(notBefore))
     return { text: `Valid from ${formatDate(notBefore)}`, status: "warning" };
@@ -51,4 +46,14 @@ export const describeCertificate = (
   if (now.afterEq(notAfter.sub(EXPIRY_WARNING)))
     return { text: `Expires ${expiry}`, status: "warning" };
   return { text: `Expires ${expiry}` };
+};
+
+/** Describes whether a certificate is valid at the given time. */
+export const describeCertificate = (
+  c: certificate.Certificate,
+  now: TimeStamp,
+): Validity => {
+  if (c.source === "stored") return describeDetails(c.details, now);
+  if (c.details == null) return { text: c.certificatePath };
+  return describeDetails(c.details, now);
 };
