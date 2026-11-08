@@ -154,6 +154,7 @@ ReadConfig struct extends task.ReadConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
 
@@ -166,6 +167,7 @@ WriteConfig struct extends task.WriteConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
 
@@ -174,6 +176,7 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
 }
 
 RegisterBit struct {
