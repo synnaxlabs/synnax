@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = View{}
 // GorpKey implements gorp.Entry.
 func (v View) GorpKey() Key { return v.Key }
 
-// SetOptions implements gorp.Entry.
-func (View) SetOptions() []any { return nil }
-
 // ResourceID returns the unique resource identifier for the view.
 func (v View) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeView, Key: v.Key.String()}

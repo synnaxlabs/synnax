@@ -40,15 +40,6 @@ func (c Channel) Index() Key {
 // GorpKey implements the gorp.Entry interface.
 func (c Channel) GorpKey() Key { return c.Key() }
 
-// SetOptions implements the gorp.Entry interface. It returns the key of the node that
-// leases the Channel, or node 1 for a free Channel.
-func (c Channel) SetOptions() []any {
-	if c.Free() {
-		return []any{node.KeyBootstrapper}
-	}
-	return []any{c.Leaseholder}
-}
-
 // Free returns true if the channel is not leased to a particular node i.e. it is a
 // non-leased virtual channel.
 func (c Channel) Free() bool { return c.Leaseholder == node.KeyFree }
