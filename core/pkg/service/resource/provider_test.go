@@ -31,15 +31,11 @@ type channelEntry struct{ Key, Name string }
 
 func (e channelEntry) GorpKey() string { return e.Key }
 
-func (channelEntry) SetOptions() []any { return nil }
-
 func (e channelEntry) name() string { return e.Name }
 
 type rackEntry struct{ Key, Name string }
 
 func (e rackEntry) GorpKey() string { return e.Key }
-
-func (rackEntry) SetOptions() []any { return nil }
 
 func (e rackEntry) name() string { return e.Name }
 

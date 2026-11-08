@@ -31,8 +31,7 @@ type indexBenchEntry struct {
 	Score    int64
 }
 
-func (e indexBenchEntry) GorpKey() int32    { return e.ID }
-func (e indexBenchEntry) SetOptions() []any { return nil }
+func (e indexBenchEntry) GorpKey() int32 { return e.ID }
 
 // indexBenchCategoryCount caps Category cardinality so each value matches
 // roughly N/16 entries — wide enough that intersect/union do real work but

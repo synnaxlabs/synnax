@@ -29,9 +29,6 @@ var _ = Describe("Password", func() {
 		key := uuid.New()
 		Expect(v0.Password{Key: key}.GorpKey()).To(Equal(key))
 	})
-	It("Should return no options", func() {
-		Expect(v0.Password{}.SetOptions()).To(BeNil())
-	})
 	It("Should validate its subject", func() {
 		Expect(v0.Password{}.Validate()).To(MatchError(ContainSubstring("subject")))
 		Expect(v0.Password{Subject: resource.ID{

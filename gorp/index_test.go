@@ -43,8 +43,7 @@ type indexedEntry struct {
 	Flag     bool
 }
 
-func (e indexedEntry) GorpKey() int32    { return e.ID }
-func (e indexedEntry) SetOptions() []any { return nil }
+func (e indexedEntry) GorpKey() int32 { return e.ID }
 
 // relationEntry is a composite-string-keyed test entry. Its gorp key is the
 // "<from>-><to>" string.
@@ -54,8 +53,7 @@ type relationEntry struct {
 	Label string
 }
 
-func (e relationEntry) GorpKey() string   { return e.From + "->" + e.To }
-func (e relationEntry) SetOptions() []any { return nil }
+func (e relationEntry) GorpKey() string { return e.From + "->" + e.To }
 
 func idsOf(res []indexedEntry) []int32 {
 	out := make([]int32, len(res))
