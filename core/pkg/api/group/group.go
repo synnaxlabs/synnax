@@ -12,11 +12,9 @@ package group
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -26,10 +24,6 @@ import (
 
 // ServiceConfig is the configuration for the group API service.
 type ServiceConfig struct {
-	// RBAC checks the access of retrieve requests.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Group stores and retrieves groups.
 	//
 	// [REQUIRED]
@@ -44,7 +38,6 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Group = override.Nil(c.Group, other.Group)
 	return c
 }
@@ -52,13 +45,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.group")
-	v.NotNil("rbac", c.RBAC)
 	v.NotNil("group", c.Group)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *group.Service
 }
 
@@ -68,7 +59,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.RBAC,
 		internal: cfg.Group,
 	}, nil
 }
@@ -133,31 +123,31 @@ type (
 	}
 )
 
-// RetrieveAncestors returns every group above the groups with the requested keys.
+var _ bind.Named = RetrieveAncestorsRequest{}
+
+// Named implements bind.Named.
+func (r RetrieveAncestorsRequest) Named() []resource.ID {
+	return group.ResourceIDs(r.Keys)
+}
+
+// RetrieveAncestors returns every group above the groups with the requested keys that
+// the subject can retrieve.
 func (s *Service) RetrieveAncestors(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveAncestorsRequest,
 ) (RetrieveAncestorsResponse, error) {
-	var (
-		res RetrieveAncestorsResponse
-		err error
-	)
-	if len(req.Keys) > 0 {
-		if res.Groups, err = s.internal.Ancestors(ctx, nil, req.Keys...); err != nil {
-			return RetrieveAncestorsResponse{}, err
-		}
+	if len(req.Keys) == 0 {
+		return RetrieveAncestorsResponse{}, nil
 	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: append(
-			group.ResourceIDs(req.Keys),
-			group.ResourceIDsFromGroups(res.Groups)...,
-		),
-	}); err != nil {
+	ancestors, err := s.internal.Ancestors(ctx, snap, req.Keys...)
+	if err != nil {
 		return RetrieveAncestorsResponse{}, err
 	}
-	return res, nil
+	return RetrieveAncestorsResponse{Groups: lo.Filter(
+		ancestors,
+		func(g group.Group, _ int) bool { return snap.Allowed(g.ResourceID()) },
+	)}, nil
 }
 
 type DeleteRequest struct {

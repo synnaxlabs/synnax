@@ -38,9 +38,16 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	svc *service.Layer
-	// set and del run the Set and Delete routes as the API layer binds them.
-	set freighter.UnaryHandler[apialias.SetRequest, struct{}]
-	del freighter.UnaryHandler[apialias.DeleteRequest, struct{}]
+	// set, del, resolve, list, and retrieve run their routes as the API layer binds
+	// them.
+	set      freighter.UnaryHandler[apialias.SetRequest, struct{}]
+	del      freighter.UnaryHandler[apialias.DeleteRequest, struct{}]
+	resolve  freighter.UnaryHandler[apialias.ResolveRequest, apialias.ResolveResponse]
+	list     freighter.UnaryHandler[apialias.ListRequest, apialias.ListResponse]
+	retrieve freighter.UnaryHandler[
+		apialias.RetrieveRequest,
+		apialias.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -48,7 +55,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc := MustSucceed(apialias.NewService(apialias.ServiceConfig{
-		RBAC:  svc.RBAC,
 		Alias: svc.Alias,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
@@ -57,6 +63,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	set = bind.Write(binder, apiSvc.Set)
 	del = bind.Write(binder, apiSvc.Delete)
+	resolve = bind.Read(binder, apiSvc.Resolve)
+	list = bind.Read(binder, apiSvc.List)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 // createUser creates a user that can do nothing.

@@ -47,7 +47,7 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), lbl.ResourceID(), rck.ResourceID())
-				Expect(apiSvc.Search(AuthedCtx(ctx, u), apiresource.SearchRequest{
+				Expect(search(AuthedCtx(ctx, u), apiresource.SearchRequest{
 					SearchTerm: term,
 					Types:      []resource.Type{resource.TypeLabel, resource.TypeRack},
 				})).To(Equal(apiresource.SearchResponse{Resources: []resource.Resource{
@@ -61,7 +61,7 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), lbl.ResourceID())
-				Expect(apiSvc.Search(AuthedCtx(ctx, u), apiresource.SearchRequest{
+				Expect(search(AuthedCtx(ctx, u), apiresource.SearchRequest{
 					SearchTerm: term,
 					Types:      []resource.Type{resource.TypeLabel, resource.TypeRack},
 				})).To(Equal(apiresource.SearchResponse{Resources: []resource.Resource{
@@ -91,7 +91,7 @@ var _ = Describe("Resource", func() {
 				}
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), resource.ID{Type: resource.TypeChannel})
-				res := MustSucceed(apiSvc.Search(
+				res := MustSucceed(search(
 					AuthedCtx(ctx, u),
 					apiresource.SearchRequest{
 						SearchTerm: term,
@@ -113,7 +113,7 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), rck.ResourceID())
-				Expect(apiSvc.Search(AuthedCtx(ctx, u), apiresource.SearchRequest{
+				Expect(search(AuthedCtx(ctx, u), apiresource.SearchRequest{
 					Types: []resource.Type{resource.TypeLabel, resource.TypeRack},
 				})).To(Equal(apiresource.SearchResponse{Resources: []resource.Resource{
 					{ID: rck.ResourceID(), Name: rck.Name},
@@ -123,7 +123,7 @@ var _ = Describe("Resource", func() {
 
 		It("Should refuse an unknown type", func(ctx SpecContext) {
 			u := createUser(ctx)
-			Expect(apiSvc.Search(
+			Expect(search(
 				AuthedCtx(ctx, u),
 				apiresource.SearchRequest{
 					SearchTerm: term,
@@ -138,7 +138,7 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), lbl.ResourceID(), rck.ResourceID())
-				Expect(apiSvc.Retrieve(
+				Expect(retrieve(
 					AuthedCtx(ctx, u),
 					apiresource.RetrieveRequest{
 						IDs: []resource.ID{rck.ResourceID(), lbl.ResourceID()},
@@ -152,11 +152,12 @@ var _ = Describe("Resource", func() {
 
 		It("Should leave out an ID that names no resource", func(ctx SpecContext) {
 			u := createUser(ctx)
-			grant(ctx, u.ResourceID(), lbl.ResourceID())
-			Expect(apiSvc.Retrieve(
+			missing := label.ResourceID(uuid.New())
+			grant(ctx, u.ResourceID(), lbl.ResourceID(), missing)
+			Expect(retrieve(
 				AuthedCtx(ctx, u),
 				apiresource.RetrieveRequest{IDs: []resource.ID{
-					label.ResourceID(uuid.New()),
+					missing,
 					lbl.ResourceID(),
 				}},
 			)).To(Equal(apiresource.RetrieveResponse{Resources: []resource.Resource{
@@ -168,7 +169,7 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), lbl.ResourceID())
-				Expect(apiSvc.Retrieve(
+				Expect(retrieve(
 					AuthedCtx(ctx, u),
 					apiresource.RetrieveRequest{
 						IDs: []resource.ID{lbl.ResourceID(), rck.ResourceID()},
@@ -179,7 +180,8 @@ var _ = Describe("Resource", func() {
 
 		It("Should refuse an ID of an unknown type", func(ctx SpecContext) {
 			u := createUser(ctx)
-			Expect(apiSvc.Retrieve(
+			grant(ctx, u.ResourceID(), resource.ID{Type: resource.TypeFramer, Key: "1"})
+			Expect(retrieve(
 				AuthedCtx(ctx, u),
 				apiresource.RetrieveRequest{
 					IDs: []resource.ID{{Type: resource.TypeFramer, Key: "1"}},

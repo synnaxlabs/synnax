@@ -70,7 +70,7 @@ var _ = Describe("Service.Retrieve", func() {
 			[]access.Action{access.ActionRetrieve},
 			framerTypeOnly,
 		)
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			authedCtx(ctx, author),
 			apicontrol.RetrieveRequest{Keys: channel.Keys{ch.Key()}},
 		))
@@ -90,7 +90,7 @@ var _ = Describe("Service.Retrieve", func() {
 			[]access.Action{access.ActionRetrieve},
 			framerTypeOnly,
 		)
-		Expect(MustSucceed(apiSvc.Retrieve(
+		Expect(MustSucceed(retrieve(
 			authedCtx(ctx, author),
 			apicontrol.RetrieveRequest{Keys: channel.Keys{ch.Key()}},
 		)).States).To(BeEmpty())
@@ -99,9 +99,32 @@ var _ = Describe("Service.Retrieve", func() {
 	It("Should reject a subject without retrieve access", func(ctx SpecContext) {
 		ch := createChannel(ctx)
 		openWriter(ctx, "denver", ch.Key())
-		Expect(apiSvc.Retrieve(
+		Expect(retrieve(
 			authedCtx(ctx, newUser(ctx)),
 			apicontrol.RetrieveRequest{Keys: channel.Keys{ch.Key()}},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
+
+	It(
+		"Should leave out the channels the subject cannot retrieve",
+		func(ctx SpecContext) {
+			allowed, blocked := createChannel(ctx), createChannel(ctx)
+			openWriter(ctx, "boston", allowed.Key(), blocked.Key())
+			author := newUser(ctx)
+			grantOn(
+				ctx,
+				author.ResourceID(),
+				[]access.Action{access.ActionRetrieve},
+				framer.ResourceIDs(channel.Keys{allowed.Key()})...,
+			)
+			res := MustSucceed(
+				retrieve(authedCtx(ctx, author), apicontrol.RetrieveRequest{}),
+			)
+			Expect(res.States).To(ConsistOf(apicontrol.State{
+				Subject:   xcontrol.Subject{Key: "boston", Name: "boston"},
+				Resource:  allowed.Key(),
+				Authority: xcontrol.AuthorityAbsolute,
+			}))
+		},
+	)
 })

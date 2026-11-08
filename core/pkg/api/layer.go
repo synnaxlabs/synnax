@@ -554,7 +554,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.SetPassword))
 
 	// LICENSE
-	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
+	t.LicenseRetrieve.BindHandler(bind.Read(l.binder, l.License.Retrieve))
 	t.LicenseActivate.BindHandler(l.License.Activate)
 	t.LicenseDeactivate.BindHandler(l.License.Deactivate)
 
@@ -570,7 +570,7 @@ func (l *Layer) BindTo(t Transport) {
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Create))
-	t.ChannelRetrieve.BindHandler(l.Channel.Retrieve)
+	t.ChannelRetrieve.BindHandler(bind.Read(l.binder, l.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Delete))
 	t.ChannelRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Rename))
@@ -583,18 +583,18 @@ func (l *Layer) BindTo(t Transport) {
 	t.FrameRead.BindHandler(l.Framer.Read)
 
 	// CONTROL
-	t.ControlRetrieve.BindHandler(l.Control.Retrieve)
+	t.ControlRetrieve.BindHandler(bind.Read(l.binder, l.Control.Retrieve))
 
 	// RESOURCE
-	t.ResourceSearch.BindHandler(l.Resource.Search)
-	t.ResourceRetrieve.BindHandler(l.Resource.Retrieve)
+	t.ResourceSearch.BindHandler(bind.Read(l.binder, l.Resource.Search))
+	t.ResourceRetrieve.BindHandler(bind.Read(l.binder, l.Resource.Retrieve))
 
 	// GROUP
 	t.GroupCreate.BindHandler(bind.Write(l.binder, l.Group.Create))
 	t.GroupDelete.BindHandler(bind.Write(l.binder, l.Group.Delete))
 	t.GroupRename.BindHandler(bind.Write(l.binder, l.Group.Rename))
 	t.GroupRetrieve.BindHandler(bind.Read(l.binder, l.Group.Retrieve))
-	t.GroupRetrieveAncestors.BindHandler(l.Group.RetrieveAncestors)
+	t.GroupRetrieveAncestors.BindHandler(bind.Read(l.binder, l.Group.RetrieveAncestors))
 
 	// GROUP MEMBERSHIP
 	t.GroupSetParent.BindHandler(bind.Write(l.binder, l.Group.SetParent))
@@ -628,15 +628,15 @@ func (l *Layer) BindTo(t Transport) {
 	t.RangeDispatch.BindHandler(bind.Write(l.binder, l.Range.Dispatch))
 
 	// KV
-	t.KVGet.BindHandler(l.KV.Get)
+	t.KVGet.BindHandler(bind.Read(l.binder, l.KV.Get))
 	t.KVSet.BindHandler(bind.Write(l.binder, l.KV.Set))
 	t.KVDelete.BindHandler(bind.Write(l.binder, l.KV.Delete))
 
 	// ALIAS
 	t.AliasSet.BindHandler(bind.Write(l.binder, l.Alias.Set))
-	t.AliasResolve.BindHandler(l.Alias.Resolve)
-	t.AliasRetrieve.BindHandler(l.Alias.Retrieve)
-	t.AliasList.BindHandler(l.Alias.List)
+	t.AliasResolve.BindHandler(bind.Read(l.binder, l.Alias.Resolve))
+	t.AliasRetrieve.BindHandler(bind.Read(l.binder, l.Alias.Retrieve))
+	t.AliasList.BindHandler(bind.Read(l.binder, l.Alias.List))
 	t.AliasDelete.BindHandler(bind.Write(l.binder, l.Alias.Delete))
 
 	// PROJECT
@@ -826,7 +826,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Control, err = control.NewService(control.ServiceConfig{
 		Control: cfg.Service.Control,
-		RBAC:    cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
@@ -844,7 +843,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Resource, err = apiresource.NewService(apiresource.ServiceConfig{
 		Resource: cfg.Service.Resource,
-		RBAC:     cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
@@ -854,19 +852,16 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.KV, err = kv.NewService(kv.ServiceConfig{
-		RBAC: cfg.Service.RBAC,
-		KV:   cfg.Service.KV,
+		KV: cfg.Service.KV,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Alias, err = alias.NewService(alias.ServiceConfig{
-		RBAC:  cfg.Service.RBAC,
 		Alias: cfg.Service.Alias,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Group, err = group.NewService(group.ServiceConfig{
-		RBAC:  cfg.Service.RBAC,
 		Group: cfg.Service.Group,
 	}); err != nil {
 		return nil, err

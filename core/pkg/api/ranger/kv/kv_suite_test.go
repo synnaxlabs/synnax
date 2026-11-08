@@ -38,9 +38,10 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	svc *service.Layer
-	// set and del run the Set and Delete routes as the API layer binds them.
+	// set, del, and get run their routes as the API layer binds them.
 	set freighter.UnaryHandler[apikv.SetRequest, struct{}]
 	del freighter.UnaryHandler[apikv.DeleteRequest, struct{}]
+	get freighter.UnaryHandler[apikv.GetRequest, apikv.GetResponse]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -48,8 +49,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc := MustSucceed(apikv.NewService(apikv.ServiceConfig{
-		RBAC: svc.RBAC,
-		KV:   svc.KV,
+		KV: svc.KV,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,
@@ -57,6 +57,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	set = bind.Write(binder, apiSvc.Set)
 	del = bind.Write(binder, apiSvc.Delete)
+	get = bind.Read(binder, apiSvc.Get)
 })
 
 // createUser creates a user that can do nothing.

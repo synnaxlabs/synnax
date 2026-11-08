@@ -101,3 +101,32 @@ var _ = Describe("Delete", func() {
 		Expect(listPairs(ctx, r)).To(HaveLen(1))
 	})
 })
+
+var _ = Describe("Get", func() {
+	var (
+		u    user.User
+		r    ranger.Range
+		pair kv.Pair
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = createUser(ctx)
+		r = createRange(ctx)
+		pair = kv.Pair{Range: r.Key, Key: "k", Value: "v"}
+		Expect(svc.KV.NewWriter(nil).SetMany(ctx, []kv.Pair{pair})).To(Succeed())
+	})
+	It("Should refuse the get without retrieve on the range", func(ctx SpecContext) {
+		Expect(get(AuthedCtx(ctx, u), apikv.GetRequest{Range: r.Key})).Error().
+			To(denied(u, access.ActionRetrieve, r.ResourceID()))
+	})
+	DescribeTable("Should return the pairs with retrieve on the range", func(
+		ctx SpecContext,
+		keys []string,
+	) {
+		grant(ctx, u, access.ActionRetrieve, r.ResourceID())
+		Expect(get(AuthedCtx(ctx, u), apikv.GetRequest{Range: r.Key, Keys: keys})).
+			To(Equal(apikv.GetResponse{Pairs: []kv.Pair{pair}}))
+	},
+		Entry("for every key", nil),
+		Entry("for the given keys", []string{"k"}),
+	)
+})

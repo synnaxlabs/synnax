@@ -180,3 +180,57 @@ var _ = Describe("Delete", func() {
 		},
 	)
 })
+
+var _ = Describe("Read", func() {
+	var (
+		u                user.User
+		r                ranger.Range
+		allowed, blocked channel.Channel
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = createUser(ctx)
+		r = createRange(ctx)
+		allowed, blocked = createChannel(ctx), createChannel(ctx)
+		w := svc.Alias.NewWriter(nil)
+		Expect(w.Set(ctx, r.Key, allowed.Key(), "allowed")).To(Succeed())
+		Expect(w.Set(ctx, r.Key, blocked.Key(), "blocked")).To(Succeed())
+		grant(ctx, u, access.ActionRetrieve, alias.ResourceID(r.Key, allowed.Key()))
+	})
+	It(
+		"Should resolve only the aliases the subject can retrieve",
+		func(ctx SpecContext) {
+			Expect(resolve(AuthedCtx(ctx, u), apialias.ResolveRequest{
+				Range:   r.Key,
+				Aliases: []string{"allowed", "blocked", "absent"},
+			})).To(Equal(apialias.ResolveResponse{
+				Aliases: map[string]channel.Key{"allowed": allowed.Key()},
+			}))
+		},
+	)
+	It("Should list only the aliases the subject can retrieve", func(ctx SpecContext) {
+		Expect(list(AuthedCtx(ctx, u), apialias.ListRequest{Range: r.Key})).
+			To(Equal(apialias.ListResponse{
+				Aliases: map[channel.Key]string{allowed.Key(): "allowed"},
+			}))
+	})
+	It("Should retrieve the named aliases the subject can retrieve", func(
+		ctx SpecContext,
+	) {
+		Expect(retrieve(AuthedCtx(ctx, u), apialias.RetrieveRequest{
+			Range:    r.Key,
+			Channels: []channel.Key{allowed.Key()},
+		})).To(Equal(apialias.RetrieveResponse{
+			Aliases: map[channel.Key]string{allowed.Key(): "allowed"},
+		}))
+	})
+	It("Should deny a named alias the subject cannot retrieve", func(ctx SpecContext) {
+		Expect(retrieve(AuthedCtx(ctx, u), apialias.RetrieveRequest{
+			Range:    r.Key,
+			Channels: []channel.Key{allowed.Key(), blocked.Key()},
+		})).Error().To(denied(
+			u,
+			access.ActionRetrieve,
+			alias.ResourceID(r.Key, blocked.Key()),
+		))
+	})
+})

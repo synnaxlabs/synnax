@@ -16,6 +16,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
@@ -75,7 +76,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 type (
-	RetrieveRequest  = struct{}
+	// RetrieveRequest is a request for the state of the license.
+	RetrieveRequest  struct{}
 	RetrieveResponse = license.Info
 	ActivateRequest  struct {
 		Key string `json:"key" msgpack:"key"`
@@ -91,19 +93,18 @@ type (
 // grants control access to it.
 var objectID = resource.ID{Type: resource.TypeBuiltin, Key: license.ResourceKey}
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It names the license.
+func (RetrieveRequest) Named() []resource.ID { return []resource.ID{objectID} }
+
 // Retrieve returns the state of the Core's license, this machine's fingerprint, and the
 // license when one applies.
 func (s *Service) Retrieve(
-	ctx context.Context,
-	_ RetrieveRequest,
+	context.Context,
+	bind.Snapshot,
+	RetrieveRequest,
 ) (RetrieveResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{objectID},
-	}); err != nil {
-		return RetrieveResponse{}, err
-	}
 	return s.internal.Retrieve(), nil
 }
 

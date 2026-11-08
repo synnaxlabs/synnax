@@ -101,7 +101,7 @@ var _ = Describe("Service", func() {
 					}}},
 				)).Channels
 				Expect(created[0].Group).To(Equal(&g.Key))
-				retrieved := MustSucceed(apiSvc.Retrieve(
+				retrieved := MustSucceed(retrieveChannels(
 					AuthedCtx(ctx, author),
 					apichannel.AliasedRetrieveRequest{
 						Request: apichannel.RetrieveRequest{
@@ -332,7 +332,7 @@ var _ = Describe("Service", func() {
 
 			retrieve := func(ctx SpecContext, keys ...channel.Key) []apichannel.Channel {
 				GinkgoHelper()
-				return MustSucceed(apiSvc.Retrieve(
+				return MustSucceed(retrieveChannels(
 					AuthedCtx(ctx, author),
 					apichannel.AliasedRetrieveRequest{
 						Request: apichannel.RetrieveRequest{
@@ -408,7 +408,7 @@ var _ = Describe("Service", func() {
 
 			retrieve := func(ctx SpecContext, req apichannel.RetrieveRequest) []channel.Key {
 				GinkgoHelper()
-				res := MustSucceed(apiSvc.Retrieve(
+				res := MustSucceed(retrieveChannels(
 					AuthedCtx(ctx, author),
 					apichannel.AliasedRetrieveRequest{Request: req, RangeKey: &rng.Key},
 				))
@@ -423,7 +423,7 @@ var _ = Describe("Service", func() {
 			It(
 				"Should fill the alias of each channel on the range",
 				func(ctx SpecContext) {
-					res := MustSucceed(apiSvc.Retrieve(
+					res := MustSucceed(retrieveChannels(
 						AuthedCtx(ctx, author),
 						apichannel.AliasedRetrieveRequest{
 							Request:  apichannel.RetrieveRequest{Where: both},
@@ -492,7 +492,7 @@ var _ = Describe("Service", func() {
 				})).To(BeEmpty())
 			})
 
-			It("Should require retrieve access on the aliases it fills", func(
+			It("Should leave out the aliases that the subject cannot retrieve", func(
 				ctx SpecContext,
 			) {
 				reader := MustSucceed(rbactestutil.CreateUser(
@@ -507,13 +507,23 @@ var _ = Describe("Service", func() {
 					[]access.Action{access.ActionRetrieve},
 					resource.ID{Type: resource.TypeChannel},
 				)
-				Expect(apiSvc.Retrieve(
+				res := MustSucceed(retrieveChannels(
 					AuthedCtx(ctx, reader),
 					apichannel.AliasedRetrieveRequest{
 						Request:  apichannel.RetrieveRequest{Where: both},
 						RangeKey: &rng.Key,
 					},
-				)).Error().To(MatchError(access.ErrDenied))
+				))
+				Expect(res.Channels).To(ConsistOf(
+					SatisfyAll(
+						HaveField("Key", byAlias.Key()),
+						HaveField("Alias", BeNil()),
+					),
+					SatisfyAll(
+						HaveField("Key", byName.Key()),
+						HaveField("Alias", BeNil()),
+					),
+				))
 			})
 		})
 
@@ -525,7 +535,7 @@ var _ = Describe("Service", func() {
 				resource.ID{Type: resource.TypeChannel},
 			)
 			ch := createChannel(ctx, telem.Float32T)
-			res := MustSucceed(apiSvc.Retrieve(
+			res := MustSucceed(retrieveChannels(
 				AuthedCtx(ctx, author),
 				apichannel.AliasedRetrieveRequest{Request: apichannel.RetrieveRequest{
 					Where: &channel.Where{
@@ -539,8 +549,65 @@ var _ = Describe("Service", func() {
 			Expect(res.Channels[0].Key).To(Equal(ch.Key()))
 		})
 
+		Describe("Access", func() {
+			var (
+				prefix           string
+				reader           user.User
+				allowed, blocked channel.Channel
+			)
+			BeforeEach(func(ctx SpecContext) {
+				prefix = fmt.Sprintf("access%09d", rand.IntN(999999999))
+				allowed = createNamedChannel(ctx, prefix+"_allowed", telem.Float32T)
+				blocked = createNamedChannel(ctx, prefix+"_blocked", telem.Float32T)
+				reader = MustSucceed(rbactestutil.CreateUser(
+					ctx,
+					rbacSvc,
+					userSvc,
+					user.User{Name: "reader-" + uuid.New().String()},
+				))
+				grantOn(
+					ctx,
+					reader.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					allowed.ResourceID(),
+				)
+			})
+
+			It("Should leave out the matches the subject cannot retrieve", func(
+				ctx SpecContext,
+			) {
+				res := MustSucceed(retrieveChannels(
+					AuthedCtx(ctx, reader),
+					apichannel.AliasedRetrieveRequest{
+						Request: apichannel.RetrieveRequest{Where: &channel.Where{
+							Name: &filter.String{StartsWith: new(prefix)},
+						}},
+					},
+				))
+				Expect(res.Channels).To(ConsistOf(HaveField("Key", allowed.Key())))
+			})
+
+			It("Should deny a named channel the subject cannot retrieve", func(
+				ctx SpecContext,
+			) {
+				Expect(retrieveChannels(
+					AuthedCtx(ctx, reader),
+					apichannel.AliasedRetrieveRequest{
+						Request: apichannel.RetrieveRequest{Where: &channel.Where{
+							Key: &filter.Set[channel.Key]{
+								In: []channel.Key{allowed.Key(), blocked.Key()},
+							},
+						}},
+					},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(blocked.ResourceID().String())),
+				))
+			})
+		})
+
 		It("Should return a path error for an invalid regex", func(ctx SpecContext) {
-			Expect(apiSvc.Retrieve(
+			Expect(retrieveChannels(
 				AuthedCtx(ctx, author),
 				apichannel.AliasedRetrieveRequest{Request: apichannel.RetrieveRequest{
 					Where: &channel.Where{Name: &filter.String{Regex: new("(a")}},
