@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { clearMocks } from "@tauri-apps/api/mocks";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,6 +20,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 import { Version } from "@/platform/version";
 import {
   callsOf,
+  clearUpdater,
   createStatus,
   createWrapper,
   mockUpdater,
@@ -37,8 +37,8 @@ describe("version Badge", () => {
     mocks.engine = "tauri";
   });
 
-  afterEach(() => {
-    clearMocks();
+  afterEach(async () => {
+    await clearUpdater();
     vi.clearAllMocks();
   });
 
@@ -65,11 +65,16 @@ describe("version Badge", () => {
   it("should check again when the Core reports another version", async () => {
     const before = mockUpdater({ served: "1.5.0" });
     const core = createCore("Local");
-    const { setStatus } = await renderWithStatus(<Version.Badge />, {
-      client: null,
-      status: createStatus("1.5.0"),
-      preloadedState: createCoreState([core], core.key),
-    });
+    const { setStatus } = await renderWithStatus(
+      <Version.Provider>
+        <Version.Badge />
+      </Version.Provider>,
+      {
+        client: null,
+        status: createStatus("1.5.0"),
+        preloadedState: createCoreState([core], core.key),
+      },
+    );
     await waitFor(() => expect(callsOf(before, "updater_check")).toHaveLength(1));
     expect(screen.queryByText("Update available")).toBeNull();
     mockUpdater({ served: "1.6.0" });

@@ -12,14 +12,13 @@ import "@/platform/version/Info.css";
 import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Logo } from "@synnaxlabs/lyra/logo";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Size, sleep, TimeSpan } from "@synnaxlabs/x";
+import { Size } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { type Update } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
@@ -27,39 +26,10 @@ import { useState } from "react";
 import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
-import { type Available, find, useTarget } from "@/platform/version/check";
+import { type Available } from "@/platform/version/check";
 import { useInstallMiddleware } from "@/platform/version/Install";
+import { useCheck } from "@/platform/version/Updater";
 import { Session } from "@/session";
-
-// The shortest time the modal shows the check, so a fast check does not flash.
-const MIN_CHECK_DURATION = TimeSpan.milliseconds(500);
-
-type UpdateCheck =
-  | { variant: "loading" }
-  | { variant: "error"; status: status.Status }
-  | { variant: "success"; available: Available | null };
-
-const useUpdateCheck = (): UpdateCheck => {
-  const target = useTarget();
-  const [result, setResult] = useState<UpdateCheck>({ variant: "loading" });
-  useAsyncEffect(async (signal) => {
-    let next: UpdateCheck;
-    try {
-      const [available] = await Promise.all([
-        find(target),
-        sleep.sleep(MIN_CHECK_DURATION),
-      ]);
-      next = { variant: "success", available };
-    } catch (error) {
-      next = {
-        variant: "error",
-        status: status.fromException(error, "Failed to check for updates"),
-      };
-    }
-    if (!signal.aborted) setResult(next);
-  }, []);
-  return result;
-};
 
 interface Download {
   variant: "idle" | "loading" | "error";
@@ -119,7 +89,7 @@ const useDownload = (): UseDownloadReturn => {
 
 const Info = () => {
   const version = Session.Version.use();
-  const check = useUpdateCheck();
+  const check = useCheck();
   const { download, start } = useDownload();
   const confirm = Modals.useConfirm();
   const startAfterConfirm = async (found: Available): Promise<void> => {

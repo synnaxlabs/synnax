@@ -23,6 +23,7 @@ import { Secondary } from "@/app/window/Secondary";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
+import { Version } from "@/platform/version";
 import { Session } from "@/session";
 
 const DefaultContextMenu = (): ReactElement => (
@@ -56,6 +57,15 @@ export const Window = memo((): ReactElement | null => {
       ctx?.start(Haul.ZERO_ITEM, [Haul.FILE]);
   };
 
+  const content = (
+    <Modals.Stack>
+      <Notifications.Feed />
+      <Menu.ContextMenu menu={menu} {...menuProps}>
+        {isMain ? <Primary /> : <Secondary />}
+      </Menu.ContextMenu>
+    </Modals.Stack>
+  );
+
   return (
     <Flex.Box
       full
@@ -69,12 +79,7 @@ export const Window = memo((): ReactElement | null => {
       onDragOver={handleDragOver}
       onContextMenu={menuProps.open}
     >
-      <Modals.Stack>
-        <Notifications.Feed />
-        <Menu.ContextMenu menu={menu} {...menuProps}>
-          {isMain ? <Primary /> : <Secondary />}
-        </Menu.ContextMenu>
-      </Modals.Stack>
+      {isMain ? <Version.Provider>{content}</Version.Provider> : content}
     </Flex.Box>
   );
 });

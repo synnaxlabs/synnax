@@ -13,13 +13,15 @@ import { migrate } from "@synnaxlabs/x";
 import { invoke } from "@tauri-apps/api/core";
 import { check, Update } from "@tauri-apps/plugin-updater";
 
-import { isDevBuild } from "@/platform/version/build";
+import { isDev, isDevBuild } from "@/platform/version/build";
 import { Session } from "@/session";
 
 // A user with update on this object may take the Console past the minor of its Core.
 const RESOURCE_ID: resource.ID = { type: "builtin", key: "version" };
 
 const MANIFEST_PATH = "/console/update/latest.json";
+
+export const STATUS_KEY_PREFIX = "versionUpdate";
 
 /**
  * An update that the Console can install. A breaking update takes the Console past the
@@ -61,8 +63,8 @@ const takesServed = (current: string, served: string): boolean =>
  * Finds the update that the Console offers. Synnax Desktop takes the newest release of
  * its own channel. Any other Console takes the release that its Core serves when the
  * minor versions differ or the served release is a newer patch. Next, a granted user
- * gets the newest stable release when it is past the minor version of the Core. Returns
- * null in a browser, in a dev build, and when there is no target.
+ * gets the newest stable release when it is past the minor version of a release Core.
+ * Returns null in a browser, in a dev build, and when there is no target.
  */
 export const find = async (target: Target | null): Promise<Available | null> => {
   if (Session.Runtime.ENGINE !== "tauri" || (await isDevBuild())) return null;
@@ -81,8 +83,15 @@ export const find = async (target: Target | null): Promise<Available | null> => 
       return { update, breaking: false };
     await update.close();
   }
-  if (!target.latestGranted) return null;
-  const latest = await check();
+  if (!target.latestGranted || isDev(target.version)) return null;
+  let latest: Update | null;
+  try {
+    latest = await check();
+  } catch (error) {
+    // A network with no internet access cannot reach the docs site.
+    console.warn(error);
+    return null;
+  }
   if (latest == null) return null;
   if (migrate.semVerNewer(latest.version, target.version, { checkPatch: false }))
     return { update: latest, breaking: true, coreVersion: target.version };

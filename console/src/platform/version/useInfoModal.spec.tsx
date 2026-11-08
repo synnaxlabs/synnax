@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { clearMocks } from "@tauri-apps/api/mocks";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,6 +22,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 import { Version } from "@/platform/version";
 import {
   callsOf,
+  clearUpdater,
   createWrapper,
   type CreateWrapperParams,
   type IPC,
@@ -76,8 +76,8 @@ describe("version useInfoModal", () => {
     mocks.engine = "tauri";
   });
 
-  afterEach(() => {
-    clearMocks();
+  afterEach(async () => {
+    await clearUpdater();
     vi.clearAllMocks();
   });
 

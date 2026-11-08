@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { connection } from "@synnaxlabs/client";
-import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
+import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -23,7 +23,8 @@ import { Auth } from "@/feature/auth";
 import { Version } from "@/feature/version";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { callsOf, mockUpdater } from "@/platform/version/testutil";
+import { Version as PlatformVersion } from "@/platform/version";
+import { callsOf, clearUpdater, mockUpdater } from "@/platform/version/testutil";
 import {
   CONNECTION_PARAMS,
   createCore,
@@ -70,14 +71,14 @@ const renderGuard = async (
 ): Promise<StatusHarness> => {
   const core = createCore(CORE_NAME, { secure });
   return await renderWithStatus(
-    <>
+    <PlatformVersion.Provider>
       <Auth.Guard>
         <Version.Guard>
           <span>{WORKSPACE}</span>
         </Version.Guard>
       </Auth.Guard>
       <Modals.Stack />
-    </>,
+    </PlatformVersion.Provider>,
     { client: null, status, preloadedState: createCoreState([core], core.key) },
   );
 };
@@ -95,7 +96,7 @@ describe("Version.Guard", () => {
     mockIPC((cmd) => (cmd === "plugin:app|version" ? "0.0.0" : undefined));
   });
 
-  afterEach(clearMocks);
+  afterEach(clearUpdater);
 
   it("should show the mismatch screen in place of the workspace", async () => {
     await renderGuard(INCOMPATIBLE_STATUS);

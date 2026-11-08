@@ -9,12 +9,14 @@
 
 import { connection, type resource, type Synnax as Client } from "@synnaxlabs/client";
 import { type Channel } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
+import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { type DownloadEvent } from "@tauri-apps/plugin-updater";
+import { act, cleanup } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { type Mock, vi } from "vitest";
 
 import { Modals } from "@/platform/modals";
+import { Version } from "@/platform/version";
 import {
   CONNECTION_PARAMS,
   createCore,
@@ -80,6 +82,16 @@ export const mockUpdater = ({
   return ipc;
 };
 
+/**
+ * Unmounts the rendered trees, so a Provider releases its update through the mock, then
+ * clears the mock.
+ */
+export const clearUpdater = async (): Promise<void> => {
+  cleanup();
+  await act(async () => {});
+  clearMocks();
+};
+
 /** Returns the calls that ipc received for the command. */
 export const callsOf = (ipc: IPC, cmd: string): unknown[][] =>
   ipc.mock.calls.filter(([c]) => c === cmd);
@@ -105,8 +117,8 @@ export interface CreateWrapperParams {
 }
 
 /**
- * Creates a wrapper with a selected Core that reports coreVersion, and a modal stack
- * after its children.
+ * Creates a wrapper with a selected Core that reports coreVersion, a version Provider,
+ * and a modal stack after its children.
  */
 export const createWrapper = async ({
   coreVersion = "1.5.0",
@@ -120,8 +132,10 @@ export const createWrapper = async ({
   });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      {children}
-      <Modals.Stack />
+      <Version.Provider>
+        {children}
+        <Modals.Stack />
+      </Version.Provider>
     </Console>
   );
   return Wrapper;
