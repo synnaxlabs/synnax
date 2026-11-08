@@ -464,14 +464,14 @@ var _ = Describe("Framer", func() {
 				Framer:  framerSvc,
 				Channel: channelSvc,
 				RBAC:    rbacSvc,
-				Records: map[channel.Key]signals.RecordOf{
-					records.Key(): func(sample []byte) (resource.ID, error) {
+				Records: map[channel.Key]signals.Record{
+					records.Key(): {Of: func(sample []byte) (resource.ID, error) {
 						id, err := strconv.Unquote(string(sample))
 						if err != nil {
 							return resource.ID{}, err
 						}
 						return resource.ParseID(id)
-					},
+					}},
 				},
 			}))
 			u := createUserGranted(
