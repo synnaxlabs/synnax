@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -46,10 +48,28 @@ var (
 	rbacSvc      *rbac.Service
 	schematicSvc *schematic.Service
 	apiSvc       *apischematic.Service
-	proj         project.Project
-	projectSvc   *project.Service
-	author       user.User
-	userSvc      *user.Service
+	// create, del, dispatch, copySchematic, setGroup, setProject, and retrieve run
+	// their routes as the API layer binds them.
+	create freighter.UnaryHandler[
+		apischematic.CreateRequest,
+		apischematic.CreateResponse,
+	]
+	del           freighter.UnaryHandler[apischematic.DeleteRequest, struct{}]
+	dispatch      freighter.UnaryHandler[apischematic.DispatchRequest, struct{}]
+	copySchematic freighter.UnaryHandler[
+		apischematic.CopyRequest,
+		apischematic.CopyResponse,
+	]
+	setGroup   freighter.UnaryHandler[apischematic.SetGroupRequest, struct{}]
+	setProject freighter.UnaryHandler[apischematic.SetProjectRequest, struct{}]
+	retrieve   freighter.UnaryHandler[
+		apischematic.RetrieveRequest,
+		apischematic.RetrieveResponse,
+	]
+	proj       project.Project
+	projectSvc *project.Service
+	author     user.User
+	userSvc    *user.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -89,14 +109,23 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:  imex.NewService(),
 	}))
 	apiSvc = MustSucceed(apischematic.NewService(apischematic.ServiceConfig{
-		RBAC:      rbacSvc,
 		Schematic: schematicSvc,
 	}))
-	author = MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	copySchematic = bind.Write(binder, apiSvc.Copy)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	setProject = bind.Write(binder, apiSvc.SetProject)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))
 	proj.Name = "test-project"
-	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
 })
 
 // grantOn grants the action on the objects to the subject.
@@ -109,13 +138,13 @@ func grantOn(
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }
 
 // newUser creates a user with no policies.
 func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }

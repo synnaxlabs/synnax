@@ -73,7 +73,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
-			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 1))[0]
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,
@@ -83,7 +83,7 @@ var _ = Describe("Service", func() {
 					"channel": ch,
 				}},
 			}))
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 25))
@@ -93,7 +93,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 50))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 25))
 			Expect(data["array_size"]).To(BeNumerically("==", 1))
@@ -105,7 +105,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{"key": "chan-1"}},
 			}))
-			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			data := MustSucceed(svc.Write.Read(ctx, db, key))
 			Expect(data["channels"]).To(HaveExactElements(
 				HaveKeyWithValue("data_type", "float32"),
 			))
@@ -115,7 +115,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
+			data := MustSucceed(svc.Scan.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 	})

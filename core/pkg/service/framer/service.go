@@ -80,7 +80,7 @@ const (
 // ServiceConfig is the configuration for opening a framer Service. All fields are
 // required except the embedded Instrumentation.
 type ServiceConfig struct {
-	// DB opens the transactions that calculation status writes run in.
+	// DB holds the channels, and stores the statuses of calculations.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -97,6 +97,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ChannelGraph *channelgraph.Graph
+	// Reserved reports whether only the Core writes a channel. OpenWriter and
+	// NewStreamWriter refuse a reserved channel.
+	//
+	// [OPTIONAL] - no channel is reserved.
+	Reserved func(channel.Key) bool
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -122,6 +127,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelGraph = override.Nil(c.ChannelGraph, other.ChannelGraph)
+	c.Reserved = override.Nil(c.Reserved, other.Reserved)
 	return c
 }
 
@@ -150,6 +156,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Instrumentation: cfg.Child("writer"),
 		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
+		DB:              cfg.DB,
+		Reserved:        cfg.Reserved,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -176,6 +184,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Instrumentation: cfg.Child("iterator"),
 		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
+		DB:              cfg.DB,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -184,14 +193,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 
 // OpenWriter opens a buffered Writer for the channels in cfg starting at cfg.Start. The
 // caller must Close the returned Writer to release its control over the written region.
-// It returns an error if cfg is invalid or any channel in cfg.Keys cannot be resolved.
+// It returns an error if cfg is invalid, any channel in cfg.Keys cannot be resolved, or
+// any channel in cfg.Keys is reserved.
 func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	return s.writer.Open(ctx, cfg)
 }
 
 // NewStreamWriter opens a StreamWriter for the channels in cfg, driven through
-// confluence inlet requests and outlet responses. It returns an error if cfg is invalid
-// or any channel in cfg.Keys cannot be resolved.
+// confluence inlet requests and outlet responses. It returns an error if cfg is
+// invalid, any channel in cfg.Keys cannot be resolved, or any channel in cfg.Keys is
+// reserved.
 func (s *Service) NewStreamWriter(
 	ctx context.Context, cfg WriterConfig,
 ) (StreamWriter, error) {

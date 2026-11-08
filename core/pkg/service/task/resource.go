@@ -10,11 +10,7 @@
 package task
 
 import (
-	"encoding/json/jsontext"
-	"encoding/json/v2"
-
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -34,16 +30,6 @@ func (s *Service) Resources() *resource.TableProvider[Key, Task] {
 // ResourceID returns the resource ID of the task with the given key.
 func ResourceID(key Key) resource.ID {
 	return resource.ID{Type: resource.TypeTask, Key: key.String()}
-}
-
-// ActionRecord returns the resource ID of the task that a sample of the action channel
-// edits.
-func ActionRecord(sample []byte) (resource.ID, error) {
-	var scoped actions.Scoped[Key, jsontext.Value]
-	if err := json.Unmarshal(sample, &scoped); err != nil {
-		return resource.ID{}, err
-	}
-	return ResourceID(scoped.Key), nil
 }
 
 // ResourceIDs returns the resource IDs for the given keys.

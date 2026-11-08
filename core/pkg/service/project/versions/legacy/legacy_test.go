@@ -124,29 +124,6 @@ var _ = Describe("Members", func() {
 	})
 })
 
-var _ = Describe("HasPanels", func() {
-	members := []legacy.Member{{LayoutKey: "k1"}}
-
-	It("Should report a tiling whose tabs resolve to members", func(ctx SpecContext) {
-		data := layoutFile(logLayouts, map[string]any{
-			"main": map[string]any{"root": leaf("k1")},
-		})
-		Expect(legacy.HasPanels(ctx, data, members)).To(BeTrue())
-	})
-
-	It("Should ignore a tiling with no resolvable tabs", func(ctx SpecContext) {
-		data := layoutFile(logLayouts, map[string]any{
-			"main": map[string]any{"root": leaf("missing")},
-		})
-		Expect(legacy.HasPanels(ctx, data, members)).To(BeFalse())
-	})
-
-	It("Should ignore a tiling that does not parse", func(ctx SpecContext) {
-		data := layoutFile(logLayouts, map[string]any{"main": "garbage"})
-		Expect(legacy.HasPanels(ctx, data, members)).To(BeFalse())
-	})
-})
-
 var _ = Describe("CreatePanels", func() {
 	var (
 		proj project.Key

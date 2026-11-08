@@ -11,22 +11,16 @@ package lineplot
 
 import (
 	"context"
-	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,10 +30,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	LinePlot *lineplot.Service
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -51,7 +41,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -59,12 +48,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.lineplot")
 	v.NotNil("line_plot", c.LinePlot)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *lineplot.Service
 }
 
@@ -75,7 +62,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.LinePlot,
-		access:   cfg.RBAC,
 	}, nil
 }
 
@@ -89,57 +75,12 @@ type CreateResponse struct {
 	LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
 }
 
+// Create creates the line plots, and overwrites each one whose key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeLineplot}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	var stored []lineplot.LinePlot
-	if err := s.internal.NewRetrieve().
-		Where(lineplot.MatchKeys(lo.Map(
-			req.LinePlots,
-			func(e lineplot.LinePlot, _ int) lineplot.Key { return e.Key },
-		)...)).
-		Entries(&stored).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return CreateResponse{}, err
-	}
-	owners, err := project.CreateObjects(
-		ctx,
-		tx,
-		resource.TypeLineplot,
-		req.LinePlots,
-		stored,
-		func(e lineplot.LinePlot) *group.Key { return e.Group },
-		func(e lineplot.LinePlot) *resource.ID {
-			return project.OwnerID(e.Project, e.Range)
-		},
-	)
-	if err != nil {
-		return CreateResponse{}, err
-	}
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: slices.Concat(
-			group.CreateObjects(
-				req.LinePlots,
-				stored,
-				func(e lineplot.LinePlot) *group.Key { return e.Group },
-			),
-			owners,
-		),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, &req.LinePlots); err != nil {
@@ -153,25 +94,33 @@ func (s *Service) Create(
 // deduplicated against the local optimistic update.
 type DispatchRequest = actions.DispatchRequest[lineplot.Key, lineplot.Action]
 
-// Dispatch applies the action sequence to the target line plot atomically. Subscribers
-// to the line plot action signals receive the sequence after the transaction commits.
+// Dispatch applies the action sequence to the target line plot in tx. Subscribers to
+// the line plot action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{lineplot.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.
-		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the line plots that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, lineplot.ResourceID)
+}
+
+// Retrieve returns the line plots that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -179,14 +128,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: lineplot.ResourceIDsFromLinePlots(res.LinePlots),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, lineplot.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -196,18 +138,13 @@ type DeleteRequest struct {
 	Keys []lineplot.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the line plots with the given keys. A key that matches no line plot
+// is ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: lineplot.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -218,53 +155,12 @@ type SetGroupRequest struct {
 }
 
 // SetGroup moves the line plots with the given keys into a group. A move into a group
-// under another project also requires update access on the stored owner and on that
-// project.
+// under another project moves the line plots into that project.
 func (s *Service) SetGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
-	var plots []lineplot.LinePlot
-	if err := s.internal.NewRetrieve().
-		Where(lineplot.MatchKeys(req.Keys...)).
-		Entries(&plots).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			lineplot.ResourceIDs(req.Keys),
-			lo.Map(
-				plots,
-				func(e lineplot.LinePlot, _ int) *group.Key { return e.Group },
-			),
-			req.Group,
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
-	projects, err := project.SetGroupObjects(
-		ctx,
-		tx,
-		req.Group,
-		resource.TypeLineplot,
-		lo.Map(plots, func(e lineplot.LinePlot, _ int) *resource.ID {
-			return project.OwnerID(e.Project, e.Range)
-		}),
-	)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: projects,
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }
 
@@ -275,38 +171,12 @@ type SetProjectRequest struct {
 }
 
 // SetProject moves the line plots with the given keys out of their group and into a
-// project. It requires update access on the line plots, their groups, their owners, and
-// the project.
+// project.
 func (s *Service) SetProject(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetProjectRequest,
 ) (struct{}, error) {
-	var stored []lineplot.LinePlot
-	if err := s.internal.NewRetrieve().
-		Where(lineplot.MatchKeys(req.Keys...)).
-		Entries(&stored).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			project.MoveObjects(
-				lineplot.ResourceIDs(req.Keys),
-				lo.Map(stored, func(e lineplot.LinePlot, _ int) *resource.ID {
-					return project.OwnerID(e.Project, e.Range)
-				}),
-				new(project.ResourceID(req.Project)),
-			),
-			lo.Map(stored, func(e lineplot.LinePlot, _ int) *group.Key {
-				return e.Group
-			}),
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).
 		SetProject(ctx, req.Project, req.Keys...)
 }

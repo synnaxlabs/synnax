@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -21,7 +20,6 @@ var _ = Describe("ServiceConfig", func() {
 	full := func() apiresource.ServiceConfig {
 		return apiresource.ServiceConfig{
 			Resource: &resource.Service{},
-			RBAC:     &rbac.Service{},
 		}
 	}
 
@@ -42,11 +40,6 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apiresource.ServiceConfig) { c.Resource = nil },
 				"resource: must be non-nil",
 			),
-			Entry(
-				"rbac",
-				func(c *apiresource.ServiceConfig) { c.RBAC = nil },
-				"rbac: must be non-nil",
-			),
 		)
 	})
 
@@ -55,14 +48,12 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apiresource.ServiceConfig{}.Override(cfg)
 			Expect(merged.Resource).To(BeIdenticalTo(cfg.Resource))
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apiresource.ServiceConfig{})
 			Expect(merged.Resource).To(BeIdenticalTo(cfg.Resource))
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 	})
 })

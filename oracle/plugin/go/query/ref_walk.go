@@ -693,6 +693,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 // sameReference reports whether a and b declare the same reference.
 func sameReference(a, b refInfo) bool {
 	return a.OnDelete == b.OnDelete &&
+		a.Kind == b.Kind &&
 		a.Unique == b.Unique &&
 		a.Acyclic == b.Acyclic &&
 		a.IsID == b.IsID &&
