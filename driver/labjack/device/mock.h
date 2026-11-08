@@ -62,7 +62,7 @@ public:
         int *dev_scan_backlog,
         int *ljm_scan_backlog
     ) const override {
-        if (should_fail_) return x::errors::Error("mock failure");
+        if (this->should_fail) return x::errors::Error("mock failure");
         if (auto err = next(this->stream_read_errors)) return err;
         std::ranges::copy(this->stream_data, data);
         *dev_scan_backlog = 0;
@@ -72,14 +72,14 @@ public:
 
     [[nodiscard]] x::errors::Error e_stream_stop() const override {
         const bool stopped = std::exchange(this->streaming, false);
-        if (should_fail_) return x::errors::Error("mock failure");
+        if (this->should_fail) return x::errors::Error("mock failure");
         if (!stopped) return ljm::STREAM_NOT_RUNNING;
         return x::errors::NIL;
     }
 
     [[nodiscard]] x::errors::Error
     e_write_addr(int addr, int type, double value) const override {
-        if (should_fail_) return x::errors::Error("mock failure");
+        if (this->should_fail) return x::errors::Error("mock failure");
         this->addr_writes[addr] = value;
         return x::errors::NIL;
     }
@@ -91,7 +91,7 @@ public:
         const double *values,
         int *error_addrs
     ) const override {
-        if (should_fail_) return x::errors::Error("mock failure");
+        if (this->should_fail) return x::errors::Error("mock failure");
         for (size_t i = 0; i < num_frames; ++i)
             this->addr_writes[addrs[i]] = values[i];
         return x::errors::NIL;
@@ -99,7 +99,7 @@ public:
 
     [[nodiscard]] x::errors::Error
     e_read_name(const char *name, double *value) const override {
-        if (should_fail_) return x::errors::Error("mock failure");
+        if (this->should_fail) return x::errors::Error("mock failure");
         const auto it = this->read_values.find(name);
         *value = it == this->read_values.end() ? 0 : it->second;
         return x::errors::NIL;
@@ -124,7 +124,7 @@ public:
 
     [[nodiscard]] x::errors::Error
     e_write_name(const char *name, double value) const override {
-        if (should_fail_) return x::errors::Error("mock failure");
+        if (this->should_fail) return x::errors::Error("mock failure");
         ++this->name_writes;
         this->name_values[name] = value;
         return x::errors::NIL;
@@ -136,7 +136,7 @@ public:
         const double *values,
         int *err_addr
     ) const override {
-        if (should_fail_) return x::errors::Error("mock failure");
+        if (this->should_fail) return x::errors::Error("mock failure");
         if (auto err = next(this->write_errors)) return err;
         auto &call = this->name_write_calls.emplace_back();
         for (size_t i = 0; i < num_frames; ++i)
@@ -150,7 +150,7 @@ public:
         int *addrs,
         int *types
     ) const override {
-        if (should_fail_) return x::errors::Error("mock failure");
+        if (this->should_fail) return x::errors::Error("mock failure");
         return x::errors::NIL;
     }
 
@@ -160,7 +160,7 @@ public:
         double *a_values,
         int *error_addr
     ) const override {
-        if (should_fail_) return x::errors::Error("mock failure");
+        if (this->should_fail) return x::errors::Error("mock failure");
         if (auto err = next(this->read_errors)) return err;
         for (size_t i = 0; i < num_frames; ++i) {
             const auto it = this->read_values.find(a_names[i]);
@@ -176,12 +176,12 @@ public:
         double *scan_rate,
         const std::function<x::errors::Error()> &configure
     ) const override {
-        if (should_fail_) return x::errors::Error("mock failure");
+        if (this->should_fail) return x::errors::Error("mock failure");
         if (this->streaming) return ljm::STREAM_IS_ACTIVE;
         if (const auto err = configure()) return err;
         this->streaming = true;
         ++this->stream_starts;
-        *scan_rate = requested_scan_rate_;
+        *scan_rate = requested_scan_rate;
         return x::errors::NIL;
     }
 
@@ -190,8 +190,8 @@ public:
     }
 
     // Mock control methods
-    void set_should_fail(const bool should_fail) { should_fail_ = should_fail; }
-    void set_scan_rate(const double rate) { requested_scan_rate_ = rate; }
+    void set_should_fail(const bool should_fail) { this->should_fail = should_fail; }
+    void set_scan_rate(const double rate) { requested_scan_rate = rate; }
     [[nodiscard]] size_t write_count() const { return this->name_writes; }
     /// @brief the number of streams started on the device.
     [[nodiscard]] size_t stream_start_count() const { return this->stream_starts; }
@@ -207,8 +207,8 @@ public:
     }
 
 private:
-    bool should_fail_{false};
-    double requested_scan_rate_{1000.0};
+    bool should_fail{false};
+    double requested_scan_rate{1000.0};
     mutable bool streaming = false;
     mutable size_t stream_starts = 0;
     mutable size_t name_writes = 0;
