@@ -11,11 +11,15 @@ package v3
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/migrate"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -77,3 +81,24 @@ func cutToCharacters(s string, n int) string {
 
 // Migration lifts stored logs from v2 to v3.
 var Migration = migrate.NewEntry("v61_optional_channel_precision", MigrateLog)
+
+// MembersMigration sets the group of each stored log from the ontology edge that placed
+// it in a group.
+var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Log]{
+	Name:         "v61_log_group_membership",
+	Type:         resource.TypeLog,
+	SetGroup:     func(e *Log, g groupv1.Key) { e.Group = &g },
+	ProjectOwned: true,
+})
+
+// OwnersMigration sets the project or range of each stored log from the ontology edge
+// that owned it, and deletes each log with no owner.
+var OwnersMigration = projectv3.NewOwnersMigration(
+	projectv3.OwnersConfig[Key, Log]{
+		Name:     "v61_log_owner",
+		Type:     resource.TypeLog,
+		Owned:    func(e Log) bool { return e.Project != nil || e.Range != nil },
+		NameOf:   func(e Log) string { return e.Name },
+		SetOwner: func(e *Log, p, r *uuid.UUID) { e.Project, e.Range = p, r },
+	},
+)

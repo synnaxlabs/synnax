@@ -33,7 +33,7 @@ class Prompt(Protocol):
         :param default: A default value to use if the user does not provide a
         response. If provided, the user can press enter to select the default
         value.
-        :return: The user's response.
+        :returns: The user's response.
         """
         ...
 

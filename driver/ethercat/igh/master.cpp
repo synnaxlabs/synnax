@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <array>
+#include <format>
 
 #include "absl/log/log.h"
 
@@ -16,6 +18,139 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::igh {
+namespace {
+constexpr uint16_t SM_TYPE_INDEX = 0x1C00;
+constexpr uint16_t PDO_ASSIGN_INDEX = 0x1C10;
+constexpr uint32_t SM_TYPE_OUTPUTS = 3;
+constexpr uint32_t SM_TYPE_INPUTS = 4;
+/// @brief the most sync managers IgH configures on a slave.
+constexpr uint32_t MAX_SYNC_MANAGERS = EC_MAX_SYNC_MANAGERS;
+/// @brief the most PDOs an assign object, or entries a mapping object, can count.
+constexpr uint32_t MAX_SUB_INDEX = 254;
+constexpr uint32_t ABORT_OBJECT_MISSING = 0x06020000;
+const x::errors::Error OBJECT_MISSING = errors::SDO_READ_ERROR.sub("object_missing");
+
+struct AssignedPDO {
+    uint16_t index;
+    std::vector<ec_pdo_entry_info_t> entries;
+};
+
+struct AssignedSync {
+    uint8_t index;
+    ec_direction_t dir;
+    std::vector<AssignedPDO> pdos;
+    /// @brief the sync manager has no PDO assign object, so IgH keeps the PDOs it
+    /// scanned.
+    bool fixed = false;
+};
+
+/// @brief reads an unsigned value of at most four bytes from a slave's object
+/// dictionary.
+std::pair<uint32_t, x::errors::Error> read_sdo(
+    const API &api,
+    ec_master_t *master,
+    const uint16_t position,
+    const uint16_t index,
+    const uint8_t sub_index
+) {
+    std::array<uint8_t, 4> data{};
+    size_t size = 0;
+    uint32_t abort_code = 0;
+    if (api.master_sdo_upload(
+            master,
+            position,
+            index,
+            sub_index,
+            data.data(),
+            data.size(),
+            &size,
+            &abort_code
+        ) < 0)
+        return {
+            0,
+            x::errors::Error(
+                abort_code == ABORT_OBJECT_MISSING ? OBJECT_MISSING
+                                                   : errors::SDO_READ_ERROR,
+                "failed to read " + telem::format_index_sub_index(index, sub_index) +
+                    ": " + errors::sdo_abort_reason(abort_code)
+            )
+        };
+    uint32_t value = 0;
+    for (size_t i = 0; i < size; i++)
+        value |= static_cast<uint32_t>(data[i]) << (8 * i);
+    return {value, x::errors::NIL};
+}
+
+/// @brief reads the PDOs a slave assigns to each process data sync manager and the
+/// entries each PDO maps. Returns no sync managers for a slave without the sync
+/// manager type object, whose layout is the one its EEPROM describes. Marks a sync
+/// manager without a PDO assign object as fixed.
+std::pair<std::vector<AssignedSync>, x::errors::Error>
+read_assigned_pdos(const API &api, ec_master_t *master, const uint16_t position) {
+    const auto read = [&](const uint16_t index, const uint32_t sub_index) {
+        return read_sdo(api, master, position, index, static_cast<uint8_t>(sub_index));
+    };
+    const auto read_count =
+        [&](const uint16_t index,
+            const uint32_t max) -> std::pair<uint32_t, x::errors::Error> {
+        const auto [count, err] = read(index, 0);
+        if (err || count <= max) return {count, err};
+        return {
+            0,
+            x::errors::Error(
+                errors::PDO_DISCOVERY_ERROR,
+                telem::format_index_sub_index(index, 0) + " counts " +
+                    std::to_string(count) + " entries, above the maximum of " +
+                    std::to_string(max)
+            )
+        };
+    };
+    const auto [sm_count, count_err] = read_count(SM_TYPE_INDEX, MAX_SYNC_MANAGERS);
+    if (count_err.matches(OBJECT_MISSING)) return {{}, x::errors::NIL};
+    if (count_err) return {{}, count_err};
+    std::vector<AssignedSync> syncs;
+    for (uint32_t sm = 0; sm < sm_count; sm++) {
+        const auto [type, type_err] = read(SM_TYPE_INDEX, sm + 1);
+        if (type_err) return {{}, type_err};
+        if (type != SM_TYPE_OUTPUTS && type != SM_TYPE_INPUTS) continue;
+        const auto assign_index = static_cast<uint16_t>(PDO_ASSIGN_INDEX + sm);
+        const auto [pdo_count, pdo_count_err] = read_count(assign_index, MAX_SUB_INDEX);
+        if (pdo_count_err && !pdo_count_err.matches(OBJECT_MISSING))
+            return {{}, pdo_count_err};
+        auto &sync = syncs.emplace_back(
+            AssignedSync{
+                .index = static_cast<uint8_t>(sm),
+                .dir = type == SM_TYPE_INPUTS ? EC_DIR_INPUT : EC_DIR_OUTPUT,
+                .pdos = {},
+                .fixed = pdo_count_err.matches(OBJECT_MISSING),
+            }
+        );
+        for (uint32_t i = 1; i <= pdo_count; i++) {
+            const auto [pdo_index, pdo_err] = read(assign_index, i);
+            if (pdo_err) return {{}, pdo_err};
+            auto &pdo = sync.pdos.emplace_back(
+                AssignedPDO{.index = static_cast<uint16_t>(pdo_index), .entries = {}}
+            );
+            const auto [entry_count, entry_count_err] = read_count(
+                pdo.index,
+                MAX_SUB_INDEX
+            );
+            if (entry_count_err) return {{}, entry_count_err};
+            for (uint32_t j = 1; j <= entry_count; j++) {
+                const auto [mapping, mapping_err] = read(pdo.index, j);
+                if (mapping_err) return {{}, mapping_err};
+                pdo.entries.push_back({
+                    .index = static_cast<uint16_t>(mapping >> 16),
+                    .subindex = static_cast<uint8_t>(mapping >> 8),
+                    .bit_length = static_cast<uint8_t>(mapping),
+                });
+            }
+        }
+    }
+    return {syncs, x::errors::NIL};
+}
+}
+
 Master::Master(std::shared_ptr<API> api, const unsigned int master_index):
     api(std::move(api)),
     master_index(master_index),
@@ -111,33 +246,113 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
     return {info.slave_count, x::errors::NIL};
 }
 
-void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
-    std::lock_guard lock(this->mu);
-    if (!enabled)
-        this->disabled_slaves.insert(position);
-    else
-        this->disabled_slaves.erase(position);
+x::errors::Error Master::add_startup_parameters(
+    const slave::Properties &slave,
+    ec_slave_config_t *sc,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    const auto slave_name = "slave " + std::to_string(slave.position) + " (" +
+                            slave.name + ")";
+    for (const auto &param: parameters) {
+        const auto data = param.bytes();
+        // IgH reports a rejected config SDO only as a slave stuck in PRE-OP, so a
+        // direct write first gets the abort code.
+        uint32_t abort_code = 0;
+        if (this->api->master_sdo_download(
+                this->ec_master,
+                slave.position,
+                param.index,
+                param.sub_index,
+                data.data(),
+                data.size(),
+                &abort_code
+            ) < 0)
+            return x::errors::Error(
+                errors::STARTUP_PARAMETER_ERROR,
+                slave_name + " rejected startup parameter " + param.to_string() + ": " +
+                    errors::sdo_abort_reason(abort_code)
+            );
+        if (this->api->slave_config_sdo(
+                sc,
+                param.index,
+                param.sub_index,
+                data.data(),
+                data.size()
+            ) < 0)
+            return x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                "failed to add startup parameter " + param.to_string() + " to " +
+                    slave_name
+            );
+    }
+    return x::errors::NIL;
 }
 
-x::errors::Error Master::activate() {
+void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
+    std::lock_guard lock(this->mu);
+    this->disabled_slaves.clear();
+    this->chosen_modes.clear();
+    this->startup_parameters.clear();
+    for (auto &[position, config]: configs) {
+        if (!config.enabled) this->disabled_slaves.insert(position);
+        if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+        this->startup_parameters[position] = std::move(config.startup_parameters);
+    }
+}
+
+x::errors::Error
+Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
     if (!this->initialized)
         return x::errors::Error(errors::ACTIVATION_ERROR, "not initialized");
-    if (this->activated) return x::errors::NIL;
+    if (this->activated) {
+        start_cycle();
+        return x::errors::NIL;
+    }
     if (!this->output_domain || !this->input_domain)
         return x::errors::Error(errors::ACTIVATION_ERROR, "domains not created");
 
     for (const auto &slave: this->cached_slaves) {
         const auto pos = slave.properties.position;
+        std::vector<slave::StartupParameter> params;
         {
             std::lock_guard lock(this->mu);
-            if (this->disabled_slaves.contains(pos)) continue;
+            if (this->disabled_slaves.contains(pos) || this->left_out.contains(pos))
+                continue;
+            const auto choice = this->chosen_modes.find(pos);
+            if (choice != this->chosen_modes.end()) {
+                const auto err = choice->second.assign_activate != 0
+                                   ? x::errors::Error(
+                                         errors::SLAVE_CONFIG_ERROR,
+                                         "the IgH master does not run DC sync"
+                                     )
+                                   : dc::check_cycles({}, choice->second.cycles);
+                if (err)
+                    return x::errors::Error(
+                        errors::SLAVE_CONFIG_ERROR,
+                        std::format(
+                            "slave {} ({}) cannot use its chosen mode: {}",
+                            pos,
+                            slave.properties.name,
+                            err.data
+                        )
+                    );
+            }
+            if (const auto it = this->startup_parameters.find(pos);
+                it != this->startup_parameters.end())
+                params = it->second;
         }
-        if (this->get_or_create_slave_config(pos) == nullptr)
+        auto *sc = this->get_or_create_slave_config(pos);
+        if (sc == nullptr)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 "failed to configure slave " + std::to_string(pos) + " (" +
                     slave.properties.name + ")"
             );
+        if (auto err = this->add_startup_parameters(slave.properties, sc, params))
+            return err;
+        if (!params.empty())
+            if (auto err = this->configure_assigned_pdos(pos, sc)) return err;
+        this->register_pdo_entries(pos, sc);
     }
 
     const size_t output_domain_size = this->api->domain_size(this->output_domain);
@@ -194,8 +409,14 @@ x::errors::Error Master::activate() {
                 << slave_state_to_string(slave::from_al_state(state.al_state)) << ")"
                 << ", online=" << state.online << ", operational=" << state.operational;
     }
-
+    // The IgH master moves the slaves to OP on its own while the caller cycles.
+    start_cycle();
     return x::errors::NIL;
+}
+
+void Master::leave_out(std::map<uint16_t, slave::Refusal> slaves) {
+    std::lock_guard lock(this->mu);
+    this->left_out = std::move(slaves);
 }
 
 void Master::deactivate() {
@@ -273,6 +494,16 @@ std::span<uint8_t> Master::output_data() {
 std::pair<pdo::Offset, x::errors::Error>
 Master::pdo_offset(const pdo::Entry &entry) const {
     std::lock_guard lock(this->mu);
+    const auto pos = entry.slave_position;
+    if (const auto it = this->left_out.find(pos); it != this->left_out.end())
+        return {
+            {},
+            master::left_out_error(
+                pos,
+                this->cached_slaves.at(pos).properties.name,
+                it->second
+            )
+        };
     return pdo::find_offset(this->pdo_offsets, entry);
 }
 
@@ -304,6 +535,9 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
             .lost = state.online == 0,
         });
     }
+    std::lock_guard lock(this->mu);
+    for (const auto &[pos, refusal]: this->left_out)
+        health.push_back({.position = pos, .refusal = refusal});
     return health;
 }
 
@@ -341,6 +575,98 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
         return nullptr;
     }
 
+    this->slave_configs[position] = sc;
+    return sc;
+}
+
+x::errors::Error
+Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) {
+    auto props = this->cached_slaves[position].properties;
+    const auto slave_name = "slave " + std::to_string(position) + " (" + props.name +
+                            ")";
+    const auto [syncs, err] = read_assigned_pdos(*this->api, this->ec_master, position);
+    if (err)
+        return x::errors::Error(
+            errors::PDO_DISCOVERY_ERROR,
+            "failed to read the PDO layout of " + slave_name +
+                " after its startup parameters: " + err.data
+        );
+    const auto assignable = [&](const ec_direction_t dir) {
+        return std::ranges::any_of(syncs, [dir](const auto &s) {
+            return !s.fixed && s.dir == dir;
+        });
+    };
+    if (!assignable(EC_DIR_INPUT) && !assignable(EC_DIR_OUTPUT)) return x::errors::NIL;
+    std::vector<std::vector<ec_pdo_info_t>> pdo_infos;
+    pdo_infos.reserve(syncs.size());
+    std::vector<ec_sync_info_t> sync_infos;
+    std::vector<uint8_t> empty_syncs;
+    std::vector<uint16_t> empty_pdos;
+    // A direction with no assignable sync manager keeps the PDOs found at discovery.
+    if (assignable(EC_DIR_INPUT)) props.input_pdos.clear();
+    if (assignable(EC_DIR_OUTPUT)) props.output_pdos.clear();
+    for (const auto &sync: syncs) {
+        if (sync.fixed) {
+            if (assignable(sync.dir)) this->append_scanned_pdos(props, sync.index);
+            continue;
+        }
+        auto &infos = pdo_infos.emplace_back();
+        if (sync.pdos.empty()) empty_syncs.push_back(sync.index);
+        for (const auto &pdo: sync.pdos) {
+            infos.push_back({
+                .index = pdo.index,
+                .n_entries = static_cast<unsigned int>(pdo.entries.size()),
+                .entries = pdo.entries.data(),
+            });
+            if (pdo.entries.empty()) empty_pdos.push_back(pdo.index);
+            for (const auto &entry: pdo.entries)
+                this->append_pdo_entry(
+                    props,
+                    sync.dir == EC_DIR_INPUT,
+                    pdo.index,
+                    entry
+                );
+        }
+        sync_infos.push_back({
+            .index = sync.index,
+            .dir = sync.dir,
+            .n_pdos = static_cast<unsigned int>(infos.size()),
+            .pdos = infos.data(),
+            .watchdog_mode = EC_WD_DEFAULT,
+        });
+    }
+    if (this->api->slave_config_pdos(
+            sc,
+            static_cast<unsigned int>(sync_infos.size()),
+            sync_infos.data()
+        ) < 0)
+        return x::errors::Error(
+            errors::PDO_MAPPING_ERROR,
+            "failed to configure the PDOs of " + slave_name
+        );
+    // ecrt_slave_config_pdos keeps the default assignment of a sync manager with no
+    // PDOs and the default mapping of a PDO with no entries.
+    for (const auto sync: empty_syncs)
+        if (this->api->slave_config_pdo_assign_clear(sc, sync) < 0)
+            return x::errors::Error(
+                errors::PDO_MAPPING_ERROR,
+                "failed to clear the PDO assignment of " + slave_name
+            );
+    for (const auto pdo: empty_pdos)
+        if (this->api->slave_config_pdo_mapping_clear(sc, pdo) < 0)
+            return x::errors::Error(
+                errors::PDO_MAPPING_ERROR,
+                "failed to clear the PDO mapping of " + slave_name
+            );
+    esi::fill_known_entries(props);
+    std::lock_guard lock(this->mu);
+    this->cached_slaves[position].properties = std::move(props);
+    return x::errors::NIL;
+}
+
+void Master::register_pdo_entries(const uint16_t position, ec_slave_config_t *sc) {
+    std::lock_guard lock(this->mu);
+    const auto &slave = this->cached_slaves[position].properties;
     size_t registered_outputs = 0;
     size_t registered_inputs = 0;
 
@@ -415,9 +741,6 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
             << registered_inputs << " input PDOs"
             << " (output_sz=" << this->output_sz << ", input_sz=" << this->input_sz
             << ")";
-
-    this->slave_configs[position] = sc;
-    return sc;
 }
 
 std::string Master::read_pdo_entry_name(
@@ -429,6 +752,82 @@ std::string Master::read_pdo_entry_name(
     (void) index;
     (void) subindex;
     return "";
+}
+
+void Master::append_scanned_pdos(slave::Properties &props, const uint8_t sync_index) {
+    ec_sync_info_t sync_info{};
+    if (this->api->master_get_sync_manager(
+            this->ec_master,
+            props.position,
+            sync_index,
+            &sync_info
+        ) != 0)
+        return;
+    const bool is_input = sync_info.dir == EC_DIR_INPUT;
+    for (unsigned int pdo_pos = 0; pdo_pos < sync_info.n_pdos; ++pdo_pos) {
+        ec_pdo_info_t pdo_info{};
+        if (this->api->master_get_pdo(
+                this->ec_master,
+                props.position,
+                sync_index,
+                static_cast<uint16_t>(pdo_pos),
+                &pdo_info
+            ) != 0)
+            continue;
+        for (unsigned int entry_pos = 0; entry_pos < pdo_info.n_entries; ++entry_pos) {
+            ec_pdo_entry_info_t entry_info{};
+            if (this->api->master_get_pdo_entry(
+                    this->ec_master,
+                    props.position,
+                    sync_index,
+                    static_cast<uint16_t>(pdo_pos),
+                    static_cast<uint16_t>(entry_pos),
+                    &entry_info
+                ) != 0)
+                continue;
+            this->append_pdo_entry(props, is_input, pdo_info.index, entry_info);
+        }
+    }
+}
+
+void Master::append_pdo_entry(
+    slave::Properties &props,
+    const bool is_input,
+    const uint16_t pdo_index,
+    const ec_pdo_entry_info_t &entry_info
+) {
+    auto &pdos = is_input ? props.input_pdos : props.output_pdos;
+    if (entry_info.index == 0) {
+        pdos.push_back({
+            .pdo_index = pdo_index,
+            .bit_length = entry_info.bit_length,
+            .is_input = is_input,
+        });
+        return;
+    }
+    const x::telem::DataType data_type = telem::infer_type_from_bit_length(
+        entry_info.bit_length
+    );
+    const std::string coe_name = this->read_pdo_entry_name(
+        props.position,
+        entry_info.index,
+        entry_info.subindex
+    );
+    pdos.emplace_back(
+        pdo_index,
+        entry_info.index,
+        entry_info.subindex,
+        entry_info.bit_length,
+        is_input,
+        telem::generate_pdo_entry_name(
+            coe_name,
+            entry_info.index,
+            entry_info.subindex,
+            is_input,
+            data_type
+        ),
+        data_type
+    );
 }
 
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
@@ -463,88 +862,8 @@ void Master::read_slave_pdos(slave::DiscoveryResult &slave) {
         return;
     }
 
-    for (uint8_t sm_idx = 0; sm_idx < slave_info.sync_count; ++sm_idx) {
-        ec_sync_info_t sync_info{};
-        if (this->api->master_get_sync_manager(
-                this->ec_master,
-                props.position,
-                sm_idx,
-                &sync_info
-            ) != 0)
-            continue;
-
-        const bool is_input = (sync_info.dir == EC_DIR_INPUT);
-
-        for (unsigned int pdo_pos = 0; pdo_pos < sync_info.n_pdos; ++pdo_pos) {
-            ec_pdo_info_t pdo_info{};
-            if (this->api->master_get_pdo(
-                    this->ec_master,
-                    props.position,
-                    sm_idx,
-                    static_cast<uint16_t>(pdo_pos),
-                    &pdo_info
-                ) != 0)
-                continue;
-
-            for (unsigned int entry_pos = 0; entry_pos < pdo_info.n_entries;
-                 ++entry_pos) {
-                ec_pdo_entry_info_t entry_info{};
-                if (this->api->master_get_pdo_entry(
-                        this->ec_master,
-                        props.position,
-                        sm_idx,
-                        static_cast<uint16_t>(pdo_pos),
-                        static_cast<uint16_t>(entry_pos),
-                        &entry_info
-                    ) != 0)
-                    continue;
-
-                if (entry_info.index == 0) {
-                    pdo::Properties gap{
-                        .pdo_index = pdo_info.index,
-                        .bit_length = entry_info.bit_length,
-                        .is_input = is_input,
-                    };
-                    if (is_input)
-                        props.input_pdos.push_back(gap);
-                    else
-                        props.output_pdos.push_back(gap);
-                    continue;
-                }
-
-                const x::telem::DataType data_type = telem::infer_type_from_bit_length(
-                    entry_info.bit_length
-                );
-                const std::string coe_name = this->read_pdo_entry_name(
-                    props.position,
-                    entry_info.index,
-                    entry_info.subindex
-                );
-                const std::string name = telem::generate_pdo_entry_name(
-                    coe_name,
-                    entry_info.index,
-                    entry_info.subindex,
-                    is_input,
-                    data_type
-                );
-
-                pdo::Properties entry(
-                    pdo_info.index,
-                    entry_info.index,
-                    entry_info.subindex,
-                    entry_info.bit_length,
-                    is_input,
-                    name,
-                    data_type
-                );
-
-                if (is_input)
-                    props.input_pdos.push_back(entry);
-                else
-                    props.output_pdos.push_back(entry);
-            }
-        }
-    }
+    for (uint8_t sm_idx = 0; sm_idx < slave_info.sync_count; ++sm_idx)
+        this->append_scanned_pdos(props, sm_idx);
 
     status.pdos_discovered = true;
     props.coe_pdo_order_reliable = true;

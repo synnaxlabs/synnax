@@ -11,18 +11,20 @@ package log_test
 
 import (
 	"encoding/json/v2"
+	"fmt"
 	"os"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
@@ -30,10 +32,21 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// envelope unmarshals the wire-format envelope in raw.
+func envelope(raw string) imex.Envelope {
+	GinkgoHelper()
+	var env imex.Envelope
+	Expect(json.Unmarshal([]byte(raw), &env)).To(Succeed())
+	return env
+}
+
 var _ = Describe("ImEx", func() {
 	createLog := func(ctx SpecContext, l log.Log) log.Log {
 		GinkgoHelper()
-		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+		l.Project = &proj.Key
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &l)
+		})).To(Succeed())
 		return l
 	}
 
@@ -60,14 +73,14 @@ var _ = Describe("ImEx", func() {
 					Name: "exported",
 					Channels: []log.ChannelEntry{
 						{
-							Channel: channel.Key(1),
+							Channel: ch1,
 							Color:   MustSucceed(color.FromHex("#ff0000")),
 						},
 					},
 					TimestampPrecision: 2,
 					ChannelNamesHidden: true,
 				})
-				env := MustSucceed(imexSvc.Export(ctx, l.OntologyID()))
+				env := MustSucceed(imexSvc.Export(ctx, db, l.ResourceID()))
 				Expect(env.Version).To(Equal(versions.Latest))
 				Expect(env.Type).To(Equal("log"))
 				Expect(env.Name).To(Equal("exported"))
@@ -77,19 +90,19 @@ var _ = Describe("ImEx", func() {
 				Expect(decoded.TimestampPrecision).To(Equal(uint8(2)))
 				Expect(decoded.ChannelNamesHidden).To(BeTrue())
 				Expect(decoded.Channels).To(HaveLen(1))
-				Expect(decoded.Channels[0].Channel).To(Equal(channel.Key(1)))
+				Expect(decoded.Channels[0].Channel).To(Equal(ch1))
 			},
 		)
 
 		It(
 			"Should return not found when the log does not exist",
 			func(ctx SpecContext) {
-				id := ontology.ID{
-					Type: ontology.ResourceTypeLog,
+				id := resource.ID{
+					Type: resource.TypeLog,
 					Key:  uuid.New().String(),
 				}
 				Expect(
-					imexSvc.Export(ctx, id),
+					imexSvc.Export(ctx, db, id),
 				).Error().
 					To(MatchError(query.ErrNotFound))
 			},
@@ -98,9 +111,9 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should return an error when the id key is not a valid UUID",
 			func(ctx SpecContext) {
-				id := ontology.ID{Type: ontology.ResourceTypeLog, Key: "not-a-uuid"}
+				id := resource.ID{Type: resource.TypeLog, Key: "not-a-uuid"}
 				Expect(
-					imexSvc.Export(ctx, id),
+					imexSvc.Export(ctx, db, id),
 				).Error().
 					To(MatchError(ContainSubstring("uuid")))
 			},
@@ -108,23 +121,20 @@ var _ = Describe("ImEx", func() {
 	})
 
 	Describe("Import", func() {
-		const (
-			v0Fixture = "versions/testdata/import_v0.json"
-			v1Fixture = "versions/testdata/import_v1.json"
-			v2Fixture = "versions/testdata/import_v2.json"
-		)
+		const v2Fixture = "versions/testdata/import_v2.json"
 
-		importAndRetrieve := func(ctx SpecContext, path string) (ontology.ID, log.Log) {
+		importAndRetrieve := func(
+			ctx SpecContext,
+			env imex.Envelope,
+		) (resource.ID, log.Log) {
 			GinkgoHelper()
-			id := MustSucceed(
-				imexSvc.Import(
-					ctx,
-					db,
-					LoadEnvelope(path),
-					imex.ImportOptions{Parent: proj.OntologyID()},
-				),
-			)
-			Expect(id.Type).To(Equal(ontology.ResourceTypeLog))
+			var id resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				id, err = imexSvc.Import(ctx, tx, env,
+					imex.ImportOptions{Parent: proj.ResourceID()})
+				return err
+			})).To(Succeed())
+			Expect(id.Type).To(Equal(resource.TypeLog))
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res log.Log
 			Expect(
@@ -137,12 +147,19 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should import a legacy v0 envelope, lifting bare channel keys forward",
 			func(ctx SpecContext) {
-				_, res := importAndRetrieve(ctx, v0Fixture)
+				_, res := importAndRetrieve(ctx, envelope(fmt.Sprintf(`{
+					"version": "0.0.0",
+					"type": "log",
+					"key": "660e8400-e29b-41d4-a716-446655440000",
+					"name": "Test Log V0",
+					"channels": [%d, %d, %d],
+					"remoteCreated": true
+				}`, ch1, ch2, ch3)))
 				Expect(res.Name).To(Equal("Test Log V0"))
 				Expect(res.Channels).To(HaveLen(3))
-				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
-				Expect(res.Channels[1].Channel).To(Equal(channel.Key(2)))
-				Expect(res.Channels[2].Channel).To(Equal(channel.Key(3)))
+				Expect(res.Channels[0].Channel).To(Equal(ch1))
+				Expect(res.Channels[1].Channel).To(Equal(ch2))
+				Expect(res.Channels[2].Channel).To(Equal(ch3))
 				Expect(res.Channels[0].Notation).To(Equal(notation.NotationStandard))
 			},
 		)
@@ -150,16 +167,21 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should import a typeless v0 state through the body matcher",
 			func(ctx SpecContext) {
-				id := MustSucceed(imexSvc.Import(
-					ctx,
-					db,
-					LoadEnvelope("versions/testdata/import_v0_state.json"),
-					imex.ImportOptions{
-						FileName: "Legacy Log.json",
-						Parent:   proj.OntologyID(),
-					},
-				))
-				Expect(id.Type).To(Equal(ontology.ResourceTypeLog))
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, envelope(fmt.Sprintf(`{
+						"version": "0.0.0",
+						"key": "770e8400-e29b-41d4-a716-446655440000",
+						"channels": [%d, %d],
+						"remoteCreated": false
+					}`, ch4, ch5)),
+						imex.ImportOptions{
+							FileName: "Legacy Log.json",
+							Parent:   proj.ResourceID(),
+						})
+					return err
+				})).To(Succeed())
+				Expect(id.Type).To(Equal(resource.TypeLog))
 				key := MustSucceed(uuid.Parse(id.Key))
 				var res log.Log
 				Expect(
@@ -171,40 +193,91 @@ var _ = Describe("ImEx", func() {
 					To(Succeed())
 				Expect(res.Name).To(Equal("Legacy Log"))
 				Expect(res.Channels).To(HaveLen(2))
-				Expect(res.Channels[0].Channel).To(Equal(channel.Key(4)))
-				Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
+				Expect(res.Channels[0].Channel).To(Equal(ch4))
+				Expect(res.Channels[1].Channel).To(Equal(ch5))
 			},
 		)
 
 		It(
 			"Should import a legacy v1 envelope carrying camelCase keys",
 			func(ctx SpecContext) {
-				_, res := importAndRetrieve(ctx, v1Fixture)
+				_, res := importAndRetrieve(ctx, envelope(fmt.Sprintf(`{
+					"version": "1.0.0",
+					"type": "log",
+					"key": "550e8400-e29b-41d4-a716-446655440000",
+					"name": "Test Log V1",
+					"channels": [
+						{
+							"channel": %d,
+							"color": "#ff0000",
+							"notation": "scientific",
+							"precision": 2,
+							"alias": "temp"
+						},
+						{
+							"channel": %d,
+							"color": "",
+							"notation": "standard",
+							"precision": -1,
+							"alias": ""
+						}
+					],
+					"remoteCreated": false,
+					"timestampPrecision": 1,
+					"showChannelNames": true,
+					"showReceiptTimestamp": false
+				}`, ch1, ch5)))
 				Expect(res.Name).To(Equal("Test Log V1"))
 				Expect(res.TimestampPrecision).To(Equal(uint8(1)))
 				Expect(res.ChannelNamesHidden).To(BeFalse())
 				Expect(res.TimestampsHidden).To(BeTrue())
 				Expect(res.Channels).To(HaveLen(2))
-				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
+				Expect(res.Channels[0].Channel).To(Equal(ch1))
 				Expect(
 					res.Channels[0].Color,
 				).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
 				Expect(res.Channels[0].Notation).To(Equal(notation.NotationScientific))
 				Expect(res.Channels[0].Precision).To(Equal(new(uint8(2))))
 				Expect(res.Channels[0].Alias).To(Equal("temp"))
-				Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
+				Expect(res.Channels[1].Channel).To(Equal(ch5))
 			},
 		)
 
 		It(
 			"Should import a v2 envelope carrying snake_case keys",
 			func(ctx SpecContext) {
-				_, res := importAndRetrieve(ctx, v2Fixture)
+				_, res := importAndRetrieve(ctx, envelope(fmt.Sprintf(`{
+					"version": 2,
+					"type": "log",
+					"key": "11111111-2222-3333-4444-555555555555",
+					"name": "Test Log V2",
+					"channels": [
+						{
+							"channel": %d,
+							"color": {"r": 127, "g": 29, "b": 29, "a": 1},
+							"notation": "scientific",
+							"precision": 2,
+							"alias": "temp",
+							"timestamp": {"format": "ISO", "tz": "UTC"}
+						},
+						{
+							"channel": %d,
+							"color": {"r": 0, "g": 0, "b": 0, "a": 0},
+							"notation": "standard",
+							"precision": -1,
+							"alias": "",
+							"timestamp": {"format": "", "tz": ""}
+						}
+					],
+					"timestamp_precision": 1,
+					"channel_names_hidden": false,
+					"receipt_timestamp_hidden": true
+				}`, ch1, ch5)))
 				Expect(res.Name).To(Equal("Test Log V2"))
 				Expect(res.TimestampPrecision).To(Equal(uint8(1)))
 				Expect(res.ChannelNamesHidden).To(BeFalse())
 				Expect(res.Channels).To(HaveLen(2))
-				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
+				Expect(res.Channels[0].Channel).To(Equal(ch1))
 				Expect(
 					res.Channels[0].Color,
 				).To(Equal(MustSucceed(color.FromHex("#7f1d1d"))))
@@ -214,48 +287,45 @@ var _ = Describe("ImEx", func() {
 				Expect(
 					res.Channels[0].TimestampConfig.Format,
 				).To(Equal(telem.TimestampFormatISO))
-				Expect(
-					res.Channels[0].TimestampConfig.TimeZone,
-				).To(Equal(telem.TimeZoneUTC))
-				Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
+				Expect(res.Channels[0].TimestampConfig.TimeZone).To(Equal(telem.TimeZoneUTC))
+				Expect(res.Channels[1].Channel).To(Equal(ch5))
 			},
 		)
 
-		It("Should register the imported log in the ontology", func(ctx SpecContext) {
-			id, _ := importAndRetrieve(ctx, v2Fixture)
-			var resource ontology.Resource
-			Expect(otg.NewRetrieve().WhereIDs(id).Entry(&resource).Exec(ctx, db)).
-				To(Succeed())
-			Expect(resource.ID).To(Equal(id))
+		It("Should retrieve the imported log as a resource", func(ctx SpecContext) {
+			id, l := importAndRetrieve(ctx, LoadEnvelope(v2Fixture))
+			Expect(svc.Resources().Retrieve(ctx, db, []resource.ID{id})).
+				To(ConsistOf(resource.Resource{ID: id, Name: l.Name}))
 		})
 
 		It(
-			"Should create the imported log under the parent project from the options",
+			"Should give the imported log the parent project from the options",
 			func(ctx SpecContext) {
-				id := MustSucceed(imexSvc.Import(
-					ctx, db, LoadEnvelope(v2Fixture),
-					imex.ImportOptions{Parent: proj.OntologyID()},
-				))
-				Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
-					From: proj.OntologyID(),
-					Type: ontology.RelationshipTypeParentOf,
-					To:   id,
-				})).To(BeTrue())
+				_, l := importAndRetrieve(ctx, LoadEnvelope(v2Fixture))
+				Expect(l.Project).To(HaveValue(Equal(proj.Key)))
+				Expect(l.Range).To(BeNil())
 			},
 		)
 
 		It("Should reject a parent project that does not exist", func(ctx SpecContext) {
-			Expect(imexSvc.Import(
-				ctx, db, LoadEnvelope(v2Fixture),
-				imex.ImportOptions{Parent: project.OntologyID(uuid.New())},
-			)).Error().To(MatchError(query.ErrNotFound))
+			missing := uuid.New()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := imexSvc.Import(ctx, tx, LoadEnvelope(v2Fixture),
+					imex.ImportOptions{Parent: project.ResourceID(missing)})
+				return err
+			})).To(MatchError(
+				ContainSubstring(
+					"project: project " + missing.String() + " does not exist",
+				),
+			))
 		})
 
 		It("Should reject a parent that is not a project", func(ctx SpecContext) {
-			Expect(imexSvc.Import(
-				ctx, db, LoadEnvelope(v2Fixture),
-				imex.ImportOptions{Parent: ontology.ID{Type: "group", Key: "g1"}},
-			)).Error().To(SatisfyAll(
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := imexSvc.Import(ctx, tx, LoadEnvelope(v2Fixture),
+					imex.ImportOptions{Parent: resource.ID{Type: "group", Key: "g1"}})
+				return err
+			})).To(SatisfyAll(
 				MatchError(ContainSubstring("parent: must be a project")),
 				MatchError(ContainSubstring("validation error")),
 			))
@@ -272,15 +342,15 @@ var _ = Describe("ImEx", func() {
 				Expect(
 					json.Unmarshal(MustSucceed(json.Marshal(body)), &env),
 				).To(Succeed())
-				id := MustSucceed(imexSvc.Import(
-					ctx,
-					db,
-					env,
-					imex.ImportOptions{
-						FileName: "From File.json",
-						Parent:   proj.OntologyID(),
-					},
-				))
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, env,
+						imex.ImportOptions{
+							FileName: "From File.json",
+							Parent:   proj.ResourceID(),
+						})
+					return err
+				})).To(Succeed())
 				key := MustSucceed(uuid.Parse(id.Key))
 				var res log.Log
 				Expect(
@@ -297,35 +367,69 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should generate a fresh key, discarding the key on the wire",
 			func(ctx SpecContext) {
-				id := MustSucceed(
-					imexSvc.Import(
-						ctx,
-						db,
-						LoadEnvelope(v2Fixture),
-						imex.ImportOptions{Parent: proj.OntologyID()},
-					),
-				)
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, LoadEnvelope(v2Fixture),
+						imex.ImportOptions{Parent: proj.ResourceID()})
+					return err
+				})).To(Succeed())
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
 		)
 
+		It(
+			"Should refuse a group that is not in the parent project",
+			func(ctx SpecContext) {
+				other := project.Project{Name: "other"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return projectSvc.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				g := group.Group{
+					Name:   "in other",
+					Parent: new(project.ResourceID(other.Key)),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return groupSvc.NewWriter(tx).Create(ctx, &g)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(ctx, tx, LoadEnvelope(v2Fixture),
+						imex.ImportOptions{Parent: proj.ResourceID(), Group: &g.Key})
+					return err
+				})).To(SatisfyAll(
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"group: group %s is not in project %s", g.Key, proj.Key,
+					))),
+					MatchError(ContainSubstring("validation error")),
+				))
+				Expect(svc.NewRetrieve().
+					Where(log.MatchGroups(g.Key)).
+					Count(ctx, db)).To(BeZero())
+			},
+		)
+
 		It("Should reject a zero parent", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, db,
-				LoadEnvelope(v2Fixture),
-				imex.ImportOptions{},
-			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("parent")),
-				MatchError(ContainSubstring("required")),
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := imexSvc.Import(ctx, tx, LoadEnvelope(v2Fixture),
+					imex.ImportOptions{})
+				return err
+			})).To(SatisfyAll(
+				MatchError(ContainSubstring(`parent: must be a project, got ""`)),
+				MatchError(ContainSubstring("validation error")),
 			))
 		})
 
 		It(
 			"Should reject an envelope newer than the supported version",
 			func(ctx SpecContext) {
-				Expect(imexSvc.Import(ctx, db,
-					LoadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{Parent: proj.OntologyID()},
-				)).Error().To(SatisfyAll(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(
+						ctx,
+						tx,
+						LoadEnvelope("versions/testdata/import_bad_version.json"),
+						imex.ImportOptions{Parent: proj.ResourceID()},
+					)
+					return err
+				})).To(SatisfyAll(
 					MatchError(ContainSubstring("log version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
 				))
@@ -335,10 +439,15 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should return an error when a current-version body cannot be decoded",
 			func(ctx SpecContext) {
-				Expect(imexSvc.Import(ctx, db,
-					LoadEnvelope("versions/testdata/import_bad_v2.json"),
-					imex.ImportOptions{Parent: proj.OntologyID()},
-				)).Error().To(MatchError(ContainSubstring("decode")))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(
+						ctx,
+						tx,
+						LoadEnvelope("versions/testdata/import_bad_v2.json"),
+						imex.ImportOptions{Parent: proj.ResourceID()},
+					)
+					return err
+				})).To(MatchError(ContainSubstring("decode")))
 			},
 		)
 	})
@@ -351,24 +460,22 @@ var _ = Describe("ImEx", func() {
 					Name: "round-trip",
 					Channels: []log.ChannelEntry{
 						{
-							Channel:   channel.Key(1),
+							Channel:   ch1,
 							Alias:     "first",
 							Precision: new(uint8(4)),
 						},
-						{Channel: channel.Key(2), Alias: "second"},
+						{Channel: ch2, Alias: "second"},
 					},
 					TimestampPrecision: 1,
 					TimestampsHidden:   true,
 				})
-				env := MustSucceed(imexSvc.Export(ctx, original.OntologyID()))
-				id := MustSucceed(
-					imexSvc.Import(
-						ctx,
-						db,
-						WireRoundTrip(env),
-						imex.ImportOptions{Parent: proj.OntologyID()},
-					),
-				)
+				env := MustSucceed(imexSvc.Export(ctx, db, original.ResourceID()))
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),
+						imex.ImportOptions{Parent: proj.ResourceID()})
+					return err
+				})).To(Succeed())
 
 				key := MustSucceed(uuid.Parse(id.Key))
 				var res log.Log

@@ -62,7 +62,7 @@ export const TaskControls = () => {
             value={bound ? taskRack : undefined}
             onChange={handleRackChange}
             location="top"
-            initialQuery={INITIAL_RACK_QUERY}
+            query={INITIAL_RACK_QUERY}
             triggerProps={RACK_TRIGGER_PROPS}
             dialogProps={RACK_DIALOG_PROPS}
           />

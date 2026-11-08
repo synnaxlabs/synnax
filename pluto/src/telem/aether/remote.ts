@@ -241,7 +241,7 @@ class ChannelValue<V>
   }
 }
 
-type SelectedChannelProperties = Pick<channel.Payload, "key" | "dataType">;
+type SelectedChannelProperties = Pick<channel.Payload, "key" | "dataType" | "isIndex">;
 
 // A channel with no index draws itself, so the cache reports why it cannot draw.
 const fetchChannelProperties = async (
@@ -251,8 +251,8 @@ const fetchChannelProperties = async (
 ): Promise<SelectedChannelProperties> => {
   const c = await client.channels.retrieve(ch);
   if (!fetchIndex || c.isIndex || c.index === 0)
-    return { key: c.key, dataType: c.dataType };
-  return { key: c.index, dataType: DataType.TIMESTAMP };
+    return { key: c.key, dataType: c.dataType, isIndex: c.isIndex };
+  return { key: c.index, dataType: DataType.TIMESTAMP, isIndex: true };
 };
 
 const channelDataPropsZ = z.object({
@@ -356,10 +356,12 @@ export class ChannelData
         : this.readDraw(client, ch.key, view, points != null);
     const status = this.status();
     this.failures.observe(status);
+    // Cesium finds time in an index channel by binary search, so its samples ascend.
     return {
       data: [this.dataBounds(ch, series, time), series],
       status,
       aggregation: this.aggregation(),
+      sorted: ch.isIndex,
     };
   }
 

@@ -35,8 +35,8 @@ import (
 var Cmd = &cobra.Command{
 	Use:     "start",
 	Short:   "Starts a Synnax Core",
-	Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag. If --peers is specified and no existing data is found, the Core will attempt to join the cluster formed by its peers. If no peers are specified and no existing data is found, the Core will bootstrap a new cluster.",
-	Example: "synnax start --listen localhost:9091 --data /mnt/ssd1 --peers localhost:9092,localhost:9093 --insecure",
+	Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag.",
+	Example: "synnax start --listen localhost:9091 --data /mnt/ssd1 --insecure",
 	Args:    cobra.NoArgs,
 	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		return viper.BindPFlags(cmd.Flags())
@@ -148,12 +148,6 @@ func readLicenseKey() (string, error) {
 // This is used by the Windows service to start the Core with the config loaded from
 // a YAML file.
 func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
-	peers := lo.Map(
-		viper.GetStringSlice(FlagPeers),
-		func(peer string, _ int) address.Address {
-			return address.Address(peer)
-		},
-	)
 	factoryCfg := cert.BuildCertFactoryConfig(ins)
 	listeners, err := listener.Parse()
 	if err != nil {
@@ -178,7 +172,6 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		licenseKey:          licenseKey,
 		memBacked:           new(viper.GetBool(FlagMem)),
 		listeners:           listeners,
-		peers:               peers,
 		dataPath:            viper.GetString(FlagData),
 		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
 		sessionIdleTimeout:  viper.GetDuration(FlagSessionIdleTimeout),

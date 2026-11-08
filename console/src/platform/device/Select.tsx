@@ -71,7 +71,7 @@ export const Select = ({
   icon,
   connect,
 }: SelectProps) => {
-  const canConnect = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
+  const canConnect = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
   const handleChange = useHandleChange(onConfigure);
   const [visible, setVisible] = useState(false);
   Form.useFocusHandler(path, () => setVisible(true));
@@ -91,7 +91,7 @@ export const Select = ({
         <Device.SelectSingle
           value={value}
           onChange={onChange}
-          initialQuery={{ where: { make: { eq: make } } }}
+          query={{ where: { make: { eq: make } } }}
           filter={filter}
           emptyContent={emptyContent}
           grow

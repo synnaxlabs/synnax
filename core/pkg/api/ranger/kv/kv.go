@@ -13,12 +13,10 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -28,10 +26,6 @@ type Pair = kv.Pair
 
 // ServiceConfig is the configuration for the range key-value API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// KV stores and retrieves key-value pairs on ranges.
 	//
 	// [REQUIRED]
@@ -47,7 +41,6 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.KV = override.Nil(c.KV, other.KV)
 	return c
 }
@@ -55,14 +48,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.ranger.kv")
-	v.NotNil("rbac", c.RBAC)
 	v.NotNil("kv", c.KV)
 	return v.Error()
 }
 
 type Service struct {
-	access *rbac.Service
-	kv     *kv.Service
+	kv *kv.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -71,8 +62,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access: cfg.RBAC,
-		kv:     cfg.KV,
+		kv: cfg.KV,
 	}, nil
 }
 
@@ -86,15 +76,21 @@ type (
 	}
 )
 
-func (s *Service) Get(ctx context.Context, req GetRequest) (GetResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
-	}); err != nil {
-		return GetResponse{}, err
-	}
-	reader := s.kv.NewReader(nil)
+var _ bind.Named = GetRequest{}
+
+// Named implements bind.Named. It names the range that holds the pairs.
+func (r GetRequest) Named() []resource.ID {
+	return []resource.ID{ranger.ResourceID(r.Range)}
+}
+
+// Get returns the pairs of the range with the given keys, or every pair of the range
+// when Keys is empty.
+func (s *Service) Get(
+	ctx context.Context,
+	snap bind.Snapshot,
+	req GetRequest,
+) (GetResponse, error) {
+	reader := s.kv.NewReader(snap)
 	var (
 		pairs []kv.Pair
 		err   error
@@ -115,18 +111,12 @@ type SetRequest struct {
 	Range ranger.Key `json:"range" msgpack:"range"`
 }
 
+// Set creates or updates the key-value pairs. Each pair names its own range.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.kv.NewWriter(tx).SetMany(ctx, req.Pairs)
 }
 
@@ -135,18 +125,13 @@ type DeleteRequest struct {
 	Range ranger.Key `json:"range" msgpack:"range"`
 }
 
+// Delete deletes the pairs with the given keys from the range. A key that matches no
+// pair is ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	w := s.kv.NewWriter(tx)
 	for _, key := range req.Keys {
 		if err := w.Delete(ctx, req.Range, key); err != nil {

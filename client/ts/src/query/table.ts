@@ -212,6 +212,7 @@ export class Table<
   private interceptor: Interceptor<Key, Value> | null = null;
   private writeSeq = 0;
   private resetSeq = 0;
+  private changes = 0;
   // Holds a stamp only for present and tombstoned entries: applyDelete drops the stamp
   // of any other key, so the map never outgrows them.
   private readonly writeStamps = new Map<Key, Stamp>();
@@ -397,6 +398,14 @@ export class Table<
    */
   stamp(): Stamp {
     return this.writeSeq;
+  }
+
+  /**
+   * Counts the changes the table has delivered to its subscribers, plus resets. An
+   * unchanged version means no entry was set, ingested, deleted, or reset in between.
+   */
+  version(): number {
+    return this.changes;
   }
 
   private setIfAbsent(values: Array<Keyed<Key, Value>>): destructor.Destructor {
@@ -712,6 +721,7 @@ export class Table<
    * runs discard their results.
    */
   reset(): void {
+    this.changes++;
     this.resetSeq = ++this.writeSeq;
     this.entries.clear();
     this.tombstones.clear();
@@ -776,6 +786,7 @@ export class Table<
   }
 
   private notify(event: TableEvent<Key, Value>) {
+    this.changes++;
     if (this.batching != null) {
       this.batching.push(event);
       return;

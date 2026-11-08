@@ -39,21 +39,33 @@ func (ip *indexPersist) load() ([]pointer, error) {
 	return ip.p.load()
 }
 
-// prepare encodes the pointers from start on, so the returned write can run after the
-// pointers change. Prepared writes run in the order they prepare, so the caller must
-// hold idx.mu and must run the returned write.
+// prepare encodes the pointers from start or from the first unpersisted pointer, if
+// earlier, so the returned write can run after the pointers change. Prepared writes run
+// in the order they prepare, so the caller must hold idx.mu for writing and must run
+// the returned write.
 func (ip *indexPersist) prepare(start int) preparedWrite {
+	ticket := ip.p.tickets.Add(1) - 1
+	start = min(start, ip.idx.persistHead)
+	// A failed write can leave any range of the file stale.
+	if ip.p.uncovered(ip.p.rewritten) {
+		start = 0
+	}
+	if start == 0 {
+		ip.p.rewritten = ticket + 1
+	}
+	ip.idx.persistHead = len(ip.idx.mu.pointers)
 	buf, ok := ip.p.buffers.Get().(*[]byte)
 	if !ok {
 		buf = new([]byte)
 	}
 	*buf = ip.p.encode(*buf, start, ip.idx.mu.pointers)
 	return preparedWrite{
-		p:      ip.p,
-		buf:    buf,
-		start:  start,
-		count:  len(ip.idx.mu.pointers),
-		ticket: ip.p.tickets.Add(1) - 1,
+		p:         ip.p,
+		buf:       buf,
+		start:     start,
+		count:     len(ip.idx.mu.pointers),
+		ticket:    ticket,
+		rewritten: ip.p.rewritten,
 	}
 }
 
@@ -64,12 +76,19 @@ type preparedWrite struct {
 	start  int
 	count  int
 	ticket uint64
+	// rewritten is pointerPersist.rewritten when the write prepared.
+	rewritten uint64
 }
 
-func (w preparedWrite) run() error {
+func (w preparedWrite) run() (err error) {
 	defer w.p.buffers.Put(w.buf)
 	w.p.Lock()
 	defer w.p.Unlock()
+	defer func() {
+		if err != nil {
+			w.p.failed.Store(w.ticket + 1)
+		}
+	}()
 	for w.p.nextTicket != w.ticket {
 		w.p.ticketDone.Wait()
 	}
@@ -77,10 +96,15 @@ func (w preparedWrite) run() error {
 		w.p.nextTicket++
 		w.p.ticketDone.Broadcast()
 	}()
+	// A write failed after the last full rewrite this one follows, so a partial write
+	// cannot restore the pointers that write left out. The next prepare rewrites them.
+	if w.start > 0 && w.p.uncovered(w.rewritten) {
+		return ErrIndexWriteFailed
+	}
 	if err := w.p.Truncate(int64(w.count) * pointerByteSize); err != nil {
 		return err
 	}
-	_, err := w.p.WriteAt(*w.buf, int64(w.start*pointerByteSize))
+	_, err = w.p.WriteAt(*w.buf, int64(w.start*pointerByteSize))
 	return err
 }
 
@@ -99,6 +123,18 @@ type pointerPersist struct {
 	tickets    atomic.Uint64
 	ticketDone sync.Cond
 	nextTicket uint64
+	// failed is one more than the ticket of the last write that failed, or zero.
+	failed atomic.Uint64
+	// rewritten is one more than the ticket of the last write that prepared every
+	// pointer, or zero. Guarded by idx.mu.
+	rewritten uint64
+}
+
+// uncovered returns whether a write failed at or after the full rewrite that
+// rewritten names, so the file can hold stale pointers that rewrite does not replace.
+func (p *pointerPersist) uncovered(rewritten uint64) bool {
+	failed := p.failed.Load()
+	return failed > 0 && failed >= rewritten
 }
 
 func openPointerPersist(fs fs.FS) (*pointerPersist, error) {

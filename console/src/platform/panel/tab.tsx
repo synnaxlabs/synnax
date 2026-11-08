@@ -9,8 +9,8 @@
 
 import {
   NotFoundError,
-  type ontology,
   type project,
+  type resource,
   type Synnax,
 } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
@@ -36,7 +36,7 @@ export interface Content extends FC<record.Empty> {}
 export interface RestoreParams {
   client: Synnax;
   project: project.Key;
-  resource: ontology.ID;
+  resource: resource.ID;
 }
 
 export interface ResourceGuardProps {
@@ -149,8 +149,8 @@ export const createStaticTabName = ({
 export const tabNameID = (tabKey: string): string => `tab-name-${tabKey}`;
 
 /**
- * editTabName starts an in-place edit of the tab's name. Tabs with static names carry no
- * id, so editing one is a no-op.
+ * editTabName starts an in-place edit of the tab's name. Tabs with static names carry
+ * no id, so editing one is a no-op.
  */
 export const editTabName = (tabKey: string): void => {
   const id = tabNameID(tabKey);

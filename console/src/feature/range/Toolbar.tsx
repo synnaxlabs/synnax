@@ -35,7 +35,7 @@ import { Session } from "@/session";
 
 const NoRanges = (): ReactElement => {
   const openExplorer = Explorer.useOpenTab();
-  const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No favorited ranges"
@@ -93,7 +93,7 @@ const ListItem = (props: BaseList.ItemProps<string>) => {
   const isLocal = entry != null && entry.variant !== "persisted";
   const labels = Ranger.useLabels(isLocal ? null : itemKey) ?? [];
   const onRename = Session.Range.useRename();
-  const hasUpdatePermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
+  const hasUpdatePermission = Access.useUpdateGranted(ranger.resourceID(itemKey));
   if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange } = entry;
   return (
@@ -143,8 +143,8 @@ const listItem = Component.renderProp(ListItem);
 const Actions = (): ReactElement | null => {
   const openExplorer = Explorer.useOpenTab();
   const openCreate = Range.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
-  const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_RESOURCE_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
@@ -183,5 +183,5 @@ export const TOOLBAR: Nav.Toolbar = {
   trigger: ["R"],
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
-  useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(ranger.TYPE_RESOURCE_ID),
 };

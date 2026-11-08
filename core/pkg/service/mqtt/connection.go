@@ -24,6 +24,7 @@ import (
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
@@ -939,6 +940,7 @@ func wait(ctx context.Context, token paho.Token) error {
 // pool holds the shared connection of each broker device. Safe for concurrent use.
 type pool struct {
 	ins     alamos.Instrumentation
+	db      *gorp.DB
 	devices *device.Service
 	conns   map[device.Key]*connection
 	// rebirthInterval is the shortest time between two Sparkplug B rebirth requests to
@@ -950,12 +952,14 @@ type pool struct {
 
 func newPool(
 	ins alamos.Instrumentation,
+	db *gorp.DB,
 	devices *device.Service,
 	rebirthInterval time.Duration,
 	newClient clientFactory,
 ) *pool {
 	return &pool{
 		ins:             ins,
+		db:              db,
 		devices:         devices,
 		conns:           make(map[device.Key]*connection),
 		rebirthInterval: rebirthInterval,
@@ -1020,18 +1024,22 @@ func (p *pool) state(key device.Key) (open, connected bool, err error) {
 	return conn.mu.stop != nil, conn.mu.client != nil, conn.mu.configErr
 }
 
-// live reports whether the broker device key has an open connection with the settings
-// of cfg, and whether that connection is connected.
-func (p *pool) live(key device.Key, cfg clientConfig) (live, connected bool) {
+// running returns the settings of the open connection of the broker device key, and
+// whether that connection is connected. ok is false when the device has no open
+// connection.
+func (p *pool) running(key device.Key) (cfg clientConfig, connected, ok bool) {
 	p.mu.Lock()
-	conn, ok := p.conns[key]
+	conn, found := p.conns[key]
 	p.mu.Unlock()
-	if !ok {
-		return false, false
+	if !found {
+		return clientConfig{}, false, false
 	}
 	conn.mu.Lock()
 	defer conn.mu.Unlock()
-	return conn.mu.stop != nil && conn.mu.cfg.equal(cfg), conn.mu.client != nil
+	if conn.mu.stop == nil {
+		return clientConfig{}, false, false
+	}
+	return conn.mu.cfg, conn.mu.client != nil, true
 }
 
 // reconfigure points the open connection of the broker device key at the current
@@ -1071,10 +1079,12 @@ func (p *pool) refresh(
 		conn.mu.Unlock()
 	}()
 	var dev device.Device
-	if err = p.devices.NewRetrieve().
-		Where(device.MatchKeys(key)).
-		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+	if err = p.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return p.devices.NewRetrieve().
+			Where(device.MatchKeys(key)).
+			Entry(&dev).
+			Exec(ctx, snap)
+	}); err != nil {
 		return err
 	}
 	props, err := parseProperties(dev)
