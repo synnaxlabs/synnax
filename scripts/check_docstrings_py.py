@@ -27,6 +27,7 @@ from pathlib import Path
 SKIPPED_DIRS = {".venv", "node_modules", "build", "dist", "__pycache__"}
 _SECTION = re.compile(r"^\s*(Args|Arguments|Returns|Raises|Yields):(\s|$)")
 _RETURN = re.compile(r"^\s*:return:")
+_OPENING = re.compile(r"""^\s*[rRuUbBfF]*("{3}|'{3}|"|')""")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -64,6 +65,7 @@ def check_file(path: Path, *, root: Path) -> list[Finding]:
     lines = source.split("\n")
     for doc in _docstrings(tree):
         span = lines[doc.lineno - 1 : doc.end_lineno]
+        span[0] = _OPENING.sub("", span[0], count=1)
         for number, line in enumerate(span, start=doc.lineno):
             if m := _SECTION.match(line):
                 message = f"use Sphinx fields, not a Google {m.group(1)}: section"

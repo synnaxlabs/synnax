@@ -101,6 +101,12 @@ class TestCheck:
             Finding(path="mod.py", line=4, message="use :returns:, not :return:")
         ]
 
+    def test_should_report_a_field_on_the_opening_line(self, tmp_path: Path) -> None:
+        write(tmp_path, {"mod.py": 'def f() -> bool:\n    """:return: True."""\n'})
+        assert check(tmp_path) == [
+            Finding(path="mod.py", line=2, message="use :returns:, not :return:")
+        ]
+
     def test_should_accept_sphinx_fields(self, tmp_path: Path) -> None:
         write(tmp_path, {"mod.py": SPHINX})
         assert check(tmp_path) == []
