@@ -34,10 +34,6 @@ type ServiceConfig struct {
 	// Signals publishes sy_ni_device_set and sy_ni_device_delete.
 	// [OPTIONAL]
 	Signals *signals.Provider
-	// Referenced reports whether a task references the device under key. Delete refuses
-	// while it returns true.
-	// [OPTIONAL] - nil when no task can reference a device.
-	Referenced func(ctx context.Context, tx gorp.Tx, key Key) (bool, error)
 	// Instrumentation is used for logging, tracing, and metrics.
 	// [OPTIONAL]
 	alamos.Instrumentation
@@ -50,7 +46,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.Referenced = override.Nil(c.Referenced, other.Referenced)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -110,11 +105,10 @@ func (s *Service) Close() error { return s.closer.Close() }
 // NewWriter opens a writer that runs its operations in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:         tx,
-		status:     s.cfg.Status.NewWriter(tx),
-		statuses:   s.cfg.Status,
-		table:      s.table,
-		referenced: s.cfg.Referenced,
+		tx:       tx,
+		status:   s.cfg.Status.NewWriter(tx),
+		statuses: s.cfg.Status,
+		table:    s.table,
 	}
 }
 

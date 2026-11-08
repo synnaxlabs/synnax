@@ -18,17 +18,15 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer creates, updates, and deletes NI devices in the transaction given to
 // Service.NewWriter.
 type Writer struct {
-	tx         gorp.Tx
-	status     status.Writer
-	statuses   *status.Service
-	table      *gorp.Table[Key, Device]
-	referenced func(ctx context.Context, tx gorp.Tx, key Key) (bool, error)
+	tx       gorp.Tx
+	status   status.Writer
+	statuses *status.Service
+	table    *gorp.Table[Key, Device]
 }
 
 func (w Writer) setStatus(ctx context.Context, d Device) error {
@@ -105,25 +103,9 @@ func (w Writer) Update(
 	return nil
 }
 
-// Delete removes the devices stored under keys with their statuses. It returns an
-// error wrapping validate.ErrValidation when a task references one of them. Delete is
+// Delete removes the devices stored under keys with their statuses. Delete is
 // idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if w.referenced != nil {
-		for _, key := range keys {
-			referenced, err := w.referenced(ctx, w.tx, key)
-			if err != nil {
-				return err
-			}
-			if referenced {
-				return errors.Wrapf(
-					validate.ErrValidation,
-					"device %s is referenced by a task",
-					key,
-				)
-			}
-		}
-	}
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Device](keys...)).
 		Exec(ctx, w.tx)

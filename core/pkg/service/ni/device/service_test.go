@@ -28,19 +28,17 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
-	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Service", func() {
 	var (
-		stat       *status.Service
-		rackSvc    *rack.Service
-		svc        *device.Service
-		referenced set.Set[device.Key]
-		tx         gorp.Tx
-		rackKey    rack.Key
+		stat    *status.Service
+		rackSvc *rack.Service
+		svc     *device.Service
+		tx      gorp.Tx
+		rackKey rack.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
@@ -54,17 +52,9 @@ var _ = Describe("Service", func() {
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		rackKey = rackSvc.EmbeddedKey
-		referenced = set.New[device.Key]()
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:     db,
 			Status: stat,
-			Referenced: func(
-				_ context.Context,
-				_ gorp.Tx,
-				key device.Key,
-			) (bool, error) {
-				return referenced.Contains(key), nil
-			},
 		}))
 		tx = DeferClose(db.OpenTx())
 	})
@@ -318,14 +308,6 @@ var _ = Describe("Service", func() {
 				Where(status.MatchOwners[device.StatusDetails](device.ResourceID(d.Key))).
 				Entry(&s).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should refuse a device a task references", func(ctx SpecContext) {
-			d := create(ctx)
-			referenced.Add(d.Key)
-			Expect(svc.NewWriter(tx).Delete(ctx, d.Key)).
-				To(MatchError(validate.ErrValidation))
-			Expect(retrieve(ctx, d.Key).Key).To(Equal(d.Key))
 		})
 
 		It("Should succeed for a missing device", func(ctx SpecContext) {
