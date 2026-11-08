@@ -76,6 +76,31 @@ var _ = Describe("Formatter", func() {
 			"sequence main {\n    a := 1 // start\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
 		),
 		Entry(
+			"moves a leading comment with its declaration",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    // start time\n    a := 1\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    // start time\n    a := 1\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a leading block comment with its declaration",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    /* start\n       time */\n    a := 1\n}",
+			"sequence main {\n    /* start\n       time */\n    a := 1\n    stage s {\n        true => next\n    }\n}",
+		),
+		Entry(
+			"places declarations above the first step's leading comment",
+			"sequence main {\n    // first\n    stage s {\n        true => next\n    }\n    a := 1\n}",
+			"sequence main {\n    a := 1\n    // first\n    stage s {\n        true => next\n    }\n}",
+		),
+		Entry(
+			"leaves a comment above a blank line in place",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    // section\n\n    a := 1\n}",
+			"sequence main {\n    a := 1\n    stage s {\n        true => next\n    }\n    // section\n\n}",
+		),
+		Entry(
+			"leaves the previous step's trailing comment in place",
+			"stage main {\n    wait(1s) -> done // first\n    x := 1\n}",
+			"stage main {\n    x := 1\n    wait(1s) -> done // first\n}",
+		),
+		Entry(
 			"leaves top-level declarations alone",
 			"stage main {\n    wait(1s)\n}\ntrue => main\na := 1",
 			"stage main {\n    wait(1s)\n}\ntrue => main\na := 1",
@@ -120,6 +145,11 @@ var _ = Describe("Formatter", func() {
 			"a multi-line declaration moves as a block",
 			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 +\n        2\n    stage t {\n        wait(1s)\n    }\n}",
 			[]formatter.LineMove{{Start: 4, End: 6, Anchor: 1}},
+		),
+		Entry(
+			"a declaration's leading comment moves with it",
+			"sequence main {\n    // first\n    stage s {\n        true => next\n    }\n    // start\n    a := 1\n}",
+			[]formatter.LineMove{{Start: 5, End: 7, Anchor: 1}},
 		),
 		Entry(
 			"no late declaration",

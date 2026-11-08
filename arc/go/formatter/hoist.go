@@ -27,24 +27,29 @@ type LineMove struct {
 	Anchor int
 }
 
-// DeclarationHoists returns the moves that put each late declaration of a sequence
-// or stage body above its first step. Unparsable content yields none, and so does a
-// body whose items share a line with another item or a brace.
+// DeclarationHoists returns the moves that put each late declaration of a sequence or
+// stage body above its first step. A comment block directly above an item moves with
+// it. Unparsable content yields none, and so does a body whose items share a line with
+// another item or a brace.
 func DeclarationHoists(content string) []LineMove {
 	program, diags := parser.Parse(content)
 	if program == nil || (diags != nil && !diags.Ok()) {
 		return nil
 	}
+	comments := ownLineComments(content)
 	var moves []LineMove
 	walk(program, func(node antlr.Tree) {
 		switch body := node.(type) {
 		case parser.ISequenceDeclarationContext:
 			moves = append(
 				moves,
-				bodyHoists(body, bodyItems(body.AllSequenceItem()))...,
+				bodyHoists(body, bodyItems(body.AllSequenceItem()), comments)...,
 			)
 		case parser.IStageBodyContext:
-			moves = append(moves, bodyHoists(body, bodyItems(body.AllStageItem()))...)
+			moves = append(
+				moves,
+				bodyHoists(body, bodyItems(body.AllStageItem()), comments)...,
+			)
 		}
 	})
 	return moves
@@ -92,16 +97,21 @@ func bodyItems[I interface {
 }
 
 // bodyHoists returns one move per declaration that follows the body's first step.
-func bodyHoists(body antlr.ParserRuleContext, items []bodyItem) []LineMove {
+func bodyHoists(
+	body antlr.ParserRuleContext,
+	items []bodyItem,
+	comments map[int]int,
+) []LineMove {
 	if !onSeparateLines(body, items) {
 		return nil
 	}
 	anchor := -1
 	var moves []LineMove
 	for _, item := range items {
+		start := leadingLine(item.node.GetStart().GetLine()-1, comments)
 		if !item.decl {
 			if anchor < 0 {
-				anchor = item.node.GetStart().GetLine() - 1
+				anchor = start
 			}
 			continue
 		}
@@ -109,12 +119,47 @@ func bodyHoists(body antlr.ParserRuleContext, items []bodyItem) []LineMove {
 			continue
 		}
 		moves = append(moves, LineMove{
-			Start:  item.node.GetStart().GetLine() - 1,
+			Start:  start,
 			End:    item.node.GetStop().GetLine(),
 			Anchor: anchor,
 		})
 	}
 	return moves
+}
+
+// ownLineComments maps the last line of each comment with no code on its lines to the
+// comment's first line, zero-based.
+func ownLineComments(content string) map[int]int {
+	lexer := parser.NewArcLexer(antlr.NewInputStream(content))
+	starts := make(map[int]int)
+	codeLine := -1
+	for _, tok := range lexer.GetAllTokens() {
+		line := tok.GetLine() - 1
+		end := line + strings.Count(tok.GetText(), "\n")
+		switch tok.GetTokenType() {
+		case parser.ArcLexerWS:
+		case parser.ArcLexerSINGLE_LINE_COMMENT, parser.ArcLexerMULTI_LINE_COMMENT:
+			if line != codeLine {
+				starts[end] = line
+			}
+		default:
+			delete(starts, line)
+			codeLine = end
+		}
+	}
+	return starts
+}
+
+// leadingLine returns the first line of the comment block directly above line, or line
+// when there is none.
+func leadingLine(line int, comments map[int]int) int {
+	for {
+		start, ok := comments[line-1]
+		if !ok {
+			return line
+		}
+		line = start
+	}
 }
 
 // onSeparateLines reports whether no item shares a line with another item or with
