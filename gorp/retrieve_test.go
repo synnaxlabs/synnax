@@ -45,8 +45,9 @@ var _ = Describe("Retrieve", func() {
 			ctx SpecContext,
 			run func(context.Context, gorp.Retrieve[int32, entry]) error,
 		) {
-			Expect(func() { _ = run(ctx, gorp.NewRetrieve[int32, entry]()) }).
-				To(PanicWith(ContainSubstring("nil transaction")))
+			Expect(func() {
+				Expect(run(ctx, gorp.NewRetrieve[int32, entry]())).To(Succeed())
+			}).To(PanicWith(ContainSubstring("nil transaction")))
 		},
 		Entry("Exec", func(ctx context.Context, r gorp.Retrieve[int32, entry]) error {
 			return r.Exec(ctx, nil)
