@@ -322,6 +322,7 @@ TEST(ArcTests, testBasicSequence) {
     task->stop("test_stop", true);
 }
 
+/// @brief it should write the key of a range created by a computed initializer.
 TEST(ArcTests, testComputedRangeKeyWrite) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 

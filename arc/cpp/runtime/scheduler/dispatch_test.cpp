@@ -252,6 +252,7 @@ TEST_F(SchedulerTest, ReFiresAnEntryNodeWhenItsScopeReActivates) {
     EXPECT_EQ(entry_node.next_called, 2);
 }
 
+/// @brief it should not re-fire a once entry node when its scope re-activates.
 TEST_F(SchedulerTest, DoesNotReFireAOnceEntryNodeWhenItsScopeReActivates) {
     auto &trigger = mock("trigger", {true});
     trigger.suppress_auto_mark = true;

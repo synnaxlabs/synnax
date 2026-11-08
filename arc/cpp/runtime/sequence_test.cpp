@@ -3454,6 +3454,7 @@ TEST(VariableCaptureDispatchTest, ExecutesAOneShotCaptureChainExactlyOnce) {
     EXPECT_EQ(count_of(out, h.key("fp_out"), "parent"), 0);
 }
 
+/// @brief it should read a top-level computed variable in a stateful initializer.
 TEST(
     ComputedStatefulInitializersTest,
     ReadsATopLevelComputedVariableInAStatefulInitializer
@@ -3478,6 +3479,7 @@ TEST(
     );
 }
 
+/// @brief it should read a computed stateful's initial value in flow reads.
 TEST(ComputedStatefulInitializersTest, ReadsAComputedStatefulsInitialValueInFlowReads) {
     Sequence h(
         R"(
@@ -3500,6 +3502,7 @@ TEST(ComputedStatefulInitializersTest, ReadsAComputedStatefulsInitialValueInFlow
     EXPECT_EQ(last<std::uint8_t>(out, h.key("out2")), 10);
 }
 
+/// @brief it should interpolate a computed stateful's initial value.
 TEST(ComputedStatefulInitializersTest, InterpolatesAComputedStatefulsInitialValue) {
     Sequence h(
         R"(
@@ -3518,6 +3521,7 @@ TEST(ComputedStatefulInitializersTest, InterpolatesAComputedStatefulsInitialValu
     EXPECT_EQ(last<std::string>(out, h.key("out")), "x: 5");
 }
 
+/// @brief it should persist a written computed stateful across stage re-entries.
 TEST(
     ComputedStatefulInitializersTest,
     PersistsAWrittenComputedStatefulAcrossStageReEntries
@@ -3551,6 +3555,7 @@ TEST(
     EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 7);
 }
 
+/// @brief it should keep a computed stateful's first value across stage re-entries.
 TEST(
     ComputedStatefulInitializersTest,
     KeepsAComputedStatefulsFirstValueAcrossStageReEntries
@@ -3591,6 +3596,7 @@ TEST(
         << "re-entry must keep the first value";
 }
 
+/// @brief it should read a variable declared before it in a stateful initializer.
 TEST(
     ComputedStatefulInitializersTest,
     ReadsAVariableDeclaredBeforeItInAStatefulInitializer
@@ -3615,6 +3621,7 @@ TEST(
     );
 }
 
+/// @brief it should read a sequence variable in a stage stateful initializer.
 TEST(
     ComputedStatefulInitializersTest,
     ReadsASequenceVariableInAStageStatefulInitializer
@@ -3639,6 +3646,7 @@ TEST(
     );
 }
 
+/// @brief it should keep a written stage stateful across stage re-entries.
 TEST(ComputedStatefulInitializersTest, KeepsAWrittenStageStatefulAcrossStageReEntries) {
     Sequence h(
         R"(
@@ -3674,6 +3682,7 @@ TEST(ComputedStatefulInitializersTest, KeepsAWrittenStageStatefulAcrossStageReEn
     ) << "re-entry must keep the written value, not re-run the initializer";
 }
 
+/// @brief it should read a sequence stateful in a stage stateful initializer.
 TEST(
     ComputedStatefulInitializersTest,
     ReadsASequenceStatefulInAStageStatefulInitializer
@@ -3698,6 +3707,7 @@ TEST(
     );
 }
 
+/// @brief it should read a computed bool stateful's initial value in flow reads.
 TEST(
     ComputedStatefulInitializersTest,
     ReadsAComputedBoolStatefulsInitialValueInFlowReads
@@ -3719,6 +3729,7 @@ TEST(
     EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 1);
 }
 
+/// @brief it should persist a toggled computed bool stateful across stage re-entries.
 TEST(
     ComputedStatefulInitializersTest,
     PersistsAToggledComputedBoolStatefulAcrossStageReEntries
@@ -3752,6 +3763,8 @@ TEST(
     EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 0);
 }
 
+/// @brief it should persist an assigned computed stateful across nested sequence
+/// re-entries.
 TEST(
     ComputedStatefulInitializersTest,
     PersistsAnAssignedComputedStatefulAcrossNestedSequenceReEntries
@@ -3781,6 +3794,8 @@ TEST(
     );
 }
 
+/// @brief it should persist an assigned computed stamp across nested sequence
+/// re-entries.
 TEST(
     ComputedStatefulInitializersTest,
     PersistsAnAssignedComputedStampAcrossNestedSequenceReEntries
@@ -3812,6 +3827,7 @@ TEST(
             << "each entry must continue from the last assigned stamp";
 }
 
+/// @brief it should pass the trigger-time stamp to a function input.
 TEST(ComputedCallInputsTest, PassesTheTriggerTimeStampToAFunctionInput) {
     Sequence h(
         R"(
@@ -3836,6 +3852,7 @@ TEST(ComputedCallInputsTest, PassesTheTriggerTimeStampToAFunctionInput) {
     EXPECT_GT(second[0], first[0]);
 }
 
+/// @brief it should sample a computed variable inside a function input.
 TEST(ComputedCallInputsTest, SamplesAComputedVariableInsideAFunctionInput) {
     Sequence h(
         R"(
@@ -3854,6 +3871,7 @@ TEST(ComputedCallInputsTest, SamplesAComputedVariableInsideAFunctionInput) {
     );
 }
 
+/// @brief it should pass a bare call result to a function input.
 TEST(ComputedCallInputsTest, PassesABareCallResultToAFunctionInput) {
     Sequence h(
         R"(
@@ -3874,6 +3892,7 @@ TEST(ComputedCallInputsTest, PassesABareCallResultToAFunctionInput) {
     );
 }
 
+/// @brief it should trigger an untriggered call from its computed input.
 TEST(ComputedCallInputsTest, TriggersAnUntriggeredCallFromItsComputedInput) {
     Sequence h(
         R"(
@@ -3897,6 +3916,7 @@ TEST(ComputedCallInputsTest, TriggersAnUntriggeredCallFromItsComputedInput) {
     );
 }
 
+/// @brief it should keep a triggered call on its trigger alone.
 TEST(ComputedCallInputsTest, KeepsATriggeredCallOnItsTriggerAlone) {
     Sequence h(
         R"(
@@ -3920,6 +3940,7 @@ TEST(ComputedCallInputsTest, KeepsATriggeredCallOnItsTriggerAlone) {
     );
 }
 
+/// @brief it should advance past a bare call step with a computed input.
 TEST(ComputedCallInputsTest, AdvancesPastABareCallStepWithAComputedInput) {
     Sequence h(
         R"(
@@ -3942,6 +3963,7 @@ TEST(ComputedCallInputsTest, AdvancesPastABareCallStepWithAComputedInput) {
     );
 }
 
+/// @brief it should pass a computed input to a routed call.
 TEST(ComputedCallInputsTest, PassesAComputedInputToARoutedCall) {
     Sequence h(
         R"(
@@ -3991,6 +4013,7 @@ void expect_wait_of_20ms(Sequence &h) {
 }
 }
 
+/// @brief it should apply a computed count to a window average.
 TEST(ComputedSTLInputsTest, AppliesAComputedCountToAWindowAverage) {
     using namespace computed_stl_inputs;
     Sequence h(
@@ -4002,6 +4025,7 @@ TEST(ComputedSTLInputsTest, AppliesAComputedCountToAWindowAverage) {
     EXPECT_EQ(ingest_each(h, {2, 4, 6, 8}), (std::vector<std::int64_t>{2, 3, 6, 7}));
 }
 
+/// @brief it should apply a computed count to a window min.
 TEST(ComputedSTLInputsTest, AppliesAComputedCountToAWindowMin) {
     using namespace computed_stl_inputs;
     Sequence h(
@@ -4013,6 +4037,7 @@ TEST(ComputedSTLInputsTest, AppliesAComputedCountToAWindowMin) {
     EXPECT_EQ(ingest_each(h, {5, 3, 4, 1}), (std::vector<std::int64_t>{5, 3, 4, 1}));
 }
 
+/// @brief it should wait for a computed duration.
 TEST(ComputedSTLInputsTest, WaitsForAComputedDuration) {
     using namespace computed_stl_inputs;
     Sequence h(
@@ -4030,6 +4055,7 @@ TEST(ComputedSTLInputsTest, WaitsForAComputedDuration) {
     expect_wait_of_20ms(h);
 }
 
+/// @brief it should wait for a duration held in a computed variable.
 TEST(ComputedSTLInputsTest, WaitsForADurationHeldInAComputedVariable) {
     using namespace computed_stl_inputs;
     Sequence h(
@@ -4048,6 +4074,7 @@ TEST(ComputedSTLInputsTest, WaitsForADurationHeldInAComputedVariable) {
     expect_wait_of_20ms(h);
 }
 
+/// @brief it should fire an interval at a computed period.
 TEST(ComputedSTLInputsTest, FiresAnIntervalAtAComputedPeriod) {
     Sequence h(
         R"(
@@ -4066,6 +4093,7 @@ TEST(ComputedSTLInputsTest, FiresAnIntervalAtAComputedPeriod) {
         << "fires at 0, 20, and 40 ms";
 }
 
+/// @brief it should follow a channel read through a later-declared function.
 TEST(LateReactiveLocalsTest, FollowsAChannelReadThroughALaterDeclaredFunction) {
     Sequence h(
         R"(
@@ -4095,6 +4123,7 @@ TEST(LateReactiveLocalsTest, FollowsAChannelReadThroughALaterDeclaredFunction) {
     );
 }
 
+/// @brief it should derive a reactive local from another without an entry value.
 TEST(LateReactiveLocalsTest, DerivesAReactiveLocalFromAnotherWithoutAnEntryValue) {
     Sequence h(
         R"(
@@ -4115,6 +4144,7 @@ TEST(LateReactiveLocalsTest, DerivesAReactiveLocalFromAnotherWithoutAnEntryValue
     );
 }
 
+/// @brief it should compute a top-level variable at program start.
 TEST(ComputedInitializersTest, ComputesATopLevelVariableAtProgramStart) {
     Sequence h(
         R"(
@@ -4135,6 +4165,7 @@ TEST(ComputedInitializersTest, ComputesATopLevelVariableAtProgramStart) {
     );
 }
 
+/// @brief it should read a computed constant expression as a literal.
 TEST(ComputedInitializersTest, ReadsAComputedConstantExpressionAsALiteral) {
     Sequence h(
         R"(
@@ -4152,6 +4183,7 @@ TEST(ComputedInitializersTest, ReadsAComputedConstantExpressionAsALiteral) {
     EXPECT_EQ(collect<std::int64_t>(out, h.key("out")), (std::vector<std::int64_t>{6}));
 }
 
+/// @brief it should compute a top-level variable from a bare call.
 TEST(ComputedInitializersTest, ComputesATopLevelVariableFromABareCall) {
     Sequence h(
         R"(
@@ -4170,6 +4202,7 @@ TEST(ComputedInitializersTest, ComputesATopLevelVariableFromABareCall) {
     );
 }
 
+/// @brief it should compute a top-level variable from a builtin call.
 TEST(ComputedInitializersTest, ComputesATopLevelVariableFromABuiltinCall) {
     Sequence h(
         R"(
@@ -4185,6 +4218,7 @@ TEST(ComputedInitializersTest, ComputesATopLevelVariableFromABuiltinCall) {
     );
 }
 
+/// @brief it should compute a sequence variable once per entry.
 TEST(ComputedInitializersTest, ComputesASequenceVariableOncePerEntry) {
     Sequence h(
         R"(
@@ -4217,6 +4251,7 @@ TEST(ComputedInitializersTest, ComputesASequenceVariableOncePerEntry) {
     EXPECT_GT(second[0], first[0]) << "re-entry must recompute the initializer";
 }
 
+/// @brief it should compute a stage variable once per entry.
 TEST(ComputedInitializersTest, ComputesAStageVariableOncePerEntry) {
     Sequence h(
         R"(
@@ -4248,6 +4283,7 @@ TEST(ComputedInitializersTest, ComputesAStageVariableOncePerEntry) {
     EXPECT_GT(second[0], first[0]) << "re-entry must recompute the initializer";
 }
 
+/// @brief it should sample a computed variable in a later initializer.
 TEST(ComputedInitializersTest, SamplesAComputedVariableInALaterInitializer) {
     Sequence h(
         R"(
@@ -4267,6 +4303,7 @@ TEST(ComputedInitializersTest, SamplesAComputedVariableInALaterInitializer) {
     );
 }
 
+/// @brief it should copy a computed variable into a later declaration.
 TEST(ComputedInitializersTest, CopiesAComputedVariableIntoALaterDeclaration) {
     Sequence h(
         R"(
@@ -4286,6 +4323,7 @@ TEST(ComputedInitializersTest, CopiesAComputedVariableIntoALaterDeclaration) {
     );
 }
 
+/// @brief it should let a reassignment replace a computed initializer.
 TEST(ComputedInitializersTest, LetsAReassignmentReplaceAComputedInitializer) {
     Sequence h(
         R"(
