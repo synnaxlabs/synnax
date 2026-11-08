@@ -37,6 +37,7 @@ type Retrieve struct {
 type indexes struct {
 	serial       *gorp.LookupIndex[Key, Chassis, string]
 	resourceName *gorp.LookupIndex[Key, Chassis, string]
+	rack         *gorp.KeyReference[Key, Chassis, rack.Key]
 	search       *gorp.SearchIndex[Key, Chassis]
 }
 
@@ -53,6 +54,15 @@ func newIndexes() indexes {
 			"resource_name",
 			func(e *Chassis) string { return e.ResourceName },
 		),
+		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Chassis, rack.Key]{
+			Name:     "rack",
+			Table:    "rack",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Place,
+			Targets: func(e *Chassis) []rack.Key {
+				return []rack.Key{e.Rack}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Chassis](
 			"search",
 			func(e *Chassis) []string {
@@ -69,6 +79,14 @@ func (i indexes) all() []gorp.Index[Key, Chassis] {
 		i.serial,
 		i.resourceName,
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Chassis] {
+	return []gorp.Reference[Key, Chassis]{
+		i.rack,
 	}
 }
 
@@ -132,14 +150,12 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
-// MatchRacks returns a filter for
-// chassises whose Rack matches any of the
-// provided values.
+// MatchRacks returns a filter for chassises
+// whose Rack matches any of the provided
+// values.
 func MatchRacks(vals ...rack.Key) Filter {
-	return func(Retrieve) gorp.Filter[Key, Chassis] {
-		return gorp.Match(func(_ gorp.Context, e *Chassis) (bool, error) {
-			return slices.Contains(vals, e.Rack), nil
-		})
+	return func(r Retrieve) gorp.Filter[Key, Chassis] {
+		return r.indexes.rack.Filter(vals...)
 	}
 }
 

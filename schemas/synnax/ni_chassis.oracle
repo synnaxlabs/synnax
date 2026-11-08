@@ -21,8 +21,9 @@ Chassis struct {
         @key
     }
     rack          rack.Key {
-        @doc value "is the key of the rack the chassis is connected to."
-        @filter
+        @doc value     "is the key of the rack the chassis is connected to."
+        @ref kind      place
+        @ref on_delete restrict
     }
     name          string   {
         @doc value         "is a human-readable name for the chassis."
