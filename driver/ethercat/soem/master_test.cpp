@@ -546,9 +546,58 @@ TEST_F(SOEMMasterTest, CoEDiscoveryReadsTheSIIWithoutSyncManagerTypes) {
     EXPECT_TRUE(slaves[0].status.pdo_discovery_error.empty());
 }
 
-/// @brief it should read the PDOs in the SII of a CoE slave that fails to give its PDO
-/// layout, as SOEM maps the slave from its SII, and keep the error of the CoE read.
-TEST_F(SOEMMasterTest, CoEDiscoveryFallsBackToTheSIIOnAFailedRead) {
+/// @brief it should read the PDOs in the SII of a CoE slave that fails to give its sync
+/// manager count, as SOEM maps the slave from its SII, and keep the error of the CoE
+/// read.
+TEST_F(SOEMMasterTest, CoEDiscoveryFallsBackToTheSIIWhenTheSyncManagerCountFails) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    this->add_slave(slave);
+    this->mock->slave_infos[0].sdo_read_aborts = {{{0x1C00, 0}, 0x06010000}};
+    constexpr uint16_t start = 0x40;
+    this->mock->slave_infos[0].sii_categories = {{ECT_SII_PDO, start}};
+    const std::vector<uint8_t> category =
+        {8, 0, 0x00, 0x1A, 1, 3, 0, 0, 0, 0, 0x00, 0x60, 1, 0, 0x03, 16, 0, 0};
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->slave_infos[0].sii_bytes[start + i] = category[i];
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves[0].properties.input_pdos.size(), 1);
+    EXPECT_EQ(slaves[0].properties.input_pdos[0].index, 0x6000);
+    EXPECT_TRUE(slaves[0].status.pdos_discovered);
+    EXPECT_EQ(
+        slaves[0].status.pdo_discovery_error,
+        "failed to read the PDO layout: failed to read 0x1C00:00: Unsupported access "
+        "to an object, so the Driver uses the PDOs in its SII"
+    );
+}
+
+/// @brief it should report why a CoE slave failed to give its sync manager count when
+/// its SII lists no PDOs either.
+TEST_F(SOEMMasterTest, CoEDiscoveryReportsAFailedReadWithoutSIIPDOs) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    this->add_slave(slave);
+    this->mock->slave_infos[0].sdo_read_aborts = {{{0x1C00, 0}, 0x06010000}};
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    EXPECT_TRUE(slaves[0].properties.input_pdos.empty());
+    EXPECT_FALSE(slaves[0].status.pdos_discovered);
+    EXPECT_EQ(
+        slaves[0].status.pdo_discovery_error,
+        "failed to read the PDO layout: failed to read 0x1C00:00: Unsupported access "
+        "to an object"
+    );
+}
+
+/// @brief it should fail the discovery of a CoE slave whose PDO layout read fails after
+/// the sync manager count, without the PDOs in its SII, as SOEM keeps the CoE PDOs it
+/// reads.
+TEST_F(SOEMMasterTest, CoEDiscoveryFailsWithoutTheSIIOnALaterFailedRead) {
     MockSlaveInfo slave;
     slave.state = EC_STATE_PRE_OP;
     slave.mbx_proto = ECT_MBXPROT_COE;
@@ -570,34 +619,8 @@ TEST_F(SOEMMasterTest, CoEDiscoveryFallsBackToTheSIIOnAFailedRead) {
 
     const auto slaves = ASSERT_NIL_P(this->master->scan());
 
-    ASSERT_EQ(slaves[0].properties.input_pdos.size(), 1);
-    EXPECT_EQ(slaves[0].properties.input_pdos[0].index, 0x6000);
-    EXPECT_EQ(
-        slaves[0].status.pdo_discovery_error,
-        "failed to read the PDO layout: failed to read 0x1A00:00: Object does not "
-        "exist in the object dictionary, so the Driver uses the PDOs in its SII"
-    );
-}
-
-/// @brief it should report why a CoE slave failed to give its PDO layout when its SII
-/// lists no PDOs either.
-TEST_F(SOEMMasterTest, CoEDiscoveryReportsAFailedReadWithoutSIIPDOs) {
-    MockSlaveInfo slave;
-    slave.state = EC_STATE_PRE_OP;
-    slave.mbx_proto = ECT_MBXPROT_COE;
-    this->add_slave(slave);
-    this->mock->slave_infos[0].sdo_objects = {
-        {{0x1C00, 0}, 4},
-        {{0x1C00, 3}, 3},
-        {{0x1C00, 4}, 4},
-        {{ECT_SDO_RXPDOASSIGN, 0}, 0},
-        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
-        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
-    };
-
-    const auto slaves = ASSERT_NIL_P(this->master->scan());
-
     EXPECT_TRUE(slaves[0].properties.input_pdos.empty());
+    EXPECT_FALSE(slaves[0].status.pdos_discovered);
     EXPECT_EQ(
         slaves[0].status.pdo_discovery_error,
         "failed to read the PDO layout: failed to read 0x1A00:00: Object does not "
