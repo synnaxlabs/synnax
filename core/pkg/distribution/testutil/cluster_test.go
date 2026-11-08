@@ -32,6 +32,10 @@ var _ = Describe("Cluster", func() {
 				Expect(nodeOne.Cluster.HostKey()).To(Equal(node.Key(1)))
 				Expect(nodeTwo.Cluster.HostKey()).To(Equal(node.Key(2)))
 				Expect(nodeThree.Cluster.HostKey()).To(Equal(node.Key(3)))
+				for key, n := range cluster.Nodes {
+					Expect(n.Identity.Key).To(Equal(n.Cluster.Key()))
+					Expect(n.Identity.HostKey).To(Equal(key))
+				}
 
 				ch := channel.Channel{
 					Name:        "SG_01",
