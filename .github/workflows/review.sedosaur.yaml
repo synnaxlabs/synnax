@@ -233,9 +233,11 @@ jobs:
             -f status=in_progress --silent
 
       # Eyes on the pull request description show that Sedosaur is reviewing it. The
-      # unwatch job takes them away.
+      # unwatch job takes them away. They are only a signal, so a failure here does not
+      # stop the review.
       - name: Watch the pull request
         if: ${{ !inputs.replay }}
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
