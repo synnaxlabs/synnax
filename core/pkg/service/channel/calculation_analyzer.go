@@ -32,6 +32,9 @@ type resolver struct {
 	temp struct {
 		names map[string]*symbol.Symbol
 		keys  map[int]*symbol.Symbol
+		// unstored holds analyzed channels that are not stored yet. A stored channel
+		// with the same name resolves first.
+		unstored map[string]*symbol.Symbol
 	}
 	unresolved set.Set[string]
 	readErr    error
@@ -39,8 +42,9 @@ type resolver struct {
 
 // CalculationAnalyzer parses and type-checks calculated channel expressions. It caches
 // previously analyzed channels so that later expressions can reference them by name
-// without hitting the backing symbol resolver. CalculationAnalyzer is not safe for
-// concurrent use.
+// without hitting the backing symbol resolver. A name that a stored channel holds
+// resolves to that channel before an analyzed channel that is not stored yet.
+// CalculationAnalyzer is not safe for concurrent use.
 type CalculationAnalyzer struct {
 	symbols  arc.SymbolResolver
 	resolver *resolver
@@ -59,6 +63,7 @@ func NewCalculationAnalyzer(
 	r := &resolver{}
 	r.temp.keys = make(map[int]*symbol.Symbol)
 	r.temp.names = make(map[string]*symbol.Symbol)
+	r.temp.unstored = make(map[string]*symbol.Symbol)
 	return &CalculationAnalyzer{
 		symbols:  symbolResolver,
 		resolver: r,
@@ -79,6 +84,9 @@ func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, er
 	}
 	sym, resolveErr := r.SymbolResolver.Resolve(ctx, name)
 	if errors.Is(resolveErr, query.ErrNotFound) {
+		if s, ok := r.temp.unstored[name]; ok {
+			return s, nil
+		}
 		r.unresolved.Add(name)
 	} else if resolveErr != nil && r.readErr == nil {
 		r.readErr = resolveErr
@@ -135,12 +143,13 @@ func (a *CalculationAnalyzer) Analyze(
 		Kind: symbol.KindChannel,
 		Type: types.Chan(dataType),
 	}
-	if ch.Key() != 0 {
-		intKey := int(ch.Key())
-		s.ID = intKey
-		a.resolver.temp.keys[intKey] = s
+	if ch.LocalKey == 0 {
+		a.resolver.temp.unstored[s.Name] = s
+	} else {
+		s.ID = int(ch.Key())
+		a.resolver.temp.keys[s.ID] = s
+		a.resolver.temp.names[s.Name] = s
 	}
-	a.resolver.temp.names[s.Name] = s
 	var deps Keys
 	funcScope, scopeErr := aCtx.Scope.GetChildByParserRule(t)
 	if scopeErr == nil {

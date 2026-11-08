@@ -140,6 +140,27 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
+			"Should refuse a calculation reading an unreadable channel through a decoy",
+			func(ctx SpecContext) {
+				decoy := apichannel.Channel{
+					Name:       secret.Name,
+					DataType:   telem.Float32T,
+					Virtual:    true,
+					Expression: "return 1",
+				}
+				Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Create)(
+					AuthedCtx(ctx, u),
+					apichannel.CreateRequest{
+						Channels: []apichannel.Channel{
+							decoy,
+							calculate(secret.Name),
+						},
+						RetrieveIfNameExists: true,
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+		It(
 			"Should refuse an edit that makes a calculation read an unreadable channel",
 			func(ctx SpecContext) {
 				calc := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]

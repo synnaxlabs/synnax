@@ -301,6 +301,30 @@ var _ = Describe("Analyze", func() {
 		)
 
 		It(
+			"Should resolve a name to a stored channel before an unstored one",
+			func(ctx SpecContext) {
+				r := StaticResolver{
+					{
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   10,
+					},
+				}
+				a := channel.NewCalculationAnalyzer(r)
+				MustSucceed(a.Analyze(ctx, channel.Channel{
+					Name:       "sensor",
+					Expression: "return 1",
+				}))
+				res := MustSucceed(a.Analyze(ctx, channel.Channel{
+					Name:       "calc",
+					Expression: "return sensor * 2.0",
+				}))
+				Expect(res.Deps).To(ConsistOf(channel.Key(10)))
+			},
+		)
+
+		It(
 			"Should still resolve by name when the channel has key 0",
 			func(ctx SpecContext) {
 				a := channel.NewCalculationAnalyzer(StaticResolver{})
