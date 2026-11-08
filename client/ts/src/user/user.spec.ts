@@ -140,22 +140,18 @@ describe("User", () => {
       describe("many", () => {
         test("found", async () => {
           const res = await client.users.retrieve({
-            where: { usernames: userArray.map((u) => u.username) },
+            usernames: userArray.map((u) => u.username),
           });
           expect(res).toHaveLength(2);
           expectUsers(res, userArray);
         });
         test("not found", async () => {
-          const res = await client.users.retrieve({
-            where: { usernames: [id.create()] },
-          });
+          const res = await client.users.retrieve({ usernames: [id.create()] });
           expect(res).toEqual([]);
         });
         test("extra names getting deleted", async () => {
           const res = await client.users.retrieve({
-            where: {
-              usernames: [...userArray.map((u) => u.username), id.create()],
-            },
+            usernames: [...userArray.map((u) => u.username), id.create()],
           });
           expect(res).toHaveLength(2);
           expectUsers(res, userArray);
@@ -206,9 +202,7 @@ describe("User", () => {
     describe("by where", () => {
       test("not and key", async () => {
         const keys = userArray.map((u) => u.key as string);
-        const res = await client.users.retrieve({
-          where: { not: { key: { eq: keys[0] } }, key: { in: keys } },
-        });
+        const res = await client.users.retrieve({ not: { key: keys[0] }, key: keys });
         expect(res.map((u) => u.key)).toEqual([keys[1]]);
       });
       test("flat not and key", async () => {
@@ -218,7 +212,7 @@ describe("User", () => {
       });
       test("search term", async () => {
         const res = await client.users.retrieve({
-          where: { key: { eq: userOne.key as string } },
+          key: [userOne.key as string],
           searchTerm: userOne.name,
         });
         expect(res.map((u) => u.key)).toEqual([userOne.key]);
@@ -393,9 +387,7 @@ describe("User", () => {
         client.users.delete(userArray.map((u) => u.key as string)),
       ).resolves.toBeUndefined();
       await expect(
-        client.users.retrieve({
-          where: { key: { in: userArray.map((u) => u.key as string) } },
-        }),
+        client.users.retrieve({ key: userArray.map((u) => u.key as string) }),
       ).resolves.toEqual([]);
     });
     test("one that doesn't exist", async () => {

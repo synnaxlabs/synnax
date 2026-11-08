@@ -248,9 +248,7 @@ describe("Channel", () => {
     });
     test("reject a condition whose operator is undefined", async () => {
       const name: string | undefined = undefined;
-      await expect(
-        client.channels.retrieve({ where: { name: { eq: name } } }),
-      ).rejects.toThrow(
+      await expect(client.channels.retrieve({ name: [name] })).rejects.toThrow(
         new PathError(
           ["where", "name"],
           new ValidationError("no operator set: validation error"),
@@ -295,7 +293,8 @@ describe("Channel", () => {
         { name: `${prefix}_c`, virtual: true, dataType: DataType.FLOAT32 },
       ]);
       const res = await client.channels.retrieve({
-        where: { name: { regex: `^${prefix}` }, dataType: { eq: DataType.FLOAT32 } },
+        name: { regex: `^${prefix}` },
+        dataType: DataType.FLOAT32,
       });
       expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
     });
@@ -474,14 +473,10 @@ describe("Channel", () => {
       await client.batch.send([client.channels.setGroupRequest(ch.key, g.key)]);
       expect((await client.channels.retrieve(ch.key)).group).toEqual(g.key);
       expect(
-        (await client.channels.retrieve({ where: { groups: [g.key] } })).map(
-          (c) => c.key,
-        ),
+        (await client.channels.retrieve({ groups: [g.key] })).map((c) => c.key),
       ).toEqual([ch.key]);
       await client.batch.send([client.channels.setGroupRequest(ch.key, null)]);
-      expect(await client.channels.retrieve({ where: { groups: [g.key] } })).toEqual(
-        [],
-      );
+      expect(await client.channels.retrieve({ groups: [g.key] })).toEqual([]);
     });
   });
   describe("update calculations", () => {
@@ -708,17 +703,13 @@ describe("cached reads", () => {
 
     it("composes a keys query from records written by create", async () => {
       const ch = await createVirtual();
-      const cached = expectLive(
-        client.channels.getCached({ where: { key: { in: [ch.key] } } }),
-      );
+      const cached = expectLive(client.channels.getCached({ key: [ch.key] }));
       expect(cached.map(({ key }) => key)).toEqual([ch.key]);
     });
 
     it("returns undefined for a keys query with an uncached key", async () => {
       const ch = await createVirtual();
-      expect(
-        client.channels.getCached({ where: { key: { in: [ch.key, 999999999] } } }),
-      ).toBeUndefined();
+      expect(client.channels.getCached({ key: [ch.key, 999999999] })).toBeUndefined();
     });
   });
 
@@ -800,7 +791,7 @@ describe("cached reads", () => {
       // The store cannot prove it holds every virtual channel named this, so
       // any field narrowing the request beyond names disqualifies it.
       await expect(
-        local.channels.retrieve({ where: { name: { in: [ch.name] }, virtual: true } }),
+        local.channels.retrieve({ name: [ch.name], virtual: true }),
       ).rejects.toThrow();
     }, 30000);
 
@@ -932,7 +923,7 @@ describe("cached reads", () => {
     const createCalculatedWithoutStatus = async () => {
       const calc = await createCalculated();
       const held = await client.statuses.retrieve({
-        where: { owners: [channel.resourceID(calc.key)] },
+        owners: [channel.resourceID(calc.key)],
       });
       await client.statuses.delete(held.map((s) => s.key));
       return calc;
@@ -1167,10 +1158,7 @@ describe("cached reads", () => {
       {
         name: "where",
         retrieve: async (key: channel.Key, rangeKey: ranger.Key) => {
-          const res = await client.channels.retrieve({
-            where: { key: { in: [key] } },
-            rangeKey,
-          });
+          const res = await client.channels.retrieve({ key: [key], rangeKey });
           return res[0];
         },
       },
@@ -1230,7 +1218,7 @@ describe("cached reads", () => {
       const alias = `qry_alias_${id.create()}`;
       await client.ranges.setAlias(rng.key, a.key, alias);
       const res = await client.channels.retrieve({
-        where: { key: { in: [a.key, b.key] } },
+        key: [a.key, b.key],
         rangeKey: rng.key,
       });
       expect(res.find((c) => c.key === a.key)?.alias).toEqual(alias);
@@ -1258,7 +1246,7 @@ describe("cached reads", () => {
           const res = await client.channels.retrieve({
             searchTerm: term,
             rangeKey: rng.key,
-            where: { dataType: { eq: DataType.FLOAT32 } },
+            dataType: DataType.FLOAT32,
           });
           return res.map((ch) => [ch.key, ch.alias]);
         })
@@ -1273,10 +1261,7 @@ describe("cached reads", () => {
       const rng = await createRange();
       await client.channels.retrieve(ch.key);
       expect(
-        client.channels.getCached({
-          where: { key: { in: [ch.key] } },
-          rangeKey: rng.key,
-        }),
+        client.channels.getCached({ key: [ch.key], rangeKey: rng.key }),
       ).toBeUndefined();
     });
 
