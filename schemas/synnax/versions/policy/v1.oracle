@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/access/v0"
-import "schemas/synnax/versions/ontology/v0"
+import "schemas/synnax/versions/resource/v0"
 
 Key = v0.Key
 
@@ -20,7 +20,7 @@ Policy struct {
     name     string          {
         @doc value "is a human-readable name for the policy."
     }
-    objects  ontology.ID[]   {
+    objects  resource.ID[]   {
         @doc value "is the list of ontology resources this policy applies to."
     }
     actions  access.Action[] {

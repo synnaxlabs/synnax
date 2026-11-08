@@ -1373,6 +1373,23 @@ var _ = Describe("Expressions", func() {
 			`),
 		)
 
+		DescribeTable("Should reject a non-numeric power operand",
+			func(ctx SpecContext, expr, message string) {
+				expectFailure(
+					ctx,
+					"func f() {n f64} {\n    flags := [true]\n    words := [\"a\"]\n"+
+						"    y := "+expr+"\n}",
+					nil,
+					message,
+				)
+			},
+			Entry("a bool base", "true ^ 2", "cannot use bool in ^ operation"),
+			Entry("a bool exponent", "n ^ false", "cannot use bool in ^ operation"),
+			Entry("a string base", `"a" ^ 2`, "cannot use str in ^ operation"),
+			Entry("a bool series", "flags ^ flags", "cannot use bool in ^ operation"),
+			Entry("a string series", "words ^ 2", "cannot use str in ^ operation"),
+		)
+
 		DescribeTable("invalid power expressions",
 			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)

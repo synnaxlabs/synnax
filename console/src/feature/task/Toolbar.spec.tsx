@@ -74,9 +74,8 @@ afterEach(async () => {
 const setRunning = async (t: task.Task, running: boolean, drifted = false) =>
   await client.statuses.set(
     createTaskStatus({
-      key: task.statusKey(t.key),
+      owner: task.resourceID(t.key),
       details: {
-        task: t.key,
         running,
         configHash: drifted ? "stale" : t.configHash,
         rack: t.rack,
@@ -414,15 +413,12 @@ describe("task/Toolbar", () => {
       await openContextMenu(t.name);
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       const snapshots = await waitFor(async () => {
-        const children = await client.ontology.children.retrieve({
-          ids: rng.ontologyID,
-        });
-        const tasks = children.filter((c) => c.id.type === "task");
+        const tasks = await client.tasks.retrieve({ ranges: [rng.key] });
         expect(tasks).not.toHaveLength(0);
         return tasks;
       });
       // The snapshot is a task on the same rack, which cannot go while it remains.
-      createdTasks.push(...snapshots.map((c) => c.id.key));
+      createdTasks.push(...snapshots.map((s) => s.key));
     });
   });
 

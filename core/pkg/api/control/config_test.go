@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apicontrol "github.com/synnaxlabs/synnax/pkg/api/control"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 )
 
@@ -21,7 +20,6 @@ var _ = Describe("ServiceConfig", func() {
 	full := func() apicontrol.ServiceConfig {
 		return apicontrol.ServiceConfig{
 			Control: &control.Service{},
-			RBAC:    &rbac.Service{},
 		}
 	}
 
@@ -42,11 +40,6 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apicontrol.ServiceConfig) { c.Control = nil },
 				"control: must be non-nil",
 			),
-			Entry(
-				"rbac",
-				func(c *apicontrol.ServiceConfig) { c.RBAC = nil },
-				"rbac: must be non-nil",
-			),
 		)
 	})
 
@@ -55,14 +48,12 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apicontrol.ServiceConfig{}.Override(cfg)
 			Expect(merged.Control).To(BeIdenticalTo(cfg.Control))
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apicontrol.ServiceConfig{})
 			Expect(merged.Control).To(BeIdenticalTo(cfg.Control))
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 	})
 })

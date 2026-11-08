@@ -16,10 +16,8 @@ import {
   DataType,
   deep,
   type destructor,
-  errors,
   filter,
   type MultiSeries,
-  primitive,
   type TypedArray,
   zod,
 } from "@synnaxlabs/x";
@@ -31,18 +29,17 @@ import {
   type Params,
   type PrimitiveParams,
   singleWhere,
-  statusKey,
 } from "@/channel/payload";
 import {
   type Key,
   keyZ,
   type Name,
   type New,
-  ontologyID,
   type Operation,
   operationZ,
   type Payload,
   payloadZ,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
@@ -55,14 +52,14 @@ import {
   shortcutZ,
 } from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
-import { NotFoundError, ValidationError } from "@/errors";
+import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { group } from "@/group";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { type ranger } from "@/ranger";
 import { createKey, decodeDeleteChange } from "@/ranger/alias/payload";
 import { keyZ as rangerKeyZ } from "@/ranger/types.gen";
+import { type resource } from "@/resource";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -95,8 +92,8 @@ export class Channel {
   readonly dataType: DataType;
   /**
    * The key of the node in the Synnax cluster that holds the 'lease' over the channel
-   * i.e. it's the only node in the cluster allowed to accept writes to the channel. This
-   * property is mostly for internal use.
+   * i.e. it's the only node in the cluster allowed to accept writes to the channel.
+   * This property is mostly for internal use.
    */
   readonly leaseholder: number;
   /**
@@ -127,6 +124,8 @@ export class Channel {
   readonly concurrency: control.Concurrency;
   /** The status of the channel. */
   readonly status?: status.Status;
+  /** The group the channel sits in, if any. */
+  readonly group?: group.Key;
 
   constructor({
     dataType,
@@ -143,6 +142,7 @@ export class Channel {
     expression = "",
     operations = [],
     concurrency = control.Concurrency.exclusive,
+    group: groupKey,
   }: New & { frameClient?: framer.Client }) {
     this.key = zod.parse(keyZ, key, { label: "channel key" });
     this.name = name;
@@ -158,6 +158,7 @@ export class Channel {
       label: "channel operations",
     });
     this.concurrency = concurrency;
+    this.group = groupKey;
     if (argsStatus != null)
       this.status = zod.parse(statusZ, argsStatus, { label: "channel status" });
     this.frameClient = frameClient ?? null;
@@ -190,6 +191,7 @@ export class Channel {
         status: this.status,
         operations: this.operations,
         concurrency: this.concurrency,
+        group: this.group,
       },
       { label: "channel payload" },
     );
@@ -199,9 +201,9 @@ export class Channel {
     return isCalculated(this.payload);
   }
 
-  /** @returns the ontology ID of the channel */
-  get ontologyID(): ontology.ID {
-    return ontologyID(this.key);
+  /** @returns the resource ID of the channel */
+  get resourceID(): resource.ID {
+    return resourceID(this.key);
   }
 
   /**
@@ -245,10 +247,6 @@ export type RetrieveOptions = Pick<RetrieveMultipleParams, "rangeKey">;
 
 const retrieveResZ = z.object({ channels: payloadZ.array().default(() => []) });
 
-const retrieveGroupReqZ = z.object({});
-
-const retrieveGroupResZ = z.object({ group: group.groupZ });
-
 /** Names one channel. Give a `rangeKey` to resolve its alias in that range. */
 export type RetrieveSingleParams = { key: Key; rangeKey?: ranger.Key };
 
@@ -289,15 +287,6 @@ const onlyNames = ({ where, ...rest }: RetrieveRequest): string[] | null => {
   return names == null ? [eq] : null;
 };
 
-const affectedChannelKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): Key[] | null => {
-  const [type, key] = event.key.split(":");
-  if (type !== "channel" || !primitive.isNonZero(key)) return null;
-  const parsed = keyZ.safeParse(key);
-  return parsed.success ? [parsed.data] : null;
-};
-
 /**
  * The main client class for executing channel operations against a Synnax Core. This
  * class should not be instantiated directly, and instead should be used through the
@@ -310,7 +299,6 @@ export interface ClientConfig {
   statuses: status.Client;
   ranges: ranger.Client;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 /**
@@ -329,11 +317,15 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   readonly writer: Writer;
   readonly store: query.Table<Key, Channel>;
+  /** Builds requests that move channels between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly byName: query.LookupIndex<Key, Channel>;
 
   constructor(cfg: ClientConfig) {
     const { writer, statuses, ranges, cache } = cfg;
     const statusStore = statuses.store;
+    const affectedChannelKeys = (event: query.TableEvent<status.Key, status.Status>) =>
+      statuses.ownerKeys(event, "channel")?.map(Number) ?? null;
     const aliasStore = ranges.aliases;
     const sugar = (payload: Payload): Channel => this.sugar(payload);
     const byName = new query.LookupIndex<Key, Channel>((ch) => ch.name);
@@ -419,6 +411,10 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = writer;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/channel/set-group", (keys, to) => {
+      const rollbacks = keys.map((key) => this.moveThrough(key, to));
+      return () => rollbacks.forEach((rollback) => rollback());
+    });
     this.byName = byName;
   }
 
@@ -586,12 +582,7 @@ export class Client extends query.Retriever<
     const { normalized, variant } = analyzeParams(params);
     if (variant === "keys") {
       const keys = normalized;
-      const ids = ontologyID(keys);
-      const drop = () => [
-        this.cfg.ontology.cache.deleteRelationships(ids),
-        this.store.delete(keys),
-        this.cfg.ontology.cache.resources.delete(ontology.idToString(ids)),
-      ];
+      const drop = () => [this.store.delete(keys)];
       await query.optimistic({
         rollbacks: drop(),
         onOptimistic: opts.onOptimistic,
@@ -615,20 +606,27 @@ export class Client extends query.Retriever<
   ): Promise<void> {
     const keysArr = array.toArray(keys);
     const namesArr = array.toArray(names);
-    const rename = () =>
-      keysArr.flatMap((key, i) => {
-        const name = namesArr[i];
-        return [
-          this.renameThrough(key, name),
-          this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-        ];
-      });
+    const rename = () => keysArr.map((key, i) => this.renameThrough(key, namesArr[i]));
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
       commit: async () => await this.writer.rename(keysArr, namesArr),
     });
     rename();
+  }
+
+  /**
+   * Sets the group of the cached channel, skipping when absent. Returns a rollback that
+   * restores only the group.
+   */
+  private moveThrough(key: Key, to?: group.Key): destructor.Destructor {
+    const prev = this.store.get(key)?.group;
+    const set = (g?: group.Key) =>
+      this.store.set(key, (p) =>
+        p == null ? undefined : this.sugar({ ...p.payload, group: g }),
+      );
+    set(to);
+    return () => set(prev);
   }
 
   /** Renames the cached channel, skipping when absent. Returns a rollback. */
@@ -647,22 +645,12 @@ export class Client extends query.Retriever<
     return new Channel({ ...payloads, frameClient });
   }
 
-  async retrieveGroup(): Promise<group.Group> {
-    const res = await this.cfg.unary.send(
-      "/channel/retrieve-group",
-      {},
-      retrieveGroupReqZ,
-      retrieveGroupResZ,
-    );
-    return res.group;
-  }
-
   /** Rebuilds a cached channel with its cached status attached. */
   private compose(payload: Payload): Channel {
     const next: Payload = { ...payload, status: undefined, alias: undefined };
     if (isCalculated(payload)) {
       const parsed = statusZ.safeParse(
-        this.cfg.statuses.store.get(statusKey(payload.key)),
+        this.cfg.statuses.ownedBy(resourceID(payload.key)),
       );
       if (parsed.success) next.status = parsed.data;
     }
@@ -737,12 +725,8 @@ export class Client extends query.Retriever<
     }
     // A cached calculated channel without a cached status is ambiguous: the
     // status may not exist, or may simply never have been fetched.
-    if (ch.isCalculated && !this.cfg.statuses.store.has(statusKey(key)))
-      try {
-        await this.cfg.statuses.retrieve(statusKey(key));
-      } catch (e) {
-        if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
-      }
+    if (ch.isCalculated && this.cfg.statuses.ownedBy(resourceID(key)) == null)
+      await this.cfg.statuses.retrieveOwned([resourceID(key)]);
     if (rangeKey != null) await this.ensureAliases(rangeKey, [key]);
     return ch;
   }

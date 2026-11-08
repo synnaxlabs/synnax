@@ -9,7 +9,7 @@
 
 import "@/feature/embedded/useConnectModal.css";
 
-import { type ontology } from "@synnaxlabs/client";
+import { type resource } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
@@ -190,7 +190,7 @@ const formatSessions = (count: number): string =>
 interface SessionCountProps {
   apiKey: string;
   /** The user that owns the key. */
-  subject: ontology.ID;
+  subject: resource.ID;
 }
 
 const SessionCount = ({ apiKey, subject }: SessionCountProps): ReactElement | null => {

@@ -1,0 +1,313 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package framer_test
+
+import (
+	"time"
+	"uuid"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
+	"github.com/synnaxlabs/gorp"
+	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+// change makes a change to a readable and a denied record in one commit.
+type change func(ctx SpecContext)
+
+var _ = Describe("Change channels", func() {
+	var (
+		ch     channel.Channel
+		client freighter.ClientStream[
+			apiframer.StreamerRequest,
+			apiframer.StreamerResponse,
+		]
+	)
+	// stream opens a stream of the change channel with the given name as a new user
+	// that can retrieve the channel and the granted records.
+	stream := func(ctx SpecContext, name string, granted ...resource.ID) user.User {
+		GinkgoHelper()
+		Expect(channelSvc.NewRetrieve().
+			Where(channel.MatchNames(name)).
+			Entry(&ch).
+			Exec(ctx, db)).To(Succeed())
+		keys := channel.Keys{ch.Key()}
+		u := createUserGranted(
+			ctx,
+			access.ActionRetrieve,
+			append(svcframer.ResourceIDs(keys), granted...)...,
+		)
+		var server apiframer.StreamerStream
+		client, server = freightertestutil.NewStreams[
+			apiframer.StreamerRequest,
+			apiframer.StreamerResponse,
+		](ctx)
+		done := make(chan error, 1)
+		go func() { done <- apiSvc.Stream(subjectCtx(ctx, u.ResourceID()), server) }()
+		DeferCleanup(func() {
+			Expect(client.CloseSend()).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
+		})
+		Expect(client.Send(apiframer.StreamerRequest{Keys: keys})).To(Succeed())
+		Expect(MustSucceed(client.Receive()).Frame.Empty()).To(BeTrue())
+		return u
+	}
+	// received returns the record of each sample in the next frame.
+	received := func() []resource.ID {
+		GinkgoHelper()
+		res := MustSucceed(client.Receive())
+		recordOf := svc.Signals.Records()[ch.Key()]
+		var records []resource.ID
+		for _, series := range res.Frame.Get(ch.Key()).Series {
+			for sample := range series.Samples() {
+				records = append(records, MustSucceed(recordOf(sample)))
+			}
+		}
+		return records
+	}
+	createLabels := func(ctx SpecContext, labels ...label.Label) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Label.NewWriter(tx).CreateMany(ctx, &labels)
+		})).To(Succeed())
+	}
+	newLabel := func() label.Label {
+		return label.Label{Key: uuid.New(), Name: "change-channel"}
+	}
+	newRange := func(ctx SpecContext) ranger.Range {
+		GinkgoHelper()
+		r := ranger.Range{
+			Key:  uuid.New(),
+			Name: "change-channel",
+			TimeRange: telem.TimeRange{
+				Start: telem.SecondTS,
+				End:   telem.SecondTS * 2,
+			},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
+		return r
+	}
+	newChannel := func(ctx SpecContext) channel.Channel {
+		GinkgoHelper()
+		c := channel.Channel{
+			Name:     UniqueChannelName(),
+			DataType: telem.Float32T,
+			Virtual:  true,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Create(ctx, &c)
+		})).To(Succeed())
+		return c
+	}
+	// setAliases aliases c on each range in one commit.
+	setAliases := func(ctx SpecContext, c channel.Channel, ranges ...ranger.Range) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := svc.Alias.NewWriter(tx)
+			for _, r := range ranges {
+				if err := w.Set(ctx, r.Key, c.Key(), "change-channel"); err != nil {
+					return err
+				}
+			}
+			return nil
+		})).To(Succeed())
+	}
+	pairs := func(ranges ...ranger.Range) []kv.Pair {
+		out := make([]kv.Pair, len(ranges))
+		for i, r := range ranges {
+			out[i] = kv.Pair{Range: r.Key, Key: "change-channel", Value: "value"}
+		}
+		return out
+	}
+
+	DescribeTable(
+		"Should send a change only to a subject that can retrieve its record",
+		func(
+			ctx SpecContext,
+			name string,
+			prepare func(SpecContext) (resource.ID, change),
+		) {
+			readable, makeChange := prepare(ctx)
+			stream(ctx, name, readable)
+			makeChange(ctx)
+			Expect(received()).To(Equal([]resource.ID{readable}))
+		},
+		Entry(
+			"a label set",
+			"sy_label_set",
+			func(SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newLabel(), newLabel()
+				return label.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					createLabels(ctx, readable, denied)
+				}
+			},
+		),
+		Entry(
+			"a label action",
+			"sy_label_action_set",
+			func(SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newLabel(), newLabel()
+				return label.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					createLabels(ctx, readable, denied)
+				}
+			},
+		),
+		Entry(
+			"a label delete",
+			"sy_label_delete",
+			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newLabel(), newLabel()
+				createLabels(ctx, readable, denied)
+				return label.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.Label.NewWriter(tx).Delete(
+							ctx,
+							readable.Key,
+							denied.Key,
+						)
+					})).To(Succeed())
+				}
+			},
+		),
+		Entry(
+			"a range KV set",
+			"sy_range_kv_set",
+			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newRange(ctx), newRange(ctx)
+				return ranger.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.KV.NewWriter(tx).SetMany(
+							ctx,
+							pairs(readable, denied),
+						)
+					})).To(Succeed())
+				}
+			},
+		),
+		Entry(
+			"a range KV delete",
+			"sy_range_kv_delete",
+			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newRange(ctx), newRange(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.KV.NewWriter(tx).SetMany(
+						ctx,
+						pairs(readable, denied),
+					)
+				})).To(Succeed())
+				return ranger.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						w := svc.KV.NewWriter(tx)
+						for _, p := range pairs(readable, denied) {
+							if err := w.Delete(ctx, p.Range, p.Key); err != nil {
+								return err
+							}
+						}
+						return nil
+					})).To(Succeed())
+				}
+			},
+		),
+		Entry(
+			"a range alias set",
+			"sy_range_alias_set",
+			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied, c := newRange(ctx), newRange(ctx), newChannel(ctx)
+				return alias.ResourceID(readable.Key, c.Key()), func(ctx SpecContext) {
+					GinkgoHelper()
+					setAliases(ctx, c, readable, denied)
+				}
+			},
+		),
+		Entry(
+			"a range alias delete",
+			"sy_range_alias_delete",
+			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied, c := newRange(ctx), newRange(ctx), newChannel(ctx)
+				setAliases(ctx, c, readable, denied)
+				return alias.ResourceID(readable.Key, c.Key()), func(ctx SpecContext) {
+					GinkgoHelper()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						w := svc.Alias.NewWriter(tx)
+						for _, r := range []ranger.Range{readable, denied} {
+							if err := w.Delete(ctx, r.Key, c.Key()); err != nil {
+								return err
+							}
+						}
+						return nil
+					})).To(Succeed())
+				}
+			},
+		),
+	)
+
+	It("Should stop sending a record once a policy no longer allows it", func(
+		ctx SpecContext,
+	) {
+		u := stream(ctx, "sy_label_set")
+		p := MustSucceed(rbactestutil.Grant(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			u.Key,
+			[]access.Action{access.ActionRetrieve},
+			resource.ID{Type: resource.TypeLabel},
+		))
+		first := newLabel()
+		createLabels(ctx, first)
+		Expect(received()).To(Equal([]resource.ID{label.ResourceID(first.Key)}))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Policy.NewWriter(tx, false).Delete(ctx, p.Key)
+		})).To(Succeed())
+		removed, granted := newLabel(), newLabel()
+		MustSucceed(rbactestutil.Grant(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			u.Key,
+			[]access.Action{access.ActionRetrieve},
+			label.ResourceID(granted.Key),
+		))
+		createLabels(ctx, removed)
+		createLabels(ctx, granted)
+		Expect(received()).To(Equal([]resource.ID{label.ResourceID(granted.Key)}))
+	})
+})

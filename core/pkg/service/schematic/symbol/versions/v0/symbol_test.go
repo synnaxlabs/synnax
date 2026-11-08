@@ -30,12 +30,6 @@ var _ = Describe("Symbol", func() {
 			Expect(v0.Symbol{Key: k}.GorpKey()).To(Equal(k))
 		})
 	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Symbol{}.SetOptions()).To(BeNil())
-		})
-	})
 })
 
 var _ = Describe("NormalizeKeys", func() {

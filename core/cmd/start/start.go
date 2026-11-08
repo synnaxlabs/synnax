@@ -20,14 +20,12 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	disttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc"
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
@@ -38,7 +36,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/transport"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -62,7 +59,6 @@ type CoreConfig struct {
 	licenseKey           string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
-	peers                []address.Address
 	disabledIntegrations []string
 	enabledIntegrations  []string
 	certFactoryConfig    cert.FactoryConfig
@@ -106,7 +102,7 @@ func (c CoreConfig) Validate() error {
 	v.NotNil("auto_cert", c.autoCert)
 	v.NotNil("mem_backed", c.memBacked)
 	v.Exec(c.listeners.Validate)
-	if c.insecure != nil && !*c.insecure && (len(c.peers) > 0 || c.driverEnabled()) {
+	if c.insecure != nil && !*c.insecure && c.driverEnabled() {
 		v.Exec(c.listeners.ValidateAdvertiseSource)
 	}
 	v.NotEmptyString("data_path", c.dataPath)
@@ -133,7 +129,6 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		licenseKey:      override.String(c.licenseKey, other.licenseKey),
 		memBacked:       override.Nil(c.memBacked, other.memBacked),
 		listeners:       override.Slice(c.listeners, other.listeners),
-		peers:           override.Slice(c.peers, other.peers),
 		dataPath:        override.String(c.dataPath, other.dataPath),
 		slowConsumerTimeout: override.Numeric(
 			c.slowConsumerTimeout,
@@ -241,24 +236,9 @@ func BootupCore(
 		return err
 	}
 
-	grpcClientPool := configureClientGRPC(securityProvider, *cfg.insecure)
-	// Register the pool first so it closes LAST: every transport that
-	// references it must finish shutting down before its connections are
-	// torn down.
-	if !ok(nil, grpcClientPool) {
-		return ctx.Err()
-	}
-	var (
-		aspenTransport = aspentransport.New(grpcClientPool)
-		distTransport  = disttransport.New(grpcClientPool)
-	)
-
 	distributionLayer, err := distribution.OpenLayer(ctx, distribution.LayerConfig{
 		Instrumentation:  cfg.Child("distribution"),
 		AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
-		PeerAddresses:    cfg.peers,
-		AspenTransport:   aspenTransport,
-		Transport:        distTransport,
 		Storage:          storageLayer,
 	})
 	if !ok(err, distributionLayer) {
@@ -293,7 +273,6 @@ func BootupCore(
 		return err
 	}
 
-	// Configure the HTTP Layer AspenTransport.
 	var r *http.Router
 	if r, err = http.NewRouter(http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
@@ -321,7 +300,6 @@ func BootupCore(
 		securityProvider,
 		cfg.certFactoryConfig,
 		*cfg.insecure,
-		len(cfg.peers) > 0 || len(distributionLayer.Cluster.Nodes()) > 1,
 		cfg.driverEnabled(),
 	)
 	if !ok(err, nil) {
@@ -334,11 +312,7 @@ func BootupCore(
 				&server.SecureHTTPBranch{
 					Transports: []http.BindableTransport{r, embeddedConsole},
 				},
-				&server.GRPCBranch{Transports: append(
-					transportLayer.GRPC,
-					aspenTransport,
-					distTransport,
-				)},
+				&server.GRPCBranch{Transports: transportLayer.GRPC},
 				server.NewHTTPRedirectBranch(),
 			},
 			Debug:           cfg.debug,
@@ -378,6 +352,7 @@ func BootupCore(
 			Address:             cfg.listeners.AdvertiseAddress(),
 			RackKey:             serviceLayer.Rack.EmbeddedKey,
 			Keys:                serviceLayer.APIKey,
+			DB:                  distributionLayer.DB,
 			KeyDirname:          lo.Ternary(*cfg.memBacked, "", cfg.dataPath),
 			Debug:               cfg.debug,
 			TrustAnchorsPEM:     driverTrustAnchors,

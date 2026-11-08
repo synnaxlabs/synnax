@@ -7,18 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { group, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { type Flux, Group } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 
+import { placement } from "@/platform/group/placement";
 import { type Tree } from "@/platform/tree";
 
 export interface UseCreateEmptyProps {
-  parent: ontology.ID;
-  root: ontology.ID;
+  /** The node to create the group under. */
+  parent: resource.ID;
+  root: resource.ID;
   state: Tree.TreeState;
 }
 
@@ -32,14 +34,12 @@ export const useCreateEmpty = ({
       data,
       rollbacks,
     }: Flux.BeforeUpdateParams<Group.CreateParams>) => {
-      const newID = group.ontologyID(uuid.create());
-      const newIDString = ontology.idToString(newID);
-      const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
+      const newID = group.resourceID(uuid.create());
+      const newIDString = resource.idToString(newID);
+      const res: Tree.Resource = { key: newIDString, id: newID, name: "" };
       const node: PTree.Node<string> = { key: newIDString, children: [] };
       setResource(res);
-      const destination = ontology.idsEqual(data.parent, root)
-        ? null
-        : ontology.idToString(data.parent);
+      const destination = data.parent == null ? null : resource.idToString(data.parent);
       if (destination != null) expand(destination);
       setNodes([...PTree.setNode({ tree, destination, additions: node })]);
       rollbacks.push(() =>
@@ -50,5 +50,5 @@ export const useCreateEmpty = ({
       return { ...data, key: newID.key, name };
     },
   });
-  return () => update({ key: uuid.create(), name: "", parent });
+  return () => update({ key: uuid.create(), name: "", ...placement(parent, root) });
 };
