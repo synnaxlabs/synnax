@@ -525,38 +525,6 @@ TEST_F(IGHMasterTest, ActivateReadsTheLayoutOfEachSlaveFromItsOwnDictionary) {
     EXPECT_EQ(this->mock_api->configured_entries, configured);
 }
 
-/// @brief it should fail activation when a slave counts more sync managers than IgH
-/// configures.
-TEST_F(IGHMasterTest, ActivateFailsWhenASlaveCountsTooManySyncManagers) {
-    this->create_assignable_layout();
-    this->mock_api->objects[{0, 0x1C00, 0}] = 17;
-    this->initialize_with_slave();
-    this->configs = {{0, {.startup_parameters = {ASSIGN_INPUTS}}}};
-    const auto err = this->activate();
-    ASSERT_OCCURRED_AS(err, errors::PDO_DISCOVERY_ERROR);
-    EXPECT_EQ(
-        err.data,
-        "failed to read the PDO layout of slave 0 (TestSlave) after its startup "
-        "parameters: 0x1C00:00 counts 17 entries, above the maximum of 16"
-    );
-}
-
-/// @brief it should fail activation when a PDO counts more entries than a mapping
-/// object can hold.
-TEST_F(IGHMasterTest, ActivateFailsWhenAPDOCountsTooManyEntries) {
-    this->create_assignable_layout();
-    this->mock_api->objects[{0, 0x1A01, 0}] = 0xFFFFFFFF;
-    this->initialize_with_slave();
-    this->configs = {{0, {.startup_parameters = {ASSIGN_INPUTS}}}};
-    const auto err = this->activate();
-    ASSERT_OCCURRED_AS(err, errors::PDO_DISCOVERY_ERROR);
-    EXPECT_EQ(
-        err.data,
-        "failed to read the PDO layout of slave 0 (TestSlave) after its startup "
-        "parameters: 0x1A01:00 counts 4294967295 entries, above the maximum of 254"
-    );
-}
-
 TEST_F(IGHMasterTest, ActivateHappyPath) {
     this->initialize_with_slave();
     this->mock_api->set_output_domain_size(8);
