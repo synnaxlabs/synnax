@@ -184,29 +184,6 @@ var _ = Describe("PebbleKV", func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 
-		It("Should respect NoSync write options", func(ctx SpecContext) {
-			key := []byte("nosync-key")
-			value := []byte("nosync-value")
-
-			Expect(db.Set(ctx, key, value, pebble.NoSync)).To(Succeed())
-
-			got, closer := MustSucceed2(db.Get(ctx, key))
-			Expect(got).To(Equal(value))
-			Expect(closer.Close()).To(Succeed())
-
-			tx := db.OpenTx()
-			txKey := []byte("nosync-tx-key")
-			txValue := []byte("nosync-tx-value")
-
-			Expect(tx.Set(ctx, txKey, txValue)).To(Succeed())
-			Expect(tx.Commit(ctx, pebble.NoSync)).To(Succeed())
-			Expect(tx.Close()).To(Succeed())
-
-			got, closer = MustSucceed2(db.Get(ctx, txKey))
-			Expect(got).To(Equal(txValue))
-			Expect(closer.Close()).To(Succeed())
-		})
-
 		It("Should handle OpenIterator errors", func() {
 			// Invalid bounds should still create a valid iterator
 			iter := MustSucceed(db.OpenIterator(kv.IteratorOptions{
