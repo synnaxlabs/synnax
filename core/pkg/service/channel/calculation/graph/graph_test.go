@@ -1515,8 +1515,7 @@ var _ = Describe("Graph", func() {
 				// carry a different "did you mean" note. Waiting for the last batch
 				// leaves no write to race the clear.
 				// The Graph reads each changed channel again, so it can report the
-				// delete
-				// of dep for the batch of its create too.
+				// delete of dep for the batch of its create too.
 				var (
 					depDeleted = make(chan struct{})
 					once       sync.Once

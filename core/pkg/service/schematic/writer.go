@@ -116,7 +116,7 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 		if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
 			return err
 		}
-		w.notifyGroup(ctx, g, keys)
+		w.attachGroup(g, keys)
 		if p == nil {
 			return nil
 		}
@@ -131,7 +131,7 @@ func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) erro
 		if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
 			return err
 		}
-		w.notifyGroup(ctx, nil, keys)
+		w.attachGroup(nil, keys)
 		return w.setProject(ctx, p, keys...)
 	})
 }
@@ -165,7 +165,7 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
-func (w Writer) notifyGroup(ctx context.Context, g *group.Key, keys []Key) {
+func (w Writer) attachGroup(g *group.Key, keys []Key) {
 	for _, k := range keys {
 		w.dispatcher.Attach(
 			w.tx,

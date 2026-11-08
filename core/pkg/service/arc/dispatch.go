@@ -19,10 +19,10 @@ import (
 	"go.uber.org/zap"
 )
 
-// Dispatch applies a sequence of actions atomically to the Arc with the given key, in
-// a transaction of its own that carries the actions to the change channels.
-// dispatchKey is a client-generated identifier carried verbatim onto the actions so
-// the originating client can recognize its own echo.
+// Dispatch applies a sequence of actions atomically to the Arc with the given key, in a
+// transaction of its own that carries the actions to the change channels. dispatchKey
+// is a client-generated identifier carried verbatim onto the actions so the originating
+// client can recognize its own echo.
 //
 // When the Arc's text has gone quiet, Dispatch also reclaims the space held by
 // tombstoned characters: it forgets the characters that were already dead before this

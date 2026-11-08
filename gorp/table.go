@@ -42,8 +42,8 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// NewKeyReference and NewTargetReference.
 	References []Reference[K, E]
 	// OnDetach runs in the transaction of each delete that detaches a target from an
-	// entry of the table, after Gorp writes the entry. It gets the entry as written.
-	// An error fails the delete.
+	// entry of the table, after Gorp writes the entry. It gets the entry as written. An
+	// error fails the delete.
 	OnDetach func(ctx context.Context, tx Tx, e E) error
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation

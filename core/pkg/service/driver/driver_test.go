@@ -880,7 +880,7 @@ var _ = Describe("Driver", func() {
 				var (
 					mu         sync.Mutex
 					stopped    = make(set.Set[task.Key])
-					configured atomic.Int32
+					configured = make(set.Set[task.Key])
 					blocked    atomic.Value
 					released   = make(chan struct{})
 					release    = sync.OnceFunc(func() { close(released) })
@@ -892,7 +892,9 @@ var _ = Describe("Driver", func() {
 						_ context.Context,
 						t task.Task,
 					) (driver.Task, error) {
-						configured.Add(1)
+						mu.Lock()
+						configured.Add(t.Key)
+						mu.Unlock()
 						return &mockTask{
 							key: t.Key,
 							stopFunc: func(bool) error {
@@ -918,7 +920,15 @@ var _ = Describe("Driver", func() {
 						Key:  fmt.Sprintf("cmd-%d", i),
 					})
 				}
-				Eventually(configured.Load).Should(BeNumerically(">=", 3))
+				// The Driver also configures the tasks that earlier specs left, so wait
+				// for the keys of these tasks.
+				Eventually(func(g Gomega) {
+					mu.Lock()
+					defer mu.Unlock()
+					for _, t := range tasks {
+						g.Expect(configured.Contains(t.Key)).To(BeTrue())
+					}
+				}).Should(Succeed())
 				blocked.Store(tasks[0].Key)
 				for _, t := range tasks {
 					Expect(taskWriter.Delete(ctx, t.Key, false)).To(Succeed())
