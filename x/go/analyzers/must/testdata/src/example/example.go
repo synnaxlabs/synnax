@@ -176,3 +176,36 @@ func example() {
 	_, nilErr := returnsValErr()
 	Expect(nilErr).To(Equal(nil))
 }
+
+func laterDeclaration() {
+	a, err := returnsValErr() // want "can be replaced with MustSucceed"
+	Expect(err).To(Succeed())
+	b, err := returnsValErr() // want "can be replaced with MustSucceed"
+	Expect(err).To(Succeed())
+	_, _ = a, b
+}
+
+func laterAssignment() {
+	// Should NOT match: dropping the declaration breaks the later assignment.
+	err := returnsErr()
+	Expect(err).To(Succeed())
+	err = returnsErr() // want "assert the error inline"
+	Expect(err).To(MatchError(errSentinel))
+}
+
+func laterRead() {
+	// Should NOT match: a later statement reads the error.
+	err := returnsErr()
+	Expect(err).To(Succeed())
+	_ = err
+}
+
+func outerVariable() {
+	var err error
+	func() {
+		// Should NOT match: code after the closure reads the outer error.
+		err = returnsErr()
+		Expect(err).To(Succeed())
+	}()
+	_ = err
+}

@@ -180,14 +180,16 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
 		}
 		if errName, ok := matchExpectErrSucceeds(expectStmt.X); ok {
 			assignStmt, assignIdx, rhsCall := findBinding(stmts, i, errName)
-			if assignStmt != nil && reportDiagnostic(
-				pass,
-				assignStmt,
-				expectStmt,
-				rhsCall,
-				errName,
-				assignIdx == i-1,
-			) {
+			if assignStmt != nil &&
+				bindingDroppable(pass, stmts, assignStmt, i, errName) &&
+				reportDiagnostic(
+					pass,
+					assignStmt,
+					expectStmt,
+					rhsCall,
+					errName,
+					assignIdx == i-1,
+				) {
 				found = true
 			}
 			continue
@@ -248,6 +250,45 @@ func usesIdentIn(stmts []ast.Stmt, name string) bool {
 		}
 	}
 	return false
+}
+
+// bindingDroppable reports whether a fix can drop assign's binding of name when
+// stmts[i] asserts it: no later statement reads the value, and each later write still
+// compiles.
+func bindingDroppable(
+	pass *analysis.Pass,
+	stmts []ast.Stmt,
+	assign *ast.AssignStmt,
+	i int,
+	name string,
+) bool {
+	var obj types.Object
+	for _, lhs := range assign.Lhs {
+		if ident, ok := lhs.(*ast.Ident); ok && ident.Name == name {
+			obj = pass.TypesInfo.ObjectOf(ident)
+		}
+	}
+	// A variable declared in this block is out of scope after it.
+	local := obj.Pos() >= stmts[0].Pos()
+	for _, s := range stmts[i+1:] {
+		if !usesIdent(s, name) {
+			continue
+		}
+		next, ok := s.(*ast.AssignStmt)
+		if !ok || !assignsToName(next, name) {
+			return false
+		}
+		for _, rhs := range next.Rhs {
+			if usesIdent(rhs, name) {
+				return false
+			}
+		}
+		if next.Tok == token.ASSIGN {
+			return obj.Pos() < assign.Pos()
+		}
+		return local
+	}
+	return local
 }
 
 // findBinding walks backwards from stmts[i] to the assignment that binds name from a
