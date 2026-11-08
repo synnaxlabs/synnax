@@ -107,8 +107,42 @@ var _ = Describe("@ref", func() {
 					"func MatchRacks(vals ...rack.Key) Filter",
 					"return r.indexes.rack.Filter(vals...)",
 				).
-				ToNotContain("Detach:", "resourceTarget", `"slices"`, "gorp.Target")
+				ToNotContain(
+					"Detach:",
+					"resourceTarget",
+					`"slices"`,
+					"gorp.Target",
+					"Kind:",
+				)
 		},
+	)
+
+	DescribeTable(
+		"Should declare the kind of a reference",
+		func(ctx SpecContext, field, kind string) {
+			resp := MustGenerate(ctx, device(field), "device", loader, p)
+			ExpectContent(resp, "retrieve.gen.go").
+				ToContain("Kind:     gorp." + kind + ",")
+		},
+		Entry("a place on a key", `rack rack.Key {
+				@ref {
+					on_delete restrict
+					kind      place
+				}
+			}`, "Place"),
+		Entry("a use on an array", `labels label.Key[] {
+				@ref {
+					on_delete detach
+					kind      use
+				}
+			}`, "Use"),
+		Entry("a use on resource IDs", `owner resource.ID? {
+				@ref {
+					on_delete cascade
+					types     rack
+					kind      use
+				}
+			}`, "Use"),
 	)
 
 	It("Should register an optional reference to its own type", func(ctx SpecContext) {
@@ -375,6 +409,25 @@ var _ = Describe("@ref", func() {
 				}
 			}`,
 			"@ref field rack has unknown expression uniqe"),
+		Entry("with an unknown kind", `rack rack.Key {
+				@ref {
+					on_delete restrict
+					kind      spot
+				}
+			}`,
+			"@ref field rack needs kind place or use"),
+		Entry(
+			"with a kind on the on_delete line",
+			`rack rack.Key @ref on_delete restrict kind use`,
+			"@ref field rack needs one value for on_delete, not 3",
+		),
+		Entry("with two kinds", `rack rack.Key {
+				@ref {
+					on_delete restrict
+					kind      use place
+				}
+			}`,
+			"@ref field rack needs one value for kind, not 2"),
 		Entry("named search", `search rack.Key {
 				@ref on_delete restrict
 			}
@@ -624,7 +677,24 @@ var _ = Describe("@ref", func() {
 					"type indexes struct",
 					`"context"`,
 					`"slices"`,
+					"Kind:",
 				)
+		})
+
+		It("Should declare the kind of a nested reference", func(ctx SpecContext) {
+			generate(ctx, `
+				Inner struct {
+					channel channel.Key = 0 {
+						@ref {
+							on_delete restrict
+							kind      use
+						}
+					}
+				}
+			`, `
+				inner Inner
+			`).
+				ToContain(`Name:     "inner.channel",`, "Kind:     gorp.Use,")
 		})
 
 		It("Should reset a zero string key", func(ctx SpecContext) {
@@ -922,6 +992,30 @@ var _ = Describe("@ref", func() {
 					}
 					register {
 						channel channel.Key = 0 @ref on_delete detach
+					}
+				}`,
+				`channels Channel[]`,
+				"@ref field channels.channel declares different references in its "+
+					"variants",
+			),
+			Entry(
+				"union variants that give one field different kinds",
+				`Channel union on type {
+					coil {
+						channel channel.Key = 0 {
+							@ref {
+								on_delete restrict
+								kind      use
+							}
+						}
+					}
+					register {
+						channel channel.Key = 0 {
+							@ref {
+								on_delete restrict
+								kind      place
+							}
+						}
 					}
 				}`,
 				`channels Channel[]`,
