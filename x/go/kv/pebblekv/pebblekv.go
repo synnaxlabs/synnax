@@ -42,19 +42,6 @@ type db struct {
 
 var _ kv.DB = (*db)(nil)
 
-var defaultWriteOpts = pebble.Sync
-
-func parseOpts(opts []any) *pebble.WriteOptions {
-	if len(opts) > 0 {
-		for _, o := range opts {
-			if o, ok := o.(*pebble.WriteOptions); ok {
-				return o
-			}
-		}
-	}
-	return defaultWriteOpts
-}
-
 type openOptions struct {
 	observer observe.Observer[kv.TxReader]
 	injected bool
@@ -138,10 +125,8 @@ func (d db) withTx(ctx context.Context, f func(tx kv.Tx) error) (err error) {
 }
 
 // Set implement kv.DB.
-func (d db) Set(ctx context.Context, key, value []byte, opts ...any) error {
-	return d.withTx(ctx, func(tx kv.Tx) error {
-		return tx.Set(ctx, key, value, opts...)
-	})
+func (d db) Set(ctx context.Context, key, value []byte) error {
+	return d.withTx(ctx, func(tx kv.Tx) error { return tx.Set(ctx, key, value) })
 }
 
 // Get implement kv.DB.
@@ -151,10 +136,8 @@ func (d db) Get(_ context.Context, key []byte, _ ...any) ([]byte, io.Closer, err
 }
 
 // Delete implement kv.DB.
-func (d db) Delete(ctx context.Context, key []byte, opts ...any) error {
-	return d.withTx(ctx, func(tx kv.Tx) error {
-		return tx.Delete(ctx, key, opts...)
-	})
+func (d db) Delete(ctx context.Context, key []byte) error {
+	return d.withTx(ctx, func(tx kv.Tx) error { return tx.Delete(ctx, key) })
 }
 
 // OpenIterator implement kv.DB.
@@ -201,8 +184,8 @@ type tx struct {
 var _ kv.Tx = (*tx)(nil)
 
 // Set implements kv.Writer.
-func (txn *tx) Set(_ context.Context, key, value []byte, opts ...any) error {
-	return translateError(txn.Batch.Set(key, value, parseOpts(opts)))
+func (txn *tx) Set(_ context.Context, key, value []byte) error {
+	return translateError(txn.Batch.Set(key, value, nil))
 }
 
 // Get implements kv.Writer.
@@ -216,12 +199,8 @@ func (txn *tx) Get(
 }
 
 // Delete implements kv.Writer.
-func (txn *tx) Delete(
-	_ context.Context,
-	key []byte,
-	opts ...any,
-) error {
-	return translateError(txn.Batch.Delete(key, parseOpts(opts)))
+func (txn *tx) Delete(_ context.Context, key []byte) error {
+	return translateError(txn.Batch.Delete(key, nil))
 }
 
 // OpenIterator implements kv.Writer.
