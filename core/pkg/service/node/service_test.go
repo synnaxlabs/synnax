@@ -32,7 +32,11 @@ var _ = Describe("Service", func() {
 					MatchError(ContainSubstring("must be non-zero")),
 				))
 			},
-			Entry("host", "host.key", func(c *node.ServiceConfig) { c.Host = node.Node{} }),
+			Entry(
+				"host",
+				"host.key",
+				func(c *node.ServiceConfig) { c.Host = node.Node{} },
+			),
 		)
 	})
 

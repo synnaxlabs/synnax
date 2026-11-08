@@ -443,5 +443,33 @@ var _ = Describe("PebbleKV", func() {
 			Eventually(values).Should(Receive(Equal("first")))
 			Eventually(values).Should(Receive(Equal("second")))
 		})
+
+		It("Should let async handlers read an empty commit", func(ctx SpecContext) {
+			pdb := MustSucceed(pebble.Open(GinkgoT().TempDir(), &pebble.Options{
+				Logger: pebblekv.NewNoopLogger(),
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer func() {
+				cancel()
+				Expect(sCtx.Wait()).To(Succeed())
+			}()
+			observer := observe.NewAsync[kv.TxReader](sCtx)
+			db := DeferClose(pebblekv.Wrap(pdb, pebblekv.WithObserver(observer)))
+			read := make(chan int, 2)
+			for range 2 {
+				defer observer.OnChange(func(_ context.Context, r kv.TxReader) {
+					n := 0
+					for range r {
+						n++
+					}
+					read <- n
+				})()
+			}
+			tx := db.OpenTx()
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+			Eventually(read).Should(Receive(BeZero()))
+			Eventually(read).Should(Receive(BeZero()))
+		})
 	})
 })
