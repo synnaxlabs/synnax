@@ -568,11 +568,11 @@ export abstract class Retriever<
 
   /**
    * Returns the live answer of the params, which stays current while a handler is
-   * subscribed. Params that address one record, or a bare key list, return the same
-   * answer as {@link retrieve}. Any other query returns a live list of the records
-   * that match it, in its `order`, or in key order without one. The list ignores
-   * `after`, and `limit` sets the least window its reads return. Equal queries return
-   * the same list.
+   * subscribed. For params that address one record, or a bare key list, the `retrieve`
+   * of the answer is {@link retrieve}. Any other query returns a live list of the
+   * records that match it, in its `order`, or in key order without one. The list
+   * ignores `after`, and `limit` sets the least window its reads return. Equal queries
+   * return the same list.
    * @throws {Error} if a query asks for a list, and the domain has no lists.
    * @throws {zod.ParseError} if no schema of the domain accepts the params.
    * @throws {ValidationError} if a list query sets a limit that is not positive.
@@ -584,8 +584,11 @@ export abstract class Retriever<
     params: Shortcut | Shortcut[] | SingleInput | OneInput<Z> | RequestInput<Z>,
   ): Live<D> | Live<D[]> | List<D, CursorOf<z.output<Z>>> {
     const [space, query] = this.route(params);
-    if (space !== this.requestSpace || Array.isArray(params))
-      return space.watch(query) as Live<D> | Live<D[]>;
+    if (Array.isArray(params)) {
+      const live = space.watch(query) as Live<D[]>;
+      return { ...live, retrieve: async (o) => await this.retrieve(params, o) };
+    }
+    if (space !== this.requestSpace) return space.watch(query) as Live<D>;
     if (this.lists == null) throw new Error(`${this.name} has no lists`);
     // Params are readonly, so a repeat read of one object skips validation.
     const held = this.listed.get(params as object);

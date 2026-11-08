@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { range } from "@/lineplot/range/aether";
-import { ranger as aetherRanger } from "@/ranger/aether";
+import { ranger } from "@/ranger/aether";
 import { renderAether } from "@/testutil/renderAether";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
@@ -334,7 +334,7 @@ describe("Provider", () => {
   });
 
   it("requeries a live window once per span, not on every sample", () => {
-    const retrieve = vi.spyOn(aetherRanger.listDefinition, "retrieve");
+    const retrieve = vi.spyOn(ranger.listDefinition, "retrieve");
     try {
       const provider = mount();
       const span = TimeSpan.seconds(30);
@@ -350,7 +350,7 @@ describe("Provider", () => {
   });
 
   it("requeries once the viewport zooms in past 2x", () => {
-    const retrieve = vi.spyOn(aetherRanger.listDefinition, "retrieve");
+    const retrieve = vi.spyOn(ranger.listDefinition, "retrieve");
     try {
       const provider = mount();
       const start = TimeStamp.now();

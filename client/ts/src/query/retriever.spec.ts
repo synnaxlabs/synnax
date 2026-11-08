@@ -864,6 +864,25 @@ describe("Retriever", () => {
       expect(fetchRequest).not.toHaveBeenCalled();
     });
 
+    it("retrieves a watched bare key list once per key, in key order", async () => {
+      const reversed = async (keys: string[]): Promise<Thing[]> =>
+        keys.toReversed().map((k) => thing(k));
+      const client = new NamedClient(newCache(), reversed, byName());
+      expect(await client.watch(["b", "a", "b"]).retrieve()).toEqual([
+        thing("b"),
+        thing("a"),
+      ]);
+    });
+
+    it("throws a NotFoundError when a watched key list names a missing key", async () => {
+      const present = async (keys: string[]): Promise<Thing[]> =>
+        keys.filter((k) => k !== "c").map((k) => thing(k));
+      const client = new NamedClient(newCache(), present, byName());
+      await expect(client.watch(["a", "c"]).retrieve()).rejects.toThrow(
+        new NotFoundError("thing with key c not found"),
+      );
+    });
+
     it("reads a list as names when a member is not a key", async () => {
       const fetchRequest = vi.fn(byName(thing("b")));
       const client = new NamedClient(newCache(), byKey, fetchRequest);

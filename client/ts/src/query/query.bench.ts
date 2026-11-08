@@ -41,7 +41,7 @@ class Client extends query.Retriever<typeof requestZ, string, Thing> {
 }
 
 const client = new Client(new query.Cache({ openStreamer: null }));
-const stableParams = { minSize: 3 };
+const stableParams = { key: "a" };
 
 test("Retriever.getCached", async ({ bench }) => {
   await bench.compare(
@@ -50,7 +50,7 @@ test("Retriever.getCached", async ({ bench }) => {
     }),
 
     bench("fresh params object per call", () => {
-      client.watch({ minSize: 3 }).getCached();
+      client.watch({ key: "a" }).getCached();
     }),
   );
 });
