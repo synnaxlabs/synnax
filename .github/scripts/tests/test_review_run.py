@@ -666,6 +666,7 @@ class TestLaunch:
         assert Path(out["cwd"]).resolve() == work.resolve()
         env = out["env"]
         assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "claude-token"
+        assert env["CLAUDE_CODE_PROMPT_CACHE_TTL"] == "5m"
         assert "GH_TOKEN" not in env
         assert env["HOME"] == env["CLAUDE_CONFIG_DIR"] != os.environ["HOME"]
 

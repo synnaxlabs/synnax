@@ -93,7 +93,7 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
             "body": "",
             "comments": comments,
         }
-        _write(gh, "POST", f"repos/{t.repo}/pulls/{t.pr}/reviews", payload)
+        write(gh, "POST", f"repos/{t.repo}/pulls/{t.pr}/reviews", payload)
     outside = [f for f in review.findings if f not in inline]
     _upsert_outside(t, gh, render.outside(outside, blob=blob), created=bool(outside))
     message = gh("api", f"repos/{t.repo}/commits/{t.head}", "--jq", ".commit.message")
@@ -107,13 +107,13 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
         blob=blob,
     )
     body = render.splice(body.removesuffix("\n"), block)
-    _write(gh, "PATCH", f"repos/{t.repo}/pulls/{t.pr}", {"body": body})
+    write(gh, "PATCH", f"repos/{t.repo}/pulls/{t.pr}", {"body": body})
     done = {
         "status": "completed",
         "conclusion": "success",
         "output": render.check(review),
     }
-    _write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
+    write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
 
 
 def _commentable(patch: str) -> set[int]:
@@ -129,7 +129,7 @@ def _commentable(patch: str) -> set[int]:
     return lines
 
 
-def _write(gh: GH, method: str, path: str, payload: dict[str, Any]) -> None:
+def write(gh: GH, method: str, path: str, payload: dict[str, Any]) -> None:
     gh("api", "-X", method, path, "--input", "-", stdin=json.dumps(payload))
 
 
@@ -222,7 +222,7 @@ def _upsert_outside(t: Target, gh: GH, body: str, *, created: bool) -> None:
     for c in (json.loads(line) for line in out.splitlines() if line):
         if c["login"] == f"{t.bot}[bot]" and c["body"].startswith(render.OUTSIDE):
             path = f"repos/{t.repo}/issues/comments/{c['id']}"
-            _write(gh, "PATCH", path, {"body": body})
+            write(gh, "PATCH", path, {"body": body})
             return
     if created:
-        _write(gh, "POST", f"repos/{t.repo}/issues/{t.pr}/comments", {"body": body})
+        write(gh, "POST", f"repos/{t.repo}/issues/{t.pr}/comments", {"body": body})
