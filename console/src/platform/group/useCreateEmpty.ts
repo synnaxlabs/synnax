@@ -10,7 +10,6 @@
 import { group, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { type Flux, Group } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 
@@ -24,31 +23,33 @@ export interface UseCreateEmptyProps {
   state: Tree.TreeState;
 }
 
+const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<Group.CreateParams>) => {
+  if (data.key == null) throw new Error("a group drafted in a tree needs a key");
+  const [name, renamed] = await Text.asyncEdit(
+    List.itemNameID(resource.idToString(group.resourceID(data.key))),
+  );
+  if (!renamed || name === "") return false;
+  return { ...data, name };
+};
+
+/**
+ * Returns a function that shows a draft group under the parent and creates the group
+ * once the user names it.
+ */
 export const useCreateEmpty = ({
   parent,
   root,
-  state: { nodes: tree, setNodes, setResource, expand },
+  state: { addDraft, expand },
 }: UseCreateEmptyProps): (() => void) => {
-  const { update } = Group.useCreate({
-    beforeUpdate: async ({
-      data,
-      rollbacks,
-    }: Flux.BeforeUpdateParams<Group.CreateParams>) => {
-      const newID = group.resourceID(uuid.create());
-      const newIDString = resource.idToString(newID);
-      const res: Tree.Resource = { key: newIDString, id: newID, name: "" };
-      const node: PTree.Node<string> = { key: newIDString, children: [] };
-      setResource(res);
-      const destination = data.parent == null ? null : resource.idToString(data.parent);
-      if (destination != null) expand(destination);
-      setNodes([...PTree.setNode({ tree, destination, additions: node })]);
-      rollbacks.push(() =>
-        setNodes([...PTree.removeNode({ tree, keys: newIDString })]),
-      );
-      const [name, renamed] = await Text.asyncEdit(List.itemNameID(newIDString));
-      if (!renamed || name === "") return false;
-      return { ...data, key: newID.key, name };
-    },
-  });
-  return () => update({ key: uuid.create(), name: "", ...placement(parent, root) });
+  const { updateAsync } = Group.useCreate({ beforeUpdate });
+  return () => {
+    const id = group.resourceID(uuid.create());
+    const key = resource.idToString(id);
+    const parentKey = resource.idToString(parent);
+    if (!resource.idsEqual(parent, root)) expand(parentKey);
+    const done = addDraft({ resource: { key, id, name: "" }, parent: parentKey });
+    void updateAsync({ key: id.key, name: "", ...placement(parent, root) }).finally(
+      done,
+    );
+  };
 };

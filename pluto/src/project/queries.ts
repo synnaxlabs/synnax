@@ -16,7 +16,7 @@ import {
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { array, deep, type destructor, type record, verbs } from "@synnaxlabs/x";
+import { array, deep, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -106,16 +106,9 @@ export interface VisualizationQuery {
 /** The calls that every visualization client answers. */
 export interface VisualizationClient {
   retrieve(query: VisualizationQuery): Promise<Visualization[]>;
-  onChange(
-    key: string,
-    handler: query.ChangeHandler<Visualization>,
-  ): destructor.Destructor;
-  onChange(
-    query: VisualizationQuery,
-    handler: query.ChangeHandler<Visualization[]>,
-  ): destructor.Destructor;
-  getCached(key: string): query.Cached<Visualization> | undefined;
-  getCached(query: VisualizationQuery): query.Cached<Visualization[]> | undefined;
+  list(
+    query: VisualizationQuery & { order?: { field: "name" } },
+  ): query.List<Visualization, unknown>;
   readonly setProjectRequest: project.MoveRequest<string>;
 }
 

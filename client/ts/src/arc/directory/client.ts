@@ -110,16 +110,30 @@ export class Client extends query.Retriever<
     return root;
   }
 
-  /** Creates a directory in the directory parent. */
+  /**
+   * Creates a directory in the directory parent. A create with a key writes the
+   * directory to the cache first, and removes it if the Core rejects the create.
+   */
   async create({ parent, key, name }: CreateParams): Promise<Directory> {
-    const res = await this.cfg.unary.send(
-      "/arc/directory/create",
-      { parent, directory: { key, name } },
-      createReqZ,
-      createResZ,
-    );
-    this.store.set(res.directory);
-    return res.directory;
+    const { directory } = await query.optimistic({
+      rollbacks: key == null ? [] : [this.writeAhead({ key, name, parent })],
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/arc/directory/create",
+          { parent, directory: { key, name } },
+          createReqZ,
+          createResZ,
+        ),
+    });
+    this.store.set(directory);
+    return directory;
+  }
+
+  private writeAhead(directory: Directory): destructor.Destructor {
+    const prev = this.store.get(directory.key);
+    this.store.set(directory);
+    return () =>
+      prev == null ? this.store.delete(directory.key) : this.store.set(prev);
   }
 
   /** Renames the directory with key. */

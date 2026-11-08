@@ -101,12 +101,22 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
 
   /**
    * Builds a request that creates a group. The Core derives the scope from the parent;
-   * a group with no parent needs a scope.
+   * a group with no parent needs a scope. A request with a key writes the group to the
+   * cache, when the cache holds what gives its scope.
    */
   createRequest(params: CreateParams): batch.Request<z.infer<typeof createReqZ>> {
+    const payload = zod.parse(createReqZ, params, { label: "group create request" });
+    const { key, name, parent } = payload;
+    const scope = payload.scope ?? this.scopeUnder(parent);
+    if (key == null || scope == null) return { endpoint: "/group/create", payload };
     return {
       endpoint: "/group/create",
-      payload: zod.parse(createReqZ, params, { label: "group create request" }),
+      payload,
+      apply: () => {
+        const prev = this.store.get(key);
+        this.store.set({ key, name, scope, parent });
+        return () => (prev == null ? this.store.delete(key) : this.store.set(prev));
+      },
     };
   }
 
@@ -166,10 +176,14 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
    * does not match the parent.
    */
   async create(params: CreateParams): Promise<Group> {
-    const { endpoint, payload } = this.createRequest(params);
-    const res = await this.cfg.unary.send(endpoint, payload, createReqZ, createResZ);
-    this.store.set(res.group);
-    return res.group;
+    const { endpoint, payload, apply } = this.createRequest(params);
+    const { group } = await query.optimistic({
+      rollbacks: apply == null ? [] : [apply()],
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, createReqZ, createResZ),
+    });
+    this.store.set(group);
+    return group;
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
@@ -261,6 +275,21 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
       commit: async () => await this.cfg.unary.send(endpoint, payload, reqZ, emptyResZ),
     });
     apply?.();
+  }
+
+  // Returns the scope a group takes under the parent, as the Core derives it, or
+  // undefined when the parent is a group the cache does not hold.
+  private scopeUnder(parent?: resource.ID): resource.Type | undefined {
+    switch (parent?.type) {
+      case "project":
+        return "project";
+      case "rack":
+        return "device";
+      case "group":
+        return this.store.get(parent.key)?.scope;
+      default:
+        return undefined;
+    }
   }
 
   private async execRetrieve(req: z.input<typeof retrieveRequestZ>): Promise<Group[]> {
