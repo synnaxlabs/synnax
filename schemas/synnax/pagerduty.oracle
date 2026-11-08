@@ -21,6 +21,7 @@ Alert struct {
     }
     status          status.Key = "" {
         @doc value     "is the key of the Synnax status the alert watches."
+        @ref kind      use
         @ref on_delete detach
     }
     errors_critical bool = false {

@@ -101,7 +101,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("invalid status variant"))))
 					Expect(svc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 						Entry(&status.Status[any]{}).
-						Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+						Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 				},
 			)
 		})
@@ -132,7 +132,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](key)).
 							Entry(&s).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(s.Variant).To(Equal(status.VariantWarning))
 					Expect(s.Message).To(Equal("new"))
@@ -160,7 +160,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](key)).
 							Entry(&s).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(s.Message).To(Equal("new"))
 					Expect(s.Description).To(BeEmpty())
@@ -238,7 +238,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](existingKey)).
 							Entry(&s).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(s.Variant).To(Equal(status.VariantError))
 					Expect(s.Message).To(Equal("now bad"))
@@ -276,7 +276,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](firstKey, secondKey)).
 							Entries(&rows).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(rows).To(HaveLen(2))
 					warning, info := 0, 0
@@ -311,7 +311,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](gotKey)).
 							Entry(&s).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(s.Message).To(BeEmpty())
 				},
@@ -340,7 +340,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](gotKey)).
 							Entry(&s).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(s.Key).To(Equal(gotKey))
 					Expect(s.Name).To(Equal(input))
@@ -377,7 +377,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](gotKey)).
 							Entry(&s).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(s.Message).To(Equal("second"))
 					Expect(s.Variant).To(Equal(status.VariantWarning))
@@ -387,6 +387,38 @@ var _ = Describe("Dispatch", Ordered, func() {
 	})
 
 	Describe("Join", func() {
+		It("Should resolve and join statuses through a snapshot", func(
+			ctx SpecContext,
+		) {
+			r := rack.Rack{Key: 65539, Name: "snapshot"}
+			Expect(racks.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
+			owner := r.ResourceID()
+			Expect(setStatus(ctx, &status.Status[any]{
+				Owner:   &owner,
+				Name:    "snapshot-join",
+				Variant: status.VariantSuccess,
+				Message: "running",
+				Time:    telem.Now(),
+			})).To(Succeed())
+			var (
+				resolved []status.Status[any]
+				joined   []*status.Status[any]
+			)
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				if resolved, err = svc.ResolveKeyOrName(
+					ctx,
+					snap,
+					"snapshot-join",
+				); err != nil {
+					return err
+				}
+				joined, err = svc.Join[any](ctx, snap, []resource.ID{owner})
+				return err
+			})).To(Succeed())
+			Expect(resolved).To(HaveExactElements(HaveField("Name", "snapshot-join")))
+			Expect(joined).To(HaveExactElements(HaveField("Message", "running")))
+		})
+
 		It(
 			"Should return the status of each resource in order, nil for a missing one",
 			func(ctx SpecContext) {
@@ -402,7 +434,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Time:    telem.Now(),
 				})).To(Succeed())
 				joined := MustSucceed(
-					svc.Join[any](ctx, nil, []resource.ID{missing, stored}),
+					svc.Join[any](ctx, db, []resource.ID{missing, stored}),
 				)
 				Expect(joined).To(HaveLen(2))
 				Expect(joined[0]).To(BeNil())

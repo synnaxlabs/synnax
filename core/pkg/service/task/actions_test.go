@@ -10,12 +10,10 @@
 package task_test
 
 import (
-	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,22 +29,6 @@ var _ = Describe("Actions", func() {
 			Type: "pagerduty_alert",
 			Rack: 1,
 		}
-	})
-	Describe("ActionRecord", func() {
-		It("Should return the task that a broadcast edits", func() {
-			sample := MustSucceed(json.Marshal(actions.Scoped[task.Key, task.Action]{
-				Key: base.Key,
-				Actions: []task.Action{task.NewSetAction(task.SetPayload{
-					Path: []string{"name"}, Value: "Alarms",
-				})},
-			}))
-			Expect(task.ActionRecord(sample)).To(Equal(task.ResourceID(base.Key)))
-		})
-
-		It("Should return an error for a sample that is not a broadcast", func() {
-			Expect(task.ActionRecord([]byte("not json"))).Error().
-				To(MatchError(ContainSubstring("invalid character")))
-		})
 	})
 
 	Describe("CreatePayload", func() {

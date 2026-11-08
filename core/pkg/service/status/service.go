@@ -101,21 +101,28 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Status[any]]] 
 	return s.table.Observe()
 }
 
+// Changes returns the changes that c made to statuses.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Status[any]] {
+	return s.table.Changes(ctx, c)
+}
+
 // ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key
 // match over name matches. Read-only; callers enforce access on and write the result.
 func (s *Service) ResolveKeyOrName(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	keyOrName string,
 ) ([]Status[any], error) {
 	if keyOrName == "" {
 		return nil, errors.Wrap(validate.ErrValidation, "key_or_name is required")
 	}
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	var st Status[any]
 	err := s.NewRetrieve[any]().Where(MatchKeys[any](keyOrName)).
 		Entry(&st).
-		Exec(ctx, tx)
+		Exec(ctx, snap)
 	if err == nil {
 		return []Status[any]{st}, nil
 	}
@@ -126,7 +133,7 @@ func (s *Service) ResolveKeyOrName(
 	if err = s.NewRetrieve[any]().
 		Where(MatchNames[any](keyOrName)).
 		Entries(&matches).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	return matches, nil
@@ -212,18 +219,14 @@ func (s *Service) SetMissing[D any](
 
 // NewMigrationWriter returns a writer that skips reference checks, for the migrations
 // of the tables that status owners live in. Those migrations run before their tables
-// open, so no other caller may use it. Pass a nil tx to write directly against the
-// service's DB.
+// open, so no other caller may use it.
 func (s *Service) NewMigrationWriter(tx gorp.Tx) *gorp.Writer[Key, Status[any]] {
-	return s.table.NewUncheckedWriter(gorp.OverrideTx(s.cfg.DB, tx))
+	return s.table.NewUncheckedWriter(tx)
 }
 
-// NewWriter opens a Writer for statuses. Pass a nil tx to run each call in a
-// transaction of its own on the service's DB.
+// NewWriter opens a Writer for statuses that runs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		svc:     s,
 		tx:      tx,
 		table:   s.table,
 		indexes: s.indexes,
@@ -234,7 +237,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 	return Retrieve[D]{
 		gorp:    gorp.NewRetrieve[Key, Status[D]](),
-		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
 	}
 }
@@ -243,14 +245,14 @@ func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 // that owns no status gets nil.
 func (s *Service) Join[D any](
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	ids []resource.ID,
 ) ([]*Status[D], error) {
 	var statuses []Status[D]
 	if err := s.NewRetrieve[D]().
 		Where(MatchOwners[D](ids...)).
 		Entries(&statuses).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	byOwner := make(map[resource.ID]*Status[D], len(statuses))

@@ -54,6 +54,7 @@ type CoreConfig struct {
 	validateChannelNames *bool
 	memBacked            *bool
 	noDriver             *bool
+	updateBackupDisabled *bool
 	alamos.Instrumentation
 	dataPath             string
 	licenseKey           string
@@ -109,6 +110,7 @@ func (c CoreConfig) Validate() error {
 	v.NonZero("slow_consumer_timeout", c.slowConsumerTimeout)
 	v.Positive("session_idle_timeout", c.sessionIdleTimeout)
 	v.NotNil("no_driver", c.noDriver)
+	v.NotNil("update_backup_disabled", c.updateBackupDisabled)
 	v.Exec(c.rootCredentials.Validate)
 	v.NonZero("task_op_timeout", c.taskOpTimeout)
 	v.NonZero("task_poll_interval", c.taskPollInterval)
@@ -139,7 +141,11 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			c.sessionIdleTimeout,
 			other.sessionIdleTimeout,
 		),
-		noDriver:      override.Nil(c.noDriver, other.noDriver),
+		noDriver: override.Nil(c.noDriver, other.noDriver),
+		updateBackupDisabled: override.Nil(
+			c.updateBackupDisabled,
+			other.updateBackupDisabled,
+		),
 		taskOpTimeout: override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
 		taskPollInterval: override.Numeric(
 			c.taskPollInterval,
@@ -202,17 +208,24 @@ func BootupCore(
 	// permission mask for all files appropriately.
 	DisablePermissionBits()
 
-	var closer xio.MultiCloser
-
+	var (
+		closer xio.MultiCloser
+		// update is the update of the data that this start did not commit yet.
+		update *storage.Update
+	)
 	cleanup, ok := xservice.NewOpener(ctx, &closer)
-	defer func() { err = cleanup(err) }()
+	defer func() {
+		if err = cleanup(err); err != nil && update != nil {
+			err = update.Undo(ctx, err)
+		}
+	}()
 
 	securityProvider, err := security.NewProvider(security.ProviderConfig{
 		LoaderConfig: cfg.certFactoryConfig.LoaderConfig,
 		Insecure:     cfg.insecure,
 	})
 	if !ok(err, nil) {
-		return err
+		return errors.Mark(err, validate.ErrValidation)
 	}
 
 	cacheDir, err := os.UserCacheDir()
@@ -227,14 +240,16 @@ func BootupCore(
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
 	storageLayer, err := storage.OpenLayer(ctx, storage.LayerConfig{
-		Instrumentation: cfg.Child("storage"),
-		InMemory:        cfg.memBacked,
-		Dirname:         cfg.dataPath,
-		Version:         vsn,
+		Instrumentation:      cfg.Child("storage"),
+		InMemory:             cfg.memBacked,
+		Dirname:              cfg.dataPath,
+		Version:              vsn,
+		UpdateBackupDisabled: cfg.updateBackupDisabled,
 	})
 	if !ok(err, storageLayer) {
 		return err
 	}
+	update = storageLayer.Update
 
 	distributionLayer, err := distribution.OpenLayer(ctx, distribution.LayerConfig{
 		Instrumentation:  cfg.Child("distribution"),
@@ -262,6 +277,22 @@ func BootupCore(
 	})
 	if !ok(err, serviceLayer) {
 		return err
+	}
+
+	// No client reaches the data before the commit, so an undo loses no writes.
+	if update != nil {
+		if err = serviceLayer.License.CheckUpdate(update.From); err != nil {
+			return err
+		}
+		if err = update.Commit(); err != nil {
+			return err
+		}
+		cfg.L.Info(
+			"committed the update",
+			zap.String("from", update.From),
+			zap.String("to", update.To),
+		)
+		update = nil
 	}
 
 	apiLayer, err := api.NewLayer(api.LayerConfig{
@@ -352,6 +383,7 @@ func BootupCore(
 			Address:             cfg.listeners.AdvertiseAddress(),
 			RackKey:             serviceLayer.Rack.EmbeddedKey,
 			Keys:                serviceLayer.APIKey,
+			DB:                  distributionLayer.DB,
 			KeyDirname:          lo.Ternary(*cfg.memBacked, "", cfg.dataPath),
 			Debug:               cfg.debug,
 			TrustAnchorsPEM:     driverTrustAnchors,

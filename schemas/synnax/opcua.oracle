@@ -46,6 +46,7 @@ BaseChannel struct {
 ReadChannel struct extends BaseChannel {
     channel  channel.Key = 0 {
         @doc value     "is the Synnax channel that samples are written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     is_index bool = false {
@@ -65,6 +66,7 @@ ReadChannel struct extends BaseChannel {
 WriteChannel struct extends BaseChannel {
     cmd_channel channel.Key = 0 {
         @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
         @ref on_delete restrict
     }
 
@@ -83,6 +85,7 @@ ReadConfig struct extends task.ReadConfig {
     }
     device           device.Key = "" {
         @doc value     "is the key of the device representing the OPC UA server."
+        @ref kind      use
         @ref on_delete restrict
     }
     array_mode       bool = false {

@@ -30,10 +30,12 @@ BaseReadChannel struct {
     }
     channel  channel.Key = 0 {
         @doc value     "is the Synnax channel that raw samples are written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     device   device.Key = "" {
         @doc value     "is the key of the slave device the channel reads from."
+        @ref kind      use
         @ref on_delete restrict
     }
 
@@ -93,10 +95,12 @@ BaseWriteChannel struct {
     }
     cmd_channel        channel.Key = 0 {
         @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
         @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
         @doc value     "is the Synnax channel the output state is written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
@@ -107,6 +111,7 @@ BaseWriteChannel struct {
     }
     device             device.Key = "" {
         @doc value     "is the key of the slave device the channel writes to."
+        @ref kind      use
         @ref on_delete restrict
     }
 

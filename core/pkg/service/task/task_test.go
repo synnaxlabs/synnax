@@ -83,7 +83,7 @@ var _ = Describe("Task", Ordered, func() {
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			DriverRole: MustSucceed(
-				racktestutil.CreateDriverRole(ctx, roleSvc),
+				racktestutil.CreateDriverRole(ctx, db, roleSvc),
 			),
 		}))
 		rangeSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
@@ -117,13 +117,17 @@ var _ = Describe("Task", Ordered, func() {
 			Configs: configs,
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
-		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rackService.NewWriter(tx).Create(ctx, testRack)
+		})).To(Succeed())
 		for _, k := range []status.Key{"st-1", "st-2", "st-a", "st-b"} {
-			Expect(stat.NewWriter(nil).Set(ctx, &status.Status[any]{
-				Key:     k,
-				Name:    string(k),
-				Variant: status.VariantInfo,
-				Time:    telem.Now(),
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
+					Key:     k,
+					Name:    string(k),
+					Variant: status.VariantInfo,
+					Time:    telem.Now(),
+				})
 			})).To(Succeed())
 		}
 	})
@@ -156,18 +160,6 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
 			},
 		)
-	})
-	Describe("ConfigTask", func() {
-		It("Should return the task whose config record a target names", func() {
-			key := uuid.New()
-			id := MustBeOk(svc.ConfigTask(gorp.NewTarget("labjack_read_config", key)))
-			Expect(id).To(Equal(task.ResourceID(key)))
-		})
-
-		It("Should return false for a table that holds no config records", func() {
-			_, ok := svc.ConfigTask(gorp.NewTarget("task", uuid.New()))
-			Expect(ok).To(BeFalse())
-		})
 	})
 	Describe("StatusDetails msgpack round-trip", func() {
 		It("Should round-trip the details", func(ctx SpecContext) {
@@ -658,7 +650,9 @@ var _ = Describe("Task", Ordered, func() {
 					Name:   "Original",
 					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
 				}
-				Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, m)
+				})).To(Succeed())
 				openTx()
 				frames := collect()
 				copied := MustSucceed(w.WithDispatchKey("dk-copy").
@@ -666,10 +660,12 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(*frames).To(BeEmpty())
 				Expect(tx.Commit(ctx)).To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
-					Expect(svc.NewWriter(db).Delete(ctx, m.Key, true)).To(Succeed())
-					Expect(
-						svc.NewWriter(db).Delete(ctx, copied.Key, true),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, m.Key, true)
+					})).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, copied.Key, true)
+					})).To(Succeed())
 				})
 				Expect(*frames).To(HaveLen(1))
 				f := (*frames)[0]
@@ -684,13 +680,17 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Dispatch", func() {
-		// Dispatch commits on its own, so its tasks commit too and are deleted after
-		// each spec.
+		// Each dispatch commits in a transaction of its own, so its tasks commit too
+		// and are deleted after each spec.
 		createCommitted := func(ctx context.Context, t *task.Task) {
 			GinkgoHelper()
-			Expect(svc.NewWriter(db).Create(ctx, t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, t)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(db).Delete(ctx, t.Key, true)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, t.Key, true)
+				})).To(Succeed())
 			})
 		}
 		var alerts *task.Task
@@ -709,13 +709,30 @@ var _ = Describe("Task", Ordered, func() {
 		set := func(path []string, value any) task.Action {
 			return task.NewSetAction(task.SetPayload{Path: path, Value: value})
 		}
+		dispatch := func(
+			ctx context.Context,
+			key task.Key,
+			dispatchKey string,
+			acts []task.Action,
+		) ([]task.Action, error) {
+			var added []task.Action
+			if err := db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				added, err = svc.NewWriter(tx).
+					WithDispatchKey(dispatchKey).
+					Apply(ctx, key, acts...)
+				return err
+			}); err != nil {
+				return nil, err
+			}
+			return added, nil
+		}
 		retrieve := func(ctx context.Context, key task.Key) task.Task {
 			GinkgoHelper()
 			var res task.Task
 			Expect(svc.NewRetrieve().
 				Where(task.MatchKeys(key)).
 				Entry(&res).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			return res
 		}
 		expectUnchanged := func(ctx context.Context) {
@@ -727,7 +744,7 @@ var _ = Describe("Task", Ordered, func() {
 		}
 
 		It("Should store the new config and its hash", func(ctx SpecContext) {
-			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "routing_key"}, "rk-2"),
 			}))
 			res := retrieve(ctx, alerts.Key)
@@ -738,7 +755,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should hash the config as a create of the same config does", func(
 			ctx SpecContext,
 		) {
-			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "routing_key"}, "rk-2"),
 			}))
 			same := &task.Task{
@@ -755,7 +772,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should apply list actions to the config", func(ctx SpecContext) {
-			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				task.NewInsertAction(task.InsertPayload{
 					Path:  []string{"config", "alerts"},
 					Value: map[string]any{"key": "b", "status": "st-b"},
@@ -777,7 +794,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should set a field of a list entry by its key", func(ctx SpecContext) {
-			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "alerts", "a", "status"}, "st-b"),
 			}))
 			Expect(retrieve(ctx, alerts.Key).Config["alerts"]).To(HaveExactElements(
@@ -791,7 +808,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should do nothing for a path through a missing list entry", func(
 			ctx SpecContext,
 		) {
-			computed := MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			computed := MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "alerts", "z", "status"}, "st-b"),
 			}))
 			Expect(computed).To(Equal([]task.Action{
@@ -803,7 +820,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should leave the config and its hash alone for a rename", func(
 			ctx SpecContext,
 		) {
-			computed := MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			computed := MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
 			}))
 			Expect(computed).To(BeEmpty())
@@ -813,7 +830,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should rename the task and its status", func(ctx SpecContext) {
-			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
 			}))
 			Expect(retrieve(ctx, alerts.Key).Name).To(Equal("Renamed"))
@@ -821,15 +838,16 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchOwners[task.StatusDetails](alerts.ResourceID())).
 				Entry(&renamed).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(renamed.Name).To(Equal("Renamed"))
 		})
 
 		It("Should rename a task that has no status", func(ctx SpecContext) {
-			sw := stat.NewWriter(db)
-			Expect(sw.DeleteOwned(ctx, alerts.ResourceID())).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return stat.NewWriter(tx).DeleteOwned(ctx, alerts.ResourceID())
+			})).
 				To(Succeed())
-			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
 			}))
 			Expect(retrieve(ctx, alerts.Key).Name).To(Equal("Renamed"))
@@ -837,20 +855,22 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should move the task to another rack", func(ctx SpecContext) {
 			other := &rack.Rack{Name: "Other Rack"}
-			Expect(rackService.NewWriter(db).Create(ctx, other)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackService.NewWriter(tx).Create(ctx, other)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(
-					rackService.NewWriter(db).Delete(ctx, nil, other.Key),
-				).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rackService.NewWriter(tx).Delete(ctx, nil, other.Key)
+				})).To(Succeed())
 			})
-			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"rack"}, other.Key),
 			}))
 			Expect(retrieve(ctx, alerts.Key).Rack).To(Equal(other.Key))
 		})
 
 		It("Should apply none of the actions when one fails", func(ctx SpecContext) {
-			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			Expect(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "routing_key"}, "rk-2"),
 				set([]string{"type"}, "arc"),
 			})).Error().To(MatchError(validate.ErrValidation))
@@ -860,7 +880,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should reject a member the config does not declare", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			Expect(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "routng_key"}, "rk-2"),
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -877,13 +897,13 @@ var _ = Describe("Task", Ordered, func() {
 				Config: msgpack.EncodedJSON{"arc_key": testArc.String()},
 			}
 			createCommitted(ctx, arcTask)
-			Expect(svc.Dispatch(ctx, arcTask.Key, "dk", []task.Action{
+			Expect(dispatch(ctx, arcTask.Key, "dk", []task.Action{
 				set([]string{"config", "performance"}, "BOGUS"),
 			})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
 		})
 
 		It("Should reject an empty name", func(ctx SpecContext) {
-			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			Expect(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, ""),
 			})).Error().To(MatchError(ContainSubstring("name: required")))
 			expectUnchanged(ctx)
@@ -892,7 +912,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should reject a create", func(ctx SpecContext) {
 			overwritten := *alerts
 			overwritten.Name = "Overwritten"
-			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			Expect(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				task.NewCreateAction(task.CreatePayload{Task: overwritten}),
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -909,7 +929,7 @@ var _ = Describe("Task", Ordered, func() {
 				Snapshot: true,
 			}
 			createCommitted(ctx, snap)
-			MustSucceed(svc.Dispatch(ctx, snap.Key, "dk", []task.Action{
+			MustSucceed(dispatch(ctx, snap.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
 			}))
 			res := retrieve(ctx, snap.Key)
@@ -926,7 +946,7 @@ var _ = Describe("Task", Ordered, func() {
 				Snapshot: true,
 			}
 			createCommitted(ctx, snap)
-			Expect(svc.Dispatch(ctx, snap.Key, "dk", []task.Action{
+			Expect(dispatch(ctx, snap.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
 				set([]string{"config", "routing_key"}, "rk-2"),
 			})).Error().To(SatisfyAll(
@@ -939,7 +959,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should return not found for a missing task", func(ctx SpecContext) {
-			Expect(svc.Dispatch(ctx, uuid.New(), "dk", []task.Action{
+			Expect(dispatch(ctx, uuid.New(), "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
 			})).Error().To(MatchError(query.ErrNotFound))
 		})
@@ -949,7 +969,7 @@ var _ = Describe("Task", Ordered, func() {
 		) {
 			frames := collect()
 			acts := []task.Action{set([]string{"config", "routing_key"}, "rk-2")}
-			computed := MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk-1", acts))
+			computed := MustSucceed(dispatch(ctx, alerts.Key, "dk-1", acts))
 			hash := retrieve(ctx, alerts.Key).ConfigHash
 			Expect(
 				computed,
@@ -979,7 +999,7 @@ var _ = Describe("Task", Ordered, func() {
 				createCommitted(ctx, arcTask)
 				frames := collect()
 				acts := []task.Action{set([]string{"config", "performance"}, "")}
-				computed := MustSucceed(svc.Dispatch(ctx, arcTask.Key, "dk", acts))
+				computed := MustSucceed(dispatch(ctx, arcTask.Key, "dk", acts))
 				stored := retrieve(ctx, arcTask.Key)
 				Expect(stored.Config).To(HaveKeyWithValue("performance", "auto"))
 				Expect(computed).To(Equal([]task.Action{
@@ -993,7 +1013,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should not broadcast a rejected dispatch", func(ctx SpecContext) {
 			frames := collect()
-			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			Expect(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"type"}, "arc"),
 			})).Error().To(MatchError(validate.ErrValidation))
 			Expect(*frames).To(BeEmpty())
@@ -1002,12 +1022,13 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should hash and broadcast a config that a status delete detaches", func(
 			ctx SpecContext,
 		) {
-			sw := stat.NewWriter(nil)
-			Expect(sw.Set(ctx, &status.Status[any]{
-				Key:     "st-detach",
-				Name:    "st-detach",
-				Variant: status.VariantInfo,
-				Time:    telem.Now(),
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
+					Key:     "st-detach",
+					Name:    "st-detach",
+					Variant: status.VariantInfo,
+					Time:    telem.Now(),
+				})
 			})).To(Succeed())
 			detached := &task.Task{
 				Type: testType,
@@ -1022,7 +1043,9 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			createCommitted(ctx, detached)
 			frames := collect()
-			Expect(sw.Delete(ctx, "st-detach")).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return stat.NewWriter(tx).Delete(ctx, "st-detach")
+			})).To(Succeed())
 			stored := retrieve(ctx, detached.Key)
 			Expect(stored.Config["alerts"]).To(HaveExactElements(
 				HaveKeyWithValue("status", ""),
@@ -1044,6 +1067,26 @@ var _ = Describe("Task", Ordered, func() {
 				set([]string{"config_hash"}, stored.ConfigHash),
 			}))
 		})
+	})
+
+	It("Should retrieve a task and its config through a snapshot", func(
+		ctx SpecContext,
+	) {
+		t := &task.Task{
+			Type:   testType,
+			Rack:   testRack.Key,
+			Name:   "Snapshot Task",
+			Config: msgpack.EncodedJSON{"routing_key": "rk-snapshot"},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, t)
+		})).To(Succeed())
+		var res task.Task
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return svc.NewRetrieve().Where(task.MatchKeys(t.Key)).Entry(&res).
+				Exec(ctx, snap)
+		})).To(Succeed())
+		Expect(res.Config).To(HaveKeyWithValue("routing_key", "rk-snapshot"))
 	})
 
 	Describe("Retrieve", func() {
@@ -1728,7 +1771,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 				Entry(&got).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			return got
 		}
 
@@ -1763,7 +1806,7 @@ var _ = Describe("Task", Ordered, func() {
 					g.Expect(stat.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&taskStatus).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					g.Expect(taskStatus.Message).To(Equal("Task stopped responding"))
 					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
 					g.Expect(taskStatus.Name).To(Equal("Test Task"))
@@ -1825,7 +1868,7 @@ var _ = Describe("Task", Ordered, func() {
 							running.ResourceID(),
 						)).
 						Entry(&taskStatus).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					g.Expect(taskStatus.Message).To(Equal("Task stopped responding"))
 				}).Should(Succeed())
 
@@ -1981,7 +2024,7 @@ var _ = Describe("MatchArcs", func() {
 	)
 })
 
-var _ = Describe("Writer with no transaction", func() {
+var _ = Describe("Writer in concurrent transactions", func() {
 	var (
 		db       *gorp.DB
 		svc      *task.Service
@@ -2013,7 +2056,7 @@ var _ = Describe("Writer with no transaction", func() {
 			DB:         db,
 			HostKey:    1,
 			Status:     stat,
-			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
@@ -2024,11 +2067,15 @@ var _ = Describe("Writer with no transaction", func() {
 			Configs: MustSucceed(config.NewRegistry(pd.Stores()...)),
 		}))
 		testRack = rack.Rack{Name: "Test Rack"}
-		Expect(racks.NewWriter(nil).Create(ctx, &testRack)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return racks.NewWriter(tx).Create(ctx, &testRack)
+		})).To(Succeed())
 		hashes = make(map[string]string)
 		for i := range 4 {
 			t := newTask(uuid.New(), i)
-			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 			hashes[routingKey(i)] = t.ConfigHash
 		}
 	})
@@ -2045,7 +2092,9 @@ var _ = Describe("Writer with no transaction", func() {
 			defer GinkgoRecover()
 			for i := 0; !done.Load(); i++ {
 				t := newTask(key, i%len(hashes))
-				Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
 			}
 		}
 	}
@@ -2054,7 +2103,9 @@ var _ = Describe("Writer with no transaction", func() {
 		"Should store the hash of the stored config during concurrent creates",
 		func(ctx SpecContext) {
 			t := newTask(uuid.New(), 0)
-			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 			var (
 				wg   sync.WaitGroup
 				done atomic.Bool
@@ -2078,7 +2129,9 @@ var _ = Describe("Writer with no transaction", func() {
 		"Should copy the config that matches the copied hash during concurrent creates",
 		func(ctx SpecContext) {
 			src := newTask(uuid.New(), 0)
-			Expect(svc.NewWriter(nil).Create(ctx, &src)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &src)
+			})).To(Succeed())
 			var (
 				wg   sync.WaitGroup
 				done atomic.Bool
@@ -2090,9 +2143,12 @@ var _ = Describe("Writer with no transaction", func() {
 				defer GinkgoRecover()
 				defer done.Store(true)
 				for range 50 {
-					c := MustSucceed(
-						svc.NewWriter(nil).Copy(ctx, src.Key, "Copy", false, nil),
-					)
+					var c task.Task
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+						c, err = svc.NewWriter(tx).
+							Copy(ctx, src.Key, "Copy", false, nil)
+						return err
+					})).To(Succeed())
 					expectStoredHash(ctx, c.Key)
 				}
 			})

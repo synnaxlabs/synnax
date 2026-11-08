@@ -23,16 +23,16 @@ import (
 // moduleSource returns a loader source that reads the text of the module at an
 // import path, one directory below Arcs per segment.
 func (s *Service) moduleSource(
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 ) func(context.Context, string) (arctext.Text, error) {
 	return func(ctx context.Context, path string) (arctext.Text, error) {
-		return s.retrieveModuleText(ctx, tx, path)
+		return s.retrieveModuleText(ctx, snap, path)
 	}
 }
 
 func (s *Service) retrieveModuleText(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	path string,
 ) (arctext.Text, error) {
 	notFound := errors.Wrapf(symbol.ErrModuleNotFound, "unknown module %q", path)
@@ -46,7 +46,7 @@ func (s *Service) retrieveModuleText(
 				directory.MatchNames(name),
 			)).
 			Entries(&dirs).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, snap); err != nil {
 			return arctext.Text{}, err
 		}
 		if len(dirs) == 0 {
@@ -61,7 +61,7 @@ func (s *Service) retrieveModuleText(
 			MatchNames(segments[len(segments)-1]),
 		)).
 		Entries(&arcs).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		return arctext.Text{}, err
 	}
 	if len(arcs) == 0 {

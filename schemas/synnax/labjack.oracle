@@ -76,6 +76,7 @@ BaseReadChannel struct {
     }
     channel  channel.Key = 0 {
         @doc value     "is the Synnax channel that raw samples are written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     port     string = "" {
@@ -166,10 +167,12 @@ BaseWriteChannel struct {
     }
     cmd_channel        channel.Key = 0 {
         @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
         @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
         @doc value     "is the Synnax channel the output state is written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
@@ -207,6 +210,7 @@ WriteChannel union on type extends BaseWriteChannel {
 ReadConfig struct extends task.ReadConfig {
     device                            device.Key = "" {
         @doc value     "is the key of the device the task acquires from."
+        @ref kind      use
         @ref on_delete restrict
     }
     channels                          ReadChannel[] {
