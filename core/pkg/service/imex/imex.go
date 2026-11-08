@@ -404,6 +404,10 @@ type ImportOptions struct {
 	// Group is the group a groupable resource sits in, or nil for none. An importer
 	// ignores any group the envelope carries.
 	Group *group.Key
+	// Guard checks the resources that the imported resource references, or is nil to
+	// check nothing. An importer whose resource can reference others calls it before
+	// it stores the resource, and fails the import with its error.
+	Guard func([]resource.ID) error
 }
 
 // Importer materializes a resource from an Envelope and persists it. The envelope's

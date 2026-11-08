@@ -159,6 +159,16 @@ func (t *Table[K, E]) Dependents(ctx context.Context, tx Tx, k K) ([]Target, err
 	return t.db.registry.dependents(ctx, tx, Target{Table: t.name, Key: FormatKey(k)})
 }
 
+// Targets returns the targets that the references of e hold, in the order of the
+// references. It does not check that the targets exist.
+func (t *Table[K, E]) Targets(e *E) []Target {
+	var targets []Target
+	for _, r := range t.references {
+		targets = append(targets, r.targets(e)...)
+	}
+	return targets
+}
+
 // check validates the references e holds against tx.
 func (t *Table[K, E]) check(ctx context.Context, tx Tx, e *E) error {
 	for _, r := range t.references {

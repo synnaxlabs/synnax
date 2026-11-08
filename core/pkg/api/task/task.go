@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -129,8 +130,9 @@ type (
 	}
 )
 
-// Create creates or updates the tasks. It needs create access on tasks, and update
-// access on the range of each new snapshot. An existing snapshot keeps its range.
+// Create creates or updates the tasks. It needs create access on tasks, retrieve
+// access on each secret a config names, and update access on the range of each new
+// snapshot. An existing snapshot keeps its range.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -159,6 +161,7 @@ func (s *Service) Create(
 	}
 	if err := s.task.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
+		WithGuard(apisecret.Guard(ctx, enforcer)).
 		CreateMany(ctx, &req.Tasks); err != nil {
 		return CreateResponse{}, err
 	}
@@ -213,8 +216,9 @@ type DispatchRequest = actions.DispatchRequest[task.Key, task.Action]
 // config hash, after a set of the stored config when storing changed it.
 type DispatchResponse = actions.DispatchResponse[task.Action]
 
-// Dispatch applies the action sequence to the target task atomically. Subscribers to
-// the task action signals receive the sequence after the transaction commits. The
+// Dispatch applies the action sequence to the target task atomically. It needs update
+// access on the task and retrieve access on each secret its config names. Subscribers
+// to the task action signals receive the sequence after the transaction commits. The
 // response holds no actions for a subject that cannot read the task, because they can
 // carry its stored config.
 func (s *Service) Dispatch(
@@ -230,7 +234,13 @@ func (s *Service) Dispatch(
 	if err := enforcer.Enforce(ctx, request); err != nil {
 		return DispatchResponse{}, err
 	}
-	computed, err := s.task.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	computed, err := s.task.Dispatch(
+		ctx,
+		req.Key,
+		req.DispatchKey,
+		req.Actions,
+		apisecret.Guard(ctx, enforcer),
+	)
 	if err != nil {
 		return DispatchResponse{}, err
 	}
@@ -296,9 +306,10 @@ func (s *Service) Rename(
 	}); err != nil {
 		return struct{}{}, err
 	}
+	// A rename leaves the config as it is, so it names no new secret.
 	_, err := s.task.Dispatch(ctx, req.Key, "", []task.Action{
 		task.NewSetAction(task.SetPayload{Path: []string{"name"}, Value: req.Name}),
-	})
+	}, nil)
 	return struct{}{}, err
 }
 
@@ -345,8 +356,9 @@ type (
 	}
 )
 
-// Copy copies a task. It needs retrieve access on the task, create access on the copy,
-// and update access on the range of a snapshot copy.
+// Copy copies a task. It needs retrieve access on the task and on each secret its
+// config names, create access on the copy, and update access on the range of a
+// snapshot copy.
 func (s *Service) Copy(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -368,7 +380,9 @@ func (s *Service) Copy(
 			return CopyResponse{}, err
 		}
 	}
-	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range)
+	t, err := s.task.NewWriter(tx).
+		WithGuard(apisecret.Guard(ctx, s.access.NewEnforcer(tx))).
+		Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range)
 	if err != nil {
 		return CopyResponse{}, err
 	}

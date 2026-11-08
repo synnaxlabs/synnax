@@ -45,6 +45,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
@@ -782,7 +783,7 @@ var _ = Describe("Task", Ordered, func() {
 			names = nil
 			MustSucceed(svc.Dispatch(ctx, named.Key, "dk", []task.Action{
 				set([]string{"name"}, "After"),
-			}))
+			}, nil))
 			Expect(names).To(Equal([]string{"After"}))
 		})
 		retrieve := func(ctx context.Context, key task.Key) task.Task {
@@ -805,7 +806,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should store the new config and its hash", func(ctx SpecContext) {
 			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "routing_key"}, routingKey2),
-			}))
+			}, nil))
 			res := retrieve(ctx, alerts.Key)
 			Expect(res.Config["routing_key"]).To(Equal(routingKey2))
 			Expect(res.ConfigHash).ToNot(Equal(alerts.ConfigHash))
@@ -816,7 +817,7 @@ var _ = Describe("Task", Ordered, func() {
 		) {
 			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "routing_key"}, routingKey2),
-			}))
+			}, nil))
 			same := &task.Task{
 				Type: testType,
 				Rack: testRack.Key,
@@ -845,7 +846,7 @@ var _ = Describe("Task", Ordered, func() {
 					Path: []string{"config", "alerts"},
 					Key:  "a",
 				}),
-			}))
+			}, nil))
 			res := retrieve(ctx, alerts.Key)
 			Expect(res.Config["alerts"]).To(HaveExactElements(
 				HaveKeyWithValue("key", "b"),
@@ -855,7 +856,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should rename the task and its status", func(ctx SpecContext) {
 			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
-			}))
+			}, nil))
 			Expect(retrieve(ctx, alerts.Key).Name).To(Equal("Renamed"))
 			var renamed task.Status
 			Expect(stat.NewRetrieve[task.StatusDetails]().
@@ -871,7 +872,7 @@ var _ = Describe("Task", Ordered, func() {
 				To(Succeed())
 			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
-			}))
+			}, nil))
 			Expect(retrieve(ctx, alerts.Key).Name).To(Equal("Renamed"))
 		})
 
@@ -885,7 +886,7 @@ var _ = Describe("Task", Ordered, func() {
 			})
 			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"rack"}, other.Key),
-			}))
+			}, nil))
 			Expect(retrieve(ctx, alerts.Key).Rack).To(Equal(other.Key))
 		})
 
@@ -893,7 +894,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "routing_key"}, routingKey2),
 				set([]string{"type"}, "arc"),
-			})).Error().To(MatchError(validate.ErrValidation))
+			}, nil)).Error().To(MatchError(validate.ErrValidation))
 			expectUnchanged(ctx)
 		})
 
@@ -902,7 +903,7 @@ var _ = Describe("Task", Ordered, func() {
 		) {
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "routng_key"}, routingKey2),
-			})).Error().To(SatisfyAll(
+			}, nil)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(`unknown object member name "routng_key"`)),
 			))
@@ -919,13 +920,14 @@ var _ = Describe("Task", Ordered, func() {
 			createCommitted(ctx, arcTask)
 			Expect(svc.Dispatch(ctx, arcTask.Key, "dk", []task.Action{
 				set([]string{"config", "performance"}, "BOGUS"),
-			})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+			}, nil)).Error().
+				To(MatchError(ContainSubstring("invalid performance: BOGUS")))
 		})
 
 		It("Should reject an empty name", func(ctx SpecContext) {
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, ""),
-			})).Error().To(MatchError(ContainSubstring("name: required")))
+			}, nil)).Error().To(MatchError(ContainSubstring("name: required")))
 			expectUnchanged(ctx)
 		})
 
@@ -934,7 +936,7 @@ var _ = Describe("Task", Ordered, func() {
 			overwritten.Name = "Overwritten"
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				task.NewCreateAction(task.CreatePayload{Task: overwritten}),
-			})).Error().To(SatisfyAll(
+			}, nil)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("only the Core dispatches a task create")),
 			))
@@ -951,7 +953,7 @@ var _ = Describe("Task", Ordered, func() {
 			createCommitted(ctx, snap)
 			MustSucceed(svc.Dispatch(ctx, snap.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
-			}))
+			}, nil))
 			res := retrieve(ctx, snap.Key)
 			Expect(res.Name).To(Equal("Renamed"))
 			Expect(res.Snapshot).To(BeTrue())
@@ -969,7 +971,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(svc.Dispatch(ctx, snap.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
 				set([]string{"config", "routing_key"}, routingKey2),
-			})).Error().To(SatisfyAll(
+			}, nil)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(
 					ContainSubstring("is a snapshot, so only its name can change"),
@@ -981,7 +983,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should return not found for a missing task", func(ctx SpecContext) {
 			Expect(svc.Dispatch(ctx, uuid.New(), "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
-			})).Error().To(MatchError(query.ErrNotFound))
+			}, nil)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should broadcast and return a set of the new config hash", func(
@@ -989,7 +991,7 @@ var _ = Describe("Task", Ordered, func() {
 		) {
 			frames := collect()
 			acts := []task.Action{set([]string{"config", "routing_key"}, routingKey2)}
-			computed := MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk-1", acts))
+			computed := MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk-1", acts, nil))
 			hash := retrieve(ctx, alerts.Key).ConfigHash
 			Expect(
 				computed,
@@ -1019,7 +1021,7 @@ var _ = Describe("Task", Ordered, func() {
 				createCommitted(ctx, arcTask)
 				frames := collect()
 				acts := []task.Action{set([]string{"config", "performance"}, "")}
-				computed := MustSucceed(svc.Dispatch(ctx, arcTask.Key, "dk", acts))
+				computed := MustSucceed(svc.Dispatch(ctx, arcTask.Key, "dk", acts, nil))
 				stored := retrieve(ctx, arcTask.Key)
 				Expect(stored.Config).To(HaveKeyWithValue("performance", "auto"))
 				Expect(computed).To(Equal([]task.Action{
@@ -1035,7 +1037,7 @@ var _ = Describe("Task", Ordered, func() {
 			frames := collect()
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"type"}, "arc"),
-			})).Error().To(MatchError(validate.ErrValidation))
+			}, nil)).Error().To(MatchError(validate.ErrValidation))
 			Expect(*frames).To(BeEmpty())
 		})
 
@@ -2097,6 +2099,93 @@ var _ = Describe("Writer with no transaction", func() {
 			}
 		}
 	}
+
+	Describe("Guard", func() {
+		var seen []resource.ID
+		see := func(ids []resource.ID) error {
+			seen = ids
+			return nil
+		}
+		deny := func([]resource.ID) error { return errors.New("denied") }
+		secretOf := func(i int) []resource.ID {
+			return []resource.ID{secret.ResourceID(uuid.MustParse(routingKey(i)))}
+		}
+		retrieve := func(ctx context.Context, key task.Key) (task.Task, error) {
+			var t task.Task
+			err := svc.NewRetrieve().Where(task.MatchKeys(key)).Entry(&t).Exec(ctx, nil)
+			return t, err
+		}
+		BeforeEach(func() { seen = nil })
+
+		It("Should give the guard the secrets that a created config names", func(
+			ctx SpecContext,
+		) {
+			t := newTask(uuid.New(), 1)
+			Expect(svc.NewWriter(nil).WithGuard(see).Create(ctx, &t)).To(Succeed())
+			Expect(seen).To(Equal(secretOf(1)))
+		})
+
+		It("Should store no task when the guard fails", func(ctx SpecContext) {
+			t := newTask(uuid.New(), 1)
+			Expect(svc.NewWriter(nil).WithGuard(deny).Create(ctx, &t)).
+				To(MatchError("denied"))
+			Expect(retrieve(ctx, t.Key)).Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should give the guard the secrets of a copied config", func(
+			ctx SpecContext,
+		) {
+			src := newTask(uuid.New(), 2)
+			Expect(svc.NewWriter(nil).Create(ctx, &src)).To(Succeed())
+			MustSucceed(svc.NewWriter(nil).
+				WithGuard(see).
+				Copy(ctx, src.Key, "Copy", false, nil))
+			Expect(seen).To(Equal(secretOf(2)))
+		})
+
+		It("Should store no copy when the guard fails", func(ctx SpecContext) {
+			src := newTask(uuid.New(), 2)
+			Expect(svc.NewWriter(nil).Create(ctx, &src)).To(Succeed())
+			Expect(svc.NewWriter(nil).
+				WithGuard(deny).
+				Copy(ctx, src.Key, "Denied copy", false, nil)).
+				Error().To(MatchError("denied"))
+			var copies []task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Denied copy")).
+				Entries(&copies).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(copies).To(BeEmpty())
+		})
+
+		It("Should give the guard the secrets of a dispatched config", func(
+			ctx SpecContext,
+		) {
+			t := newTask(uuid.New(), 0)
+			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			MustSucceed(svc.Dispatch(ctx, t.Key, "", []task.Action{
+				task.NewSetAction(task.SetPayload{
+					Path:  []string{"config", "routing_key"},
+					Value: routingKey(3),
+				}),
+			}, see))
+			Expect(seen).To(Equal(secretOf(3)))
+		})
+
+		It("Should store no dispatched change when the guard fails", func(
+			ctx SpecContext,
+		) {
+			t := newTask(uuid.New(), 0)
+			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Expect(svc.Dispatch(ctx, t.Key, "", []task.Action{
+				task.NewSetAction(task.SetPayload{
+					Path:  []string{"config", "routing_key"},
+					Value: routingKey(3),
+				}),
+			}, deny)).Error().To(MatchError("denied"))
+			Expect(MustSucceed(retrieve(ctx, t.Key)).ConfigHash).To(Equal(t.ConfigHash))
+		})
+	})
 
 	It(
 		"Should store the hash of the stored config during concurrent creates",

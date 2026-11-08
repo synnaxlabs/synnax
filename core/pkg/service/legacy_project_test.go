@@ -45,7 +45,7 @@ var _ = Describe("Legacy project bundles", func() {
 		l, db := openLayer(ctx)
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
-		p := MustSucceed(l.Bundle.Import(ctx, tx, LoadBundle(path), fileName))
+		p := MustSucceed(l.Bundle.Import(ctx, tx, LoadBundle(path), fileName, nil))
 		Expect(tx.Commit(ctx)).To(Succeed())
 		return l, p
 	}
@@ -151,7 +151,7 @@ var _ = Describe("Legacy project bundles", func() {
 			l, db := openLayer(ctx)
 			tx := DeferClose(db.OpenTx())
 			Expect(l.Bundle.Import(
-				ctx, tx, LoadBundle(path), "Dropped.zip",
+				ctx, tx, LoadBundle(path), "Dropped.zip", nil,
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("98dbf43a")),
 				MatchError(ContainSubstring("not found")),

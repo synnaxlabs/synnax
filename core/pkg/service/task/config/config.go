@@ -35,9 +35,11 @@ type Store interface {
 	// Type returns the task type whose records the store owns.
 	Type() string
 	// Prepare decodes data into the store's record type under key and validates it.
-	// name is the name of the task that owns the record. Prepare writes nothing but
-	// what the store's resolve hook writes through tx. It returns the record to write,
-	// or an error wrapping validate.ErrValidation when data does not decode or fails
+	// name is the name of the task that owns the record. Before the resolve hook runs,
+	// Prepare calls a non-nil guard with the resources that data references, other
+	// than the task, and returns the guard's error. Prepare writes nothing but what
+	// the store's resolve hook writes through tx. It returns the record to write, or
+	// an error wrapping validate.ErrValidation when data does not decode or fails
 	// validation.
 	Prepare(
 		ctx context.Context,
@@ -45,6 +47,7 @@ type Store interface {
 		key uuid.UUID,
 		name string,
 		data msgpack.EncodedJSON,
+		guard func([]resource.ID) error,
 	) (Record, error)
 	// PrepareStrict is Prepare, except that it also rejects data holding a member that
 	// the record type does not declare.
@@ -54,6 +57,7 @@ type Store interface {
 		key uuid.UUID,
 		name string,
 		data msgpack.EncodedJSON,
+		guard func([]resource.ID) error,
 	) (Record, error)
 	// Read returns the record stored under key, or an error wrapping
 	// query.ErrNotFound when no record exists.
@@ -61,9 +65,16 @@ type Store interface {
 	// Delete removes the records stored under keys. Delete is idempotent.
 	Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
 	// Copy duplicates the record stored under from into a new record stored under to,
-	// which must be the key of a task. It returns an error wrapping query.ErrNotFound
-	// when from does not exist.
-	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
+	// which must be the key of a task. Before the write, Copy calls a non-nil guard
+	// with the resources that the record references, other than the task, and returns
+	// the guard's error. It returns an error wrapping query.ErrNotFound when from does
+	// not exist.
+	Copy(
+		ctx context.Context,
+		tx gorp.Tx,
+		from, to uuid.UUID,
+		guard func([]resource.ID) error,
+	) error
 	// Normalize converts a config blob at the given version to the current stored
 	// shape with defaults applied, and drops each target of the blob's references that
 	// does not exist in tx and that its reference can drop. A version that predates the
@@ -232,8 +243,9 @@ func (s *Service[E]) Prepare(
 	key uuid.UUID,
 	name string,
 	data msgpack.EncodedJSON,
+	guard func([]resource.ID) error,
 ) (Record, error) {
-	return s.prepare(ctx, tx, key, name, data, json.RejectUnknownMembers(false))
+	return s.prepare(ctx, tx, key, name, data, guard, json.RejectUnknownMembers(false))
 }
 
 // PrepareStrict implements Store.
@@ -243,8 +255,9 @@ func (s *Service[E]) PrepareStrict(
 	key uuid.UUID,
 	name string,
 	data msgpack.EncodedJSON,
+	guard func([]resource.ID) error,
 ) (Record, error) {
-	return s.prepare(ctx, tx, key, name, data, json.RejectUnknownMembers(true))
+	return s.prepare(ctx, tx, key, name, data, guard, json.RejectUnknownMembers(true))
 }
 
 func (s *Service[E]) prepare(
@@ -253,6 +266,7 @@ func (s *Service[E]) prepare(
 	key uuid.UUID,
 	name string,
 	data msgpack.EncodedJSON,
+	guard func([]resource.ID) error,
 	opts json.Options,
 ) (Record, error) {
 	b, err := json.Marshal(data)
@@ -271,6 +285,9 @@ func (s *Service[E]) prepare(
 		s.cfg.ApplyEntryDefaults(&e)
 	}
 	s.cfg.SetEntryKey(&e, key)
+	if err := s.guard(&e, guard); err != nil {
+		return Record{}, err
+	}
 	if s.cfg.ResolveEntry != nil {
 		if err := s.cfg.ResolveEntry(
 			ctx,
@@ -294,6 +311,22 @@ func (s *Service[E]) prepare(
 		data:  encoded,
 		write: func(ctx context.Context, tx gorp.Tx) error { return s.create(ctx, tx, &e) },
 	}, nil
+}
+
+// guard calls a non-nil guard with the resources that e references, other than its
+// task.
+func (s *Service[E]) guard(e *E, guard func([]resource.ID) error) error {
+	if guard == nil {
+		return nil
+	}
+	own := gorp.NewTarget(string(resource.TypeTask), (*e).GorpKey())
+	var ids []resource.ID
+	for _, t := range s.table.Targets(e) {
+		if t != own {
+			ids = append(ids, resource.ID{Type: resource.Type(t.Table), Key: t.Key})
+		}
+	}
+	return guard(ids)
 }
 
 func (s *Service[E]) create(ctx context.Context, tx gorp.Tx, e *E) error {
@@ -394,12 +427,16 @@ func (s *Service[E]) Copy(
 	ctx context.Context,
 	tx gorp.Tx,
 	from, to uuid.UUID,
+	guard func([]resource.ID) error,
 ) error {
 	e, err := s.retrieve(ctx, tx, from)
 	if err != nil {
 		return err
 	}
 	s.cfg.SetEntryKey(&e, to)
+	if err := s.guard(&e, guard); err != nil {
+		return err
+	}
 	return s.create(ctx, tx, &e)
 }
 

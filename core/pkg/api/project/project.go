@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -241,7 +242,7 @@ type (
 
 // Import imports a project bundle in a single transaction. It requires create access on
 // the project type and on every resource kind the bundle carries, all enforced before
-// any import work runs.
+// any import work runs, and retrieve access on each secret a member references.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -255,14 +256,15 @@ func (s *Service) Import(
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: objects,
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	p, err := s.bundle.Import(ctx, tx, req, fileName)
+	p, err := s.bundle.Import(ctx, tx, req, fileName, apisecret.Guard(ctx, enforcer))
 	if err != nil {
 		return ImportResponse{}, err
 	}

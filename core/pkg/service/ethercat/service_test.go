@@ -385,7 +385,7 @@ var _ = Describe("Service", func() {
 					"device": "malformed",
 					"pdo":    "Value",
 				}},
-			})).Error().To(SatisfyAll(
+			}, nil)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("device malformed properties: json: ")),
 				MatchError(ContainSubstring(`within "/pdos"`)),
 			))

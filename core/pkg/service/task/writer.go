@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
@@ -38,6 +39,7 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 	racks      rack.Writer
 	guardRack  gorp.GuardFunc[rack.Key, rack.Rack]
+	guard      func([]resource.ID) error
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -47,8 +49,16 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// WithGuard returns a copy of the writer that calls guard with the resources a config
+// references, other than its task, before Create or Copy stores it. An error from
+// guard fails the write.
+func (w Writer) WithGuard(guard func([]resource.ID) error) Writer {
+	w.guard = guard
+	return w
+}
+
 // inTx calls f with w, or with a Writer on a transaction of its own that keeps the
-// dispatch key of w when w has no transaction.
+// dispatch key and guard of w when w has no transaction.
 func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 	db, ok := w.tx.(*gorp.DB)
 	if !ok {
@@ -57,6 +67,7 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
 		bound := w.svc.NewWriter(tx)
 		bound.dispatcher = w.dispatcher
+		bound.guard = w.guard
 		return f(bound)
 	})
 }
@@ -172,7 +183,7 @@ func (w Writer) create(ctx context.Context, t *Task) error {
 			t.Config = data
 		}
 	} else {
-		rec, err := store.Prepare(ctx, w.tx, t.Key, t.Name, t.Config)
+		rec, err := store.Prepare(ctx, w.tx, t.Key, t.Name, t.Config, w.guard)
 		if err != nil {
 			return err
 		}
@@ -278,7 +289,7 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 	if err = next.Validate(); err != nil {
 		return nil, err
 	}
-	rec, err := store.PrepareStrict(ctx, w.tx, key, next.Name, next.Config)
+	rec, err := store.PrepareStrict(ctx, w.tx, key, next.Name, next.Config, w.guard)
 	if err != nil {
 		return nil, err
 	}
@@ -425,7 +436,7 @@ func (w Writer) copy(
 		return Task{}, err
 	}
 	if store, ok := w.configs.Store(res.Type); ok {
-		if err := store.Copy(ctx, w.tx, key, newKey); err == nil {
+		if err := store.Copy(ctx, w.tx, key, newKey, w.guard); err == nil {
 			if res.Config, err = store.Read(ctx, w.tx, newKey); err != nil {
 				return Task{}, err
 			}

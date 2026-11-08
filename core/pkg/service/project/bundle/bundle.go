@@ -429,18 +429,20 @@ func (w *bundleWalk) encodePanels(
 // extension-stripped fileName) names it, directories become groups, members import
 // through the leaf registry, and panels are recreated with their resource tabs resolved
 // to the minted IDs. A root LAYOUT.json with no manifest is the legacy (version 0)
-// format. Invalid bundles return validation errors naming the offending file.
+// format. Invalid bundles return validation errors naming the offending file. Each
+// member import passes guard on as imex.ImportOptions.Guard.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	files zip.Files,
 	fileName string,
+	guard func([]resource.ID) error,
 ) (project.Project, error) {
 	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
 	manifestData, ok := files[manifestFileName]
 	if !ok {
 		if layoutData, ok := files[legacy.LayoutFileName]; ok {
-			return s.importLegacy(ctx, tx, layoutData, files, fileName)
+			return s.importLegacy(ctx, tx, layoutData, files, fileName, guard)
 		}
 		return project.Project{}, errors.Wrapf(
 			validate.ErrValidation, "bundle holds no %s", manifestFileName,
@@ -476,6 +478,7 @@ func (s *Service) Import(
 			FileName: m.path,
 			Parent:   projID,
 			Group:    groups[path.Dir(m.path)],
+			Guard:    guard,
 		})
 		if err != nil {
 			return project.Project{}, errors.Wrap(err, m.path)
@@ -512,6 +515,7 @@ func (s *Service) importLegacy(
 	layoutData []byte,
 	files zip.Files,
 	fileName string,
+	guard func([]resource.ID) error,
 ) (project.Project, error) {
 	members, err := legacy.Members(ctx, layoutData, files)
 	if err != nil {
@@ -527,6 +531,7 @@ func (s *Service) importLegacy(
 		id, err := s.cfg.ImEx.Import(ctx, tx, m.Env, imex.ImportOptions{
 			FileName: m.Path,
 			Parent:   projID,
+			Guard:    guard,
 		})
 		if err != nil {
 			return project.Project{}, errors.Wrap(err, m.Path)

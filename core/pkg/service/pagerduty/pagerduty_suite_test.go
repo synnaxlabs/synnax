@@ -118,7 +118,7 @@ func storeTask(ctx context.Context, name string, cfg pd.TaskConfig) task.Task {
 	}
 	t := createTask(ctx, task.Task{Key: uuid.New(), Name: name, Type: pd.AlertTaskType})
 	rec := MustSucceed(
-		alertSvc.Alert.Prepare(ctx, nil, t.Key, t.Name, encodeConfig(cfg)),
+		alertSvc.Alert.Prepare(ctx, nil, t.Key, t.Name, encodeConfig(cfg), nil),
 	)
 	Expect(rec.Write(ctx, nil)).To(Succeed())
 	t.Config = rec.Data()

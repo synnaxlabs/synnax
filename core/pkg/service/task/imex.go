@@ -95,7 +95,7 @@ func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
-	_ imex.ImportOptions,
+	opts imex.ImportOptions,
 ) (resource.ID, error) {
 	store, ok := s.cfg.Configs.Store(env.Type)
 	if !ok {
@@ -126,7 +126,7 @@ func (s *Service) Import(
 		return resource.ID{}, err
 	}
 	t := Task{Name: env.Name, Type: env.Type, Config: config}
-	if err := s.NewWriter(tx).Create(ctx, &t); err != nil {
+	if err := s.NewWriter(tx).WithGuard(opts.Guard).Create(ctx, &t); err != nil {
 		return resource.ID{}, err
 	}
 	return ResourceID(t.Key), nil

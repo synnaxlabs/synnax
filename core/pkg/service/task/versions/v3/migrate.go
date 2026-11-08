@@ -149,7 +149,7 @@ func migrateConfigsToRecords(
 			removed = append(removed, id)
 			continue
 		}
-		rec, err := store.Prepare(ctx, tx, t.Key, t.Name, converted)
+		rec, err := store.Prepare(ctx, tx, t.Key, t.Name, converted, nil)
 		if err == nil {
 			err = rec.Write(ctx, tx)
 		}

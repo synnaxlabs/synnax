@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -73,6 +74,33 @@ func countInRange(ctx SpecContext, r ranger.Range) int {
 	return MustSucceed(svc.Task.NewRetrieve().
 		Where(task.MatchRanges(r.Key)).
 		Count(ctx, nil))
+}
+
+// createSecret creates a stored secret that an alert config can name as its routing
+// key.
+func createSecret(ctx SpecContext) secret.Key {
+	GinkgoHelper()
+	s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: "Key"}}}
+	Expect(svc.Secret.NewWriter(nil).Create(ctx, &s, []byte("rk"))).To(Succeed())
+	return s.Base().Key
+}
+
+// alertsNaming returns an alert task whose config names routingKey.
+func alertsNaming(routingKey secret.Key) task.Task {
+	return task.Task{
+		Type:   pagerduty.AlertTaskType,
+		Rack:   svc.Rack.EmbeddedKey,
+		Name:   "Alerts",
+		Config: msgpack.EncodedJSON{"routing_key": routingKey.String()},
+	}
+}
+
+// createAlerts creates an alert task whose config names a new secret.
+func createAlerts(ctx SpecContext) task.Task {
+	GinkgoHelper()
+	t := alertsNaming(createSecret(ctx))
+	Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+	return t
 }
 
 func retrieveTask(ctx SpecContext, key task.Key) task.Task {
@@ -115,6 +143,18 @@ var _ = Describe("Rename", func() {
 			AuthedCtx(ctx, u), apitask.RenameRequest{Key: key, Name: "After"},
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
+	It(
+		"Should rename a task whose config names a secret the subject cannot retrieve",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			t := createAlerts(ctx)
+			grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
+			MustSucceed(apiSvc.Rename(
+				AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
+			))
+			Expect(retrieveTask(ctx, t.Key).Name).To(Equal("After"))
+		},
+	)
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
@@ -149,13 +189,14 @@ var _ = Describe("Dispatch", func() {
 		Path:  []string{"config", "routing_key"},
 		Value: routingKey,
 	})}
+	routingKeyID := secret.ResourceID(uuid.MustParse(routingKey))
 	It("Should apply the actions and return the ones the Core added", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		t := createDraft(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), t.ResourceID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), t.ResourceID(), routingKeyID)
 		res := MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			apitask.DispatchRequest{
@@ -178,6 +219,7 @@ var _ = Describe("Dispatch", func() {
 		u := createUser(ctx)
 		t := createDraft(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), routingKeyID)
 		res := MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			apitask.DispatchRequest{
@@ -202,6 +244,23 @@ var _ = Describe("Dispatch", func() {
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveTask(ctx, t.Key).ConfigHash).To(Equal(t.ConfigHash))
 	})
+	It(
+		"Should refuse a config that names a secret the subject cannot retrieve",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			t := createDraft(ctx)
+			grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
+			Expect(apiSvc.Dispatch(
+				AuthedCtx(ctx, u),
+				apitask.DispatchRequest{
+					Key:         t.Key,
+					DispatchKey: "dk",
+					Actions:     setRoutingKey,
+				},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveTask(ctx, t.Key).ConfigHash).To(Equal(t.ConfigHash))
+		},
+	)
 	It("Should return the dispatch error", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
@@ -244,6 +303,49 @@ var _ = Describe("Create", func() {
 			)
 			Expect(res.Tasks).To(HaveLen(1))
 			Expect(keys).To(Equal([]string{"dk-create"}))
+		},
+	)
+
+	It(
+		"Should refuse a config that names a secret the subject cannot retrieve",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+				Type: resource.TypeTask,
+			})
+			t := alertsNaming(createSecret(ctx))
+			t.Key = uuid.New()
+			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apitask.CreateRequest{
+				Tasks: []task.Task{t},
+			})).Error().To(MatchError(access.ErrDenied))
+			Expect(svc.Task.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Entry(&task.Task{}).
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		},
+	)
+
+	It(
+		"Should create a task whose config names a secret the subject can retrieve",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+				Type: resource.TypeTask,
+			})
+			routingKey := createSecret(ctx)
+			grant(
+				ctx,
+				access.ActionRetrieve,
+				u.ResourceID(),
+				secret.ResourceID(routingKey),
+			)
+			res := MustSucceed(
+				apiSvc.Create(AuthedCtx(ctx, u), nil, apitask.CreateRequest{
+					Tasks: []task.Task{alertsNaming(routingKey)},
+				}),
+			)
+			Expect(retrieveTask(ctx, res.Tasks[0].Key).Config["routing_key"]).
+				To(Equal(routingKey.String()))
 		},
 	)
 
@@ -733,6 +835,31 @@ var _ = Describe("Copy", func() {
 		Expect(found.Tasks).To(HaveLen(1))
 		Expect(found.Tasks[0].Key).To(Equal(res.Task.Key))
 	})
+
+	It(
+		"Should refuse to copy a config naming a secret the subject cannot retrieve",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			t := createAlerts(ctx)
+			grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
+				Type: resource.TypeTask,
+			})
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+				Type: resource.TypeTask,
+			})
+			name := "copy-" + uuid.New().String()
+			Expect(apiSvc.Copy(AuthedCtx(ctx, u), nil, apitask.CopyRequest{
+				Key:  t.Key,
+				Name: name,
+			})).Error().To(MatchError(access.ErrDenied))
+			var copies []task.Task
+			Expect(svc.Task.NewRetrieve().
+				Where(task.MatchNames(name)).
+				Entries(&copies).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(copies).To(BeEmpty())
+		},
+	)
 
 	It(
 		"Should refuse a snapshot copy into a range the subject cannot update",

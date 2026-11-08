@@ -213,7 +213,7 @@ var _ = Describe("Service", func() {
 								"type":            "ai_voltage",
 								"terminal_config": "BOGUS",
 							}},
-						},
+						}, nil,
 					),
 				).Error().
 					To(MatchError(ContainSubstring("invalid terminal_config: BOGUS")))
@@ -239,7 +239,7 @@ var _ = Describe("Service", func() {
 									"pre_scaled_units": "BOGUS",
 								},
 							}},
-						},
+						}, nil,
 					),
 				).Error().
 					To(MatchError(ContainSubstring("invalid pre_scaled_units: BOGUS")))
@@ -260,7 +260,7 @@ var _ = Describe("Service", func() {
 								"type":              "ai_accel_charge",
 								"sensitivity_units": "mVoltsPerG",
 							}},
-						},
+						}, nil,
 					),
 				).Error().
 					To(MatchError(
@@ -285,7 +285,7 @@ var _ = Describe("Service", func() {
 								"type":  "ci_frequency",
 								"units": "BOGUS",
 							}},
-						},
+						}, nil,
 					),
 				).Error().
 					To(MatchError(ContainSubstring("invalid units: BOGUS")))

@@ -10,6 +10,8 @@
 package project_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
@@ -117,6 +119,28 @@ var _ = Describe("Import", func() {
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType, logType)
 		res := MustSucceed(apiSvc.Import(importCtx(ctx, u), nil, newBundle("Imported")))
 		Expect(res.Project.Name).To(Equal("Imported"))
+	})
+	It("Should hand each member a guard on the secrets the subject can retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			access.ActionCreate,
+			projectType,
+			resource.ID{Type: resource.TypeChannel},
+		)
+		readable := resource.ID{Type: resource.TypeSecret, Key: uuid.New().String()}
+		grantRetrieveOn(ctx, u.ResourceID(), readable)
+		MustSucceed(apiSvc.Import(importCtx(ctx, u), nil, zip.Files{
+			"manifest.json": []byte(`{"version":1,"type":"project","name":"Guarded"}`),
+			"Pressure.json": []byte(`{"version":1,"type":"channel","name":"Pressure"}`),
+		}))
+		denied := resource.ID{Type: resource.TypeSecret, Key: uuid.New().String()}
+		Expect(recorder.guard([]resource.ID{readable})).To(Succeed())
+		Expect(recorder.guard([]resource.ID{readable, denied})).
+			To(MatchError(access.ErrDenied))
 	})
 	It("Should reject the request when create is not granted on the project", func(
 		ctx SpecContext,
