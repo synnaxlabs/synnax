@@ -218,6 +218,23 @@ type txState struct {
 	// attached holds the values of each Attachment. Only the goroutine that writes
 	// through the transaction touches it.
 	attached []attached
+	// beforeCommit holds the work of BeforeCommit in registration order. Only the
+	// goroutine that writes through the transaction touches it.
+	beforeCommit []func(context.Context) error
+}
+
+// BeforeCommit registers work to run when tx commits, before its writes reach the
+// store. Work runs once, in registration order, and never when tx closes without a
+// commit. An error from work stops the commit: Commit runs no later work, rolls tx
+// back, and returns the error. Work runs under the write lock, so it must not open a
+// transaction or write through the DB. Call BeforeCommit on the goroutine that writes
+// through tx. It panics when tx is a DB.
+func BeforeCommit(tx Tx, work func(ctx context.Context) error) {
+	state := tx.txIdentity()
+	if state == nil {
+		panic("[gorp] - BeforeCommit needs a transaction, not a DB")
+	}
+	state.beforeCommit = append(state.beforeCommit, work)
 }
 
 // Committing reports whether a commit attempt is in flight.
@@ -282,11 +299,18 @@ var _ Tx = (*tx)(nil)
 // txIdentity returns this tx's state handle.
 func (t *tx) txIdentity() *txState { return &t.state }
 
-// Commit commits the transaction and releases the write lock. Hooks registered via
+// Commit runs the work of BeforeCommit, commits the transaction, and releases the
+// write lock. An error from the work rolls the transaction back. Hooks registered via
 // state.OnCleanup run before the release, with committed=true on success and
 // committed=false otherwise. Then the readers of DB.Observe run. The release comes
 // before them, because a reader can open a transaction.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
+	for _, work := range t.state.beforeCommit {
+		if err := work(ctx); err != nil {
+			t.end(false)
+			return err
+		}
+	}
 	t.state.committing.Store(true)
 	applied := kv.OnApplied(func() { t.end(true) })
 	err := t.Tx.Commit(ctx, append(slices.Clip(opts), applied)...)
