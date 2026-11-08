@@ -110,7 +110,7 @@ func (cfg ServiceConfig) Validate() error {
 }
 
 // Service is the service layer entry point for using iterators to read historical
-// telemetry from a multi-node Synnax cluster.
+// telemetry.
 type Service struct{ cfg ServiceConfig }
 
 // NewService creates a new service using the provided configuration(s). Each subsequent
@@ -260,7 +260,7 @@ func (s *Service) newCalculationTransform(
 		var owners []channel.Channel
 		if err := s.cfg.Channel.NewRetrieve().
 			Where(channel.MatchCalculated()).
-			Where(channel.MatchIndexes(freeIndexes...)).
+			Where(s.cfg.Channel.MatchIndexes(freeIndexes...)).
 			Entries(&owners).
 			Exec(ctx, nil); err != nil {
 			return nil, nil, err
@@ -331,7 +331,6 @@ func (s *Service) newCalculationTransform(
 	transform := newCalculationTransform(
 		originalKeys,
 		make([]*calculator.Calculator, 0, len(modules)),
-		len(channel.Keys(concreteBaseKeys.Slice()).UniqueLeaseholders()) > 1,
 	)
 	for _, mod := range modules {
 		calc, err := calculator.Open(ctx, calculator.Config{Module: mod})

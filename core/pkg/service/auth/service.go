@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v3"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -181,11 +181,10 @@ func (s *Service) Close() error {
 	return errors.Combine(s.shutdown.Close(), s.table.Close())
 }
 
-// Hold marks the session as kept open by a stream on this node. A held session counts
-// as active, so it never idles out, and every Sweep writes its activity for other
-// nodes. The returned channel closes when the session ends, by revocation or by any
-// node's sweep. The caller must call release when the stream closes. Hold returns
-// [ErrInvalidToken] when no session has the key.
+// Hold marks the session as kept open by a stream. A held session counts as active, so
+// it never idles out, and every Sweep writes its activity. The returned channel closes
+// when the session ends, by revocation or by a sweep. The caller must call release when
+// the stream closes. Hold returns [ErrInvalidToken] when no session has the key.
 func (s *Service) Hold(
 	ctx context.Context,
 	key SessionKey,
@@ -446,9 +445,9 @@ func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error {
 }
 
 // Sweep writes the activity of every held session, then ends every other session whose
-// stored activity is older than the idle timeout plus a quarter. A node writes a
-// session's activity up to a quarter period late, so a younger stored mark may hide a
-// session that is live on another node.
+// stored activity is older than the idle timeout plus a quarter. A Core writes a
+// session's activity up to a quarter period late, so a stored mark can trail a session
+// that is still live.
 func (s *Service) Sweep(ctx context.Context) error {
 	now := s.now()
 	cutoff := now - telem.TimeStamp(s.cfg.IdleTimeout+s.cfg.IdleTimeout/4)
@@ -527,7 +526,7 @@ type Writer struct {
 
 // DeleteFor removes every credential of the given subjects through each authenticator,
 // then ends their sessions.
-func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
+func (w Writer) DeleteFor(ctx context.Context, subjects ...resource.ID) error {
 	for _, a := range w.svc.cfg.Authenticators {
 		if err := a.DeleteFor(ctx, w.tx, subjects...); err != nil {
 			return err
@@ -550,7 +549,7 @@ func (w Writer) RevokeCredential(ctx context.Context, credentials ...uuid.UUID) 
 // query.ErrNotFound when no authenticator holds the credential.
 func (w Writer) Open(
 	ctx context.Context,
-	subject ontology.ID,
+	subject resource.ID,
 	credential uuid.UUID,
 ) (Session, string, error) {
 	v, err := w.svc.version(ctx, w.tx, credential)

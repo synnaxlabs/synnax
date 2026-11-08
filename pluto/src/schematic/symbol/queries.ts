@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type group,
-  NotFoundError,
-  ontology,
-  query,
-  schematic,
-} from "@synnaxlabs/client";
+import { type group, NotFoundError, query, schematic } from "@synnaxlabs/client";
 import { deep, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -60,6 +54,12 @@ export const useResolved = (key: string | null): Resolved => {
   };
 };
 
+/** Lists the symbol groups, which are top-level groups of the symbol scope. */
+export const GROUP_QUERY = {
+  scope: schematic.symbol.TYPE_RESOURCE_ID.type,
+  nested: false,
+} satisfies group.RetrieveMultipleParams;
+
 export type ListQuery = schematic.symbol.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbol>({
@@ -80,21 +80,9 @@ export type FormQuery = {
   key: string;
 };
 
-export const formSchema = schematic.symbol.symbolZ
-  .partial({ key: true })
-  .extend({ parent: ontology.idZ });
+export const formSchema = schematic.symbol.symbolZ.partial({ key: true });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
-
-const toFormValues = (
-  symbol: schematic.symbol.Symbol,
-  parents: ontology.Resource[],
-): z.infer<typeof formSchema> => ({
-  name: symbol.name,
-  data: symbol.data,
-  key: symbol.key,
-  parent: parents[0]?.id ?? ontology.ROOT_ID,
-});
 
 export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
@@ -109,39 +97,19 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       strokeScaled: false,
       previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
     },
-    parent: ontology.ROOT_ID,
   },
   schema: formSchema,
-  retrieve: async ({ client, query: { key } }) => {
-    // The two reads share only the key, so serializing them would double the
-    // latency the editor suspends for.
-    const [symbol, parents] = await Promise.all([
-      client.schematics.symbols.retrieve(key),
-      client.ontology.parents.retrieve({ ids: schematic.symbol.ontologyID(key) }),
-    ]);
-    return toFormValues(symbol, parents);
-  },
+  retrieve: async ({ client, query: { key } }) =>
+    await client.schematics.symbols.retrieve(key),
   getCached: ({ client, query: { key } }) => {
     const symbol = client.schematics.symbols.getCached(key);
-    if (!query.isLive(symbol)) return undefined;
-    const parents = client.ontology.parents.getCached({
-      ids: schematic.symbol.ontologyID(key),
-    });
-    if (!query.isLive(parents)) return undefined;
-    return toFormValues(symbol, parents);
+    return query.isLive(symbol) ? symbol : undefined;
   },
-  update: async ({ client, value, reset }) => {
-    const payload = value();
-    const created = await client.schematics.symbols.create(payload);
-    reset({ ...created, parent: payload.parent });
-  },
-  mountListeners: ({ client, query: { key }, reset, get }) =>
+  update: async ({ client, value, reset }) =>
+    reset(await client.schematics.symbols.create(value())),
+  mountListeners: ({ client, query: { key }, reset }) =>
     client.schematics.symbols.onChange(key, (result) => {
-      if (!query.isLive(result)) return;
-      reset({
-        ...result,
-        parent: get(formPath.parent, { optional: true })?.value ?? ontology.ROOT_ID,
-      });
+      if (query.isLive(result)) reset(result);
     }),
 });
 
@@ -182,12 +150,4 @@ export const { useUpdate: useDeleteGroup } = Flux.createUpdate<DeleteGroupParams
     });
     return data;
   },
-});
-
-export const { use: useGroup, useResult: useResultGroup } = Flux.createRetrieve<
-  {},
-  group.Group
->({
-  name: GROUP_RESOURCE_NAME,
-  retrieve: async ({ client }) => await client.schematics.symbols.retrieveGroup(),
 });

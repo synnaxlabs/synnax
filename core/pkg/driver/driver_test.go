@@ -374,7 +374,7 @@ var _ = Describe("Open", func() {
 			Expect(conn).ToNot(HaveKey("username"))
 			Expect(conn).ToNot(HaveKey("password"))
 			Expect(authenticate(ctx, conn["api_key"].(string)).Subject).
-				To(Equal(rackKey.OntologyID()))
+				To(Equal(rackKey.ResourceID()))
 		})
 
 		It("Should reuse its API key across Core processes", func(ctx SpecContext) {
@@ -405,7 +405,7 @@ var _ = Describe("Open", func() {
 			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
 			second := readSavedKey(keyDir)
 			Expect(second).ToNot(Equal(first))
-			Expect(authenticate(ctx, second).Subject).To(Equal(rackKey.OntologyID()))
+			Expect(authenticate(ctx, second).Subject).To(Equal(rackKey.ResourceID()))
 		})
 
 		It("Should delete the API key it could not save", func(ctx SpecContext) {
@@ -416,7 +416,7 @@ var _ = Describe("Open", func() {
 			count := func() int {
 				GinkgoHelper()
 				return MustSucceed(keys.NewRetrieve().
-					Where(apikey.MatchSubjects(rackKey.OntologyID())).
+					Where(apikey.MatchSubjects(rackKey.ResourceID())).
 					Count(ctx, nil))
 			}
 			before := count()

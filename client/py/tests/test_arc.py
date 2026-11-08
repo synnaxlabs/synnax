@@ -126,6 +126,11 @@ class TestArc:
         retrieved = client.arcs.retrieve(where=where, keys=keys)
         assert [arc.key for arc in retrieved] == [created[1].key]
 
+    def test_retrieve_by_directory(self, client: sy.Synnax) -> None:
+        """Should keep no Arcs for a directory that holds none."""
+        created = client.arcs.create(name=f"test-arc-{uuid4()}", mode="text")
+        assert client.arcs.retrieve(key=[created.key], directories=uuid4()) == []
+
     def test_retrieve_name_operator(self, client: sy.Synnax) -> None:
         """Should retrieve the Arcs whose name matches an operator."""
         prefix = f"test-arc-op-{uuid4()}"
@@ -342,6 +347,23 @@ class TestArcTask:
         retrieved = client.tasks.retrieve(key=created.key)
         assert retrieved.key == created.key
         assert retrieved.type == "arc"
+
+    def test_retrieve_tasks_by_arc(self, client: sy.Synnax) -> None:
+        """Should retrieve only the tasks that run the given Arcs."""
+        arcs = [
+            client.arcs.create(name=f"test-arc-by-arc-{uuid4()}", mode="text")
+            for _ in range(2)
+        ]
+        created = [
+            client.tasks.create(
+                name=f"Test Arc Task {uuid4()}",
+                type="arc",
+                config=sy.arc.Task(name="", arc_key=a.key).to_payload().config,
+            )
+            for a in arcs
+        ]
+        retrieved = client.tasks.retrieve(arcs=[arcs[0].key])
+        assert [t.key for t in retrieved] == [created[0].key]
 
     def test_wrap_retrieved_task_as_arc_task(self, client: sy.Synnax) -> None:
         """Should wrap a retrieved task as an ArcTask."""

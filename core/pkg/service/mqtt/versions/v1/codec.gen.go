@@ -412,11 +412,11 @@ func (re ReadEntry) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (re *ReadEntry) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "plain":
 		var v PlainReadEntry
 		if err := v.BaseReadEntry.DecodeOrc(r); err != nil {
@@ -704,11 +704,11 @@ func (wf WriteField) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (wf *WriteField) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "static":
 		var v StaticWriteField
 		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
@@ -810,11 +810,11 @@ func (wt WriteTarget) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (wt *WriteTarget) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "plain":
 		var v PlainWriteTarget
 		if err := v.BaseWriteTarget.DecodeOrc(r); err != nil {

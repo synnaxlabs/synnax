@@ -18,8 +18,8 @@ import { Session } from "@/session";
 export type Opener<Params> = optional.Arg<Params, void>;
 
 /**
- * A typed prompt opener: opens a modal and resolves with its result, or null. Its params
- * argument is omittable when every field is optional and required otherwise.
+ * A typed prompt opener: opens a modal and resolves with its result, or null. Its
+ * params argument is omittable when every field is optional and required otherwise.
  */
 export type Prompt<Result, Params> = optional.Arg<Params, Promise<Result | null>>;
 
@@ -58,8 +58,8 @@ export const create = <
 
 /**
  * prompt defines a result-returning modal. It returns the prompt hook directly; the
- * hook's function takes the modal's typed params and resolves with the renderer's result
- * (or null on dismissal).
+ * hook's function takes the modal's typed params and resolves with the renderer's
+ * result (or null on dismissal).
  */
 export const createPrompt = <
   Result,

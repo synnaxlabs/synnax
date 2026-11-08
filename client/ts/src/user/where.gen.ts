@@ -11,6 +11,7 @@
 import { filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { role } from "@/access/role";
 import { keyZ, type User, type Where } from "@/user/types.gen";
 
 /**
@@ -19,6 +20,7 @@ import { keyZ, type User, type Where } from "@/user/types.gen";
  */
 export interface Lines {
   usernames: ((record: User, value: NonNullable<Where["usernames"]>) => boolean) | null;
+  roles: ((record: User, value: NonNullable<Where["roles"]>) => boolean) | null;
 }
 
 /**
@@ -37,6 +39,10 @@ export const matches = (lines: Lines, record: User, where?: Where): boolean => {
     if (lines.usernames == null) throw new Error("only the Core can check usernames");
     if (!lines.usernames(record, where.usernames)) return false;
   }
+  if (where.roles != null) {
+    if (lines.roles == null) throw new Error("only the Core can check roles");
+    if (!lines.roles(record, where.roles)) return false;
+  }
   return true;
 };
 
@@ -49,13 +55,16 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
   (where.and?.some((w) => serverComputed(lines, w)) === true ||
     where.or?.some((w) => serverComputed(lines, w)) === true ||
     (where.not != null && serverComputed(lines, where.not)) ||
-    (where.usernames != null && lines.usernames == null));
+    (where.usernames != null && lines.usernames == null) ||
+    (where.roles != null && lines.roles == null));
 
 const inputs = {
   /** key selects by key. */
   key: filter.setInputZ(keyZ).exactOptional(),
   /** usernames matches the users whose password has any of the given usernames. */
   usernames: filter.listInputZ(z.string()).exactOptional(),
+  /** roles matches the users that hold any of the given roles. */
+  roles: filter.listInputZ(role.keyZ).exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -93,5 +102,5 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ...options,
     })
     .transform((input) =>
-      filter.split(input, ["and", "or", "not", "key", "usernames"]),
+      filter.split(input, ["and", "or", "not", "key", "usernames", "roles"]),
     );

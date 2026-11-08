@@ -12,13 +12,15 @@ package user
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -101,6 +103,7 @@ type NewUser struct {
 	svcauth.Credentials
 	Name string   `json:"name" msgpack:"name"`
 	Key  user.Key `json:"key"  msgpack:"key"`
+	Role role.Key `json:"role" msgpack:"role"`
 }
 
 type (
@@ -112,19 +115,36 @@ type (
 	}
 )
 
-// Create registers the new users with the provided credentials. If successful, Create
-// returns a slice of the new users.
+// Create registers the new users with the provided credentials and roles. If
+// successful, Create returns a slice of the new users. Creating a user also requires
+// update on users and on its role.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeUser}},
+		Objects: []resource.ID{{Type: resource.TypeUser}},
 	}); err != nil {
 		return CreateResponse{}, err
+	}
+	if len(req.Users) > 0 {
+		if err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionUpdate,
+			Objects: append(
+				[]resource.ID{{Type: resource.TypeUser}},
+				role.ResourceIDs(lo.Map(req.Users, func(u NewUser, _ int) role.Key {
+					return u.Role
+				}))...,
+			),
+		}); err != nil {
+			return CreateResponse{}, err
+		}
 	}
 	passwordW := s.password.NewWriter(tx)
 	userW := s.internal.NewWriter(tx)
@@ -134,11 +154,11 @@ func (s *Service) Create(
 		if name == "" {
 			name = nu.Username
 		}
-		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key})
+		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key, Role: nu.Role})
 		if err != nil {
 			return CreateResponse{}, err
 		}
-		if err := passwordW.Set(ctx, u.OntologyID(), nu.Credentials); err != nil {
+		if err := passwordW.Set(ctx, u.ResourceID(), nu.Credentials); err != nil {
 			return CreateResponse{}, err
 		}
 		newUsers[i] = u
@@ -166,7 +186,7 @@ func (s *Service) ChangeUsername(
 	}
 	var p password.Password
 	if err := s.password.NewRetrieve().
-		Where(password.MatchSubjects(user.OntologyID(req.Key))).
+		Where(password.MatchSubjects(user.ResourceID(req.Key))).
 		Entry(&p).
 		Exec(ctx, tx); err != nil {
 		return struct{}{}, err
@@ -177,12 +197,12 @@ func (s *Service) ChangeUsername(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{user.OntologyID(req.Key)},
+		Objects: []resource.ID{user.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.password.NewWriter(tx).
-		Rename(ctx, user.OntologyID(req.Key), req.Username)
+		Rename(ctx, user.ResourceID(req.Key), req.Username)
 }
 
 type RenameRequest struct {
@@ -199,7 +219,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{user.OntologyID(req.Key)},
+		Objects: []resource.ID{user.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -213,7 +233,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Users))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Users))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -223,7 +243,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: user.OntologyIDsFromUsers(res.Users),
+		Objects: user.ResourceIDsFromUsers(res.Users),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -243,7 +263,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: user.OntologyIDsFromKeys(req.Keys),
+		Objects: user.ResourceIDsFromKeys(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -251,5 +271,52 @@ func (s *Service) Delete(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.auth.NewWriter(tx).
-		DeleteFor(ctx, user.OntologyIDsFromKeys(req.Keys)...)
+		DeleteFor(ctx, user.ResourceIDsFromKeys(req.Keys)...)
+}
+
+// SetRoleRequest gives Role to the users with Keys.
+type SetRoleRequest struct {
+	Keys []user.Key `json:"keys" msgpack:"keys"`
+	Role role.Key   `json:"role" msgpack:"role"`
+}
+
+// SetRole gives a role to the users with the provided keys in one transaction. It
+// returns access.ErrDenied unless the subject can update the users, the role, and the
+// roles the users hold, a validation error when a user is a root user, and
+// query.ErrNotFound when a user does not exist. A role that another request gives a
+// user while SetRole runs is replaced with no access check on it.
+func (s *Service) SetRole(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetRoleRequest,
+) (struct{}, error) {
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionUpdate,
+		Objects: append(
+			user.ResourceIDsFromKeys(req.Keys),
+			role.ResourceID(req.Role),
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	// The guard checks the role each user holds when the write reads it.
+	guard := func(u user.User) error {
+		if u.RootUser {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"cannot change the role of root user %s",
+				u.Name,
+			)
+		}
+		return enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionUpdate,
+			Objects: []resource.ID{role.ResourceID(u.Role)},
+		})
+	}
+	return struct{}{}, s.internal.NewWriter(tx).
+		SetRole(ctx, req.Role, guard, req.Keys...)
 }

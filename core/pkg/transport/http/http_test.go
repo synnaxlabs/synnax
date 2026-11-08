@@ -579,7 +579,7 @@ var _ = Describe("HTTP", func() {
 					"/api/v1/auth/key/create",
 					rootToken,
 					apiauth.KeyCreateRequest{
-						Subject: rack.OntologyIDs([]rack.Key{r.Key})[0],
+						Subject: rack.ResourceIDs([]rack.Key{r.Key})[0],
 					},
 					&created,
 				)).To(Equal(http.StatusOK))

@@ -114,9 +114,13 @@ var _ = Describe("SearchIndex", func() {
 		)
 
 		It("Should index entries that a committed tx writes", func(ctx SpecContext) {
-			createIndexed(ctx, db, indexedEntry{ID: 5, Name: "flow meter"})
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 5, Name: "flow meter"}).
+				Exec(ctx, db)).To(Succeed())
 			Expect(find(ctx, db, "flow")).To(Equal([]int32{5}))
-			createIndexed(ctx, db, indexedEntry{ID: 5, Name: "valve"})
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 5, Name: "valve"}).
+				Exec(ctx, db)).To(Succeed())
 			Expect(find(ctx, db, "flow")).To(BeEmpty())
 			Expect(table.NewDelete().
 				Where(gorp.MatchKeys[int32, indexedEntry](3)).
@@ -263,7 +267,7 @@ var _ = Describe("SearchIndex", func() {
 				"category", func(e *indexedEntry) string { return e.Category },
 			)
 			DeferClose(openIndexedTable(ctx, failing, categories, failed))
-			Expect(categories.Get(nil, "x")).Error().
+			Expect(categories.Get(ctx, nil, "x")).Error().
 				To(MatchError(gorp.ErrIndexInvalid))
 		})
 

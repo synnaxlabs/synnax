@@ -670,8 +670,8 @@ func enumConstRef(
 type constraintCheckData struct {
 	GoName    string
 	FieldName string
-	// Kind selects the assertion form: non_empty_string, min_len, max_len (string), or
-	// ge, le (numeric).
+	// Kind selects the assertion form: non_empty_string, min_len, max_len (string),
+	// non_zero (numeric or uuid), or ge, le (numeric).
 	Kind string
 	// Arg is the length or numeric threshold literal for the kinds that take one.
 	Arg string
@@ -711,7 +711,11 @@ func goConstraintChecks(
 		}
 	}
 	var checks []constraintCheckData
-	if resolution.IsStringPrimitive(base) {
+	if base == "uuid" {
+		if rules.Required && !field.Optional {
+			checks = append(checks, check("non_zero", ""))
+		}
+	} else if resolution.IsStringPrimitive(base) {
 		switch {
 		case rules.Required && !field.Optional,
 			rules.MinLength != nil && *rules.MinLength == 1:

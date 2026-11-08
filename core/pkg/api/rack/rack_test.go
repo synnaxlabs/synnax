@@ -10,7 +10,9 @@
 package rack_test
 
 import (
+	"context"
 	"encoding/json/v2"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,9 +21,13 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -44,12 +50,11 @@ func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 	r := rack.Rack{Name: name}
 	Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 	Expect(svc.Status.NewWriter(nil).Set(ctx, &rack.Status{
-		Key:     rack.StatusKey(r.Key),
+		Owner:   new(r.ResourceID()),
 		Name:    r.Name,
 		Time:    telem.Now(),
 		Variant: status.VariantSuccess,
 		Message: "Rack is running",
-		Details: rack.StatusDetails{Rack: r.Key},
 	})).To(Succeed())
 	return r
 }
@@ -57,9 +62,9 @@ func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 var _ = Describe("Create", func() {
 	It("Should reply with the status of a new rack", func(ctx SpecContext) {
 		u := createUser(ctx)
-		rackType := ontology.ID{Type: ontology.ResourceTypeRack}
-		grant(ctx, access.ActionCreate, u.OntologyID(), rackType)
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), rackType)
+		rackType := resource.ID{Type: resource.TypeRack}
+		grant(ctx, access.ActionCreate, u.ResourceID(), rackType)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), rackType)
 		res := MustSucceed(apiSvc.Create(
 			AuthedCtx(ctx, u), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{{Name: "New"}}},
@@ -67,7 +72,7 @@ var _ = Describe("Create", func() {
 		Expect(res.Racks).To(HaveLen(1))
 		r := res.Racks[0]
 		Expect(r.Status).ToNot(BeNil())
-		Expect(r.Status.Key).To(Equal(rack.StatusKey(r.Key)))
+		Expect(r.Status.Owner).To(HaveValue(Equal(r.ResourceID())))
 		Expect(r.Status.Variant).To(Equal(status.VariantWarning))
 	})
 	It(
@@ -77,8 +82,8 @@ var _ = Describe("Create", func() {
 			grant(
 				ctx,
 				access.ActionCreate,
-				u.OntologyID(),
-				ontology.ID{Type: ontology.ResourceTypeRack},
+				u.ResourceID(),
+				resource.ID{Type: resource.TypeRack},
 			)
 			res := MustSucceed(apiSvc.Create(
 				AuthedCtx(ctx, u), nil,
@@ -94,7 +99,7 @@ var _ = Describe("Create", func() {
 		func(ctx SpecContext) {
 			u := createUser(ctx)
 			hidden := createRackWithStatus(ctx, "Hidden")
-			grant(ctx, access.ActionUpdate, u.OntologyID(), hidden.OntologyID())
+			grant(ctx, access.ActionUpdate, u.ResourceID(), hidden.ResourceID())
 			res := MustSucceed(apiSvc.Create(
 				AuthedCtx(ctx, u), nil,
 				apirack.CreateRequest{Racks: []rack.Rack{hidden}},
@@ -108,10 +113,10 @@ var _ = Describe("Create", func() {
 		readable := createRackWithStatus(ctx, "Readable")
 		hidden := createRackWithStatus(ctx, "Hidden")
 		grant(
-			ctx, access.ActionUpdate, u.OntologyID(),
-			readable.OntologyID(), hidden.OntologyID(),
+			ctx, access.ActionUpdate, u.ResourceID(),
+			readable.ResourceID(), hidden.ResourceID(),
 		)
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), readable.OntologyID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), readable.ResourceID())
 		res := MustSucceed(apiSvc.Create(
 			AuthedCtx(ctx, u), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{readable, hidden}},
@@ -123,7 +128,7 @@ var _ = Describe("Create", func() {
 	It("Should reply with the live status of an existing rack", func(ctx SpecContext) {
 		r := createRackWithStatus(ctx, "Existing")
 		res := MustSucceed(apiSvc.Create(
-			SubjectCtx(ctx, r.OntologyID()), nil,
+			SubjectCtx(ctx, r.ResourceID()), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{r}},
 		))
 		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
@@ -132,7 +137,7 @@ var _ = Describe("Create", func() {
 		r := createRackWithStatus(ctx, "Old")
 		r.Name = "New"
 		res := MustSucceed(apiSvc.Create(
-			SubjectCtx(ctx, r.OntologyID()), nil,
+			SubjectCtx(ctx, r.ResourceID()), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{r}},
 		))
 		Expect(res.Racks[0].Status.Name).To(Equal("New"))
@@ -143,7 +148,7 @@ var _ = Describe("Create", func() {
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 		r.Integrations = []string{"ni"}
 		Expect(apiSvc.Create(
-			SubjectCtx(ctx, r.OntologyID()), nil,
+			SubjectCtx(ctx, r.ResourceID()), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{r}},
 		)).Error().ToNot(HaveOccurred())
 		Expect(retrieveRack(ctx, r.Key).Integrations).To(Equal([]string{"ni"}))
@@ -154,7 +159,7 @@ var _ = Describe("Create", func() {
 			r := rack.Rack{Name: "Self"}
 			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			Expect(apiSvc.Create(
-				SubjectCtx(ctx, r.OntologyID()), nil,
+				SubjectCtx(ctx, r.ResourceID()), nil,
 				apirack.CreateRequest{Racks: []rack.Rack{r, r}},
 			)).Error().ToNot(HaveOccurred())
 		},
@@ -165,7 +170,7 @@ var _ = Describe("Create", func() {
 			r := rack.Rack{Name: "Self"}
 			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			Expect(apiSvc.Create(
-				SubjectCtx(ctx, r.OntologyID()), nil,
+				SubjectCtx(ctx, r.ResourceID()), nil,
 				apirack.CreateRequest{Racks: []rack.Rack{{Name: "Other"}}},
 			)).Error().To(MatchError(access.ErrDenied))
 		},
@@ -175,8 +180,8 @@ var _ = Describe("Create", func() {
 		grant(
 			ctx,
 			access.ActionCreate,
-			u.OntologyID(),
-			ontology.ID{Type: ontology.ResourceTypeRack},
+			u.ResourceID(),
+			resource.ID{Type: resource.TypeRack},
 		)
 		r := rack.Rack{Name: "Existing"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
@@ -192,7 +197,7 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Before", Integrations: []string{"ni"}}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionUpdate, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apirack.RenameRequest{Key: r.Key, Name: "After"},
@@ -204,7 +209,7 @@ var _ = Describe("Rename", func() {
 	It("Should keep the embedded flag of the embedded rack", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := svc.Rack.EmbeddedKey
-		grant(ctx, access.ActionUpdate, u.OntologyID(), key.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), key.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apirack.RenameRequest{Key: key, Name: "Renamed Embedded"},
@@ -217,7 +222,7 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Before"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionUpdate, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apirack.RenameRequest{Key: r.Key, Name: ""},
@@ -227,7 +232,7 @@ var _ = Describe("Rename", func() {
 	It("Should return a not found error for a missing rack", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := rack.NewKey(1, 60000)
-		grant(ctx, access.ActionUpdate, u.OntologyID(), key.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), key.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apirack.RenameRequest{Key: key, Name: "After"},
@@ -252,12 +257,11 @@ var _ = Describe("Retrieve", func() {
 		withoutStatus := rack.Rack{Name: "Without Status"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &withStatus)).To(Succeed())
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &withoutStatus)).To(Succeed())
-		Expect(svc.Status.NewWriter(nil).Delete(
-			ctx, rack.StatusKey(withoutStatus.Key),
-		)).To(Succeed())
+		w := svc.Status.NewWriter(nil)
+		Expect(w.DeleteOwned(ctx, withoutStatus.ResourceID())).To(Succeed())
 		grant(
-			ctx, access.ActionRetrieve, u.OntologyID(),
-			withStatus.OntologyID(), withoutStatus.OntologyID(),
+			ctx, access.ActionRetrieve, u.ResourceID(),
+			withStatus.ResourceID(), withoutStatus.ResourceID(),
 		)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
 			Where: &rack.Where{Key: &filter.Set[rack.Key]{
@@ -269,14 +273,14 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Racks[0].Key).To(Equal(withoutStatus.Key))
 		Expect(res.Racks[0].Status).To(BeNil())
 		Expect(res.Racks[1].Key).To(Equal(withStatus.Key))
-		Expect(res.Racks[1].Status.Key).To(Equal(rack.StatusKey(withStatus.Key)))
+		Expect(res.Racks[1].Status.Owner).To(HaveValue(Equal(withStatus.ResourceID())))
 	})
 
 	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Present"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
 			Where: &rack.Where{Key: &filter.Set[rack.Key]{
 				In: []rack.Key{r.Key, rack.NewKey(9, 9)},
@@ -303,14 +307,14 @@ var _ = Describe("Retrieve", func() {
 		func(ctx SpecContext) {
 			u := createUser(ctx)
 			r := createRackWithStatus(ctx, "Target")
-			key := rack.StatusKey(r.Key)
-			grant(ctx, access.ActionCreate, u.OntologyID(), status.OntologyID(key))
-			grant(ctx, access.ActionUpdate, u.OntologyID(), r.OntologyID())
-			grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
+			statusType := resource.ID{Type: resource.TypeStatus}
+			grant(ctx, access.ActionCreate, u.ResourceID(), statusType)
+			grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
+			grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
 			Expect(statusAPI.Set(
 				AuthedCtx(ctx, u), nil,
 				apistatus.SetRequest{Statuses: []status.Status[any]{{
-					Key:     key,
+					Owner:   new(r.ResourceID()),
 					Time:    telem.Now(),
 					Variant: status.VariantError,
 					Details: "not an object",
@@ -348,9 +352,9 @@ var _ = Describe("Delete", func() {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Doomed"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionDelete, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionDelete, u.ResourceID(), r.ResourceID())
 		_, key := MustSucceed2(
-			svc.APIKey.NewWriter(nil).Create(ctx, r.OntologyID(), "driver"),
+			svc.APIKey.NewWriter(nil).Create(ctx, r.ResourceID(), "driver"),
 		)
 		_, token := MustSucceed2(svc.Auth.Login(ctx, auth.Proof{
 			Variant: auth.APIKeyProof{
@@ -363,5 +367,160 @@ var _ = Describe("Delete", func() {
 		)).Error().ToNot(HaveOccurred())
 		Expect(svc.Auth.Authenticate(ctx, token)).Error().
 			To(MatchError(auth.ErrInvalidToken))
+	})
+
+	// deleterOf returns a context for a new user allowed to delete the rack with key.
+	deleterOf := func(ctx SpecContext, key rack.Key) context.Context {
+		GinkgoHelper()
+		u := createUser(ctx)
+		grant(ctx, access.ActionDelete, u.ResourceID(), key.ResourceID())
+		return AuthedCtx(ctx, u)
+	}
+	exists := func(ctx SpecContext, key rack.Key) bool {
+		GinkgoHelper()
+		return MustSucceed(svc.Rack.NewRetrieve().
+			Where(rack.MatchKeys(key)).
+			Exists(ctx, nil))
+	}
+
+	It("Should refuse to delete a rack that holds a device", func(ctx SpecContext) {
+		r := rack.Rack{Name: "With Device"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		d := device.Device{
+			Key:      "api-rack-device",
+			Rack:     r.Key,
+			Location: "loc",
+			Name:     "Device",
+			Make:     "make",
+			Model:    "model",
+		}
+		Expect(svc.Device.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+		Expect(apiSvc.Delete(
+			deleterOf(ctx, r.Key), nil,
+			apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(fmt.Sprintf(
+				"cannot delete rack %s because device api-rack-device references "+
+					"it through rack",
+				r.Key,
+			))),
+		))
+		Expect(exists(ctx, r.Key)).To(BeTrue())
+	})
+
+	It(
+		"Should refuse to delete a rack that holds a task that is not internal",
+		func(ctx SpecContext) {
+			r := rack.Rack{Name: "With Task"}
+			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			t := task.Task{
+				Rack: r.Key,
+				Name: "User Task",
+				Type: pagerduty.AlertTaskType,
+			}
+			Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Expect(apiSvc.Delete(
+				deleterOf(ctx, r.Key), nil,
+				apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
+			)).Error().To(MatchError(ContainSubstring(
+				"cannot delete rack With Task because it still holds tasks",
+			)))
+			Expect(exists(ctx, r.Key)).To(BeTrue())
+		},
+	)
+
+	It("Should delete the internal tasks of a deleted rack", func(ctx SpecContext) {
+		r := rack.Rack{Name: "With Internal Task"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		t := task.Task{
+			Rack:     r.Key,
+			Name:     "Scanner",
+			Type:     pagerduty.AlertTaskType,
+			Internal: true,
+		}
+		Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+		MustSucceed(apiSvc.Delete(
+			deleterOf(ctx, r.Key), nil,
+			apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
+		))
+		Expect(exists(ctx, r.Key)).To(BeFalse())
+		Expect(svc.Task.NewRetrieve().
+			Where(task.MatchKeys(t.Key)).
+			Exists(ctx, nil)).To(BeFalse())
+	})
+})
+
+// createDeviceGroup creates a device group with no top parent, where racks can sit.
+func createDeviceGroup(ctx SpecContext, name string) group.Group {
+	GinkgoHelper()
+	g := group.Group{Name: name, Scope: resource.TypeDevice}
+	Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	return g
+}
+
+var _ = Describe("SetGroup", func() {
+	It(
+		"Should refuse the move without update on the destination group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			r := rack.Rack{Name: "Set group denied"}
+			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			g := createDeviceGroup(ctx, "Set group denied")
+			grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
+			Expect(apiSvc.SetGroup(
+				AuthedCtx(ctx, u), nil,
+				apirack.SetGroupRequest{Group: &g.Key, Keys: []rack.Key{r.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveRack(ctx, r.Key).Group).To(BeNil())
+		},
+	)
+	It(
+		"Should move the rack with update on the destination group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			r := rack.Rack{Name: "Set group granted"}
+			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			g := createDeviceGroup(ctx, "Set group granted")
+			grant(
+				ctx,
+				access.ActionUpdate,
+				u.ResourceID(),
+				r.ResourceID(),
+				g.ResourceID(),
+			)
+			Expect(apiSvc.SetGroup(
+				AuthedCtx(ctx, u), nil,
+				apirack.SetGroupRequest{Group: &g.Key, Keys: []rack.Key{r.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(retrieveRack(ctx, r.Key).Group).To(Equal(&g.Key))
+		},
+	)
+})
+
+var _ = Describe("Create in a group", func() {
+	rackType := resource.ID{Type: resource.TypeRack}
+	It(
+		"Should refuse the create without update on the group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			g := createDeviceGroup(ctx, "Create denied")
+			grant(ctx, access.ActionCreate, u.ResourceID(), rackType)
+			Expect(apiSvc.Create(
+				AuthedCtx(ctx, u), nil,
+				apirack.CreateRequest{Racks: []rack.Rack{{Name: "New", Group: &g.Key}}},
+			)).Error().To(MatchError(access.ErrDenied))
+		},
+	)
+	It("Should create the rack with update on the group", func(ctx SpecContext) {
+		u := createUser(ctx)
+		g := createDeviceGroup(ctx, "Create granted")
+		grant(ctx, access.ActionCreate, u.ResourceID(), rackType)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+		res := MustSucceed(apiSvc.Create(
+			AuthedCtx(ctx, u), nil,
+			apirack.CreateRequest{Racks: []rack.Rack{{Name: "New", Group: &g.Key}}},
+		))
+		Expect(retrieveRack(ctx, res.Racks[0].Key).Group).To(Equal(&g.Key))
 	})
 })

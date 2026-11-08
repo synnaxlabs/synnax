@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type resource } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement } from "react";
@@ -20,16 +20,16 @@ export interface CopyLinkToolbarButtonProps extends Omit<
   "children"
 > {
   name: string;
-  ontologyID: ontology.ID;
+  resourceID: resource.ID;
 }
 
 export const CopyLinkToolbarButton = ({
   name,
-  ontologyID,
+  resourceID,
   ...rest
 }: CopyLinkToolbarButtonProps): ReactElement | null => {
   const copyLink = useCopyLinkToClipboard();
-  const handleClick = () => copyLink({ name, ontologyID });
+  const handleClick = () => copyLink({ name, resourceID });
   if (Session.Runtime.LINKS_DISABLED) return null;
   return (
     <Button.Button

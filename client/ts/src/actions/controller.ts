@@ -221,7 +221,9 @@ interface Pending<Action> {
   actions: Action[];
   /** The epoch in which the send started. */
   epoch: number;
-  /** The actions the Core broadcasts for the dispatch. Undefined until it applies it. */
+  /**
+   * The actions the Core broadcasts for the dispatch. Undefined until it applies it.
+   */
   echo?: Action[];
 }
 
@@ -241,7 +243,9 @@ interface Applied<Action> {
 /** A queued edit and the actions it sends. */
 interface Queued<State, Action> {
   actions: Action[];
-  /** Reverts what the edit changed outside its pending entry, such as its undo entry. */
+  /**
+   * Reverts what the edit changed outside its pending entry, such as its undo entry.
+   */
   rollback: destructor.Destructor;
   /** Makes the edit again on the current document. Null when nothing is left to do. */
   remake: () => Made<State, Action> | null;
@@ -585,7 +589,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     return { own: i !== -1, targets };
   }
 
-  /** Removes the pending entries with the dispatch keys, which the Core did not apply. */
+  /**
+   * Removes the pending entries with the dispatch keys, which the Core did not apply.
+   */
   private discard(key: Key, ...dispatchKeys: string[]): void {
     const r = this.rebases.get(key);
     if (r == null) return;
