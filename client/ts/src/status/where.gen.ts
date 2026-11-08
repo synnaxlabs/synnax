@@ -118,9 +118,10 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       filter.split(input, ["and", "or", "not", "key", "variant", "labels", "owners"]),
     );
 
-/** @returns the position of record in an order by field. */
-export const cursor = (field: OrderField, record: Status): Cursor => {
-  switch (field) {
+/** @returns the position of record in order, or in key order when order is absent. */
+export const cursor = (record: Status, order?: Order): Cursor => {
+  if (order == null) return { key: record.key };
+  switch (order.field) {
     case "name":
       return { key: record.key, name: record.name };
   }
@@ -135,13 +136,15 @@ const compareValues = (field: OrderField, a: Cursor, b: Cursor): number => {
 };
 
 /**
- * Orders two positions as the Core walks them: by the order's field, then by key.
+ * Orders two positions as the Core walks them: by the order's field, then by key, or
+ * by key alone when order is absent.
  *
- * @returns a negative number if a comes before b in order, a positive number if after,
- * and 0 if they are the same position.
+ * @returns a negative number if a comes before b, a positive number if after, and 0 if
+ * they are the same position.
  * @throws {Error} if a or b holds no value for the order's field.
  */
-export const compareCursors = (order: Order, a: Cursor, b: Cursor): number => {
+export const compareCursors = (a: Cursor, b: Cursor, order?: Order): number => {
+  if (order == null) return compare.codePoints(a.key, b.key);
   const c = compareValues(order.field, a, b) || compare.codePoints(a.key, b.key);
   return order.descending ? -c : c;
 };

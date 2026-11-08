@@ -2254,3 +2254,58 @@ describe("reset", () => {
     expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
   });
 });
+
+describe("trim", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const doc = (key: string): Doc => ({ key, name: key });
+  const newTable = () => new query.Table<string, Doc>({ onError: noopError });
+
+  it("should drop the least recently read entries first", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b"), doc("c")]);
+    table.get("a");
+    expect(table.trim(1)).toEqual(["b", "c"]);
+    expect(table.keys()).toEqual(["a"]);
+  });
+
+  it("should keep the entries a holder or a keyed subscriber needs", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b"), doc("c")]);
+    table.hold({ held: () => ["a"] });
+    table.subscribe(vi.fn(), "b");
+    expect(table.trim(0)).toEqual(["c"]);
+    expect(table.size).toBe(2);
+  });
+
+  it("should drop silently and tell each holder what dropped", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b")]);
+    const subscriber = vi.fn();
+    table.subscribeBatch(subscriber);
+    const drop = vi.fn();
+    table.hold({ held: () => [], drop });
+    const version = table.version();
+    table.trim(1);
+    expect(subscriber).not.toHaveBeenCalled();
+    expect(table.version()).toBe(version);
+    expect(table.status("a")).toBe("unknown");
+    expect(drop).toHaveBeenCalledWith(new Set(["a"]));
+  });
+
+  it("should stop keeping entries once the holder releases them", () => {
+    const table = newTable();
+    table.set([doc("a")]);
+    const release = table.hold({ held: () => ["a"] });
+    release();
+    expect(table.trim(0)).toEqual(["a"]);
+  });
+
+  it("should drop nothing at or under the size", () => {
+    const table = newTable();
+    table.set([doc("a")]);
+    expect(table.trim(1)).toEqual([]);
+  });
+});

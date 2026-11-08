@@ -37,7 +37,15 @@ import {
   retrieveResponseZ,
 } from "@/arc/types.gen";
 import { LINES } from "@/arc/where";
-import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/arc/where.gen";
+import {
+  compareCursors,
+  cursor,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/arc/where.gen";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { type status } from "@/status";
@@ -154,6 +162,7 @@ export class Client extends query.Retriever<
     });
     const dispatcher = new actions.Controller<Key, Arc, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
@@ -178,6 +187,7 @@ export class Client extends query.Retriever<
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) =>
           (await this.execRetrieve(req)).map((a) => this.hydrate(a)),

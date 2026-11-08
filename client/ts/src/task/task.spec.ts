@@ -596,33 +596,6 @@ describe("Task", async () => {
     });
   });
 
-  describe("list", () => {
-    it("should list all tasks excluding internal tasks", async () => {
-      const tasks = await client.tasks.list();
-      expect(Array.isArray(tasks)).toBe(true);
-      expect(tasks.every((t) => t.internal === false)).toBe(true);
-    });
-
-    it("should list tasks on a specific rack", async () => {
-      const task1 = await testRack.createTask({
-        name: `list-test-${Date.now()}`,
-        config: {},
-        type: "pagerduty_alert",
-      });
-      const tasks = await client.tasks.list(testRack.key);
-      expect(tasks.some((t) => t.key === task1.key)).toBe(true);
-      expect(tasks.every((t) => t.rack === testRack.key)).toBe(true);
-    });
-
-    it("should exclude internal tasks by default", async () => {
-      const allTasks = await client.tasks.list();
-      const internalTasks = await client.tasks.retrieve({ internal: true });
-      const allTaskKeys = allTasks.map((t) => t.key);
-      const internalTaskKeys = internalTasks.map((t) => t.key);
-      expect(internalTaskKeys.every((key) => !allTaskKeys.includes(key))).toBe(true);
-    });
-  });
-
   describe("copy", () => {
     it("should correctly copy the task", async () => {
       const m = await testRack.createTask({

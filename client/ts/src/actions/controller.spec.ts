@@ -78,6 +78,7 @@ const setupStore = (
     fetch: (keys: string[]) => Promise<Array<Doc & { key: string }>>;
     encode: (doc: Doc, action: Action) => Action;
     send: SendDispatch<string, Action>;
+    listed: (a: Action) => boolean;
   }> = {},
 ) => {
   const errors: Error[] = [];
@@ -98,6 +99,7 @@ const setupStore = (
     coalesceWindow: opts.coalesceWindow,
     stackCap: opts.stackCap,
     now: opts.now,
+    listed: opts.listed,
   });
   return { errors, docs, epochs, controller, send };
 };
@@ -1181,6 +1183,56 @@ describe("actions.Controller", () => {
         { type: "set", key: "a", value: 1 },
       ]);
       expect(docs.get("missing")).toBeUndefined();
+    });
+
+    describe("listed fields", () => {
+      const listed = (a: Action) => a.type === "set" && a.key === "name";
+
+      it("fetches an uncached doc when a frame changes a listed field", async () => {
+        const fetch = vi.fn(async (keys: string[]) =>
+          keys.map((key) => ({ key, values: { name: 1 } })),
+        );
+        const { docs, controller } = setupStore({ fetch, listed });
+        controller.applyRemote("missing", 1, "f-1", [set("name", 1)]);
+        await expect
+          .poll(() => docs.get("missing"))
+          .toEqual({ key: "missing", values: { name: 1 } });
+        expect(fetch).toHaveBeenCalledWith(["missing"]);
+      });
+
+      it("does not fetch an uncached doc for another field", async () => {
+        const fetch = vi.fn(async () => []);
+        const { controller } = setupStore({ fetch, listed });
+        controller.applyRemote("missing", 1, "f-1", [set("a", 1)]);
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        expect(fetch).not.toHaveBeenCalled();
+      });
+
+      it("fetches the doc again when a frame arrives during the fetch", async () => {
+        const first = Promise.withResolvers<Array<Doc & { key: string }>>();
+        const fetch = vi
+          .fn<(keys: string[]) => Promise<Array<Doc & { key: string }>>>()
+          .mockImplementationOnce(async () => await first.promise)
+          .mockImplementation(async () => [{ key: "k", values: { name: 1, a: 2 } }]);
+        const { docs, controller } = setupStore({ fetch, listed });
+        controller.applyRemote("k", 1, "f-1", [set("name", 1)]);
+        await expect.poll(() => fetch.mock.calls.length).toBe(1);
+        controller.applyRemote("k", 2, "f-2", [set("a", 2)]);
+        first.resolve([{ key: "k", values: { name: 1 } }]);
+        await expect
+          .poll(() => docs.get("k"))
+          .toEqual({ key: "k", values: { name: 1, a: 2 } });
+        expect(fetch).toHaveBeenCalledTimes(2);
+        controller.applyRemote("k", 3, "f-3", [set("a", 3)]);
+        expect(docs.get("k")?.values).toEqual({ name: 1, a: 3 });
+      });
+
+      it("ignores a doc deleted before its fetch", async () => {
+        const { controller, errors } = setupStore({ fetch: async () => [], listed });
+        controller.applyRemote("gone", 1, "f-1", [set("name", 1)]);
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        expect(errors).toEqual([]);
+      });
     });
 
     it("ingests a create-headed frame for a doc it has never cached", () => {

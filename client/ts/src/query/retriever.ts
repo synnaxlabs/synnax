@@ -12,6 +12,7 @@ import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
 import { type Cache } from "@/query/cache";
+import { type List, type ListQuery, type Lists } from "@/query/list";
 import {
   type Cached,
   type ChangeHandler,
@@ -127,6 +128,20 @@ export type OneInput<Z extends z.ZodType> =
         : never
       : never);
 
+/** The cursor type of a request: the type of its `after`. */
+export type CursorOf<Q> = Q extends { after?: infer C }
+  ? unknown extends C
+    ? never
+    : NonNullable<C>
+  : never;
+
+/** The order type of a request: the type of its `order`. */
+export type OrderOf<Q> = Q extends { order?: infer O }
+  ? unknown extends O
+    ? never
+    : NonNullable<O>
+  : never;
+
 /** True for params that are a bare record key rather than a query object. */
 const isBareKey = (params: unknown): params is record.Key =>
   typeof params === "string" || typeof params === "number";
@@ -237,6 +252,18 @@ export type RetrieverParams<
     serverComputed?: (query: z.output<Z>) => boolean;
     /** Foreign tables whose events affect this space's answers. */
     watch?: Array<Watch<z.output<Z>, K>>;
+    /**
+     * Positions records for lists, from the domain's generated `cursor` and
+     * `compareCursors`. Absent, the domain has no lists.
+     */
+    list?: {
+      cursor: (record: V, order?: OrderOf<z.output<Z>>) => CursorOf<z.output<Z>>;
+      compare: (
+        a: CursorOf<z.output<Z>>,
+        b: CursorOf<z.output<Z>>,
+        order?: OrderOf<z.output<Z>>,
+      ) => number;
+    };
   };
   /**
    * Reads a bare key, a bare name, or a list of either into a request in place of the
@@ -297,6 +324,16 @@ export abstract class Retriever<
   private readonly singleSpace: Retrieves<Params, D | D[]>;
   private readonly oneSpace: Retrieves<Params, D | D[]>;
   private readonly requestSpace: Retrieves<Params, D | D[]>;
+  private readonly lists: Lists<
+    ListQuery<OrderOf<z.output<Z>>, CursorOf<z.output<Z>>> & {
+      readonly [key: string]: Params;
+    },
+    D,
+    K,
+    V,
+    CursorOf<z.output<Z>>,
+    OrderOf<z.output<Z>>
+  > | null;
   private readonly trySingle: (params: unknown) => { query: SingleQuery } | null;
   private readonly normalizeRequest: (params: unknown) => z.output<Z>;
   private readonly readShortcut: ((params: unknown) => Params) | null;
@@ -322,6 +359,7 @@ export abstract class Retriever<
       serverFields = DEFAULT_SERVER_FIELDS,
       serverComputed,
       watch,
+      list,
     } = request;
     const requestSpace: Retrieves<z.output<Z>, D[]> = cache.queries<
       z.output<Z>,
@@ -347,6 +385,25 @@ export abstract class Retriever<
       watch,
     });
     this.requestSpace = requestSpace as Retrieves<Params, D | D[]>;
+    this.lists =
+      list == null
+        ? null
+        : cache.lists({
+            name,
+            table,
+            fetch: async (query, options) => await fetch(query as z.output<Z>, options),
+            compose: (record, query) => compose(record, query),
+            matches:
+              matches == null
+                ? undefined
+                : (record, query) => matches(record, query as z.output<Z>),
+            serverComputed:
+              serverComputed == null
+                ? undefined
+                : (query) => serverComputed(query as z.output<Z>),
+            cursor: list.cursor,
+            compare: list.compare,
+          });
     const oneSpace: Retrieves<z.output<Z>, D> = cache.queries<z.output<Z>, D, K, V>({
       name,
       table,
@@ -498,6 +555,18 @@ export abstract class Retriever<
     if (missing.length > 1)
       throw new NotFoundError(`${this.name} with keys ${missing.join(", ")} not found`);
     return unique.map((k) => byKey.get(k) as D);
+  }
+
+  /**
+   * Returns the live list of the records that match the params, in their `order`, or in
+   * key order without one. The list ignores `after`, and `limit` sets the least window
+   * its reads return.
+   * @throws {Error} if the domain has no lists.
+   * @throws {zod.ParseError} if the request schema rejects the params.
+   */
+  list(params: RequestInput<Z>): List<D, CursorOf<z.output<Z>>> {
+    if (this.lists == null) throw new Error(`${this.name} has no lists`);
+    return this.lists.list(this.normalizeRequest(params) as never);
   }
 
   /**

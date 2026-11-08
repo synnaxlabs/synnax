@@ -71,6 +71,17 @@ export interface BatchSubscriber<
  */
 export type HydrateMode = "set" | "if-absent";
 
+/**
+ * Something composed from the records of a table, such as an answer or a list, that
+ * keeps the records it needs from {@link Table.trim}.
+ */
+export interface Holder<Key extends record.Key> {
+  /** Returns the keys whose records the holder needs. */
+  held: () => Iterable<Key>;
+  /** Discards anything composed from the dropped records. */
+  drop?: (keys: ReadonlySet<Key>) => void;
+}
+
 /** A point in a table's write history, taken with {@link Table.stamp}. */
 export type Stamp = number;
 
@@ -216,6 +227,10 @@ export class Table<
   // Holds a stamp only for present and tombstoned entries: applyDelete drops the stamp
   // of any other key, so the map never outgrows them.
   private readonly writeStamps = new Map<Key, Stamp>();
+  private readonly holders = new Set<Holder<Key>>();
+  // The last read or write of each entry, which orders the entries that trim drops.
+  private readonly touches = new Map<Key, number>();
+  private touchSeq = 0;
 
   constructor({
     onError,
@@ -275,13 +290,54 @@ export class Table<
 
   private applySet(key: Key, value: Value): void {
     this.entries.set(key, value);
+    this.touches.set(key, ++this.touchSeq);
     for (const index of this.indexes) index.set(key, value);
   }
 
   private applyDelete(key: Key): void {
     this.entries.delete(key);
     this.writeStamps.delete(key);
+    this.touches.delete(key);
     for (const index of this.indexes) index.delete(key);
+  }
+
+  /**
+   * Keeps the records the holder needs from {@link trim}.
+   * @returns A destructor that releases them.
+   */
+  hold(holder: Holder<Key>): destructor.Destructor {
+    this.holders.add(holder);
+    return () => this.holders.delete(holder);
+  }
+
+  /** The number of live entries. */
+  get size(): number {
+    return this.entries.size;
+  }
+
+  /**
+   * Drops the least recently read or written entries until at most size remain. Skips
+   * every entry that a holder or a keyed subscriber needs, and tells each holder what
+   * dropped. Drops silently: no event, no tombstone, and no new version, since no
+   * subscriber holds a dropped entry. A read of a dropped key fetches it again.
+   * @returns the dropped keys.
+   */
+  trim(size: number): Key[] {
+    const over = this.entries.size - size;
+    if (over <= 0) return [];
+    const held = new Set<Key>(this.keyedSubscribers.keys());
+    this.holders.forEach((holder) => {
+      for (const key of holder.held()) held.add(key);
+    });
+    const dropped = Array.from(this.entries.keys())
+      .filter((key) => !held.has(key))
+      .sort((a, b) => (this.touches.get(a) ?? 0) - (this.touches.get(b) ?? 0))
+      .slice(0, over);
+    if (dropped.length === 0) return dropped;
+    dropped.forEach((key) => this.applyDelete(key));
+    const set = new Set(dropped);
+    this.holders.forEach((holder) => holder.drop?.(set));
+    return dropped;
   }
 
   /**
@@ -487,11 +543,19 @@ export class Table<
     if (keys === undefined) return Array.from(this.entries.values());
     if (typeof keys === "function")
       return Array.from(this.entries.values()).filter(keys);
-    if (Array.isArray(keys))
-      return keys
-        .map((key) => this.entries.get(key))
-        .filter((e): e is Value => e != null);
-    return this.entries.get(keys);
+    if (Array.isArray(keys)) {
+      const values: Value[] = [];
+      for (const key of keys) {
+        const value = this.entries.get(key);
+        if (value == null) continue;
+        this.touches.set(key, ++this.touchSeq);
+        values.push(value);
+      }
+      return values;
+    }
+    const value = this.entries.get(keys);
+    if (value != null) this.touches.set(keys, ++this.touchSeq);
+    return value;
   }
 
   has(key: Key): boolean {
@@ -560,7 +624,7 @@ export class Table<
     for (const key of keys) {
       if (seen.has(key)) continue;
       seen.add(key);
-      const entry = this.entries.get(key);
+      const entry = this.get(key);
       if (entry != null) results.push(entry);
     }
     return results;
@@ -727,6 +791,7 @@ export class Table<
     this.tombstones.clear();
     this.pendingDeletes.clear();
     this.writeStamps.clear();
+    this.touches.clear();
     for (const index of this.indexes) index.reset();
   }
 

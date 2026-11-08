@@ -105,8 +105,8 @@ describe("compareCursors", () => {
       record(high, "alpha", 1),
       record(low, "Beta", 1),
       record(low, "ALPHA", 1),
-    ].map((r) => cursor("name", r));
-    positions.sort((a, b) => compareCursors(order, a, b));
+    ].map((r) => cursor(r, order));
+    positions.sort((a, b) => compareCursors(a, b, order));
     expect(positions).toEqual([
       { key: low, name: "ALPHA" },
       { key: high, name: "alpha" },
@@ -116,10 +116,10 @@ describe("compareCursors", () => {
 
   it("should reverse the order and the key tie when descending", () => {
     const order: ranger.Order = { field: "time_range_start", descending: true };
-    const early = cursor("time_range_start", record(low, "a", 1));
-    const tie = cursor("time_range_start", record(high, "a", 1));
-    const late = cursor("time_range_start", record(low, "a", 2));
-    expect([early, late, tie].sort((a, b) => compareCursors(order, a, b))).toEqual([
+    const early = cursor(record(low, "a", 1), order);
+    const tie = cursor(record(high, "a", 1), order);
+    const late = cursor(record(low, "a", 2), order);
+    expect([early, late, tie].sort((a, b) => compareCursors(a, b, order))).toEqual([
       late,
       tie,
       early,
@@ -128,13 +128,22 @@ describe("compareCursors", () => {
 
   it("should return 0 for the same position", () => {
     const order: ranger.Order = { field: "name", descending: false };
-    const a = cursor("name", record(low, "a", 1));
-    expect(compareCursors(order, a, { ...a })).toBe(0);
+    const a = cursor(record(low, "a", 1), order);
+    expect(compareCursors(a, { ...a }, order)).toBe(0);
+  });
+
+  it("should order by key alone with no order", () => {
+    const positions = [record(high, "a", 1), record(low, "b", 2)].map((r) => cursor(r));
+    expect(positions).toEqual([{ key: high }, { key: low }]);
+    expect(positions.sort((a, b) => compareCursors(a, b))).toEqual([
+      { key: low },
+      { key: high },
+    ]);
   });
 
   it("should throw for a position with no value for the order's field", () => {
     const order: ranger.Order = { field: "name", descending: false };
-    expect(() => compareCursors(order, { key: low }, { key: high, name: "a" })).toThrow(
+    expect(() => compareCursors({ key: low }, { key: high, name: "a" }, order)).toThrow(
       "a cursor has no name",
     );
   });

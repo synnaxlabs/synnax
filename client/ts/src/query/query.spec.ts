@@ -2000,6 +2000,30 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(3);
     });
 
+    it("applies a change that raced a refetch over its answer", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      let bump = (_: number): void => {};
+      const answers = new Space<LimitQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: (r, q) => r.value >= q.min,
+        },
+        { onEpoch: (callback) => ((bump = callback), () => {}) },
+      );
+      answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      const refetched = Promise.withResolvers<string[]>();
+      fetch.mockImplementationOnce(async () => await refetched.promise);
+      bump(2);
+      table.set("b", rec("b", 2));
+      refetched.resolve(["a", "b"]);
+      await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
     it("ignores a change to a record that never matched", async () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
@@ -2081,6 +2105,31 @@ describe("Answers", () => {
       handler.mockClear();
       table.delete("a");
       expect(handler).toHaveBeenCalledWith([]);
+    });
+
+    it("keeps the newer of two refetches when the older lands first", async () => {
+      const table = newTable();
+      table.set([rec("a", 1), rec("b", 2), rec("c", 3)]);
+      const fetch = vi.fn(async () => ["a"]);
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      const older = Promise.withResolvers<string[]>();
+      const newer = Promise.withResolvers<string[]>();
+      fetch
+        .mockImplementationOnce(async () => await older.promise)
+        .mockImplementationOnce(async () => await newer.promise);
+      table.set("z", rec("z", 9));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      table.set("z", rec("z", 10));
+      await expect.poll(() => fetch.mock.calls.length).toBe(3);
+      older.resolve(["b"]);
+      await wait(0);
+      expect(answers.getCached({ searchTerm: "x" })).toEqual([rec("a", 1)]);
+      newer.resolve(["c"]);
+      await expect
+        .poll(() => answers.getCached({ searchTerm: "x" }))
+        .toEqual([rec("c", 3)]);
     });
 
     it("does not notify for a change to a non-member entry", async () => {

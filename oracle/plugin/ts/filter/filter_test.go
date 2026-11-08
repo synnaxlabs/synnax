@@ -115,9 +115,9 @@ var _ = Describe("TS Filter Plugin", func() {
 			`, "thing", loader, p)
 			ExpectContent(resp, "where.gen.ts").
 				ToContain(
-					`import { filter } from "@synnaxlabs/x";`,
+					`import { compare, filter } from "@synnaxlabs/x";`,
 					`import { z } from "zod";`,
-					`import { Payload, Where } from "@/thing/types.gen";`,
+					`import { Cursor, Payload, Where } from "@/thing/types.gen";`,
 					"export const matches = (record: Payload, where?: Where): boolean => {",
 					"if (where == null) return true;",
 					" * @returns whether only the Core can check where, because it holds a "+
@@ -246,6 +246,10 @@ var _ = Describe("TS Filter Plugin", func() {
 					created_at int64  { @index sorted }
 					span       Span   { @index sorted start }
 
+					action Touch {
+						at int64
+					}
+
 					@ts name "Payload"
 				}
 				Where filter Thing {
@@ -255,15 +259,19 @@ var _ = Describe("TS Filter Plugin", func() {
 				ExpectContent(resp, "where.gen.ts").ToContain(
 					`import { compare, filter } from "@synnaxlabs/x";`,
 					"const compareNumbers = (a: number | bigint, b: number | bigint): number =>",
-					"export const cursor = (field: OrderField, record: Payload): Cursor => {",
+					"export const cursor = (record: Payload, order?: Order): Cursor => {",
+					"if (order == null) return { key: record.key };",
 					`case "name":`,
 					"return { key: record.key, name: record.name };",
 					"return { key: record.key, spanStart: record.span.start };",
 					"return compare.text(a.name, b.name);",
 					"return compareNumbers(a.createdAt, b.createdAt);",
 					`throw new Error("a cursor has no span_start");`,
-					"export const compareCursors = (order: Order, a: Cursor, b: Cursor): number => {",
+					"export const compareCursors = (a: Cursor, b: Cursor, order?: Order): number => {",
+					"if (order == null) return compare.uuids(a.key, b.key);",
 					"compareValues(order.field, a, b) || compare.uuids(a.key, b.key);",
+					`export const LIST_FIELDS: readonly string[] = ["key", "name", "created_at", `+
+						`"span"];`,
 					"return order.descending ? -c : c;",
 				)
 			},
@@ -289,14 +297,36 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
-		It("Should take no order without a sorted field", func(ctx SpecContext) {
+		It("Should order by key alone without a sorted field", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, thing+`
 				Where filter Thing {
 					key
 				}
 			`, "thing", loader, p)
 			ExpectContent(resp, "where.gen.ts").
-				ToNotContain("compareCursors", "compareNumbers", "export const cursor")
+				ToContain(
+					"export const cursor = (record: Payload): Cursor => ({ key: record.key });",
+					"export const compareCursors = (a: Cursor, b: Cursor): number =>\n"+
+						"  compare.uuids(a.key, b.key);",
+				).
+				ToNotContain("compareNumbers", "OrderField", "LIST_FIELDS")
+		})
+
+		It("Should take no cursor for a target with no key", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Thing struct {
+					name string
+				}
+				Where filter Thing {
+					name
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").
+				ToNotContain("LIST_FIELDS", "compareCursors", "export const cursor")
 		})
 
 		It("Should take no shortcut without a name line", func(ctx SpecContext) {
@@ -340,7 +370,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.ts").ToContain(
 				"overlaps: spanZ.exactOptional(),",
 				"spans: filter.listInputZ(spanZ).exactOptional(),",
-				`import { Payload, Where, spanZ } from "@/thing/types.gen";`,
+				`import { Cursor, Payload, Where, spanZ } from "@/thing/types.gen";`,
 			)
 		})
 
@@ -409,7 +439,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			`, "thing", loader, p)
 			ExpectContent(resp, "where.gen.ts").
 				ToContain(
-					`import { Where, Wire } from "@/thing/types.gen";`,
+					`import { Cursor, Where, Wire } from "@/thing/types.gen";`,
 					"record: Wire",
 					"!filter.matchesString(where.name, record.name)",
 				)

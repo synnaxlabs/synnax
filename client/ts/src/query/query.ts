@@ -246,8 +246,28 @@ export interface SpaceHooks {
   teardownGrace?: TimeSpan;
 }
 
-const DEFAULT_DEBOUNCE = TimeSpan.milliseconds(100);
-const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
+export const DEFAULT_DEBOUNCE = TimeSpan.milliseconds(100);
+export const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
+
+/**
+ * Opens change delivery in the background, since a streaming failure must never block
+ * a read. Never rejects. A denial or a missing license belongs to the connection, which
+ * reports it once, so only other failures go to report.
+ */
+export const startStreaming = async (
+  hooks: SpaceHooks,
+  report: (exc: unknown) => void,
+): Promise<void> => {
+  try {
+    await hooks.ensureStreaming?.();
+  } catch (exc) {
+    if (AccessDeniedError.matches(exc)) return;
+    // The connection opens the stream once a license applies, and the epoch bump that
+    // follows refetches maintained answers.
+    if (MissingLicenseError.matches(exc) || ExpiredLicenseError.matches(exc)) return;
+    report(exc);
+  }
+};
 
 /** What a fetch answers against, taken when it starts. */
 interface Basis {
@@ -279,6 +299,10 @@ interface Query<
   teardown?: destructor.Destructor[];
   /** Keys whose membership a fetch in flight deferred; drained on settle. */
   pendingRechecks?: Set<K>;
+  /** Counts fetches and resets. A refetch applies only while it is the newest. */
+  generation: number;
+  /** Keys rechecked while a refetch was in flight, replayed over its answer. */
+  refetchRechecks?: Set<K>;
   /** Set when a full limited answer lost a member: it may leave out matches until a
    *  server answer replaces it. */
   vacated?: boolean;
@@ -327,6 +351,7 @@ export class Space<
     onError: NonNullable<SpaceHooks["onError"]>;
   };
   private readonly detachEpoch?: destructor.Destructor;
+  private readonly release: destructor.Destructor;
   private readonly grace: TimeSpan;
   private sweepTimer?: ReturnType<typeof setTimeout>;
   /** Counts stale marks. */
@@ -336,6 +361,10 @@ export class Space<
     this.config = config;
     this.hooks = { ...hooks, onError: hooks.onError ?? console.error };
     this.grace = hooks.teardownGrace ?? DEFAULT_TEARDOWN_GRACE;
+    this.release = config.table.hold({
+      held: () => this.held(),
+      drop: (keys) => this.drop(keys),
+    });
     this.detachEpoch = hooks.onEpoch?.((epoch) => {
       // 0 is a return to cold (cluster replacement): the fresh stream's own
       // epoch bump refetches, not the reset itself.
@@ -473,6 +502,7 @@ export class Space<
         query.refetchTimer = undefined;
       }
       query.state = { variant: "unfetched" };
+      query.generation++;
       query.handlers.forEach((handler) => {
         try {
           handler(undefined);
@@ -486,6 +516,7 @@ export class Space<
   /** Detaches the epoch subscription. Queries and handlers are dropped. */
   close(): void {
     this.detachEpoch?.();
+    this.release();
     if (this.sweepTimer != null) {
       clearTimeout(this.sweepTimer);
       this.sweepTimer = undefined;
@@ -495,6 +526,26 @@ export class Space<
       if (query.refetchTimer != null) clearTimeout(query.refetchTimer);
     });
     this.queries.clear();
+  }
+
+  /** The members of every maintained answer. */
+  private *held(): Iterable<K> {
+    for (const { teardown, state } of this.queries.values()) {
+      if (teardown == null) continue;
+      if (state.variant === "ready") yield* state.keys;
+      else if (state.variant === "deleted") yield state.key;
+    }
+  }
+
+  /** Forgets each unmaintained answer that a dropped record answered. */
+  private drop(keys: ReadonlySet<K>): void {
+    this.queries.forEach((query) => {
+      const { state, teardown } = query;
+      if (teardown != null || state.variant !== "ready") return;
+      if (!state.keys.some((key) => keys.has(key))) return;
+      query.state = { variant: "unfetched" };
+      query.composed = undefined;
+    });
   }
 
   private teardownQuery(query: Query<P, K, D, V>): void {
@@ -540,25 +591,19 @@ export class Space<
     const hashed = hash(params);
     let query = this.queries.get(hashed);
     if (query == null) {
-      query = { params, state: { variant: "unfetched" }, handlers: new Set() };
+      query = {
+        params,
+        state: { variant: "unfetched" },
+        handlers: new Set(),
+        generation: 0,
+      };
       this.queries.set(hashed, query);
     }
     return query;
   }
 
-  // Streaming failure must never block reads, so the change stream opens in the
-  // background rather than being awaited. A denial belongs to the connection, which
-  // reports it once, not to every query that reads. Never rejects.
   private async startStreaming(): Promise<void> {
-    try {
-      await this.hooks.ensureStreaming?.();
-    } catch (exc) {
-      if (AccessDeniedError.matches(exc)) return;
-      // An unlicensed Core refuses the stream. The connection opens it once a license
-      // applies, and the epoch bump that follows refetches maintained answers.
-      if (MissingLicenseError.matches(exc) || ExpiredLicenseError.matches(exc)) return;
-      this.report(exc);
-    }
+    await startStreaming(this.hooks, (exc) => this.report(exc));
   }
 
   private report(
@@ -710,6 +755,7 @@ export class Space<
       query.refetchTimer = undefined;
     }
     const basis = this.basis();
+    query.generation++;
     const promise = this.config.fetch(query.params, options).then(
       (keys) => {
         const { table, single, name } = this.config;
@@ -760,22 +806,27 @@ export class Space<
       return;
     }
     const basis = this.basis();
-    const before = query.state;
+    const generation = ++query.generation;
+    const rechecks = new Set<K>();
+    query.refetchRechecks = rechecks;
     let keys: K[];
     try {
       keys = await this.config.fetch(query.params);
     } catch (reason) {
-      if (query.state !== before) return;
+      if (query.generation !== generation) return;
+      query.refetchRechecks = undefined;
       // A refetch revalidates an answer the caller already has. Failing to
       // confirm it is not grounds for taking it away, but reads stop trusting it.
-      if (before.variant === "ready") return this.markStale(query);
+      if (query.state.variant === "ready") return this.markStale(query);
       query.state = { variant: "error", error: errors.fromUnknown(reason) };
       return;
     }
-    // Only apply if maintenance hasn't been torn down and no newer fetch
-    // superseded this one.
-    if (query.state !== before) return;
+    if (query.generation !== generation) return;
+    query.refetchRechecks = undefined;
     this.confirm(query, { variant: "ready", keys }, basis);
+    // The answer is as of when the Core ran the fetch, so a change that raced it
+    // applies again.
+    this.applyRechecks(query, rechecks);
     this.touch(query);
   }
 
@@ -1004,6 +1055,8 @@ export class Space<
       return false;
     }
     if (state.variant !== "ready" && state.variant !== "deleted") return false;
+    const changed = new Set(keys);
+    changed.forEach((key) => query.refetchRechecks?.add(key));
     const { table, matches, single } = this.config;
     const members = state.variant === "ready" ? state.keys : [];
     const memberSet = new Set(members);
@@ -1011,7 +1064,7 @@ export class Space<
     let lastEvicted: K | null = null;
     let touched = false;
     let undecided = false;
-    for (const key of new Set(keys)) {
+    for (const key of changed) {
       const entry = table.get(key);
       const matched = entry == null ? false : matches!(entry, query.params);
       if (matched == null) {

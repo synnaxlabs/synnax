@@ -28,7 +28,14 @@ import {
   type User,
   userZ,
 } from "@/user/types.gen";
-import { type Lines, matches, retrieveInputZ, serverComputed } from "@/user/where.gen";
+import {
+  compareCursors,
+  cursor,
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/user/where.gen";
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
@@ -142,6 +149,7 @@ export class Client extends query.Retriever<
       name: "user",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (u, req) => matches(LINES, u, req.where),

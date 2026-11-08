@@ -115,6 +115,16 @@ export const applyFieldPath = <S extends object>(
   return { inverse, targets: [path.join(".")] };
 };
 
+const PATH_TYPES: ReadonlySet<string> = new Set(["set", "remove", "insert", "move"]);
+
+/**
+ * @returns whether the action is a path action that changes one of the top-level
+ * fields, named by wire name.
+ */
+export const changesField = (action: { type: string }, fields: readonly string[]) =>
+  PATH_TYPES.has(action.type) &&
+  fields.includes(patch.pathOf(action as patch.Action)[0]);
+
 /**
  * createPathHandlers builds the set, remove, insert, and move handlers of a document's
  * action union from one function that applies a path action.

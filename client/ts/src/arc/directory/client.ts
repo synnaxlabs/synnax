@@ -21,6 +21,8 @@ import {
 } from "@/arc/directory/types.gen";
 import { LINES } from "@/arc/directory/where";
 import {
+  compareCursors,
+  cursor,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -91,6 +93,7 @@ export class Client extends query.Retriever<
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (d, req) => matches(LINES, d, req.where),

@@ -955,4 +955,67 @@ describe("Retriever", () => {
       );
     });
   });
+
+  describe("list", () => {
+    const listRequestZ = z.strictObject({
+      minSize: z.number().optional(),
+      limit: z.number().optional(),
+      order: z.object({ field: z.literal("name") }).optional(),
+      after: z.object({ key: z.string(), name: z.string().optional() }).optional(),
+    });
+    type ListRequest = z.infer<typeof listRequestZ>;
+    type Cursor = NonNullable<ListRequest["after"]>;
+
+    class ListClient extends query.Retriever<typeof listRequestZ, string, Thing> {
+      constructor(
+        cache: query.Cache,
+        fetchRequest: (req: ListRequest) => Promise<Thing[]>,
+      ) {
+        const store = cache.createTable<string, Thing>({ name: "things" });
+        super(cache, {
+          name: "thing",
+          table: store,
+          request: {
+            schema: listRequestZ,
+            fetch: async (req) => await fetchRequest(req),
+            matches: (r, req) => req.minSize == null || r.size >= req.minSize,
+            list: {
+              cursor: (r, order): Cursor =>
+                order == null ? { key: r.key } : { key: r.key, name: r.name },
+              compare: (a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0),
+            },
+          },
+        });
+      }
+    }
+
+    it("should list through the request fetch", async () => {
+      const fetchRequest = vi.fn(async () => [thing("a", 3), thing("b", 4)]);
+      const client = new ListClient(newCache(), fetchRequest);
+      const window = await client
+        .list({ minSize: 2, order: { field: "name" }, limit: 2 })
+        .retrieve();
+      expect(window.records).toEqual([thing("a", 3), thing("b", 4)]);
+      expect(window.end).toEqual({ key: "b", name: "b-name" });
+      expect(fetchRequest).toHaveBeenCalledWith({
+        minSize: 2,
+        order: { field: "name" },
+        limit: 2,
+      });
+    });
+
+    it("should throw for params the request schema rejects", () => {
+      const client = new ListClient(newCache(), async () => []);
+      expect(() => client.list({ bogus: 1 } as never)).toThrow(zod.ParseError);
+    });
+
+    it("should throw for a domain with no lists", () => {
+      const client = new Client(
+        newCache(),
+        async () => [],
+        async () => [],
+      );
+      expect(() => client.list({})).toThrow("thing has no lists");
+    });
+  });
 });

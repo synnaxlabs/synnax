@@ -46,6 +46,8 @@ import {
 } from "@/channel/types.gen";
 import { LINES } from "@/channel/where";
 import {
+  compareCursors,
+  cursor,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -380,6 +382,7 @@ export class Client extends query.Retriever<
       name: "channel",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
         matches: (ch, query) => matches(LINES, ch, query.where),

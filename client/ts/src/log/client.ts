@@ -31,7 +31,15 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/log/types.gen";
-import { type Lines, matches, retrieveInputZ, serverComputed } from "@/log/where.gen";
+import {
+  compareCursors,
+  cursor,
+  type Lines,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/log/where.gen";
 import { project } from "@/project";
 import { query } from "@/query";
 
@@ -88,6 +96,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     });
     const dispatcher = new actions.Controller<Key, Log, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
@@ -100,6 +109,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
       name: "log",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (log, req) => matches(LINES, log, req.where),

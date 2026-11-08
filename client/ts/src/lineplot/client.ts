@@ -32,7 +32,10 @@ import {
   retrieveResponseZ,
 } from "@/lineplot/types.gen";
 import {
+  compareCursors,
+  cursor,
   type Lines,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -97,6 +100,7 @@ export class Client extends query.Retriever<
     });
     const dispatcher = new actions.Controller<Key, LinePlot, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
@@ -109,6 +113,7 @@ export class Client extends query.Retriever<
       name: "line plot",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (plot, req) => matches(LINES, plot, req.where),

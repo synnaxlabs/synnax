@@ -35,7 +35,13 @@ import {
   statusZ,
 } from "@/status/types.gen";
 import { LINES } from "@/status/where";
-import { matches, retrieveInputZ, serverComputed } from "@/status/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/status/where.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -147,6 +153,7 @@ export class Client extends query.Retriever<
       name: "status",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (status, req) => matches(LINES, status, req.where),
