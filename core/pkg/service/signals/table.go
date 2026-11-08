@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -39,6 +40,11 @@ type TableConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	//
 	// [REQUIRED]
 	Changes func(context.Context, gorp.Commit) gorp.TxReader[K, E]
+	// Resource returns the resource of the entry with the given key. A streamer sends a
+	// sample of the set or delete channel only to a subject that can retrieve it.
+	//
+	// [REQUIRED]
+	Resource func(K) resource.ID
 	// SetName is the name of the set channel.
 	//
 	// [OPTIONAL] - Defaults to sy_<type>_set.
@@ -51,6 +57,10 @@ type TableConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	//
 	// [OPTIONAL] - Defaults to MarshalJSON.
 	MarshalSet func(E) ([]byte, error)
+	// SetKey returns the key of the entry that a sample of the set channel holds.
+	//
+	// [OPTIONAL] - Defaults to the key field of the JSON sample.
+	SetKey func(sample []byte) (K, error)
 	// SetDisabled is true when an action channel describes the sets of the table, so
 	// the table has no set channel.
 	//
@@ -71,6 +81,7 @@ func DefaultTableConfig[K gorp.Key, E gorp.Entry[K]]() TableConfig[K, E] {
 		SetName:     fmt.Sprintf("sy_%s_set", t),
 		DeleteName:  fmt.Sprintf("sy_%s_delete", t),
 		MarshalSet:  MarshalJSON[K, E],
+		SetKey:      unmarshalKey[K],
 		SetDisabled: new(false),
 	}
 }
@@ -78,9 +89,11 @@ func DefaultTableConfig[K gorp.Key, E gorp.Entry[K]]() TableConfig[K, E] {
 // Override implements config.Config.
 func (c TableConfig[K, E]) Override(other TableConfig[K, E]) TableConfig[K, E] {
 	c.Changes = override.Nil(c.Changes, other.Changes)
+	c.Resource = override.Nil(c.Resource, other.Resource)
 	c.SetName = override.String(c.SetName, other.SetName)
 	c.DeleteName = override.String(c.DeleteName, other.DeleteName)
 	c.MarshalSet = override.Nil(c.MarshalSet, other.MarshalSet)
+	c.SetKey = override.Nil(c.SetKey, other.SetKey)
 	c.SetDisabled = override.Nil(c.SetDisabled, other.SetDisabled)
 	return c
 }
@@ -89,10 +102,12 @@ func (c TableConfig[K, E]) Override(other TableConfig[K, E]) TableConfig[K, E] {
 func (c TableConfig[K, E]) Validate() error {
 	v := validate.New("signals.table_config")
 	v.NotNil("changes", c.Changes)
+	v.NotNil("resource", c.Resource)
 	v.NotEmptyString("delete_name", c.DeleteName)
 	if !*c.SetDisabled {
 		v.NotEmptyString("set_name", c.SetName)
 		v.NotNil("marshal_set", c.MarshalSet)
+		v.NotNil("set_key", c.SetKey)
 	}
 	return v.Error()
 }
@@ -164,6 +179,16 @@ func (f *tableFeed[K, E]) append(
 		fr = fr.Append(f.del.Key(), deletes)
 	}
 	return fr
+}
+
+func (f *tableFeed[K, E]) records() map[channel.Key]RecordOf {
+	records := map[channel.Key]RecordOf{
+		f.del.Key(): recordOf(unmarshalKeySample[K], f.cfg.Resource),
+	}
+	if f.set != nil {
+		records[f.set.Key()] = recordOf(f.cfg.SetKey, f.cfg.Resource)
+	}
+	return records
 }
 
 // MarshalJSON encodes e as one variable JSON sample.

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -95,7 +96,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if cfg.Signals != nil {
 		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[string, Alias]{
-			Changes:    s.table.Changes,
+			Changes: s.table.Changes,
+			Resource: func(key string) resource.ID {
+				return resource.ID{Type: resource.TypeRangeAlias, Key: key}
+			},
+			SetKey:     signals.UnmarshalEntryKey[string, Alias],
 			SetName:    "sy_range_alias_set",
 			DeleteName: "sy_range_alias_delete",
 		}); !ok(err, nil) {

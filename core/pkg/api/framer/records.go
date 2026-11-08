@@ -17,12 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/telem"
 )
-
-// RecordOf returns the record that a sample of a channel carries.
-type RecordOf func(sample []byte) (resource.ID, error)
 
 // recordSender sends a stream's responses without the samples of record channels that
 // its subject cannot read.
@@ -33,10 +30,20 @@ type recordSender struct {
 	service *Service
 }
 
-// Send implements freighter.StreamSender. A frame left with no samples is not sent.
+// Send implements freighter.StreamSender. It reads the policies of the subject again
+// for each frame that holds record samples, so a policy change applies from the next
+// such frame. A frame left with no samples is not sent.
 func (s recordSender) Send(res StreamerResponse) error {
 	if !s.carriesRecords(res.Frame) {
 		return s.StreamSender.Send(res)
+	}
+	allowed, err := s.service.access.NewEnforcer(nil).Allowed(
+		s.ctx,
+		s.subject,
+		access.ActionRetrieve,
+	)
+	if err != nil {
+		return err
 	}
 	var (
 		keys   channel.Keys
@@ -44,8 +51,7 @@ func (s recordSender) Send(res StreamerResponse) error {
 	)
 	for key, sr := range res.Frame.Entries() {
 		if recordOf, ok := s.service.records[key]; ok {
-			var err error
-			if sr, err = s.keepReadable(sr, recordOf); err != nil {
+			if sr, err = keepAllowed(sr, recordOf, allowed); err != nil {
 				return err
 			}
 			if sr.Size() == 0 {
@@ -71,31 +77,32 @@ func (s recordSender) carriesRecords(fr Frame) bool {
 	return false
 }
 
-// keepReadable returns a copy of the series with only the samples that the subject can
-// read. Streams share the series they receive, so it never changes them.
-func (s recordSender) keepReadable(
+// keepAllowed returns a copy of the series with only the samples whose record allowed
+// accepts. Streams share the series they receive, so it never changes them.
+func keepAllowed(
 	series telem.Series,
-	recordOf RecordOf,
+	recordOf signals.RecordOf,
+	allowed func(resource.ID) bool,
 ) (telem.Series, error) {
-	var kept []byte
+	kept := telem.Series{
+		TimeRange:         series.TimeRange,
+		DataType:          series.DataType,
+		Alignment:         series.Alignment,
+		AlignmentMultiple: series.AlignmentMultiple,
+	}
+	variable := series.DataType.IsVariable()
 	for sample := range series.Samples() {
 		record, err := recordOf(sample)
 		if err != nil {
 			return telem.Series{}, err
 		}
-		err = s.service.access.NewEnforcer(nil).Enforce(s.ctx, access.Request{
-			Subject: s.subject,
-			Action:  access.ActionRetrieve,
-			Objects: []resource.ID{record},
-		})
-		if errors.Is(err, access.ErrDenied) {
+		if !allowed(record) {
 			continue
 		}
-		if err != nil {
-			return telem.Series{}, err
+		if variable {
+			sample = telem.MarshalVariableSample(sample)
 		}
-		kept = append(kept, telem.MarshalVariableSample(sample)...)
+		kept.Data = append(kept.Data, sample...)
 	}
-	series.Data = kept
-	return series, nil
+	return kept, nil
 }

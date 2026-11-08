@@ -85,7 +85,10 @@ func OpenService(
 	if cfg.Signals != nil {
 		if err = cfg.Signals.PublishTable(
 			ctx,
-			signals.TableConfig[Key, Policy]{Changes: s.table.Changes},
+			signals.TableConfig[Key, Policy]{
+				Changes:  s.table.Changes,
+				Resource: ResourceID,
+			},
 		); !ok(err, nil) {
 			return nil, err
 		}
