@@ -213,13 +213,21 @@ func extractRef(
 	if isSlice {
 		elem = elem.TypeArgs[0]
 	}
+	declared := set.New[string]()
 	for _, expr := range field.Domains["ref"].Expressions {
 		if !refExpressions.Contains(expr.Name) {
 			return fail("has unknown expression %s", expr.Name)
 		}
-		if singleRefExpressions.Contains(expr.Name) && len(expr.Values) > 1 {
+		if !singleRefExpressions.Contains(expr.Name) {
+			continue
+		}
+		if len(expr.Values) > 1 {
 			return fail("needs one value for %s, not %d", expr.Name, len(expr.Values))
 		}
+		if declared.Contains(expr.Name) {
+			return fail("declares %s twice", expr.Name)
+		}
+		declared.Add(expr.Name)
 	}
 	onDelete, ok := onDeleteNames[plugindomain.GetStringFromField(
 		field,
