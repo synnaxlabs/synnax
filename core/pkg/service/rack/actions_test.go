@@ -68,6 +68,28 @@ var _ = Describe("Actions", func() {
 		}))
 	})
 
+	It("Should attach a create that holds the stored status", func(ctx SpecContext) {
+		var live rack.Status
+		Expect(s.status.NewRetrieve[struct{}]().
+			Where(status.MatchOwners[struct{}](r.ResourceID())).
+			Entry(&live).
+			Exec(ctx, db)).To(Succeed())
+		live.Variant = status.VariantSuccess
+		live.Message = "Rack is connected"
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return s.status.NewWriter(tx).Set(ctx, &live)
+		})).To(Succeed())
+		recreated := rack.Rack{Key: r.Key, Name: r.Name, Integrations: r.Integrations}
+		Expect(write(ctx, func(w rack.Writer) error {
+			return w.Create(ctx, &recreated)
+		})).To(Succeed())
+		expected := recreated
+		expected.Status = &live
+		Expect(rec.Snapshot()[1].Actions).To(Equal([]rack.Action{
+			rack.NewCreateAction(rack.CreatePayload{Rack: expected}),
+		}))
+	})
+
 	It("Should rename the rack and its status", func(ctx SpecContext) {
 		Expect(write(ctx, func(w rack.Writer) error {
 			return w.Rename(ctx, r.Key, "Renamed")

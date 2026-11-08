@@ -72,8 +72,7 @@ func grantAll(ctx SpecContext, u user.User, needs ...need) {
 
 // newRackNeeds returns what a create of a new rack needs: create on the rack and its
 // status, and retrieve on the Driver role that the rack uses. r is the rack, or the
-// rack
-// type for a key the Core assigns.
+// rack type for a key the Core assigns.
 func newRackNeeds(r resource.ID) []need {
 	return []need{
 		{access.ActionCreate, r},
@@ -103,6 +102,8 @@ func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
 	return r
 }
 
+// createRackWithStatus creates a rack that holds a live status. It returns the rack
+// with no status, as the Driver sends it on a create.
 func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 	GinkgoHelper()
 	r := rack.Rack{Name: name}
@@ -118,6 +119,7 @@ func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 			Message: "Rack is running",
 		})
 	})).To(Succeed())
+	r.Status = nil
 	return r
 }
 

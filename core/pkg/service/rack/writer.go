@@ -69,29 +69,42 @@ func resolveStatus(r *Rack) *Status {
 	return &stat
 }
 
-// writeStatus writes the status provided on r. With none, it keeps the stored status
-// and changes only its name. The default status is written only if the rack holds no
-// status, because a stored status may be a live status from the Driver.
+// writeStatus sets r.Status to the status that r now holds in the DB. A status provided
+// on r replaces the stored status. With none, the stored status stays and takes the
+// rack's name. The default status is written only if the rack holds no status, because
+// a stored status may be a live status from the Driver.
 func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
-	stat := resolveStatus(r)
 	if r.Status != nil {
-		return w.status.Set(ctx, stat)
+		r.Status = resolveStatus(r)
+		return w.status.Set(ctx, r.Status)
 	}
 	// A stored status can hold any details, so they do not decode as StatusDetails.
 	var held []status.Status[any]
 	if err := w.statuses.NewRetrieve[any]().
-		Where(status.MatchOwners[any](*stat.Owner)).
+		Where(status.MatchOwners[any](r.ResourceID())).
 		Entries(&held).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	if len(held) == 0 {
-		return w.status.Set(ctx, stat)
+		r.Status = resolveStatus(r)
+		return w.status.Set(ctx, r.Status)
 	}
-	if held[0].Name == r.Name {
+	h := held[0]
+	r.Status = &Status{
+		Key:         h.Key,
+		Name:        r.Name,
+		Variant:     h.Variant,
+		Message:     h.Message,
+		Description: h.Description,
+		Time:        h.Time,
+		Labels:      h.Labels,
+		Owner:       h.Owner,
+	}
+	if h.Name == r.Name {
 		return nil
 	}
-	return w.status.Rename(ctx, held[0].Key, r.Name)
+	return w.status.Rename(ctx, h.Key, r.Name)
 }
 
 // Create creates or updates a rack and attaches a create action that holds it. If the
@@ -99,7 +112,7 @@ func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
 // with the Driver role. An existing rack keeps its group and role. A status provided on
 // the rack replaces the stored status. With no provided status, the stored status stays
 // and takes the rack's name, and only a rack with no stored status gets the default
-// "unknown" status.
+// "unknown" status. Create sets r.Status to the resulting status.
 func (w Writer) Create(ctx context.Context, r *Rack) error {
 	var err error
 	if r.Key.IsZero() {
