@@ -108,7 +108,10 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 			return
 		}
 		// SY-4474: Enable const-expression initializers for variables
-		if expr != nil && !parser.IsLiteral(expr) && !isFloatConstant(ctx, expr) {
+		if expr == nil || parser.IsLiteral(expr) {
+			return
+		}
+		if _, ok := ctx.FloatConstant(expr); !ok {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"stateful variable initializer must be a literal value"))
 		}
@@ -1911,12 +1914,4 @@ func resolveTypeVariableWithContext(
 		return types.F64()
 	}
 	return tv
-}
-
-func isFloatConstant[T antlr.ParserRuleContext](
-	ctx context.Context[T],
-	expr parser.IExpressionContext,
-) bool {
-	_, ok := ctx.FloatConstant(expr)
-	return ok
 }
