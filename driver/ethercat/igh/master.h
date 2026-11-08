@@ -167,6 +167,9 @@ private:
     /// @brief reads the PDO entries the slave's sync managers carry.
     void read_slave_pdos(slave::DiscoveryResult &slave);
 
+    /// @brief appends the PDO entries that IgH scanned for a sync manager of a slave.
+    void append_scanned_pdos(slave::Properties &props, uint8_t sync_index);
+
     /// @brief appends an entry that a PDO maps to the slave's inputs or outputs.
     void append_pdo_entry(
         slave::Properties &props,

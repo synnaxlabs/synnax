@@ -39,6 +39,9 @@ struct AssignedSync {
     uint8_t index;
     ec_direction_t dir;
     std::vector<AssignedPDO> pdos;
+    /// @brief the sync manager has no PDO assign object, so IgH keeps the PDOs it
+    /// scanned.
+    bool fixed = false;
 };
 
 /// @brief reads an unsigned value of at most four bytes from a slave's object
@@ -80,8 +83,8 @@ std::pair<uint32_t, x::errors::Error> read_sdo(
 
 /// @brief reads the PDOs a slave assigns to each process data sync manager and the
 /// entries each PDO maps. Returns no sync managers for a slave without the sync
-/// manager type object, whose layout is the one its EEPROM describes. Leaves out a
-/// sync manager without a PDO assign object, as SOEM does.
+/// manager type object, whose layout is the one its EEPROM describes. Marks a sync
+/// manager without a PDO assign object as fixed.
 std::pair<std::vector<AssignedSync>, x::errors::Error>
 read_assigned_pdos(const API &api, ec_master_t *master, const uint16_t position) {
     const auto read = [&](const uint16_t index, const uint32_t sub_index) {
@@ -112,13 +115,14 @@ read_assigned_pdos(const API &api, ec_master_t *master, const uint16_t position)
         if (type != SM_TYPE_OUTPUTS && type != SM_TYPE_INPUTS) continue;
         const auto assign_index = static_cast<uint16_t>(PDO_ASSIGN_INDEX + sm);
         const auto [pdo_count, pdo_count_err] = read_count(assign_index, MAX_SUB_INDEX);
-        if (pdo_count_err.matches(OBJECT_MISSING)) continue;
-        if (pdo_count_err) return {{}, pdo_count_err};
+        if (pdo_count_err && !pdo_count_err.matches(OBJECT_MISSING))
+            return {{}, pdo_count_err};
         auto &sync = syncs.emplace_back(
             AssignedSync{
                 .index = static_cast<uint8_t>(sm),
                 .dir = type == SM_TYPE_INPUTS ? EC_DIR_INPUT : EC_DIR_OUTPUT,
                 .pdos = {},
+                .fixed = pdo_count_err.matches(OBJECT_MISSING),
             }
         );
         for (uint32_t i = 1; i <= pdo_count; i++) {
@@ -587,21 +591,25 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
             "failed to read the PDO layout of " + slave_name +
                 " after its startup parameters: " + err.data
         );
-    if (syncs.empty()) return x::errors::NIL;
+    const auto assignable = [&](const ec_direction_t dir) {
+        return std::ranges::any_of(syncs, [dir](const auto &s) {
+            return !s.fixed && s.dir == dir;
+        });
+    };
+    if (!assignable(EC_DIR_INPUT) && !assignable(EC_DIR_OUTPUT)) return x::errors::NIL;
     std::vector<std::vector<ec_pdo_info_t>> pdo_infos;
     pdo_infos.reserve(syncs.size());
     std::vector<ec_sync_info_t> sync_infos;
     std::vector<uint8_t> empty_syncs;
     std::vector<uint16_t> empty_pdos;
-    const auto has_dir = [&](const ec_direction_t dir) {
-        return std::ranges::any_of(syncs, [dir](const auto &s) {
-            return s.dir == dir;
-        });
-    };
-    // A direction with no sync manager read keeps its scanned PDOs.
-    if (has_dir(EC_DIR_INPUT)) props.input_pdos.clear();
-    if (has_dir(EC_DIR_OUTPUT)) props.output_pdos.clear();
+    // A direction with no assignable sync manager keeps the PDOs found at discovery.
+    if (assignable(EC_DIR_INPUT)) props.input_pdos.clear();
+    if (assignable(EC_DIR_OUTPUT)) props.output_pdos.clear();
     for (const auto &sync: syncs) {
+        if (sync.fixed) {
+            if (assignable(sync.dir)) this->append_scanned_pdos(props, sync.index);
+            continue;
+        }
         auto &infos = pdo_infos.emplace_back();
         if (sync.pdos.empty()) empty_syncs.push_back(sync.index);
         for (const auto &pdo: sync.pdos) {
@@ -746,6 +754,42 @@ std::string Master::read_pdo_entry_name(
     return "";
 }
 
+void Master::append_scanned_pdos(slave::Properties &props, const uint8_t sync_index) {
+    ec_sync_info_t sync_info{};
+    if (this->api->master_get_sync_manager(
+            this->ec_master,
+            props.position,
+            sync_index,
+            &sync_info
+        ) != 0)
+        return;
+    const bool is_input = sync_info.dir == EC_DIR_INPUT;
+    for (unsigned int pdo_pos = 0; pdo_pos < sync_info.n_pdos; ++pdo_pos) {
+        ec_pdo_info_t pdo_info{};
+        if (this->api->master_get_pdo(
+                this->ec_master,
+                props.position,
+                sync_index,
+                static_cast<uint16_t>(pdo_pos),
+                &pdo_info
+            ) != 0)
+            continue;
+        for (unsigned int entry_pos = 0; entry_pos < pdo_info.n_entries; ++entry_pos) {
+            ec_pdo_entry_info_t entry_info{};
+            if (this->api->master_get_pdo_entry(
+                    this->ec_master,
+                    props.position,
+                    sync_index,
+                    static_cast<uint16_t>(pdo_pos),
+                    static_cast<uint16_t>(entry_pos),
+                    &entry_info
+                ) != 0)
+                continue;
+            this->append_pdo_entry(props, is_input, pdo_info.index, entry_info);
+        }
+    }
+}
+
 void Master::append_pdo_entry(
     slave::Properties &props,
     const bool is_input,
@@ -818,46 +862,8 @@ void Master::read_slave_pdos(slave::DiscoveryResult &slave) {
         return;
     }
 
-    for (uint8_t sm_idx = 0; sm_idx < slave_info.sync_count; ++sm_idx) {
-        ec_sync_info_t sync_info{};
-        if (this->api->master_get_sync_manager(
-                this->ec_master,
-                props.position,
-                sm_idx,
-                &sync_info
-            ) != 0)
-            continue;
-
-        const bool is_input = (sync_info.dir == EC_DIR_INPUT);
-
-        for (unsigned int pdo_pos = 0; pdo_pos < sync_info.n_pdos; ++pdo_pos) {
-            ec_pdo_info_t pdo_info{};
-            if (this->api->master_get_pdo(
-                    this->ec_master,
-                    props.position,
-                    sm_idx,
-                    static_cast<uint16_t>(pdo_pos),
-                    &pdo_info
-                ) != 0)
-                continue;
-
-            for (unsigned int entry_pos = 0; entry_pos < pdo_info.n_entries;
-                 ++entry_pos) {
-                ec_pdo_entry_info_t entry_info{};
-                if (this->api->master_get_pdo_entry(
-                        this->ec_master,
-                        props.position,
-                        sm_idx,
-                        static_cast<uint16_t>(pdo_pos),
-                        static_cast<uint16_t>(entry_pos),
-                        &entry_info
-                    ) != 0)
-                    continue;
-
-                this->append_pdo_entry(props, is_input, pdo_info.index, entry_info);
-            }
-        }
-    }
+    for (uint8_t sm_idx = 0; sm_idx < slave_info.sync_count; ++sm_idx)
+        this->append_scanned_pdos(props, sm_idx);
 
     status.pdos_discovered = true;
     props.coe_pdo_order_reliable = true;

@@ -487,6 +487,37 @@ TEST_F(IGHMasterTest, ActivateKeepsTheScannedPDOsWithoutAnAssignObject) {
     EXPECT_TRUE(this->mock_api->cleared_assignments.empty());
 }
 
+/// @brief it should keep the scanned PDOs of a sync manager without an assign object
+/// when it reads another sync manager of the same direction.
+TEST_F(IGHMasterTest, ActivateKeepsTheScannedPDOsOfAFixedSyncManager) {
+    this->create_assignable_layout();
+    this->mock_api->fake_syncs.push_back(
+        {EC_DIR_OUTPUT, {{0x1600, {{0x7000, 0x01, 8}}}}}
+    );
+    this->mock_api->objects[{0, 0x1C00, 0}] = 5;
+    this->mock_api->objects[{0, 0x1C00, 5}] = 3;
+    this->mock_api->objects[{0, 0x1C12, 0}] = 1;
+    this->mock_api->objects[{0, 0x1C12, 1}] = 0x1601;
+    this->mock_api->objects[{0, 0x1601, 0}] = 1;
+    this->mock_api->objects[{0, 0x1601, 1}] = 0x70100108;
+    this->initialize_with_slave();
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {ASSIGN_INPUTS}}}}
+    );
+    this->activate_with_domains();
+    const std::vector<std::pair<uint16_t, uint8_t>> registered{
+        {0x7010, 0x01},
+        {0x7000, 0x01},
+        {0x6010, 0x01}
+    };
+    EXPECT_EQ(this->mock_api->registered_entries, registered);
+    const std::vector<MockAPI::ConfiguredEntry> configured{
+        {0, 2, 0x1601, 0x7010, 0x01, 8},
+        {0, 3, 0x1A01, 0x6010, 0x01, 32},
+    };
+    EXPECT_EQ(this->mock_api->configured_entries, configured);
+}
+
 /// @brief it should fail activation when it cannot read the layout after the startup
 /// parameters.
 TEST_F(IGHMasterTest, ActivateFailsWhenTheLayoutCannotBeRead) {
