@@ -210,6 +210,19 @@ describe("secret/Toolbar", () => {
     expect(screen.queryByText("Replace value")).toBeNull();
   });
 
+  it("offers no replacement for a file secret", async () => {
+    const s = await client.secrets.create({
+      name: uniqueName("secret"),
+      source: "file",
+      path: "/etc/synnax/token",
+    });
+    createdSecrets.push(s.key);
+    await renderToolbar();
+    await openContextMenu(s.name);
+    await screen.findByText("Rename");
+    expect(screen.queryByText("Replace value")).toBeNull();
+  });
+
   it("deletes a secret after confirmation", async () => {
     const s = await createSecret(client, createdSecrets);
     await renderToolbar();
