@@ -17,8 +17,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -35,14 +33,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology holds a resource for each secret.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
-	// Group holds the "Secrets" group, the default parent of every secret.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Signals publishes changes to secrets.
 	//
 	// [OPTIONAL]
@@ -51,11 +41,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED] when Signals is set.
 	Channel *channel.Service
-	// Uses finds the resources that use a secret, for delete and for the rack rule of
-	// Resolve.
-	//
-	// [REQUIRED]
-	Uses Finder
 	// Grant stores the grants that let a rack read secrets that nothing on it uses.
 	//
 	// [REQUIRED]
@@ -82,11 +67,8 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Uses = override.Nil(c.Uses, other.Uses)
 	c.Grant = override.Nil(c.Grant, other.Grant)
 	c.Now = override.Nil(c.Now, other.Now)
 	c.EncryptionKey = override.If(
@@ -101,9 +83,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("secret.service")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
-	v.NotNil("uses", c.Uses)
 	v.NotNil("grant", c.Grant)
 	v.NotNil("now", c.Now)
 	v.Ternary(
@@ -119,7 +98,6 @@ func (c ServiceConfig) Validate() error {
 // that may read it.
 type Service struct {
 	aead             cipher.AEAD
-	group            group.Group
 	table            *gorp.Table[Key, Secret]
 	indexes          indexes
 	closer           xio.MultiCloser
@@ -141,21 +119,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.aead, err = openCipher(ctx, s.cfg.DB, s.cfg.EncryptionKey); !ok(err, nil) {
 		return nil, err
 	}
-	if s.group, err = s.cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Secrets",
-		ontology.RootID,
-	); !ok(err, nil) {
-		return nil, err
-	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Secret]{
 		DB:              s.cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s.cfg.Ontology.RegisterService(s)
 	if s.cfg.Signals == nil {
 		return s, nil
 	}
@@ -214,13 +185,10 @@ func (s *Service) Close() error { return s.closer.Close() }
 // the Writer writes directly to the DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		group:     s.group,
-		table:     s.table,
-		aead:      s.aead,
-		uses:      s.cfg.Uses,
-		now:       s.cfg.Now,
+		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		table: s.table,
+		aead:  s.aead,
+		now:   s.cfg.Now,
 	}
 }
 

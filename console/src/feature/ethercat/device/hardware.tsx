@@ -9,11 +9,8 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import {
-  INTEGRATION,
-  MAKE,
-  ZERO_SLAVE_PROPERTIES,
-} from "@/feature/ethercat/device/types";
+import { Configure } from "@/feature/ethercat/device/Configure";
+import { INTEGRATION, MAKE } from "@/feature/ethercat/device/types";
 import { SCAN_TYPE } from "@/feature/ethercat/task/types";
 import { type Device } from "@/platform/device";
 
@@ -25,7 +22,7 @@ export const HARDWARE: Device.Hardware = {
   icon: <Icon.Logo.EtherCAT />,
   make: MAKE,
   scanType: SCAN_TYPE,
-  zeroProperties: ZERO_SLAVE_PROPERTIES,
+  Configure,
   checks: [
     "The Driver can open the adapter. On Linux, this needs root or CAP_NET_RAW.",
     "The slaves have power and a cable to that adapter.",

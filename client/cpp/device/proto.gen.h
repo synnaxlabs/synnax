@@ -15,8 +15,6 @@
 
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/ontology/proto.gen.h"
-#include "client/cpp/ontology/types.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
@@ -92,7 +90,7 @@ inline std::pair<::service::device::pb::StatusDetails, x::errors::Error>
 StatusDetails::to_proto() const {
     ::service::device::pb::StatusDetails pb;
     pb.set_rack(this->rack);
-    pb.set_device(this->device);
+    pb.set_connected(this->connected);
     if (this->data.has_value()) {
         auto [v, err] = x::json::to_struct(*this->data);
         if (err) return {{}, err};
@@ -105,7 +103,7 @@ inline std::pair<StatusDetails, x::errors::Error>
 StatusDetails::from_proto(const ::service::device::pb::StatusDetails &pb) {
     StatusDetails cpp;
     cpp.rack = pb.rack();
-    cpp.device = pb.device();
+    cpp.connected = pb.connected();
     if (pb.has_data()) {
         auto [v, err] = x::json::from_struct(pb.data());
         if (err) return {{}, err};
@@ -134,11 +132,7 @@ Device::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_status() = v;
     }
-    if (this->parent.has_value()) {
-        auto [v, err] = this->parent->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_parent() = v;
-    }
+    if (this->parent.has_value()) pb.set_parent(*this->parent);
     return {pb, x::errors::NIL};
 }
 
@@ -162,11 +156,7 @@ Device::from_proto(const ::service::device::pb::Device &pb) {
         if (err) return {{}, err};
         cpp.status = v;
     }
-    if (pb.has_parent()) {
-        auto [v, err] = ::synnax::ontology::ID::from_proto(pb.parent());
-        if (err) return {{}, err};
-        cpp.parent = v;
-    }
+    if (pb.has_parent()) cpp.parent = pb.parent();
     return {cpp, x::errors::NIL};
 }
 
@@ -290,7 +280,6 @@ RetrieveRequest::to_proto() const {
     if (this->limit.has_value()) pb.set_limit(*this->limit);
     pb.set_offset(this->offset);
     pb.set_include_status(this->include_status);
-    pb.set_include_parent(this->include_parent);
     return {pb, x::errors::NIL};
 }
 
@@ -306,7 +295,6 @@ RetrieveRequest::from_proto(const ::api::device::pb::RetrieveRequest &pb) {
     if (pb.has_limit()) cpp.limit = pb.limit();
     cpp.offset = pb.offset();
     cpp.include_status = pb.include_status();
-    cpp.include_parent = pb.include_parent();
     return {cpp, x::errors::NIL};
 }
 

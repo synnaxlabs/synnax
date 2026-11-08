@@ -23,12 +23,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -105,40 +104,28 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // rootCtx returns a context with the suite's root user installed as the request
 // subject. The root user holds the Owner role, so every access check passes.
 func rootCtx(ctx SpecContext) freighter.Context {
-	return subjectCtx(ctx, root.OntologyID())
+	return subjectCtx(ctx, root.ResourceID())
 }
 
 // subjectCtx returns a context with the given subject installed, so auth.GetSubject
 // resolves it.
-func subjectCtx(ctx SpecContext, subject ontology.ID) freighter.Context {
+func subjectCtx(ctx SpecContext, subject resource.ID) freighter.Context {
 	fCtx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fCtx.Set("Subject", subject)
 	return fCtx
 }
 
-// createUserGranted creates a user holding a fresh role that permits the given action
-// on the given objects, and nothing else. Writes commit directly, since the enforcers
-// read committed state with no transaction.
+// createUserGranted creates a user that may take the action on the objects.
 func createUserGranted(
 	ctx SpecContext,
 	action access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) user.User {
 	GinkgoHelper()
 	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Name: "api-framer-" + uuid.New().String(),
 	}))
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	r := &role.Role{Name: "api-framer-" + uuid.New().String()}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	p := &policy.Policy{
-		Name:    "api-framer-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, u.OntologyID(), r.Key)).To(Succeed())
+	actions := []access.Action{action}
+	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, u.Key, actions, objects...))
 	return u
 }

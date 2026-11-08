@@ -11,10 +11,9 @@ import { caseconv, type record } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Dialog } from "@/dialog";
-import { EmptyContent } from "@/select/Body";
+import { BorderedList, EmptyContent } from "@/select/Body";
 import { Dialog as SelectDialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps, type SingleFrameProps } from "@/select/Frame";
-import { List } from "@/select/List";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
 import { plural, searchPlaceholder, usePlaceholder } from "@/select/placeholder";
 import { useVisibleCount } from "@/select/registry";
@@ -48,6 +47,11 @@ interface BaseSimpleProps
   children: ReactNode;
   /** Shown when the search hides every option. */
   emptyContent?: ReactNode;
+  /**
+   * Pinned below the options. A {@link Item} in it is a pinned option, which the
+   * search never hides.
+   */
+  footer?: ReactNode;
   variant?: Dialog.FrameProps["variant"];
   /** Whether to render the trigger flat and inert, for use inside a preview. */
   preview?: boolean;
@@ -110,6 +114,7 @@ export const Simple = <K extends record.Key>({
   closeDialogOnSelect,
   children,
   emptyContent,
+  footer,
   haulType,
   disabled,
   icon,
@@ -142,10 +147,10 @@ export const Simple = <K extends record.Key>({
   const dialog = (
     <SelectDialog {...dialogProps}>
       {!searchHidden && <Search placeholder={searchPlaceholder(searchName)} />}
-      <List bordered borderColor={6} grow rounded full="x">
+      <BorderedList footer={footer}>
         {children}
         <Empty resourceName={resourceName} emptyContent={emptyContent} />
-      </List>
+      </BorderedList>
     </SelectDialog>
   );
   return (

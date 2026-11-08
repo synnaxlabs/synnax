@@ -63,11 +63,10 @@ describe("queries", () => {
       await waitFor(() => expect(result1.current).not.toBeNull());
       expect(result1.current?.status).toBeDefined();
       expect(result1.current?.status?.time.nanoseconds).toBeGreaterThan(0);
-      const rackStatus: rack.Status = status.create<typeof rack.statusDetailsZ>({
-        key: rack.statusKey(testRack.key),
+      const rackStatus: rack.Status = status.create({
+        owner: rack.resourceID(testRack.key),
         variant: "success",
         message: "Rack is happy as a clam",
-        details: { rack: testRack.key },
       });
       await act(async () => {
         await client.statuses.set(rackStatus);
@@ -92,12 +91,15 @@ describe("queries", () => {
           () => Rack.use({ key: testRack.key }),
           { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
         );
-        expect(result.current?.status?.key).toEqual(rack.statusKey(testRack.key));
+        expect(result.current?.status?.owner).toEqual(rack.resourceID(testRack.key));
       });
 
       it("should fetch once when the rack has no status row", async () => {
         const testRack = await client.racks.create({ name: "no-status-row" });
-        await client.statuses.delete(rack.statusKey(testRack.key));
+        const [owned] = await client.statuses.retrieve({
+          owners: [rack.resourceID(testRack.key)],
+        });
+        await client.statuses.delete(owned.key);
         const local = createTestClient();
         await local.racks.retrieve(testRack.key);
         const localWrapper = await createAsyncSynnaxWrapper({ client: local });
@@ -399,13 +401,10 @@ describe("queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const rackStatus: rack.Status = status.create<typeof rack.statusDetailsZ>({
-        key: rack.statusKey(testRack.key),
+      const rackStatus: rack.Status = status.create({
+        owner: rack.resourceID(testRack.key),
         variant: "warning",
         message: "Rack needs attention",
-        details: {
-          rack: testRack.key,
-        },
       });
 
       await act(async () => {

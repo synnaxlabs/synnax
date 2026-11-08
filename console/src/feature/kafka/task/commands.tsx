@@ -16,7 +16,7 @@ import { useCreateWrite } from "@/feature/kafka/task/Write";
 import { FLAGS } from "@/flags";
 import { Command } from "@/platform/command";
 
-const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(task.TYPE_RESOURCE_ID);
 
 const CreateReadCommand = Command.create({
   key: "kafka_create_read_task",

@@ -17,6 +17,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the Secret table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "secret"
+
 // Retrieve is used to retrieve Secret records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {

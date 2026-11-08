@@ -19,14 +19,14 @@ import (
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -51,16 +51,12 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db := DeferClose(gorp.Wrap(memkv.New()))
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
 		Password: passwordSvc,
 	}))
 	MustSucceed2(
@@ -71,17 +67,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			auth.Credentials{Username: "suite-root", Password: "p"},
 		),
 	)
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		User:     userSvc,
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB: db,
 	}))
+	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+		DB:     db,
+		User:   userSvc,
+		Status: statusSvc,
+	})).RBAC
 	symbolSvc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		ImEx:     imex.NewService(),
+		DB:    db,
+		Group: groupSvc,
+		ImEx:  imex.NewService(),
 	}))
 	apiSvc = MustSucceed(apisymbol.NewService(apisymbol.ServiceConfig{
 		Symbol: symbolSvc,
@@ -92,11 +89,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 })
 
-// createGroup creates a group under the ontology root. It writes outside a transaction
-// so the api enforcers, which read committed state, observe the new resource.
+// createGroup creates a top-level symbol group. It writes outside a transaction so the
+// api enforcers, which read committed state, observe the new resource.
 func createGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
-	return MustSucceed(groupSvc.NewWriter(nil).Create(ctx, name, ontology.RootID))
+	g := group.Group{Name: name, Scope: resource.TypeSchematicSymbol}
+	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	return g
 }
 
 // newSymbol returns an unsaved symbol a create request can carry.
@@ -104,18 +103,19 @@ func newSymbol(name string) symbol.Symbol {
 	return symbol.Symbol{Name: name, Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"}}
 }
 
-// createSymbol creates a symbol under g, committing it for the same reason createGroup
+// createSymbol creates a symbol in g, committing it for the same reason createGroup
 // does.
 func createSymbol(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 	GinkgoHelper()
 	sym := newSymbol(name)
-	Expect(symbolSvc.NewWriter(nil).Create(ctx, &sym, g.OntologyID())).To(Succeed())
+	sym.Group = &g.Key
+	Expect(symbolSvc.NewWriter(nil).Create(ctx, &sym)).To(Succeed())
 	return sym
 }
 
 // createUser creates a user to author a request. Specs granting on an object the whole
-// suite shares — the symbol type or the permanent group — take a user of their own, so
-// the grant cannot reach another spec.
+// suite shares, such as the symbol type, take a user of their own, so the grant cannot
+// reach another spec.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
@@ -123,49 +123,35 @@ func createUser(ctx SpecContext) user.User {
 	}))
 }
 
-// grantOn grants the action on the given objects to the subject through a fresh role.
-// Writes commit directly so the api enforcers, which read committed state with no
-// transaction, observe them.
+// grantOn grants the action on the objects to the subject through a new role.
 func grantOn(
 	ctx SpecContext,
-	subject ontology.ID,
+	subject resource.ID,
 	action access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{
-		Name:        string(action) + "-" + uuid.New().String(),
-		Description: "test",
-	}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    string(action) + "-policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	actions := []access.Action{action}
+	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
 }
 
-func grantCreateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+func grantCreateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionCreate, objects...)
 }
 
-func grantRetrieveOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+func grantRetrieveOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionRetrieve, objects...)
 }
 
-func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
 }
 
-func grantDeleteOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+func grantDeleteOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionDelete, objects...)
 }

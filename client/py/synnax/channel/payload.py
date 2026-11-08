@@ -13,17 +13,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
-from synnax import ontology
+from synnax import resource
 from synnax.channel.types_gen import Key as Key
 from synnax.channel.types_gen import Operation as Operation
 from synnax.channel.types_gen import Payload as Payload
 from x.lists import normalize
 
-_ONTOLOGY_TYPE = ontology.ID(type="channel")
+_RESOURCE_TYPE = resource.ID(type="channel")
 
 
-def _ontology_id(key: Key) -> ontology.ID:
-    return ontology.ID(type=_ONTOLOGY_TYPE.type, key=str(key))
+def _resource_id(key: Key) -> resource.ID:
+    return resource.ID(type=_RESOURCE_TYPE.type, key=str(key))
 
 
 _OPERATION_TYPES = Literal["min", "max", "avg", "none"]

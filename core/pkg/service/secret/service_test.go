@@ -16,41 +16,22 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-// env is a secret service on its own in-memory DB, with uses and a clock that each spec
+// env is a secret service on its own in-memory DB, with a clock that each spec
 // controls.
 type env struct {
 	db     *gorp.DB
-	otg    *ontology.Ontology
 	grants *grant.Service
 	svc    *secret.Service
-	uses   []secret.Use
 	now    telem.TimeStamp
-}
-
-func (e *env) find(
-	_ context.Context,
-	_ gorp.Tx,
-	keys []secret.Key,
-) ([]secret.Use, error) {
-	wanted := set.New(keys...)
-	var found []secret.Use
-	for _, u := range e.uses {
-		if wanted.Contains(u.Secret) {
-			found = append(found, u)
-		}
-	}
-	return found, nil
 }
 
 func openService(
@@ -59,14 +40,8 @@ func openService(
 	key secret.EncryptionKey,
 ) (*secret.Service, error) {
 	GinkgoHelper()
-	g := MustOpen(
-		group.OpenService(ctx, group.ServiceConfig{DB: e.db, Ontology: e.otg}),
-	)
 	return secret.OpenService(ctx, secret.ServiceConfig{
 		DB:            e.db,
-		Ontology:      e.otg,
-		Group:         g,
-		Uses:          e.find,
 		Grant:         e.grants,
 		Now:           func() telem.TimeStamp { return e.now },
 		EncryptionKey: key,
@@ -79,7 +54,6 @@ func newStore(ctx SpecContext) *env {
 	GinkgoHelper()
 	e := &env{now: telem.SecondTS * 1000}
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
-	e.otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: e.db}))
 	e.grants = MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: e.db}))
 	return e
 }
@@ -118,7 +92,7 @@ var _ = Describe("Service", func() {
 				s := e.createStored(ctx, "Password", "hunter2")
 				Expect(e.svc.Close()).To(Succeed())
 				e.svc = MustOpen(openService(ctx, e, key))
-				rk := rack.Key(1).OntologyID()
+				rk := rack.Key(1).ResourceID()
 				g := MustSucceed(e.svc.Grant(ctx, nil, rk, s.Base().Key))
 				Expect(e.svc.Resolve(ctx, nil, rk, g, s.Base().Key)).To(Equal(
 					map[secret.Key][]byte{s.Base().Key: []byte("hunter2")},
@@ -170,27 +144,24 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("Ontology", func() {
-		It("Should define a resource for each secret", func(ctx SpecContext) {
+	Describe("Resources", func() {
+		It("Should name each secret by its name", func(ctx SpecContext) {
 			e := newEnv(ctx)
 			s := e.createStored(ctx, "Password", "hunter2")
-			var res ontology.Resource
-			Expect(e.otg.NewRetrieve().
-				WhereIDs(s.OntologyID()).
-				Entry(&res).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(res.Name).To(Equal("Password"))
-			Expect(e.svc.Type()).To(Equal(ontology.ResourceTypeSecret))
+			Expect(
+				e.svc.Resources().Retrieve(ctx, e.db, []resource.ID{s.ResourceID()}),
+			).
+				To(Equal([]resource.Resource{{ID: s.ResourceID(), Name: "Password"}}))
 		})
-		It("Should convert between keys and ontology IDs", func() {
+		It("Should convert between keys and resource IDs", func() {
 			s := secret.Secret{Variant: secret.FileSecret{Base: secret.Base{
 				Key: uuid.New(),
 			}}}
-			Expect(secret.OntologyID(s.Base().Key)).To(Equal(s.OntologyID()))
-			Expect(secret.OntologyIDs([]secret.Key{s.Base().Key})).
-				To(Equal([]ontology.ID{s.OntologyID()}))
-			Expect(secret.OntologyIDsFromSecrets([]secret.Secret{s})).
-				To(Equal([]ontology.ID{s.OntologyID()}))
+			Expect(secret.ResourceID(s.Base().Key)).To(Equal(s.ResourceID()))
+			Expect(secret.ResourceIDs([]secret.Key{s.Base().Key})).
+				To(Equal([]resource.ID{s.ResourceID()}))
+			Expect(secret.ResourceIDsFromSecrets([]secret.Secret{s})).
+				To(Equal([]resource.ID{s.ResourceID()}))
 		})
 	})
 })

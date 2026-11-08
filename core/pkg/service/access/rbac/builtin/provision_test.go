@@ -19,8 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -33,19 +32,12 @@ var _ = Describe("Provision", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+		roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
+			DB: db,
 		}))
 		policySvc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB:   db,
+			Role: roleSvc,
 		}))
 	})
 	provision := func(ctx context.Context) builtin.ProvisionResult {
@@ -73,7 +65,7 @@ var _ = Describe("Provision", func() {
 		func(
 			ctx SpecContext,
 			name string,
-			typ ontology.ResourceType,
+			typ resource.Type,
 			actions []access.Action,
 		) {
 			provision(ctx)
@@ -82,20 +74,20 @@ var _ = Describe("Provision", func() {
 				Where(policy.MatchNames(name)).
 				Entry(&p).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(p.Objects).To(ContainElement(ontology.ID{Type: typ}))
+			Expect(p.Objects).To(ContainElement(resource.ID{Type: typ}))
 			Expect(p.Actions).To(Equal(actions))
 		},
-		Entry("Owner secrets", "Owner", ontology.ResourceTypeSecret, access.AllActions),
+		Entry("Owner secrets", "Owner", resource.TypeSecret, access.AllActions),
 		Entry(
 			"Operator secrets",
 			"Operator View Access",
-			ontology.ResourceTypeSecret,
+			resource.TypeSecret,
 			[]access.Action{access.ActionRetrieve},
 		),
 		Entry(
 			"Driver secrets",
 			"Driver Secret View Access",
-			ontology.ResourceTypeSecret,
+			resource.TypeSecret,
 			[]access.Action{access.ActionRetrieve},
 		),
 	)

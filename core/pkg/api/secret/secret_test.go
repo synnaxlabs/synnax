@@ -20,8 +20,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
@@ -30,8 +30,8 @@ import (
 )
 
 var (
-	secretType = ontology.ID{Type: ontology.ResourceTypeSecret}
-	deviceType = ontology.ID{Type: ontology.ResourceTypeDevice}
+	secretType = resource.ID{Type: resource.TypeSecret}
+	deviceType = resource.ID{Type: resource.TypeDevice}
 	all        = access.AllActions
 )
 
@@ -90,7 +90,7 @@ var _ = Describe("Service", func() {
 		It("Should create stored and file secrets and never return a value",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				allow(ctx, u.OntologyID(), all, secretType)
+				allow(ctx, u.ResourceID(), all, secretType)
 				res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
 					apisecret.CreateRequest{Secrets: []apisecret.Input{
 						{
@@ -114,7 +114,7 @@ var _ = Describe("Service", func() {
 			"Should replace the secret whose key the request gives",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				allow(ctx, u.OntologyID(), all, secretType)
+				allow(ctx, u.ResourceID(), all, secretType)
 				s := createSecret(ctx, "Before", "a")
 				MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
 					apisecret.CreateRequest{Secrets: []apisecret.Input{{
@@ -130,7 +130,7 @@ var _ = Describe("Service", func() {
 		DescribeTable("Should reject an invalid input",
 			func(ctx SpecContext, in apisecret.Input, msg string) {
 				u := createUser(ctx)
-				allow(ctx, u.OntologyID(), all, secretType)
+				allow(ctx, u.ResourceID(), all, secretType)
 				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil,
 					apisecret.CreateRequest{Secrets: []apisecret.Input{in}},
 				)).Error().To(MatchError(ContainSubstring(msg)))
@@ -178,7 +178,7 @@ var _ = Describe("Service", func() {
 				u = createUser(ctx)
 				allow(
 					ctx,
-					u.OntologyID(),
+					u.ResourceID(),
 					[]access.Action{access.ActionCreate},
 					secretType,
 				)
@@ -226,8 +226,8 @@ var _ = Describe("Service", func() {
 					Expect(replace(ctx, u)).Error().To(SatisfyAll(
 						MatchError(access.ErrDenied),
 						MatchError(ContainSubstring(
-							u.OntologyID().String()+" cannot update "+
-								existing.OntologyID().String(),
+							u.ResourceID().String()+" cannot update "+
+								existing.ResourceID().String(),
 						)),
 					))
 					Expect(retrieveSecret(ctx, existing.Base().Key).Base().Name).
@@ -256,8 +256,8 @@ var _ = Describe("Service", func() {
 					)).Error().To(SatisfyAll(
 						MatchError(access.ErrDenied),
 						MatchError(ContainSubstring(
-							u.OntologyID().String()+" cannot update "+
-								existing.OntologyID().String(),
+							u.ResourceID().String()+" cannot update "+
+								existing.ResourceID().String(),
 						)),
 					))
 					Expect(retrieveSecret(ctx, existing.Base().Key).Base().Name).
@@ -269,10 +269,10 @@ var _ = Describe("Service", func() {
 			)
 			It("Should let an Owner replace a secret", func(ctx SpecContext) {
 				owner := createUser(ctx)
-				Expect(svc.RBAC.Role.NewWriter(nil, true).AssignRole(
+				Expect(svc.User.NewWriter(nil).AssignRole(
 					ctx,
-					owner.OntologyID(),
 					svc.RBAC.Builtin.OwnerKey,
+					owner.Key,
 				)).To(Succeed())
 				MustSucceed(replace(ctx, owner))
 				Expect(retrieveSecret(ctx, existing.Base().Key).Base().Name).
@@ -286,7 +286,7 @@ var _ = Describe("Service", func() {
 			u := createUser(ctx)
 			allow(
 				ctx,
-				u.OntologyID(),
+				u.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
 				secretType,
 			)
@@ -301,7 +301,7 @@ var _ = Describe("Service", func() {
 			u := createUser(ctx)
 			allow(
 				ctx,
-				u.OntologyID(),
+				u.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
 				secretType,
 			)
@@ -327,9 +327,9 @@ var _ = Describe("Service", func() {
 			s := createSecret(ctx, "Before", "a")
 			allow(
 				ctx,
-				u.OntologyID(),
+				u.ResourceID(),
 				[]access.Action{access.ActionUpdate},
-				s.OntologyID(),
+				s.ResourceID(),
 			)
 			MustSucceed(apiSvc.Rename(AuthedCtx(ctx, u), nil,
 				apisecret.RenameRequest{Key: s.Base().Key, Name: "After"},
@@ -351,9 +351,9 @@ var _ = Describe("Service", func() {
 			s := createSecret(ctx, "Password", "a")
 			allow(
 				ctx,
-				u.OntologyID(),
+				u.ResourceID(),
 				[]access.Action{access.ActionDelete},
-				s.OntologyID(),
+				s.ResourceID(),
 			)
 			MustSucceed(apiSvc.Delete(AuthedCtx(ctx, u), nil,
 				apisecret.DeleteRequest{Keys: []secret.Key{s.Base().Key}},
@@ -375,10 +375,10 @@ var _ = Describe("Service", func() {
 		rk := rack.Key(7)
 		allowGrants := func(ctx SpecContext, u user.User) {
 			GinkgoHelper()
-			allow(ctx, u.OntologyID(), []access.Action{access.ActionCreate}, deviceType)
+			allow(ctx, u.ResourceID(), []access.Action{access.ActionCreate}, deviceType)
 			allow(
 				ctx,
-				u.OntologyID(),
+				u.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
 				secretType,
 			)
@@ -390,7 +390,7 @@ var _ = Describe("Service", func() {
 			GinkgoHelper()
 			return MustSucceed(
 				apiSvc.CreateGrant(ctx, nil, apisecret.GrantCreateRequest{
-					Subject: rk.OntologyID(),
+					Subject: rk.ResourceID(),
 					Secrets: keys,
 				}),
 			)
@@ -403,9 +403,9 @@ var _ = Describe("Service", func() {
 				a := createSecret(ctx, "A", "first")
 				b := createSecret(ctx, "B", "second")
 				keys := []secret.Key{b.Base().Key, a.Base().Key}
-				uCtx := SubjectCtx(ctx, u.OntologyID())
+				uCtx := SubjectCtx(ctx, u.ResourceID())
 				res := createGrant(uCtx, keys...)
-				values := MustSucceed(apiSvc.Resolve(SubjectCtx(ctx, rk.OntologyID()),
+				values := MustSucceed(apiSvc.Resolve(SubjectCtx(ctx, rk.ResourceID()),
 					apisecret.ResolveRequest{Keys: keys, Grant: res.Grant},
 				))
 				Expect(values.Values).To(Equal([]apisecret.Value{
@@ -418,13 +418,13 @@ var _ = Describe("Service", func() {
 			u := createUser(ctx)
 			allowGrants(ctx, u)
 			s := createSecret(ctx, "A", "v")
-			uCtx := SubjectCtx(ctx, u.OntologyID())
+			uCtx := SubjectCtx(ctx, u.ResourceID())
 			res := createGrant(uCtx, s.Base().Key)
 			req := apisecret.ResolveRequest{
 				Keys:  []secret.Key{s.Base().Key},
 				Grant: res.Grant,
 			}
-			rCtx := SubjectCtx(ctx, rk.OntologyID())
+			rCtx := SubjectCtx(ctx, rk.ResourceID())
 			MustSucceed(apiSvc.Resolve(rCtx, req))
 			Expect(apiSvc.Resolve(rCtx, req)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
@@ -436,11 +436,11 @@ var _ = Describe("Service", func() {
 		It("Should deny a grant to a user who cannot create devices",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				allow(ctx, u.OntologyID(), all, secretType)
+				allow(ctx, u.ResourceID(), all, secretType)
 				s := createSecret(ctx, "A", "v")
-				uCtx := SubjectCtx(ctx, u.OntologyID())
+				uCtx := SubjectCtx(ctx, u.ResourceID())
 				Expect(apiSvc.CreateGrant(uCtx, nil, apisecret.GrantCreateRequest{
-					Subject: rk.OntologyID(),
+					Subject: rk.ResourceID(),
 					Secrets: []secret.Key{s.Base().Key},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
@@ -450,23 +450,23 @@ var _ = Describe("Service", func() {
 				u := createUser(ctx)
 				allow(
 					ctx,
-					u.OntologyID(),
+					u.ResourceID(),
 					[]access.Action{access.ActionCreate},
 					deviceType,
 				)
 				s := createSecret(ctx, "A", "v")
-				uCtx := SubjectCtx(ctx, u.OntologyID())
+				uCtx := SubjectCtx(ctx, u.ResourceID())
 				Expect(apiSvc.CreateGrant(uCtx, nil, apisecret.GrantCreateRequest{
-					Subject: rk.OntologyID(),
+					Subject: rk.ResourceID(),
 					Secrets: []secret.Key{s.Base().Key},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 		It("Should deny a grant to a rack", func(ctx SpecContext) {
 			s := createSecret(ctx, "A", "v")
-			Expect(apiSvc.CreateGrant(SubjectCtx(ctx, rk.OntologyID()), nil,
+			Expect(apiSvc.CreateGrant(SubjectCtx(ctx, rk.ResourceID()), nil,
 				apisecret.GrantCreateRequest{
-					Subject: rk.OntologyID(),
+					Subject: rk.ResourceID(),
 					Secrets: []secret.Key{s.Base().Key},
 				},
 			)).Error().To(SatisfyAll(
@@ -478,7 +478,7 @@ var _ = Describe("Service", func() {
 			"Should deny resolve to a subject that is not a rack",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				allow(ctx, u.OntologyID(), all, secretType)
+				allow(ctx, u.ResourceID(), all, secretType)
 				s := createSecret(ctx, "A", "v")
 				Expect(apiSvc.Resolve(AuthedCtx(ctx, u),
 					apisecret.ResolveRequest{Keys: []secret.Key{s.Base().Key}},
@@ -490,7 +490,7 @@ var _ = Describe("Service", func() {
 		)
 		It("Should deny resolve without a grant", func(ctx SpecContext) {
 			s := createSecret(ctx, "A", "v")
-			Expect(apiSvc.Resolve(SubjectCtx(ctx, rk.OntologyID()),
+			Expect(apiSvc.Resolve(SubjectCtx(ctx, rk.ResourceID()),
 				apisecret.ResolveRequest{Keys: []secret.Key{s.Base().Key}},
 			)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),

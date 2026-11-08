@@ -17,7 +17,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter, telem
 
 SOURCE_STORED: Literal["stored"] = "stored"
@@ -132,8 +132,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="secret")
+TYPE_RESOURCE_ID = ID(type="secret")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="secret", key=str(key))

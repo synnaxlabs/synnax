@@ -215,4 +215,4 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/secret/retrieve", req, RetrieveResponse)
-        return sole("Secret", fields, res.secrets) if single else res.secrets
+        return sole("secret", req, res.secrets) if single else res.secrets

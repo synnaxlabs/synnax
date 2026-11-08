@@ -14,22 +14,21 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
 	var (
 		e  *env
-		rk ontology.ID
+		rk resource.ID
 	)
 	BeforeEach(func(ctx SpecContext) {
 		e = newEnv(ctx)
-		rk = rack.Key(1).OntologyID()
+		rk = rack.Key(1).ResourceID()
 	})
 
 	resolve := func(ctx SpecContext, key secret.Key) string {
@@ -136,42 +135,15 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should delete the secret and its resource", func(ctx SpecContext) {
+		It("Should delete the secret", func(ctx SpecContext) {
 			s := e.createStored(ctx, "Password", "hunter2")
 			Expect(e.svc.NewWriter(nil).Delete(ctx, s.Base().Key)).To(Succeed())
 			Expect(e.svc.NewRetrieve().
 				Where(secret.MatchKeys(s.Base().Key)).
 				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-			Expect(e.otg.NewRetrieve().
-				WhereIDs(s.OntologyID()).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
 		It("Should succeed for a missing secret", func(ctx SpecContext) {
 			Expect(e.svc.NewWriter(nil).Delete(ctx, uuid.New())).To(Succeed())
 		})
-		It(
-			"Should refuse to delete a secret that something uses",
-			func(ctx SpecContext) {
-				s := e.createStored(ctx, "Plant key", "k")
-				e.uses = []secret.Use{
-					{
-						Secret: s.Base().Key,
-						Resource: ontology.ID{
-							Type: ontology.ResourceTypeDevice,
-							Key:  "d",
-						},
-						Name: "Plant PLC",
-					},
-				}
-				Expect(e.svc.NewWriter(nil).Delete(ctx, s.Base().Key)).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(
-						`cannot delete secret "Plant key" because device `+
-							`"Plant PLC" uses it`,
-					)),
-				))
-				Expect(e.retrieve(ctx, s.Base().Key).Base().Name).To(Equal("Plant key"))
-			},
-		)
 	})
 })

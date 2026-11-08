@@ -28,7 +28,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		svc, _ = openService(ctx, testutil.NewNode(ctx))
+		svc = openService(ctx, testutil.NewNode(ctx))
 		writer = svc.NewWriter(nil)
 	})
 	Describe("Retrieve", func() {
@@ -100,32 +100,6 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Name).To(Equal(n))
 		})
-		It(
-			"Should correctly retrieve channels by regex expression",
-			func(ctx SpecContext) {
-				created := []channel.Channel{
-					{
-						Virtual:  true,
-						DataType: telem.Float32T,
-						Name:     "SG222",
-					},
-					{
-						Virtual:  true,
-						DataType: telem.Float32T,
-						Name:     "SG223",
-					},
-				}
-				Expect(writer.CreateMany(ctx, &created)).To(Succeed())
-				var resChannels []channel.Channel
-
-				Expect(svc.
-					NewRetrieve().
-					Where(channel.MatchNamePatterns("SG22.*")).
-					Entries(&resChannels).
-					Exec(ctx, nil)).To(Succeed())
-				Expect(resChannels).To(HaveLen(2))
-			},
-		)
 		It(
 			"Should return a well formatted error if a channel cannot be found by its key",
 			func(ctx SpecContext) {
@@ -206,7 +180,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		It(
 			"Should return empty when no calculated channels exist on a fresh node",
 			func(ctx SpecContext) {
-				freshSvc, _ := openService(ctx, testutil.NewNode(ctx))
+				freshSvc := openService(ctx, testutil.NewNode(ctx))
 				base := channel.Channel{
 					Virtual:  true,
 					DataType: telem.Float32T,
@@ -254,20 +228,23 @@ var _ = Describe("Retrieve", Ordered, func() {
 			GinkgoHelper()
 			var results []channel.Channel
 			Expect(svc.NewRetrieve().
-				Where(channel.MatchIndexes(keys...)).
+				Where(svc.MatchIndexes(keys...)).
 				Entries(&results).
 				Exec(ctx, nil)).To(Succeed())
 			return channel.KeysFromChannels(results)
 		}
 
-		It("Should match every channel indexed by the key", func(ctx SpecContext) {
-			idx, data := createIndexed(ctx, "mi_stored")
-			Expect(retrieveKeys(ctx, idx.Key())).To(ConsistOf(
-				idx.Key(), data[0].Key(), data[1].Key(),
-			))
-		})
+		It(
+			"Should match every data channel indexed by the key",
+			func(ctx SpecContext) {
+				idx, data := createIndexed(ctx, "mi_stored")
+				Expect(retrieveKeys(ctx, idx.Key())).To(ConsistOf(
+					data[0].Key(), data[1].Key(),
+				))
+			},
+		)
 
-		It("Should match a calculated channel and its index", func(ctx SpecContext) {
+		It("Should match a calculated channel", func(ctx SpecContext) {
 			base := channel.Channel{
 				Name: "mi_base", DataType: telem.Float32T, Virtual: true,
 			}
@@ -278,17 +255,15 @@ var _ = Describe("Retrieve", Ordered, func() {
 			}
 			Expect(writer.Create(ctx, &base)).To(Succeed())
 			Expect(writer.Create(ctx, &calc)).To(Succeed())
-			Expect(retrieveKeys(ctx, calc.Index())).To(ConsistOf(
-				calc.Index(), calc.Key(),
-			))
+			Expect(retrieveKeys(ctx, calc.Index())).To(ConsistOf(calc.Key()))
 		})
 
 		It("Should match across several index keys", func(ctx SpecContext) {
 			first, firstData := createIndexed(ctx, "mi_first")
 			second, secondData := createIndexed(ctx, "mi_second")
 			Expect(retrieveKeys(ctx, first.Key(), second.Key())).To(ConsistOf(
-				first.Key(), firstData[0].Key(), firstData[1].Key(),
-				second.Key(), secondData[0].Key(), secondData[1].Key(),
+				firstData[0].Key(), firstData[1].Key(),
+				secondData[0].Key(), secondData[1].Key(),
 			))
 		})
 
@@ -307,7 +282,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		It("Should stop matching a channel once it is deleted", func(ctx SpecContext) {
 			idx, data := createIndexed(ctx, "mi_deleted")
 			Expect(writer.Delete(ctx, data[0].Key(), false)).To(Succeed())
-			Expect(retrieveKeys(ctx, idx.Key())).To(ConsistOf(idx.Key(), data[1].Key()))
+			Expect(retrieveKeys(ctx, idx.Key())).To(ConsistOf(data[1].Key()))
 		})
 	})
 
