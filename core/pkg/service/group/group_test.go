@@ -267,6 +267,32 @@ var _ = Describe("Group", Ordered, func() {
 		})
 	})
 
+	It("Should read the groups around a group through a snapshot", func(
+		ctx SpecContext,
+	) {
+		root := create(ctx, "snapshot-root", nil)
+		mid := create(ctx, "snapshot-mid", &root)
+		leaf := create(ctx, "snapshot-leaf", &mid)
+		var (
+			ancestors []group.Group
+			children  []resource.ID
+			top       *resource.ID
+		)
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			if ancestors, err = svc.Ancestors(ctx, snap, leaf.Key); err != nil {
+				return err
+			}
+			if children, err = svc.Children(ctx, snap, mid.Key); err != nil {
+				return err
+			}
+			top, err = group.TopParent(ctx, snap, leaf.Key)
+			return err
+		})).To(Succeed())
+		Expect(ancestors).To(ConsistOf(mid, root))
+		Expect(children).To(ConsistOf(leaf.ResourceID()))
+		Expect(top).To(BeNil())
+	})
+
 	Describe("SetParent", func() {
 		It("Should move groups under a new parent", func(ctx SpecContext) {
 			parent := create(ctx, "new-parent", nil)

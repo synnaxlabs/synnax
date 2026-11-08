@@ -157,7 +157,7 @@ func (s *Service) NewRetrieve() Retrieve {
 // each once. The walk stops at a parent that is not a group.
 func (s *Service) Ancestors(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	keys ...Key,
 ) ([]Group, error) {
 	var (
@@ -168,7 +168,7 @@ func (s *Service) Ancestors(
 	if err := s.NewRetrieve().
 		Where(MatchKeys(keys...)).
 		Entries(&level).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	for {
@@ -193,7 +193,7 @@ func (s *Service) Ancestors(
 		if err := s.NewRetrieve().
 			Where(MatchKeys(parents...)).
 			Entries(&level).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, snap); err != nil {
 			return nil, err
 		}
 		out = append(out, level...)
@@ -201,13 +201,13 @@ func (s *Service) Ancestors(
 }
 
 // Children returns the ID of every record and group that sits in the group with key, as
-// seen by tx.
+// seen by snap.
 func (s *Service) Children(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	key Key,
 ) ([]resource.ID, error) {
-	return resource.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), s.table, key)
+	return resource.Dependents(ctx, gorp.OverrideSnapshot(s.cfg.DB, snap), s.table, key)
 }
 
 func (s *Service) Close() error {
@@ -379,7 +379,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Group](keys...)).
 		Guard(func(ctx gorp.Context, g Group) error {
-			deps, err := w.table.Dependents(ctx, ctx.Tx, g.Key)
+			deps, err := w.table.Dependents(ctx, ctx.Snapshot, g.Key)
 			if err != nil {
 				return err
 			}
