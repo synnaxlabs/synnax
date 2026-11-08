@@ -303,6 +303,26 @@ describe("Resource", () => {
       await expect.poll(() => latest?.map((r) => r.name)).toEqual([name]);
     });
 
+    it("should keep the order of the IDs when a resource is created again", async () => {
+      const first = uuid.create();
+      const second = uuid.create();
+      const set = async (key: string) =>
+        await client.statuses.set({ key, name: key, variant: "info", message: "a" });
+      await set(first);
+      await set(second);
+      const ids = [status.resourceID(first), status.resourceID(second)];
+      let latest: resource.Resource[] | undefined;
+      const off = client.resources.onChange(ids, (answer) => {
+        if (query.isLive(answer)) latest = answer;
+      });
+      onTestFinished(off);
+      await client.resources.retrieve(ids);
+      await client.statuses.delete(first);
+      await expect.poll(() => latest?.map((r) => r.name)).toEqual([second]);
+      await set(first);
+      await expect.poll(() => latest?.map((r) => r.name)).toEqual([first, second]);
+    });
+
     it("should return the cached answer of a list read before", async () => {
       const l = await createLabel(randomToken());
       await client.resources.retrieve([l]);
