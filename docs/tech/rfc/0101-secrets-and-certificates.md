@@ -76,14 +76,14 @@ the resource type `secret`. `value` carries `@go wire omit`, `@ts omit`, and `@p
 as the session hash does (`schemas/synnax/auth.oracle:33-38`), so no endpoint or signal
 can carry it. Secrets have no exporter. The Console shows `updated` as "Set on <date>".
 
-| Endpoint              | Caller                                      | Does                                       |
-| --------------------- | ------------------------------------------- | ------------------------------------------ |
-| `secret/create`       | Can create secrets                          | Saves a value or path, or replaces it      |
-| `secret/retrieve`     | Can retrieve secrets                        | Returns records without values             |
-| `secret/rename`       | Can update secrets                          | Renames a secret                           |
-| `secret/delete`       | Can delete secrets                          | Refuses while anything uses the secret     |
-| `secret/grant/create` | Can create devices and retrieve the secrets | Stores a one-time grant (§3.3)             |
-| `secret/resolve`      | A rack only                                 | Returns stored values; refuses file values |
+| Endpoint              | Caller                                          | Does                                       |
+| --------------------- | ----------------------------------------------- | ------------------------------------------ |
+| `secret/create`       | Can create secrets, and update each it replaces | Saves a value or path, or replaces it      |
+| `secret/retrieve`     | Can retrieve secrets                            | Returns records without values             |
+| `secret/rename`       | Can update secrets                              | Renames a secret                           |
+| `secret/delete`       | Can delete secrets                              | Refuses while anything uses the secret     |
+| `secret/grant/create` | Can create devices and retrieve the secrets     | Stores a one-time grant (§3.3)             |
+| `secret/resolve`      | A rack only                                     | Returns stored values; refuses file values |
 
 Owner and Engineer get every action on `secret` and `certificate`. Operator and Viewer
 retrieve them. The Driver role also retrieves secrets, and retrieves and creates
@@ -130,7 +130,9 @@ At first start, the Core writes a random secrets key to `<data>/secrets.key` wit
 `--secrets-key-file` reads it from another path, and `SYNNAX_SECRETS_KEY` passes it as
 base64. A memory-mode Core keeps a key in memory. The Core refuses to start when the
 secrets key cannot decrypt the data key, so a wrong key fails once instead of in every
-task. Every node of a cluster needs the same key.
+task. Every node of a cluster needs the same key, so a node that joins starts with the
+first node's key through `--secrets-key-file` or `SYNNAX_SECRETS_KEY`. A joining node
+that makes its own key refuses to start.
 
 ### 3.3 Who reads a secret
 
@@ -237,9 +239,10 @@ uses. OPC UA's Trust button saves the offered certificate as an item.
 Every hour, the certificate service writes each certificate's status under
 `certificate:<key>`, only on change. It is the success "Certificate valid" until 30 days
 before `not_after`. Then it is the warning "Certificate expires soon", with the date in
-the description. After `not_after`, it is the error "Certificate expired". Each health
-check gives a device that uses the certificate the same status, so RFC 0092 toasts it
-only when the device is in use.
+the description. After `not_after`, it is the error "Certificate expired". A file
+certificate with no details, such as a typed path, gets no status. Each health check
+gives a device that uses the certificate the same status, so RFC 0092 toasts it only
+when the device is in use.
 
 The CA and node certificates in the Core's certs folder (RFC 0045) get the same
 statuses, so a site learns before its Core stops taking connections. `synnax cert ca`
