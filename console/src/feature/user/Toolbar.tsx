@@ -9,7 +9,7 @@
 
 import { user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, User } from "@synnaxlabs/pluto";
+import { Access, Ontology } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Empty } from "@/platform/empty";
@@ -20,7 +20,7 @@ import { User as PlatformUser } from "@/platform/user";
 
 const Content = (): ReactElement => {
   const openRegister = PlatformUser.useRegisterModal();
-  const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header>
@@ -30,9 +30,10 @@ const Content = (): ReactElement => {
         </Toolbar.Title>
         {hasCreatePermission && (
           <Toolbar.Actions>
-            <Toolbar.Action onClick={() => openRegister()} tooltip="Create user">
-              <Icon.Add />
-            </Toolbar.Action>
+            <Toolbar.CreateAction
+              onClick={() => openRegister()}
+              tooltip="Create user"
+            />
           </Toolbar.Actions>
         )}
       </Toolbar.Header>
@@ -44,13 +45,13 @@ const Content = (): ReactElement => {
 };
 
 const Body = (): ReactElement => {
-  const groupID = User.useGroupID({});
+  const groupID = Ontology.useRootChildID({ name: "Users" });
   return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
 };
 
 const EmptyContent = (): ReactElement => {
   const openRegister = PlatformUser.useRegisterModal();
-  const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No users"
@@ -68,5 +69,5 @@ export const TOOLBAR: Nav.Toolbar = {
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
   trigger: ["U"],
-  useVisible: () => Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useUpdateGranted(user.TYPE_RESOURCE_ID),
 };

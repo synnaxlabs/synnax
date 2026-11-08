@@ -13,7 +13,7 @@
       "project": ["src/**/*.ts!"]
     },
     "client/ts": {
-      "entry": ["src/index.ts!"],
+      "entry": ["src/index.ts!", "src/testutil/index.ts"],
       "project": ["src/**/*.ts!"]
     },
     "drift": {
@@ -45,7 +45,7 @@
         "src/app/nav/drawer/Bottom.tsx": ["exports"],
         "src/feature/*/{explorer,overview}/external.tsx": ["exports"],
         "src/platform/*/filter/{Chips,MenuItem}.tsx": ["exports"],
-        "src/platform/task/{fields,port,views}/*.tsx": ["exports"]
+        "src/platform/task/{fields,payload,port,views}/*.tsx": ["exports"]
       }
     },
     "oracle/lsp/extensions/vscode": {

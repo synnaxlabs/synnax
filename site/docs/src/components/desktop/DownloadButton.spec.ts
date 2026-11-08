@@ -47,13 +47,16 @@ interface Installer {
   caption: string;
 }
 
-const renderTree = async (): Promise<Root> => {
+const renderTree = async (props: { location?: string } = {}): Promise<Root> => {
   const container = await AstroContainer.create();
   container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
   const releases = new Releases({
     fetch: async () => new Response(JSON.stringify(RELEASES)),
   });
-  const html = await container.renderToString(DownloadButton, { locals: { releases } });
+  const html = await container.renderToString(DownloadButton, {
+    locals: { releases },
+    props,
+  });
   return fromHtml(html, { fragment: true });
 };
 
@@ -96,6 +99,27 @@ describe("Desktop download button", () => {
   it("should match each installer to the user agents of its platform", async () => {
     const installers = await render();
     expect(installers.map(({ agent }) => agent)).toEqual(["Macintosh", "Windows NT"]);
+  });
+
+  it("should send its location with a click on each installer", async () => {
+    const links = elements(await renderTree({ location: "blog" })).filter(
+      ({ properties }) => properties.dataEvent != null,
+    );
+    expect(links.map(({ properties }) => properties.dataEvent)).toEqual([
+      "desktop_download_clicked",
+      "desktop_download_clicked",
+    ]);
+    expect(links.map(({ properties }) => properties.dataLocation)).toEqual([
+      "blog",
+      "blog",
+    ]);
+  });
+
+  it("should send nothing on a click when it has no location", async () => {
+    const links = elements(await renderTree()).filter(
+      ({ properties }) => properties.dataEvent != null,
+    );
+    expect(links).toEqual([]);
   });
 
   it("should pick the platform again after each client-side navigation", async () => {

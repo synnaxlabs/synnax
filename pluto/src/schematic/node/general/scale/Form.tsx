@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { location } from "@synnaxlabs/x";
+import { deep, location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
@@ -19,24 +20,26 @@ import { Scale } from "@/schematic/node/common/scale";
 import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 
+const path = deep.path<schematic.ScaleNodeConfig>();
+
 export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
-  const { value: orientation } = Base.useField<location.Outer>("orientation");
+  const { value: orientation } = Base.useField(path.orientation);
   return (
     <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
       <Tabs.Content itemKey="style">
         <Base.Sections x>
           <Base.Section title="Label">
-            <Label.Form path="label" />
+            <Label.Form path={path.label} />
           </Base.Section>
           <Base.Section title="Dimensions">
             <Base.NumericField
-              path="dimensions.width"
+              path={path.dimensions.width}
               label="Width"
               padHelpText={false}
               inputProps={Form.DIMENSIONS_INPUT_PROPS}
             />
             <Base.NumericField
-              path="dimensions.height"
+              path={path.dimensions.height}
               label="Height"
               padHelpText={false}
               inputProps={Form.DIMENSIONS_INPUT_PROPS}
@@ -45,12 +48,12 @@ export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
           <Base.Section title="Display">
             <Scale.DisplayFields axis={location.direction(orientation)}>
               <Form.NegatedSwitchField
-                path="caretHidden"
+                path={path.caretHidden}
                 label="Value"
                 padHelpText={false}
               />
               <Form.NegatedSwitchField
-                path="scaleHidden"
+                path={path.scaleHidden}
                 label="Scale"
                 padHelpText={false}
               />
@@ -59,7 +62,7 @@ export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
           <Base.Section title="Appearance">
             <Scale.StyleFields />
           </Base.Section>
-          <Orientation.Section path="" hideInner />
+          <Orientation.Section path={path} hideInner />
         </Base.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="telemetry">

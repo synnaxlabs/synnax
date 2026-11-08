@@ -7,33 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
+
+const path = deep.path<schematic.CylinderNodeConfig>();
 export const CylinderForm = (): ReactElement => (
   <Base.Sections x>
     <Base.Section title="Label">
-      <Label.Form path="label" />
+      <Label.Form path={path.label} />
     </Base.Section>
     <Base.Section title="Appearance">
-      <Form.ColorField path="strokeColor" label="Stroke" />
+      <Form.ColorField path={path.strokeColor} label="Stroke" />
       <Form.FillField />
     </Base.Section>
     <Base.Section title="Dimensions">
       <Base.NumericField
-        path="dimensions.width"
+        path={path.dimensions.width}
         label="Width"
         inputProps={Form.DIMENSIONS_INPUT_PROPS}
       />
       <Base.NumericField
-        path="dimensions.height"
+        path={path.dimensions.height}
         label="Height"
         inputProps={Form.DIMENSIONS_INPUT_PROPS}
       />
     </Base.Section>
-    <Orientation.Section path="" />
+    <Orientation.Section path={path} />
   </Base.Sections>
 );

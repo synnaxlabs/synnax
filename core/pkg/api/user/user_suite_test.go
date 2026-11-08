@@ -62,6 +62,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
+		Password: passwordSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -109,6 +110,6 @@ func findRoot(ctx SpecContext, svc *user.Service) user.User {
 // passes.
 func rootCtx(ctx SpecContext) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", root.OntologyID())
+	fctx.Set("Subject", root.ResourceID())
 	return fctx
 }

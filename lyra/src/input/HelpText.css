@@ -14,3 +14,8 @@
     min-height: var(--pluto-small-line-height);
     height: fit-content;
 }
+
+/* A checkbox has no text inset, so its help text starts at the checkbox edge. */
+.lyra-input__checkbox + .lyra-input-help-text {
+    margin-left: 0;
+}

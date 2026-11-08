@@ -12,20 +12,25 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv, deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { getSelected } from "@/platform/status/filter/selected";
 import { View } from "@/platform/view";
+
+const path = deep.path<{ where?: { variant?: status.Where["variant"] } }>();
 
 export const Chips = (): ReactElement | null => {
   const { editable } = View.useContext();
-  const field = Form.useField<status.Variant[]>("query.variants", {
+  const field = Form.useField(deep.present(path.where).variant, {
     optional: true,
   });
-  const variants = field?.value;
-  if (variants == null || variants.length === 0 || field == null) return null;
-  const handleClose = (variant: status.Variant) =>
-    field.onChange(variants.filter((v) => v !== variant));
+  const variants = getSelected(field?.value);
+  if (variants.length === 0 || field == null) return null;
+  const handleClose = (variant: status.Variant) => {
+    const next = variants.filter((v) => v !== variant);
+    field.onChange(next.length === 0 ? undefined : { in: next });
+  };
   return (
     <Flex.Box x pack background={0}>
       <View.FilterChip>Variants</View.FilterChip>

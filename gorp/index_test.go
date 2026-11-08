@@ -527,6 +527,17 @@ var _ = Describe("Index", func() {
 			)
 
 			It(
+				"Should return an entry once for a repeated value",
+				func(ctx SpecContext) {
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						Where(nameIdx.Filter("a", "a")).
+						Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+					Expect(idsOf(res)).To(ConsistOf(int32(1), int32(3)))
+				},
+			)
+
+			It(
 				"Should return an empty result when no values match",
 				func(ctx SpecContext) {
 					var res []indexedEntry
@@ -1566,13 +1577,8 @@ var _ = Describe("Populate failure", func() {
 
 	It("Should fall back to a sequential scan for Or when populate fails",
 		func(ctx SpecContext) {
-			// Regression: without a construction-time eval on Or's
-			// resolver branch, resolveFilter would swallow
-			// ErrIndexInvalid and leave r.filter.eval nil, so
-			// match() would return true for every entry. The
-			// "gamma" branch matches nothing in the seed, so the
-			// correct result excludes the "beta" entry; the buggy
-			// behavior would include it.
+			// The "gamma" branch matches nothing, so a fallback that matched every
+			// entry would include the "beta" entry.
 			var got []indexedEntry
 			Expect(gorp.NewRetrieve[int32, indexedEntry]().
 				Where(gorp.Or(
@@ -1585,10 +1591,7 @@ var _ = Describe("Populate failure", func() {
 
 	It("Should fall back to a sequential scan for Not when populate fails",
 		func(ctx SpecContext) {
-			// Same regression shape as Or: Not's resolver branch
-			// previously omitted the construction-time eval, so a
-			// failed populate would let every entry through (Not of
-			// a vacuously-true match).
+			// A fallback that matched every entry would make Not match none.
 			var got []indexedEntry
 			Expect(gorp.NewRetrieve[int32, indexedEntry]().
 				Where(gorp.Not(nameIdx.Filter("alpha"))).

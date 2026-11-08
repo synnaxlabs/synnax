@@ -4,12 +4,19 @@
 
 # Synnax
 
-Synnax is an observability and control platform designed for high-performance hardware
-teams. Synnax aims to control the entire data lifecycle, from reading data from a sensor
-to writing bytes to a file, including a visualization engine and mechanisms for
-real-time propagation of data, allowing for the control of hardware. Synnax can be
-accessed both programatically through our client libraries and visually through our
-Console application.
+Synnax is mission control and data review for hardware operations. It is one platform
+for real-time data acquisition, hardware control, visualization, and analysis. Synnax
+records every sample at full rate and gives engineers live plots, operator schematics,
+control, automated sequences, and data review. Synnax can be accessed programmatically
+through our client libraries and visually through our Console application.
+
+## Download
+
+[Synnax Desktop](https://docs.synnaxlabs.com/reference/get-started/install-desktop) is
+free for any use, including commercial use, up to 50 channels. It runs on macOS (Apple
+silicon) and Windows. It connects to LabJack, EtherCAT, and HTTP devices, OPC UA and
+Modbus TCP servers, and NI hardware on Windows. Teams that share one system use
+[Synnax Enterprise](https://docs.synnaxlabs.com/reference/get-started/editions).
 
 ## Documentation
 
@@ -54,8 +61,9 @@ monorepo. The following is a summary of each:
   contribution guides.
 - [Drift](drift) - Redux state synchronization and declarative window management for
   building multi-window Tauri applications.
-- [Driver](driver) - An application that can connect to LabJack or National Instruments
-  hardware or OPC UA servers and run control sequences on real-time operating systems.
+- [Driver](driver) - An application that connects to NI, LabJack, EtherCAT, and HTTP
+  devices and OPC UA and Modbus servers, and runs control sequences on real-time
+  operating systems.
 - [Freighter](freighter) - A protocol-agnostic network transport for cross-language
   unary and streaming communication with implementations in several languages (C++, Go,
   Python, and TypeScript) and protocols (GRPC, HTTP, and WebSockets).

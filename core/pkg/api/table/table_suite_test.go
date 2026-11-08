@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -39,6 +39,8 @@ var (
 	svc    *service.Layer
 	apiSvc *apitable.Service
 	proj   project.Project
+	// author has no role assignments.
+	author user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -50,6 +52,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	proj = project.Project{Name: "test-project"}
 	Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	author = MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+		Name: "author",
+	}))
 })
 
 // newCreator creates a user that may create tables.
@@ -64,11 +69,11 @@ func newCreator(ctx SpecContext) user.User {
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
 		Name:    "policy-" + uuid.New().String(),
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeTable}},
+		Objects: []resource.ID{{Type: resource.TypeTable}},
 		Actions: []access.Action{access.ActionCreate},
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, u.OntologyID(), r.Key)).To(Succeed())
+	Expect(roleWriter.AssignRole(ctx, u.ResourceID(), r.Key)).To(Succeed())
 	return u
 }

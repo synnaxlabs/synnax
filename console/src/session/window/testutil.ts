@@ -10,7 +10,6 @@
 import {
   type Action,
   combineReducers,
-  configureStore,
   type Middleware,
   type Reducer,
 } from "@reduxjs/toolkit";
@@ -18,6 +17,7 @@ import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { deep } from "@synnaxlabs/x";
 
 import { type Documents } from "@/session/window/keyed";
+import { createMinimalStore } from "@/testutil";
 
 /**
  * The documents map for one window, defaulting to the main window a spec dispatches
@@ -88,7 +88,7 @@ export const createSliceStore = <Name extends string, S, A extends Action = Acti
   preloadedState,
   middleware = [],
 }: SliceStoreParams<Name, S>) =>
-  configureStore<Record<Name, S> & Drift.StoreState, A>({
+  createMinimalStore<Record<Name, S> & Drift.StoreState, A>({
     reducer: combineReducers({
       [name]: reducer,
       [Drift.SLICE_NAME]: Drift.reducer,

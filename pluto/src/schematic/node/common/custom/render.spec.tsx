@@ -9,12 +9,14 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { color, type location } from "@synnaxlabs/x";
+import { color, deep, type location } from "@synnaxlabs/x";
 import { act, render, renderHook } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Custom } from "@/schematic/node/common/custom";
+
+const path = deep.path<{ data: schematic.symbol.Spec }>();
 
 const renderAttached = (
   params: Custom.UseRenderParams,
@@ -1337,7 +1339,7 @@ const editorInitialValues = (): SymbolValues => ({
 // Mirrors the editor's Preview: reads the live form spec and drives useRender with the
 // currently-selected state key as activeState.
 const PreviewLike = ({ activeState }: { activeState: string }): ReactElement => {
-  const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
+  const spec = Form.useFieldValue(path.data);
   const setContainer = Custom.useRender({
     orientation: "left",
     activeState,
@@ -1381,7 +1383,7 @@ describe("custom symbol editor preview", () => {
     // Mimic the import flow: set the SVG first, then assign regions to the state by
     // key in a separate commit, exactly as Preview.handleContentsChange does.
     act(() => {
-      form.set("data.svg", EDITOR_SVG);
+      form.set(path.data.svg, EDITOR_SVG);
     });
     const region: schematic.symbol.Region = {
       key: "region-1",
@@ -1391,7 +1393,7 @@ describe("custom symbol editor preview", () => {
       fillColor: color.construct("#ffffff"),
     };
     act(() => {
-      form.set("data.states.base.regions", [region]);
+      form.set(path.data.states.base.regions, [region]);
     });
 
     const rect = container.querySelector("rect") as SVGRectElement;
@@ -1400,7 +1402,10 @@ describe("custom symbol editor preview", () => {
 
     // Editing the color the way RegionList does: set the keyed region path.
     act(() => {
-      form.set("data.states.base.regions.region-1.strokeColor", "#ff0000");
+      form.set(
+        path.data.states.base.regions["region-1"].strokeColor,
+        color.construct("#ff0000"),
+      );
     });
 
     expect(rect.getAttribute("stroke")).toBe("#ff0000");

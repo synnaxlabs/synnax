@@ -34,13 +34,23 @@ const ListItem = ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
       justify="between"
       align="center"
     >
-      <Text.Text align="center">
+      <Text.Text align="center" className={CSS.BE("device", "list-item-name")}>
         <StatusIndicator status={status} />
-        <Text.Text el="span" overflow="fade">
+        <Text.Text
+          el="span"
+          overflow="fade"
+          className={CSS.BE("device", "list-item-label")}
+        >
           {name}
         </Text.Text>
       </Text.Text>
-      <Text.Text level="small" color={9} weight={450} style={LOCATION_STYLE}>
+      <Text.Text
+        level="small"
+        color={9}
+        weight={450}
+        className={CSS.BE("device", "list-item-location")}
+        style={LOCATION_STYLE}
+      >
         {location}
       </Text.Text>
     </Select.Item>
@@ -50,6 +60,8 @@ const ListItem = ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
 const listItemRenderProp = Component.renderProp(ListItem);
 
 const LOCATION_STYLE = { marginTop: "0.25rem" } as const;
+
+const DIALOG_PROPS = { className: CSS.BE("device-select", "dialog") };
 
 export interface SelectSingleProps
   extends
@@ -61,12 +73,12 @@ export interface SelectSingleProps
 
 export const SelectSingle = ({
   filter,
-  initialQuery,
+  query,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
     filter,
-    initialQuery,
+    query,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
@@ -79,6 +91,7 @@ export const SelectSingle = ({
       onSearch={search}
       status={status}
       icon={<Icon.Device />}
+      dialogProps={DIALOG_PROPS}
       {...rest}
     >
       {listItemRenderProp}

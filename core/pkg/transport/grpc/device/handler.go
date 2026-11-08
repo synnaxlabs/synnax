@@ -15,9 +15,9 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
-	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/synnax/pkg/api/device/pb"
+	devicepb "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -32,7 +32,7 @@ type (
 		device.RetrieveRequest,
 		*RetrieveRequest,
 		device.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		device.DeleteRequest,
@@ -51,18 +51,18 @@ type (
 )
 
 var (
-	_ grpc.Translator[device.CreateRequest, *CreateRequest]       = createRequestTranslator{}
-	_ grpc.Translator[device.CreateResponse, *CreateResponse]     = createResponseTranslator{}
-	_ grpc.Translator[device.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
-	_ grpc.Translator[device.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
-	_ grpc.Translator[device.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
+	_ grpc.Translator[device.CreateRequest, *CreateRequest]          = createRequestTranslator{}
+	_ grpc.Translator[device.CreateResponse, *CreateResponse]        = createResponseTranslator{}
+	_ grpc.Translator[device.RetrieveRequest, *RetrieveRequest]      = retrieveRequestTranslator{}
+	_ grpc.Translator[device.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
+	_ grpc.Translator[device.DeleteRequest, *DeleteRequest]          = deleteRequestTranslator{}
 )
 
 func (createRequestTranslator) Forward(
 	_ context.Context,
 	req device.CreateRequest,
 ) (*CreateRequest, error) {
-	devices, err := pb.DevicesToPB(req.Devices)
+	devices, err := devicepb.DevicesToPB(req.Devices)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (createRequestTranslator) Backward(
 	_ context.Context,
 	req *CreateRequest,
 ) (device.CreateRequest, error) {
-	devices, err := pb.DevicesFromPB(req.Devices)
+	devices, err := devicepb.DevicesFromPB(req.Devices)
 	if err != nil {
 		return device.CreateRequest{}, err
 	}
@@ -84,7 +84,7 @@ func (createResponseTranslator) Forward(
 	_ context.Context,
 	res device.CreateResponse,
 ) (*CreateResponse, error) {
-	devices, err := pb.DevicesToPB(res.Devices)
+	devices, err := devicepb.DevicesToPB(res.Devices)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (createResponseTranslator) Backward(
 	_ context.Context,
 	res *CreateResponse,
 ) (device.CreateResponse, error) {
-	devices, err := pb.DevicesFromPB(res.Devices)
+	devices, err := devicepb.DevicesFromPB(res.Devices)
 	if err != nil {
 		return device.CreateResponse{}, err
 	}
@@ -104,64 +104,39 @@ func (createResponseTranslator) Backward(
 
 func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	req device.RetrieveRequest,
+	r device.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	return &RetrieveRequest{
-		Keys:           req.Keys,
-		Names:          req.Names,
-		Makes:          req.Makes,
-		Models:         req.Models,
-		Locations:      req.Locations,
-		Search:         req.SearchTerm,
-		Racks:          unsafe.ReinterpretSlice[rack.Key, uint32](req.Racks),
-		Limit:          uint32(req.Limit),
-		Offset:         uint32(req.Offset),
-		IgnoreNotFound: req.IgnoreNotFound,
-		IncludeStatus:  req.IncludeStatus,
-		IncludeParent:  req.IncludeParent,
-	}, nil
+	req, err := pb.RetrieveRequestToPB(r)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
-	req *RetrieveRequest,
+	r *RetrieveRequest,
 ) (device.RetrieveRequest, error) {
-	return device.RetrieveRequest{
-		Keys:           req.Keys,
-		Names:          req.Names,
-		Makes:          req.Makes,
-		Models:         req.Models,
-		Locations:      req.Locations,
-		SearchTerm:     req.Search,
-		Limit:          int(req.Limit),
-		Racks:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Racks),
-		Offset:         int(req.Offset),
-		IgnoreNotFound: req.IgnoreNotFound,
-		IncludeStatus:  req.IncludeStatus,
-		IncludeParent:  req.IncludeParent,
-	}, nil
+	// A client older than the Core sends the reserved fields, which would otherwise
+	// select every device.
+	if err := xpb.RejectUnknown(r); err != nil {
+		return device.RetrieveRequest{}, err
+	}
+	return pb.RetrieveRequestFromPB(r.Request)
 }
 
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	res device.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	devices, err := pb.DevicesToPB(res.Devices)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Devices: devices}, nil
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(res)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	res *RetrieveResponse,
+	res *pb.RetrieveResponse,
 ) (device.RetrieveResponse, error) {
-	devices, err := pb.DevicesFromPB(res.Devices)
-	if err != nil {
-		return device.RetrieveResponse{}, err
-	}
-	return device.RetrieveResponse{Devices: devices}, nil
+	return pb.RetrieveResponseFromPB(res)
 }
 
 func (deleteRequestTranslator) Forward(

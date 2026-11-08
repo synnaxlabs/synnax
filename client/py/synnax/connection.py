@@ -79,6 +79,20 @@ def _client_is_newer(client_version: str, node_version: str) -> bool:
 _TROUBLESHOOTING_URL = "https://docs.synnaxlabs.com/reference/client/troubleshooting"
 
 
+def _create_embedded_version_warning(node_version: str, client_version: str) -> str:
+    pin = ".".join(node_version.split(".")[:2])
+    install = f'pip install "synnax~={pin}.0"'
+    fix = (
+        f"Update Synnax Desktop, or run {install}"
+        if _client_is_newer(client_version, node_version)
+        else f"Run {install}"
+    )
+    return (
+        f"Synnax Desktop runs Core version {node_version}, which does not match "
+        f"client version {client_version}. {fix}."
+    )
+
+
 def _create_version_warning(
     node_version: str | None,
     client_version: str,
@@ -107,8 +121,15 @@ class Checker:
         client_version: str = "",
         name: str | None = None,
         clock_skew_threshold: CrudeTimeSpan = TimeSpan.SECOND,
+        embedded: bool = False,
     ) -> None:
+        """Checks the connection to the Core now, then on every poll.
+
+        :param embedded: Whether the Core is the one that Synnax Desktop runs, which
+            changes the advice of a version warning.
+        """
         self._client = client
+        self._embedded = embedded
         self._poll_freq = TimeSpan(poll_freq)
         self._client_version = client_version
         self._name = name
@@ -179,7 +200,11 @@ class Checker:
                     self._state.client_server_compatible = False
                     if not self._version_warned:
                         _logger.warning(
-                            _create_version_warning(
+                            _create_embedded_version_warning(
+                                node_version, self._client_version
+                            )
+                            if self._embedded
+                            else _create_version_warning(
                                 node_version,
                                 self._client_version,
                                 client_is_newer=_client_is_newer(

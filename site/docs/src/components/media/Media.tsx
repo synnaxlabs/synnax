@@ -18,7 +18,7 @@ import {
   type VideoHTMLAttributes,
 } from "react";
 
-import { mediaURL } from "@/components/media/url";
+import { CDN } from "@/components/media/cdn";
 import { DARK } from "@/components/media/video";
 
 interface MediaProps {
@@ -41,7 +41,7 @@ export interface VideoProps
  */
 export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement => {
   // The time fragment makes iOS Safari render the first frame before playback.
-  const src = (theme?: string): string => `${mediaURL(id, "mp4", theme)}#t=0.001`;
+  const src = (theme?: string): string => `${CDN.url(id, "mp4", theme)}#t=0.001`;
   return (
     <div className="docs-video">
       <video loop muted playsInline preload="metadata" {...rest}>
@@ -121,7 +121,7 @@ export const Image = ({
 }: ImageProps): ReactElement => {
   const img = (
     <img
-      src={mediaURL(id, extension, themed ? "light" : undefined)}
+      src={CDN.url(id, extension, themed ? "light" : undefined)}
       loading={loading}
       decoding={decoding}
       className={className == null ? "docs-image" : `docs-image ${className}`}
@@ -131,7 +131,7 @@ export const Image = ({
   if (!themed) return img;
   return (
     <picture className="docs-picture">
-      <source srcSet={mediaURL(id, extension, "dark")} media={DARK} />
+      <source srcSet={CDN.url(id, extension, "dark")} media={DARK} />
       {img}
     </picture>
   );

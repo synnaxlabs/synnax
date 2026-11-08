@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import random
+from typing import override
 
 import synnax as sy
 from examples.simulators.simdaq import SimDAQ
@@ -23,6 +24,7 @@ class LoadCurrentSimDAQ(SimDAQ):
     NOISE = 0.3
     SIM_RATE = 50
 
+    @override
     def _create_channels(self) -> None:
         self.log("Creating channels...")
         client = self.client
@@ -64,6 +66,7 @@ class LoadCurrentSimDAQ(SimDAQ):
         )
         self.log("Channels created successfully")
 
+    @override
     def _run_loop(self) -> None:
         self.log("Starting simulation loop...")
         loop = sy.Loop(sy.Rate.HZ * self.SIM_RATE)

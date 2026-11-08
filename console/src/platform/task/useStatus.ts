@@ -11,5 +11,14 @@ import { type task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type z } from "zod";
 
-export const useStatus = <Schema extends z.ZodType>(ctx?: Form.ContextValue<Schema>) =>
-  Form.useFieldValue<task.Status>("status", { ctx });
+import { formPath } from "@/platform/task/types";
+
+/** Returns undefined for a task with no status, which the Core allows. */
+export const useStatus = <Schema extends z.ZodType>(
+  ctx?: Form.ContextValue<Schema>,
+): task.Status | undefined => Form.useFieldValue(formPath.status, { ctx }) ?? undefined;
+
+/** Returns false for a task with no status. */
+export const useIsRunning = <Schema extends z.ZodType>(
+  ctx?: Form.ContextValue<Schema>,
+): boolean => useStatus(ctx)?.details.running === true;

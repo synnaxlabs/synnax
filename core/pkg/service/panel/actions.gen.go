@@ -12,24 +12,36 @@
 package panel
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
 )
 
 const (
-	ActionTypeCreate         = "create"
-	ActionTypeRename         = "rename"
-	ActionTypeSetIcon        = "set_icon"
-	ActionTypeSetColor       = "set_color"
-	ActionTypeInsertTabs     = "insert_tabs"
-	ActionTypeRemoveTab      = "remove_tab"
-	ActionTypeMoveTab        = "move_tab"
-	ActionTypeSplitTab       = "split_tab"
-	ActionTypeResizeSplit    = "resize_split"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeSetIcon is the Type of an Action that carries SetIconPayload.
+	ActionTypeSetIcon = "set_icon"
+	// ActionTypeSetColor is the Type of an Action that carries SetColorPayload.
+	ActionTypeSetColor = "set_color"
+	// ActionTypeInsertTabs is the Type of an Action that carries InsertTabsPayload.
+	ActionTypeInsertTabs = "insert_tabs"
+	// ActionTypeRemoveTab is the Type of an Action that carries RemoveTabPayload.
+	ActionTypeRemoveTab = "remove_tab"
+	// ActionTypeMoveTab is the Type of an Action that carries MoveTabPayload.
+	ActionTypeMoveTab = "move_tab"
+	// ActionTypeSplitTab is the Type of an Action that carries SplitTabPayload.
+	ActionTypeSplitTab = "split_tab"
+	// ActionTypeResizeSplit is the Type of an Action that carries ResizeSplitPayload.
+	ActionTypeResizeSplit = "resize_split"
+	// ActionTypeSetTabResource is the Type of an Action that carries
+	// SetTabResourcePayload.
 	ActionTypeSetTabResource = "set_tab_resource"
-	ActionTypeSetTabView     = "set_tab_view"
+	// ActionTypeSetTabView is the Type of an Action that carries SetTabViewPayload.
+	ActionTypeSetTabView = "set_tab_view"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -120,7 +132,7 @@ type ResizeSplitPayload struct {
 // visualization.
 type SetTabResourcePayload struct {
 	Key      TabKey      `json:"key" msgpack:"key"`
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
+	Resource resource.ID `json:"resource" msgpack:"resource"`
 }
 
 // SetTabViewPayload sets the inline view displayed by the tab with the given key,

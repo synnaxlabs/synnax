@@ -33,26 +33,39 @@ export const channelTypeItems = (types: readonly AOChannelType[]) =>
     );
   });
 
-export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType>({
-  fieldKey: "type",
-  fieldProps: {
-    label: "Channel type",
-    onChange: (value, { get, set, path }) => {
-      const prevType = get<AOChannelType>(path).value;
-      if (prevType === value) return;
-      const next = createAOChannel(value);
-      const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<AOChannel>(parentPath).value;
-      const schema = AO_CHANNEL_SCHEMAS[value];
-      set(parentPath, {
-        ...deep.overrideValidItems(next, prevParent, schema),
-        type: next.type,
-      });
-    },
-  },
+const SelectType = Form.buildSelectField<AOChannelType>({
+  fieldProps: { label: "Channel type" },
   inputProps: {
     allowNone: false,
     resourceName: "channel type",
     children: channelTypeItems(AO_CHANNEL_TYPES),
   },
 });
+
+interface SelectAOChannelTypeFieldProps extends Pick<
+  Form.SelectFieldProps<AOChannelType>,
+  "inputProps"
+> {
+  path: deep.Path<AOChannel>;
+}
+
+export const SelectAOChannelTypeField = ({
+  path,
+  inputProps,
+}: SelectAOChannelTypeFieldProps) => (
+  <SelectType
+    path={path.type}
+    inputProps={inputProps}
+    onChange={(value, { get, set }) => {
+      const prevType = get(path.type).value;
+      if (prevType === value) return;
+      const next = createAOChannel(value);
+      const prevParent = get(path).value;
+      const schema = AO_CHANNEL_SCHEMAS[value];
+      set(path, {
+        ...deep.overrideValidItems(next, prevParent, schema),
+        type: next.type,
+      } as AOChannel);
+    }}
+  />
+);

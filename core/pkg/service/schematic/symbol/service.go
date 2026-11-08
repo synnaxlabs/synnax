@@ -83,11 +83,11 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying symbols from Synnax.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	group  group.Group
-	table  *gorp.Table[Key, Symbol]
-	search *gorp.SearchIndex[Key, Symbol]
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	group   group.Group
+	table   *gorp.Table[Key, Symbol]
+	indexes indexes
 }
 
 // OpenService instantiates a new symbol service using the provided configurations. Each
@@ -98,12 +98,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Symbol]{
 		DB:              cfg.DB,
-		Indexes:         []gorp.Index[Key, Symbol]{s.search},
+		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -148,9 +148,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new query build for retrieving symbols from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.cfg.DB,
-		search: s.search,
+		baseTX:  s.cfg.DB,
+		gorp:    s.table.NewRetrieve(),
+		indexes: s.indexes,
 	}
 }
 

@@ -18,12 +18,25 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/zip"
+	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("Retrieve", func() {
+	It("Should reject the request when retrieve is not granted on a match", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		p := createProject(ctx, "unretrievable")
+		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apiproject.RetrieveRequest{
+			Where: &project.Where{Key: &filter.Set[project.Key]{Eq: &p.Key}},
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+})
 
 var _ = Describe("Export", func() {
 	It(
@@ -33,9 +46,9 @@ var _ = Describe("Export", func() {
 			l := createLog(ctx, proj.Key, "Metrics")
 			grantRetrieveOn(
 				ctx,
-				author.OntologyID(),
-				project.OntologyID(proj.Key),
-				log.OntologyID(l.Key),
+				author.ResourceID(),
+				project.ResourceID(proj.Key),
+				log.ResourceID(l.Key),
 			)
 			Expect(MustSucceed(apiSvc.Export(
 				AuthedCtx(ctx, author),
@@ -45,7 +58,7 @@ var _ = Describe("Export", func() {
 	)
 	It("Should reject an unsupported encoding", func(ctx SpecContext) {
 		proj := createProject(ctx, "bad-encoding")
-		grantRetrieveOn(ctx, author.OntologyID(), project.OntologyID(proj.Key))
+		grantRetrieveOn(ctx, author.ResourceID(), project.ResourceID(proj.Key))
 		Expect(apiSvc.Export(
 			AuthedCtx(ctx, author),
 			apiproject.ExportRequest{Key: proj.Key, Encoding: "YAML"},
@@ -65,7 +78,7 @@ var _ = Describe("Export", func() {
 	) {
 		proj := createProject(ctx, "ungranted-member")
 		createLog(ctx, proj.Key, "Metrics")
-		grantRetrieveOn(ctx, author.OntologyID(), project.OntologyID(proj.Key))
+		grantRetrieveOn(ctx, author.ResourceID(), project.ResourceID(proj.Key))
 		Expect(apiSvc.Export(
 			AuthedCtx(ctx, author),
 			apiproject.ExportRequest{Key: proj.Key, Encoding: apiimex.EncodingJSON},
@@ -74,8 +87,8 @@ var _ = Describe("Export", func() {
 })
 
 var (
-	projectType = ontology.ID{Type: ontology.ResourceTypeProject}
-	logType     = ontology.ID{Type: ontology.ResourceTypeLog}
+	projectType = resource.ID{Type: resource.TypeProject}
+	logType     = resource.ID{Type: resource.TypeLog}
 )
 
 func newBundle(name string) apiproject.ImportRequest {
@@ -100,7 +113,7 @@ var _ = Describe("Import", func() {
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		grantOn(ctx, u.OntologyID(), access.ActionCreate, projectType, logType)
+		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType, logType)
 		res := MustSucceed(apiSvc.Import(importCtx(ctx, u), nil, newBundle("Imported")))
 		Expect(res.Project.Name).To(Equal("Imported"))
 	})
@@ -108,7 +121,7 @@ var _ = Describe("Import", func() {
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		grantOn(ctx, u.OntologyID(), access.ActionCreate, logType)
+		grantOn(ctx, u.ResourceID(), access.ActionCreate, logType)
 		Expect(apiSvc.Import(importCtx(ctx, u), nil, newBundle("Imported"))).Error().
 			To(MatchError(access.ErrDenied))
 	})
@@ -116,13 +129,13 @@ var _ = Describe("Import", func() {
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		grantOn(ctx, u.OntologyID(), access.ActionCreate, projectType)
+		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType)
 		Expect(apiSvc.Import(importCtx(ctx, u), nil, newBundle("Imported"))).Error().
 			To(MatchError(access.ErrDenied))
 	})
 	It("Should reject a request with no params", func(ctx SpecContext) {
 		u := createUser(ctx)
-		grantOn(ctx, u.OntologyID(), access.ActionCreate, projectType, logType)
+		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType, logType)
 		Expect(apiSvc.Import(AuthedCtx(ctx, u), nil, newBundle("Imported"))).Error().
 			To(MatchError(ContainSubstring("params")))
 	})

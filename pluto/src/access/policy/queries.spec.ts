@@ -11,11 +11,13 @@ import { NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import { Policy } from "@/access/policy";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = Policy.formPath;
 
 const client = createTestClient();
 
@@ -249,9 +251,9 @@ describe("queries", () => {
       const { result } = renderHook(() => Policy.useForm({ query: null }), { wrapper });
 
       await act(async () => {
-        result.current.form.set("name", "formPolicy");
-        result.current.form.set("objects", [{ type: "channel", key: "form" }]);
-        result.current.form.set("actions", ["create"]);
+        result.current.form.set(path.name, "formPolicy");
+        result.current.form.set(path.objects, [{ type: "channel", key: "form" }]);
+        result.current.form.set(path.actions, ["create"]);
       });
 
       act(() => {
@@ -260,10 +262,11 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get<string>("key").value).toBeDefined();
+        expect(result.current.form.get(path.key).value).toBeDefined();
       });
 
-      const createdKey = result.current.form.get<string>("key").value;
+      const createdKey = result.current.form.get(path.key).value;
+      assert(createdKey != null);
       const retrieved = await client.access.policies.retrieve(createdKey);
       expect(retrieved.name).toEqual("formPolicy");
     });
@@ -283,8 +286,8 @@ describe("queries", () => {
       );
 
       await waitFor(() => {
-        expect(result.current.form.get("name").value).toEqual("existingPolicy");
-        expect(result.current.form.get("actions").value).toContain("delete");
+        expect(result.current.form.get(path.name).value).toEqual("existingPolicy");
+        expect(result.current.form.get(path.actions).value).toContain("delete");
       });
     });
   });

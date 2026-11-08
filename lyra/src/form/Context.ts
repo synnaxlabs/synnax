@@ -7,24 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
+import { type deep, type destructor } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { context } from "@/context";
-import { type State } from "@/form/state";
+import {
+  type FieldState,
+  type GetOptions,
+  type RequiredGetOptions,
+} from "@/form/state";
 import { type Entry } from "@/form/store";
 import { type Status } from "@/status";
 
 export interface RemoveFunc {
-  (path: string): void;
+  (path: deep.Target<unknown>): void;
 }
 
 export interface InsertFunc {
-  <E extends Entry>(path: string, value: E, after?: string): void;
+  <E extends Entry>(path: deep.Target<E[]>, value: NoInfer<E>, after?: string): void;
 }
 
 export interface MoveFunc {
-  (path: string, key: string, after?: string): void;
+  (path: deep.Target<unknown[]>, key: string, after?: string): void;
 }
 
 /** Options for {@link SetFunc}. */
@@ -36,7 +40,12 @@ export interface SetOptions {
 }
 
 export interface SetFunc {
-  (path: string, value: unknown, options?: SetOptions): void;
+  <V>(path: deep.Target<V>, value: NoInfer<V>, options?: SetOptions): void;
+}
+
+export interface GetFunc {
+  <V>(path: deep.Target<V>, opts?: RequiredGetOptions): FieldState<V>;
+  <V>(path: deep.Target<V>, opts?: GetOptions): FieldState<V> | null;
 }
 
 export interface Listener {
@@ -58,7 +67,7 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   /** Writes the value at a dot-separated path, validating and notifying. */
   set: SetFunc;
   /** Reads the state at a path: its value, status, and whether it is required. */
-  get: typeof State.prototype.getState;
+  get: GetFunc;
   /** Restores the initial values, or the given ones. */
   reset: (values?: z.infer<Z>) => void;
   /** Removes the object field or the keyed list entry at the path. */
@@ -78,10 +87,10 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   /** Reads the whole value tree. It does not re-render the caller. */
   value: () => z.infer<Z>;
   /** Validates the whole form, or one subtree, writing statuses onto the fields. */
-  validate: (path?: string) => boolean;
-  validateAsync: (path?: string) => Promise<boolean>;
-  has: (path: string) => boolean;
-  setStatus: typeof State.prototype.setStatus;
+  validate: (path?: deep.Target<unknown>) => boolean;
+  validateAsync: (path?: deep.Target<unknown>) => Promise<boolean>;
+  has: (path: deep.Target<unknown>) => boolean;
+  setStatus: (path: deep.Target<unknown>, status: Status.Crude) => void;
   clearStatuses: () => void;
   /**
    * Adds a schema that validates the value at the path with every validation. Its
@@ -90,7 +99,24 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
    *
    * @returns a function that removes the check.
    */
-  addCheck: typeof State.prototype.addCheck;
+  addCheck: (path: deep.Target<unknown>, schema: z.ZodType) => destructor.Destructor;
+  /**
+   * Asks the field at the path to take focus. The field decides what that means: a
+   * select can open its list.
+   *
+   * @throws {Error} if no field at the path takes focus.
+   */
+  focus: (path: deep.Target<unknown>) => void;
+  /**
+   * Runs the handler when {@link ContextValue.focus} names the path. A later handler
+   * for the same path replaces it.
+   *
+   * @returns a function that removes the handler.
+   */
+  addFocusHandler: (
+    path: deep.Target<unknown>,
+    handler: () => void,
+  ) => destructor.Destructor;
   /** Takes the current values as the baseline, clearing the touched flag. */
   setCurrentStateAsInitialValues: () => void;
   getStatuses: () => Status.Crude[];

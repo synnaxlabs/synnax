@@ -11,18 +11,23 @@ package status
 
 import (
 	"context"
+	"encoding/json/v2"
+	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -83,19 +88,48 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}, nil
 }
 
-func statusAccessOntologyIDs(statuses []status.Status[any]) []ontology.ID {
-	ids := make([]ontology.ID, 0, len(statuses))
+func statusAccessResourceIDs(statuses []status.Status[any]) []resource.ID {
+	ids := make([]resource.ID, 0, len(statuses))
 	for _, s := range statuses {
-		ids = append(ids, s.OntologyID())
-		ids = append(ids, label.OntologyIDsFromLabels(s.Labels)...)
+		ids = append(ids, s.ResourceID())
+		ids = append(ids, label.ResourceIDsFromLabels(s.Labels)...)
 	}
 	return ids
 }
 
+func decodeDetails[D any](details any) error {
+	b, err := json.Marshal(details)
+	if err != nil {
+		return errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	var decoded D
+	if err = json.Unmarshal(b, &decoded); err != nil {
+		return errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	return nil
+}
+
+func validateDetails(s status.Status[any]) error {
+	// A row that its resource cannot decode fails every read of that resource's status.
+	resourceType, _, _ := strings.Cut(s.Key, ":")
+	switch resource.Type(resourceType) {
+	case resource.TypeRack:
+		return decodeDetails[rack.StatusDetails](s.Details)
+	case resource.TypeDevice:
+		return decodeDetails[device.StatusDetails](s.Details)
+	case resource.TypeTask:
+		return decodeDetails[task.StatusDetails](s.Details)
+	case resource.TypeChannel:
+		return decodeDetails[struct{}](s.Details)
+	default:
+		return nil
+	}
+}
+
 // SetRequest is a request to set (create or update) statuses in the cluster.
 type SetRequest struct {
-	// Parent is the parent ontology ID for the statuses.
-	Parent ontology.ID `json:"parent" msgpack:"parent"`
+	// Parent is the parent resource ID for the statuses.
+	Parent resource.ID `json:"parent" msgpack:"parent"`
 	// Statuses are the statuses to set.
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
@@ -106,7 +140,9 @@ type SetResponse struct {
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
-// Set creates or updates statuses in the cluster.
+// Set creates or updates statuses in the cluster. It returns a validation error and
+// writes nothing if a status keyed by a rack, device, task, or channel carries details
+// that resource cannot decode.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -115,9 +151,16 @@ func (s *Service) Set(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: statusAccessOntologyIDs(req.Statuses),
+		Objects: statusAccessResourceIDs(req.Statuses),
 	}); err != nil {
 		return SetResponse{}, err
+	}
+	for i, st := range req.Statuses {
+		if err := validateDetails(st); err != nil {
+			return SetResponse{}, validate.PathedError(
+				err, "statuses", strconv.Itoa(i), "details",
+			)
+		}
 	}
 	if err := s.internal.NewWriter(tx).SetManyWithParent(
 		ctx,
@@ -171,7 +214,7 @@ func (s *Service) SetByKeyOrName(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  action,
-		Objects: []ontology.ID{st.OntologyID()},
+		Objects: []resource.ID{st.ResourceID()},
 	}); err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
@@ -184,69 +227,21 @@ func (s *Service) SetByKeyOrName(
 	}, nil
 }
 
-type RetrieveRequest struct {
-	// SearchTerm is used for fuzzy searching statuses.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Keys are the keys of the statuses to retrieve.
-	Keys []status.Key `json:"keys" msgpack:"keys"`
-	// HasLabels retrieves statuses that are labeled by one or more labels with the
-	// given keys.
-	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
-	// Variants filters for statuses with the given variants.
-	Variants []status.Variant `json:"variants" msgpack:"variants"`
-	// Limit is the maximum number of statuses to retrieve.
-	Limit int `json:"limit" msgpack:"limit"`
-	// Offset is the number of statuses to skip.
-	Offset int `json:"offset" msgpack:"offset"`
-	// IncludeLabels sets whether to fetch labels for the retrieved statuses.
-	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
-	// IgnoreNotFoundError returns the statuses that do exist instead of an error when
-	// one or more of Keys names a status that does not.
-	IgnoreNotFoundError bool `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-}
-
-type RetrieveResponse struct {
-	// Statuses are the statuses that were retrieved.
-	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
-}
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve[any]()
-	resStatuses := make([]status.Status[any], 0, len(req.Keys))
-
-	if req.SearchTerm != "" {
-		q = q.Where(status.MatchSearch(req.SearchTerm))
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if len(req.HasLabels) > 0 {
-		q = q.Where(status.MatchLabels[any](req.HasLabels...))
-	}
-	if len(req.Variants) > 0 {
-		q = q.Where(status.MatchVariants[any](req.Variants...))
-	}
-	if len(req.Keys) != 0 {
-		q = q.Where(status.MatchKeys[any](req.Keys...))
-	}
-	err := q.Entries(&resStatuses).Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
+	res := RetrieveResponse{Statuses: []status.Status[any]{}}
+	q, err := req.Apply(s.internal.NewRetrieve[any]().Entries(&res.Statuses))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	res := RetrieveResponse{Statuses: resStatuses}
-	ids := statusAccessOntologyIDs(res.Statuses)
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
 	if req.IncludeLabels {
 		for i, stat := range res.Statuses {
-			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
+			labels, err := s.label.RetrieveFor(ctx, stat.ResourceID(), nil)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
@@ -256,7 +251,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: ids,
+		Objects: statusAccessResourceIDs(res.Statuses),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -280,7 +275,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{status.OntologyID(req.Key)},
+		Objects: []resource.ID{status.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -300,7 +295,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: status.OntologyIDs(req.Keys),
+		Objects: status.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}

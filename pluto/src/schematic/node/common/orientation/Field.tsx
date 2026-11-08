@@ -35,7 +35,7 @@ export const Field = ({
 }: FieldProps): ReactElement | null => {
   if (hideInner && hideOuter) return null;
   return (
-    <Form.Field<SymbolOrientation> label="Layout" padHelpText={false} {...rest}>
+    <Form.Field label="Layout" padHelpText={false} {...rest}>
       {({ value, onChange }) => (
         <Select
           value={{

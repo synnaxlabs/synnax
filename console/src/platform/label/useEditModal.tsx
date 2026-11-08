@@ -31,18 +31,20 @@ import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
+const path = Label.createFormPath;
+
 interface FieldsProps {
   inputProps?: Pick<Input.TextProps, "ref" | "onlyChangeOnBlur">;
 }
 
 const Fields = ({ inputProps }: FieldsProps) => (
   <Flex.Box x gap="small" align="center">
-    <Form.Field<color.Color> path="color" padHelpText={false} showLabel={false}>
+    <Form.Field path={path.color} padHelpText={false} showLabel={false}>
       {(p) => <Color.Swatch onlyChangeOnBlur variant="text" {...p} />}
     </Form.Field>
     <Form.TextField
       showLabel={false}
-      path="name"
+      path={path.name}
       showHelpText={false}
       padHelpText={false}
       inputProps={{
@@ -61,7 +63,7 @@ const Item = (props: List.ItemProps<label.Key>) => {
   const { itemKey } = props;
   const { form } = Label.useForm({ query: { key: itemKey } });
   const { update: handleDelete } = Label.useDelete();
-  const canDelete = Access.useDeleteGranted(label.ontologyID(itemKey));
+  const canDelete = Access.useDeleteGranted(label.resourceID(itemKey));
   return (
     <List.Item
       className={CSS.BE("label", "list-item")}
@@ -162,7 +164,7 @@ const Edit = () => {
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
   const [newFormVisible, setNewFormVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const hasCreatePermission = Access.useCreateGranted(label.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(label.TYPE_RESOURCE_ID);
   return (
     <Modal.Frame y className={CSS.BE("label", "edit")}>
       <Modal.Header icon={<Icon.Label />}>Label.Edit</Modal.Header>

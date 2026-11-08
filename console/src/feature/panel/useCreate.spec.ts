@@ -44,7 +44,7 @@ describe("useCreate", () => {
     });
     await waitFor(async () => {
       const children = await client.panels.retrieve({
-        parent: project.ontologyID(proj.key),
+        parent: project.resourceID(proj.key),
       });
       expect(children.map(({ key }) => key)).toContain(selected);
     });

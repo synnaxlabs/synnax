@@ -16,6 +16,7 @@ import (
 	. "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -70,9 +71,9 @@ var _ = Describe("SearchIndex", func() {
 		Expect(table.NewCreate().Entry(&entry).Exec(ctx, tx)).To(Succeed())
 	}
 
-	search := func(ctx SpecContext, tx gorp.Tx, term string) []int32 {
+	find := func(ctx SpecContext, tx gorp.Tx, term string) []int32 {
 		GinkgoHelper()
-		return MustSucceed(idx.Search(ctx, tx, term, 0)).Keys
+		return MustSucceed(idx.Search(ctx, tx, search.Query[int32]{Term: term})).Keys
 	}
 
 	Describe("Name", func() {
@@ -84,7 +85,7 @@ var _ = Describe("SearchIndex", func() {
 	Describe("Search", func() {
 		DescribeTable("Should rank the matches of every indexed text",
 			func(ctx SpecContext, term string, expected []int32) {
-				Expect(search(ctx, db, term)).To(Equal(expected))
+				Expect(find(ctx, db, term)).To(Equal(expected))
 			},
 			Entry("an exact word", "pressure", []int32{2, 1}),
 			Entry("a word of a second text", "analog", []int32{3, 1, 4}),
@@ -96,7 +97,15 @@ var _ = Describe("SearchIndex", func() {
 
 		DescribeTable("Should keep the closest matches up to the limit",
 			func(ctx SpecContext, limit int, expected []int32) {
-				Expect(MustSucceed(idx.Search(ctx, db, "analog", limit)).Keys).
+				Expect(
+					MustSucceed(
+						idx.Search(
+							ctx,
+							db,
+							search.Query[int32]{Term: "analog", Limit: limit},
+						),
+					).Keys,
+				).
 					To(Equal(expected))
 			},
 			Entry("fewer than every match", 2, []int32{3, 1}),
@@ -106,17 +115,26 @@ var _ = Describe("SearchIndex", func() {
 
 		It("Should index entries that a committed tx writes", func(ctx SpecContext) {
 			createIndexed(ctx, db, indexedEntry{ID: 5, Name: "flow meter"})
-			Expect(search(ctx, db, "flow")).To(Equal([]int32{5}))
+			Expect(find(ctx, db, "flow")).To(Equal([]int32{5}))
 			createIndexed(ctx, db, indexedEntry{ID: 5, Name: "valve"})
-			Expect(search(ctx, db, "flow")).To(BeEmpty())
+			Expect(find(ctx, db, "flow")).To(BeEmpty())
 			Expect(table.NewDelete().
 				Where(gorp.MatchKeys[int32, indexedEntry](3)).
 				Exec(ctx, db)).To(Succeed())
-			Expect(search(ctx, db, "valve")).To(Equal([]int32{5}))
+			Expect(find(ctx, db, "valve")).To(Equal([]int32{5}))
+		})
+
+		It("Should leave out keys before it picks full matches", func(ctx SpecContext) {
+			Expect(MustSucceed(idx.Search(ctx, db, search.Query[int32]{
+				Term:   "pressure digital",
+				Except: func(key int32) bool { return key == 2 },
+			})).Keys).To(Equal([]int32{1}))
 		})
 
 		It("Should panic when tx is nil", func(ctx SpecContext) {
-			Expect(func() { MustSucceed(idx.Search(ctx, nil, "valve", 0)) }).
+			Expect(
+				func() { MustSucceed(idx.Search(ctx, nil, search.Query[int32]{Term: "valve"})) },
+			).
 				To(PanicWith(ContainSubstring("nil transaction")))
 		})
 
@@ -129,20 +147,30 @@ var _ = Describe("SearchIndex", func() {
 				Expect(table.NewDelete().
 					Where(gorp.MatchKeys[int32, indexedEntry](2)).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(search(ctx, tx, "pressure")).To(Equal([]int32{5, 1}))
-				Expect(search(ctx, db, "pressure")).To(Equal([]int32{2, 1}))
+				Expect(find(ctx, tx, "pressure")).To(Equal([]int32{5, 1}))
+				Expect(find(ctx, db, "pressure")).To(Equal([]int32{2, 1}))
+			})
+
+			It("Should leave out staged and committed keys", func(ctx SpecContext) {
+				stage(ctx, tx, indexedEntry{
+					ID: 5, Name: "pressure", Category: "digital",
+				})
+				Expect(MustSucceed(idx.Search(ctx, tx, search.Query[int32]{
+					Term:   "pressure digital",
+					Except: func(key int32) bool { return key == 2 || key == 5 },
+				})).Keys).To(Equal([]int32{1}))
 			})
 
 			It("Should apply staged writes when tx commits", func(ctx SpecContext) {
 				stage(ctx, tx, indexedEntry{ID: 5, Name: "flow"})
 				Expect(tx.Commit(ctx)).To(Succeed())
-				Expect(search(ctx, db, "flow")).To(Equal([]int32{5}))
+				Expect(find(ctx, db, "flow")).To(Equal([]int32{5}))
 			})
 
 			It("Should drop staged writes when tx closes", func(ctx SpecContext) {
 				stage(ctx, tx, indexedEntry{ID: 5, Name: "flow"})
 				Expect(tx.Close()).To(Succeed())
-				Expect(search(ctx, db, "flow")).To(BeEmpty())
+				Expect(find(ctx, db, "flow")).To(BeEmpty())
 			})
 		})
 	})
@@ -240,10 +268,26 @@ var _ = Describe("SearchIndex", func() {
 		})
 
 		It("Should search by scanning every entry", func(ctx SpecContext) {
-			Expect(MustSucceed(failed.Search(ctx, failing, "analog", 0)).Keys).
+			Expect(
+				MustSucceed(
+					failed.Search(ctx, failing, search.Query[int32]{Term: "analog"}),
+				).Keys,
+			).
 				To(Equal([]int32{3, 1, 4}))
-			Expect(MustSucceed(failed.Search(ctx, failing, "analog", 2)).Keys).
+			Expect(
+				MustSucceed(
+					failed.Search(
+						ctx,
+						failing,
+						search.Query[int32]{Term: "analog", Limit: 2},
+					),
+				).Keys,
+			).
 				To(Equal([]int32{3, 1}))
+			Expect(MustSucceed(failed.Search(ctx, failing, search.Query[int32]{
+				Term:   "pressure digital",
+				Except: func(key int32) bool { return key == 2 },
+			})).Keys).To(Equal([]int32{1}))
 		})
 
 		It("Should retrieve the matches closest match first", func(ctx SpecContext) {
@@ -254,7 +298,9 @@ var _ = Describe("SearchIndex", func() {
 		It("Should return the error of an entry the scan cannot decode",
 			func(ctx SpecContext) {
 				corrupt[int32, indexedEntry](ctx, failing, 1)
-				Expect(failed.Search(ctx, failing, "analog", 0)).Error().
+				Expect(
+					failed.Search(ctx, failing, search.Query[int32]{Term: "analog"}),
+				).Error().
 					To(MatchError(ContainSubstring("failed to decode")))
 			})
 

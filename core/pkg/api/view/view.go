@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -74,7 +74,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type (
 	Key  = view.Key
-	Type = view.ViewType
+	Type = view.Type
 	View = view.View
 )
 
@@ -94,7 +94,7 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeView}},
+		Objects: []resource.ID{{Type: resource.TypeView}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -104,50 +104,26 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-type RetrieveRequest struct {
-	SearchTerm string     `json:"search_term" msgpack:"search_term"`
-	Keys       []view.Key `json:"keys"        msgpack:"keys"`
-	Types      []Type     `json:"types"       msgpack:"types"`
-	Limit      int        `json:"limit"       msgpack:"limit"`
-	Offset     int        `json:"offset"      msgpack:"offset"`
-}
-
-type RetrieveResponse struct {
-	Views []View `json:"views" msgpack:"views"`
-}
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve()
-	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
+	var res RetrieveResponse
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Views))
+	if err != nil {
+		return RetrieveResponse{}, err
 	}
-	if req.Limit != 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset != 0 {
-		q = q.Offset(req.Offset)
-	}
-	if len(req.Keys) != 0 {
-		q = q.Where(view.MatchKeys(req.Keys...))
-	}
-	if len(req.Types) != 0 {
-		q = q.Where(view.MatchTypes(req.Types...))
-	}
-	var views []view.View
-	if err := q.Entries(&views).Exec(ctx, nil); err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: view.OntologyIDsFromViews(views),
+		Objects: view.ResourceIDsFromViews(res.Views),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Views: views}, nil
+	return res, nil
 }
 
 // RenameRequest names the view to rename and the name to give it.
@@ -167,7 +143,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{view.OntologyID(req.Key)},
+		Objects: []resource.ID{view.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -186,7 +162,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: view.OntologyIDs(req.Keys),
+		Objects: view.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}

@@ -95,9 +95,8 @@ button.
 
 ### Single
 
-Retrieve a range by its name or key. In Python, catch `QueryError` when no range or more
-than one range matches. In TypeScript, the client throws `NotFoundError` or
-`MultipleFoundError`.
+Retrieve a range by its name or key. The client raises `NotFoundError` when no range
+matches, and `MultipleFoundError` when more than one range has the name.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -128,9 +127,8 @@ const sameRange = await client.ranges.retrieve(myRange.key);
 
 ### Multiple
 
-Pass a list of names or keys to retrieve several ranges. A name that matches no range is
-left out of the result. In TypeScript, a missing key is left out too. In Python, a
-missing key raises `NotFoundError`.
+Pass a list of names or keys to retrieve several ranges. A name or key that matches no
+range is left out of the result.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -165,7 +163,7 @@ const myRanges = await client.ranges.retrieve([myRange.key, myOtherRange.key]);
 const ranges = await client.ranges.retrieve({ searchTerm: "Hotfire" });
 
 // By label
-const passed = await client.ranges.retrieve({ hasLabels: [passLabel.key] });
+const passed = await client.ranges.retrieve({ where: { labels: [passLabel.key] } });
 ```
 
   </Fragment>

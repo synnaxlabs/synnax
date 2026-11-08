@@ -9,7 +9,7 @@
 
 import { project } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Project } from "@synnaxlabs/pluto";
+import { Access, Ontology } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Empty } from "@/platform/empty";
@@ -20,13 +20,11 @@ import { Tree } from "@/platform/tree";
 
 const Actions = (): ReactElement | null => {
   const openCreate = PlatformProject.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(project.TYPE_RESOURCE_ID);
   if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
-      <Toolbar.Action onClick={() => openCreate()} tooltip="Create project">
-        <Icon.Add />
-      </Toolbar.Action>
+      <Toolbar.CreateAction onClick={() => openCreate()} tooltip="Create project" />
     </Toolbar.Actions>
   );
 };
@@ -47,13 +45,13 @@ const Content = (): ReactElement => (
 );
 
 const Body = (): ReactElement => {
-  const groupID = Project.useGroupID({});
+  const groupID = Ontology.useRootChildID({ name: "Projects" });
   return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
 };
 
 const EmptyContent = () => {
   const openCreate = PlatformProject.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(project.TYPE_RESOURCE_ID);
   const handleClick = () => openCreate();
   return (
     <Empty.Action

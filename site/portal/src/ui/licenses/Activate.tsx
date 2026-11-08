@@ -15,6 +15,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Steps } from "@synnaxlabs/lyra/steps";
 import { Text } from "@synnaxlabs/lyra/text";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { z } from "zod";
 
@@ -27,6 +28,8 @@ import { useLogOut } from "@/ui/clerk";
 import { CONTACT_URL } from "@/ui/Enterprise";
 import { Tile } from "@/ui/Tile";
 import { useAction } from "@/ui/useAction";
+
+const path = deep.path<z.infer<typeof schema>>();
 
 /** Machine is the machine an activation link came with. */
 export interface Machine {
@@ -330,7 +333,7 @@ const Fields = ({
               </Text.Text>
             ) : (
               <Select.Simple<string>
-                resourceName="License"
+                resourceName="license"
                 value={choice.license.key}
                 onChange={setLicenseKey}
               >
@@ -344,7 +347,7 @@ const Fields = ({
             {seats}
           </Flex.Box>
           <Form.TextField
-            path="name"
+            path={path.name}
             label="Machine name"
             inputProps={{
               autoFocus: machine != null && machine.name === "",
@@ -400,7 +403,7 @@ const Received = ({ count, onChange }: ReceivedProps): ReactElement => (
 
 /** Fingerprint takes a fingerprint, or the activation link that carries one. */
 const Fingerprint = (): ReactElement => {
-  const text = Form.useFieldValue<string>("fingerprint") ?? "";
+  const text = Form.useFieldValue(path.fingerprint) ?? "";
   let found: string | null = null;
   try {
     found = adapters(read(text).length);
@@ -409,7 +412,7 @@ const Fingerprint = (): ReactElement => {
   }
   return (
     <Flex.Box y gap="tiny">
-      <Form.Field<string> path="fingerprint" label="Fingerprint">
+      <Form.Field path={path.fingerprint} label="Fingerprint">
         {(p) => (
           <Input.Text
             {...p}

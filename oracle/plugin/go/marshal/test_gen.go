@@ -511,10 +511,13 @@ type testValueBuilder struct {
 	// file imports.
 	pins versioning.Pins
 	// owner is the qualified name of the type whose fields the builder is filling.
-	owner      string
-	pkgPrefix  string
-	needsUUID  bool
-	depth      int
+	owner     string
+	pkgPrefix string
+	needsUUID bool
+	depth     int
+	// visits counts the values of each type on the path from the fixture root, so a
+	// recursive type nests one populated level.
+	visits     map[string]int
 	fieldIndex int
 	mode       valueMode
 	// sharedVars maps a struct's qualified name to a package-level fixture
@@ -527,11 +530,27 @@ type testValueBuilder struct {
 func (b *testValueBuilder) buildStructLiteral(
 	typ resolution.Type, goName string,
 ) (string, error) {
+	defer b.visit(typ.QualifiedName)()
 	fieldExprs, err := b.buildStructFieldExprs(typ)
 	if err != nil {
 		return "", errors.Wrapf(err, "type %s", goName)
 	}
 	return b.formatComposite(b.pkgPrefix+goName, fieldExprs), nil
+}
+
+// visit records a value of the named type on the path and returns a func that removes
+// it.
+func (b *testValueBuilder) visit(name string) func() {
+	if b.visits == nil {
+		b.visits = make(map[string]int)
+	}
+	b.visits[name]++
+	return func() { b.visits[name]-- }
+}
+
+// tooDeep reports whether a value of the named type nests too deep to populate.
+func (b *testValueBuilder) tooDeep(name string) bool {
+	return b.depth > 2 || b.visits[name] > 1
 }
 
 func (b *testValueBuilder) formatComposite(typeName string, entries []string) string {
@@ -769,7 +788,7 @@ func (b *testValueBuilder) valueExpr(
 				return "", err
 			}
 		}
-		if b.depth > 2 {
+		if b.tooDeep(actual.QualifiedName) {
 			goType, err := b.goTypeName(actual)
 			if err != nil {
 				return "", err
@@ -777,6 +796,8 @@ func (b *testValueBuilder) valueExpr(
 			return goType + typeArgSuffix + "{}", nil
 		}
 		b.depth++
+		defer func() { b.depth-- }()
+		defer b.visit(actual.QualifiedName)()
 		goName := naming.GetGoName(actual)
 		structPath := output.GetPath(actual, "go")
 		prefix := b.pkgPrefix
@@ -839,7 +860,6 @@ func (b *testValueBuilder) valueExpr(
 					fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
 				}
 			}
-			b.depth--
 			return b.formatComposite(prefix+goName+typeArgSuffix, fieldExprs), nil
 		}
 
@@ -847,7 +867,6 @@ func (b *testValueBuilder) valueExpr(
 		if err != nil {
 			return "", err
 		}
-		b.depth--
 		return b.formatComposite(prefix+goName, fieldExprs), nil
 
 	case resolution.BuiltinGenericForm:
@@ -894,11 +913,12 @@ func (b *testValueBuilder) unionExpr(
 			"union %s variant %q: unresolved payload", actual.Name, v.Name,
 		)
 	}
-	if b.depth > 2 {
+	if b.tooDeep(actual.QualifiedName) {
 		return fmt.Sprintf("%s{Variant: %s{}}", goType, variantType), nil
 	}
 	b.depth++
 	defer func() { b.depth-- }()
+	defer b.visit(actual.QualifiedName)()
 
 	inherited, declared := resolver.VariantBases(form, v, "go", b.table)
 

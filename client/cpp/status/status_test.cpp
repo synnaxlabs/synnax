@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/json/testutil/testutil.h"
@@ -123,6 +124,113 @@ TEST(StatusTest, RetrieveMultipleStatuses) {
     }
 }
 
+/// @brief it should retrieve the statuses that match a tree with an or and a not.
+TEST(StatusTest, RetrieveWhere) {
+    const auto client = new_test_client();
+    const auto suffix = x::uuid::create().to_string();
+    std::vector<Status<x::json::json>> statuses;
+    for (const auto &variant: {VARIANT_INFO, VARIANT_ERROR, VARIANT_WARNING}) {
+        Status<x::json::json> s;
+        s.key = std::string("test-where-") + variant + "-" + suffix;
+        s.variant = variant;
+        s.message = "Where";
+        s.time = x::telem::TimeStamp::now();
+        statuses.push_back(s);
+    }
+    ASSERT_NIL(client.statuses.set(statuses));
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(
+        (Where{.variant = VARIANT_ERROR} || Where{.key = statuses[2].key}) &&
+        !Where{.variant = VARIANT_WARNING} &&
+        Where{.key = {statuses[0].key, statuses[1].key, statuses[2].key}}
+    ));
+    ASSERT_EQ(retrieved.size(), 1);
+    ASSERT_EQ(retrieved[0].key, statuses[1].key);
+}
+
+/// @brief it should retrieve the one status that a filter matches.
+TEST(StatusTest, RetrieveOneWhere) {
+    const auto client = new_test_client();
+    Status<x::json::json> s;
+    s.key = "test-one-where-" + x::uuid::create().to_string();
+    s.variant = VARIANT_INFO;
+    s.time = x::telem::TimeStamp::now();
+    ASSERT_NIL(client.statuses.set(s));
+    const auto got = ASSERT_NIL_P(
+        client.statuses.retrieve(Where{.key = s.key}, x::filter::one)
+    );
+    ASSERT_EQ(got.key, s.key);
+}
+
+/// @brief it should name the filter in the error when no status matches it.
+TEST(StatusTest, RetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    const auto key = "test-one-none-" + x::uuid::create().to_string();
+    const auto [_, err] = client.statuses.retrieve(Where{.key = key}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(err.data, "Found no status where key = \"" + key + "\"");
+}
+
+/// @brief it should return an error when more than one status matches a filter.
+TEST(StatusTest, RetrieveOneWhereMultipleFound) {
+    const auto client = new_test_client();
+    const auto suffix = x::uuid::create().to_string();
+    std::vector<Status<x::json::json>> statuses(2);
+    for (size_t i = 0; i < statuses.size(); i++) {
+        statuses[i].key = "test-one-twice-" + std::to_string(i) + "-" + suffix;
+        statuses[i].variant = VARIANT_INFO;
+        statuses[i].time = x::telem::TimeStamp::now();
+    }
+    ASSERT_NIL(client.statuses.set(statuses));
+    ASSERT_OCCURRED_AS_P(
+        client.statuses
+            .retrieve(Where{.key = {statuses[0].key, statuses[1].key}}, x::filter::one),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
+/// @brief it should reject a limit or an offset on a retrieve of one status.
+TEST(StatusTest, RetrieveRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        for (const auto &err:
+             {client.statuses.retrieve("status", options).second,
+              client.statuses.retrieve(Where{.key = "status"}, x::filter::one, options)
+                  .second}) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or offset, since a page could "
+                "hide a second match"
+            );
+        }
+    }
+}
+
+/// @brief it should page a retrieve of statuses by keys or by filter.
+TEST(StatusTest, RetrieveListPage) {
+    const auto client = new_test_client();
+    const auto suffix = x::uuid::create().to_string();
+    std::vector<Status<x::json::json>> statuses;
+    std::vector<std::string> keys;
+    for (int i = 0; i < 3; i++) {
+        Status<x::json::json> s;
+        s.key = "test-page-" + std::to_string(i) + "-" + suffix;
+        s.variant = VARIANT_INFO;
+        s.message = "Page";
+        s.time = x::telem::TimeStamp::now();
+        statuses.push_back(s);
+        keys.push_back(s.key);
+    }
+    ASSERT_NIL(client.statuses.set(statuses));
+    const auto by_key = ASSERT_NIL_P(client.statuses.retrieve(keys, {.limit = 2}));
+    ASSERT_EQ(by_key.size(), 2);
+    const auto by_where = ASSERT_NIL_P(
+        client.statuses.retrieve(Where{.key = keys}, {.offset = 2})
+    );
+    ASSERT_EQ(by_where.size(), 1);
+}
+
 /// @brief it should update an existing status with new values.
 TEST(StatusTest, UpdateExistingStatus) {
     const auto client = new_test_client();
@@ -172,7 +280,7 @@ TEST(StatusTest, DeleteMultipleStatuses) {
         "test-multi-delete-2"
     };
     ASSERT_NIL(client.statuses.del(keys));
-    ASSERT_OCCURRED_AS_P(client.statuses.retrieve(keys), x::errors::NOT_FOUND);
+    EXPECT_TRUE(ASSERT_NIL_P(client.statuses.retrieve(keys)).empty());
 }
 
 /// @brief it should round-trip status details through JSON.
@@ -434,9 +542,25 @@ TEST(StatusTest, SetByKeyOrNameMultiMatch) {
 TEST(StatusTest, SetByKeyOrNameInvalidVariant) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_iv_");
-    auto [res, err] = client.statuses.set_by_key_or_name(name, "x", "bogus");
-    EXPECT_FALSE(err.ok());
+    const auto res = ASSERT_OCCURRED_AS_P(
+        client.statuses.set_by_key_or_name(name, "x", "bogus"),
+        x::errors::VALIDATION
+    );
     EXPECT_TRUE(res.key.empty());
 }
 
+/// @brief it should fall back to the current time when the JSON omits it.
+TEST(StatusTest, ParsesMissingTime) {
+    const auto before = x::telem::TimeStamp::now();
+    x::json::Parser parser(
+        x::json::json{
+            {"variant", "info"},
+            {"message", "Started task"},
+            {"details", nullptr},
+        }
+    );
+    const auto status = Status<>::parse(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_GE(status.time, before);
+}
 }

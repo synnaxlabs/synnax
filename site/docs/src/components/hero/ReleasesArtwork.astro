@@ -1,0 +1,197 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+type Point = readonly [number, number, number];
+const project = ([x, y, z]: Point): [number, number] => [
+    520 + (x - y) * 0.8,
+    185 + (x + y) * 0.3 - z,
+];
+const line = (points: readonly Point[]): string =>
+    points
+        .map((point, i) => `${i === 0 ? "M" : "L"} ${project(point).join(" ")}`)
+        .join(" ");
+const polygon = (points: readonly Point[]): string => `${line(points)} Z`;
+const terraces = Array.from({ length: 6 }, (_, i) => {
+    const x = 250 + i * 87;
+    const y = -430 + i * 62;
+    const width = i === 2 ? 48 : 34;
+    const z = i * 5;
+    const depth = 12;
+    const top: Point[] = [
+        [x, y, z],
+        [x + 1900, y, z],
+        [x + 1900, y + width, z],
+        [x + width, y + width, z],
+        [x + width, y + 2700, z],
+        [x, y + 2700, z],
+    ];
+    const faces = [
+        [top[2], top[3]],
+        [top[3], top[4]],
+    ].map(([a, b]) =>
+        polygon([a, b, [b[0], b[1], z - depth], [a[0], a[1], z - depth]]),
+    );
+    const route = (offset: number): Point[] => [
+        [x + 1900, y + offset, z + 0.5],
+        [x + offset, y + offset, z + 0.5],
+        [x + offset, y + 2700, z + 0.5],
+    ];
+    return {
+        top: polygon(top),
+        faces,
+        edge: line(top.slice(2, 5)),
+        route,
+        accent: i === 1 || i === 4,
+    };
+});
+---
+
+<svg
+    class="releases-art"
+    viewBox="0 0 1600 1000"
+    fill="none"
+    aria-hidden="true"
+    focusable="false"
+>
+    <defs>
+        <linearGradient
+            id="releases-art-surface"
+            x1="110"
+            y1="920"
+            x2="1530"
+            y2="280"
+            gradientUnits="userSpaceOnUse"
+        >
+            <stop class="surface-light" />
+            <stop class="surface-mid" offset="0.58" />
+            <stop class="surface-shade" offset="1" />
+        </linearGradient>
+        <linearGradient
+            id="releases-art-edge"
+            x1="360"
+            y1="800"
+            x2="1500"
+            y2="280"
+            gradientUnits="userSpaceOnUse"
+        >
+            <stop class="edge-light" />
+            <stop class="edge-shade" offset="1" />
+        </linearGradient>
+        <linearGradient
+            id="releases-art-route"
+            x1="0"
+            y1="850"
+            x2="1600"
+            y2="280"
+            gradientUnits="userSpaceOnUse"
+        >
+            <stop class="route-blue" stop-opacity="0.1" />
+            <stop class="route-blue" offset="0.55" stop-opacity="0.7" />
+            <stop class="route-teal" offset="1" stop-opacity="0.55" />
+        </linearGradient>
+    </defs>
+    {terraces.map(({ top, faces, edge, route, accent }) => (
+        <g>
+            {faces.map((face) => (
+                <path class="terrace-face" d={face} />
+            ))}
+            <path class="terrace-top" d={top} />
+            <path class="terrace-edge" d={edge} />
+            <path class="terrace-etch" d={line(route(9))} />
+            <path class:list={["terrace-route", { accent }]} d={line(route(15))} />
+        </g>
+    ))}
+    <g class="construction-lines" transform="translate(-160 -60)">
+        <path d="M 1090 -80 L 1090 160 L 1720 396" />
+        <path d="M 1120 -80 L 1120 143 L 1720 368" />
+        <path d="M -100 702 L 454 494 L 730 598" />
+        <path d="M -100 720 L 454 512 L 706 607" />
+    </g>
+</svg>
+
+<style>
+    .releases-art {
+        display: block;
+        width: 100%;
+        height: 100%;
+        opacity: 0.6;
+        mask-image:
+            linear-gradient(to bottom, black 280px, transparent 415px),
+            linear-gradient(to right, black 72%, transparent 88%);
+        mask-composite: intersect;
+
+        @container (width < 480px) {
+            opacity: 0.3;
+        }
+    }
+
+    .surface-light {
+        stop-color: light-dark(#d9e6f8, #24497f);
+    }
+
+    .surface-mid {
+        stop-color: light-dark(#c9dbf4, #1a3a69);
+    }
+
+    .surface-shade {
+        stop-color: light-dark(#b3cbee, #10284d);
+    }
+
+    .edge-light {
+        stop-color: light-dark(#a6c0e6, #142d55);
+    }
+
+    .edge-shade {
+        stop-color: light-dark(#8eaedd, #0b1a33);
+    }
+
+    .route-blue {
+        stop-color: var(--pluto-primary-z);
+    }
+
+    .route-teal {
+        stop-color: var(--pluto-primary-p1);
+    }
+
+    .terrace-face {
+        fill: url("#releases-art-edge");
+    }
+
+    .terrace-top {
+        fill: url("#releases-art-surface");
+        stroke: light-dark(#9db7da99, #2d4f8099);
+        stroke-width: 0.75;
+    }
+
+    .terrace-edge {
+        stroke: light-dark(#f5f9ffcc, #8ab4ffa6);
+        stroke-width: 0.8;
+    }
+
+    .terrace-etch {
+        stroke: light-dark(#4f86d680, #5e94ee80);
+        stroke-width: 0.65;
+    }
+
+    .terrace-route {
+        stroke: light-dark(#5e8fd64d, #5e94ee40);
+        stroke-width: 0.7;
+    }
+
+    .terrace-route.accent {
+        stroke: url("#releases-art-route");
+        stroke-width: 1;
+    }
+
+    .construction-lines {
+        stroke: light-dark(#5e8fd64d, #5e94ee3d);
+        stroke-width: 0.65;
+    }
+</style>

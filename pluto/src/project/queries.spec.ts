@@ -80,13 +80,13 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Project.useList({
-            initialQuery: { keys },
+            query: { where: { key: { in: keys } } },
             filter: (p) => keys.includes(p.key),
           }),
         { wrapper },
       );
       act(() => {
-        result.current.retrieve({ limit: 2, offset: 1, keys });
+        result.current.retrieve({ limit: 2, offset: 1, where: { key: { in: keys } } });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toHaveLength(2);
@@ -285,18 +285,6 @@ describe("queries", () => {
     });
   });
 
-  describe("useGroupID", () => {
-    it("should correctly retrieve group ID", async () => {
-      const { result } = await renderHookSuspended(() => Project.useGroupID({}), {
-        wrapper,
-      });
-      await waitFor(() => {
-        expect(result.current?.type).toEqual("group");
-        expect(result.current?.key).not.toBeFalsy();
-      });
-    });
-  });
-
   describe("useDelete", () => {
     it("should correctly delete a project", async () => {
       const proj = await client.projects.create({
@@ -323,7 +311,7 @@ describe("queries", () => {
       await client.lineplots.create(proj.key, { name: "My Plot" });
 
       const children = await Project.retrieveChildren(client, {
-        resourceID: schematic.ontologyID(s1.key),
+        resourceID: schematic.resourceID(s1.key),
         types: ["log"],
       });
       const keys = children.map((p) => p.key);
@@ -341,7 +329,7 @@ describe("queries", () => {
       const l1 = await client.logs.create(proj.key, { name: "A Log" });
 
       const children = await Project.retrieveChildren(client, {
-        resourceID: schematic.ontologyID(s1.key),
+        resourceID: schematic.resourceID(s1.key),
         types: ["lineplot", "table"],
       });
       const keys = children.map((p) => p.key);
@@ -366,7 +354,7 @@ describe("queries", () => {
       const l1 = await client.logs.create(proj.key, { name: "Log" });
 
       const children = await Project.retrieveChildren(client, {
-        resourceID: schematic.ontologyID(s1.key),
+        resourceID: schematic.resourceID(s1.key),
         types: ["lineplot", "table", "log"],
       });
       const keys = children.map((p) => p.key);
@@ -387,7 +375,7 @@ describe("queries", () => {
       });
 
       const children = await Project.retrieveChildren(client, {
-        resourceID: schematic.ontologyID(s1.key),
+        resourceID: schematic.resourceID(s1.key),
         types: ["schematic"],
       });
       const keys = children.map((p) => p.key);
@@ -409,17 +397,17 @@ describe("queries", () => {
         name: "In Group",
       });
       const g = await client.groups.create({
-        parent: project.ontologyID(proj.key),
+        parent: project.resourceID(proj.key),
         name: "My Group",
       });
       await client.ontology.moveChildren(
-        project.ontologyID(proj.key),
-        group.ontologyID(g.key),
-        schematic.ontologyID(s2.key),
+        project.resourceID(proj.key),
+        group.resourceID(g.key),
+        schematic.resourceID(s2.key),
       );
 
       const children = await Project.retrieveChildren(client, {
-        resourceID: schematic.ontologyID(s1.key),
+        resourceID: schematic.resourceID(s1.key),
         types: ["schematic"],
       });
       const keys = children.map((p) => p.key);
@@ -436,21 +424,21 @@ describe("queries", () => {
         name: "Deeply Nested",
       });
       const outerGroup = await client.groups.create({
-        parent: project.ontologyID(proj.key),
+        parent: project.resourceID(proj.key),
         name: "Outer Group",
       });
       const innerGroup = await client.groups.create({
-        parent: group.ontologyID(outerGroup.key),
+        parent: group.resourceID(outerGroup.key),
         name: "Inner Group",
       });
       await client.ontology.moveChildren(
-        project.ontologyID(proj.key),
-        group.ontologyID(innerGroup.key),
-        schematic.ontologyID(s2.key),
+        project.resourceID(proj.key),
+        group.resourceID(innerGroup.key),
+        schematic.resourceID(s2.key),
       );
 
       const children = await Project.retrieveChildren(client, {
-        resourceID: schematic.ontologyID(s1.key),
+        resourceID: schematic.resourceID(s1.key),
         types: ["schematic"],
       });
       const keys = children.map((p) => p.key);
@@ -471,7 +459,7 @@ describe("queries", () => {
       await client.lineplots.create(p2.key, { name: "P2 Plot" });
 
       const children = await Project.retrieveChildren(client, {
-        resourceID: schematic.ontologyID(s1.key),
+        resourceID: schematic.resourceID(s1.key),
         types: ["lineplot"],
       });
       const keys = children.map((p) => p.key);
@@ -530,38 +518,38 @@ describe("queries", () => {
         });
 
         const g1 = await client.groups.create({
-          parent: project.ontologyID(proj.key),
+          parent: project.resourceID(proj.key),
           name: "Group 1",
         });
         await client.ontology.moveChildren(
-          project.ontologyID(proj.key),
-          group.ontologyID(g1.key),
-          schematic.ontologyID(sB.key),
+          project.resourceID(proj.key),
+          group.resourceID(g1.key),
+          schematic.resourceID(sB.key),
         );
 
         const g2 = await client.groups.create({
-          parent: group.ontologyID(g1.key),
+          parent: group.resourceID(g1.key),
           name: "Group 2",
         });
         await client.ontology.moveChildren(
-          project.ontologyID(proj.key),
-          group.ontologyID(g2.key),
-          schematic.ontologyID(sC.key),
+          project.resourceID(proj.key),
+          group.resourceID(g2.key),
+          schematic.resourceID(sC.key),
         );
         await client.ontology.moveChildren(
-          project.ontologyID(proj.key),
-          group.ontologyID(g2.key),
-          schematic.ontologyID(sD.key),
+          project.resourceID(proj.key),
+          group.resourceID(g2.key),
+          schematic.resourceID(sD.key),
         );
 
         const gE = await client.groups.create({
-          parent: group.ontologyID(g2.key),
+          parent: group.resourceID(g2.key),
           name: "Group E",
         });
         await client.ontology.moveChildren(
-          project.ontologyID(proj.key),
-          group.ontologyID(gE.key),
-          schematic.ontologyID(sE.key),
+          project.resourceID(proj.key),
+          group.resourceID(gE.key),
+          schematic.resourceID(sE.key),
         );
 
         const mproj = await client.projects.create({
@@ -584,38 +572,38 @@ describe("queries", () => {
         });
 
         const mg1 = await client.groups.create({
-          parent: project.ontologyID(mproj.key),
+          parent: project.resourceID(mproj.key),
           name: "Group 1 Mirrored",
         });
         await client.ontology.moveChildren(
-          project.ontologyID(mproj.key),
-          group.ontologyID(mg1.key),
-          schematic.ontologyID(sBm.key),
+          project.resourceID(mproj.key),
+          group.resourceID(mg1.key),
+          schematic.resourceID(sBm.key),
         );
 
         const mg2 = await client.groups.create({
-          parent: group.ontologyID(mg1.key),
+          parent: group.resourceID(mg1.key),
           name: "Group 2 Mirrored",
         });
         await client.ontology.moveChildren(
-          project.ontologyID(mproj.key),
-          group.ontologyID(mg2.key),
-          schematic.ontologyID(sCm.key),
+          project.resourceID(mproj.key),
+          group.resourceID(mg2.key),
+          schematic.resourceID(sCm.key),
         );
         await client.ontology.moveChildren(
-          project.ontologyID(mproj.key),
-          group.ontologyID(mg2.key),
-          schematic.ontologyID(sDm.key),
+          project.resourceID(mproj.key),
+          group.resourceID(mg2.key),
+          schematic.resourceID(sDm.key),
         );
 
         const mgE = await client.groups.create({
-          parent: group.ontologyID(mg2.key),
+          parent: group.resourceID(mg2.key),
           name: "Group E Mirrored",
         });
         await client.ontology.moveChildren(
-          project.ontologyID(mproj.key),
-          group.ontologyID(mgE.key),
-          schematic.ontologyID(sEm.key),
+          project.resourceID(mproj.key),
+          group.resourceID(mgE.key),
+          schematic.resourceID(sEm.key),
         );
       });
 
@@ -625,7 +613,7 @@ describe("queries", () => {
         unexpectedKeys: string[],
       ): Promise<void> => {
         const children = await Project.retrieveChildren(client, {
-          resourceID: schematic.ontologyID(source.key),
+          resourceID: schematic.resourceID(source.key),
           types: ["schematic"],
         });
         const keys = children.map((p) => p.key);

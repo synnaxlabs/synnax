@@ -16,9 +16,11 @@ import (
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/errors"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -55,13 +57,35 @@ func (r Range) Validate() error {
 	return v.Error()
 }
 
+// Where is a filter that selects ranges.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Overlaps matches ranges whose time range overlaps the given range.
+	Overlaps *telem.TimeRange `json:"overlaps,omitzero" msgpack:"overlaps,omitempty"`
+	// Labels matches ranges that have any of the given labels.
+	Labels []labelv0.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
+}
+
+// RefType is the "variant" value that selects a variant of Ref.
 type RefType string
 
 const (
-	KeyRefType    RefType = "key"
+	// KeyRefType is a range saved in the Core.
+	KeyRefType RefType = "key"
+	// WindowRefType is a window carried inline: rolling or fixed.
 	WindowRefType RefType = "window"
 )
 
+// RefVariant is implemented by every Ref variant.
 type RefVariant interface {
 	isRefVariant()
 }
@@ -147,7 +171,11 @@ func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.WindowRef
 	default:
-		return errors.Newf("Ref: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Ref: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

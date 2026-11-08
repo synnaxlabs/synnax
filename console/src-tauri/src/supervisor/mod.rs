@@ -10,9 +10,9 @@
 //! Supervises the embedded Core: starts it, reports when it is ready, restarts it after
 //! a crash or a hang, and stops it on request.
 
-mod backup;
 pub mod commands;
 mod diagnostics;
+pub mod discovery;
 mod launch;
 pub mod probe;
 mod reset;
@@ -34,14 +34,15 @@ use tokio::task::JoinHandle;
 /// The line that asks the Core to stop.
 const STOP_LINE: &[u8] = b"stop\n";
 
+/// The name of the Core config file in the work directory.
+const CONFIG_FILE: &str = "core.json";
+
 /// Configures a [`Supervisor`].
 #[derive(Clone)]
 pub struct Config {
     /// The Core executable.
     pub program: PathBuf,
-    /// The version of the app, and so of the bundled Core.
-    pub version: String,
-    /// The directory that receives the Core config file and the data backups.
+    /// The directory that receives the Core config file.
     pub work_dir: PathBuf,
     /// The Core data directory.
     pub data_dir: PathBuf,
@@ -64,18 +65,10 @@ pub struct Config {
 }
 
 impl Config {
-    /// Returns the production configuration for the given executable, app version, and
-    /// directories.
-    pub fn new(
-        program: PathBuf,
-        version: String,
-        work_dir: PathBuf,
-        data_dir: PathBuf,
-        log_dir: PathBuf,
-    ) -> Self {
+    /// Returns the production configuration for the given executable and directories.
+    pub fn new(program: PathBuf, work_dir: PathBuf, data_dir: PathBuf, log_dir: PathBuf) -> Self {
         Self {
             program,
-            version,
             work_dir,
             data_dir,
             log_dir,
@@ -183,6 +176,12 @@ impl Supervisor {
     /// Starts the supervisor and the first Core on the current Tokio runtime.
     pub fn open(cfg: Config) -> io::Result<Self> {
         let password = launch::password()?;
+        // A config that cannot be read only costs the preference: the spawn writes a
+        // new one.
+        let port = launch::saved_port(&cfg.work_dir.join(CONFIG_FILE)).unwrap_or_else(|err| {
+            eprintln!("failed to read the port of the last launch: {err}");
+            None
+        });
         std::fs::create_dir_all(&cfg.work_dir)?;
         std::fs::create_dir_all(&cfg.data_dir)?;
         std::fs::create_dir_all(&cfg.log_dir)?;
@@ -192,7 +191,7 @@ impl Supervisor {
         let task = Task {
             cfg,
             password,
-            port: None,
+            port,
             status: status_tx,
             history: history_tx,
             requests: requests_rx,
@@ -269,8 +268,8 @@ enum Outcome {
 struct Task {
     cfg: Config,
     password: String,
-    /// The port of the last Core that became ready. The next Core reuses it, so the
-    /// clients of the launch reconnect to the address they know.
+    /// The port of the last Core that became ready, first from the last launch. The
+    /// next Core reuses it, so clients reconnect to the address they know.
     port: Option<u16>,
     status: watch::Sender<Status>,
     history: watch::Sender<History>,
@@ -394,28 +393,18 @@ impl Task {
             message,
         };
         let cfg = self.cfg.clone();
-        let prepare = move || {
+        let sweep = move || {
             // A directory that a reset retired holds no live data, so one that cannot be
             // removed yet does not block the start.
             if let Err(err) = reset::sweep(&cfg) {
                 eprintln!("failed to remove erased data: {err}");
             }
-            backup::run(&cfg)
         };
-        match tokio::task::spawn_blocking(prepare).await {
-            Ok(Ok(())) => {}
-            Ok(Err(err)) => {
-                return exited(
-                    Reason::FailedToStart,
-                    format!("failed to back up the data: {err}"),
-                );
-            }
-            Err(err) => {
-                return exited(
-                    Reason::FailedToStart,
-                    format!("failed to back up the data: {err}"),
-                );
-            }
+        if let Err(err) = tokio::task::spawn_blocking(sweep).await {
+            return exited(
+                Reason::FailedToStart,
+                format!("failed to remove erased data: {err}"),
+            );
         }
         let (mut child, port) = match self.spawn() {
             Ok(v) => v,
@@ -524,7 +513,7 @@ impl Task {
 
     fn spawn(&self) -> io::Result<(Child, u16)> {
         let port = launch::port(self.port)?;
-        let config = self.cfg.work_dir.join("core.json");
+        let config = self.cfg.work_dir.join(CONFIG_FILE);
         launch::write_config(&config, port, &self.cfg.data_dir, &self.cfg.log_dir)?;
         let mut cmd = Command::new(&self.cfg.program);
         cmd.arg("start")
@@ -690,7 +679,6 @@ while true; do sleep 1; done
                 probe,
                 ..Config::new(
                     program,
-                    "0.0.0".to_string(),
                     dir.path().join("work"),
                     dir.path().join("data"),
                     dir.path().join("logs"),
@@ -762,6 +750,22 @@ while true; do sleep 1; done
         assert!(sup.history().time_to_ready_ms.is_some());
         sup.stop().await;
         assert!(sup.history().time_to_ready_ms.is_some());
+    }
+
+    #[tokio::test]
+    async fn keeps_the_port_of_the_last_launch() {
+        let f = Fixture::new(OBEDIENT, always(true));
+        let port = |status: Status| match status {
+            Status::Running { connection } => connection.port,
+            other => panic!("expected running, got {other:?}"),
+        };
+        let first = Supervisor::open(f.cfg.clone()).unwrap();
+        let before = port(wait_for(&first, |s| matches!(s, Status::Running { .. })).await);
+        first.stop().await;
+        let second = Supervisor::open(f.cfg.clone()).unwrap();
+        let after = port(wait_for(&second, |s| matches!(s, Status::Running { .. })).await);
+        second.stop().await;
+        assert_eq!(after, before);
     }
 
     #[tokio::test]
@@ -1018,20 +1022,6 @@ while true; do sleep 1; done
         assert!(exit.message.contains("signal"));
         sup.stop().await;
         assert_eq!(sup.history().ready_at, None);
-    }
-
-    #[tokio::test]
-    async fn backs_up_the_store_before_the_core_of_a_new_version_starts() {
-        let f = Fixture::new(OBEDIENT, always(true));
-        std::fs::create_dir_all(f.cfg.data_dir.join("kv")).unwrap();
-        std::fs::write(f.cfg.data_dir.join("kv").join("MANIFEST"), "old").unwrap();
-        let sup = Supervisor::open(f.cfg.clone()).unwrap();
-        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
-        let backups: Vec<_> = std::fs::read_dir(f.cfg.work_dir.join("backups"))
-            .unwrap()
-            .collect();
-        assert_eq!(backups.len(), 1);
-        sup.stop().await;
     }
 
     #[tokio::test]

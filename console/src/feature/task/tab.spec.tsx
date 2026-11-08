@@ -80,6 +80,18 @@ describe("task tab", () => {
     await screen.findByText(name);
   });
 
+  it("should fade a task name too long for the tab", async () => {
+    const name = uniqueName("named");
+    const created = await client.tasks.create({
+      name,
+      type: "rack_status",
+      config: {},
+    });
+    await renderTaskFormTab(TabName, { client, taskKey: created.key });
+    const text = await screen.findByText(name);
+    expect(text.className).toContain("lyra-text--overflow-fade");
+  });
+
   it("should render the task's name as static text for an operator", async () => {
     const name = uniqueName("named");
     const created = await client.tasks.create({
@@ -142,7 +154,7 @@ describe("task tab", () => {
     const project = await client.projects.create({
       name: uniqueName("proj"),
     });
-    await restore({ client, project: project.key, resource: created.ontologyID });
+    await restore({ client, project: project.key, resource: created.resourceID });
 
     // Read back through a second client: the restoring client write-throughs its own
     // cache, so retrieving on it would pass even if the Core never got it.

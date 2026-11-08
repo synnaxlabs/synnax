@@ -12,9 +12,10 @@ import {
   NotFoundError,
   ontology,
   query,
+  resource,
   schematic,
 } from "@synnaxlabs/client";
-import { verbs } from "@synnaxlabs/x";
+import { deep, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -60,13 +61,7 @@ export const useResolved = (key: string | null): Resolved => {
   };
 };
 
-export type ListQuery = {
-  keys?: string[];
-  parent?: ontology.ID;
-  searchTerm?: string;
-  offset?: number;
-  limit?: number;
-};
+export type ListQuery = schematic.symbol.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbol>({
   sort: (a, b) => a.name.localeCompare(b.name),
@@ -88,7 +83,9 @@ export type FormQuery = {
 
 export const formSchema = schematic.symbol.symbolZ
   .partial({ key: true })
-  .extend({ parent: ontology.idZ });
+  .extend({ parent: resource.idZ });
+
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 const toFormValues = (
   symbol: schematic.symbol.Symbol,
@@ -121,7 +118,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     // latency the editor suspends for.
     const [symbol, parents] = await Promise.all([
       client.schematics.symbols.retrieve(key),
-      client.ontology.parents.retrieve({ ids: schematic.symbol.ontologyID(key) }),
+      client.ontology.parents.retrieve({ ids: schematic.symbol.resourceID(key) }),
     ]);
     return toFormValues(symbol, parents);
   },
@@ -129,7 +126,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     const symbol = client.schematics.symbols.getCached(key);
     if (!query.isLive(symbol)) return undefined;
     const parents = client.ontology.parents.getCached({
-      ids: schematic.symbol.ontologyID(key),
+      ids: schematic.symbol.resourceID(key),
     });
     if (!query.isLive(parents)) return undefined;
     return toFormValues(symbol, parents);
@@ -144,8 +141,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       if (!query.isLive(result)) return;
       reset({
         ...result,
-        parent:
-          get<ontology.ID>("parent", { optional: true })?.value ?? ontology.ROOT_ID,
+        parent: get(formPath.parent, { optional: true })?.value ?? ontology.ROOT_ID,
       });
     }),
 });

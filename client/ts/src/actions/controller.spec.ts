@@ -208,6 +208,16 @@ describe("actions.Controller", () => {
       controller.applyRemote("k", 1, dispatchKey, [set("a", 1)]);
       expect(controller.hasPending("k")).toBe(false);
     });
+
+    it("keeps an echoed dispatch from a fetch that read the Core before it", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)]);
+      const since = docs.stamp();
+      controller.applyRemote("k", 1, send.mock.calls[0][2], [set("a", 1)]);
+      docs.ingest({ key: "k", values: { a: 0 } }, { since });
+      expect(docs.get("k")).toEqual({ values: { a: 1 } });
+    });
   });
 
   describe("recordEntry", () => {

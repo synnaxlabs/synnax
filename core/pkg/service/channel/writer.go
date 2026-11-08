@@ -12,7 +12,6 @@ package channel
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strconv"
 
 	"github.com/samber/lo"
@@ -21,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -153,8 +153,8 @@ func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) 
 	return w.delete(ctx, keys, allowInternal)
 }
 
-// DeleteManyByNames deletes the channels matching the given names. Unless allowInternal
-// is true, deleting any internal channel returns an error and no channels are deleted.
+// DeleteManyByNames deletes the channels with the given names. Unless allowInternal is
+// true, deleting any internal channel returns an error and no channels are deleted.
 func (w Writer) DeleteManyByNames(
 	ctx context.Context, names []string, allowInternal bool,
 ) error {
@@ -447,8 +447,8 @@ func (w Writer) create(
 
 	// Register ontology resources and the group parent relationship for the created
 	// channels.
-	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
-		return OntologyID(ch.Key()), !ch.Internal
+	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (resource.ID, bool) {
+		return ResourceID(ch.Key()), !ch.Internal
 	})
 	if err := w.otg.DefineResources(ctx, externalIDs...); err != nil {
 		return err
@@ -458,7 +458,7 @@ func (w Writer) create(
 	}
 	return w.otg.DefineRelationships(
 		ctx,
-		group.OntologyID(w.svc.group.Key),
+		group.ResourceID(w.svc.group.Key),
 		ontology.RelationshipTypeParentOf,
 		externalIDs...,
 	)
@@ -536,15 +536,9 @@ func (w Writer) allocateAndWrite(
 	return nil
 }
 
-// validNamePattern matches valid channel names: a leading letter or underscore followed
-// by letters, digits, and underscores. Because every stored channel name is accepted by
-// this pattern, MatchNames also uses it to decide whether an input is a literal
-// exact-match target (routable through the name index) or a regex pattern.
-var validNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
-
 // validateChannelNames rejects a create/rename request whose proposed names are empty,
-// contain characters outside validNamePattern, duplicate each other, or collide with an
-// existing channel under a different key.
+// are not identifiers, duplicate each other, or collide with an existing channel under
+// a different key.
 func (w Writer) validateChannelNames(
 	ctx context.Context,
 	keys Keys,
@@ -558,7 +552,7 @@ func (w Writer) validateChannelNames(
 				fmt.Sprintf("[%d]", i), "name",
 			)
 		}
-		if !validNamePattern.MatchString(name) {
+		if !validate.IsIdentifier(name) {
 			return validate.PathedError(
 				errors.Wrapf(
 					validate.ErrValidation,
@@ -632,7 +626,7 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DeleteResources(ctx, OntologyIDsFromKeys(keys)...); err != nil {
+	if err := w.otg.DeleteResources(ctx, ResourceIDsFromKeys(keys)...); err != nil {
 		return err
 	}
 	// Storage deletion goes last, as it is the only operation that can fail without an

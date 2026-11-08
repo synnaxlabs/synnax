@@ -76,18 +76,27 @@ func (s SegmentedEdgeConfig) Validate() error {
 	return v.Error()
 }
 
+// EdgeConfigType is the "variant" value that selects a variant of EdgeConfig.
 type EdgeConfigType string
 
 const (
-	PipeEdgeConfigType      EdgeConfigType = "pipe"
-	ElectricEdgeConfigType  EdgeConfigType = "electric"
+	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
+	PipeEdgeConfigType EdgeConfigType = "pipe"
+	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
+	ElectricEdgeConfigType EdgeConfigType = "electric"
+	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
 	SecondaryEdgeConfigType EdgeConfigType = "secondary"
-	JacketedEdgeConfigType  EdgeConfigType = "jacketed"
+	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
+	JacketedEdgeConfigType EdgeConfigType = "jacketed"
+	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
 	HydraulicEdgeConfigType EdgeConfigType = "hydraulic"
+	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
 	PneumaticEdgeConfigType EdgeConfigType = "pneumatic"
-	DataEdgeConfigType      EdgeConfigType = "data"
+	// DataEdgeConfigType selects the DataEdgeConfig variant.
+	DataEdgeConfigType EdgeConfigType = "data"
 )
 
+// EdgeConfigVariant is implemented by every EdgeConfig variant.
 type EdgeConfigVariant interface {
 	isEdgeConfigVariant()
 }
@@ -325,7 +334,11 @@ func (u *EdgeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.DataEdgeConfig
 	default:
-		return errors.Newf("EdgeConfig: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"EdgeConfig: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -352,13 +365,17 @@ func (u EdgeConfig) Validate() error {
 	return nil
 }
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment string
 
 const (
-	FlexAlignmentStart   FlexAlignment = "start"
-	FlexAlignmentCenter  FlexAlignment = "center"
-	FlexAlignmentEnd     FlexAlignment = "end"
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = "start"
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = "center"
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = "end"
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = "stretch"
 )
 
@@ -377,11 +394,16 @@ func (f FlexAlignment) IsValid() bool {
 type ComponentSize string
 
 const (
-	ComponentSizeTiny   ComponentSize = "tiny"
-	ComponentSizeSmall  ComponentSize = "small"
+	// ComponentSizeTiny is the smallest preset.
+	ComponentSizeTiny ComponentSize = "tiny"
+	// ComponentSizeSmall is the preset between tiny and medium.
+	ComponentSizeSmall ComponentSize = "small"
+	// ComponentSizeMedium is the default preset.
 	ComponentSizeMedium ComponentSize = "medium"
-	ComponentSizeLarge  ComponentSize = "large"
-	ComponentSizeHuge   ComponentSize = "huge"
+	// ComponentSizeLarge is the preset between medium and huge.
+	ComponentSizeLarge ComponentSize = "large"
+	// ComponentSizeHuge is the largest preset.
+	ComponentSizeHuge ComponentSize = "huge"
 )
 
 // IsValid reports whether c is one of the defined ComponentSize
@@ -400,9 +422,12 @@ func (c ComponentSize) IsValid() bool {
 type ButtonMode string
 
 const (
-	ButtonModeFire      ButtonMode = "fire"
+	// ButtonModeFire writes once on click.
+	ButtonModeFire ButtonMode = "fire"
+	// ButtonModeMomentary writes on press and clears on release.
 	ButtonModeMomentary ButtonMode = "momentary"
-	ButtonModePulse     ButtonMode = "pulse"
+	// ButtonModePulse writes a one-cycle pulse.
+	ButtonModePulse ButtonMode = "pulse"
 )
 
 // IsValid reports whether b is one of the defined ButtonMode
@@ -762,10 +787,14 @@ type StateMapping struct {
 type PageType string
 
 const (
+	// PageTypeSchematic is a schematic page.
 	PageTypeSchematic PageType = "schematic"
-	PageTypeLineplot  PageType = "lineplot"
-	PageTypeLog       PageType = "log"
-	PageTypeTable     PageType = "table"
+	// PageTypeLineplot is a line plot page.
+	PageTypeLineplot PageType = "lineplot"
+	// PageTypeLog is a log page.
+	PageTypeLog PageType = "log"
+	// PageTypeTable is a table page.
+	PageTypeTable PageType = "table"
 )
 
 // IsValid reports whether p is one of the defined PageType
@@ -795,115 +824,243 @@ func (p Page) Validate() error {
 	return v.Error()
 }
 
+// NodeConfigType is the "variant" value that selects a variant of NodeConfig.
 type NodeConfigType string
 
 const (
-	CapNodeConfigType                            NodeConfigType = "cap"
-	FilterNodeConfigType                         NodeConfigType = "filter"
-	FlowStraightenerNodeConfigType               NodeConfigType = "flow_straightener"
-	HeaterElementNodeConfigType                  NodeConfigType = "heater_element"
-	IsoCapNodeConfigType                         NodeConfigType = "iso_cap"
-	IsoFilterNodeConfigType                      NodeConfigType = "iso_filter"
-	NozzleNodeConfigType                         NodeConfigType = "nozzle"
-	OrificeNodeConfigType                        NodeConfigType = "orifice"
-	OrificePlateNodeConfigType                   NodeConfigType = "orifice_plate"
-	StrainerNodeConfigType                       NodeConfigType = "strainer"
-	StrainerConeNodeConfigType                   NodeConfigType = "strainer_cone"
-	ThrusterNodeConfigType                       NodeConfigType = "thruster"
-	VentNodeConfigType                           NodeConfigType = "vent"
-	FlowmeterGeneralNodeConfigType               NodeConfigType = "flowmeter_general"
-	FlowmeterElectromagneticNodeConfigType       NodeConfigType = "flowmeter_electromagnetic"
-	FlowmeterVariableAreaNodeConfigType          NodeConfigType = "flowmeter_variable_area"
-	FlowmeterCoriolisNodeConfigType              NodeConfigType = "flowmeter_coriolis"
-	FlowmeterNozzleNodeConfigType                NodeConfigType = "flowmeter_nozzle"
-	FlowmeterVenturiNodeConfigType               NodeConfigType = "flowmeter_venturi"
-	FlowmeterRingPistonNodeConfigType            NodeConfigType = "flowmeter_ring_piston"
-	FlowmeterPositiveDisplacementNodeConfigType  NodeConfigType = "flowmeter_positive_displacement"
-	FlowmeterTurbineNodeConfigType               NodeConfigType = "flowmeter_turbine"
-	FlowmeterPulseNodeConfigType                 NodeConfigType = "flowmeter_pulse"
-	FlowmeterFloatSensorNodeConfigType           NodeConfigType = "flowmeter_float_sensor"
-	FlowmeterOrificeNodeConfigType               NodeConfigType = "flowmeter_orifice"
-	BoxNodeConfigType                            NodeConfigType = "box"
-	ButtonNodeConfigType                         NodeConfigType = "button"
-	CircleNodeConfigType                         NodeConfigType = "circle"
-	GaugeNodeConfigType                          NodeConfigType = "gauge"
-	InputNodeConfigType                          NodeConfigType = "input"
-	LightNodeConfigType                          NodeConfigType = "light"
-	LineNodeConfigType                           NodeConfigType = "line"
-	OffPageReferenceNodeConfigType               NodeConfigType = "off_page_reference"
-	PolygonNodeConfigType                        NodeConfigType = "polygon"
-	SelectNodeConfigType                         NodeConfigType = "select"
-	ScaleNodeConfigType                          NodeConfigType = "scale"
-	SetpointNodeConfigType                       NodeConfigType = "setpoint"
-	StateIndicatorNodeConfigType                 NodeConfigType = "state_indicator"
-	StringDisplayNodeConfigType                  NodeConfigType = "string_display"
-	SwitchNodeConfigType                         NodeConfigType = "switch"
-	TextBoxNodeConfigType                        NodeConfigType = "text_box"
-	ValueNodeConfigType                          NodeConfigType = "value"
-	AgitatorNodeConfigType                       NodeConfigType = "agitator"
-	CrossBeamAgitatorNodeConfigType              NodeConfigType = "cross_beam_agitator"
-	FlatBladeAgitatorNodeConfigType              NodeConfigType = "flat_blade_agitator"
-	HeatExchangerGeneralNodeConfigType           NodeConfigType = "heat_exchanger_general"
-	HeatExchangerMNodeConfigType                 NodeConfigType = "heat_exchanger_m"
-	HeatExchangerStraightTubeNodeConfigType      NodeConfigType = "heat_exchanger_straight_tube"
-	HelicalAgitatorNodeConfigType                NodeConfigType = "helical_agitator"
-	PaddleAgitatorNodeConfigType                 NodeConfigType = "paddle_agitator"
-	PropellerAgitatorNodeConfigType              NodeConfigType = "propeller_agitator"
-	RotaryMixerNodeConfigType                    NodeConfigType = "rotary_mixer"
-	StaticMixerNodeConfigType                    NodeConfigType = "static_mixer"
-	CavityPumpNodeConfigType                     NodeConfigType = "cavity_pump"
-	CentrifugalCompressorNodeConfigType          NodeConfigType = "centrifugal_compressor"
-	CompressorNodeConfigType                     NodeConfigType = "compressor"
-	DiaphragmPumpNodeConfigType                  NodeConfigType = "diaphragm_pump"
-	EjectionPumpNodeConfigType                   NodeConfigType = "ejection_pump"
-	EjectorCompressorNodeConfigType              NodeConfigType = "ejector_compressor"
-	LiquidRingCompressorNodeConfigType           NodeConfigType = "liquid_ring_compressor"
-	PistonPumpNodeConfigType                     NodeConfigType = "piston_pump"
-	PumpNodeConfigType                           NodeConfigType = "pump"
-	RollerVaneCompressorNodeConfigType           NodeConfigType = "roller_vane_compressor"
-	ScrewPumpNodeConfigType                      NodeConfigType = "screw_pump"
-	TurboCompressorNodeConfigType                NodeConfigType = "turbo_compressor"
-	VacuumPumpNodeConfigType                     NodeConfigType = "vacuum_pump"
-	BurstDiscNodeConfigType                      NodeConfigType = "burst_disc"
-	FlameArrestorNodeConfigType                  NodeConfigType = "flame_arrestor"
-	FlameArrestorDetonationNodeConfigType        NodeConfigType = "flame_arrestor_detonation"
-	FlameArrestorExplosionNodeConfigType         NodeConfigType = "flame_arrestor_explosion"
-	FlameArrestorFireResNodeConfigType           NodeConfigType = "flame_arrestor_fire_res"
+	// CapNodeConfigType selects the CapNodeConfig variant.
+	CapNodeConfigType NodeConfigType = "cap"
+	// FilterNodeConfigType selects the FilterNodeConfig variant.
+	FilterNodeConfigType NodeConfigType = "filter"
+	// FlowStraightenerNodeConfigType selects the FlowStraightenerNodeConfig variant.
+	FlowStraightenerNodeConfigType NodeConfigType = "flow_straightener"
+	// HeaterElementNodeConfigType selects the HeaterElementNodeConfig variant.
+	HeaterElementNodeConfigType NodeConfigType = "heater_element"
+	// IsoCapNodeConfigType selects the IsoCapNodeConfig variant.
+	IsoCapNodeConfigType NodeConfigType = "iso_cap"
+	// IsoFilterNodeConfigType selects the IsoFilterNodeConfig variant.
+	IsoFilterNodeConfigType NodeConfigType = "iso_filter"
+	// NozzleNodeConfigType selects the NozzleNodeConfig variant.
+	NozzleNodeConfigType NodeConfigType = "nozzle"
+	// OrificeNodeConfigType selects the OrificeNodeConfig variant.
+	OrificeNodeConfigType NodeConfigType = "orifice"
+	// OrificePlateNodeConfigType selects the OrificePlateNodeConfig variant.
+	OrificePlateNodeConfigType NodeConfigType = "orifice_plate"
+	// StrainerNodeConfigType selects the StrainerNodeConfig variant.
+	StrainerNodeConfigType NodeConfigType = "strainer"
+	// StrainerConeNodeConfigType selects the StrainerConeNodeConfig variant.
+	StrainerConeNodeConfigType NodeConfigType = "strainer_cone"
+	// ThrusterNodeConfigType selects the ThrusterNodeConfig variant.
+	ThrusterNodeConfigType NodeConfigType = "thruster"
+	// VentNodeConfigType selects the VentNodeConfig variant.
+	VentNodeConfigType NodeConfigType = "vent"
+	// FlowmeterGeneralNodeConfigType selects the FlowmeterGeneralNodeConfig variant.
+	FlowmeterGeneralNodeConfigType NodeConfigType = "flowmeter_general"
+	// FlowmeterElectromagneticNodeConfigType selects the
+	// FlowmeterElectromagneticNodeConfig variant.
+	FlowmeterElectromagneticNodeConfigType NodeConfigType = "flowmeter_electromagnetic"
+	// FlowmeterVariableAreaNodeConfigType selects the FlowmeterVariableAreaNodeConfig
+	// variant.
+	FlowmeterVariableAreaNodeConfigType NodeConfigType = "flowmeter_variable_area"
+	// FlowmeterCoriolisNodeConfigType selects the FlowmeterCoriolisNodeConfig variant.
+	FlowmeterCoriolisNodeConfigType NodeConfigType = "flowmeter_coriolis"
+	// FlowmeterNozzleNodeConfigType selects the FlowmeterNozzleNodeConfig variant.
+	FlowmeterNozzleNodeConfigType NodeConfigType = "flowmeter_nozzle"
+	// FlowmeterVenturiNodeConfigType selects the FlowmeterVenturiNodeConfig variant.
+	FlowmeterVenturiNodeConfigType NodeConfigType = "flowmeter_venturi"
+	// FlowmeterRingPistonNodeConfigType selects the FlowmeterRingPistonNodeConfig
+	// variant.
+	FlowmeterRingPistonNodeConfigType NodeConfigType = "flowmeter_ring_piston"
+	// FlowmeterPositiveDisplacementNodeConfigType selects the
+	// FlowmeterPositiveDisplacementNodeConfig variant.
+	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = "flowmeter_positive_displacement"
+	// FlowmeterTurbineNodeConfigType selects the FlowmeterTurbineNodeConfig variant.
+	FlowmeterTurbineNodeConfigType NodeConfigType = "flowmeter_turbine"
+	// FlowmeterPulseNodeConfigType selects the FlowmeterPulseNodeConfig variant.
+	FlowmeterPulseNodeConfigType NodeConfigType = "flowmeter_pulse"
+	// FlowmeterFloatSensorNodeConfigType selects the FlowmeterFloatSensorNodeConfig
+	// variant.
+	FlowmeterFloatSensorNodeConfigType NodeConfigType = "flowmeter_float_sensor"
+	// FlowmeterOrificeNodeConfigType selects the FlowmeterOrificeNodeConfig variant.
+	FlowmeterOrificeNodeConfigType NodeConfigType = "flowmeter_orifice"
+	// BoxNodeConfigType is the configuration for box annotation symbols.
+	BoxNodeConfigType NodeConfigType = "box"
+	// ButtonNodeConfigType is the configuration for button symbols.
+	ButtonNodeConfigType NodeConfigType = "button"
+	// CircleNodeConfigType is the configuration for circle annotation symbols.
+	CircleNodeConfigType NodeConfigType = "circle"
+	// GaugeNodeConfigType is the configuration for gauge symbols.
+	GaugeNodeConfigType NodeConfigType = "gauge"
+	// InputNodeConfigType is the configuration for free-form input symbols.
+	InputNodeConfigType NodeConfigType = "input"
+	// LightNodeConfigType is the configuration for indicator light symbols.
+	LightNodeConfigType NodeConfigType = "light"
+	// LineNodeConfigType is the configuration for straight line symbols.
+	LineNodeConfigType NodeConfigType = "line"
+	// OffPageReferenceNodeConfigType is the configuration for off-page reference
+	// symbols.
+	OffPageReferenceNodeConfigType NodeConfigType = "off_page_reference"
+	// PolygonNodeConfigType is the configuration for polygon annotation symbols.
+	PolygonNodeConfigType NodeConfigType = "polygon"
+	// SelectNodeConfigType is the configuration for select symbols.
+	SelectNodeConfigType NodeConfigType = "select"
+	// ScaleNodeConfigType is the configuration for standalone scale symbols.
+	ScaleNodeConfigType NodeConfigType = "scale"
+	// SetpointNodeConfigType is the configuration for numeric setpoint symbols.
+	SetpointNodeConfigType NodeConfigType = "setpoint"
+	// StateIndicatorNodeConfigType is the configuration for multi-state indicator
+	// symbols.
+	StateIndicatorNodeConfigType NodeConfigType = "state_indicator"
+	// StringDisplayNodeConfigType is the configuration for live string display symbols.
+	StringDisplayNodeConfigType NodeConfigType = "string_display"
+	// SwitchNodeConfigType selects the SwitchNodeConfig variant.
+	SwitchNodeConfigType NodeConfigType = "switch"
+	// TextBoxNodeConfigType is the configuration for text box annotation symbols.
+	TextBoxNodeConfigType NodeConfigType = "text_box"
+	// ValueNodeConfigType is the configuration for live telemetry value symbols.
+	ValueNodeConfigType NodeConfigType = "value"
+	// AgitatorNodeConfigType selects the AgitatorNodeConfig variant.
+	AgitatorNodeConfigType NodeConfigType = "agitator"
+	// CrossBeamAgitatorNodeConfigType selects the CrossBeamAgitatorNodeConfig variant.
+	CrossBeamAgitatorNodeConfigType NodeConfigType = "cross_beam_agitator"
+	// FlatBladeAgitatorNodeConfigType selects the FlatBladeAgitatorNodeConfig variant.
+	FlatBladeAgitatorNodeConfigType NodeConfigType = "flat_blade_agitator"
+	// HeatExchangerGeneralNodeConfigType selects the HeatExchangerGeneralNodeConfig
+	// variant.
+	HeatExchangerGeneralNodeConfigType NodeConfigType = "heat_exchanger_general"
+	// HeatExchangerMNodeConfigType selects the HeatExchangerMNodeConfig variant.
+	HeatExchangerMNodeConfigType NodeConfigType = "heat_exchanger_m"
+	// HeatExchangerStraightTubeNodeConfigType selects the
+	// HeatExchangerStraightTubeNodeConfig variant.
+	HeatExchangerStraightTubeNodeConfigType NodeConfigType = "heat_exchanger_straight_tube"
+	// HelicalAgitatorNodeConfigType selects the HelicalAgitatorNodeConfig variant.
+	HelicalAgitatorNodeConfigType NodeConfigType = "helical_agitator"
+	// PaddleAgitatorNodeConfigType selects the PaddleAgitatorNodeConfig variant.
+	PaddleAgitatorNodeConfigType NodeConfigType = "paddle_agitator"
+	// PropellerAgitatorNodeConfigType selects the PropellerAgitatorNodeConfig variant.
+	PropellerAgitatorNodeConfigType NodeConfigType = "propeller_agitator"
+	// RotaryMixerNodeConfigType selects the RotaryMixerNodeConfig variant.
+	RotaryMixerNodeConfigType NodeConfigType = "rotary_mixer"
+	// StaticMixerNodeConfigType selects the StaticMixerNodeConfig variant.
+	StaticMixerNodeConfigType NodeConfigType = "static_mixer"
+	// CavityPumpNodeConfigType selects the CavityPumpNodeConfig variant.
+	CavityPumpNodeConfigType NodeConfigType = "cavity_pump"
+	// CentrifugalCompressorNodeConfigType selects the CentrifugalCompressorNodeConfig
+	// variant.
+	CentrifugalCompressorNodeConfigType NodeConfigType = "centrifugal_compressor"
+	// CompressorNodeConfigType selects the CompressorNodeConfig variant.
+	CompressorNodeConfigType NodeConfigType = "compressor"
+	// DiaphragmPumpNodeConfigType selects the DiaphragmPumpNodeConfig variant.
+	DiaphragmPumpNodeConfigType NodeConfigType = "diaphragm_pump"
+	// EjectionPumpNodeConfigType selects the EjectionPumpNodeConfig variant.
+	EjectionPumpNodeConfigType NodeConfigType = "ejection_pump"
+	// EjectorCompressorNodeConfigType selects the EjectorCompressorNodeConfig variant.
+	EjectorCompressorNodeConfigType NodeConfigType = "ejector_compressor"
+	// LiquidRingCompressorNodeConfigType selects the LiquidRingCompressorNodeConfig
+	// variant.
+	LiquidRingCompressorNodeConfigType NodeConfigType = "liquid_ring_compressor"
+	// PistonPumpNodeConfigType selects the PistonPumpNodeConfig variant.
+	PistonPumpNodeConfigType NodeConfigType = "piston_pump"
+	// PumpNodeConfigType selects the PumpNodeConfig variant.
+	PumpNodeConfigType NodeConfigType = "pump"
+	// RollerVaneCompressorNodeConfigType selects the RollerVaneCompressorNodeConfig
+	// variant.
+	RollerVaneCompressorNodeConfigType NodeConfigType = "roller_vane_compressor"
+	// ScrewPumpNodeConfigType selects the ScrewPumpNodeConfig variant.
+	ScrewPumpNodeConfigType NodeConfigType = "screw_pump"
+	// TurboCompressorNodeConfigType selects the TurboCompressorNodeConfig variant.
+	TurboCompressorNodeConfigType NodeConfigType = "turbo_compressor"
+	// VacuumPumpNodeConfigType selects the VacuumPumpNodeConfig variant.
+	VacuumPumpNodeConfigType NodeConfigType = "vacuum_pump"
+	// BurstDiscNodeConfigType selects the BurstDiscNodeConfig variant.
+	BurstDiscNodeConfigType NodeConfigType = "burst_disc"
+	// FlameArrestorNodeConfigType selects the FlameArrestorNodeConfig variant.
+	FlameArrestorNodeConfigType NodeConfigType = "flame_arrestor"
+	// FlameArrestorDetonationNodeConfigType selects the
+	// FlameArrestorDetonationNodeConfig variant.
+	FlameArrestorDetonationNodeConfigType NodeConfigType = "flame_arrestor_detonation"
+	// FlameArrestorExplosionNodeConfigType selects the FlameArrestorExplosionNodeConfig
+	// variant.
+	FlameArrestorExplosionNodeConfigType NodeConfigType = "flame_arrestor_explosion"
+	// FlameArrestorFireResNodeConfigType selects the FlameArrestorFireResNodeConfig
+	// variant.
+	FlameArrestorFireResNodeConfigType NodeConfigType = "flame_arrestor_fire_res"
+	// FlameArrestorFireResDetonationNodeConfigType selects the
+	// FlameArrestorFireResDetonationNodeConfig variant.
 	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = "flame_arrestor_fire_res_detonation"
-	IsoBurstDiscNodeConfigType                   NodeConfigType = "iso_burst_disc"
-	AngledValveNodeConfigType                    NodeConfigType = "angled_valve"
-	AngledReliefValveNodeConfigType              NodeConfigType = "angled_relief_valve"
-	AngledSpringLoadedReliefValveNodeConfigType  NodeConfigType = "angled_spring_loaded_relief_valve"
-	BallValveNodeConfigType                      NodeConfigType = "ball_valve"
-	BreatherValveNodeConfigType                  NodeConfigType = "breather_valve"
-	ButterflyValveOneNodeConfigType              NodeConfigType = "butterfly_valve_one"
-	ButterflyValveTwoNodeConfigType              NodeConfigType = "butterfly_valve_two"
-	CheckValveNodeConfigType                     NodeConfigType = "check_valve"
-	CheckValveWithArrowNodeConfigType            NodeConfigType = "check_valve_with_arrow"
-	ElectricRegulatorNodeConfigType              NodeConfigType = "electric_regulator"
-	ElectricRegulatorMotorizedNodeConfigType     NodeConfigType = "electric_regulator_motorized"
-	FourWayValveNodeConfigType                   NodeConfigType = "four_way_valve"
-	GateValveNodeConfigType                      NodeConfigType = "gate_valve"
-	IsoCheckValveNodeConfigType                  NodeConfigType = "iso_check_valve"
-	ManualValveNodeConfigType                    NodeConfigType = "manual_valve"
-	NeedleValveNodeConfigType                    NodeConfigType = "needle_valve"
-	RegulatorNodeConfigType                      NodeConfigType = "regulator"
-	RegulatorManualNodeConfigType                NodeConfigType = "regulator_manual"
-	ReliefValveNodeConfigType                    NodeConfigType = "relief_valve"
-	SolenoidValveNodeConfigType                  NodeConfigType = "solenoid_valve"
-	SpringLoadedReliefValveNodeConfigType        NodeConfigType = "spring_loaded_relief_valve"
-	ThreeWayValveNodeConfigType                  NodeConfigType = "three_way_valve"
-	ThreeWayBallValveNodeConfigType              NodeConfigType = "three_way_ball_valve"
-	ValveNodeConfigType                          NodeConfigType = "valve"
-	CrossJunctionNodeConfigType                  NodeConfigType = "cross_junction"
-	CylinderNodeConfigType                       NodeConfigType = "cylinder"
-	TankNodeConfigType                           NodeConfigType = "tank"
-	TJunctionNodeConfigType                      NodeConfigType = "t_junction"
-	CustomActuatorNodeConfigType                 NodeConfigType = "custom_actuator"
-	CustomStaticNodeConfigType                   NodeConfigType = "custom_static"
-	GroupBoxNodeConfigType                       NodeConfigType = "group_box"
+	// IsoBurstDiscNodeConfigType selects the IsoBurstDiscNodeConfig variant.
+	IsoBurstDiscNodeConfigType NodeConfigType = "iso_burst_disc"
+	// AngledValveNodeConfigType selects the AngledValveNodeConfig variant.
+	AngledValveNodeConfigType NodeConfigType = "angled_valve"
+	// AngledReliefValveNodeConfigType selects the AngledReliefValveNodeConfig variant.
+	AngledReliefValveNodeConfigType NodeConfigType = "angled_relief_valve"
+	// AngledSpringLoadedReliefValveNodeConfigType selects the
+	// AngledSpringLoadedReliefValveNodeConfig variant.
+	AngledSpringLoadedReliefValveNodeConfigType NodeConfigType = "angled_spring_loaded_relief_valve"
+	// BallValveNodeConfigType selects the BallValveNodeConfig variant.
+	BallValveNodeConfigType NodeConfigType = "ball_valve"
+	// BreatherValveNodeConfigType selects the BreatherValveNodeConfig variant.
+	BreatherValveNodeConfigType NodeConfigType = "breather_valve"
+	// ButterflyValveOneNodeConfigType selects the ButterflyValveOneNodeConfig variant.
+	ButterflyValveOneNodeConfigType NodeConfigType = "butterfly_valve_one"
+	// ButterflyValveTwoNodeConfigType selects the ButterflyValveTwoNodeConfig variant.
+	ButterflyValveTwoNodeConfigType NodeConfigType = "butterfly_valve_two"
+	// CheckValveNodeConfigType selects the CheckValveNodeConfig variant.
+	CheckValveNodeConfigType NodeConfigType = "check_valve"
+	// CheckValveWithArrowNodeConfigType selects the CheckValveWithArrowNodeConfig
+	// variant.
+	CheckValveWithArrowNodeConfigType NodeConfigType = "check_valve_with_arrow"
+	// ElectricRegulatorNodeConfigType selects the ElectricRegulatorNodeConfig variant.
+	ElectricRegulatorNodeConfigType NodeConfigType = "electric_regulator"
+	// ElectricRegulatorMotorizedNodeConfigType selects the
+	// ElectricRegulatorMotorizedNodeConfig variant.
+	ElectricRegulatorMotorizedNodeConfigType NodeConfigType = "electric_regulator_motorized"
+	// FourWayValveNodeConfigType selects the FourWayValveNodeConfig variant.
+	FourWayValveNodeConfigType NodeConfigType = "four_way_valve"
+	// GateValveNodeConfigType selects the GateValveNodeConfig variant.
+	GateValveNodeConfigType NodeConfigType = "gate_valve"
+	// IsoCheckValveNodeConfigType selects the IsoCheckValveNodeConfig variant.
+	IsoCheckValveNodeConfigType NodeConfigType = "iso_check_valve"
+	// ManualValveNodeConfigType selects the ManualValveNodeConfig variant.
+	ManualValveNodeConfigType NodeConfigType = "manual_valve"
+	// NeedleValveNodeConfigType selects the NeedleValveNodeConfig variant.
+	NeedleValveNodeConfigType NodeConfigType = "needle_valve"
+	// RegulatorNodeConfigType selects the RegulatorNodeConfig variant.
+	RegulatorNodeConfigType NodeConfigType = "regulator"
+	// RegulatorManualNodeConfigType selects the RegulatorManualNodeConfig variant.
+	RegulatorManualNodeConfigType NodeConfigType = "regulator_manual"
+	// ReliefValveNodeConfigType selects the ReliefValveNodeConfig variant.
+	ReliefValveNodeConfigType NodeConfigType = "relief_valve"
+	// SolenoidValveNodeConfigType is the configuration for solenoid valve symbols.
+	SolenoidValveNodeConfigType NodeConfigType = "solenoid_valve"
+	// SpringLoadedReliefValveNodeConfigType selects the
+	// SpringLoadedReliefValveNodeConfig variant.
+	SpringLoadedReliefValveNodeConfigType NodeConfigType = "spring_loaded_relief_valve"
+	// ThreeWayValveNodeConfigType selects the ThreeWayValveNodeConfig variant.
+	ThreeWayValveNodeConfigType NodeConfigType = "three_way_valve"
+	// ThreeWayBallValveNodeConfigType selects the ThreeWayBallValveNodeConfig variant.
+	ThreeWayBallValveNodeConfigType NodeConfigType = "three_way_ball_valve"
+	// ValveNodeConfigType selects the ValveNodeConfig variant.
+	ValveNodeConfigType NodeConfigType = "valve"
+	// CrossJunctionNodeConfigType selects the CrossJunctionNodeConfig variant.
+	CrossJunctionNodeConfigType NodeConfigType = "cross_junction"
+	// CylinderNodeConfigType is the configuration for cylinder vessel symbols.
+	CylinderNodeConfigType NodeConfigType = "cylinder"
+	// TankNodeConfigType is the configuration for tank vessel symbols.
+	TankNodeConfigType NodeConfigType = "tank"
+	// TJunctionNodeConfigType selects the TJunctionNodeConfig variant.
+	TJunctionNodeConfigType NodeConfigType = "t_junction"
+	// CustomActuatorNodeConfigType is the configuration for user-defined actuator
+	// symbols.
+	CustomActuatorNodeConfigType NodeConfigType = "custom_actuator"
+	// CustomStaticNodeConfigType is the configuration for user-defined static symbols.
+	CustomStaticNodeConfigType NodeConfigType = "custom_static"
+	// GroupBoxNodeConfigType is the configuration for a group box, the symbol that
+	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
+	GroupBoxNodeConfigType NodeConfigType = "group_box"
 )
 
+// NodeConfigVariant is implemented by every NodeConfig variant.
 type NodeConfigVariant interface {
 	isNodeConfigVariant()
 }
@@ -4886,7 +5043,11 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.GroupBoxNodeConfig
 	default:
-		return errors.Newf("NodeConfig: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"NodeConfig: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -5419,122 +5580,278 @@ func (u NodeConfig) Validate() error {
 	return nil
 }
 
+// ElementConfigType is the "variant" value that selects a variant of ElementConfig.
 type ElementConfigType string
 
 const (
-	CapElementConfigType                            ElementConfigType = "cap"
-	FilterElementConfigType                         ElementConfigType = "filter"
-	FlowStraightenerElementConfigType               ElementConfigType = "flow_straightener"
-	HeaterElementElementConfigType                  ElementConfigType = "heater_element"
-	IsoCapElementConfigType                         ElementConfigType = "iso_cap"
-	IsoFilterElementConfigType                      ElementConfigType = "iso_filter"
-	NozzleElementConfigType                         ElementConfigType = "nozzle"
-	OrificeElementConfigType                        ElementConfigType = "orifice"
-	OrificePlateElementConfigType                   ElementConfigType = "orifice_plate"
-	StrainerElementConfigType                       ElementConfigType = "strainer"
-	StrainerConeElementConfigType                   ElementConfigType = "strainer_cone"
-	ThrusterElementConfigType                       ElementConfigType = "thruster"
-	VentElementConfigType                           ElementConfigType = "vent"
-	FlowmeterGeneralElementConfigType               ElementConfigType = "flowmeter_general"
-	FlowmeterElectromagneticElementConfigType       ElementConfigType = "flowmeter_electromagnetic"
-	FlowmeterVariableAreaElementConfigType          ElementConfigType = "flowmeter_variable_area"
-	FlowmeterCoriolisElementConfigType              ElementConfigType = "flowmeter_coriolis"
-	FlowmeterNozzleElementConfigType                ElementConfigType = "flowmeter_nozzle"
-	FlowmeterVenturiElementConfigType               ElementConfigType = "flowmeter_venturi"
-	FlowmeterRingPistonElementConfigType            ElementConfigType = "flowmeter_ring_piston"
-	FlowmeterPositiveDisplacementElementConfigType  ElementConfigType = "flowmeter_positive_displacement"
-	FlowmeterTurbineElementConfigType               ElementConfigType = "flowmeter_turbine"
-	FlowmeterPulseElementConfigType                 ElementConfigType = "flowmeter_pulse"
-	FlowmeterFloatSensorElementConfigType           ElementConfigType = "flowmeter_float_sensor"
-	FlowmeterOrificeElementConfigType               ElementConfigType = "flowmeter_orifice"
-	BoxElementConfigType                            ElementConfigType = "box"
-	ButtonElementConfigType                         ElementConfigType = "button"
-	CircleElementConfigType                         ElementConfigType = "circle"
-	GaugeElementConfigType                          ElementConfigType = "gauge"
-	InputElementConfigType                          ElementConfigType = "input"
-	LightElementConfigType                          ElementConfigType = "light"
-	LineElementConfigType                           ElementConfigType = "line"
-	OffPageReferenceElementConfigType               ElementConfigType = "off_page_reference"
-	PolygonElementConfigType                        ElementConfigType = "polygon"
-	SelectElementConfigType                         ElementConfigType = "select"
-	ScaleElementConfigType                          ElementConfigType = "scale"
-	SetpointElementConfigType                       ElementConfigType = "setpoint"
-	StateIndicatorElementConfigType                 ElementConfigType = "state_indicator"
-	StringDisplayElementConfigType                  ElementConfigType = "string_display"
-	SwitchElementConfigType                         ElementConfigType = "switch"
-	TextBoxElementConfigType                        ElementConfigType = "text_box"
-	ValueElementConfigType                          ElementConfigType = "value"
-	AgitatorElementConfigType                       ElementConfigType = "agitator"
-	CrossBeamAgitatorElementConfigType              ElementConfigType = "cross_beam_agitator"
-	FlatBladeAgitatorElementConfigType              ElementConfigType = "flat_blade_agitator"
-	HeatExchangerGeneralElementConfigType           ElementConfigType = "heat_exchanger_general"
-	HeatExchangerMElementConfigType                 ElementConfigType = "heat_exchanger_m"
-	HeatExchangerStraightTubeElementConfigType      ElementConfigType = "heat_exchanger_straight_tube"
-	HelicalAgitatorElementConfigType                ElementConfigType = "helical_agitator"
-	PaddleAgitatorElementConfigType                 ElementConfigType = "paddle_agitator"
-	PropellerAgitatorElementConfigType              ElementConfigType = "propeller_agitator"
-	RotaryMixerElementConfigType                    ElementConfigType = "rotary_mixer"
-	StaticMixerElementConfigType                    ElementConfigType = "static_mixer"
-	CavityPumpElementConfigType                     ElementConfigType = "cavity_pump"
-	CentrifugalCompressorElementConfigType          ElementConfigType = "centrifugal_compressor"
-	CompressorElementConfigType                     ElementConfigType = "compressor"
-	DiaphragmPumpElementConfigType                  ElementConfigType = "diaphragm_pump"
-	EjectionPumpElementConfigType                   ElementConfigType = "ejection_pump"
-	EjectorCompressorElementConfigType              ElementConfigType = "ejector_compressor"
-	LiquidRingCompressorElementConfigType           ElementConfigType = "liquid_ring_compressor"
-	PistonPumpElementConfigType                     ElementConfigType = "piston_pump"
-	PumpElementConfigType                           ElementConfigType = "pump"
-	RollerVaneCompressorElementConfigType           ElementConfigType = "roller_vane_compressor"
-	ScrewPumpElementConfigType                      ElementConfigType = "screw_pump"
-	TurboCompressorElementConfigType                ElementConfigType = "turbo_compressor"
-	VacuumPumpElementConfigType                     ElementConfigType = "vacuum_pump"
-	BurstDiscElementConfigType                      ElementConfigType = "burst_disc"
-	FlameArrestorElementConfigType                  ElementConfigType = "flame_arrestor"
-	FlameArrestorDetonationElementConfigType        ElementConfigType = "flame_arrestor_detonation"
-	FlameArrestorExplosionElementConfigType         ElementConfigType = "flame_arrestor_explosion"
-	FlameArrestorFireResElementConfigType           ElementConfigType = "flame_arrestor_fire_res"
+	// CapElementConfigType selects the CapElementConfig variant.
+	CapElementConfigType ElementConfigType = "cap"
+	// FilterElementConfigType selects the FilterElementConfig variant.
+	FilterElementConfigType ElementConfigType = "filter"
+	// FlowStraightenerElementConfigType selects the FlowStraightenerElementConfig
+	// variant.
+	FlowStraightenerElementConfigType ElementConfigType = "flow_straightener"
+	// HeaterElementElementConfigType selects the HeaterElementElementConfig variant.
+	HeaterElementElementConfigType ElementConfigType = "heater_element"
+	// IsoCapElementConfigType selects the IsoCapElementConfig variant.
+	IsoCapElementConfigType ElementConfigType = "iso_cap"
+	// IsoFilterElementConfigType selects the IsoFilterElementConfig variant.
+	IsoFilterElementConfigType ElementConfigType = "iso_filter"
+	// NozzleElementConfigType selects the NozzleElementConfig variant.
+	NozzleElementConfigType ElementConfigType = "nozzle"
+	// OrificeElementConfigType selects the OrificeElementConfig variant.
+	OrificeElementConfigType ElementConfigType = "orifice"
+	// OrificePlateElementConfigType selects the OrificePlateElementConfig variant.
+	OrificePlateElementConfigType ElementConfigType = "orifice_plate"
+	// StrainerElementConfigType selects the StrainerElementConfig variant.
+	StrainerElementConfigType ElementConfigType = "strainer"
+	// StrainerConeElementConfigType selects the StrainerConeElementConfig variant.
+	StrainerConeElementConfigType ElementConfigType = "strainer_cone"
+	// ThrusterElementConfigType selects the ThrusterElementConfig variant.
+	ThrusterElementConfigType ElementConfigType = "thruster"
+	// VentElementConfigType selects the VentElementConfig variant.
+	VentElementConfigType ElementConfigType = "vent"
+	// FlowmeterGeneralElementConfigType selects the FlowmeterGeneralElementConfig
+	// variant.
+	FlowmeterGeneralElementConfigType ElementConfigType = "flowmeter_general"
+	// FlowmeterElectromagneticElementConfigType selects the
+	// FlowmeterElectromagneticElementConfig variant.
+	FlowmeterElectromagneticElementConfigType ElementConfigType = "flowmeter_electromagnetic"
+	// FlowmeterVariableAreaElementConfigType selects the
+	// FlowmeterVariableAreaElementConfig variant.
+	FlowmeterVariableAreaElementConfigType ElementConfigType = "flowmeter_variable_area"
+	// FlowmeterCoriolisElementConfigType selects the FlowmeterCoriolisElementConfig
+	// variant.
+	FlowmeterCoriolisElementConfigType ElementConfigType = "flowmeter_coriolis"
+	// FlowmeterNozzleElementConfigType selects the FlowmeterNozzleElementConfig
+	// variant.
+	FlowmeterNozzleElementConfigType ElementConfigType = "flowmeter_nozzle"
+	// FlowmeterVenturiElementConfigType selects the FlowmeterVenturiElementConfig
+	// variant.
+	FlowmeterVenturiElementConfigType ElementConfigType = "flowmeter_venturi"
+	// FlowmeterRingPistonElementConfigType selects the FlowmeterRingPistonElementConfig
+	// variant.
+	FlowmeterRingPistonElementConfigType ElementConfigType = "flowmeter_ring_piston"
+	// FlowmeterPositiveDisplacementElementConfigType selects the
+	// FlowmeterPositiveDisplacementElementConfig variant.
+	FlowmeterPositiveDisplacementElementConfigType ElementConfigType = "flowmeter_positive_displacement"
+	// FlowmeterTurbineElementConfigType selects the FlowmeterTurbineElementConfig
+	// variant.
+	FlowmeterTurbineElementConfigType ElementConfigType = "flowmeter_turbine"
+	// FlowmeterPulseElementConfigType selects the FlowmeterPulseElementConfig variant.
+	FlowmeterPulseElementConfigType ElementConfigType = "flowmeter_pulse"
+	// FlowmeterFloatSensorElementConfigType selects the
+	// FlowmeterFloatSensorElementConfig variant.
+	FlowmeterFloatSensorElementConfigType ElementConfigType = "flowmeter_float_sensor"
+	// FlowmeterOrificeElementConfigType selects the FlowmeterOrificeElementConfig
+	// variant.
+	FlowmeterOrificeElementConfigType ElementConfigType = "flowmeter_orifice"
+	// BoxElementConfigType is the configuration for box annotation symbols.
+	BoxElementConfigType ElementConfigType = "box"
+	// ButtonElementConfigType is the configuration for button symbols.
+	ButtonElementConfigType ElementConfigType = "button"
+	// CircleElementConfigType is the configuration for circle annotation symbols.
+	CircleElementConfigType ElementConfigType = "circle"
+	// GaugeElementConfigType is the configuration for gauge symbols.
+	GaugeElementConfigType ElementConfigType = "gauge"
+	// InputElementConfigType is the configuration for free-form input symbols.
+	InputElementConfigType ElementConfigType = "input"
+	// LightElementConfigType is the configuration for indicator light symbols.
+	LightElementConfigType ElementConfigType = "light"
+	// LineElementConfigType is the configuration for straight line symbols.
+	LineElementConfigType ElementConfigType = "line"
+	// OffPageReferenceElementConfigType is the configuration for off-page reference
+	// symbols.
+	OffPageReferenceElementConfigType ElementConfigType = "off_page_reference"
+	// PolygonElementConfigType is the configuration for polygon annotation symbols.
+	PolygonElementConfigType ElementConfigType = "polygon"
+	// SelectElementConfigType is the configuration for select symbols.
+	SelectElementConfigType ElementConfigType = "select"
+	// ScaleElementConfigType is the configuration for standalone scale symbols.
+	ScaleElementConfigType ElementConfigType = "scale"
+	// SetpointElementConfigType is the configuration for numeric setpoint symbols.
+	SetpointElementConfigType ElementConfigType = "setpoint"
+	// StateIndicatorElementConfigType is the configuration for multi-state indicator
+	// symbols.
+	StateIndicatorElementConfigType ElementConfigType = "state_indicator"
+	// StringDisplayElementConfigType is the configuration for live string display
+	// symbols.
+	StringDisplayElementConfigType ElementConfigType = "string_display"
+	// SwitchElementConfigType selects the SwitchElementConfig variant.
+	SwitchElementConfigType ElementConfigType = "switch"
+	// TextBoxElementConfigType is the configuration for text box annotation symbols.
+	TextBoxElementConfigType ElementConfigType = "text_box"
+	// ValueElementConfigType is the configuration for live telemetry value symbols.
+	ValueElementConfigType ElementConfigType = "value"
+	// AgitatorElementConfigType selects the AgitatorElementConfig variant.
+	AgitatorElementConfigType ElementConfigType = "agitator"
+	// CrossBeamAgitatorElementConfigType selects the CrossBeamAgitatorElementConfig
+	// variant.
+	CrossBeamAgitatorElementConfigType ElementConfigType = "cross_beam_agitator"
+	// FlatBladeAgitatorElementConfigType selects the FlatBladeAgitatorElementConfig
+	// variant.
+	FlatBladeAgitatorElementConfigType ElementConfigType = "flat_blade_agitator"
+	// HeatExchangerGeneralElementConfigType selects the
+	// HeatExchangerGeneralElementConfig variant.
+	HeatExchangerGeneralElementConfigType ElementConfigType = "heat_exchanger_general"
+	// HeatExchangerMElementConfigType selects the HeatExchangerMElementConfig variant.
+	HeatExchangerMElementConfigType ElementConfigType = "heat_exchanger_m"
+	// HeatExchangerStraightTubeElementConfigType selects the
+	// HeatExchangerStraightTubeElementConfig variant.
+	HeatExchangerStraightTubeElementConfigType ElementConfigType = "heat_exchanger_straight_tube"
+	// HelicalAgitatorElementConfigType selects the HelicalAgitatorElementConfig
+	// variant.
+	HelicalAgitatorElementConfigType ElementConfigType = "helical_agitator"
+	// PaddleAgitatorElementConfigType selects the PaddleAgitatorElementConfig variant.
+	PaddleAgitatorElementConfigType ElementConfigType = "paddle_agitator"
+	// PropellerAgitatorElementConfigType selects the PropellerAgitatorElementConfig
+	// variant.
+	PropellerAgitatorElementConfigType ElementConfigType = "propeller_agitator"
+	// RotaryMixerElementConfigType selects the RotaryMixerElementConfig variant.
+	RotaryMixerElementConfigType ElementConfigType = "rotary_mixer"
+	// StaticMixerElementConfigType selects the StaticMixerElementConfig variant.
+	StaticMixerElementConfigType ElementConfigType = "static_mixer"
+	// CavityPumpElementConfigType selects the CavityPumpElementConfig variant.
+	CavityPumpElementConfigType ElementConfigType = "cavity_pump"
+	// CentrifugalCompressorElementConfigType selects the
+	// CentrifugalCompressorElementConfig variant.
+	CentrifugalCompressorElementConfigType ElementConfigType = "centrifugal_compressor"
+	// CompressorElementConfigType selects the CompressorElementConfig variant.
+	CompressorElementConfigType ElementConfigType = "compressor"
+	// DiaphragmPumpElementConfigType selects the DiaphragmPumpElementConfig variant.
+	DiaphragmPumpElementConfigType ElementConfigType = "diaphragm_pump"
+	// EjectionPumpElementConfigType selects the EjectionPumpElementConfig variant.
+	EjectionPumpElementConfigType ElementConfigType = "ejection_pump"
+	// EjectorCompressorElementConfigType selects the EjectorCompressorElementConfig
+	// variant.
+	EjectorCompressorElementConfigType ElementConfigType = "ejector_compressor"
+	// LiquidRingCompressorElementConfigType selects the
+	// LiquidRingCompressorElementConfig variant.
+	LiquidRingCompressorElementConfigType ElementConfigType = "liquid_ring_compressor"
+	// PistonPumpElementConfigType selects the PistonPumpElementConfig variant.
+	PistonPumpElementConfigType ElementConfigType = "piston_pump"
+	// PumpElementConfigType selects the PumpElementConfig variant.
+	PumpElementConfigType ElementConfigType = "pump"
+	// RollerVaneCompressorElementConfigType selects the
+	// RollerVaneCompressorElementConfig variant.
+	RollerVaneCompressorElementConfigType ElementConfigType = "roller_vane_compressor"
+	// ScrewPumpElementConfigType selects the ScrewPumpElementConfig variant.
+	ScrewPumpElementConfigType ElementConfigType = "screw_pump"
+	// TurboCompressorElementConfigType selects the TurboCompressorElementConfig
+	// variant.
+	TurboCompressorElementConfigType ElementConfigType = "turbo_compressor"
+	// VacuumPumpElementConfigType selects the VacuumPumpElementConfig variant.
+	VacuumPumpElementConfigType ElementConfigType = "vacuum_pump"
+	// BurstDiscElementConfigType selects the BurstDiscElementConfig variant.
+	BurstDiscElementConfigType ElementConfigType = "burst_disc"
+	// FlameArrestorElementConfigType selects the FlameArrestorElementConfig variant.
+	FlameArrestorElementConfigType ElementConfigType = "flame_arrestor"
+	// FlameArrestorDetonationElementConfigType selects the
+	// FlameArrestorDetonationElementConfig variant.
+	FlameArrestorDetonationElementConfigType ElementConfigType = "flame_arrestor_detonation"
+	// FlameArrestorExplosionElementConfigType selects the
+	// FlameArrestorExplosionElementConfig variant.
+	FlameArrestorExplosionElementConfigType ElementConfigType = "flame_arrestor_explosion"
+	// FlameArrestorFireResElementConfigType selects the
+	// FlameArrestorFireResElementConfig variant.
+	FlameArrestorFireResElementConfigType ElementConfigType = "flame_arrestor_fire_res"
+	// FlameArrestorFireResDetonationElementConfigType selects the
+	// FlameArrestorFireResDetonationElementConfig variant.
 	FlameArrestorFireResDetonationElementConfigType ElementConfigType = "flame_arrestor_fire_res_detonation"
-	IsoBurstDiscElementConfigType                   ElementConfigType = "iso_burst_disc"
-	AngledValveElementConfigType                    ElementConfigType = "angled_valve"
-	AngledReliefValveElementConfigType              ElementConfigType = "angled_relief_valve"
-	AngledSpringLoadedReliefValveElementConfigType  ElementConfigType = "angled_spring_loaded_relief_valve"
-	BallValveElementConfigType                      ElementConfigType = "ball_valve"
-	BreatherValveElementConfigType                  ElementConfigType = "breather_valve"
-	ButterflyValveOneElementConfigType              ElementConfigType = "butterfly_valve_one"
-	ButterflyValveTwoElementConfigType              ElementConfigType = "butterfly_valve_two"
-	CheckValveElementConfigType                     ElementConfigType = "check_valve"
-	CheckValveWithArrowElementConfigType            ElementConfigType = "check_valve_with_arrow"
-	ElectricRegulatorElementConfigType              ElementConfigType = "electric_regulator"
-	ElectricRegulatorMotorizedElementConfigType     ElementConfigType = "electric_regulator_motorized"
-	FourWayValveElementConfigType                   ElementConfigType = "four_way_valve"
-	GateValveElementConfigType                      ElementConfigType = "gate_valve"
-	IsoCheckValveElementConfigType                  ElementConfigType = "iso_check_valve"
-	ManualValveElementConfigType                    ElementConfigType = "manual_valve"
-	NeedleValveElementConfigType                    ElementConfigType = "needle_valve"
-	RegulatorElementConfigType                      ElementConfigType = "regulator"
-	RegulatorManualElementConfigType                ElementConfigType = "regulator_manual"
-	ReliefValveElementConfigType                    ElementConfigType = "relief_valve"
-	SolenoidValveElementConfigType                  ElementConfigType = "solenoid_valve"
-	SpringLoadedReliefValveElementConfigType        ElementConfigType = "spring_loaded_relief_valve"
-	ThreeWayValveElementConfigType                  ElementConfigType = "three_way_valve"
-	ThreeWayBallValveElementConfigType              ElementConfigType = "three_way_ball_valve"
-	ValveElementConfigType                          ElementConfigType = "valve"
-	CrossJunctionElementConfigType                  ElementConfigType = "cross_junction"
-	CylinderElementConfigType                       ElementConfigType = "cylinder"
-	TankElementConfigType                           ElementConfigType = "tank"
-	TJunctionElementConfigType                      ElementConfigType = "t_junction"
-	CustomActuatorElementConfigType                 ElementConfigType = "custom_actuator"
-	CustomStaticElementConfigType                   ElementConfigType = "custom_static"
-	GroupBoxElementConfigType                       ElementConfigType = "group_box"
-	PipeElementConfigType                           ElementConfigType = "pipe"
-	ElectricElementConfigType                       ElementConfigType = "electric"
-	SecondaryElementConfigType                      ElementConfigType = "secondary"
-	JacketedElementConfigType                       ElementConfigType = "jacketed"
-	HydraulicElementConfigType                      ElementConfigType = "hydraulic"
-	PneumaticElementConfigType                      ElementConfigType = "pneumatic"
-	DataElementConfigType                           ElementConfigType = "data"
+	// IsoBurstDiscElementConfigType selects the IsoBurstDiscElementConfig variant.
+	IsoBurstDiscElementConfigType ElementConfigType = "iso_burst_disc"
+	// AngledValveElementConfigType selects the AngledValveElementConfig variant.
+	AngledValveElementConfigType ElementConfigType = "angled_valve"
+	// AngledReliefValveElementConfigType selects the AngledReliefValveElementConfig
+	// variant.
+	AngledReliefValveElementConfigType ElementConfigType = "angled_relief_valve"
+	// AngledSpringLoadedReliefValveElementConfigType selects the
+	// AngledSpringLoadedReliefValveElementConfig variant.
+	AngledSpringLoadedReliefValveElementConfigType ElementConfigType = "angled_spring_loaded_relief_valve"
+	// BallValveElementConfigType selects the BallValveElementConfig variant.
+	BallValveElementConfigType ElementConfigType = "ball_valve"
+	// BreatherValveElementConfigType selects the BreatherValveElementConfig variant.
+	BreatherValveElementConfigType ElementConfigType = "breather_valve"
+	// ButterflyValveOneElementConfigType selects the ButterflyValveOneElementConfig
+	// variant.
+	ButterflyValveOneElementConfigType ElementConfigType = "butterfly_valve_one"
+	// ButterflyValveTwoElementConfigType selects the ButterflyValveTwoElementConfig
+	// variant.
+	ButterflyValveTwoElementConfigType ElementConfigType = "butterfly_valve_two"
+	// CheckValveElementConfigType selects the CheckValveElementConfig variant.
+	CheckValveElementConfigType ElementConfigType = "check_valve"
+	// CheckValveWithArrowElementConfigType selects the CheckValveWithArrowElementConfig
+	// variant.
+	CheckValveWithArrowElementConfigType ElementConfigType = "check_valve_with_arrow"
+	// ElectricRegulatorElementConfigType selects the ElectricRegulatorElementConfig
+	// variant.
+	ElectricRegulatorElementConfigType ElementConfigType = "electric_regulator"
+	// ElectricRegulatorMotorizedElementConfigType selects the
+	// ElectricRegulatorMotorizedElementConfig variant.
+	ElectricRegulatorMotorizedElementConfigType ElementConfigType = "electric_regulator_motorized"
+	// FourWayValveElementConfigType selects the FourWayValveElementConfig variant.
+	FourWayValveElementConfigType ElementConfigType = "four_way_valve"
+	// GateValveElementConfigType selects the GateValveElementConfig variant.
+	GateValveElementConfigType ElementConfigType = "gate_valve"
+	// IsoCheckValveElementConfigType selects the IsoCheckValveElementConfig variant.
+	IsoCheckValveElementConfigType ElementConfigType = "iso_check_valve"
+	// ManualValveElementConfigType selects the ManualValveElementConfig variant.
+	ManualValveElementConfigType ElementConfigType = "manual_valve"
+	// NeedleValveElementConfigType selects the NeedleValveElementConfig variant.
+	NeedleValveElementConfigType ElementConfigType = "needle_valve"
+	// RegulatorElementConfigType selects the RegulatorElementConfig variant.
+	RegulatorElementConfigType ElementConfigType = "regulator"
+	// RegulatorManualElementConfigType selects the RegulatorManualElementConfig
+	// variant.
+	RegulatorManualElementConfigType ElementConfigType = "regulator_manual"
+	// ReliefValveElementConfigType selects the ReliefValveElementConfig variant.
+	ReliefValveElementConfigType ElementConfigType = "relief_valve"
+	// SolenoidValveElementConfigType is the configuration for solenoid valve symbols.
+	SolenoidValveElementConfigType ElementConfigType = "solenoid_valve"
+	// SpringLoadedReliefValveElementConfigType selects the
+	// SpringLoadedReliefValveElementConfig variant.
+	SpringLoadedReliefValveElementConfigType ElementConfigType = "spring_loaded_relief_valve"
+	// ThreeWayValveElementConfigType selects the ThreeWayValveElementConfig variant.
+	ThreeWayValveElementConfigType ElementConfigType = "three_way_valve"
+	// ThreeWayBallValveElementConfigType selects the ThreeWayBallValveElementConfig
+	// variant.
+	ThreeWayBallValveElementConfigType ElementConfigType = "three_way_ball_valve"
+	// ValveElementConfigType selects the ValveElementConfig variant.
+	ValveElementConfigType ElementConfigType = "valve"
+	// CrossJunctionElementConfigType selects the CrossJunctionElementConfig variant.
+	CrossJunctionElementConfigType ElementConfigType = "cross_junction"
+	// CylinderElementConfigType is the configuration for cylinder vessel symbols.
+	CylinderElementConfigType ElementConfigType = "cylinder"
+	// TankElementConfigType is the configuration for tank vessel symbols.
+	TankElementConfigType ElementConfigType = "tank"
+	// TJunctionElementConfigType selects the TJunctionElementConfig variant.
+	TJunctionElementConfigType ElementConfigType = "t_junction"
+	// CustomActuatorElementConfigType is the configuration for user-defined actuator
+	// symbols.
+	CustomActuatorElementConfigType ElementConfigType = "custom_actuator"
+	// CustomStaticElementConfigType is the configuration for user-defined static
+	// symbols.
+	CustomStaticElementConfigType ElementConfigType = "custom_static"
+	// GroupBoxElementConfigType is the configuration for a group box, the symbol that
+	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
+	GroupBoxElementConfigType ElementConfigType = "group_box"
+	// PipeElementConfigType selects the PipeElementConfig variant.
+	PipeElementConfigType ElementConfigType = "pipe"
+	// ElectricElementConfigType selects the ElectricElementConfig variant.
+	ElectricElementConfigType ElementConfigType = "electric"
+	// SecondaryElementConfigType selects the SecondaryElementConfig variant.
+	SecondaryElementConfigType ElementConfigType = "secondary"
+	// JacketedElementConfigType selects the JacketedElementConfig variant.
+	JacketedElementConfigType ElementConfigType = "jacketed"
+	// HydraulicElementConfigType selects the HydraulicElementConfig variant.
+	HydraulicElementConfigType ElementConfigType = "hydraulic"
+	// PneumaticElementConfigType selects the PneumaticElementConfig variant.
+	PneumaticElementConfigType ElementConfigType = "pneumatic"
+	// DataElementConfigType selects the DataElementConfig variant.
+	DataElementConfigType ElementConfigType = "data"
 )
 
+// ElementConfigVariant is implemented by every ElementConfig variant.
 type ElementConfigVariant interface {
 	isElementConfigVariant()
 }
@@ -9713,7 +10030,11 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.DataElementConfig
 	default:
-		return errors.Newf("ElementConfig: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ElementConfig: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

@@ -55,7 +55,7 @@ const PERSIST_EXCLUDE: Array<Persist.ExcludeFn<State>> = [
 // Every slice lives in exactly one partition scope, under the schema its stored
 // bytes are parsed through, or in transient. Persist.open throws when one is
 // missing from all four.
-const PERSIST_SCOPES: Persist.Scopes<State> = {
+export const PERSIST_SCOPES: Persist.Scopes<State> = {
   global: {
     [Account.SLICE_NAME]: Account.sliceStateZ,
     [Core.SLICE_NAME]: Core.sliceStateZ,
@@ -268,7 +268,15 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
   return await Drift.configureStore<State, Action>({
     runtime,
     preloadedState,
-    middleware: (def) => new Tuple(...def(), ...middleware),
+    // The checks run only in dev, where their timing warnings only track machine load.
+    middleware: (def) =>
+      new Tuple(
+        ...def({
+          immutableCheck: { warnAfter: Infinity },
+          serializableCheck: { warnAfter: Infinity },
+        }),
+        ...middleware,
+      ),
     reducer,
     enablePrerender,
     debug,

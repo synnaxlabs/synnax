@@ -18,8 +18,10 @@ import { useContext } from "@/dialog/Frame";
 import { type Icon } from "@/icon";
 
 /** Props for {@link Trigger}. */
-export interface TriggerProps extends Button.ButtonProps {
+export interface TriggerProps extends Omit<Button.ButtonProps, "variant"> {
   hideCaret?: boolean;
+  /** "shadow" draws no box at rest, for a field in a list item. */
+  variant?: Button.Variant | "shadow";
 }
 
 /**
@@ -45,13 +47,17 @@ export const Trigger = ({
     );
   return (
     <Button.Button
-      className={CSS.cls(CSS.BE("dialog", "trigger"), className)}
+      className={CSS.cls(
+        CSS.BE("dialog", "trigger"),
+        triggerVariant === "shadow" && CSS.M("shadow"),
+        className,
+      )}
       onClick={(e) => {
         onClick?.(e);
         toggle();
       }}
       full="x"
-      variant={triggerVariant}
+      variant={triggerVariant === "shadow" ? "outlined" : triggerVariant}
       preview={preview}
       aria-haspopup={opensDialog ? "dialog" : undefined}
       aria-expanded={opensDialog ? visible : undefined}

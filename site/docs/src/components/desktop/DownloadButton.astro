@@ -11,6 +11,12 @@
 import { installers } from "@/components/desktop/installers";
 import Buttons from "@/components/download/Buttons.astro";
 
+export interface Props {
+    /** Where the button sits, sent with each click. */
+    location?: string;
+}
+
+const { location } = Astro.props;
 const version = await Astro.locals.releases.latest("desktop");
 ---
 
@@ -20,4 +26,5 @@ const version = await Astro.locals.releases.latest("desktop");
     platforms={installers(version)}
     label="Download Synnax Desktop"
     prominent
+    location={location}
 />

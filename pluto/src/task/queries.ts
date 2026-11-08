@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, query, rack, type Synnax, task } from "@synnaxlabs/client";
+import { query, rack, type resource, type Synnax, task } from "@synnaxlabs/client";
 import { array, type optional, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -88,7 +88,11 @@ export type ListQuery = task.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
   name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, internal: false, ...query }),
+  normalizeQuery: (query) => ({
+    ...BASE_QUERY,
+    ...query,
+    where: { internal: { eq: false }, ...query.where },
+  }),
   retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
     await client.tasks.retrieve({ ...BASE_QUERY, key }),
@@ -184,7 +188,7 @@ export interface SnapshotPair extends Pick<task.Payload, "key" | "name"> {}
 
 export interface SnapshotParams {
   tasks: SnapshotPair | SnapshotPair[];
-  parentID: ontology.ID;
+  parentID: resource.ID;
 }
 
 export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams>({
@@ -197,7 +201,7 @@ export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams
         .toArray(taskPairs)
         .map(({ key, name }) => client.tasks.copy(key, `${name} (Snapshot)`, true)),
     );
-    const otgIDs = tasks.map(({ ontologyID }) => ontologyID);
+    const otgIDs = tasks.map(({ resourceID }) => resourceID);
     await client.ontology.addChildren(parentID, ...otgIDs);
     return data;
   },
@@ -245,7 +249,7 @@ export const { useUpdate: useCommand } = Flux.createUpdate<CommandParams>({
     const commands = array.toArray(data);
     const keys = commands.map(({ task }) => task);
     // Warm the cache so command listeners can update the tasks' statuses.
-    await client.tasks.retrieve({ keys, includeStatus: true });
+    await client.tasks.retrieve({ key: keys, includeStatus: true });
     await client.tasks.executeCommand({ commands });
     return data;
   },

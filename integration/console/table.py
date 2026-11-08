@@ -22,7 +22,7 @@ _DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
 class Table(ConsolePage):
     """Table page management interface"""
 
-    page_type: PageType = "Table"
+    page_type: PageType = "table"
     pluto_label: str = ".pluto-table"
 
     def __init__(

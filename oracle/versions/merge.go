@@ -506,6 +506,9 @@ func extractLive(source string) (*liveContent, error) {
 				for _, d := range body.AllDomain() {
 					liveOwned(d, addType)
 				}
+				for _, ad := range body.AllActionDef() {
+					ex.actionBlocks = append(ex.actionBlocks, text(ad))
+				}
 				for _, v := range body.AllUnionVariant() {
 					iv, ok := v.(*parser.InlineVariantContext)
 					if !ok || iv.StructBody() == nil {
@@ -515,6 +518,15 @@ func extractLive(source string) (*liveContent, error) {
 					for _, fd := range iv.StructBody().AllFieldDef() {
 						collectField(fd, ex, prefix)
 					}
+				}
+			}
+		case def.FilterDef() != nil:
+			if body := def.FilterDef().FilterBody(); body != nil {
+				for _, fd := range body.AllFieldDef() {
+					collectField(fd, ex, "")
+				}
+				for _, d := range body.AllDomain() {
+					liveOwned(d, addType)
 				}
 			}
 		}
@@ -538,6 +550,8 @@ func definitionName(def parser.IDefinitionContext) (string, bool) {
 		return def.TypeDefDef().IDENT().GetText(), true
 	case def.UnionDef() != nil:
 		return def.UnionDef().AllIDENT()[0].GetText(), true
+	case def.FilterDef() != nil:
+		return def.FilterDef().AllIDENT()[0].GetText(), true
 	}
 	return "", false
 }

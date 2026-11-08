@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Unpack
+
 """Base test case for headless Arc integration tests.
 
 Drives the Arc program + task lifecycle directly through the Synnax Python client,
@@ -25,8 +27,7 @@ from uuid import UUID
 from pydantic import ValidationError
 
 import synnax as sy
-from framework.models import DEFAULT_CONNECTION, SynnaxConnection
-from framework.test_case import TestCase
+from framework.test_case import Config, TestCase, param
 from framework.utils import create_virtual_channel
 from tests.driver.sim_daq_case import SimDaqCase
 from x import random_name
@@ -57,18 +58,12 @@ class ArcCase(SimDaqCase, TestCase):
     start_cmd_channel: str
     end_cmd_channel: str = ""
     subscribe_channels: list[str]
-    rack: sy.Rack | None
+    rack: sy.Rack
     arc_name: str
     _arcs: list[ArcTaskHandle]
 
-    def __init__(
-        self,
-        *,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        name: str,
-        **params: object,
-    ) -> None:
-        super().__init__(synnax_connection=synnax_connection, name=name, **params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self._arcs = []
 
     def setup(self) -> None:
@@ -83,7 +78,6 @@ class ArcCase(SimDaqCase, TestCase):
                 raise TypeError(
                     f"{self.__class__.__name__} must define class attribute '{attr}'"
                 )
-        self.rack = None
         self.set_manual_timeout(180)
         create_virtual_channel(
             self.client, self.start_cmd_channel, data_type=sy.DataType.UINT8
@@ -92,12 +86,11 @@ class ArcCase(SimDaqCase, TestCase):
         super().setup()
 
     def _retrieve_rack(self) -> None:
-        rack_key = self.params.get("rack_key")
+        rack_key = param(self.params, "rack_key", 0)
         if rack_key:
             self.rack = self.client.racks.retrieve(rack_key)
         else:
             self.rack = self.client.racks.retrieve(embedded=False, limit=1)[0]
-        assert self.rack is not None, "Failed to retrieve rack"
         self.log(f"Selecting rack: {self.rack.name} (key: {self.rack.key})")
 
     def load_arc(
@@ -114,7 +107,6 @@ class ArcCase(SimDaqCase, TestCase):
         start command deploys it and this blocks until the runtime reports it
         running.
         """
-        assert self.rack is not None, "Call _retrieve_rack() before load_arc()"
         name = f"{name_prefix}_{random_name()}"
         self.log(f"Creating Arc: {name}")
         arc = self.client.arcs.create(name=name, text=sy.Text(raw=source), mode="text")
@@ -126,7 +118,7 @@ class ArcCase(SimDaqCase, TestCase):
         )
         self._arcs.append(ArcTaskHandle(name=name, arc_key=arc.key, task=task))
         self.client.tasks.configure(task)
-        self.client.ontology.add_children(arc.ontology_id, task.ontology_id)
+        self.client.ontology.add_children(arc.resource_id, task.resource_id)
         if start:
             self.start_arc_task(task)
             self.log(f"Arc is running: {name}")

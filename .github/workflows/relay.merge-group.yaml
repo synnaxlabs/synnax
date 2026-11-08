@@ -1,0 +1,38 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Starts Check - Review queue for a merge group. This file runs from the queued commit,
+# so the check verifies what it passes.
+
+name: Relay - Merge group
+
+on:
+  merge_group:
+    types:
+      - checks_requested
+
+permissions: {}
+
+jobs:
+  relay:
+    name: Relay merge group
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Start Check - Review queue
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          QUEUE_REF: ${{ github.event.merge_group.head_ref }}
+          REF: ${{ github.event.repository.default_branch }}
+          SHA: ${{ github.event.merge_group.head_sha }}
+        run: |
+          gh workflow run check.review.queue.yaml --ref "$REF" \
+            -f queue_ref="${QUEUE_REF#refs/heads/}" -f sha="$SHA"

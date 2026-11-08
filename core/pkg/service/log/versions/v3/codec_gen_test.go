@@ -47,7 +47,7 @@ var _ = Describe("Codec", func() {
 					A: 6.5,
 				},
 				Notation:  notation.Notation("standard"),
-				Precision: new(int32(9)),
+				Precision: new(uint8(9)),
 				Alias:     "test_9",
 				Timestamp: v3.TimestampConfig{
 					Format: telem.TimestampFormat("ISO"),
@@ -93,7 +93,7 @@ var _ = Describe("Codec", func() {
 							A: 9.5,
 						},
 						Notation:  notation.Notation("standard"),
-						Precision: new(int32(12)),
+						Precision: new(uint8(12)),
 						Alias:     "test_12",
 						Timestamp: v3.TimestampConfig{
 							Format: telem.TimestampFormat("ISO"),
@@ -101,25 +101,28 @@ var _ = Describe("Codec", func() {
 						},
 					},
 				},
-				TimestampPrecision:     17,
-				ChannelNamesHidden:     true,
-				ReceiptTimestampHidden: false,
+				TimestampPrecision: 17,
+				ChannelNamesHidden: true,
+				TimestampsHidden:   false,
+				TimeZone:           telem.TimeZone("local"),
 			}),
 			Entry("zero values", v3.Log{
-				Key:                    uuid.Nil(),
-				Name:                   "",
-				Channels:               []v3.ChannelEntry{},
-				TimestampPrecision:     0,
-				ChannelNamesHidden:     false,
-				ReceiptTimestampHidden: false,
+				Key:                uuid.Nil(),
+				Name:               "",
+				Channels:           []v3.ChannelEntry{},
+				TimestampPrecision: 0,
+				ChannelNamesHidden: false,
+				TimestampsHidden:   false,
+				TimeZone:           telem.TimeZone(""),
 			}),
 			Entry("empty collections", v3.Log{
-				Key:                    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:                   "test_2",
-				Channels:               []v3.ChannelEntry{},
-				TimestampPrecision:     5,
-				ChannelNamesHidden:     true,
-				ReceiptTimestampHidden: false,
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:               "test_2",
+				Channels:           []v3.ChannelEntry{},
+				TimestampPrecision: 5,
+				ChannelNamesHidden: true,
+				TimestampsHidden:   false,
+				TimeZone:           telem.TimeZone("local"),
 			}),
 		)
 	})
@@ -135,7 +138,7 @@ func BenchmarkEncodeDecodeChannelEntry(b *testing.B) {
 			A: 6.5,
 		},
 		Notation:  notation.Notation("standard"),
-		Precision: new(int32(9)),
+		Precision: new(uint8(9)),
 		Alias:     "test_9",
 		Timestamp: v3.TimestampConfig{
 			Format: telem.TimestampFormat("ISO"),
@@ -171,7 +174,7 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 					A: 9.5,
 				},
 				Notation:  notation.Notation("standard"),
-				Precision: new(int32(12)),
+				Precision: new(uint8(12)),
 				Alias:     "test_12",
 				Timestamp: v3.TimestampConfig{
 					Format: telem.TimestampFormat("ISO"),
@@ -179,9 +182,10 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 				},
 			},
 		},
-		TimestampPrecision:     17,
-		ChannelNamesHidden:     true,
-		ReceiptTimestampHidden: false,
+		TimestampPrecision: 17,
+		ChannelNamesHidden: true,
+		TimestampsHidden:   false,
+		TimeZone:           telem.TimeZone("local"),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -209,7 +213,7 @@ func FuzzDecodeChannelEntry(f *testing.F) {
 				A: 6.5,
 			},
 			Notation:  notation.Notation("standard"),
-			Precision: new(int32(9)),
+			Precision: new(uint8(9)),
 			Alias:     "test_9",
 			Timestamp: v3.TimestampConfig{
 				Format: telem.TimestampFormat("ISO"),
@@ -279,7 +283,7 @@ func FuzzDecodeLog(f *testing.F) {
 						A: 9.5,
 					},
 					Notation:  notation.Notation("standard"),
-					Precision: new(int32(12)),
+					Precision: new(uint8(12)),
 					Alias:     "test_12",
 					Timestamp: v3.TimestampConfig{
 						Format: telem.TimestampFormat("ISO"),
@@ -287,9 +291,10 @@ func FuzzDecodeLog(f *testing.F) {
 					},
 				},
 			},
-			TimestampPrecision:     17,
-			ChannelNamesHidden:     true,
-			ReceiptTimestampHidden: false,
+			TimestampPrecision: 17,
+			ChannelNamesHidden: true,
+			TimestampsHidden:   false,
+			TimeZone:           telem.TimeZone("local"),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -299,12 +304,13 @@ func FuzzDecodeLog(f *testing.F) {
 	}
 	{
 		seed := v3.Log{
-			Key:                    uuid.Nil(),
-			Name:                   "",
-			Channels:               []v3.ChannelEntry{},
-			TimestampPrecision:     0,
-			ChannelNamesHidden:     false,
-			ReceiptTimestampHidden: false,
+			Key:                uuid.Nil(),
+			Name:               "",
+			Channels:           []v3.ChannelEntry{},
+			TimestampPrecision: 0,
+			ChannelNamesHidden: false,
+			TimestampsHidden:   false,
+			TimeZone:           telem.TimeZone(""),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -314,12 +320,13 @@ func FuzzDecodeLog(f *testing.F) {
 	}
 	{
 		seed := v3.Log{
-			Key:                    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:                   "test_2",
-			Channels:               []v3.ChannelEntry{},
-			TimestampPrecision:     5,
-			ChannelNamesHidden:     true,
-			ReceiptTimestampHidden: false,
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:               "test_2",
+			Channels:           []v3.ChannelEntry{},
+			TimestampPrecision: 5,
+			ChannelNamesHidden: true,
+			TimestampsHidden:   false,
+			TimeZone:           telem.TimeZone("local"),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

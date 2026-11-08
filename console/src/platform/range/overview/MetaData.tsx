@@ -26,6 +26,8 @@ import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
 
+const path = Ranger.kvPairFormPath;
+
 interface ValueInputProps extends Input.TextProps {}
 
 const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
@@ -136,7 +138,7 @@ const CreateItem = ({ rangeKey, visible, onClose }: CreateItemProps): ReactEleme
       <Form.Form<typeof Ranger.kvPairFormSchema> {...form}>
         <Form.TextField
           className={CSS.BE("range-metadata", "key-cell")}
-          path="key"
+          path={path.key}
           inputProps={{
             ref: inputRef,
             selectOnFocus: true,
@@ -149,7 +151,7 @@ const CreateItem = ({ rangeKey, visible, onClose }: CreateItemProps): ReactEleme
           showHelpText={false}
         />
         <Divider.Divider y />
-        <Form.Field<string> path="value" showLabel={false} showHelpText={false}>
+        <Form.Field path={path.value} showLabel={false} showHelpText={false}>
           {(p) => <ValueInput {...p} />}
         </Form.Field>
         <Flex.Box pack>
@@ -180,7 +182,7 @@ const sort = (a: kv.Pair, b: kv.Pair) => a.key.localeCompare(b.key);
 export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
   const [newFormVisible, setNewFormVisible] = useState(false);
   const { data, getItem, subscribe, retrieve, status } = Ranger.useListMetaData({
-    initialQuery: { rangeKey },
+    query: { rangeKey },
     sort,
   });
   useEffect(() => retrieve({ rangeKey }), [rangeKey]);

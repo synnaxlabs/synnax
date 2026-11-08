@@ -59,12 +59,23 @@ const create = async <S extends task.Schemas = task.Schemas>({
 }: CreateParams &
   CreateUseCreateParams<S> & { client: Synnax }): Promise<task.Task> => {
   if (deviceKey == null && config == null && deviceMake != null) {
-    const devices = await client.devices.retrieve({ makes: [deviceMake], limit: 2 });
+    const devices = await client.devices.retrieve({
+      make: deviceMake,
+      limit: 2,
+    });
     // Picking a device in the form opens its configure dialog; a preset one skips it.
     if (devices.length === 1 && devices[0].configured) deviceKey = devices[0].key;
   }
   // Initial values carry the zero payload's empty key; the row must mint its own.
-  const { status: _, key: __, ...initial } = getInitialValues({ deviceKey, config });
+  const {
+    status: _,
+    key: __,
+    ...initial
+  } = await getInitialValues({
+    client,
+    deviceKey,
+    config,
+  });
   return await client.tasks.create({ ...initial, rack: rackKey ?? initial.rack ?? 0 });
 };
 
@@ -94,7 +105,7 @@ export const createUseCreate = <S extends task.Schemas = task.Schemas>({
         });
         openTab({
           variant: "resource",
-          resource: task.ontologyID(created.key),
+          resource: task.resourceID(created.key),
           key: tabKey,
         });
       }, "Failed to create task");

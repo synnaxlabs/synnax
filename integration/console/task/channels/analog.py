@@ -7,10 +7,29 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal
+from typing import Literal, TypedDict
 
+import synnax as sy
 from console.layout import LayoutClient
+from console.task.channels.labels import label as console_label
 from console.task.channels.utils import get_port, is_numeric_string, set_port
+
+ScaleType = Literal["none", "linear", "map", "table"]
+
+
+class OutputOptions(TypedDict, total=False):
+    """Options that every analog channel type accepts."""
+
+    port: int | None
+    min_val: float | None
+    max_val: float | None
+    custom_scale: ScaleType | None
+
+
+class Options(OutputOptions, total=False):
+    """Options that every analog input channel type accepts."""
+
+    terminal_config: sy.ni.TerminalConfig | None
 
 
 class Analog:
@@ -23,25 +42,16 @@ class Analog:
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         chan_type: str,
         port: int | None = None,
-        terminal_config: (
-            Literal[
-                "Default",
-                "Differential",
-                "Pseudo-Differential",
-                "Referenced single ended",
-                "Non-referenced single ended",
-            ]
-            | None
-        ) = None,
+        terminal_config: sy.ni.TerminalConfig | None = None,
         min_val: float | None = None,
         max_val: float | None = None,
-        custom_scale: Literal["None", "Linear", "Map", "Table"] | None = None,
+        custom_scale: ScaleType | None = None,
     ) -> None:
         """
         Initialize analog channel with common configuration.
@@ -52,11 +62,10 @@ class Analog:
             device: Device identifier
             chan_type: Channel type (e.g., "Voltage", "Accelerometer")
             port: Physical port number
-            terminal_config: "Default", "Differential", "Pseudo-Differential",
-                           "Referenced single ended", "Non-referenced single ended"
+            terminal_config: Terminal configuration
             min_val: Minimum value
             max_val: Maximum value
-            custom_scale: "None", "Linear", "Map", "Table"
+            custom_scale: Custom scale type
         """
         self.layout = layout
         self.device = device
@@ -83,12 +92,13 @@ class Analog:
 
         if terminal_config is not None:
             layout.click_btn("Terminal configuration")
+            terminal_label = console_label(terminal_config)
             layout.select_from_dropdown(
-                terminal_config,
+                terminal_label,
                 exact=True,
                 reopen=lambda: layout.click_btn("Terminal configuration"),
             )
-            values["Terminal configuration"] = terminal_config
+            values["Terminal configuration"] = terminal_label
         elif self.has_terminal_config():
             values["Terminal configuration"] = layout.get_dropdown_value(
                 "Terminal configuration"
@@ -114,12 +124,13 @@ class Analog:
         no_custom_scale_types = ("RTD", "Temperature built-in sensor", "Thermocouple")
         if custom_scale is not None:
             layout.click_btn("Custom scaling")
+            scale_label = console_label(custom_scale)
             layout.select_from_dropdown(
-                custom_scale,
+                scale_label,
                 exact=True,
                 reopen=lambda: layout.click_btn("Custom scaling"),
             )
-            values["Custom scaling"] = custom_scale
+            values["Custom scaling"] = scale_label
         elif chan_type not in no_custom_scale_types:
             values["Custom scaling"] = layout.get_dropdown_value("Custom scaling")
 
@@ -173,6 +184,7 @@ class Analog:
             track: Whether to track the value in form_values
         """
         if value is not None:
+            value = console_label(value)
             # A single-option dropdown (e.g. sound pressure units) already shows its
             # only value, and opening it renders no selectable list, so selecting the
             # value it already holds would hang. Skip when it already matches.
@@ -199,6 +211,7 @@ class Analog:
         """
         if value is None:
             return
+        value = console_label(value)
         trigger = self.layout.page.locator(
             f"button.lyra-dialog__trigger:has-text('{trigger_text}')"
         )

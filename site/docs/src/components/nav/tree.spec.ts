@@ -9,17 +9,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  editionOf,
-  firstPages,
-  groupOf,
-  labels,
-  neighbors,
-  type PageNavNode,
-  sectionOf,
-} from "@/components/nav/tree";
+import { Nav } from "@/components/nav";
 
-const NODES: PageNavNode[] = [
+const NODES: Nav.PageNavNode[] = [
   { href: "/reference/", name: "Get started" },
   {
     key: "channels",
@@ -60,92 +52,92 @@ const NODES: PageNavNode[] = [
 describe("tree", () => {
   describe("neighbors", () => {
     it("should link across section boundaries in depth-first order", () => {
-      const { prev, next } = neighbors(NODES, "/reference/channels/create");
+      const { prev, next } = Nav.neighbors(NODES, "/reference/channels/create");
       expect(prev?.href).toBe("/reference/channels");
       expect(next?.href).toBe("/reference/enterprise");
     });
 
     it("should skip nodes that have no page", () => {
-      const { prev, next } = neighbors(NODES, "/reference/enterprise");
+      const { prev, next } = Nav.neighbors(NODES, "/reference/enterprise");
       expect(prev?.href).toBe("/reference/channels/create");
       expect(next?.href).toBe("/reference/enterprise/cli");
     });
 
     it("should leave the first page without a previous page", () => {
-      const { prev, next } = neighbors(NODES, "/reference/");
+      const { prev, next } = Nav.neighbors(NODES, "/reference/");
       expect(prev).toBeUndefined();
       expect(next?.href).toBe("/reference/channels");
     });
 
     it("should leave the last page without a next page", () => {
-      const { prev, next } = neighbors(NODES, "/reference/desktop");
+      const { prev, next } = Nav.neighbors(NODES, "/reference/desktop");
       expect(prev?.href).toBe("/reference/enterprise/cli");
       expect(next).toBeUndefined();
     });
 
     it("should ignore a trailing slash on the path", () => {
-      expect(neighbors(NODES, "/reference/channels/").next?.href).toBe(
+      expect(Nav.neighbors(NODES, "/reference/channels/").next?.href).toBe(
         "/reference/channels/create",
       );
     });
 
     it("should return no neighbors for a path outside the tree", () => {
-      expect(neighbors(NODES, "/reference/missing")).toEqual({});
+      expect(Nav.neighbors(NODES, "/reference/missing")).toEqual({});
     });
   });
 
   describe("editionOf", () => {
     it("should return undefined for a page that applies to every edition", () => {
-      expect(editionOf(NODES, "/reference/channels/create")).toBeUndefined();
+      expect(Nav.editionOf(NODES, "/reference/channels/create")).toBeUndefined();
     });
 
     it("should inherit the edition of the nearest ancestor", () => {
-      expect(editionOf(NODES, "/reference/enterprise/cli")).toBe("enterprise");
+      expect(Nav.editionOf(NODES, "/reference/enterprise/cli")).toBe("enterprise");
     });
 
     it("should read the edition set on the page itself", () => {
-      expect(editionOf(NODES, "/reference/desktop")).toBe("desktop");
+      expect(Nav.editionOf(NODES, "/reference/desktop")).toBe("desktop");
     });
 
     it("should return undefined for a path outside the tree", () => {
-      expect(editionOf(NODES, "/reference/missing")).toBeUndefined();
+      expect(Nav.editionOf(NODES, "/reference/missing")).toBeUndefined();
     });
   });
 
   describe("groupOf", () => {
     it("should return the group that holds the page", () => {
-      expect(groupOf(NODES, "/reference/channels/create")).toBe("Channels");
+      expect(Nav.groupOf(NODES, "/reference/channels/create")).toBe("Channels");
     });
 
     it("should return the nearest group of a nested page", () => {
-      expect(groupOf(NODES, "/reference/enterprise/cli")).toBe("Advanced");
+      expect(Nav.groupOf(NODES, "/reference/enterprise/cli")).toBe("Advanced");
     });
 
     it("should return undefined for a page outside every group", () => {
-      expect(groupOf(NODES, "/reference/desktop")).toBeUndefined();
+      expect(Nav.groupOf(NODES, "/reference/desktop")).toBeUndefined();
     });
 
     it("should return undefined for a path outside the tree", () => {
-      expect(groupOf(NODES, "/reference/missing")).toBeUndefined();
+      expect(Nav.groupOf(NODES, "/reference/missing")).toBeUndefined();
     });
   });
 
   describe("sectionOf", () => {
     it("should return the top-level group that holds the page", () => {
-      expect(sectionOf(NODES, "/reference/enterprise/cli")).toBe("Enterprise");
+      expect(Nav.sectionOf(NODES, "/reference/enterprise/cli")).toBe("Enterprise");
     });
 
     it("should return undefined for a top-level page", () => {
-      expect(sectionOf(NODES, "/reference/desktop")).toBeUndefined();
+      expect(Nav.sectionOf(NODES, "/reference/desktop")).toBeUndefined();
     });
 
     it("should return undefined for a path outside the tree", () => {
-      expect(sectionOf(NODES, "/reference/missing")).toBeUndefined();
+      expect(Nav.sectionOf(NODES, "/reference/missing")).toBeUndefined();
     });
   });
 
   describe("firstPages", () => {
-    const GROUPS: PageNavNode[] = [
+    const GROUPS: Nav.PageNavNode[] = [
       {
         key: "get-started",
         name: "Get started",
@@ -184,7 +176,7 @@ describe("tree", () => {
         ],
       },
     ];
-    const pages = firstPages(GROUPS, "/reference");
+    const pages = Nav.firstPages(GROUPS, "/reference");
 
     it("should map a group to its first page as the nav writes it", () => {
       expect(pages.get("/reference/get-started")).toBe("/reference/");
@@ -219,15 +211,17 @@ describe("tree", () => {
 
   describe("labels", () => {
     it("should name a page after its node", () => {
-      expect(labels(NODES).get("/reference/channels/create")).toBe("Create channels");
+      expect(Nav.labels(NODES).get("/reference/channels/create")).toBe(
+        "Create channels",
+      );
     });
 
     it("should name the route that a group's pages share after the group", () => {
-      expect(labels(NODES).get("/reference/enterprise")).toBe("Enterprise");
+      expect(Nav.labels(NODES).get("/reference/enterprise")).toBe("Enterprise");
     });
 
     it("should name a route that nested groups share after the outermost one", () => {
-      const named = labels([
+      const named = Nav.labels([
         {
           key: "enterprise",
           name: "Enterprise",
@@ -250,7 +244,7 @@ describe("tree", () => {
     });
 
     it("should leave the route that every page shares without a name", () => {
-      expect(labels(NODES).has("/reference")).toBe(false);
+      expect(Nav.labels(NODES).has("/reference")).toBe(false);
     });
   });
 });

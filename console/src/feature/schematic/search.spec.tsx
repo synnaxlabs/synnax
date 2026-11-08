@@ -31,7 +31,7 @@ describe("schematic/search", () => {
   it("opens the schematic as a tab when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("schematic");
-    const resource = createResource(schematic.ontologyID(key), name);
+    const resource = createResource(schematic.resourceID(key), name);
     const SearchListItem = Schematic.SEARCH_LIST_ITEMS.schematic;
     if (SearchListItem == null)
       throw new Error("schematic SearchListItem is not defined");

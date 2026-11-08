@@ -150,6 +150,8 @@ func (s *Service) OnAction(
 // committed before the actions are notified, so two concurrent dispatches can never
 // overwrite each other's edits. dispatchKey is a client-generated identifier carried
 // verbatim onto the broadcast so the originating client can recognize its own echo.
+// Returns a validation error, and stores nothing, if the actions leave the line plot
+// invalid.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	key Key,
@@ -164,7 +166,14 @@ func (s *Service) Dispatch(
 		func(tx gorp.Tx) ([]Action, error) {
 			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
 				ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
-					return Reduce(p, acts...)
+					reduced, err := Reduce(p, acts...)
+					if err != nil {
+						return LinePlot{}, err
+					}
+					if err = reduced.Validate(); err != nil {
+						return LinePlot{}, err
+					}
+					return reduced, nil
 				}).Exec(ctx, tx)
 		},
 	)

@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Sequence
 from uuid import uuid4
 
 from synnax import device, task
@@ -78,7 +79,7 @@ class AnalogReadTask(
         stream_rate: CrudeRate = 5,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[AIChannel] | None = None,
+        channels: Sequence[AIChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -90,7 +91,7 @@ class AnalogReadTask(
             stream_rate=Rate(stream_rate),
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
         _assign_channel_devices(self.config.channels, device)
@@ -125,7 +126,7 @@ class AnalogWriteTask(
         state_rate: CrudeRate = 10,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[AOChannel] | None = None,
+        channels: Sequence[AOChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -137,7 +138,7 @@ class AnalogWriteTask(
             state_rate=Rate(state_rate),
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
 
@@ -175,7 +176,7 @@ class CounterReadTask(
         stream_rate: CrudeRate = 5,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[CIChannel] | None = None,
+        channels: Sequence[CIChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -187,7 +188,7 @@ class CounterReadTask(
             stream_rate=Rate(stream_rate),
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
         _assign_channel_devices(self.config.channels, device)
@@ -224,7 +225,7 @@ class DigitalReadTask(
         stream_rate: CrudeRate = 5,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[DIChannel] | None = None,
+        channels: Sequence[DIChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -237,7 +238,7 @@ class DigitalReadTask(
             stream_rate=Rate(stream_rate),
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
 
@@ -271,7 +272,7 @@ class DigitalWriteTask(
         state_rate: CrudeRate = 10,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[DOChannel] | None = None,
+        channels: Sequence[DOChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -283,7 +284,7 @@ class DigitalWriteTask(
             state_rate=Rate(state_rate),
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
 

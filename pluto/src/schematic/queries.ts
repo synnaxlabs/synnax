@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type project, query, schematic } from "@synnaxlabs/client";
+import { type project, query, type resource, schematic } from "@synnaxlabs/client";
 import { array, compare, uuid, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -27,9 +27,10 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   schematic.Schematic
 >({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
-  onChange: ({ client, query }, handler) => client.schematics.onChange(query, handler),
-  getCached: ({ client, query }) => client.schematics.getCached(query),
+  retrieve: async ({ client, query }) => await client.schematics.retrieve(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.schematics.onChange(query.key, handler),
+  getCached: ({ client, query }) => client.schematics.getCached(query.key),
   awaitCreation: true,
 });
 
@@ -156,7 +157,7 @@ export interface SnapshotPair extends Pick<schematic.Schematic, "key" | "name"> 
 
 export interface SnapshotParams {
   schematics: SnapshotPair | SnapshotPair[];
-  parentID: ontology.ID;
+  parentID: resource.ID;
 }
 
 export const { useUpdate: useSnapshot } = Flux.createUpdate<SnapshotParams>({
@@ -171,7 +172,7 @@ export const { useUpdate: useSnapshot } = Flux.createUpdate<SnapshotParams>({
           name: `${s.name} (Snapshot)`,
           snapshot: true,
         });
-        return schematic.ontologyID(newSchematic.key);
+        return schematic.resourceID(newSchematic.key);
       }),
     );
     await client.ontology.addChildren(parentID, ...ids);

@@ -16,12 +16,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
+	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,8 +36,9 @@ func TestAPIRack(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	svc    *service.Layer
-	apiSvc *apirack.Service
+	svc       *service.Layer
+	apiSvc    *apirack.Service
+	statusAPI *apistatus.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -50,6 +52,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status: svc.Status,
 		RBAC:   svc.RBAC,
 		Auth:   svc.Auth,
+	}))
+	statusAPI = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
+		Status: svc.Status,
+		Label:  svc.Label,
+		RBAC:   svc.RBAC,
 	}))
 })
 
@@ -65,8 +72,8 @@ func createUser(ctx SpecContext) user.User {
 func grant(
 	ctx SpecContext,
 	action access.Action,
-	subject ontology.ID,
-	objects ...ontology.ID,
+	subject resource.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
 	roleWriter := svc.RBAC.Role.NewWriter(nil, true)

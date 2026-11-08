@@ -10,12 +10,11 @@
 import { context } from "@synnaxlabs/lyra/context";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Store } from "@synnaxlabs/lyra/store";
+import { type deep } from "@synnaxlabs/x";
 import {
   type PointerEvent,
   type PropsWithChildren,
   type ReactElement,
-  type RefCallback,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -34,16 +33,6 @@ import {
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
-const CHANNELS_PATH = "config.channels";
-
-// The channel under the pointer, in the list or in the map. Both mark it, so each
-// points at the other.
-const Hovered = Store.createPresence("Modbus.Hovered");
-const [SetHovered, useSetHoveredContext] = context.create<(key?: string) => void>({
-  displayName: "Modbus.SetHovered",
-  providerName: "Modbus.RegisterMapProvider",
-});
-
 const [FindOverlaps, useFindOverlaps] = context.create<
   (channels: Channel[]) => Overlaps
 >({ displayName: "Modbus.FindOverlaps", providerName: "Modbus.RegisterMapProvider" });
@@ -58,53 +47,20 @@ const createFindOverlaps = () => {
   };
 };
 
-/**
- * Shares the channel under the pointer and the overlapping addresses between the
- * channel list and the map.
- */
+/** Shares the overlapping addresses between the channel list and the map. */
 export const RegisterMapProvider = ({ children }: PropsWithChildren): ReactElement => {
-  const [hovered, setHovered] = useState<string>();
   const [find] = useState(createFindOverlaps);
-  return (
-    <SetHovered value={setHovered}>
-      <FindOverlaps value={find}>
-        <Hovered.Context value={hovered}>{children}</Hovered.Context>
-      </FindOverlaps>
-    </SetHovered>
-  );
-};
-
-/** @returns whether the channel is under the pointer, in the list or in the map. */
-export const useIsHovered = Hovered.useIsPresent;
-
-const useSetHovered = (): ((key?: string) => void) =>
-  useSetHoveredContext("Modbus.useSetHovered");
-
-/**
- * @returns a ref that marks the channel as hovered while the pointer is over the
- * element. It listens to native events, since React also sends the element the pointer
- * events of its portals, such as an open menu.
- */
-export const useHoveredRef = (key: string): RefCallback<HTMLElement> => {
-  const setHovered = useSetHovered();
-  return (el) => {
-    if (el == null) return;
-    const handleEnter = () => setHovered(key);
-    const handleLeave = () => setHovered();
-    el.addEventListener("pointerenter", handleEnter);
-    el.addEventListener("pointerleave", handleLeave);
-    return () => {
-      el.removeEventListener("pointerenter", handleEnter);
-      el.removeEventListener("pointerleave", handleLeave);
-    };
-  };
+  return <FindOverlaps value={find}>{children}</FindOverlaps>;
 };
 
 // Subscribes to a value derived from the channels, so a component re-renders only
 // when that value changes, not on every edit to a channel.
-const useDerived = <T,>(derive: (channels: Channel[]) => T): T => {
+const useDerived = <T,>(
+  path: deep.Target<Channel[]>,
+  derive: (channels: Channel[]) => T,
+): T => {
   const { get, bind } = Form.useContext();
-  const getSnapshot = () => derive(get<Channel[]>(CHANNELS_PATH).value);
+  const getSnapshot = () => derive(get(path).value);
   return useSyncExternalStore(bind, getSnapshot, getSnapshot);
 };
 
@@ -112,9 +68,9 @@ const useDerived = <T,>(derive: (channels: Channel[]) => T): T => {
  * @returns whether another channel of the same type uses one of the channel's
  * addresses.
  */
-export const useOverlaps = (key: string): boolean => {
+export const useOverlaps = (path: deep.Target<Channel[]>, key: string): boolean => {
   const find = useFindOverlaps("Modbus.useOverlaps");
-  return useDerived((channels) => find(channels).keys.has(key));
+  return useDerived(path, (channels) => find(channels).keys.has(key));
 };
 
 // Past this many addresses, the ticks would merge into one fill.
@@ -128,7 +84,12 @@ interface Free<C extends Channel> {
   address: number;
 }
 
-export interface RegisterMapProps<C extends Channel> {
+export interface RegisterMapProps<C extends Channel> extends Pick<
+  Task.Views.PortsProps<C>,
+  "selected" | "onSelect"
+> {
+  /** The form path of the channels. */
+  path: deep.Target<C[]>;
   /** Creates the channel that a click on a free address adds. */
   createChannel: (type: C["type"], address: number) => C;
 }
@@ -137,17 +98,20 @@ export interface RegisterMapProps<C extends Channel> {
  * The addresses that the channels use: a lane for each register type, on one address
  * scale. Used addresses fill, and a hatched band marks an address that two channels
  * use. Pointing at a segment marks its channel in the list, and the other way around.
- * A segment opens its channel's menu, and a click on a free address adds a channel
- * there.
+ * A click on a segment selects its channel, and a right click opens its menu. A click
+ * on a free address adds a channel there.
  */
 export const RegisterMap = <C extends Channel>({
+  path,
   createChannel,
+  selected,
+  onSelect,
 }: RegisterMapProps<C>): ReactElement | null => {
-  const channels = Form.useFieldValue<C[]>(CHANNELS_PATH);
+  const channels = Form.useFieldValue(path);
   const { set } = Form.useContext();
   const isPreview = Task.useIsPreview();
-  const hovered = Hovered.usePresent();
-  const setHovered = useSetHovered();
+  const hovered = Task.Port.useHovered();
+  const setHovered = Task.Port.useSetHovered();
   const find = useFindOverlaps("Modbus.RegisterMap");
   const [free, setFree] = useState<Free<C>>();
   if (channels.length === 0) return null;
@@ -173,8 +137,10 @@ export const RegisterMap = <C extends Channel>({
   };
   const handleAdd = () => {
     if (free == null) return;
-    set(CHANNELS_PATH, [...channels, createChannel(free.type, free.address)]);
+    const channel = createChannel(free.type, free.address);
+    set(path, [...channels, channel]);
     setFree(undefined);
+    onSelect([channel.key]);
   };
   return (
     <div
@@ -231,6 +197,8 @@ export const RegisterMap = <C extends Channel>({
                     channel.key === hovered && CSS.BEM("modbus", "segment", "hovered"),
                     channel.disabled === true &&
                       CSS.BEM("modbus", "segment", "disabled"),
+                    selected.includes(channel.key) &&
+                      CSS.BEM("modbus", "segment", "selected"),
                   )}
                   data-menu-key={channel.key}
                   style={{ left: left(span[0]), width: width(span) }}
@@ -239,6 +207,7 @@ export const RegisterMap = <C extends Channel>({
                   onPointerMove={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
+                    onSelect([channel.key]);
                     document
                       .getElementById(channel.key)
                       ?.scrollIntoView({ block: "nearest", behavior: "smooth" });

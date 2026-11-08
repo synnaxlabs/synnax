@@ -27,14 +27,19 @@ var (
 
 // newGateway opens a new StreamWriter that writes to the store on the gateway node.
 func (s *Service) newGateway(ctx context.Context, cfg Config) (StreamWriter, error) {
-	w, err := s.cfg.TS.NewStreamWriter(ctx, cfg.toStorage())
+	storageCfg := cfg.toStorage()
+	virtual, err := virtualKeys(ctx, s.cfg.TS, storageCfg.Channels)
+	if err != nil {
+		return nil, err
+	}
+	w, err := s.cfg.TS.NewStreamWriter(ctx, storageCfg)
 	if err != nil {
 		return nil, err
 	}
 	pipe := plumber.New()
 	pipe.SetSegment(gatewayTSWriterAddr, w)
 	reqT := &confluence.LinearTransform[Request, ts.WriterRequest]{}
-	reqT.Transform = newRequestTranslator()
+	reqT.Transform = newRequestTranslator(virtual)
 	resT := &confluence.LinearTransform[ts.WriterResponse, Response]{}
 	resT.Transform = newResponseTranslator(s.cfg.HostResolver.HostKey())
 	pipe.SetSegment(gatewayRequestsAddr, reqT)

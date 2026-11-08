@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import override
+
 from x.exceptions import Error, ExceptionPayload, Provider
 
 _FREIGHTER_EXCEPTION_TYPE = "freighter."
@@ -25,6 +27,7 @@ class Unreachable(Error):
         self.message = message
         super().__init__(message)
 
+    @override
     def __str__(self) -> str:
         return self.message
 
@@ -34,6 +37,7 @@ class StreamClosed(Error):
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "stream_closed"
 
+    @override
     def __str__(self) -> str:
         return "StreamClosed"
 
@@ -43,6 +47,7 @@ class EOF(Error):
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "eof"
 
+    @override
     def __str__(self) -> str:
         return "EOF"
 

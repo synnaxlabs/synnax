@@ -96,4 +96,66 @@ TEST(LJMDeviceTest, testFailedStopAllowsNextStart) {
     ASSERT_OCCURRED_AS(dev.e_stream_stop(), FAKE_FAILURE);
     ASSERT_NIL(start_stream(dev));
 }
+
+/// @brief it should keep the value of a read that warns of a default calibration, and
+/// report the calibration as invalid from then on.
+TEST(LJMDeviceTest, testReadWarnsOfDefaultCalibration) {
+    const LJMDevice dev(open_fake_api(), DEFAULT_CALIBRATION_HANDLE);
+    EXPECT_FALSE(dev.calibration_invalid());
+    double value = 0;
+    ASSERT_NIL(dev.e_read_name("AIN0", &value));
+    EXPECT_EQ(value, READ_VALUE);
+    EXPECT_TRUE(dev.calibration_invalid());
+    ASSERT_NIL(start_stream(dev));
+    EXPECT_TRUE(dev.calibration_invalid());
+}
+
+/// @brief it should open a device whose open warns of a default calibration, and report
+/// the calibration as invalid.
+TEST(LJMManagerTest, testOpenWarnsOfDefaultCalibration) {
+    LJMManager manager(open_fake_api());
+    const auto dev = ASSERT_NIL_P(manager.acquire(DEFAULT_CALIBRATION_SERIAL));
+    ASSERT_NE(dev, nullptr);
+    EXPECT_TRUE(dev->calibration_invalid());
+}
+
+/// @brief it should report a lost connection as unreachable, with one message for
+/// every cause.
+TEST(ParseErrorTest, testLostConnectionIsUnreachable) {
+    const auto api = open_fake_api();
+    for (const auto code:
+         {LJME_DEVICE_NOT_FOUND,
+          LJME_RECONNECT_FAILED,
+          LJME_NO_RESPONSE_BYTES_RECEIVED}) {
+        const auto err = ljm::parse_error(api, code);
+        ASSERT_OCCURRED_AS(err, ljm::UNREACHABLE);
+        EXPECT_EQ(err.data, ljm::UNREACHABLE_MESSAGE);
+    }
+}
+
+/// @brief it should report an error that a retry or a new stream clears as temporary.
+TEST(ParseErrorTest, testRetryableErrorIsTemporary) {
+    const auto api = open_fake_api();
+    for (const auto code: {LJME_LJM_BUFFER_FULL, STREAM_BUFFER_FULL_CODE}) {
+        const auto err = ljm::parse_error(api, code);
+        ASSERT_OCCURRED_AS(err, ljm::TEMPORARY_ERROR);
+        EXPECT_FALSE(err.matches(ljm::UNREACHABLE));
+    }
+}
+
+/// @brief it should ignore a warning after which the operation still ran.
+TEST(ParseErrorTest, testWarningIsNil) {
+    const auto api = open_fake_api();
+    ASSERT_NIL(ljm::parse_error(api, LJME_USING_DEFAULT_CALIBRATION));
+    ASSERT_NIL(ljm::parse_error(api, LJME_DEBUG_LOG_FAILURE));
+}
+
+/// @brief it should report a configuration error, and a warning that skipped part of
+/// the operation, as critical.
+TEST(ParseErrorTest, testOtherErrorsAreCritical) {
+    const auto api = open_fake_api();
+    for (const auto code:
+         {LJME_INVALID_ADDRESS, LJME_FRAMES_OMITTED_DUE_TO_PACKET_SIZE})
+        ASSERT_OCCURRED_AS(ljm::parse_error(api, code), ljm::CRITICAL_ERROR);
+}
 }

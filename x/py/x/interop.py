@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from abc import abstractmethod
-from typing import Any
+from typing import Any, override
 
 import numpy as np
 import numpy.typing as npt
@@ -27,9 +27,11 @@ class ArrayOperators:
     ) -> np.ndarray: ...
 
     # Any matches NumPy's stubs, as object.__eq__ requires a bool return.
+    @override
     def __eq__(self, other: object) -> Any:
         return self.__array__().__eq__(other)
 
+    @override
     def __ne__(self, other: object) -> Any:
         return self.__array__().__ne__(other)
 

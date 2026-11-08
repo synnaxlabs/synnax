@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, task } from "@synnaxlabs/client";
+import { type ontology, resource, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Mosaic, Task as Base } from "@synnaxlabs/pluto";
@@ -35,13 +35,13 @@ const useDelete = Tree.createUseDelete({
 
 const useRename = Tree.createUseRename({
   useUpdate: Base.useRename,
-  ontologyID: task.ontologyID,
+  resourceID: task.resourceID,
   convertKey: String,
 });
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const { selection, openTab, state } = props;
-  const { ids, rootID } = selection;
+  const { ids, rootID, parentID } = selection;
   const resources = Tree.useResources(state, ids);
   const handleDelete = useDelete(props);
   const handleLink = Core.useCopyLinkToClipboard();
@@ -50,10 +50,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const range = Range.useResolve();
   const group = Group.useCreateFromSelection();
   const rename = useRename(props);
-  const ontologyIDs = ids.map((id) => task.ontologyID(id.key));
-  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
-  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
+  const resourceIDs = ids.map((id) => task.resourceID(id.key));
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
+  const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
+  const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
   const handleEdit = () => openTab({ variant: "resource", resource: resources[0].id });
   const singleResource = ids.length === 1;
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
@@ -73,6 +73,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             ids={ids}
             shape={state.shape}
             rootID={rootID}
+            parentID={parentID}
             onClick={() => group(props)}
           />
         </>
@@ -95,7 +96,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <Export.ContextMenuItem onClick={() => handleExport(ids[0])} />
           <Link.CopyContextMenuItem
             onClick={() =>
-              handleLink({ name: resources[0].name, ontologyID: resources[0].id })
+              handleLink({ name: resources[0].name, resourceID: resources[0].id })
             }
           />
         </>
@@ -113,7 +114,7 @@ const TreeItem = Tree.createItem({
   icon: <Icon.Task />,
   hasChildren: false,
   useOnSelect,
-  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
+  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
 

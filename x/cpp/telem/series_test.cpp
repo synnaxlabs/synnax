@@ -922,6 +922,35 @@ TEST(TestSeriesInplace, testDivideInplace) {
     ASSERT_THROW(zero_test.divide_inplace(0), std::runtime_error);
 }
 
+/// @brief it should replace each element with the result of the function.
+TEST(TestSeriesInplace, testMapInplace) {
+    Series float_series(std::vector{1.0, 2.0, 3.0});
+    float_series.map_inplace([](const double v) { return v * v; });
+    ASSERT_EQ(float_series.values<double>(), (std::vector{1.0, 4.0, 9.0}));
+
+    Series int_series(std::vector<int32_t>{1, 2, 3});
+    int_series.map_inplace([](const double v) { return v / 2; });
+    ASSERT_EQ(int_series.values<int32_t>(), (std::vector<int32_t>{0, 1, 1}));
+}
+
+/// @brief it should leave a shallow copy of the series unchanged.
+TEST(TestSeriesInplace, testMapInplaceSharedBuffer) {
+    Series series(std::vector{1.0, 2.0});
+    const auto copy = series.shallow_copy();
+    series.map_inplace([](const double v) { return v + 1; });
+    ASSERT_EQ(series.values<double>(), (std::vector{2.0, 3.0}));
+    ASSERT_EQ(copy.values<double>(), (std::vector{1.0, 2.0}));
+}
+
+/// @brief it should throw when the series is not numeric.
+TEST(TestSeriesInplace, testMapInplaceNonNumeric) {
+    const Series series(std::vector<std::string>{"a", "b"});
+    ASSERT_THROW(
+        series.map_inplace([](const double v) { return v; }),
+        std::runtime_error
+    );
+}
+
 /// @brief it should perform inplace operations on different numeric types.
 TEST(TestSeriesInplace, testMultipleTypes) {
     std::vector<uint8_t> uint8_data = {1, 2, 3, 4, 5};

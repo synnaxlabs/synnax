@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Writer is used to create, update, and delete symbols within Synnax. The writer
@@ -35,7 +36,7 @@ type Writer struct {
 func (w Writer) Create(
 	ctx context.Context,
 	s *Symbol,
-	parent ontology.ID,
+	parent resource.ID,
 ) (err error) {
 	s.ApplyDefaults()
 	if err = s.Validate(); err != nil {
@@ -45,7 +46,9 @@ func (w Writer) Create(
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(MatchKeys(s.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Symbol](s.Key)).
+			Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
@@ -53,7 +56,7 @@ func (w Writer) Create(
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := s.OntologyID()
+	otgID := s.ResourceID()
 	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
@@ -79,7 +82,7 @@ func (w Writer) Create(
 func (w Writer) CreateMany(
 	ctx context.Context,
 	symbols *[]Symbol,
-	parent ontology.ID,
+	parent resource.ID,
 ) error {
 	for i := range *symbols {
 		if err := w.Create(ctx, &(*symbols)[i], parent); err != nil {
@@ -92,7 +95,7 @@ func (w Writer) CreateMany(
 // Rename renames the symbol with the given key to the provided name.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	return w.table.NewUpdate().
-		Where(MatchKeys(key)).
+		Where(gorp.MatchKeys[Key, Symbol](key)).
 		Change(func(_ gorp.Context, s Symbol) Symbol {
 			s.Name = name
 			return s
@@ -103,9 +106,9 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 // Delete deletes the symbols with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.table.NewDelete().
-		Where(MatchKeys(keys...)).
+		Where(gorp.MatchKeys[Key, Symbol](keys...)).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
 }

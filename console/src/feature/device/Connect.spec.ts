@@ -13,6 +13,8 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
+import { EtherCAT } from "@/feature/ethercat";
+import { createSlaveDevice } from "@/feature/ethercat/testutil";
 import { LabJack } from "@/feature/labjack";
 import { createRunningRack, createTestDevice } from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
@@ -41,7 +43,7 @@ describe("Device.useConnectModal", () => {
       });
       await open({ rack: rack.key });
       const reasons = await screen.findAllByText(`${rack.name} is not running`);
-      expect(reasons).toHaveLength(6);
+      expect(reasons).toHaveLength(Device.INTEGRATIONS.length);
     });
 
     it("should name only the integrations the scoped Driver does not run", async () => {
@@ -75,6 +77,23 @@ describe("Device.useConnectModal", () => {
       expect(screen.queryByText(other.name)).toBeNull();
       fireEvent.click(findButton("Configure"));
       await screen.findByDisplayValue(found.name);
+      fireEvent.click(findButton("Back"));
+      expect(await screen.findByText(found.name)).toBeTruthy();
+    });
+
+    it("should configure a found EtherCAT slave in the EtherCAT form", async () => {
+      const rack = await createRunningRack(client, EtherCAT.Device.HARDWARE.key);
+      const found = await createSlaveDevice(
+        client,
+        rack.key,
+        { name: uniqueName("slave"), network: "eth0" },
+        false,
+      );
+      await open({ integration: EtherCAT.Device.HARDWARE.key, rack: rack.key });
+      await screen.findByText(found.name);
+      fireEvent.click(findButton("Configure"));
+      expect(await screen.findByText("General")).toBeTruthy();
+      expect(findButton("Save and create read task")).toBeTruthy();
       fireEvent.click(findButton("Back"));
       expect(await screen.findByText(found.name)).toBeTruthy();
     });

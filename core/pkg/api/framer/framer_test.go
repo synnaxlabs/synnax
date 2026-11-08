@@ -25,11 +25,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Framer", func() {
@@ -118,11 +119,50 @@ var _ = Describe("Framer", func() {
 				Keys:   channel.Keys{data.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
-			iter := MustSucceed(res.OpenIterator(ctx, channel.Keys{data.Key()}))
+			iter := MustSucceed(
+				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.Bounds),
+			)
 			Expect(iter.Close()).To(Succeed())
 			Expect(res.Channels).To(HaveLen(1))
 			Expect(res.Channels[0].Key()).To(Equal(data.Key()))
 			Expect(res.Indexes).To(BeEmpty())
+		})
+
+		It("Should reject a read with both latest and earliest", func(
+			ctx SpecContext,
+		) {
+			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:     channel.Keys{data.Key()},
+				Bounds:   telem.TimeRangeMax,
+				Latest:   10,
+				Earliest: 10,
+			})).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should reject a read with both earliest and a reduction", func(
+			ctx SpecContext,
+		) {
+			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:     channel.Keys{data.Key()},
+				Bounds:   telem.TimeRangeMax,
+				Earliest: 10,
+				Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{PointLimit: 10},
+				},
+			})).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should reject a read with both latest and a reduction", func(
+			ctx SpecContext,
+		) {
+			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:   channel.Keys{data.Key()},
+				Bounds: telem.TimeRangeMax,
+				Latest: 10,
+				Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{PointLimit: 10},
+				},
+			})).Error().To(MatchError(validate.ErrValidation))
 		})
 
 		It(
@@ -173,7 +213,9 @@ var _ = Describe("Framer", func() {
 				Reduction: reduction,
 			}))
 			Expect(res.Reduction).To(Equal(reduction))
-			iter := MustSucceed(res.OpenIterator(ctx, channel.Keys{data.Key()}))
+			iter := MustSucceed(
+				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.Bounds),
+			)
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(apiframer.IteratorAutoSpan)).To(BeTrue())
 			series := iter.Value().Get(data.Key()).Series
@@ -197,10 +239,10 @@ var _ = Describe("Framer", func() {
 				u := createUserGranted(
 					ctx,
 					access.ActionRetrieve,
-					svcframer.OntologyIDs(channel.Keys{data.Key()})...,
+					svcframer.ResourceIDs(channel.Keys{data.Key()})...,
 				)
 				Expect(apiSvc.Read(
-					subjectCtx(ctx, u.OntologyID()),
+					subjectCtx(ctx, u.ResourceID()),
 					apiframer.ReadRequest{
 						Keys:               channel.Keys{data.Key()},
 						Bounds:             telem.TimeRangeMax,
@@ -215,10 +257,10 @@ var _ = Describe("Framer", func() {
 					u := createUserGranted(
 						ctx,
 						access.ActionRetrieve,
-						svcframer.OntologyIDs(channel.Keys{data.Key()})...,
+						svcframer.ResourceIDs(channel.Keys{data.Key()})...,
 					)
 					res := MustSucceed(apiSvc.Read(
-						subjectCtx(ctx, u.OntologyID()),
+						subjectCtx(ctx, u.ResourceID()),
 						apiframer.ReadRequest{
 							Keys:   channel.Keys{data.Key()},
 							Bounds: telem.TimeRangeMax,
@@ -234,10 +276,10 @@ var _ = Describe("Framer", func() {
 				u := createUserGranted(
 					ctx,
 					access.ActionRetrieve,
-					svcframer.OntologyIDs(channel.Keys{data.Key(), index.Key()})...,
+					svcframer.ResourceIDs(channel.Keys{data.Key(), index.Key()})...,
 				)
 				res := MustSucceed(apiSvc.Read(
-					subjectCtx(ctx, u.OntologyID()),
+					subjectCtx(ctx, u.ResourceID()),
 					apiframer.ReadRequest{
 						Keys:               channel.Keys{data.Key()},
 						Bounds:             telem.TimeRangeMax,
@@ -249,10 +291,57 @@ var _ = Describe("Framer", func() {
 		})
 	})
 
+	Describe("Delete", func() {
+		It("Should delete data by exact name and not read a name as a pattern", func(
+			ctx SpecContext,
+		) {
+			index := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, &index)).To(Succeed())
+			data := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: index.LocalKey,
+			}
+			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			keys := channel.Keys{index.Key(), data.Key()}
+			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keys,
+			}))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+				telem.NewSeriesV[float32](1, 2, 3),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			hasData := func() bool {
+				GinkgoHelper()
+				iter := MustOpen(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+					Keys:   keys,
+					Bounds: telem.TimeRangeMax,
+				}))
+				return iter.SeekFirst()
+			}
+			Expect(apiSvc.Delete(rootCtx(ctx), nil, apiframer.DeleteRequest{
+				Names:  []string{index.Name + ".*", data.Name + ".*"},
+				Bounds: telem.TimeRangeMax,
+			})).Error().ToNot(HaveOccurred())
+			Expect(hasData()).To(BeTrue())
+			Expect(apiSvc.Delete(rootCtx(ctx), nil, apiframer.DeleteRequest{
+				Names:  []string{index.Name, data.Name},
+				Bounds: telem.TimeRangeMax,
+			})).Error().ToNot(HaveOccurred())
+			Expect(hasData()).To(BeFalse())
+		})
+	})
+
 	Describe("Stream", func() {
 		var (
-			readable = ontology.ID{Type: ontology.ResourceTypeTask, Key: "readable"}
-			denied   = ontology.ID{Type: ontology.ResourceTypeTask, Key: "denied"}
+			readable = resource.ID{Type: resource.TypeTask, Key: "readable"}
+			denied   = resource.ID{Type: resource.TypeTask, Key: "denied"}
 			records  channel.Channel
 			other    channel.Channel
 			writer   *svcframer.Writer
@@ -261,7 +350,7 @@ var _ = Describe("Framer", func() {
 				apiframer.StreamerResponse,
 			]
 		)
-		samples := func(ids ...ontology.ID) telem.Series {
+		samples := func(ids ...resource.ID) telem.Series {
 			series := telem.Series{DataType: telem.JSONT}
 			for _, id := range ids {
 				series.Data = append(
@@ -304,19 +393,19 @@ var _ = Describe("Framer", func() {
 				Channel: channelSvc,
 				RBAC:    rbacSvc,
 				Records: map[channel.Key]apiframer.RecordOf{
-					records.Key(): func(sample []byte) (ontology.ID, error) {
+					records.Key(): func(sample []byte) (resource.ID, error) {
 						id, err := strconv.Unquote(string(sample))
 						if err != nil {
-							return ontology.ID{}, err
+							return resource.ID{}, err
 						}
-						return ontology.ParseID(id)
+						return resource.ParseID(id)
 					},
 				},
 			}))
 			u := createUserGranted(
 				ctx,
 				access.ActionRetrieve,
-				append(svcframer.OntologyIDs(keys), readable)...,
+				append(svcframer.ResourceIDs(keys), readable)...,
 			)
 			var server apiframer.StreamerStream
 			client, server = freightertestutil.NewStreams[
@@ -324,7 +413,7 @@ var _ = Describe("Framer", func() {
 				apiframer.StreamerResponse,
 			](ctx)
 			done := make(chan error, 1)
-			go func() { done <- svc.Stream(subjectCtx(ctx, u.OntologyID()), server) }()
+			go func() { done <- svc.Stream(subjectCtx(ctx, u.ResourceID()), server) }()
 			DeferCleanup(func() {
 				Expect(client.CloseSend()).To(Succeed())
 				Eventually(done).WithTimeout(5 * time.Second).Should(Receive())

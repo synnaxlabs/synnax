@@ -115,6 +115,31 @@ var _ = Describe("Context", func() {
 		})
 	})
 
+	Describe("WithModule", func() {
+		It(
+			"Should return new context with the module flag set",
+			func(specCtx SpecContext) {
+				var (
+					ast    = testutil.NewMockAST(1)
+					ctx    = analyzerContext.NewRoot(specCtx, ast, nil)
+					newCtx = ctx.WithModule(true)
+				)
+				Expect(newCtx.Module).To(BeTrue())
+				Expect(ctx.Module).To(BeFalse())
+				Expect(newCtx.Scope).To(Equal(ctx.Scope))
+				Expect(newCtx.Diagnostics).To(BeIdenticalTo(ctx.Diagnostics))
+			},
+		)
+
+		It("Should carry the module flag into a child", func(specCtx SpecContext) {
+			var (
+				parent = analyzerContext.NewRoot(specCtx, testutil.NewMockAST(1), nil)
+				child  = parent.WithModule(true).Child(testutil.NewMockAST(2))
+			)
+			Expect(child.Module).To(BeTrue())
+		})
+	})
+
 	Describe("WithTypeHint", func() {
 		It(
 			"Should return new context with updated type hint",

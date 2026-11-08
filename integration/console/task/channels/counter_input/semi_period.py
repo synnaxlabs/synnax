@@ -7,10 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
-from console.task.channels.counter import Counter
+from console.task.channels.counter import Counter, Options
 
 
 class SemiPeriod(Counter):
@@ -26,12 +27,12 @@ class SemiPeriod(Counter):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
-        units: Literal["Seconds", "Ticks", "Custom"] | None = None,
-        **kwargs: Any,
+        *,
+        units: sy.ni.CITimeUnits | Literal["Custom"] | None = None,
+        **kwargs: Unpack[Options],
     ) -> None:
         """Initialize semi period channel with configuration."""
         super().__init__(

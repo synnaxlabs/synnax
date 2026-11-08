@@ -29,8 +29,25 @@ class TestOPCDevice:
             "security_mode": "SignAndEncrypt",
             "security_policy": "Basic256Sha256",
             "certificate_validation_disabled": True,
+            "client_timeout_ms": 5_000,
+            "secure_channel_lifetime_ms": 600_000,
+            "session_timeout_ms": 1_200_000,
             "server_certificate": "-----BEGIN CERTIFICATE-----",
         }
+
+    def test_timeout_properties(self) -> None:
+        """Should write the timeouts that the Driver reads."""
+        dev = sy.opcua.Device(
+            endpoint="opc.tcp://localhost:4840",
+            client_timeout_ms=2_000,
+            secure_channel_lifetime_ms=60_000,
+            session_timeout_ms=120_000,
+        )
+        connection = dev.properties["connection"]
+        assert isinstance(connection, dict)
+        assert connection["client_timeout_ms"] == 2_000
+        assert connection["secure_channel_lifetime_ms"] == 60_000
+        assert connection["session_timeout_ms"] == 120_000
 
 
 @pytest.mark.opcua
@@ -76,6 +93,21 @@ class TestOPCReadTask:
                             "channel": 1234,
                             "disabled": False,
                             "is_index": False,
+                        },
+                    ],
+                },
+            },
+            {
+                "name": "namespace_uri_node_id",
+                "data": {
+                    "device": "some-device-key",
+                    "sample_rate": 10,
+                    "stream_rate": 5,
+                    "channels": [
+                        {
+                            "key": "k09AWoiyLxN",
+                            "node_id": "nsu=urn:synnax:test;s=Pressure",
+                            "channel": 1234,
                         },
                     ],
                 },
@@ -131,6 +163,49 @@ class TestOPCReadTask:
             config=task.config,
         )
         sy.opcua.ReadTask(createdTask)
+
+    def test_nan_fill_enabled_round_trip(self, client: sy.Synnax) -> None:
+        """Should keep nan_fill_enabled through a create and retrieve."""
+        task = sy.opcua.ReadTask(
+            name="test-task", device="some-device-key", nan_fill_enabled=True
+        )
+        created = client.tasks.create(
+            name="test-task", type="opc_read", config=task.config
+        )
+        retrieved = client.tasks.retrieve(key=created.key)
+        assert sy.opcua.ReadTask(retrieved).config.nan_fill_enabled is True
+
+    def test_update_device_properties_maps_fields(self, client: sy.Synnax) -> None:
+        """Should map a field channel by node and field, apart from node channels."""
+        rack = client.racks.retrieve_embedded_rack()
+        dev = sy.opcua.Device(
+            endpoint="opc.tcp://localhost:4840",
+            name="Test OPC UA Device",
+            location="opc.tcp://localhost:4840",
+            rack=rack.key,
+        )
+        client.devices.create(dev)
+        task = sy.opcua.ReadTask(
+            name="test-task",
+            device=dev.key,
+            channels=[
+                sy.opcua.ReadChannel(
+                    node_id="NS=1;S=TestMotor", field="Speed", channel=11
+                ),
+                sy.opcua.ReadChannel(
+                    node_id="NS=1;S=TestMotor", field="Position.Y", channel=12
+                ),
+                sy.opcua.ReadChannel(node_id="NS=1;S=TestDouble", channel=13),
+            ],
+        )
+        task.update_device_properties(client.devices)
+        read = client.devices.retrieve(key=dev.key).properties["read"]
+        assert isinstance(read, dict)
+        assert read["fields"] == [
+            {"node_id": "NS=1;S=TestMotor", "field": "Speed", "channel": 11},
+            {"node_id": "NS=1;S=TestMotor", "field": "Position.Y", "channel": 12},
+        ]
+        assert read["channels"] == {"NS=1;S=TestDouble": 13}
 
 
 @pytest.mark.opcua

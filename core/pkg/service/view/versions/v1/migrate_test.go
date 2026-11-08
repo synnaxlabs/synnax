@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
@@ -40,9 +41,9 @@ var _ = Describe("Migration", func() {
 		GinkgoHelper()
 		Expect(gorp.NewCreate[v0.Key, v0.View]().Entries(&views).Exec(ctx, db)).
 			To(Succeed())
-		ids := make([]ontology.ID, len(views))
+		ids := make([]resource.ID, len(views))
 		for i, v := range views {
-			ids[i] = v.OntologyID()
+			ids[i] = v.ResourceID()
 		}
 		w := otg.NewWriter(db)
 		Expect(w.DefineResources(ctx, ontology.RootID)).To(Succeed())
@@ -149,7 +150,7 @@ var _ = Describe("Migration", func() {
 			Expect(retrieve(ctx, kept.Key)).Error().ToNot(HaveOccurred())
 			Expect(gorp.NewRetrieve[string, ontology.Resource]().
 				Where(gorp.MatchKeys[string, ontology.Resource](
-					dropped.OntologyID().String(),
+					dropped.ResourceID().String(),
 				)).
 				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			var rels []ontology.Relationship
@@ -158,7 +159,7 @@ var _ = Describe("Migration", func() {
 			Expect(rels).To(ConsistOf(ontology.Relationship{
 				From: ontology.RootID,
 				Type: ontology.RelationshipTypeParentOf,
-				To:   kept.OntologyID(),
+				To:   kept.ResourceID(),
 			}))
 		},
 	)

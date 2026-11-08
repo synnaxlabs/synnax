@@ -9,16 +9,20 @@
 
 from synnax.project.client import Client
 from synnax.project.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     Key,
     Project,
-    ontology_id,
+    Where,
+    WhereInput,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Key",
     "Project",
-    "ontology_id",
+    "Where",
+    "WhereInput",
+    "resource_id",
 ]

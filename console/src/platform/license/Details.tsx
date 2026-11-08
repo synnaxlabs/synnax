@@ -112,14 +112,14 @@ const Account = (): ReactElement | null => {
  * nothing when the user may not read the license.
  */
 export const Summary = (): ReactElement | null =>
-  Access.useRetrieveGranted(license.ONTOLOGY_ID) ? <GrantedSummary /> : null;
+  Access.useRetrieveGranted(license.RESOURCE_ID) ? <GrantedSummary /> : null;
 
 /**
  * The account the machine is linked to, and the license in full, for the version info
  * modal. The license shows only when the user may read it.
  */
 export const Details = (): ReactElement => {
-  const granted = Access.useRetrieveGranted(license.ONTOLOGY_ID);
+  const granted = Access.useRetrieveGranted(license.RESOURCE_ID);
   return (
     <Flex.Box y gap="small" className={CSS.B("license")}>
       <Account />

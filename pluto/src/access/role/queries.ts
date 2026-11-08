@@ -9,7 +9,7 @@
 
 import { access, type ontology, query, type Synnax, user } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
-import { type destructor, verbs } from "@synnaxlabs/x";
+import { deep, type destructor, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -22,8 +22,8 @@ export type RetrieveQuery = {
 };
 
 const parentsQuery = (key: user.Key): ontology.DependentParams => ({
-  ids: user.ontologyID(key),
-  types: [access.role.TYPE_ONTOLOGY_ID.type],
+  ids: user.resourceID(key),
+  types: [access.role.TYPE_RESOURCE_ID.type],
 });
 
 const retrieveForUser = async (
@@ -32,7 +32,7 @@ const retrieveForUser = async (
 ): Promise<access.role.Role[]> => {
   const parents = await client.ontology.parents.retrieve(parentsQuery(key));
   if (parents.length === 0) return [];
-  return await client.access.roles.retrieve({ keys: parents.map(({ id }) => id.key) });
+  return await client.access.roles.retrieve(parents.map(({ id }) => id.key));
 };
 
 const cachedRoleKeys = (
@@ -50,7 +50,7 @@ const getCachedForUser = (
   const keys = cachedRoleKeys(client, key);
   if (keys == null) return undefined;
   if (keys.length === 0) return [];
-  return client.access.roles.getCached({ keys });
+  return client.access.roles.getCached(keys);
 };
 
 export const { use } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
@@ -85,14 +85,16 @@ export const { useResult: useResultForUser } = Flux.createRetrieve<
       detachRoles =
         keys.length === 0
           ? () => {}
-          : client.access.roles.onChange({ keys }, () =>
+          : client.access.roles.onChange(keys, () =>
               handler(getCachedForUser(client, key)),
             );
     };
     watchRoles();
     const detachParents = client.ontology.parents.onChange(parentsQuery(key), () => {
       watchRoles();
-      void retrieveForUser(client, key).then(handler);
+      retrieveForUser(client, key).then(handler, (error: unknown) =>
+        console.error(`failed to retrieve the roles of user ${key}`, error),
+      );
     });
     return () => {
       detachParents();
@@ -153,6 +155,8 @@ export const changeRoleFormSchema = z.object({
   key: user.keyZ,
   role: access.role.keyZ,
 });
+
+export const changeRoleFormPath = deep.path<z.infer<typeof changeRoleFormSchema>>();
 
 const retrieveUserRole = async (
   client: Synnax,

@@ -15,53 +15,96 @@ import { type ReactElement } from "react";
 import { Channel as PlatformChannel } from "@/platform/channel";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
+import { Range } from "@/platform/range";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
-const Actions = (): ReactElement | null => {
+const channelID = ({ key }: channel.Channel) => channel.resourceID(key);
+
+// Channels match by alias under the active range, as the tree shows them.
+const useChannelMatches: Tree.UseMatches = (query) => {
+  const folders = Tree.useOntologyMatches(query);
+  const activeRange = Range.useResolve();
+  const channels = Channel.useResultList(
+    query == null
+      ? null
+      : { searchTerm: query.term, rangeKey: activeRange?.key, limit: query.limit },
+  );
+  return [...folders, Tree.toMatches(channels, channelID)];
+};
+
+const useSearch = Tree.createSearch({
+  noun: "channels",
+  useMatches: useChannelMatches,
+});
+
+interface ActionsProps {
+  search: Tree.Search;
+}
+
+const Actions = ({ search }: ActionsProps): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();
   const openCalculated = PlatformChannel.useCalculatedModal();
-  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
-  if (!hasCreatePermission) return null;
+  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
   return (
     <Toolbar.Actions>
-      <Toolbar.Action
-        onClick={() => openCalculated()}
-        tooltip="Create calculated channel"
-      >
-        <Channel.CreateCalculatedIcon />
-      </Toolbar.Action>
-      <Toolbar.Action onClick={() => openCreate()} tooltip="Create channel">
-        <Icon.Add />
-      </Toolbar.Action>
+      <Tree.SearchAction search={search} />
+      {hasCreatePermission && (
+        <>
+          <Toolbar.CreateAction
+            onClick={() => openCalculated()}
+            tooltip="Create calculated channel"
+          >
+            <Channel.CreateCalculatedIcon />
+          </Toolbar.CreateAction>
+          <Toolbar.CreateAction onClick={() => openCreate()} tooltip="Create channel" />
+        </>
+      )}
     </Toolbar.Actions>
   );
 };
 
-const Content = (): ReactElement => (
-  <Toolbar.Content>
-    <Toolbar.Header>
-      <Toolbar.Title>
-        <Icon.Channel />
-        Channels
-      </Toolbar.Title>
-      <Actions />
-    </Toolbar.Header>
-    <Toolbar.Body>
-      <Body />
-    </Toolbar.Body>
-  </Toolbar.Content>
-);
+const Content = (): ReactElement => {
+  // Does not suspend, so the header stays painted while the body reads the group.
+  const channels = Channel.useResultGroup({});
+  const search = useSearch(
+    channels.variant === "success" ? group.resourceID(channels.data.key) : null,
+  );
+  return (
+    <Toolbar.Content>
+      <Toolbar.Header>
+        {search.open ? (
+          <Tree.SearchField search={search} />
+        ) : (
+          <>
+            <Toolbar.Title>
+              <Icon.Channel />
+              Channels
+            </Toolbar.Title>
+            <Actions search={search} />
+          </>
+        )}
+      </Toolbar.Header>
+      <Toolbar.Body>
+        <Body search={search} />
+      </Toolbar.Body>
+    </Toolbar.Content>
+  );
+};
 
-const Body = (): ReactElement => {
+interface BodyProps {
+  search: Tree.Search;
+}
+
+const Body = ({ search }: BodyProps): ReactElement => {
   const g = Channel.useGroup({});
-  const root = group.ontologyID(g.key);
-  return <Tree.Tree root={root} emptyContent={<EmptyContent />} />;
+  const root = group.resourceID(g.key);
+  return <Tree.Tree root={root} emptyContent={<EmptyContent />} search={search} />;
 };
 
 const EmptyContent = (): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No channels"
@@ -79,5 +122,5 @@ export const TOOLBAR: Nav.Toolbar = {
   trigger: ["C"],
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
-  useVisible: () => Access.useRetrieveGranted(channel.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(channel.TYPE_RESOURCE_ID),
 };

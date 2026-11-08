@@ -19,7 +19,7 @@ class MosaicOperations(ConsoleCase):
     def setup(self) -> None:
         super().setup()
         self.shared_page_name = "Shared Layout Plot"
-        self.console.pages.create_by_type("Line plot", self.shared_page_name)
+        self.console.pages.create_by_type("lineplot", self.shared_page_name)
         self._cleanup_pages.append(self.shared_page_name)
 
     def run(self) -> None:
@@ -49,7 +49,7 @@ class MosaicOperations(ConsoleCase):
 
         # Create a page
         original_name = "Original Tab Name"
-        console.pages.create_by_type("Line plot", original_name)
+        console.pages.create_by_type("lineplot", original_name)
         self._cleanup_pages.append(original_name)
 
         # Rename the tab
@@ -76,9 +76,9 @@ class MosaicOperations(ConsoleCase):
         first_name = "Left Plot" if horizontal else "Top Plot"
         second_name = "Right Plot" if horizontal else "Bottom Plot"
 
-        console.pages.create_by_type("Line plot", first_name)
+        console.pages.create_by_type("lineplot", first_name)
         self._cleanup_pages.append(first_name)
-        console.pages.create_by_type("Line plot", second_name)
+        console.pages.create_by_type("lineplot", second_name)
         self._cleanup_pages.append(second_name)
 
         if horizontal:

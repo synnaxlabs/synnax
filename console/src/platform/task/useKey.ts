@@ -12,11 +12,13 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { primitive } from "@synnaxlabs/x";
 import { type z } from "zod";
 
+import { formPath } from "@/platform/task/types";
+
 /** Returns null for a task that has not been created yet. */
 export const useKey = <Schema extends z.ZodType>(
   ctx?: Form.ContextValue<Schema>,
 ): task.Key | null => {
   // Zero payloads seed the form with an empty key until the row is retrieved.
-  const key = Form.useFieldValue<task.Key>("key", { ctx, optional: true });
+  const key = Form.useFieldValue(formPath.key, { ctx, optional: true });
   return primitive.isZero(key) ? null : key;
 };

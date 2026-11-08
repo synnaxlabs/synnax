@@ -54,7 +54,7 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
         channel::Claims claims;
         for (std::size_t i = 0; i < this->channels.size(); ++i) {
             const auto path = "channels." + std::to_string(i) + ".";
-            const auto &slave_key = channel::base(this->channels[i]).device;
+            const auto &slave_key = ::synnax::ethercat::base(this->channels[i]).device;
             if (!slave_cache.contains(slave_key)) {
                 auto [slave_dev, slave_err] = client->devices.retrieve(slave_key);
                 if (slave_err) {

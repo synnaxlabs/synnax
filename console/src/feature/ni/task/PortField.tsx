@@ -9,6 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Device } from "@/feature/ni/device/types";
@@ -17,7 +18,9 @@ import { Task } from "@/platform/task";
 
 export interface PortFieldProps<C extends Task.Channel> {
   /** The channel's path in the form. */
-  path: string;
+  path: deep.Target<{ key: string; port: number }>;
+  /** The path of the task's channels. */
+  channelsPath: deep.Target<C[]>;
   device?: Device;
   kind: PortKind<C>;
   deviceOf: (channel: C) => device.Key;
@@ -29,15 +32,17 @@ export interface PortFieldProps<C extends Task.Channel> {
  */
 export const PortField = <C extends Task.Channel>({
   path,
+  channelsPath,
   device,
   kind,
   deviceOf,
 }: PortFieldProps<C>): ReactElement => {
-  const key = Form.useFieldValue<string>(`${path}.key`);
-  const channels = Form.useFieldValue<C[]>("config.channels");
+  const { key: keyPath, port } = deep.widen(path);
+  const key = Form.useFieldValue(keyPath);
+  const channels = Form.useFieldValue(channelsPath);
   const hardware = device?.properties.hardware;
   if (device == null || hardware == null)
-    return <Form.NumericField path={`${path}.port`} label="Port" />;
+    return <Form.NumericField path={port} label="Port" />;
   const own = channels.filter((c) => deviceOf(c) === device.key);
   const portGroups = groups({
     ports: kind.ports(hardware),
@@ -47,14 +52,12 @@ export const PortField = <C extends Task.Channel>({
     describe: Task.Port.describer(own, (c) => kind.name(c, device)),
   });
   return (
-    <Form.Field<number> path={`${path}.port`} label="Port">
+    <Form.Field path={port} label="Port">
       {({ onChange, preview }) => (
         <Task.Port.Grid
           label="Port"
           groups={portGroups}
-          onClick={(cell) => {
-            if (!preview) onChange(Number(cell.key));
-          }}
+          onMove={preview ? undefined : (cell) => onChange(Number(cell.key))}
         />
       )}
     </Form.Field>

@@ -211,6 +211,44 @@ Channel struct {
 		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
 	})
 
+	It("Should carry the live-owned actions of a union through the merge", func(
+		ctx SpecContext,
+	) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Channel union on type {
+    virtual {}
+    stored {
+        rate float64
+    }
+
+    @go marshal
+}
+`)
+		liveSource := `Channel union on type {
+    virtual {}
+    stored {
+        rate float64
+    }
+
+    action Rename {
+        name string {
+            @doc value "is the new name."
+        }
+
+        @doc value "renames the channel."
+    }
+
+    @go marshal
+}
+`
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, liveSource))
+		Expect(merged).To(ContainSubstring("action Rename {"))
+		Expect(merged).To(ContainSubstring("is the new name."))
+		Expect(merged).To(ContainSubstring("renames the channel."))
+		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
+	})
+
 	It("Should overwrite version-owned drift with chain resolution", func(
 		ctx SpecContext,
 	) {
@@ -491,5 +529,77 @@ Channel struct {
 		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
 		Expect(merged).To(ContainSubstring(`import "schemas/x/telem"`))
 		Expect(merged).To(ContainSubstring("telem.TimeStamp"))
+	})
+	It("Should project a filter definition and carry its live annotations", func(
+		ctx SpecContext,
+	) {
+		write("schemas/x/filter.oracle", "String struct {\n    eq string?\n}\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/filter"
+
+Channel struct {
+    key  uuid   {
+        @key
+    }
+    name string
+}
+
+Where filter Channel {
+    name {
+        @doc value "matches channels by name."
+    }
+
+    @doc value "selects channels."
+}
+`)
+		liveSource := `import "schemas/x/filter"
+
+Channel struct {
+    key  uuid   {
+        @key
+    }
+    name string
+}
+
+Where filter Channel {
+    name {
+        @doc value "is stale."
+    }
+
+    @response type Channel
+}
+`
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, liveSource))
+		Expect(merged).To(ContainSubstring("Where filter Channel {"))
+		Expect(merged).To(ContainSubstring(`@doc value "matches channels by name."`))
+		Expect(merged).ToNot(ContainSubstring("is stale."))
+		Expect(merged).To(ContainSubstring(
+			"    @doc value     \"selects channels.\"\n    @response type Channel\n",
+		))
+		Expect(merged).To(ContainSubstring(`import "schemas/x/filter"`))
+		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
+	})
+	It("Should project a filter over a generic target as a plain reference", func(
+		ctx SpecContext,
+	) {
+		write("schemas/x/filter.oracle", "Set struct<T> {\n    eq T?\n}\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/filter"
+
+Channel struct<Details?> {
+    key     string  {
+        @key
+    }
+    details Details
+}
+
+Where filter Channel {
+    key
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring("Where filter Channel {"))
 	})
 })

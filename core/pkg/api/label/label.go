@@ -18,11 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -100,7 +98,7 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeLabel}},
+		Objects: []resource.ID{{Type: resource.TypeLabel}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -127,26 +125,11 @@ func (s *Service) Dispatch(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{label.OntologyID(req.Key)},
+		Objects: []resource.ID{label.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
-}
-
-type RetrieveRequest struct {
-	For                 ontology.ID `json:"for"                    msgpack:"for"`
-	SearchTerm          string      `json:"search_term"            msgpack:"search_term"`
-	Keys                []label.Key `json:"keys"                   msgpack:"keys"`
-	Names               []string    `json:"names"                  msgpack:"names"`
-	Limit               int         `json:"limit"                  msgpack:"limit"`
-	Offset              int         `json:"offset"                 msgpack:"offset"`
-	IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-}
-
-type RetrieveResponse struct {
-	// Labels are the labels that were retrieved.
-	Labels []Label `json:"labels" msgpack:"labels"`
 }
 
 func (s *Service) Retrieve(
@@ -154,40 +137,17 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	if !req.For.IsZero() {
-		labels, err := s.internal.RetrieveFor(ctx, req.For, nil)
-		if err != nil {
-			return RetrieveResponse{}, err
-		}
-		res.Labels = labels
-	} else {
-		q := s.internal.NewRetrieve()
-		if req.SearchTerm != "" {
-			q = q.Search(req.SearchTerm)
-		}
-		if req.Limit > 0 {
-			q = q.Limit(req.Limit)
-		}
-		if req.Offset > 0 {
-			q = q.Offset(req.Offset)
-		}
-		if len(req.Keys) != 0 {
-			q = q.Where(label.MatchKeys(req.Keys...))
-		}
-		if len(req.Names) != 0 {
-			q = q.Where(label.MatchNames(req.Names...))
-		}
-		err := q.Entries(&res.Labels).Exec(ctx, nil)
-		if req.IgnoreNotFoundError && err != nil {
-			err = errors.Skip(err, query.ErrNotFound)
-		}
-		if err != nil {
-			return RetrieveResponse{}, err
-		}
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Labels))
+	if err != nil {
+		return RetrieveResponse{}, err
 	}
-	objects := label.OntologyIDsFromLabels(res.Labels)
-	if !req.For.IsZero() {
-		objects = append(objects, req.For)
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
+	objects := label.ResourceIDsFromLabels(res.Labels)
+	// The labels of a resource describe it, so a for line needs access to the resource.
+	if req.Where != nil {
+		objects = append(objects, req.Where.ForIDs()...)
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
@@ -211,7 +171,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: label.OntologyIDs(req.Keys),
+		Objects: label.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -219,7 +179,7 @@ func (s *Service) Delete(
 }
 
 type AddRequest struct {
-	ID      ontology.ID `json:"id"      msgpack:"id"`
+	ID      resource.ID `json:"id"      msgpack:"id"`
 	Labels  []label.Key `json:"labels"  msgpack:"labels"`
 	Replace bool        `json:"replace" msgpack:"replace"`
 }
@@ -232,7 +192,7 @@ func (s *Service) Add(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: append(label.OntologyIDs(req.Labels), req.ID),
+		Objects: append(label.ResourceIDs(req.Labels), req.ID),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -244,7 +204,7 @@ func (s *Service) Add(
 }
 
 type RemoveRequest struct {
-	ID     ontology.ID `json:"id"     msgpack:"id"`
+	ID     resource.ID `json:"id"     msgpack:"id"`
 	Labels []label.Key `json:"labels" msgpack:"labels"`
 }
 
@@ -256,7 +216,7 @@ func (s *Service) Remove(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: append(label.OntologyIDs(req.Labels), req.ID),
+		Objects: append(label.ResourceIDs(req.Labels), req.ID),
 	}); err != nil {
 		return struct{}{}, err
 	}

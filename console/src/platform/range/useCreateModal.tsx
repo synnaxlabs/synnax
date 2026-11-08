@@ -18,7 +18,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Ranger, Synnax } from "@synnaxlabs/pluto";
-import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
+import { primitive, TimeRange, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { type z } from "zod";
 
@@ -28,6 +28,8 @@ import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
+
+const path = Ranger.createFormPath;
 
 export type CreateModalParams = Omit<
   Partial<z.infer<typeof Ranger.createFormSchema>>,
@@ -43,15 +45,13 @@ const ParentRangeIcon = Icon.createComposite(Icon.Range, {
 const PARENT_TRIGGER_PROPS = { placeholder: "Parent range", variant: "text" as const };
 
 const TimelineField = (): ReactElement => {
-  const parentKey = Form.useFieldValue<string>("parent");
-  const parent = Ranger.useResult(parentKey === "" ? null : { key: parentKey });
+  const parentKey = Form.useFieldValue(path.parent);
+  const parent = Ranger.useResult(
+    primitive.isNonZero(parentKey) ? { key: parentKey } : null,
+  );
   const parentRange = parent.data?.timeRange.numeric;
   return (
-    <Form.Field<NumericTimeRange>
-      path="timeRange"
-      showLabel={false}
-      padHelpText={false}
-    >
+    <Form.Field path={path.timeRange} showLabel={false} padHelpText={false}>
       {(p) => (
         <Ranger.Timeline level="h4" variant="shadow" parent={parentRange} {...p} />
       )}
@@ -109,7 +109,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
       <Modal.Body>
         <Form.Form<typeof Ranger.createFormSchema> {...form}>
           <Flex.Box y gap="huge">
-            <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
+            <Form.Field path={path.name} showLabel={false} padHelpText={false}>
               {(p) => (
                 <Input.Text
                   autoFocus
@@ -123,8 +123,8 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
             </Form.Field>
             <TimelineField />
             <Flex.Box x align="center">
-              <Form.Field<string>
-                path="parent"
+              <Form.Field
+                path={path.parent}
                 visible
                 showLabel={false}
                 showHelpText={false}
@@ -143,11 +143,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
                   />
                 )}
               </Form.Field>
-              <Form.Field<string[]>
-                path="labels"
-                showLabel={false}
-                showHelpText={false}
-              >
+              <Form.Field path={path.labels} showLabel={false} showHelpText={false}>
                 {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
               </Form.Field>
             </Flex.Box>

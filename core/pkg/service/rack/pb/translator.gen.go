@@ -12,14 +12,12 @@
 package pb
 
 import (
-	"encoding/json/v2"
-
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
+	"github.com/synnaxlabs/x/filter"
+	filterpb "github.com/synnaxlabs/x/filter/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 )
 
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
@@ -76,10 +74,13 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB(*r.Status, StatusDetailsToPBAny)
+		pb.Status, err = statuspb.StatusToPB(*r.Status, xpb.ToAny[rack.StatusDetails])
 		if err != nil {
 			return nil, err
 		}
+	}
+	if r.Version != nil {
+		pb.Version = r.Version
 	}
 	return pb, nil
 }
@@ -95,11 +96,14 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 	r.Embedded = pb.Embedded
 	r.Integrations = pb.Integrations
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB(pb.Status, StatusDetailsFromPBAny)
+		val, err := statuspb.StatusFromPB(pb.Status, xpb.FromAny[rack.StatusDetails])
 		if err != nil {
 			return rack.Rack{}, err
 		}
 		r.Status = &val
+	}
+	if pb.Version != nil {
+		r.Version = pb.Version
 	}
 	return r, nil
 }
@@ -130,59 +134,249 @@ func RacksFromPB(pbs []*Rack) ([]rack.Rack, error) {
 	return result, nil
 }
 
-// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic
-// translators. It wraps the value in structpb.Struct (JSON) for cross-language
-// compatibility.
-func StatusDetailsToPBAny(v rack.StatusDetails) (*anypb.Any, error) {
-	pb, err := StatusDetailsToPB(v)
-	if err != nil {
-		return nil, err
+// KeySetToPB converts filter.Set[rack.Key] to KeySet.
+func KeySetToPB(r filter.Set[rack.Key]) (*KeySet, error) {
+	pb := &KeySet{}
+	if r.Eq != nil {
+		v := uint32(*r.Eq)
+		pb.Eq = &v
 	}
-	// Convert proto to JSON bytes, then to Struct for cross-language compatibility
-	jsonBytes, err := protojson.Marshal(pb)
-	if err != nil {
-		return nil, err
+	if r.In != nil {
+		pb.In = &KeyList{Values: lo.Map(r.In, func(v rack.Key, _ int) uint32 { return uint32(v) })}
 	}
-	s := &structpb.Struct{}
-	if err := protojson.Unmarshal(jsonBytes, s); err != nil {
-		return nil, err
-	}
-	return anypb.New(s)
+	return pb, nil
 }
 
-// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic
-// translators. It handles typed protos and JSON (google.protobuf.Value, or
-// google.protobuf.Struct from peers on releases before value packing) for
-// cross-language compatibility.
-func StatusDetailsFromPBAny(a *anypb.Any) (rack.StatusDetails, error) {
-	if a == nil {
-		return rack.StatusDetails{}, nil
+// KeySetFromPB converts KeySet to filter.Set[rack.Key].
+func KeySetFromPB(pb *KeySet) (filter.Set[rack.Key], error) {
+	var r filter.Set[rack.Key]
+	if pb == nil {
+		return r, nil
 	}
-	// First try typed proto
-	var pb StatusDetails
-	if err := a.UnmarshalTo(&pb); err == nil {
-		return StatusDetailsFromPB(&pb)
+	if pb.Eq != nil {
+		v := rack.Key(*pb.Eq)
+		r.Eq = &v
 	}
-	// Fall back to JSON for cross-language compatibility
-	var (
-		msg proto.Message
-		v   structpb.Value
-		s   structpb.Struct
-	)
-	if err := a.UnmarshalTo(&v); err == nil {
-		msg = &v
-	} else if err := a.UnmarshalTo(&s); err != nil {
-		return rack.StatusDetails{}, err
-	} else {
-		msg = &s
+	if pb.In != nil {
+		r.In = xpb.ListValues(lo.Map(pb.In.Values, func(v uint32, _ int) rack.Key { return rack.Key(v) }))
 	}
-	jsonBytes, err := protojson.Marshal(msg)
-	if err != nil {
-		return rack.StatusDetails{}, err
+	return r, nil
+}
+
+// KeySetsToPB converts a slice of filter.Set[rack.Key] to KeySet.
+func KeySetsToPB(rs []filter.Set[rack.Key]) ([]*KeySet, error) {
+	result := make([]*KeySet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = KeySetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
 	}
-	var result rack.StatusDetails
-	if err := json.Unmarshal(jsonBytes, &result); err != nil {
-		return rack.StatusDetails{}, err
+	return result, nil
+}
+
+// KeySetsFromPB converts a slice of KeySet to filter.Set[rack.Key].
+func KeySetsFromPB(pbs []*KeySet) ([]filter.Set[rack.Key], error) {
+	result := make([]filter.Set[rack.Key], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = KeySetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StringContainsToPB converts filter.Contains[string] to StringContains.
+func StringContainsToPB(r filter.Contains[string]) (*StringContains, error) {
+	pb := &StringContains{}
+	if r.Any != nil {
+		pb.Any = &StringList{Values: r.Any}
+	}
+	return pb, nil
+}
+
+// StringContainsFromPB converts StringContains to filter.Contains[string].
+func StringContainsFromPB(pb *StringContains) (filter.Contains[string], error) {
+	var r filter.Contains[string]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Any != nil {
+		r.Any = xpb.ListValues(pb.Any.Values)
+	}
+	return r, nil
+}
+
+// StringContainsListToPB converts a slice of filter.Contains[string] to StringContains.
+func StringContainsListToPB(rs []filter.Contains[string]) ([]*StringContains, error) {
+	result := make([]*StringContains, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StringContainsToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StringContainsListFromPB converts a slice of StringContains to filter.Contains[string].
+func StringContainsListFromPB(pbs []*StringContains) ([]filter.Contains[string], error) {
+	result := make([]filter.Contains[string], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StringContainsFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WhereToPB converts Where to Where.
+func WhereToPB(r rack.Where) (*Where, error) {
+	pb := &Where{}
+	if r.And != nil {
+		vals, err := WheresToPB(r.And)
+		if err != nil {
+			return nil, err
+		}
+		pb.And = &WhereList{Values: vals}
+	}
+	if r.Or != nil {
+		vals, err := WheresToPB(r.Or)
+		if err != nil {
+			return nil, err
+		}
+		pb.Or = &WhereList{Values: vals}
+	}
+	if r.Not != nil {
+		var err error
+		pb.Not, err = WhereToPB(*r.Not)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Key != nil {
+		var err error
+		pb.Key, err = KeySetToPB(*r.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Name != nil {
+		var err error
+		pb.Name, err = filterpb.StringToPB(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Embedded != nil {
+		var err error
+		pb.Embedded, err = filterpb.BoolToPB(*r.Embedded)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Integrations != nil {
+		var err error
+		pb.Integrations, err = StringContainsToPB(*r.Integrations)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.HostIsNode != nil {
+		pb.HostIsNode = r.HostIsNode
+	}
+	return pb, nil
+}
+
+// WhereFromPB converts Where to Where.
+func WhereFromPB(pb *Where) (rack.Where, error) {
+	var r rack.Where
+	if pb == nil {
+		return r, nil
+	}
+	if pb.And != nil {
+		vals, err := WheresFromPB(pb.And.Values)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.And = xpb.ListValues(vals)
+	}
+	if pb.Or != nil {
+		vals, err := WheresFromPB(pb.Or.Values)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Or = xpb.ListValues(vals)
+	}
+	if pb.Not != nil {
+		val, err := WhereFromPB(pb.Not)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Not = &val
+	}
+	if pb.Key != nil {
+		val, err := KeySetFromPB(pb.Key)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Key = &val
+	}
+	if pb.Name != nil {
+		val, err := filterpb.StringFromPB(pb.Name)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Name = &val
+	}
+	if pb.Embedded != nil {
+		val, err := filterpb.BoolFromPB(pb.Embedded)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Embedded = &val
+	}
+	if pb.Integrations != nil {
+		val, err := StringContainsFromPB(pb.Integrations)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Integrations = &val
+	}
+	if pb.HostIsNode != nil {
+		r.HostIsNode = pb.HostIsNode
+	}
+	return r, nil
+}
+
+// WheresToPB converts a slice of Where to Where.
+func WheresToPB(rs []rack.Where) ([]*Where, error) {
+	result := make([]*Where, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = WhereToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WheresFromPB converts a slice of Where to Where.
+func WheresFromPB(pbs []*Where) ([]rack.Where, error) {
+	result := make([]rack.Where, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = WhereFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }

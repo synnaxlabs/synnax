@@ -31,7 +31,7 @@ describe("lineplot/search", () => {
   it("opens the plot as a tab when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("plot");
-    const resource = createResource(lineplot.ontologyID(key), name);
+    const resource = createResource(lineplot.resourceID(key), name);
     const SearchListItem = LinePlot.SEARCH_LIST_ITEMS.lineplot;
     if (SearchListItem == null)
       throw new Error("lineplot SearchListItem is not defined");

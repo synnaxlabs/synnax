@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, query, status, TimeStamp } from "@synnaxlabs/client";
-import { primitive, uuid, verbs } from "@synnaxlabs/x";
+import { label, query, type resource, status, TimeStamp } from "@synnaxlabs/client";
+import { deep, primitive, uuid, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
 
@@ -19,7 +19,7 @@ import { Synnax } from "@/synnax";
 const RESOURCE_NAME = "status";
 const PLURAL_RESOURCE_NAME = "statuses";
 
-export type ListParams = status.MultiRetrieveParams;
+export type ListParams = status.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListParams, status.Key, status.Status>({
   name: PLURAL_RESOURCE_NAME,
@@ -43,7 +43,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Ke
 
 export interface SetParams {
   statuses: status.New | status.New[];
-  parent?: ontology.ID;
+  parent?: resource.ID;
 }
 
 export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
@@ -63,10 +63,6 @@ export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
 
 export type RetrieveQuery = status.SingleRetrieveParams;
 
-const BASE_QUERY: Pick<RetrieveQuery, "includeLabels"> = {
-  includeLabels: true,
-};
-
 // Cached answers are untyped; a details schema only validates the fetch, so
 // schema-typed reads cast the shared cache entries.
 export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -74,7 +70,6 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
 ) =>
   Flux.createRetrieve<RetrieveQuery, status.Status<DetailsSchema>>({
     name: RESOURCE_NAME,
-    normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ client, query }) =>
       await client.statuses.retrieve({ ...query, detailsSchema }),
     onChange: ({ client, query }, handler) =>
@@ -93,18 +88,11 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   status.Status[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { keys } }) => {
-    if (keys.length === 0) return [];
-    return await client.statuses.retrieve({ keys });
-  },
-  onChange: ({ client, query: { keys } }, handler) => {
-    if (keys.length === 0) return () => {};
-    return client.statuses.onChange({ keys }, handler);
-  },
-  getCached: ({ client, query: { keys } }) => {
-    if (keys.length === 0) return undefined;
-    return client.statuses.getCached({ keys });
-  },
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.statuses.retrieve({ key: keys }),
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.statuses.onChange(keys, handler),
+  getCached: ({ client, query: { keys } }) => client.statuses.getCached(keys),
 });
 
 export const { use, useResult } = createRetrieve();
@@ -123,6 +111,8 @@ export const formSchema = status.statusZ().omit({ labels: true }).safeExtend({
   labels: label.keyZ.array().optional(),
 });
 
+export const formPath = deep.path<z.infer<typeof formSchema>>();
+
 const INITIAL_VALUES: z.infer<typeof formSchema> = {
   key: "",
   variant: "success",
@@ -137,16 +127,15 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: INITIAL_VALUES,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
   retrieve: async ({ client, query }) => {
     const [stat, labels] = await Promise.all([
       client.statuses.retrieve(query),
-      client.labels.retrieve({ for: status.ontologyID(query.key) }),
+      client.labels.retrieve({ for: status.resourceID(query.key) }),
     ]);
     return { ...stat, labels: labels.map((l) => l.key) };
   },
   update: async ({ client, value, set }) => {
-    set("time", TimeStamp.now());
+    set(formPath.time, TimeStamp.now());
     const v = value();
     if (primitive.isZero(v.key)) v.key = uuid.create();
     const { labels: labelKeys, ...rest } = v;
@@ -154,9 +143,9 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     if (labelKeys != null)
       await Label.setLabelsFor({
         client,
-        data: { id: status.ontologyID(res.key), labels: labelKeys },
+        data: { id: status.resourceID(res.key), labels: labelKeys },
       });
-    set("key", res.key);
+    set(formPath.key, res.key);
   },
   mountListeners: ({ client, query: { key }, reset, abandon }) =>
     client.statuses.onChange(key, (result) => {

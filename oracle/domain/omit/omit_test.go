@@ -120,6 +120,35 @@ var _ = Describe("Fields", func() {
 		omit.Fields(table, "ts", "cpp")
 		Expect(names(table)).To(Equal([]string{"key", "hash", "secret"}))
 	})
+
+	Describe("Filter lines", func() {
+		where := &resolution.Table{Types: []resolution.Type{{
+			QualifiedName: "auth.Where",
+			Form: resolution.StructForm{Fields: []resolution.Field{
+				field("key"), field("flag", "cpp"),
+			}},
+			Filter: &resolution.Filter{
+				Lines: []resolution.Field{field("key"), field("flag", "cpp")},
+			},
+		}}}
+		lines := func(t *resolution.Table) []string {
+			lines := t.MustGet("auth.Where").Filter.Lines
+			names := make([]string, len(lines))
+			for i, l := range lines {
+				names[i] = l.Name
+			}
+			return names
+		}
+
+		It("Should drop the lines of omitted fields", func() {
+			Expect(lines(omit.Fields(where, "cpp"))).To(Equal([]string{"key"}))
+		})
+
+		It("Should not modify the filter of the source table", func() {
+			omit.Fields(where, "cpp")
+			Expect(lines(where)).To(Equal([]string{"key", "flag"}))
+		})
+	})
 })
 
 var _ = Describe("IsField", func() {
@@ -191,6 +220,28 @@ var _ = Describe("Fields inheritance and actions", func() {
 		form := child.Form.(resolution.StructForm)
 		Expect(form.Actions[0].Fields).To(HaveLen(1))
 		Expect(form.Actions[0].Fields[0].Name).To(Equal("name"))
+	})
+
+	It("Should drop omitted fields from the action payloads of a union", func() {
+		unions := &resolution.Table{Types: []resolution.Type{{
+			Name:          "Shape",
+			QualifiedName: "auth.Shape",
+			Form: resolution.UnionForm{
+				Discriminator: "type",
+				Actions: []resolution.Action{{
+					Name: "Apply",
+					Fields: []resolution.Field{
+						{Name: "name"},
+						{Name: "secret", Domains: tsOmit},
+					},
+				}},
+			},
+		}}}
+		shape := omit.Fields(unions, "ts").MustGet("auth.Shape")
+		actions := shape.Actions()
+		Expect(actions[0].Fields).To(HaveLen(1))
+		Expect(actions[0].Fields[0].Name).To(Equal("name"))
+		Expect(unions.MustGet("auth.Shape").Actions()[0].Fields).To(HaveLen(2))
 	})
 })
 

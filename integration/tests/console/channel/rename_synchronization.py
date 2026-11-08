@@ -64,7 +64,7 @@ class RenameSynchronization(ConsoleCase):
         self.log("Setting up Line Plot with channel")
         plot = console.pages.create(Plot, f"Sync Test Plot {self.suffix}")
         self._cleanup_pages.append(plot.page_name)
-        plot.add_channels("Y1", [self.data_name])
+        plot.add_channels("y1", [self.data_name])
 
         self.log("Setting up Log with channel")
         log_page = console.pages.create(Log, f"Sync Test Log {self.suffix}")
@@ -105,7 +105,7 @@ class RenameSynchronization(ConsoleCase):
         )
 
         self.log("Verifying sync in Line Plot Toolbar")
-        assert plot.has_channel("Y1", self.new_name), (
+        assert plot.has_channel("y1", self.new_name), (
             f"Renamed channel {self.new_name} should appear in Line Plot toolbar"
         )
 

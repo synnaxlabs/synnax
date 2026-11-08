@@ -119,16 +119,19 @@ describe("log queries", () => {
       const created = await createLog({
         timestampPrecision: 3,
         channelNamesHidden: true,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
+        timeZone: "UTC",
       });
       const { result } = await loadAndSelect(created.key, () => ({
         precision: Log.useTimestampPrecision({ key: created.key }),
         names: Log.useIsHidingChannelNames({ key: created.key }),
-        receipt: Log.useIsHidingReceiptTimestamp({ key: created.key }),
+        receipt: Log.useIsHidingTimestamps({ key: created.key }),
+        timeZone: Log.useTimeZone({ key: created.key }),
       }));
       expect(result.current.precision).toBe(3);
       expect(result.current.names).toBe(true);
       expect(result.current.receipt).toBe(true);
+      expect(result.current.timeZone).toBe("UTC");
     });
   });
 

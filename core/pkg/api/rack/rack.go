@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -137,7 +137,57 @@ func (s *Service) Create(
 	if err := s.rack.NewWriter(tx).CreateMany(ctx, &req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
+	if err := s.attachReadableStatuses(ctx, tx, req.Racks); err != nil {
+		return CreateResponse{}, err
+	}
 	return CreateResponse(req), nil
+}
+
+func (s *Service) attachReadableStatuses(
+	ctx context.Context,
+	tx gorp.Tx,
+	racks []rack.Rack,
+) error {
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	for i := range racks {
+		err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionRetrieve,
+			Objects: []resource.ID{racks[i].ResourceID()},
+		})
+		// Create accepts update access, which does not grant read access.
+		if errors.Is(err, access.ErrDenied) {
+			racks[i].Status = nil
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := s.attachStatuses(ctx, tx, racks[i:i+1]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) attachStatuses(
+	ctx context.Context,
+	tx gorp.Tx,
+	racks []rack.Rack,
+) error {
+	statuses, err := s.status.Join[rack.StatusDetails](
+		ctx,
+		tx,
+		rack.ResourceIDsFromRacks(racks),
+	)
+	if err != nil {
+		return err
+	}
+	for i, st := range statuses {
+		racks[i].Status = st
+	}
+	return nil
 }
 
 // enforceCreate requires the update action on each rack that already exists, and the
@@ -169,7 +219,7 @@ func (s *Service) enforceCreate(
 		if err := enforcer.Enforce(ctx, access.Request{
 			Subject: subject,
 			Action:  access.ActionUpdate,
-			Objects: rack.OntologyIDsFromRacks(existing),
+			Objects: rack.ResourceIDsFromRacks(existing),
 		}); err != nil {
 			return err
 		}
@@ -187,96 +237,35 @@ func (s *Service) enforceCreate(
 	return enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
+		Objects: []resource.ID{{Type: resource.TypeRack}},
 	})
 }
-
-type (
-	RetrieveRequest struct {
-		Embedded      *bool      `json:"embedded"       msgpack:"embedded"`
-		HostIsNode    *bool      `json:"host_is_node"   msgpack:"host_is_node"`
-		SearchTerm    string     `json:"search_term"    msgpack:"search_term"`
-		Keys          []rack.Key `json:"keys"           msgpack:"keys"`
-		Names         []string   `json:"names"          msgpack:"names"`
-		Integration   string     `json:"integration"    msgpack:"integration"`
-		Limit         int        `json:"limit"          msgpack:"limit"`
-		Offset        int        `json:"offset"         msgpack:"offset"`
-		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
-	}
-	RetrieveResponse struct {
-		Racks []rack.Rack `json:"racks" msgpack:"racks"`
-	}
-)
 
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		hasSearch      = len(req.SearchTerm) > 0
-		hasKeys        = len(req.Keys) > 0
-		hasNames       = len(req.Names) > 0
-		hasLimit       = req.Limit > 0
-		hasOffset      = req.Offset > 0
-		hasIntegration = req.Integration != ""
-	)
-	resRacks := make([]rack.Rack, 0, len(req.Keys)+len(req.Names))
-	q := s.rack.NewRetrieve()
-	if hasKeys {
-		q = q.Where(rack.MatchKeys(req.Keys...))
-	}
-	if hasNames {
-		q = q.Where(rack.MatchNames(req.Names...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if hasLimit {
-		q = q.Limit(req.Limit)
-	}
-	if hasOffset {
-		q = q.Offset(req.Offset)
-	}
-	if req.Embedded != nil {
-		q = q.Where(rack.MatchEmbedded(*req.Embedded))
-	}
-	if req.HostIsNode != nil {
-		q = q.Where(rack.MatchNodeIsHost(*req.HostIsNode))
-	}
-	if hasIntegration {
-		q = q.Where(rack.MatchIntegration(req.Integration))
-	}
-	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
+	var res RetrieveResponse
+	q, err := req.Apply(s.rack.NewRetrieve().Entries(&res.Racks))
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
-
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
 	if req.IncludeStatus {
-		ids := rack.OntologyIDsFromRacks(resRacks)
-		statuses := make([]rack.Status, 0, len(resRacks))
-		// A status row can be missing, so the resource keeps a nil status.
-		if err := errors.Skip(s.status.NewRetrieve[rack.StatusDetails]().
-			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(ids)...)).
-			Entries(&statuses).
-			Exec(ctx, nil), query.ErrNotFound); err != nil {
+		if err := s.attachStatuses(ctx, nil, res.Racks); err != nil {
 			return RetrieveResponse{}, err
 		}
-		statusByKey := make(map[status.Key]*rack.Status, len(statuses))
-		for i := range statuses {
-			statusByKey[statuses[i].Key] = &statuses[i]
-		}
-		for i, id := range ids {
-			resRacks[i].Status = statusByKey[id.String()]
-		}
 	}
-
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rack.OntologyIDsFromRacks(resRacks),
+		Objects: rack.ResourceIDsFromRacks(res.Racks),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Racks: resRacks}, nil
+	return res, nil
 }
 
 // RenameRequest names the rack to rename and the name to give it.
@@ -296,7 +285,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{req.Key.OntologyID()},
+		Objects: []resource.ID{req.Key.ResourceID()},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -322,7 +311,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: rack.OntologyIDs(req.Keys),
+		Objects: rack.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -362,5 +351,5 @@ func (s *Service) Delete(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.auth.NewWriter(tx).
-		DeleteFor(ctx, rack.OntologyIDs(req.Keys)...)
+		DeleteFor(ctx, rack.ResourceIDs(req.Keys)...)
 }

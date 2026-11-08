@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -73,7 +74,7 @@ var _ = Describe("Composition migrations", func() {
 			db.Set(ctx, []byte(project.LegacyLayoutKVPrefix+p.Key.String()), blob),
 		).To(Succeed())
 	}
-	createResources := func(ctx context.Context, db *gorp.DB, ids ...ontology.ID) {
+	createResources := func(ctx context.Context, db *gorp.DB, ids ...resource.ID) {
 		GinkgoHelper()
 		table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[string, ontology.Resource]{DB: db},
@@ -136,7 +137,7 @@ var _ = Describe("Composition migrations", func() {
 			n.Variant = v
 		}
 	}
-	rel := func(from, to ontology.ID) ontology.Relationship {
+	rel := func(from, to resource.ID) ontology.Relationship {
 		return ontology.Relationship{
 			From: from,
 			Type: ontology.RelationshipTypeParentOf,
@@ -149,9 +150,9 @@ var _ = Describe("Composition migrations", func() {
 			Where(gorp.MatchKeys[string, ontology.Relationship](r.GorpKey())).
 			Exists(ctx, db))
 	}
-	resourceTab := func(t ontology.ResourceType, key string) v0.Tab {
+	resourceTab := func(t resource.Type, key string) v0.Tab {
 		return v0.Tab{Variant: v0.ResourceTab{
-			Resource: ontology.ID{Type: t, Key: key},
+			Resource: resource.ID{Type: t, Key: key},
 		}}
 	}
 	appViewTab := func(viewType string) v0.Tab {
@@ -184,10 +185,10 @@ var _ = Describe("Composition migrations", func() {
 				uuid.New().String(), uuid.New().String()
 			staleKey := uuid.New().String()
 			createResources(ctx, db,
-				ontology.ID{Type: ontology.ResourceTypeLineplot, Key: lpKey},
-				ontology.ID{Type: ontology.ResourceTypeSchematic, Key: scKey},
-				ontology.ID{Type: ontology.ResourceTypeLog, Key: logKey},
-				ontology.ID{Type: ontology.ResourceTypeTable, Key: tblKey},
+				resource.ID{Type: resource.TypeLineplot, Key: lpKey},
+				resource.ID{Type: resource.TypeSchematic, Key: scKey},
+				resource.ID{Type: resource.TypeLog, Key: logKey},
+				resource.ID{Type: resource.TypeTable, Key: tblKey},
 			)
 			stageLayout(ctx, db, project.Project{
 				Key:  projectKey,
@@ -284,11 +285,11 @@ var _ = Describe("Composition migrations", func() {
 				First: v0.Node{Variant: v0.SplitNode{
 					Direction: spatial.DirectionY,
 					Size:      0.5,
-					First:     *leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey)),
-					Last:      *leaf(resourceTab(ontology.ResourceTypeSchematic, scKey)),
+					First:     *leaf(resourceTab(resource.TypeLineplot, lpKey)),
+					Last:      *leaf(resourceTab(resource.TypeSchematic, scKey)),
 				}},
 				Last: *leaf(
-					resourceTab(ontology.ResourceTypeLog, logKey),
+					resourceTab(resource.TypeLog, logKey),
 					appViewTab("range_explorer"),
 				),
 			}}))
@@ -296,12 +297,12 @@ var _ = Describe("Composition migrations", func() {
 			tableWin := findPanel(panels, "Table Window")
 			zeroTabKeys(&tableWin.Root)
 			Expect(tableWin.Root).To(Equal(
-				*leaf(resourceTab(ontology.ResourceTypeTable, tblKey)),
+				*leaf(resourceTab(resource.TypeTable, tblKey)),
 			))
 
 			By("Defining an ontology resource and parent relationship for each panel")
 			for _, p := range panels {
-				panelID := v0.Panel{Key: p.Key}.OntologyID()
+				panelID := v0.Panel{Key: p.Key}.ResourceID()
 				Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Resource]().
 					Where(gorp.MatchKeys[string, ontology.Resource](panelID.String())).
 					Exists(ctx, db))).To(BeTrue())
@@ -309,7 +310,7 @@ var _ = Describe("Composition migrations", func() {
 					hasRel(
 						ctx,
 						db,
-						rel(project.Project{Key: projectKey}.OntologyID(), panelID),
+						rel(project.Project{Key: projectKey}.ResourceID(), panelID),
 					),
 				).
 					To(BeTrue())
@@ -328,8 +329,8 @@ var _ = Describe("Composition migrations", func() {
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			lpKey, staleKey := uuid.New().String(), uuid.New().String()
-			createResources(ctx, db, ontology.ID{
-				Type: ontology.ResourceTypeLineplot, Key: lpKey,
+			createResources(ctx, db, resource.ID{
+				Type: resource.TypeLineplot, Key: lpKey,
 			})
 			stageLayout(ctx, db, project.Project{
 				Key:  uuid.New(),
@@ -370,7 +371,7 @@ var _ = Describe("Composition migrations", func() {
 			zeroTabKeys(&root)
 			Expect(
 				root,
-			).To(Equal(*leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey))))
+			).To(Equal(*leaf(resourceTab(resource.TypeLineplot, lpKey))))
 		},
 	)
 
@@ -459,8 +460,8 @@ var _ = Describe("Composition migrations", func() {
 		rt, ok := lf.Tabs[0].Variant.(v0.ResourceTab)
 		Expect(ok).To(BeTrue())
 		Expect(rt.Key).ToNot(Equal(uuid.Nil()))
-		Expect(rt.Resource).To(Equal(ontology.ID{
-			Type: ontology.ResourceTypeTask,
+		Expect(rt.Resource).To(Equal(resource.ID{
+			Type: resource.TypeTask,
 			Key:  taskKey.String(),
 		}))
 
@@ -524,14 +525,14 @@ var _ = Describe("Composition migrations", func() {
 			Expect(lf.Tabs).To(HaveLen(2))
 			byArgs, ok := lf.Tabs[0].Variant.(v0.ResourceTab)
 			Expect(ok).To(BeTrue())
-			Expect(byArgs.Resource).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeTask,
+			Expect(byArgs.Resource).To(Equal(resource.ID{
+				Type: resource.TypeTask,
 				Key:  argsTaskKey.String(),
 			}))
 			byAlt, ok := lf.Tabs[1].Variant.(v0.ResourceTab)
 			Expect(ok).To(BeTrue())
-			Expect(byAlt.Resource).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeTask,
+			Expect(byAlt.Resource).To(Equal(resource.ID{
+				Type: resource.TypeTask,
 				Key:  altTaskKey.String(),
 			}))
 		},
@@ -539,10 +540,10 @@ var _ = Describe("Composition migrations", func() {
 
 	DescribeTable(
 		"Should convert a document-backed layout into a resource tab",
-		func(ctx SpecContext, layoutType string, resourceType ontology.ResourceType) {
+		func(ctx SpecContext, layoutType string, resourceType resource.Type) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			docKey, staleKey := uuid.New().String(), uuid.New().String()
-			createResources(ctx, db, ontology.ID{Type: resourceType, Key: docKey})
+			createResources(ctx, db, resource.ID{Type: resourceType, Key: docKey})
 			stageLayout(ctx, db, project.Project{
 				Key:  uuid.New(),
 				Name: "Ops",
@@ -573,12 +574,12 @@ var _ = Describe("Composition migrations", func() {
 			zeroTabKeys(&root)
 			Expect(root).To(Equal(*leaf(resourceTab(resourceType, docKey))))
 		},
-		Entry("a range overview", "overview", ontology.ResourceTypeRange),
-		Entry("an Arc", "arc", ontology.ResourceTypeArc),
+		Entry("a range overview", "overview", resource.TypeRange),
+		Entry("an Arc", "arc", resource.TypeArc),
 		Entry(
 			"an Arc editor from a v0.50 Console",
 			"arc_editor",
-			ontology.ResourceTypeArc,
+			resource.TypeArc,
 		),
 	)
 
@@ -679,8 +680,8 @@ var _ = Describe("Composition migrations", func() {
 				Root: v0.Node{Variant: v0.SplitNode{
 					Direction: spatial.DirectionX,
 					Size:      0.5,
-					First:     *leaf(resourceTab(ontology.ResourceTypeLog, logKey)),
-					Last:      *leaf(resourceTab(ontology.ResourceTypeUser, userKey)),
+					First:     *leaf(resourceTab(resource.TypeLog, logKey)),
+					Last:      *leaf(resourceTab(resource.TypeUser, userKey)),
 				}},
 			}
 			Expect(table.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
@@ -698,8 +699,8 @@ var _ = Describe("Composition migrations", func() {
 			Expect(first.Tabs).To(HaveLen(1))
 			kept, ok := first.Tabs[0].Variant.(v0.ResourceTab)
 			Expect(ok).To(BeTrue())
-			Expect(kept.Resource).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeLog,
+			Expect(kept.Resource).To(Equal(resource.ID{
+				Type: resource.TypeLog,
 				Key:  logKey,
 			}))
 			last, ok := split.Last.Variant.(v0.LeafNode)
@@ -753,8 +754,8 @@ var _ = Describe("Composition migrations", func() {
 			Expect(ok).To(BeTrue())
 			converted, ok := first.Tabs[0].Variant.(v0.ResourceTab)
 			Expect(ok).To(BeTrue())
-			Expect(converted.Resource).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeTask,
+			Expect(converted.Resource).To(Equal(resource.ID{
+				Type: resource.TypeTask,
 				Key:  taskKey.String(),
 			}))
 

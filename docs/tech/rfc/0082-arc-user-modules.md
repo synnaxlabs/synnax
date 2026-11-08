@@ -40,9 +40,8 @@ Binding a rack to a module is a validation error, and so is importing an automat
 
 ![Arc ontology](img/0082-arc-user-modules/ontology.svg)
 
-- **Root group**: The Arc service creates "Arcs" below the ontology root with
-  `group.Service.CreateOrRetrieve`, as the channel, task, and project services do, and
-  parents every new Arc under it.
+- **Root group**: The Arc service creates "Arcs" below the ontology root and parents
+  every new Arc under it.
 - **Directories**: A group below "Arcs" is a directory. A module may sit directly under
   "Arcs" or in a group at any depth (§5.0, §5.1).
 - **Names**: Group and module names are validated like channel names.
@@ -116,15 +115,13 @@ imports cost about 0.06 ms per dependent Arc, 50 ms at I = 807, whatever N is.
 
 ### 3.4 Exports and compilation
 
-A top-level `func`, `stage`, `sequence`, or constant in a module is visible to importers
-only when its declaration starts with `export`, the keyword that pairs with `import`. A
-constant is a top-level variable with a literal initializer (`gain := 2 * 3`), so an
-importer can pass it in a `{}` input block. `export` on any other variable, `export` in
-an automation, a top-level flow or authority block in a module, and an import that names
-a function are errors. There is no re-export. An importer's program contains the
-exported code of its modules, so the Driver receives one program per task, as today. A
-module has no task, so the Core compiles it on each save and stores the result as the
-Arc's status.
+A top-level `func`, `stage`, `sequence`, or `:=` variable in a module is visible to
+importers only when its declaration starts with `export`, the keyword that pairs with
+`import`. `export` in an automation, a top-level flow or authority block in a module,
+and an import that names a function are errors. There is no re-export. An importer's
+program contains the exported code of its modules, so the Driver receives one program
+per task, as today. A module has no task, so the Core compiles it on each save and
+stores the result as the Arc's status.
 
 ### 3.5 Migrations
 
@@ -138,7 +135,8 @@ Each phase is one pull request into `main`.
 
 - **Phase 1: Arc type and the Arcs group.** New and existing Arcs are parented under it.
 - **Phase 2: Module resolution and `export`.** Path walk, analyzer resolution, and cycle
-  diagnostics.
+  diagnostics. The module rules of §3.0 hold on every path. No task holds a module, and
+  a module never runs.
 - **Phase 3: Compile modules into the importer.**
 - **Phase 4: Change propagation.** Compiled hashes, the importer lookup, and the resyncs
   of §3.2.
@@ -185,6 +183,5 @@ renames the module.
 ## 6 What this RFC does not cover
 
 Parameterized sequences and stages, `=> name` inside imported code, modules in graph
-mode, Arc programs following renames, exported channel variables, bundle import and
-export of modules (RFC 0052), access control on modules, and the Console beyond Phase
-1's explorer work.
+mode, Arc programs following renames, bundle import and export of modules (RFC 0052),
+access control on modules, and the Console beyond Phase 1's explorer work.

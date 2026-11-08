@@ -10,7 +10,7 @@
 import { Breadcrumb as Base } from "@synnaxlabs/lyra/breadcrumb";
 import { caseconv } from "@synnaxlabs/x";
 
-import { parseSegments } from "@/components/text/InlineCode";
+import { Text } from "@/components/text";
 import { labelOf } from "@/pages/_nav";
 
 export interface BreadcrumbProps {
@@ -44,7 +44,7 @@ const fromSlug = (segment: string): string =>
 // The URL slug drops the casing of a code title, so a fully backticked title supplies
 // the text of the last segment itself.
 const codeTitle = (title?: string): string | null => {
-  const segments = parseSegments(title);
+  const segments = Text.parseSegments(title);
   if (segments.length !== 1 || !segments[0].code) return null;
   return segments[0].text;
 };

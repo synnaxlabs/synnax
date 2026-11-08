@@ -10,7 +10,7 @@
 import ssl
 from collections.abc import MutableMapping
 from contextlib import ExitStack
-from typing import Any, Generic, Literal, Self
+from typing import Any, Generic, Literal, Self, override
 
 from pydantic import BaseModel
 from websockets.asyncio.client import ClientConnection as AsyncClientConnection
@@ -63,6 +63,7 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
     class _ResMsg(Message[RS]):
         payload: RS | None = None
 
+        @override
         @classmethod
         def model_validate(
             cls,
@@ -123,6 +124,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         self._server_closed = None
         self._res_msg_t = _new_res_msg_t(res_t)
 
+    @override
     async def receive(self) -> RS:
         """Implements the AsyncStream protocol."""
         server_closed = self._server_closed
@@ -142,6 +144,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         assert msg.payload is not None
         return msg.payload
 
+    @override
     async def send(self, payload: RQ) -> None:
         """Implements the AsyncStream protocol."""
         # If the server closed with an error, we raise freighter.EOF to the caller, and
@@ -179,6 +182,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
             await self._internal.close()
             raise
 
+    @override
     async def close_send(self) -> None:
         """Implements the AsyncStream protocol."""
         if self._send_closed or self._server_closed is not None:
@@ -230,6 +234,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         self._server_closed = None
         self._res_msg_t = _new_res_msg_t(res_t)
 
+    @override
     def receive(self, *, timeout: float | None = None) -> RS:
         server_closed = self._server_closed
         if server_closed is not None:
@@ -248,6 +253,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         assert msg.payload is not None
         return msg.payload
 
+    @override
     def received(self) -> bool:
         return self._internal.recv_bufsize > 0
 
@@ -270,6 +276,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
             self._connection.close()
             raise
 
+    @override
     def send(self, payload: RQ) -> None:
         if self._server_closed is not None:
             raise EOF()
@@ -285,6 +292,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         except ConnectionClosedOK as e:
             raise _handle_close_err(e) from e
 
+    @override
     def close_send(self) -> None:
         if self._send_closed or self._server_closed is not None:
             return
@@ -371,6 +379,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
             **kwargs,
         )
 
+    @override
     async def stream(
         self,
         target: str,
@@ -405,6 +414,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         assert socket is not None
         return socket
 
+    @override
     def with_codec(self, codec: Codec) -> "AsyncWebsocketClient":
         """
         Create a new client with a different codec.
@@ -460,6 +470,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
             **kwargs,
         )
 
+    @override
     def stream(
         self,
         target: str,

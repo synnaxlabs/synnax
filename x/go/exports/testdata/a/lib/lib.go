@@ -80,3 +80,7 @@ const (
 type Imports struct{}
 
 func (Imports) Has() bool { return true }
+
+type Pong struct{}
+
+func (Pong) Ping() {}

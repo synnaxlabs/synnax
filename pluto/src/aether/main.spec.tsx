@@ -417,6 +417,35 @@ describe("Aether Main", () => {
       await waitFor(() => expect(captured.error).not.toBeNull());
       expect(captured.error?.name).toBe("TimeoutError");
     });
+    it("should prefer the invoke timeout of the component", async () => {
+      const [Provider, root] = await newProvider();
+      const captured: { error: Error | null } = { error: null };
+      const InvokeLeafC = () => {
+        const [, , , methods] = Aether.use({
+          type: InvokeLeaf.TYPE,
+          schema: exampleProps,
+          initialState: { x: 0 },
+          methods: invokeMethodsSchema,
+          invokeTimeout: TimeSpan.milliseconds(50),
+        });
+        const called = useRef(false);
+        if (!called.current) {
+          called.current = true;
+          void methods.neverResponds().catch((e: unknown) => {
+            captured.error = errors.fromUnknown(e);
+          });
+        }
+        return null;
+      };
+      render(
+        <Provider invokeTimeout={TimeSpan.seconds(60)}>
+          <InvokeLeafC />
+        </Provider>,
+      );
+      await waitFor(() => expect(root.children.length).toBe(1));
+      await waitFor(() => expect(captured.error).not.toBeNull());
+      expect(captured.error?.name).toBe("TimeoutError");
+    });
     it("should abort pending invoke on component unmount", async () => {
       const [Provider, root] = await newProvider();
       const captured: { error: Error | null } = { error: null };

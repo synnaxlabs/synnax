@@ -9,24 +9,24 @@
 
 import "@/dialog/Dialog.css";
 
+import { useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { Background } from "@/dialog/Background";
 import { useContext, useInternalContext } from "@/dialog/Frame";
 import { PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
+import { useFocusTrap } from "@/dialog/useFocusTrap";
 import { Flex } from "@/flex";
+import { useCombinedRefs } from "@/hooks";
 import { getRootElement } from "@/util/rootElement";
 
 /** Props for {@link Dialog}. */
-export interface DialogProps extends Flex.BoxProps<"div"> {
-  /** Keeps the children mounted and hidden while closed, instead of unmounting them. */
-  passthrough?: boolean;
-}
+export interface DialogProps extends Flex.BoxProps<"div"> {}
 
 /**
- * The floating surface of a {@link Frame}. It mounts only while open, unless
- * `passthrough` is set, and portals itself to the document root when modal.
+ * The floating surface of a {@link Frame}. It mounts only while open and portals itself
+ * to the document root. A modal holds the focus while open and gives it back on close.
  */
 export const Dialog = ({
   style,
@@ -34,7 +34,6 @@ export const Dialog = ({
   className,
   bordered = true,
   rounded = "small",
-  passthrough = false,
   children,
   ...rest
 }: DialogProps) => {
@@ -47,14 +46,17 @@ export const Dialog = ({
     modalPosition,
   } = useInternalContext("Dialog.Dialog");
   const { visible, variant } = useContext();
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const combinedRef = useCombinedRefs(ref, surfaceRef);
+  const modal = variant === "modal";
+  const trap = useFocusTrap(surfaceRef, modal && visible);
   const dialogStyle = { ...ctxStyle, ...style };
-  if (!visible && !passthrough) return null;
-  const actuallyVisible =
-    visible && (Object.keys(ctxStyle).length > 0 || variant === "modal");
+  if (!visible) return null;
+  const actuallyVisible = modal || Object.keys(ctxStyle).length > 0;
   let dialog = (
     <Flex.Box
       pack
-      ref={ref}
+      ref={combinedRef}
       y
       background={background}
       className={CSS.cls(
@@ -64,14 +66,13 @@ export const Dialog = ({
         CSS.BEM("dialog", "dialog", dialogCorner.x),
         CSS.BEM("dialog", "dialog", dialogCorner.y),
         CSS.visible(actuallyVisible),
-        passthrough && CSS.BM("dialog", "passthrough"),
         CSS.M(variant),
-        variant === "modal" &&
-          CSS.BM("dialog", "modal", "position", modalPosition.toString()),
+        modal && CSS.BM("dialog", "modal", "position", modalPosition.toString()),
         className,
       )}
       rounded={rounded}
       role="dialog"
+      tabIndex={modal ? -1 : undefined}
       empty
       bordered={bordered}
       align="stretch"
@@ -82,12 +83,11 @@ export const Dialog = ({
       {children}
     </Flex.Box>
   );
-  if (variant === "modal")
+  if (modal)
     dialog = (
-      <Background empty align="center" visible={visible}>
+      <Background empty align="center" visible={visible} {...trap}>
         {dialog}
       </Background>
     );
-  if (passthrough) return dialog;
   return createPortal(dialog, getRootElement());
 };

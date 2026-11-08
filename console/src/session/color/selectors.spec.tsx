@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { Color as PColor } from "@synnaxlabs/lyra/color";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -15,9 +14,10 @@ import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Color } from "@/session/color";
+import { createMinimalStore } from "@/testutil";
 
 const createStore = () =>
-  configureStore({ reducer: { [Color.SLICE_NAME]: Color.reducer } });
+  createMinimalStore({ reducer: { [Color.SLICE_NAME]: Color.reducer } });
 
 const createWrapper = (
   store: ReturnType<typeof createStore>,

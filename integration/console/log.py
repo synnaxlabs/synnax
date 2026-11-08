@@ -20,7 +20,7 @@ from console.page import ConsolePage, PageType
 class Log(ConsolePage):
     """Log page management interface"""
 
-    page_type: PageType = "Log"
+    page_type: PageType = "log"
     pluto_label: str = ".pluto-log"
 
     def __init__(

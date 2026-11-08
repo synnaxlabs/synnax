@@ -11,11 +11,43 @@ import { type Event, type License } from "@/server/db/schema";
 import { roleName } from "@/server/directory";
 import { type Denial, deny } from "@/server/license/deny";
 
-export const date = (d: Date | null): string =>
-  d == null ? "" : d.toISOString().slice(0, 10);
+/** Clock reads dates and times in one time zone. */
+export interface Clock {
+  /** date reads the day that holds `d`, such as 2026-11-05. */
+  date: (d: Date | null) => string;
+  /** dateTime reads `d` with its time and zone, such as 2026-11-05 16:10 MST. */
+  dateTime: (d: Date) => string;
+}
 
-export const dateTime = (d: Date): string =>
-  `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+/** clock reads in the time zone `zone`, or in the runtime's zone without one. */
+export const clock = (zone?: string): Clock => {
+  const format = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "short",
+  });
+  const partsOf = (d: Date): Record<string, string> =>
+    Object.fromEntries(format.formatToParts(d).map(({ type, value }) => [type, value]));
+  return {
+    date: (d) => {
+      if (d == null) return "";
+      const { year, month, day } = partsOf(d);
+      return `${year}-${month}-${day}`;
+    },
+    dateTime: (d) => {
+      const { year, month, day, hour, minute, timeZoneName } = partsOf(d);
+      return `${year}-${month}-${day} ${hour}:${minute} ${timeZoneName}`;
+    },
+  };
+};
+
+/** expiry reads a license expiry as the UTC day that staff set in its terms. */
+export const expiry = (d: Date): string => d.toISOString().slice(0, 10);
 
 const shortHash = (hashes: string[]): string =>
   hashes.length === 0

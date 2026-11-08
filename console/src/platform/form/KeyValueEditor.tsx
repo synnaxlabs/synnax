@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { caseconv, type xy } from "@synnaxlabs/x";
+import { caseconv, type deep, type xy } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 export type Entry<K extends string, V extends string | number> = {
@@ -18,7 +18,7 @@ export type Entry<K extends string, V extends string | number> = {
 
 export interface KeyValueEditorProps<K extends string, V extends string | number>
   extends Input.ItemProps {
-  path: string;
+  path: deep.Target<Entry<K, V>[]>;
   keyField: K;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
@@ -41,7 +41,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   const vt = valueType ?? "string";
   const { set, mode } = Form.useContext();
   const preview = mode === "preview" ? true : undefined;
-  const value = Form.useFieldValue<Entry<K, V>[]>(path);
+  const value = Form.useFieldValue(path);
   const statuses = Form.useStatuses(path);
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   fields[keyIndex] = keyField;
   fields[valueIndex] = "value";
   const cellStatus = ({ x, y }: xy.XY) =>
-    statuses.find(({ key }) => key === `${path}.${y}.${fields[x]}`);
+    statuses.find(({ key }) => key === `${String(path)}.${y}.${fields[x]}`);
 
   const handleRowsChange = (next: Input.TableCell[][]) =>
     set(

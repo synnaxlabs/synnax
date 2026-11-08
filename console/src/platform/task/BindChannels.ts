@@ -14,8 +14,8 @@ import { useEffect, useRef } from "react";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
 export interface BindChannelsProps<C extends record.Keyed<string>> {
-  /** The form path of the list. Defaults to `config.channels`. */
-  path?: string;
+  /** The form path of the list. */
+  path: deep.Target<C[]>;
   /**
    * Returns the bindings the device maps for an entry, or null while the device is
    * unknown. A zero binding unbinds the entry only when the device mapped it before.
@@ -65,11 +65,11 @@ const bind = <T extends object>(
  * entries are added or edited. A preview form is left alone. Renders nothing.
  */
 export const BindChannels = <C extends record.Keyed<string>>({
-  path = "config.channels",
+  path,
   resolve,
 }: BindChannelsProps<C>): null => {
   const { set } = Form.useContext();
-  const state = Form.useFieldState<C[]>(path, { optional: true });
+  const state = Form.useFieldState(path, { optional: true });
   const isPreview = useIsPreview();
   const held = useRef(new Map<string, Partial<C>>());
   useEffect(() => {

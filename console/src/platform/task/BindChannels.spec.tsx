@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -19,7 +20,7 @@ interface Entry {
   channel: number;
 }
 
-const PATH = "config.channels";
+const CHANNELS = deep.path<{ config: { channels: Entry[] } }>().config.channels;
 
 const MAPPED = { 1: 5, 3: 9 } as const satisfies Record<number, number>;
 
@@ -29,17 +30,20 @@ const resolveMapped = ({ port }: Entry) => ({
 });
 
 const channelOf = (form: FormRef, key: string) =>
-  form.current?.get<number>(`${PATH}.${key}.channel`).value;
+  form.current?.get(CHANNELS[key].channel).value;
 
 const render = async (
   entries: Entry[],
   resolve: (entry: Entry) => Partial<Entry> | null,
   mode?: "preview",
 ) =>
-  await renderInTaskForm(<Task.BindChannels<Entry> resolve={resolve} />, {
-    values: { config: { channels: entries } },
-    mode,
-  });
+  await renderInTaskForm(
+    <Task.BindChannels<Entry> path={CHANNELS} resolve={resolve} />,
+    {
+      values: { config: { channels: entries } },
+      mode,
+    },
+  );
 
 describe("BindChannels", () => {
   it("should bind an entry to the channel the device maps for its port", async () => {
@@ -62,14 +66,14 @@ describe("BindChannels", () => {
   it("should move an entry to the channel its new port maps", async () => {
     const { form } = await render([{ key: "a", port: 1, channel: 0 }], resolveMapped);
     await waitFor(() => expect(channelOf(form, "a")).toBe(5));
-    act(() => form.current?.set(`${PATH}.a.port`, 3));
+    act(() => form.current?.set(CHANNELS.a.port, 3));
     await waitFor(() => expect(channelOf(form, "a")).toBe(9));
   });
 
   it("should unbind an entry moved to a port the device maps nothing for", async () => {
     const { form } = await render([{ key: "a", port: 1, channel: 0 }], resolveMapped);
     await waitFor(() => expect(channelOf(form, "a")).toBe(5));
-    act(() => form.current?.set(`${PATH}.a.port`, 2));
+    act(() => form.current?.set(CHANNELS.a.port, 2));
     await waitFor(() => expect(channelOf(form, "a")).toBe(0));
   });
 
@@ -79,11 +83,12 @@ describe("BindChannels", () => {
       port: number;
       channel: { channel: number; name: string };
     }
+    const nested = deep.path<{ config: { channels: Nested[] } }>().config.channels;
     const resolve = ({ port, channel }: Nested) => ({
       channel: { ...channel, channel: port === 1 ? 5 : 0 },
     });
     const { form } = await renderInTaskForm(
-      <Task.BindChannels<Nested> resolve={resolve} />,
+      <Task.BindChannels<Nested> path={nested} resolve={resolve} />,
       {
         values: {
           config: {
@@ -95,13 +100,12 @@ describe("BindChannels", () => {
         },
       },
     );
-    const leaf = (key: string) =>
-      form.current?.get<number>(`${PATH}.${key}.channel.channel`).value;
+    const leaf = (key: string) => form.current?.get(nested[key].channel.channel).value;
     await waitFor(() => expect(leaf("a")).toBe(5));
     expect(leaf("b")).toBe(7);
-    act(() => form.current?.set(`${PATH}.a.port`, 2));
+    act(() => form.current?.set(nested.a.port, 2));
     await waitFor(() => expect(leaf("a")).toBe(0));
-    expect(form.current?.get<string>(`${PATH}.a.channel.name`).value).toBe("n");
+    expect(form.current?.get(nested.a.channel.name).value).toBe("n");
   });
 
   it("should leave a preview form alone", async () => {

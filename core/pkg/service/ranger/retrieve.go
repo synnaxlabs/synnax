@@ -24,9 +24,8 @@ type Retrieve struct {
 	label   *label.Service
 }
 
-// MatchOverlap returns a filter that matches ranges whose TimeRange overlaps
-// with the provided range.
-func MatchOverlap(tr telem.TimeRange) Filter {
+// MatchOverlaps returns a filter that matches ranges whose TimeRange overlaps tr.
+func MatchOverlaps(tr telem.TimeRange) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Range] {
 		return gorp.Match(func(_ gorp.Context, rng *Range) (bool, error) {
 			return rng.TimeRange.OverlapsWith(tr), nil
@@ -38,7 +37,7 @@ func MatchOverlap(tr telem.TimeRange) Filter {
 // provided labels.
 func MatchLabels(matchLabels ...label.Key) Filter {
 	return Match(func(ctx gorp.Context, r Retrieve, rng *Range) (bool, error) {
-		labels, err := r.label.RetrieveFor(ctx, rng.OntologyID(), ctx.Tx)
+		labels, err := r.label.RetrieveFor(ctx, rng.ResourceID(), ctx.Tx)
 		if err != nil {
 			return false, err
 		}

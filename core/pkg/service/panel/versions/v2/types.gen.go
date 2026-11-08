@@ -12,8 +12,8 @@
 package v2
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -35,7 +35,11 @@ type View = v1.View
 // (name, icon, closability) are resolved at render time from the content. A resource
 // may back at most one tab per panel; views may repeat.
 type Tab = v1.Tab
+
+// TabVariant is implemented by every Tab variant.
 type TabVariant = v1.TabVariant
+
+// TabType is the "variant" value that selects a variant of Tab.
 type TabType = v1.TabType
 
 const (
@@ -60,7 +64,11 @@ type ViewTab = v1.ViewTab
 // split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
 // 2k = first child, 2k+1 = last child).
 type Node = v1.Node
+
+// NodeVariant is implemented by every Node variant.
 type NodeVariant = v1.NodeVariant
+
+// NodeType is the "variant" value that selects a variant of Node.
 type NodeType = v1.NodeType
 
 const (
@@ -89,7 +97,7 @@ type Panel struct {
 	Root Node `json:"root" msgpack:"root"`
 	// Parent is the parent resource for the panel in the ontology. Required on create
 	// and absent on retrieve.
-	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
+	Parent *resource.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
 	// Icon is the key of the icon that marks the panel in lists. When null, the Console
 	// draws its default panel icon.
 	Icon *string `json:"icon,omitzero" msgpack:"icon,omitempty"`

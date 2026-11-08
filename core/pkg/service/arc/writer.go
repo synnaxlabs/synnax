@@ -17,15 +17,18 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,15 +40,18 @@ const TaskType = "arc"
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx         gorp.Tx
-	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
-	tasks      *task.Service
-	status     *status.Service
-	table      *gorp.Table[Key, Arc]
-	dispatcher actions.Dispatcher[Key, Action]
-	sweeper    textSweeper
-	taskSync   *debounce.Keyed[Key]
+	tx          gorp.Tx
+	otgWriter   ontology.Writer
+	otg         *ontology.Ontology
+	root        directory.Key
+	directories *gorp.Table[directory.Key, directory.Directory]
+	reserved    set.Set[string]
+	tasks       *task.Service
+	status      *status.Service
+	table       *gorp.Table[Key, Arc]
+	dispatcher  actions.Dispatcher[Key, Action]
+	sweeper     textSweeper
+	taskSync    *debounce.Keyed[Key]
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
@@ -55,43 +61,91 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// validateType rejects a change of type between the stored Arc and its replacement.
+func validateType(stored, next Type) error {
+	if stored == next {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation, "type cannot change from %s to %s", stored, next,
+	)
+}
+
 // Create creates the given Arc. If the Arc does not have a key,
 // a new key will be generated.
 func (w Writer) Create(ctx context.Context, a *Arc) error {
+	if a.Variant == nil {
+		return errors.Wrap(
+			validate.ErrValidation, "an Arc must be an automation or a module",
+		)
+	}
 	var (
-		exists bool
-		err    error
+		existing Arc
+		exists   bool
+		err      error
+		b        = a.Base()
 	)
-	if a.Key == uuid.Nil() {
-		a.Key = uuid.New()
+	if b.Key == uuid.Nil() {
+		b.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Arc](a.Key)).
-			Exists(ctx, w.tx)
-		if err != nil {
+		err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Arc](b.Key)).
+			Entry(&existing).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
+		exists = err == nil
 	}
-	if len(a.Text.Doc.Inserts) == 0 && a.Text.Raw != "" {
-		a.Text.Doc = text.Create(a.Text.Raw)
+	b.ApplyDefaults()
+	if src, ok := b.Source.Variant.(TextSource); ok &&
+		len(src.Text.Doc.Inserts) == 0 && src.Text.Raw != "" {
+		src.Text.Doc = text.Create(src.Text.Raw)
+		b.Source.Variant = src
 	}
+	a.SetBase(b)
 	if err = a.Validate(); err != nil {
 		return err
+	}
+	module := a.Type() == TypeModule
+	if !exists {
+		if err = w.validateEntry(
+			ctx, directory.ResourceID(w.root), a.ResourceID(), b.Name, module,
+		); err != nil {
+			return err
+		}
+	} else {
+		if err = validateType(existing.Type(), a.Type()); err != nil {
+			return err
+		}
+		if existing.Base().Name != b.Name {
+			if err = w.validateName(ctx, a.ResourceID(), b.Name, module); err != nil {
+				return err
+			}
+		}
 	}
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	if !exists {
-		if err = w.otgWriter.DefineResources(ctx, a.OntologyID()); err != nil {
+		if err = w.otgWriter.DefineResources(ctx, a.ResourceID()); err != nil {
 			return err
 		}
-	} else if err = w.syncTask(ctx, *a); err != nil {
+		if err = w.otgWriter.DefineRelationships(
+			ctx,
+			directory.ResourceID(w.root),
+			ontology.RelationshipTypeParentOf,
+			a.ResourceID(),
+		); err != nil {
+			return err
+		}
+	} else if err = w.syncTask(ctx, b); err != nil {
 		return err
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,
 		w.tx,
-		a.Key,
+		b.Key,
 		NewCreateAction(CreatePayload{Arc: *a}),
 	)
 	return nil
@@ -122,7 +176,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
+		if err := w.otgWriter.DeleteResources(ctx, ResourceID(key)); err != nil {
 			return err
 		}
 		w.sweeper.forget(key)
@@ -148,9 +202,9 @@ func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
 func (w Writer) childTaskKeys(ctx context.Context, key Key) ([]task.Key, error) {
 	var children []ontology.Resource
 	if err := w.otg.NewRetrieve().
-		WhereIDs(OntologyID(key)).
+		WhereIDs(ResourceID(key)).
 		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(ontology.ResourceTypeTask).
+		WhereTypes(resource.TypeTask).
 		Entries(&children).
 		ExcludeFieldData(true).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
@@ -159,7 +213,7 @@ func (w Writer) childTaskKeys(ctx context.Context, key Key) ([]task.Key, error) 
 	if len(children) == 0 {
 		return nil, nil
 	}
-	return task.KeysFromOntologyIDs(ontology.ResourceIDs(children))
+	return task.KeysFromResourceIDs(ontology.ResourceIDs(children))
 }
 
 // TaskUpdate holds the fields of an arc's task to change. A nil field stays as it is.
@@ -204,6 +258,11 @@ func (w Writer) UpdateTask(
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
+	if a.Type() == TypeModule {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "a module cannot be bound to a rack",
+		)
+	}
 	if len(existing) > 0 {
 		if tsk, cfg, err = w.retrieveTask(ctx, existing[0]); err != nil {
 			return nil, err
@@ -220,10 +279,10 @@ func (w Writer) UpdateTask(
 	if update.Performance != nil {
 		cfg.Performance = *update.Performance
 	}
-	if cfg.Hash, err = Hash(a); err != nil {
+	if cfg.Hash, err = Hash(a.Base()); err != nil {
 		return nil, err
 	}
-	return w.writeTask(ctx, a, tsk.Rack, existing, cfg)
+	return w.writeTask(ctx, a.Base(), tsk.Rack, existing, cfg)
 }
 
 // writeTask creates or overwrites the arc's task on rackKey with cfg, stamping the
@@ -232,7 +291,7 @@ func (w Writer) UpdateTask(
 // no extra machinery.
 func (w Writer) writeTask(
 	ctx context.Context,
-	a Arc,
+	a Base,
 	rackKey rack.Key,
 	existing []task.Key,
 	cfg taskversions.Config,
@@ -256,9 +315,9 @@ func (w Writer) writeTask(
 	if len(existing) == 0 {
 		if err := w.otgWriter.DefineRelationships(
 			ctx,
-			OntologyID(a.Key),
+			ResourceID(a.Key),
 			ontology.RelationshipTypeParentOf,
-			tsk.OntologyID(),
+			tsk.ResourceID(),
 		); err != nil {
 			return nil, err
 		}
@@ -284,10 +343,10 @@ func (w Writer) retrieveTask(
 	return tsk, cfg, tsk.Config.Unmarshal(&cfg)
 }
 
-// syncTask rewrites the arc's task in place when an edit changed the arc's semantic
-// hash, keeping the task config in step with the arc's content. A no-op for arcs with
-// no rack bound and for edits, like graph layout moves, that hash equally.
-func (w Writer) syncTask(ctx context.Context, a Arc) error {
+// syncTask rewrites the arc's task in place when an edit changed the arc's name or
+// semantic hash, keeping the task in step with the arc. A no-op for arcs with no rack
+// bound and for edits, like graph layout moves, that change neither.
+func (w Writer) syncTask(ctx context.Context, a Base) error {
 	existing, err := w.childTaskKeys(ctx, a.Key)
 	if err != nil || len(existing) == 0 {
 		return err
@@ -297,7 +356,7 @@ func (w Writer) syncTask(ctx context.Context, a Arc) error {
 		return err
 	}
 	hash, err := Hash(a)
-	if err != nil || cfg.Hash == hash {
+	if err != nil || (cfg.Hash == hash && tsk.Name == a.Name) {
 		return err
 	}
 	cfg.Hash = hash
@@ -309,7 +368,7 @@ func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {
 	for _, taskKey := range taskKeys {
 		var stat task.Status
 		err := w.status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](task.OntologyID(taskKey).String())).
+			Where(status.MatchKeys[task.StatusDetails](task.ResourceID(taskKey).String())).
 			Entry(&stat).
 			Exec(ctx, w.tx)
 		if err != nil && !errors.Is(err, query.ErrNotFound) {

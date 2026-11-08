@@ -20,8 +20,9 @@ file `synnax.py`, because that name hides the `synnax` package.
 
 You need:
 
-- A Core in [Synnax Enterprise](/reference/enterprise) that your computer can reach, and
-  a username and password for it.
+- [Synnax Desktop](/reference/get-started/install-desktop) on your computer, or a Core
+  in [Synnax Enterprise](/reference/enterprise) that your computer can reach, and a
+  username and password for it.
 - Python 3.12 or later, or Node.js 22 or later.
 
 <Divider.Divider x />
@@ -61,6 +62,10 @@ as client 0.58 for Core 0.58. The client prints a warning when the versions diff
 
 Replace the address and credentials with the values of your Core. For TLS and other
 options, see [Connect to a Core](/reference/client/connect).
+
+With Synnax Desktop, the Python client finds the Core by itself: call `sy.Synnax()` with
+no arguments. For TypeScript, copy the code from the **Connect from code** dialog. See
+[Connect to Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop).
 
 <Client.Tabs exclude={["console"]}>
 

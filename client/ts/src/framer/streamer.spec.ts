@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF, Unreachable } from "@synnaxlabs/freighter";
+import { type AddressInfo } from "node:net";
+
+import { EOF, StreamClosed, Unreachable, WebSocketClient } from "@synnaxlabs/freighter";
 import {
+  array,
+  binary,
   DataType,
   errors,
   id,
@@ -16,10 +20,13 @@ import {
   sleep,
   TimeSpan,
   TimeStamp,
+  url,
 } from "@synnaxlabs/x";
-import { describe, expect, it, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
+import { type WebSocket, WebSocketServer } from "ws";
+import { z } from "zod";
 
-import { type channel } from "@/channel";
+import { channel } from "@/channel";
 import { AuthError, ExpiredTokenError, SessionEndedError } from "@/errors";
 import { framer } from "@/framer";
 import { AccessDeniedError, MissingLicenseError } from "@/index";
@@ -83,15 +90,16 @@ describe("Streamer", () => {
       const d = await streamer.read();
       expect(Array.from(d.get(ch.key))).toEqual(samples);
     });
-    test("should preserve non-zero time ranges through codec round-trip", async () => {
+    test("should stamp each sample of a virtual series 1ns apart with the Core's clock", async () => {
       const ch = await newVirtualChannel(client);
       const streamer = await client.openStreamer(ch.key);
       const writer = await client.openWriter({
         start: TimeStamp.now(),
         channels: ch.key,
       });
-      const start = new TimeStamp(1000000000n);
-      const end = new TimeStamp(6000000000n);
+      // The Core stamps with its own clock, which can drift from the client's.
+      const skew = TimeSpan.seconds(1);
+      const before = TimeStamp.now().sub(skew);
       try {
         const fr = new framer.Frame(
           [ch.key],
@@ -99,7 +107,7 @@ describe("Streamer", () => {
             new Series({
               data: new Float64Array([1, 2, 3]),
               dataType: DataType.FLOAT64,
-              timeRange: start.spanRange(TimeSpan.seconds(5)),
+              timeRange: new TimeStamp(1000000000n).spanRange(TimeSpan.seconds(5)),
             }),
           ],
         );
@@ -109,9 +117,10 @@ describe("Streamer", () => {
       }
       const d = await streamer.read();
       const series = d.series[0];
-      expect(series.timeRange).toBeDefined();
-      expect(series.timeRange?.start.valueOf()).toEqual(start.valueOf());
-      expect(series.timeRange?.end.valueOf()).toEqual(end.valueOf());
+      expect(series.timeRange.span.valueOf()).toEqual(3n);
+      expect(series.timeRange.start.afterEq(before)).toBe(true);
+      const after = TimeStamp.now().add(skew);
+      expect(series.timeRange.start.beforeEq(after)).toBe(true);
     });
     test("should deliver series stamped with the index's time range", async () => {
       const channels = await newIndexedPair(client);
@@ -1585,5 +1594,95 @@ describe("Streamer", () => {
 
       expect(onDead).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("update against a local server", () => {
+  // Wire byte that marks a JSON message from the Core.
+  const LOW_PERF_SPECIAL_CHAR = 254;
+  const requestZ = z.object({
+    payload: z.object({ ackRequested: z.boolean().optional() }).optional(),
+  });
+
+  let server: WebSocketServer;
+  let connected: Promise<WebSocket>;
+
+  const retrieveChannels: framer.ChannelRetriever = async (params) =>
+    array
+      .toArray(params)
+      .map((key) =>
+        channel.payloadZ.parse({ key, name: id.create(), dataType: "float32" }),
+      );
+
+  const reply = (ws: WebSocket, msg: object): void =>
+    ws.send(
+      Buffer.concat([
+        Buffer.from([LOW_PERF_SPECIAL_CHAR]),
+        Buffer.from(JSON.stringify(msg)),
+      ]),
+    );
+
+  const replyData = (ws: WebSocket, extra: object = {}): void =>
+    reply(ws, { type: "data", payload: { frame: { keys: [], series: [] }, ...extra } });
+
+  // Calls onAckRequest for each update that asks for an ack.
+  const open = async (onAckRequest: (ws: WebSocket) => void) => {
+    const { port } = server.address() as AddressInfo;
+    const ws = new WebSocketClient(
+      new url.URL({ host: "127.0.0.1", port }),
+      new binary.JSONCodec(),
+    );
+    const codec = new binary.JSONCodec();
+    void connected.then((sock) =>
+      sock.on("message", (data: Buffer) => {
+        if (codec.decode(data, requestZ).payload?.ackRequested === true)
+          onAckRequest(sock);
+      }),
+    );
+    return await framer.openStreamer(retrieveChannels, ws, { channels: [1] });
+  };
+
+  beforeEach(async () => {
+    server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    connected = new Promise((resolve) =>
+      server.on("connection", (ws) => {
+        reply(ws, { type: "open", payload: null });
+        ws.once("message", () => replyData(ws));
+        resolve(ws);
+      }),
+    );
+    await new Promise((resolve) => server.on("listening", resolve));
+  });
+
+  afterEach(async () => {
+    server.clients.forEach((ws) => ws.terminate());
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  it("should resolve once the Core acks the update", async () => {
+    const streamer = await open((ws) => replyData(ws, { ack: true }));
+    const reading = streamer.read();
+    await streamer.update([2], { waitForAck: true });
+    expect(streamer.keys).toEqual([2]);
+    server.clients.forEach((ws) => ws.terminate());
+    await expect(reading).rejects.toThrow(StreamClosed);
+  });
+
+  it("should reject with the read error when the stream fails first", async () => {
+    const streamer = await open((ws) => ws.terminate());
+    const reading = streamer.read();
+    await expect(streamer.update([2], { waitForAck: true })).rejects.toThrow(
+      StreamClosed,
+    );
+    await expect(reading).rejects.toThrow(StreamClosed);
+  });
+
+  it("should reject an update sent after close", async () => {
+    const streamer = await open(() => {});
+    streamer.close();
+    await expect(streamer.update([2], { waitForAck: true })).rejects.toThrow(
+      StreamClosed,
+    );
+    await expect(streamer.update([3])).rejects.toThrow(StreamClosed);
   });
 });

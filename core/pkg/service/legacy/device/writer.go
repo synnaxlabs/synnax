@@ -36,7 +36,7 @@ type Writer struct {
 func resolveStatus(d *Device, provided *Status) *Status {
 	if provided == nil {
 		return &Status{
-			Key:     d.OntologyID().String(),
+			Key:     d.ResourceID().String(),
 			Name:    d.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
@@ -45,30 +45,51 @@ func resolveStatus(d *Device, provided *Status) *Status {
 		}
 	}
 	stat := *provided
-	stat.Key = d.OntologyID().String()
+	stat.Key = d.ResourceID().String()
 	stat.Name = d.Name
 	stat.Details.Device = d.Key
 	stat.Details.Rack = d.Rack
 	return &stat
 }
 
-// healStatus restores a device's status row if it has gone missing (e.g. deleted
-// out-of-band) without clobbering a live one. Devices are re-created on every scan
-// cycle, so on a no-op update the default "unknown" status must not overwrite a status
-// the driver has already reported; it is only written when no row exists.
-func (w Writer) healStatus(ctx context.Context, stat *Status) error {
-	if exists, err := gorp.NewRetrieve[string, Status]().
-		Where(gorp.MatchKeys[string, Status](stat.Key)).
-		Exists(ctx, w.tx); err != nil || exists {
+// writeStatus sets d.Status to the status that d now has in the DB. A provided status
+// replaces the stored row only if overwritable is true. The default status is written
+// only if no row exists, because a stored row may be a live status from the Driver.
+func (w Writer) writeStatus(
+	ctx context.Context,
+	d *Device,
+	provided *Status,
+	overwritable bool,
+) error {
+	if provided != nil && overwritable {
+		d.Status = resolveStatus(d, provided)
+		return w.status.Set(ctx, d.Status)
+	}
+	var stored Status
+	err := gorp.NewRetrieve[string, Status]().
+		Where(gorp.MatchKeys[string, Status](d.ResourceID().String())).
+		Entry(&stored).
+		Exec(ctx, w.tx)
+	if errors.Is(err, query.ErrNotFound) {
+		d.Status = resolveStatus(d, provided)
+		return w.status.Set(ctx, d.Status)
+	}
+	if err != nil {
 		return err
 	}
-	return w.status.Set(ctx, stat)
+	d.Status = resolveStatus(d, &stored)
+	if stored.Name == d.Name && stored.Details.Rack == d.Rack {
+		return nil
+	}
+	return w.status.Set(ctx, d.Status)
 }
 
 // Create creates or updates the given device. If device.Parent is non-zero, the device
 // is parented to that ontology resource; otherwise it defaults to the device's rack.
-// If a status is provided on the device, it will be used instead of the default
-// "unknown" status.
+// A status provided on the device replaces the stored status if the device is new,
+// renamed, moved to another rack, or sent with a parent. With no provided status, the
+// stored status stays, and only a device with no stored status gets the default
+// "unknown" status. Create sets device.Status to the resulting status.
 func (w Writer) Create(ctx context.Context, device *Device) error {
 	if err := device.Validate(); err != nil {
 		return err
@@ -78,7 +99,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 
 	callerProvidedParent := device.Parent != nil && !device.Parent.IsZero()
 	if !callerProvidedParent {
-		rackID := device.Rack.OntologyID()
+		rackID := device.Rack.ResourceID()
 		device.Parent = &rackID
 	}
 	parentID := *device.Parent
@@ -106,20 +127,15 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 
 	// If the device already exists and its rack hasn't changed and no explicit
 	// parent was provided, skip redefining the ontology relationship.
-	if exists && device.Rack == existing.Rack && !callerProvidedParent {
-		stat := resolveStatus(device, providedStatus)
-		device.Status = stat
-		if device.Name != existing.Name {
-			return w.status.Set(ctx, stat)
-		}
-		return w.healStatus(ctx, stat)
-	}
-	stat := resolveStatus(device, providedStatus)
-	device.Status = stat
-	if err = w.status.Set(ctx, stat); err != nil {
+	unmoved := exists && device.Rack == existing.Rack && !callerProvidedParent
+	overwritable := !unmoved || device.Name != existing.Name
+	if err = w.writeStatus(ctx, device, providedStatus, overwritable); err != nil {
 		return err
 	}
-	otgID := device.OntologyID()
+	if unmoved {
+		return nil
+	}
+	otgID := device.ResourceID()
 	if err = w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
@@ -167,17 +183,17 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	}
 	// A missing status row is valid: the next Create heals it.
 	return errors.Skip(
-		w.status.Rename(ctx, OntologyID(key).String(), name),
+		w.status.Rename(ctx, ResourceID(key).String(), name),
 		query.ErrNotFound,
 	)
 }
 
 // Delete deletes the device with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key) error {
-	if err := w.otg.DeleteResources(ctx, OntologyID(key)); err != nil {
+	if err := w.otg.DeleteResources(ctx, ResourceID(key)); err != nil {
 		return err
 	}
-	if err := w.status.Delete(ctx, OntologyID(key).String()); err != nil {
+	if err := w.status.Delete(ctx, ResourceID(key).String()); err != nil {
 		return err
 	}
 	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Device](key)).Exec(ctx, w.tx)

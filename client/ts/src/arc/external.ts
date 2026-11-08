@@ -11,6 +11,7 @@ export * from "@/arc/actions";
 export * from "@/arc/actions.gen";
 export * from "@/arc/client";
 export * from "@/arc/compiler";
+export * from "@/arc/directory";
 export * from "@/arc/graph";
 export * from "@/arc/ir";
 export * from "@/arc/module";

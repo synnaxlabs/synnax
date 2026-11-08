@@ -40,6 +40,7 @@ type resolver struct {
 // without hitting the backing symbol resolver. CalculationAnalyzer is not safe for
 // concurrent use.
 type CalculationAnalyzer struct {
+	symbols  arc.SymbolResolver
 	resolver *resolver
 	cfg      parser.Config
 }
@@ -50,10 +51,14 @@ func NewCalculationAnalyzer(
 	symbolResolver arc.SymbolResolver,
 	cfgs ...parser.Config,
 ) *CalculationAnalyzer {
-	r := &resolver{SymbolResolver: symbolResolver}
+	r := &resolver{}
 	r.temp.keys = make(map[int]*symbol.Symbol)
 	r.temp.names = make(map[string]*symbol.Symbol)
-	return &CalculationAnalyzer{resolver: r, cfg: parser.ConfigOf(cfgs...)}
+	return &CalculationAnalyzer{
+		symbols:  symbolResolver,
+		resolver: r,
+		cfg:      parser.ConfigOf(cfgs...),
+	}
 }
 
 func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
@@ -96,6 +101,7 @@ func (a *CalculationAnalyzer) Analyze(
 	ctx context.Context,
 	ch Channel,
 ) (CalculationAnalysisResult, error) {
+	a.resolver.SymbolResolver = NewConsistentResolver(a.symbols)
 	a.resolver.unresolved = make(set.Set[string])
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression), a.cfg)
 	if err != nil {

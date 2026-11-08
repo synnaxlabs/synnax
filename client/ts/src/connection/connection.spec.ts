@@ -164,6 +164,13 @@ describe("connection", () => {
       expect(status.details.clientServerCompatible).toBe(false);
     });
 
+    it("should treat a Core on another patch as compatible", () => {
+      const config = createConfig({ clientVersion: "1.2.0" });
+      const info = createInfo({ nodeVersion: "1.2.3" });
+      const status = apply(config, { type: "check.success", info });
+      expect(status.details.clientServerCompatible).toBe(true);
+    });
+
     it("should treat a 0.0 build on either side as compatible", () => {
       const config = createConfig({ clientVersion: "0.0.0" });
       const info = createInfo({ nodeVersion: "50000.0.0" });

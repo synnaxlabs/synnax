@@ -52,11 +52,7 @@ func typeLines(t resolution.Type) []string {
 			lines = append(lines, qn+" omits "+name)
 		}
 		lines = append(lines, fieldLines(qn+".", f.Fields)...)
-		for _, a := range f.Actions {
-			lines = append(lines, qn+" action "+a.Name)
-			lines = append(lines, fieldLines(qn+"!"+a.Name+".", a.Fields)...)
-		}
-		return lines
+		return append(lines, actionLines(qn, f.Actions)...)
 	case resolution.EnumForm:
 		lines := []string{qn + " enum" + refs(" extends ", f.Extends)}
 		for _, v := range f.Values {
@@ -74,7 +70,7 @@ func typeLines(t resolution.Type) []string {
 		for _, v := range f.Variants {
 			lines = append(lines, qn+"|"+v.Name+" "+ref(v.Type))
 		}
-		return lines
+		return append(lines, actionLines(qn, f.Actions)...)
 	case resolution.AliasForm:
 		return []string{qn + params(f.TypeParams) + " = " + ref(f.Target)}
 	case resolution.DistinctForm:
@@ -82,6 +78,15 @@ func typeLines(t resolution.Type) []string {
 	default:
 		panic(fmt.Sprintf("surface: unknown form %T of %s", t.Form, qn))
 	}
+}
+
+func actionLines(qn string, actions []resolution.Action) []string {
+	var lines []string
+	for _, a := range actions {
+		lines = append(lines, qn+" action "+a.Name)
+		lines = append(lines, fieldLines(qn+"!"+a.Name+".", a.Fields)...)
+	}
+	return lines
 }
 
 func fieldLines(prefix string, fields []resolution.Field) []string {

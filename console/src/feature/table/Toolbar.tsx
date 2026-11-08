@@ -38,11 +38,13 @@ import { type Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
+const path = deep.path<{ variant: Table.Cell.Variant }>();
+
 const Internal = (): ReactElement => {
   const key = Table.useKey();
   const name = Table.useName();
   const editable = Session.Table.useSelectEditable();
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(table.resourceID(key));
   const canEdit = hasUpdatePermission && editable;
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
   const cellsByKey = Table.useCells({ cellKeys: selectedCellKeys });
@@ -79,8 +81,8 @@ const Internal = (): ReactElement => {
           )}
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} gap="small">
-          <Export.ToolbarButton id={table.ontologyID(key)} />
-          <Core.CopyLinkToolbarButton name={name} ontologyID={table.ontologyID(key)} />
+          <Export.ToolbarButton id={table.resourceID(key)} />
+          <Core.CopyLinkToolbarButton name={name} resourceID={table.resourceID(key)} />
         </Flex.Box>
       </Base.Header>
       <Flex.Box full className={CSS.BE("table", "toolbar-content")}>
@@ -167,11 +169,7 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement => {
   const handleTabChange = (tab: Properties.TabKey) =>
     sessionDispatch(Session.Table.setPropertiesTab({ key, tab }));
   const { form } = Table.useCellForm({ cellKey });
-  const variant = Form.useFieldValue<
-    Table.Cell.Variant,
-    Table.Cell.Variant,
-    typeof Table.Cell.configZ
-  >("variant", { ctx: form });
+  const variant = Form.useFieldValue(path.variant, { ctx: form });
   const C = Table.Cell.REGISTRY[variant];
   return (
     <Form.Form<typeof Table.Cell.configZ> {...form}>
@@ -193,7 +191,7 @@ interface NotEditableContentProps {
 const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => {
   const key = Table.useKey();
   const dispatch = Session.useDispatch();
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(table.resourceID(key));
   return (
     <Empty.Action
       message={`${name} is not editable`}

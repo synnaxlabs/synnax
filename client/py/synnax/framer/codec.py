@@ -10,6 +10,9 @@
 from __future__ import annotations
 
 import struct
+from typing import override
+
+import numpy as np
 
 import synnax.channel.payload as channel
 from synnax.exceptions import ValidationError
@@ -48,18 +51,13 @@ def _series_wire_byte_length(ser: Series) -> int:
 
 
 def _pack_bool_bits(src: bytes) -> bytes:
-    dst = bytearray(_bit_packed_byte_count(len(src)))
-    for i, b in enumerate(src):
-        if b != 0:
-            dst[i // _BITS_PER_BYTE] |= 1 << (i % _BITS_PER_BYTE)
-    return bytes(dst)
+    nonzero = np.frombuffer(src, dtype=np.uint8) != 0
+    return np.packbits(nonzero, bitorder="little").tobytes()
 
 
 def _unpack_bool_bits(src: memoryview, sample_count: int) -> bytes:
-    dst = bytearray(sample_count)
-    for i in range(sample_count):
-        dst[i] = (src[i // _BITS_PER_BYTE] >> (i % _BITS_PER_BYTE)) & 1
-    return bytes(dst)
+    packed = np.frombuffer(src, dtype=np.uint8)
+    return np.unpackbits(packed, count=sample_count, bitorder="little").tobytes()
 
 
 class _CodecFlags:
@@ -408,5 +406,6 @@ class WSCodec(XCodec):
         self.codec = codec
         self.lower_perf_codec = JSONCodec()
 
+    @override
     def content_type(self) -> str:
         return "application/vnd.synnax.frame"

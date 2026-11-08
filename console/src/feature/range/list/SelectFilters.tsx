@@ -25,23 +25,28 @@ import { Label } from "@/platform/label";
 import { View } from "@/platform/view";
 
 export interface SelectFiltersProps {
-  request: ranger.RetrieveRequest;
-  onRequestChange: state.Setter<ranger.RetrieveRequest>;
+  request: ranger.RetrieveMultipleParams;
+  onRequestChange: state.Setter<ranger.RetrieveMultipleParams>;
 }
 
 const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => {
-  const handleRequestChange = (setter: state.SetArg<ranger.RetrieveRequest>) => {
+  const handleRequestChange = (setter: state.SetArg<ranger.RetrieveMultipleParams>) => {
     onRequestChange((prev) => {
       const next = state.executeSetter(setter, prev);
-      return { ...next, offset: 0, limit: 0 };
+      return { ...next, offset: 0, limit: undefined };
     });
   };
 
   return (
     <Menu.Menu level="small" gap="small">
       <Label.SelectMultiple
-        value={request.hasLabels ?? []}
-        onChange={(labels) => handleRequestChange((r) => ({ ...r, hasLabels: labels }))}
+        value={request.where?.labels ?? []}
+        onChange={(labels) =>
+          handleRequestChange((r) => ({
+            ...r,
+            where: { ...r.where, labels: labels.length > 0 ? labels : undefined },
+          }))
+        }
         triggerProps={{ hideTags: true, variant: "text" }}
         location={{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }}
       />
@@ -66,8 +71,8 @@ export const SelectFilters = ({ request, onRequestChange }: SelectFiltersProps) 
   </Dialog.Frame>
 );
 
-interface HasLabelsFilterProps {
-  request: ranger.RetrieveRequest;
+interface LabelsFilterProps {
+  request: ranger.RetrieveMultipleParams;
 }
 
 interface TagsProps {
@@ -83,8 +88,9 @@ const Tags = ({ keys }: TagsProps) => {
   ));
 };
 
-const HasLabelsFilter = ({ request: { hasLabels } }: HasLabelsFilterProps) => {
-  if (hasLabels == null || hasLabels.length === 0) return null;
+const LabelsFilter = ({ request: { where } }: LabelsFilterProps) => {
+  const labels = where?.labels;
+  if (labels == null || labels.length === 0) return null;
   return (
     <Flex.Box x pack background={0}>
       <View.FilterChip el="span" background={0} color={9}>
@@ -92,7 +98,7 @@ const HasLabelsFilter = ({ request: { hasLabels } }: HasLabelsFilterProps) => {
         Labels
       </View.FilterChip>
       <Errors.SuspenseBoundary loading={null}>
-        <Tags keys={hasLabels} />
+        <Tags keys={labels} />
       </Errors.SuspenseBoundary>
     </Flex.Box>
   );
@@ -100,6 +106,6 @@ const HasLabelsFilter = ({ request: { hasLabels } }: HasLabelsFilterProps) => {
 
 export const Filters = ({ request }: SelectFiltersProps) => (
   <Flex.Box x>
-    <HasLabelsFilter request={request} />
+    <LabelsFilter request={request} />
   </Flex.Box>
 );

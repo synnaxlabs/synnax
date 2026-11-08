@@ -10,7 +10,7 @@
 import "@/select/MultipleTrigger.css";
 
 import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
@@ -24,6 +24,7 @@ import { List } from "@/list";
 import { useContext, useItemState, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
 import { useIsFixed } from "@/select/registry";
+import { preventEnterWhileOpen } from "@/select/use";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
 
@@ -154,6 +155,8 @@ export const MultipleTrigger = <
   const dragging = Haul.useDraggingState();
   const showAddButton = variant === "text" && value.length !== 0 && preview !== true;
   const itemStatus = Input.useItemStatus({});
+  const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void =>
+    preventEnterWhileOpen(e, visible);
 
   if (hideTags) {
     if (preview === true) return null;
@@ -162,6 +165,7 @@ export const MultipleTrigger = <
         variant={variant}
         aria-label={ariaLabel}
         className={className}
+        onKeyDown={handleKeyDown}
         {...dropProps}
         {...itemStatus}
       >
@@ -181,6 +185,7 @@ export const MultipleTrigger = <
       onClick={() => {
         if (!showAddButton) toggle();
       }}
+      onKeyDown={handleKeyDown}
       {...dropProps}
       className={CSS.cls(
         CSS.dropRegion(canDrop(dragging)),

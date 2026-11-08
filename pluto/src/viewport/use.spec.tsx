@@ -437,6 +437,26 @@ describe("viewport/use", () => {
     });
   });
 
+  describe("sync", () => {
+    const VIEW = box.construct(0.2, 0, 0.4, 1, location.TOP_LEFT);
+
+    it("should move the view without emitting a change", () => {
+      const h = setup();
+      act(() => h.ref.current?.sync(VIEW));
+      expect(h.onChange).not.toHaveBeenCalled();
+      expect(readViewport(h)).toEqual(VIEW);
+    });
+
+    it("should start the next zoom from the synced view", () => {
+      const h = setup();
+      act(() => h.ref.current?.sync(VIEW));
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 });
+      const b = lastEvent(h.onChange).box;
+      expect(box.left(b)).toBeCloseTo(0.28);
+      expect(box.right(b)).toBeCloseTo(0.52);
+    });
+  });
+
   describe("mask", () => {
     const OFFSET = box.construct(50, 100, 200, 400);
 

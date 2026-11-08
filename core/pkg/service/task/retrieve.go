@@ -26,7 +26,7 @@ import (
 type Retrieve struct {
 	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Task]
-	search  *gorp.SearchIndex[Key, Task]
+	indexes indexes
 	otg     *ontology.Ontology
 	configs config.Registry
 	entry   *Task
@@ -56,16 +56,6 @@ func Or(fs ...Filter) Filter { return gorp.OrBound(fs...) }
 
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter { return gorp.NotBound(f) }
-
-// Search filters the tasks to those whose name or type matches term, closest match
-// first. An empty term adds no filter.
-func (r Retrieve) Search(term string) Retrieve {
-	if term == "" {
-		return r
-	}
-	r.gorp = r.gorp.Where(r.search.Filter(term))
-	return r
-}
 
 // MatchKeys returns a filter that restricts results to tasks whose key matches any of
 // the provided values. Composing MatchKeys at the top level of a Where clause (i.e.
@@ -151,6 +141,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // Offset sets the starting index of the tasks to return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no task as a non-match instead of
+// returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 

@@ -12,6 +12,8 @@ Simulates a multi-system rocket engine with oxidizer (OX) and fuel tanks,
 pressure systems, and multiple valves and sensors.
 """
 
+from typing import override
+
 import numpy as np
 
 import synnax as sy
@@ -84,6 +86,7 @@ class TPCSimDAQ(SimDAQ):
     description = "Run TPC simulator standalone"
     end_cmd_channel: str | None = END_CMD_CHANNEL
 
+    @override
     def _create_channels(self) -> None:
         self.log("Creating channels...")
         client = self.client
@@ -129,6 +132,7 @@ class TPCSimDAQ(SimDAQ):
         client.write(now, initial_state)
         self.log("Channels created successfully")
 
+    @override
     def _run_loop(self) -> None:
         self.log("Starting simulation loop...")
         loop = sy.Loop(sy.Rate.HZ * 50, precise=False)

@@ -65,7 +65,86 @@ func renderVersion(ctx context.Context, files map[string]string, n int) string {
 	return versions.Render(decls, versions.RenderOptions{Resolve: f.Table.Get})
 }
 
+// elementVariants returns the payload type of each variant of Element at version 2 of
+// the channel chain.
+func elementVariants(ctx context.Context, files map[string]string) map[string]string {
+	GinkgoHelper()
+	f := MustSucceed(resolverFor(files).File(ctx, "schemas/synnax/channel", 2))
+	element := MustBeOk(versions.DefinedType(f, "Element"))
+	form := element.Form.(resolution.UnionForm)
+	variants := make(map[string]string, len(form.Variants))
+	for _, v := range form.Variants {
+		variants[v.Name] = v.Type.Name
+	}
+	return variants
+}
+
 var _ = Describe("Version extends", func() {
+	It("Should mix in an aliased union whose variants name its version's aliases", func(
+		ctx SpecContext,
+	) {
+		variants := elementVariants(ctx, map[string]string{
+			extendsV0Path: `
+Payload struct {
+    value int32
+}
+
+Node union on variant {
+    leaf Payload
+}
+`,
+			extendsV1Path: `
+Payload = v0.Payload
+
+Node union on variant extends v0.Node {
+    box {
+        width int32
+    }
+}
+`,
+			extendsV2Path: `
+Payload = v0.Payload
+
+Node = v1.Node
+
+Edge union on variant {
+    pipe Payload
+}
+
+Element union on variant extends Node, Edge {}
+`,
+		})
+		Expect(variants).To(HaveKeyWithValue("leaf", "v0.Payload"))
+		Expect(variants).To(HaveKeyWithValue("pipe", "v2.Payload"))
+	})
+
+	It("Should mix in an aliased union whose variants name a chained alias", func(
+		ctx SpecContext,
+	) {
+		variants := elementVariants(ctx, map[string]string{
+			extendsV0Path: `
+Payload struct {
+    value int32
+}
+`,
+			extendsV1Path: `
+Payload = v0.Payload
+
+Node union on variant {
+    leaf Payload
+}
+`,
+			extendsV2Path: `
+Payload = v1.Payload
+
+Node = v1.Node
+
+Element union on variant extends Node {}
+`,
+		})
+		Expect(variants).To(HaveKeyWithValue("leaf", "v0.Payload"))
+	})
+
 	DescribeTable("Should resolve a patch exactly like its hand-written copy", func(
 		ctx SpecContext, patch, handWritten string,
 	) {

@@ -18,6 +18,10 @@ set -e
 
 PLATFORM=${1:-linux}
 
+# The most runs searched, newest first. Each can cost a fetch of its commit, and the
+# queue reuses runs far newer than this.
+RECENT_RUN_LIMIT=200
+
 if [ "${PLATFORM}" = "all" ]; then
     OS_NAMES=("linux" "windows")
 else
@@ -35,20 +39,24 @@ FULL_ARTIFACTS=("${CORE_ARTIFACTS[@]}" "${DRIVER_ARTIFACTS[@]}")
 
 # A component's artifacts are reusable from a run that matches on its path set.
 FILTERS=.github/filters.yaml
-# Reads one *_build list from the change map, aliases expanded.
+# Reads one *_build list from the change map as Git pathspecs, aliases expanded. Git
+# reads a directory as every file below it.
 build_paths() {
-    yq "explode(.) | .$1 | flatten | .[]" "${FILTERS}" | grep -v '^\.github/'
+    yq "explode(.) | .$1 | flatten | .[]" "${FILTERS}" | grep -v '^\.github/' \
+        | sed 's|/\*\*$||'
 }
 mapfile -t DRIVER_PATHS < <(build_paths driver_build)
 mapfile -t CONSOLE_PATHS < <(build_paths console_build)
 mapfile -t CORE_PATHS < <(build_paths core_build)
 
+# shellcheck disable=SC2034 # Read through a nameref in paths_clean and record_clean.
 UNION_PATHS=("${DRIVER_PATHS[@]}" "${CONSOLE_PATHS[@]}" "${CORE_PATHS[@]}")
 
 # Flags of the build this run is about to do. A candidate must have used the same
 # ones, or its binaries are not interchangeable with the ones this build would make.
 DEBUG=${DEBUG:-false}
 SIGN_BINARIES=${SIGN_BINARIES:-false}
+FLAGS_ENABLED=${FLAGS_ENABLED:-false}
 
 # The API does not report a run's inputs, so signing is read back from its step.
 # Linux drivers are never signed, so that platform has no signing step.
@@ -74,6 +82,8 @@ declare -A TOOLCHAIN=(
 )
 WORKFLOW=.github/workflows/build.synnax.yaml
 declare -A ARTIFACT_RUNS
+# 1 or 0 per set:sha, for whether the set's paths match COMPARE_REF.
+declare -A CLEAN
 
 CACHE_DIR=$(mktemp -d)
 trap 'rm -rf "${CACHE_DIR}"' EXIT
@@ -86,10 +96,68 @@ emit() {
     echo "$1" >> "${GITHUB_OUTPUT:-/dev/null}"
 }
 
+# Only the history of COMPARE_REF gives candidates, so no other ref is deepened.
 ensure_history() {
     if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
-        git fetch --quiet --deepen=30 2> /dev/null || true
+        git fetch --quiet --deepen=30 origin "${COMPARE_REF}" 2> /dev/null || true
     fi
+}
+
+# Fetches the listed commits the checkout lacks in one request. GitHub at times refuses
+# a commit that no branch reaches, which fails the whole request, so the refused commit
+# is dropped and the request sent again. Any other failure is sent again twice, since
+# ensure_commit fetches each commit still missing on its own, about a second each.
+fetch_missing() {
+    local todo="${CACHE_DIR}/missing"
+    local err sha failures=0
+    git cat-file --batch-check < "$1" | awk '$2 == "missing" { print $1 }' > "${todo}"
+    while [ -s "${todo}" ]; do
+        if err=$(xargs git fetch --quiet --depth=1 origin < "${todo}" 2>&1); then
+            return 0
+        fi
+        sha=$(sed -nE 's/.*not our ref ([0-9a-f]{40}).*/\1/p' <<< "${err}" | head -1)
+        if [ -n "${sha}" ] && grep -qxF "${sha}" "${todo}"; then
+            grep -vxF "${sha}" "${todo}" > "${todo}.next" || true
+            mv "${todo}.next" "${todo}"
+            continue
+        fi
+        failures=$((failures + 1))
+        if [ "${failures}" -ge 3 ]; then
+            log "fetch of $(wc -l < "${todo}") commits failed: $(head -1 <<< "${err}")"
+            return 0
+        fi
+    done
+}
+
+# Writes the listed commits the checkout holds to the present file, and marks them for
+# ensure_commit.
+record_present() {
+    local sha
+    git cat-file --batch-check < "$1" | awk '$2 == "commit" { print $1 }' \
+        > "${CACHE_DIR}/present"
+    while read -r sha; do
+        : > "${CACHE_DIR}/commit-ok-${sha}"
+    done < "${CACHE_DIR}/present"
+}
+
+# Records in CLEAN whether each present commit matches COMPARE_REF on the set's paths,
+# with one diff-tree for every commit.
+record_clean() {
+    local set=$1
+    local -n set_paths="${set}_PATHS"
+    local dirty="${CACHE_DIR}/dirty-${set}"
+    local sha
+    if ! sed "s/\$/ ${COMPARE_REF}/" "${CACHE_DIR}/present" \
+        | git diff-tree --stdin -r -s -- "${set_paths[@]}" \
+            > "${dirty}" 2> /dev/null; then
+        return 0
+    fi
+    while read -r sha; do
+        CLEAN["${set}:${sha}"]=1
+    done < "${CACHE_DIR}/present"
+    while read -r sha; do
+        CLEAN["${set}:${sha}"]=0
+    done < "${dirty}"
 }
 
 # Fetches the commit by sha when the checkout does not already contain it.
@@ -111,16 +179,17 @@ ensure_commit() {
     return 1
 }
 
-# True when none of the given paths differ between the commit and COMPARE_REF.
+# True when none of the set's paths differ between the commit and COMPARE_REF.
 paths_clean() {
-    local sha=$1
-    shift
-    local specs=()
-    local p
-    for p in "$@"; do
-        specs+=("${p%'/**'}")
-    done
-    git diff --quiet "${sha}" "${COMPARE_REF}" -- "${specs[@]}" 2> /dev/null
+    local set=$1
+    local sha=$2
+    local known=${CLEAN["${set}:${sha}"]:-}
+    if [ -n "${known}" ]; then
+        [ "${known}" = 1 ]
+        return
+    fi
+    local -n set_paths="${set}_PATHS"
+    git diff --quiet "${sha}" "${COMPARE_REF}" -- "${set_paths[@]}" 2> /dev/null
 }
 
 # Prints run_id:sha for every live artifact of the name, newest first.
@@ -160,6 +229,27 @@ step_ran() {
     else
         echo false
     fi
+}
+
+# Prints the workflow step that builds the component on the platform.
+build_step() {
+    if [ "$1" = driver ]; then
+        echo "${DRIVER_STEP[$2]}"
+    else
+        echo "${BUILD_STEP[$1]}"
+    fi
+}
+
+# True when the platform's build job skipped the named step, as it does when it reuses
+# a cached build. The job log then holds no build to compare.
+step_skipped() {
+    local file=$1
+    local os=$2
+    local name=$3
+    jq -e --arg j "${BUILD_JOB[${os}]}" --arg n "${name}" \
+        '[.jobs[] | select(.name | endswith($j))][0].steps[]?
+            | select(.name == $n and .conclusion == "skipped")' \
+        "${file}" > /dev/null 2>&1
 }
 
 # Prints the path of the run's build job log for the platform, timestamps and color
@@ -263,19 +353,24 @@ component_matches() {
             return 1
         fi
     done
-    local step env_pat=""
-    if [ "${comp}" = driver ]; then
-        step=${DRIVER_STEP[${os}]}
-        env_pat='^  BAZEL_[A-Z_]*: '
-    else
-        step=${BUILD_STEP[${comp}]}
-    fi
+    local step env_pat="" env=""
+    step=$(build_step "${comp}" "${os}")
+    case "${comp}" in
+        driver)
+            env_pat='^  BAZEL_[A-Z_]*: '
+            env=$(expected_env)
+            ;;
+        console)
+            env_pat='^  VITE_FLAGS_ENABLED: '
+            env="VITE_FLAGS_ENABLED: ${FLAGS_ENABLED}"
+            ;;
+    esac
     local script marker expected actual
     script=$(expected_script "${step}")
     marker=$(awk 'NF { l = $0 } END { sub(/^[ \t]+/, "", l); print l }' <<< "${script}")
     expected=${script}
-    if [ -n "${env_pat}" ]; then
-        expected+=$'\n'$(expected_env)
+    if [ -n "${env}" ]; then
+        expected+=$'\n'${env}
     fi
     actual=$(step_block "${log}" "${marker}" "${env_pat}")
     if [ -z "${actual}" ]; then
@@ -305,6 +400,12 @@ run_build_matches() {
     fi
     local os log comp sign
     for os in ${os_list}; do
+        for comp in ${comps}; do
+            if step_skipped "${file}" "${os}" "$(build_step "${comp}" "${os}")"; then
+                log "run ${run_id}: ${comp} ${os} build skipped"
+                return 1
+            fi
+        done
         log=$(job_log "${run_id}" "${os}") || return 1
         for comp in ${comps}; do
             if ! component_matches "${comp}" "${os}" "${log}"; then
@@ -321,18 +422,18 @@ run_build_matches() {
     return 0
 }
 
-# Prints the newest run with live artifacts for $2 and no diff on the path set.
+# Prints the newest run with live artifacts for $2 and no diff on the path set $5.
 # Exact-sha lookups cover this branch. The recent-run scan covers other branches.
 find_reusable_run() {
     local label=$1
     local artifact_names=$2
     local component=$3
     local os_list=$4
-    shift 4
+    local set=$5
 
     local sha run_id
     for sha in ${CANDIDATE_SHAS}; do
-        if ! paths_clean "${sha}" "$@"; then
+        if ! paths_clean "${set}" "${sha}"; then
             continue
         fi
         for run_id in $(runs_at_sha "${sha}"); do
@@ -355,7 +456,7 @@ find_reusable_run() {
         if [ "${run_id}" = "${GITHUB_RUN_ID:-}" ] \
             || ! run_has_artifacts "${run_id}" "${artifact_names}" \
             || ! ensure_commit "${sha}" \
-            || ! paths_clean "${sha}" "$@"; then
+            || ! paths_clean "${set}" "${sha}"; then
             continue
         fi
         if run_build_matches "${run_id}" "${component}" "${os_list}"; then
@@ -380,8 +481,9 @@ main() {
     fi
 
     COMPARE_REF="${GITHUB_HEAD_SHA:-HEAD}"
-    ensure_history
     ensure_commit "${COMPARE_REF}" || COMPARE_REF="HEAD"
+    COMPARE_REF=$(git rev-parse "${COMPARE_REF}^{commit}")
+    ensure_history
 
     # Candidates older than the 7-day artifact retention cannot hit.
     CANDIDATE_SHAS=$(git rev-list --since=7.days --max-count=30 "${COMPARE_REF}" \
@@ -397,16 +499,21 @@ main() {
             RECENT_RUNS+="${rows}"$'\n'
         done
     done
-    RECENT_RUNS=$(sed '/^$/d' <<< "${RECENT_RUNS}" | sort -t: -k1,1 -rnu)
+    RECENT_RUNS=$(sed '/^$/d' <<< "${RECENT_RUNS}" | sort -t: -k1,1 -rnu \
+        | awk -v n="${RECENT_RUN_LIMIT}" 'NR <= n')
 
-    # One fetch covers every candidate commit the checkout lacks.
-    cut -d: -f2 <<< "${RECENT_RUNS}" | sort -u \
-        | git cat-file --batch-check 2> /dev/null | awk '$2 == "missing" { print $1 }' \
-        | xargs -r git fetch --quiet --depth=1 origin 2> /dev/null || true
+    local shas="${CACHE_DIR}/shas"
+    { cut -d: -f2 <<< "${RECENT_RUNS}" && echo "${CANDIDATE_SHAS}"; } \
+        | sed '/^$/d' | sort -u > "${shas}"
+    fetch_missing "${shas}"
+    record_present "${shas}"
+    record_clean DRIVER
+    record_clean CONSOLE
+    record_clean UNION
 
     local full_run
     full_run=$(find_reusable_run "full" "${FULL_ARTIFACTS[*]}" all "${OS_NAMES[*]}" \
-        "${UNION_PATHS[@]}")
+        UNION)
     if [ -n "${full_run}" ]; then
         log "✅ Skipping build. Using artifacts from run ${full_run}"
         emit "SKIP_BUILD=true"
@@ -419,16 +526,16 @@ main() {
     local driver_ids="{}" console_ids="{}" core_ids="{}" run
     for os in "${OS_NAMES[@]}"; do
         run=$(find_reusable_run "driver ${os}" "synnax-driver-${os}" driver "${os}" \
-            "${DRIVER_PATHS[@]}")
+            DRIVER)
         driver_ids=$(jq -c --arg os "${os}" --arg run "${run}" '.[$os] = $run' \
             <<< "${driver_ids}")
         run=$(find_reusable_run "console ${os}" "synnax-console-assets-${os}" console \
-            "${os}" "${CONSOLE_PATHS[@]}")
+            "${os}" CONSOLE)
         console_ids=$(jq -c --arg os "${os}" --arg run "${run}" '.[$os] = $run' \
             <<< "${console_ids}")
         run=$(find_reusable_run "core ${os}" \
             "synnax-core-${os} synnax-driver-${os} synnax-console-assets-${os}" \
-            all "${os}" "${UNION_PATHS[@]}")
+            all "${os}" UNION)
         core_ids=$(jq -c --arg os "${os}" --arg run "${run}" '.[$os] = $run' \
             <<< "${core_ids}")
     done

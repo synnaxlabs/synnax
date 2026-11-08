@@ -22,7 +22,7 @@ const createSymbolGroup = async (
 ): Promise<{ grp: group.Group; symbols: schematic.symbol.Symbol[] }> => {
   const root = await client.schematics.symbols.retrieveGroup();
   const grp = await client.groups.create({
-    parent: group.ontologyID(root.key),
+    parent: group.resourceID(root.key),
     name: uniqueName("delete_grp"),
   });
   const symbols: schematic.symbol.Symbol[] = [];
@@ -30,7 +30,7 @@ const createSymbolGroup = async (
     symbols.push(
       await client.schematics.symbols.create({
         ...createSymbolPayload(name),
-        parent: group.ontologyID(grp.key),
+        parent: group.resourceID(grp.key),
       }),
     );
   return { grp, symbols };
@@ -38,7 +38,7 @@ const createSymbolGroup = async (
 
 const groupExists = async (key: group.Key): Promise<boolean> => {
   try {
-    await client.ontology.retrieve(group.ontologyID(key));
+    await client.ontology.retrieve(group.resourceID(key));
     return true;
   } catch (e) {
     if (NotFoundError.matches(e)) return false;
@@ -56,9 +56,10 @@ describe("Schematic.Symbol.useDeleteGroup", () => {
     await screen.findByText(`Are you sure you want to delete ${grp.name}?`);
     fireEvent.click(findButton("Delete"));
     await waitFor(async () => expect(await groupExists(grp.key)).toBe(false));
-    await expect(
-      client.schematics.symbols.retrieve({ keys: symbols.map((s) => s.key) }),
-    ).rejects.toSatisfy((e) => NotFoundError.matches(e));
+    const keys = symbols.map((s) => s.key);
+    expect(
+      await client.schematics.symbols.retrieve({ where: { key: { in: keys } } }),
+    ).toEqual([]);
   });
 
   it("keeps the group when the deletion is cancelled", async () => {

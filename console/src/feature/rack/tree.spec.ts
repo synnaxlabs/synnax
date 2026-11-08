@@ -10,10 +10,12 @@
 import {
   arc,
   device,
+  group,
   ni,
   NotFoundError,
-  type ontology,
+  ontology,
   rack,
+  type resource,
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
@@ -22,10 +24,15 @@ import { fireEvent, type RenderOptions, screen, waitFor } from "@testing-library
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
+import { OPCUA } from "@/feature/opcua";
+import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
 import { Rack } from "@/feature/rack";
+import { answerNextCommand } from "@/platform/task/testutil";
 import {
   createResource,
   findModalButton,
+  findTreeRow,
+  renderOntologyTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import { assertDefined, createTestClientWithGrants, uniqueName } from "@/testutil";
@@ -53,8 +60,21 @@ const createNIRackWithScanner = async () => {
   return { rack: r, scanTask };
 };
 
+const createOPCUARackWithScanner = async () => {
+  const r = await client.racks.create({
+    name: uniqueName("opcua_rack"),
+    integrations: [OPCUA.Device.INTEGRATION],
+  });
+  const scanTask = await r.createTask({
+    name: uniqueName("opcua_scanner"),
+    type: OPCUA.Task.SCAN_TYPE,
+    config: {},
+  });
+  return { rack: r, scanTask };
+};
+
 const rackResource = (key: number, name: string) =>
-  createResource(rack.ontologyID(key), name);
+  createResource(rack.resourceID(key), name);
 
 const renderMenu = async (
   racks: { key: number; name: string }[],
@@ -73,10 +93,10 @@ const renderMenu = async (
  * A client that may rename racks and read everything the menu touches, differing only
  * in the type it may create.
  */
-const createRackWriter = async (creatable: ontology.ID) =>
+const createRackWriter = async (creatable: resource.ID) =>
   await createTestClientWithGrants(client, {
-    retrieve: [rack.TYPE_ONTOLOGY_ID, task.TYPE_ONTOLOGY_ID, arc.TYPE_ONTOLOGY_ID],
-    update: [rack.TYPE_ONTOLOGY_ID],
+    retrieve: [rack.TYPE_RESOURCE_ID, task.TYPE_RESOURCE_ID, arc.TYPE_RESOURCE_ID],
+    update: [rack.TYPE_RESOURCE_ID],
     create: [creatable],
   });
 
@@ -144,6 +164,29 @@ describe("rack ontology service", () => {
     expect(screen.queryByText("Toggle NI device scanner")).toBeNull();
   });
 
+  it("should hide the OPC UA Driver certificate for a rack without the OPC UA integration", async () => {
+    const r = await createRack();
+    await renderMenu([r]);
+    await screen.findByText("Rename");
+    expect(screen.queryByText("Show OPC UA Driver certificate")).toBeNull();
+  });
+
+  it("should open the OPC UA Driver certificate of the rack", async () => {
+    const { rack: r, scanTask } = await createOPCUARackWithScanner();
+    const { answered } = await answerNextCommand(client, scanTask, {
+      type: OPCUA.Task.GET_CERTIFICATE_COMMAND_TYPE,
+      data: { current: SERVER_CERTIFICATE },
+    });
+    await renderMenu([r]);
+    fireEvent.click(await screen.findByText("Show OPC UA Driver certificate"));
+    await answered;
+    expect(
+      await screen.findByText(
+        "FF:65:16:FC:E0:22:F9:7F:23:B6:F6:79:17:9D:B7:FE:68:CB:2D:9C",
+      ),
+    ).toBeTruthy();
+  });
+
   it("should toggle the NI scanner's disabled flag from the rack context menu", async () => {
     const { rack: r, scanTask } = await createNIRackWithScanner();
     await renderMenu([r]);
@@ -168,29 +211,54 @@ describe("permission to write the rack", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
+  it("should withhold the OPC UA Driver certificate from a viewer", async () => {
+    const { rack: r } = await createOPCUARackWithScanner();
+    await renderMenu([r], await roles.get("Viewer"));
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Show OPC UA Driver certificate")).toBeNull();
+  });
+
   it("should withhold the scanner toggle from a subject who cannot create tasks", async () => {
     const { rack: r } = await createNIRackWithScanner();
-    await renderMenu([r], await createRackWriter(arc.TYPE_ONTOLOGY_ID));
+    await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
     expect(await screen.findByText("Create Arc automation")).toBeTruthy();
     expect(screen.queryByText("Toggle NI device scanner")).toBeNull();
   });
 
   it("should withhold Connect device from a subject who cannot create devices", async () => {
     const r = await createRack();
-    await renderMenu([r], await createRackWriter(arc.TYPE_ONTOLOGY_ID));
+    await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
     expect(await screen.findByText("Create Arc automation")).toBeTruthy();
     expect(screen.queryByText("Connect device")).toBeNull();
   });
 
   it("should offer Connect device to a subject who may create devices", async () => {
     const r = await createRack();
-    await renderMenu([r], await createRackWriter(device.TYPE_ONTOLOGY_ID));
+    await renderMenu([r], await createRackWriter(device.TYPE_RESOURCE_ID));
     expect(await screen.findByText("Connect device")).toBeTruthy();
   });
 
   it("should offer the scanner toggle to a subject who may create tasks", async () => {
     const { rack: r } = await createNIRackWithScanner();
-    await renderMenu([r], await createRackWriter(task.TYPE_ONTOLOGY_ID));
+    await renderMenu([r], await createRackWriter(task.TYPE_RESOURCE_ID));
     expect(await screen.findByText("Toggle NI device scanner")).toBeTruthy();
+  });
+});
+
+describe("rack tree item", () => {
+  it("should show the version that the Driver of the rack reports", async () => {
+    const r = await client.racks.create({
+      name: uniqueName("rack"),
+      version: "0.61.3",
+    });
+    const grp = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("rackgrp"),
+    });
+    const root = group.resourceID(grp.key);
+    await client.ontology.addChildren(root, rack.resourceID(r.key));
+    await renderOntologyTree({ client, root, items: Rack.TREE_ITEMS });
+    const row = await findTreeRow(r.name);
+    expect(row.contains(await screen.findByText("v0.61.3"))).toBe(true);
   });
 });

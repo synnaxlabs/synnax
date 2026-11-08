@@ -261,6 +261,18 @@ print(len(pressure.series))  # 2
 df = frame.to_df()
 ```
 
+`to_df` gives one column for each channel. When the frame holds the index channel of
+each channel, as a frame that you read from a list of channels does, the `DataFrame`
+index is the UTC timestamps of the samples, and the index channels are not columns. The
+index has the name of the index channel, or `time` when the frame holds more than one
+index channel. Channels with different index channels are joined on time, and a cell is
+empty when a channel has no sample at that time. Integer columns with empty cells use
+pandas nullable types, such as `Int64`, to keep large values exact. A `min_max` read is
+not indexed by time, because its samples do not keep their times. In other frames, the
+index is the sample number, and all channels must have the same number of samples.
+`frame[mask]` selects the rows of `to_df` where a boolean mask is true. The mask has one
+value for each row.
+
 When the frame has no series for the channel, `frame["name"]` returns an empty
 `MultiSeries`, and `frame.get("name")` returns `None` or the default that you give. A
 frame that you read by key also finds a channel by its name. When two channels in the

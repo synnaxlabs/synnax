@@ -72,6 +72,12 @@
     }
 }
 
+/* An item placed straight in the scroll box is a flex item, and its min-height removes
+   the flex floor at its content. Without this, it shrinks and the box never scrolls. */
+.lyra-list__scroll > .lyra-list__item {
+    flex-shrink: 0;
+}
+
 /* While an item holds the hover, the pointer tints no other item, so one item is marked
    at a time. */
 .lyra-list__scroll:has(.lyra-list__item.lyra--hovered)

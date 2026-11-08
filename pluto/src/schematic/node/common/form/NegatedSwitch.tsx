@@ -22,7 +22,7 @@ export interface NegatedSwitchFieldProps extends Omit<
  * so `label` names what the switch turns on.
  */
 export const NegatedSwitchField = (props: NegatedSwitchFieldProps): ReactElement => (
-  <Form.Field<boolean> {...props}>
+  <Form.Field {...props}>
     {({ value, onChange, ...cp }) => (
       <Input.Switch {...cp} value={!value} onChange={(v) => onChange(!v)} />
     )}

@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "open62541/types.h"
 
@@ -27,25 +29,31 @@ struct Node {
     std::string name;
     std::string node_id;
     bool is_array;
+    /// @brief the path to a member of the node's structure value, or empty for the node
+    /// itself.
+    std::string field;
 
     Node(
         x::telem::DataType data_type,
         std::string name,
         std::string node_id,
         std::string node_class,
-        const bool is_array
+        const bool is_array,
+        std::string field = ""
     ):
         data_type(std::move(data_type)),
         node_class(std::move(node_class)),
         name(std::move(name)),
         node_id(std::move(node_id)),
-        is_array(is_array) {}
+        is_array(is_array),
+        field(std::move(field)) {}
 
     explicit Node(x::json::Parser &p):
         data_type(x::telem::DataType(p.field<std::string>("data_type"))),
         name(p.field<std::string>("name")),
         node_id(p.field<std::string>("node_id")),
-        is_array(p.field<bool>("is_array", false)) {}
+        is_array(p.field<bool>("is_array", false)),
+        field(p.field<std::string>("field", "")) {}
 
     [[nodiscard]] x::json::json to_json() const {
         return {
@@ -53,13 +61,17 @@ struct Node {
             {"name", name},
             {"node_id", node_id},
             {"node_class", node_class},
-            {"is_array", is_array}
+            {"is_array", is_array},
+            {"field", field}
         };
     }
 };
 
 class NodeId {
     UA_NodeId id_{};
+    /// @brief the namespace of the node when the node ID names it by URI. The namespace
+    /// index of id_ is then not used.
+    std::string namespace_uri_;
 
 public:
     NodeId() { UA_NodeId_init(&id_); }
@@ -74,28 +86,69 @@ public:
     NodeId(const NodeId &) = delete;
     NodeId &operator=(const NodeId &) = delete;
 
-    NodeId(NodeId &&other) noexcept: id_(other.id_) { UA_NodeId_init(&other.id_); }
+    NodeId(NodeId &&other) noexcept:
+        id_(other.id_), namespace_uri_(std::move(other.namespace_uri_)) {
+        UA_NodeId_init(&other.id_);
+    }
 
     NodeId &operator=(NodeId &&other) noexcept {
         if (this != &other) {
             UA_NodeId_clear(&id_);
             id_ = other.id_;
+            namespace_uri_ = std::move(other.namespace_uri_);
             UA_NodeId_init(&other.id_);
         }
         return *this;
     }
 
-    operator const UA_NodeId &() const { return id_; }
-
-    [[nodiscard]] const UA_NodeId &get() const { return id_; }
     [[nodiscard]] bool is_null() const { return UA_NodeId_isNull(&id_); }
+    [[nodiscard]] const std::string &namespace_uri() const { return namespace_uri_; }
 
+    /// @brief finds the namespace index of the node ID on a server.
+    /// @param namespaces the namespace URIs of the server, by index.
+    /// @returns the node ID with the index of its namespace URI, which borrows the
+    /// identifier of this node ID. Nothing if the server has no such namespace.
+    [[nodiscard]] std::optional<UA_NodeId>
+    resolve(const std::vector<std::string> &namespaces) const;
+
+    /// @brief parses `nsu=<uri>;<id>`, `ns=<index>;<id>`, or `<id>` in namespace 0,
+    /// where `<id>` is `i=`, `s=`, `g=`, or `b=` with its identifier. Prefixes match in
+    /// any case.
     static NodeId parse(const std::string &field_name, x::json::Parser &parser);
     static std::pair<NodeId, x::errors::Error> parse(const std::string &node_id_str);
+    /// @returns the node ID as `nsu=<uri>;<id>` when it names its namespace by URI, and
+    /// as `NS=<index>;<id>` when it does not.
+    [[nodiscard]] std::string to_string() const;
+    /// @returns the node ID as `NS=<index>;<id>`.
     static std::string to_string(const UA_NodeId &node_id);
+    /// @returns the node ID as `nsu=<uri>;<id>`, which stays valid when the server
+    /// changes its namespace indexes. A node in namespace 0, or in a namespace that
+    /// namespaces lacks, keeps its index.
+    /// @param namespaces the namespace URIs of the server, by index.
+    static std::string
+    to_string(const UA_NodeId &node_id, const std::vector<std::string> &namespaces);
 };
 
 std::string node_class_to_string(const UA_NodeClass &node_class);
+
+/// @brief a child that a browse found under a node.
+struct Reference {
+    /// @brief the node ID, with the namespace index of the connection that browsed.
+    NodeId node;
+    std::string browse_name;
+    UA_NodeClass node_class = UA_NODECLASS_UNSPECIFIED;
+};
+
+/// @brief the children of one browsed node.
+struct BrowseResult {
+    /// @brief the error of the node's browse, such as BadNodeIdUnknown. The children
+    /// are then empty.
+    x::errors::Error err;
+    std::vector<Reference> references;
+    /// @brief whether the browse stopped at its limit before the server listed every
+    /// child, so references holds only the first ones.
+    bool truncated = false;
+};
 
 class Variant {
     UA_Variant var_{};
@@ -128,59 +181,41 @@ public:
     UA_Variant *ptr() { return &var_; }
 };
 
-class ReadResponse {
-    UA_ReadResponse res_{};
+/// @brief owns a response of the client, whose type is UA_TYPES[Index], and clears it
+/// on destruction.
+template<typename T, std::size_t Index>
+class Response {
+    T res_{};
 
 public:
-    ReadResponse() { UA_ReadResponse_init(&res_); }
-    explicit ReadResponse(const UA_ReadResponse &res): res_(res) {}
-    ~ReadResponse() { UA_ReadResponse_clear(&res_); }
+    Response() { UA_init(&res_, &UA_TYPES[Index]); }
+    explicit Response(const T &res): res_(res) {}
+    ~Response() { UA_clear(&res_, &UA_TYPES[Index]); }
 
-    ReadResponse(const ReadResponse &) = delete;
-    ReadResponse &operator=(const ReadResponse &) = delete;
+    Response(const Response &) = delete;
+    Response &operator=(const Response &) = delete;
 
-    ReadResponse(ReadResponse &&other) noexcept: res_(other.res_) {
-        UA_ReadResponse_init(&other.res_);
+    Response(Response &&other) noexcept: res_(other.res_) {
+        UA_init(&other.res_, &UA_TYPES[Index]);
     }
-    ReadResponse &operator=(ReadResponse &&other) noexcept {
+    Response &operator=(Response &&other) noexcept {
         if (this != &other) {
-            UA_ReadResponse_clear(&res_);
+            UA_clear(&res_, &UA_TYPES[Index]);
             res_ = other.res_;
-            UA_ReadResponse_init(&other.res_);
+            UA_init(&other.res_, &UA_TYPES[Index]);
         }
         return *this;
     }
 
-    operator const UA_ReadResponse &() const { return res_; }
-    [[nodiscard]] const UA_ReadResponse &get() const { return res_; }
+    operator const T &() const { return res_; }
+    [[nodiscard]] const T &get() const { return res_; }
+    T *ptr() { return &res_; }
 };
 
-class WriteResponse {
-    UA_WriteResponse res_{};
-
-public:
-    WriteResponse() { UA_WriteResponse_init(&res_); }
-    explicit WriteResponse(const UA_WriteResponse &res): res_(res) {}
-    ~WriteResponse() { UA_WriteResponse_clear(&res_); }
-
-    WriteResponse(const WriteResponse &) = delete;
-    WriteResponse &operator=(const WriteResponse &) = delete;
-
-    WriteResponse(WriteResponse &&other) noexcept: res_(other.res_) {
-        UA_WriteResponse_init(&other.res_);
-    }
-    WriteResponse &operator=(WriteResponse &&other) noexcept {
-        if (this != &other) {
-            UA_WriteResponse_clear(&res_);
-            res_ = other.res_;
-            UA_WriteResponse_init(&other.res_);
-        }
-        return *this;
-    }
-
-    operator const UA_WriteResponse &() const { return res_; }
-    [[nodiscard]] const UA_WriteResponse &get() const { return res_; }
-};
+using ReadResponse = Response<UA_ReadResponse, UA_TYPES_READRESPONSE>;
+using WriteResponse = Response<UA_WriteResponse, UA_TYPES_WRITERESPONSE>;
+using BrowseResponse = Response<UA_BrowseResponse, UA_TYPES_BROWSERESPONSE>;
+using BrowseNextResponse = Response<UA_BrowseNextResponse, UA_TYPES_BROWSENEXTRESPONSE>;
 
 class WriteRequestBuilder {
     std::vector<UA_Variant> owned_variants_;
@@ -221,8 +256,14 @@ public:
         return *this;
     }
 
-    x::errors::Error
-    add_value(const UA_NodeId &node_id, const x::telem::Series &series);
+    /// @brief adds the last sample of series, converted to target, the data type of the
+    /// node. A null target converts to the type that matches the series.
+    /// @returns x::errors::VALIDATION if the sample does not convert to target.
+    x::errors::Error add_value(
+        const UA_NodeId &node_id,
+        const x::telem::Series &series,
+        const UA_DataType *target
+    );
 
     [[nodiscard]] UA_WriteRequest build() const {
         UA_WriteRequest req;

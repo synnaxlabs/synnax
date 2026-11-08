@@ -23,12 +23,14 @@ class LinePlot(ConsoleCase):
     _shared_plot_name: str | None
     ctx_plot_name: str | None
     ctx_plot_link: str
+    _annotation: sy.Range | None
 
     def setup(self) -> None:
         super().setup()
         self.suffix = random_name()
         self._shared_plot_name = None
         self.ctx_plot_name = None
+        self._annotation = None
 
         ctx_plot = self.console.pages.create(Plot, f"Context Menu Test {self.suffix}")
         self.ctx_plot_name = ctx_plot.page_name
@@ -40,7 +42,11 @@ class LinePlot(ConsoleCase):
             self._cleanup_pages.append(self._shared_plot_name)
         if self.ctx_plot_name is not None:
             self._cleanup_pages.append(self.ctx_plot_name)
-        super().teardown()
+        try:
+            if self._annotation is not None:
+                self.client.ranges.delete(self._annotation.key)
+        finally:
+            super().teardown()
 
     def run(self) -> None:
         """Run all line plot tests."""
@@ -50,7 +56,7 @@ class LinePlot(ConsoleCase):
 
         plot = self.console.pages.create(Plot, f"Line Plot Test {suffix}")
         self._shared_plot_name = plot.page_name
-        plot.add_channels("Y1", data_name)
+        plot.add_channels("y1", data_name)
 
         # General
         self.test_set_line_thickness(plot)
@@ -65,7 +71,12 @@ class LinePlot(ConsoleCase):
         self.test_drag_channel_to_toolbar(plot)
         self.test_download_csv(plot, data_name=data_name)
         self.test_create_range_from_selection(plot, suffix=suffix)
+        self._annotation = self._create_annotation_range(suffix)
         self.test_toggle_range_annotation_visibility(plot)
+        self.test_click_range_to_zoom(plot)
+        self.test_view_range_details(plot, range_name=self._annotation.name)
+        self.client.ranges.delete(self._annotation.key)
+        self._annotation = None
         self.test_export_json(plot, data_name=data_name)
 
         plot_link = self.test_copy_link(plot)
@@ -122,10 +133,10 @@ class LinePlot(ConsoleCase):
         """Test adding a channel to Y2 axis."""
         self.log("Testing move channel between axes")
 
-        plot.add_channels("Y2", data_name)
+        plot.add_channels("y2", data_name)
 
-        assert data_name in plot.data["Y1"], f"Channel {data_name} should be on Y1"
-        assert data_name in plot.data["Y2"], f"Channel {data_name} should be on Y2"
+        assert data_name in plot.data["y1"], f"Channel {data_name} should be on Y1"
+        assert data_name in plot.data["y2"], f"Channel {data_name} should be on Y2"
 
     def test_set_line_thickness(self, plot: Plot) -> None:
         """Test adjusting line thickness via Lines tab."""
@@ -163,15 +174,15 @@ class LinePlot(ConsoleCase):
         the plot in its original state for downstream tests.
         """
         self.log("Testing undo/redo for add channel")
-        assert plot.has_channel("Y2", data_name), (
+        assert plot.has_channel("y2", data_name), (
             "Setup precondition: previous test should have added channel to Y2"
         )
         plot.undo()
-        assert not plot.has_channel("Y2", data_name), (
+        assert not plot.has_channel("y2", data_name), (
             f"Undo should remove {data_name} from Y2"
         )
         plot.redo()
-        assert plot.has_channel("Y2", data_name), (
+        assert plot.has_channel("y2", data_name), (
             f"Redo should re-add {data_name} to Y2"
         )
 
@@ -180,8 +191,8 @@ class LinePlot(ConsoleCase):
         self.log("Testing live data")
 
         live_channel = "line_plot_uptime"
-        plot.add_channels("Y1", live_channel)
-        assert live_channel in plot.data["Y1"], (
+        plot.add_channels("y1", live_channel)
+        assert live_channel in plot.data["y1"], (
             f"Channel {live_channel} should be on Y1"
         )
 
@@ -191,15 +202,15 @@ class LinePlot(ConsoleCase):
 
         channel = "line_plot_state"
         plot.drag_channel_to_canvas(channel, channels=self.console.channels)
-        assert channel in plot.data["Y1"], f"Channel {channel} should be on Y1"
+        assert channel in plot.data["y1"], f"Channel {channel} should be on Y1"
 
     def test_drag_channel_to_toolbar(self, plot: Plot) -> None:
         """Test dragging a channel from sidebar onto the toolbar data section."""
         self.log("Testing drag channel to toolbar")
 
         channel = "line_plot_time"
-        plot.drag_channel_to_toolbar(channel, channels=self.console.channels, axis="Y2")
-        assert channel in plot.data["Y2"], f"Channel {channel} should be on Y2"
+        plot.drag_channel_to_toolbar(channel, channels=self.console.channels, axis="y2")
+        assert channel in plot.data["y2"], f"Channel {channel} should be on Y2"
 
     def test_download_csv(self, plot: Plot, *, data_name: str) -> None:
         """Test downloading the plot data as a CSV file."""
@@ -225,12 +236,24 @@ class LinePlot(ConsoleCase):
             f"Range name mismatch: {created_range.name}"
         )
 
+    def _create_annotation_range(self, suffix: str) -> sy.Range:
+        """Create a colored range that spans the whole plot.
+
+        The strip hides a range with no color, such as one made from a selection. A
+        start a day back sorts the range first, so it takes the strip's first lane.
+        """
+        now = sy.TimeStamp.now()
+        return self.client.ranges.create(
+            name=f"Annotation Range {suffix}",
+            time_range=sy.TimeRange(now - sy.TimeSpan.DAY, now + sy.TimeSpan.DAY),
+            color="#3774D0",
+        )
+
     def test_toggle_range_annotation_visibility(self, plot: Plot) -> None:
         """Test toggling range annotation visibility from the plot controls."""
         self.log("Testing toggle range annotation visibility")
 
-        # test_create_range_from_selection left a range within the plot viewport,
-        # so the annotation toggle should be present and on by default.
+        # The annotation range is in view, so the toggle is present and on.
         plot.wait_for_annotation_toggle()
         plot.expect_annotations_visible(visible=True)
 
@@ -239,6 +262,25 @@ class LinePlot(ConsoleCase):
 
         plot.toggle_annotation_visibility()
         plot.expect_annotations_visible(visible=True)
+
+    def test_click_range_to_zoom(self, plot: Plot) -> None:
+        """Test that a click on a range pauses the plot and a second click resumes."""
+        self.log("Testing click range to zoom")
+
+        plot.expect_paused(paused=False)
+        plot.click_range()
+        plot.expect_paused()
+        plot.click_range()
+        plot.expect_paused(paused=False)
+
+    def test_view_range_details(self, plot: Plot, *, range_name: str) -> None:
+        """Test opening a range's details from its menu in the strip."""
+        self.log("Testing view range details")
+
+        plot.click_range(button="right")
+        self.console.layout.ctx_menu.click_option("View details")
+        self.console.layout.wait_for_tab(range_name)
+        self.console.layout.close_tab(range_name)
 
     def test_copy_link(self, plot: Plot) -> str:
         """Test copying a link to the line plot via toolbar button.
@@ -263,12 +305,10 @@ class LinePlot(ConsoleCase):
         assert_envelope(
             exported, envelope_type="lineplot", min_version=1, name=plot.page_name
         )
-        assert "channels" in exported, "Exported JSON should contain 'channels'"
-        assert "y1" in exported["channels"], "Channels should include 'y1' axis"
+        channels = sy.lineplot.Channels.model_validate(exported.get("channels"))
 
         data_channel = self.client.channels.retrieve(data_name)
-        y1_channels = exported["channels"]["y1"]
-        assert data_channel.key in y1_channels, (
+        assert data_channel.key in channels.y1, (
             f"Y1 should contain channel key {data_channel.key}"
         )
 
@@ -326,7 +366,7 @@ class LinePlot(ConsoleCase):
         assert_envelope(
             exported, envelope_type="lineplot", min_version=1, name=self.ctx_plot_name
         )
-        assert "channels" in exported, "Exported JSON should contain 'channels'"
+        sy.lineplot.Channels.model_validate(exported.get("channels"))
 
         self.log("Testing rename plot via context menu")
         new_name = f"Renamed Plot {self.suffix}"

@@ -11,7 +11,10 @@
 
 package panel
 
-import "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // TabKey uniquely identifies a tab within a panel.
 type TabKey = versions.TabKey
@@ -30,7 +33,11 @@ type View = versions.View
 // (name, icon, closability) are resolved at render time from the content. A resource
 // may back at most one tab per panel; views may repeat.
 type Tab = versions.Tab
+
+// TabVariant is implemented by every Tab variant.
 type TabVariant = versions.TabVariant
+
+// TabType is the "variant" value that selects a variant of Tab.
 type TabType = versions.TabType
 
 const (
@@ -55,7 +62,11 @@ type ViewTab = versions.ViewTab
 // split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
 // 2k = first child, 2k+1 = last child).
 type Node = versions.Node
+
+// NodeVariant is implemented by every Node variant.
 type NodeVariant = versions.NodeVariant
+
+// NodeType is the "variant" value that selects a variant of Node.
 type NodeType = versions.NodeType
 
 const (
@@ -76,3 +87,15 @@ type Key = versions.Key
 
 // Panel is a project-owned tree of visualization tabs.
 type Panel = versions.Panel
+
+// Where is a filter that selects panels.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+}

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { type deep } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
 import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName";
@@ -18,12 +19,12 @@ export interface WriteChannelNamesProps extends Omit<
   "channel" | "defaultName" | "id" | "namePath"
 > {
   cmdChannel: channel.Key;
-  cmdNamePath: string;
-  /** The name configuring the task gives the command channel. */
+  cmdNamePath: deep.Target<string | undefined>;
+  /** The name deploying the task gives the command channel. */
   cmdDefaultName?: string;
   stateChannel: channel.Key;
-  stateNamePath: string;
-  /** The name configuring the task gives the state channel. */
+  stateNamePath: deep.Target<string | undefined>;
+  /** The name deploying the task gives the state channel. */
   stateDefaultName?: string;
   itemKey: string;
 }
@@ -31,10 +32,10 @@ export interface WriteChannelNamesProps extends Omit<
 export const WriteChannelNames = ({
   cmdChannel,
   cmdNamePath,
-  cmdDefaultName = "No command channel",
+  cmdDefaultName,
   stateNamePath,
   stateChannel,
-  stateDefaultName = "No state channel",
+  stateDefaultName,
   itemKey,
   ...rest
 }: WriteChannelNamesProps) => (

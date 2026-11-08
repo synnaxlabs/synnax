@@ -60,26 +60,26 @@ class HoldToActuate(ConsoleCase):
         self._cleanup_pages.append(schematic.page_name)
 
         self.fire_btn = schematic.create_symbol(
-            Button(label=self.fire_ch, channel_name=self.fire_ch, mode="Fire")
+            Button(label=self.fire_ch, channel_name=self.fire_ch, mode="fire")
         )
         self.fire_btn.move(delta_x=-320, delta_y=-140)
         self.momentary_btn = schematic.create_symbol(
             Button(
                 label=self.momentary_ch,
                 channel_name=self.momentary_ch,
-                mode="Momentary",
+                mode="momentary",
             )
         )
         self.momentary_btn.move(delta_x=320, delta_y=-140)
         self.pulse_btn = schematic.create_symbol(
-            Button(label=self.pulse_ch, channel_name=self.pulse_ch, mode="Pulse")
+            Button(label=self.pulse_ch, channel_name=self.pulse_ch, mode="pulse")
         )
         self.pulse_btn.move(delta_x=-320, delta_y=140)
         self.delay_btn = schematic.create_symbol(
             Button(
                 label=self.delay_ch,
                 channel_name=self.delay_ch,
-                mode="Fire",
+                mode="fire",
                 activation_delay=DELAY_MS,
             )
         )

@@ -45,7 +45,8 @@ jobs:
       cached: true
       coverage_flag: core
       directory: core
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   # Pull requests restore only the newest cache, so the older ones only evict others.
   prune:

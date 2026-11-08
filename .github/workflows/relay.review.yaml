@@ -8,8 +8,8 @@
 # included in the file licenses/APL.txt.
 
 # Tells Check - Review that a pull request got a review. It runs the workflow file of
-# the pull request, so it has no permissions and runs nothing. The run name carries the
-# pull request number.
+# the pull request, so it can only dispatch, and only for a branch of this repository.
+# The run name carries the pull request number.
 
 name: Relay - Review
 run-name: ${{ github.event.pull_request.number }}
@@ -26,6 +26,14 @@ jobs:
   relay:
     name: Relay review
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
       - name: Relay the review
-        run: "true"
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REF: ${{ github.event.repository.default_branch }}
+        run: gh workflow run check.review.yaml --ref "$REF" -f pr="$PR"

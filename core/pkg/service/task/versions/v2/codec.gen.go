@@ -16,7 +16,154 @@ import (
 
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (s Scale) EncodeOrc(w *orc.Writer) error {
+	switch v := s.Variant.(type) {
+	case LinearScale:
+		w.String("linear")
+		w.Float64(float64(v.Slope))
+		w.Float64(float64(v.Offset))
+	case MapScale:
+		w.String("map")
+		w.Float64(float64(v.PreScaledMin))
+		w.Float64(float64(v.PreScaledMax))
+		w.Float64(float64(v.ScaledMin))
+		w.Float64(float64(v.ScaledMax))
+	case PolynomialScale:
+		w.String("polynomial")
+		w.Bool(v.Coeffs != nil)
+		if v.Coeffs != nil {
+			w.Uint32(uint32(len(v.Coeffs)))
+			for i := range v.Coeffs {
+				w.Float64(float64(v.Coeffs[i]))
+			}
+		}
+	case TableScale:
+		w.String("table")
+		w.Bool(v.PreScaledVals != nil)
+		if v.PreScaledVals != nil {
+			w.Uint32(uint32(len(v.PreScaledVals)))
+			for i := range v.PreScaledVals {
+				w.Float64(float64(v.PreScaledVals[i]))
+			}
+		}
+		w.Bool(v.ScaledVals != nil)
+		if v.ScaledVals != nil {
+			w.Uint32(uint32(len(v.ScaledVals)))
+			for i := range v.ScaledVals {
+				w.Float64(float64(v.ScaledVals[i]))
+			}
+		}
+	case NoneScale:
+		w.String("none")
+	default:
+		return errors.Newf("Scale: nil or unknown variant %T", s.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (s *Scale) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "linear":
+		var v LinearScale
+		if v.Slope, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.Offset, err = r.Float64(); err != nil {
+			return err
+		}
+		s.Variant = v
+	case "map":
+		var v MapScale
+		if v.PreScaledMin, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.PreScaledMax, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.ScaledMin, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.ScaledMax, err = r.Float64(); err != nil {
+			return err
+		}
+		s.Variant = v
+	case "polynomial":
+		var v PolynomialScale
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Coeffs = make([]float64, n)
+				for i := range v.Coeffs {
+					if v.Coeffs[i], err = r.Float64(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		s.Variant = v
+	case "table":
+		var v TableScale
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.PreScaledVals = make([]float64, n)
+				for i := range v.PreScaledVals {
+					if v.PreScaledVals[i], err = r.Float64(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.ScaledVals = make([]float64, n)
+				for i := range v.ScaledVals {
+					if v.ScaledVals[i], err = r.Float64(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		s.Variant = v
+	case "none":
+		var v NoneScale
+		s.Variant = v
+	default:
+		return errors.Newf("Scale: unknown variant %q", tag)
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (t Task) EncodeOrc(w *orc.Writer) error {

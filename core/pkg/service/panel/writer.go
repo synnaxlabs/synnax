@@ -59,7 +59,7 @@ func (w Writer) Create(
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := p.OntologyID()
+	otgID := p.ResourceID()
 	if err := w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
@@ -103,5 +103,5 @@ func (w Writer) Delete(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DeleteResources(ctx, OntologyIDs(keys)...)
+	return w.otg.DeleteResources(ctx, ResourceIDs(keys)...)
 }

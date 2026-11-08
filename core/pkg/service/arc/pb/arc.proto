@@ -16,6 +16,7 @@ package service.arc.pb;
 import "arc/go/graph/pb/graph.proto";
 import "arc/go/program/pb/program.proto";
 import "arc/go/text/pb/text.proto";
+import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/arc/pb";
 
@@ -25,20 +26,79 @@ enum Mode {
   MODE_GRAPH = 1;
 }
 
-// Arc is an Arc module combining visual graph representation and text-based source code
-// for reactive control systems. Compiles to WebAssembly for sandboxed execution.
-message Arc {
+// Type specifies whether an Arc runs on a rack as an automation or holds code for other
+// Arcs to import as a module.
+enum Type {
+  TYPE_AUTOMATION = 0;
+  TYPE_MODULE = 1;
+}
+
+// Base carries the fields that every Arc shares.
+message Base {
   // key is the unique identifier for this module.
   string key = 1;
   // name is a human-readable name for the module.
   string name = 2;
-  // mode specifies the representation mode for this module. Either "text" for
-  // text-based Arc code or "graph" for visual dataflow.
-  Mode mode = 3;
-  // graph is the visual dataflow graph representation of the module.
-  .arc.graph.pb.Graph graph = 4;
+  // source is the Arc's source code, written as text or drawn as a graph.
+  Source source = 3;
+}
+message WhereList {
+  repeated Where values = 1;
+}
+message UuidList {
+  repeated string values = 1;
+}
+
+// UuidSet selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
+message UuidSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  UuidList in = 2;
+}
+
+// Where is a filter that selects Arcs.
+message Where {
+  // and matches when every child matches.
+  WhereList and = 1;
+  // or matches when any child matches.
+  WhereList or = 2;
+  // not matches when the child does not match.
+  optional Where not = 3;
+  // key selects by key.
+  optional UuidSet key = 4;
+  // name selects by name.
+  optional .x.filter.pb.String name = 5;
+}
+message SourceTextPayload {
   // text is the text-based Arc source code.
-  .arc.text.pb.Text text = 5;
+  .arc.text.pb.Text text = 1;
+}
+message SourceGraphPayload {
+  // graph is the visual dataflow graph representation of the module.
+  .arc.graph.pb.Graph graph = 1;
+}
+message ArcAutomationPayload {
   // program is the compiled module output including IR and WebAssembly bytecode.
-  optional .arc.program.pb.Program program = 6;
+  optional .arc.program.pb.Program program = 1;
+}
+message ArcModulePayload {}
+
+// Source is the source code of an Arc. The mode selects text or a graph.
+message Source {
+  oneof variant {
+    SourceTextPayload text = 1;
+    SourceGraphPayload graph = 2;
+  }
+}
+
+// Arc is an Arc module combining visual graph representation and text-based source code
+// for reactive control systems. Compiles to WebAssembly for sandboxed execution.
+message Arc {
+  Base base = 1;
+  oneof variant {
+    ArcAutomationPayload automation = 2;
+    ArcModulePayload module = 3;
+  }
 }

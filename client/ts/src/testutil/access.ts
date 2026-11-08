@@ -21,21 +21,30 @@ const isDenial = (err: unknown): boolean =>
   AccessDeniedError.matches(err) ||
   (err instanceof Error && err.cause != null && isDenial(err.cause));
 
+const logAllButDenials = (err: Error): void => {
+  if (!isDenial(err)) console.error(err);
+};
+
 /**
- * Connects as a new user and primes its policy cache. By default, denials are
- * tolerated: the Core refuses restricted subjects by design, and the change-stream
- * refusal logs after teardown, which vitest counts as an unhandled error.
+ * Creates a client that logs in as an existing user. Denials are tolerated: the Core
+ * refuses restricted subjects by design, and the change-stream refusal logs at any time,
+ * even after teardown, which vitest counts as an unhandled error.
+ */
+export const createTestClientAs = (username: string, password: string): Synnax =>
+  createTestClient({ username, password, onInternalError: logAllButDenials });
+
+/**
+ * Connects as a new user and primes its policy cache. Denials are tolerated by default,
+ * as in {@link createTestClientAs}.
  */
 const connectAs = async (
   username: string,
   key: user.Key,
-  onInternalError: (err: Error) => void = (err) => {
-    if (!isDenial(err)) console.error(err);
-  },
+  onInternalError: (err: Error) => void = logAllButDenials,
 ) => {
   const client = createTestClient({ username, password: "test", onInternalError });
   try {
-    await client.access.policies.retrieveForSubject(user.ontologyID(key));
+    await client.access.policies.retrieveForSubject(user.resourceID(key));
   } catch (err) {
     if (!isDenial(err)) throw errors.fromUnknown(err);
   }
@@ -73,8 +82,8 @@ export const createTestClientWithPolicy = async (
     description: "test",
   });
   await client.ontology.addChildren(
-    role.ontologyID(r.key),
-    ...policies.map(({ key }) => policy.ontologyID(key)),
+    role.resourceID(r.key),
+    ...policies.map(({ key }) => policy.resourceID(key)),
   );
   await client.access.roles.assign({ user: u.key, role: r.key });
   return await connectAs(u.username, u.key, onInternalError);

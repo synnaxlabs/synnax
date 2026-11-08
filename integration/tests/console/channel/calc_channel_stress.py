@@ -8,13 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-from typing import Any
+from typing import Unpack
 
 import numpy as np
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
+from framework.test_case import Config, param
 from framework.utils import create_indexed_channels
 
 CrudeFrame = dict[int, sy.TimeStamp | float | np.floating]
@@ -36,9 +37,10 @@ class CalcChannelStress(ConsoleCase):
     _stress_thread: threading.Thread | None = None
     _stop_event: threading.Event
 
-    def __init__(self, *, rate: int = 10, **params: Any) -> None:
-        params.pop("name", None)
-        super().__init__(name=f"calc_stress_{rate}hz", **params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        rate = param(kwargs.get("params", {}), "rate", 10)
+        kwargs["name"] = f"calc_stress_{rate}hz"
+        super().__init__(**kwargs)
         self.rate = rate
         self._stop_event = threading.Event()
 
@@ -199,10 +201,10 @@ class CalcChannelStress(ConsoleCase):
 
         plot = console.pages.create(Plot, f"Calc Stress {self.rate}Hz")
         self._cleanup_pages.append(plot.page_name)
-        plot.add_channels("Y1", CALC_CHANNELS)
+        plot.add_channels("y1", CALC_CHANNELS)
 
         for ch in CALC_CHANNELS:
-            assert ch in plot.data["Y1"], f"Channel {ch} should be on Y1"
+            assert ch in plot.data["y1"], f"Channel {ch} should be on Y1"
 
         sy.sleep(1)
 

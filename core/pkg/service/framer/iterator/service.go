@@ -213,7 +213,12 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.CancelOnFail(),
 	)
-	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
+	return &Iterator{pipeline: framer.IteratorPipeline{
+		Requests:  req,
+		Responses: res,
+		Shutdown:  cancel,
+		WaitGroup: sCtx,
+	}}, nil
 }
 
 // newCalculationTransform returns a transform that runs the calculations cfg requests,

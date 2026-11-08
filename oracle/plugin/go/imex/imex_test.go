@@ -117,11 +117,11 @@ var _ = Describe("Go ImEx Plugin", func() {
 			))
 		})
 
-		It("Should error when no ontology import path is configured", func() {
+		It("Should error when no resource import path is configured", func() {
 			opts := imex.DefaultOptions()
-			opts.OntologyImportPath = ""
+			opts.ResourceImportPath = ""
 			Expect(imex.New(opts).Generate(nil)).Error().To(MatchError(
-				ContainSubstring("go/imex requires Options.OntologyImportPath"),
+				ContainSubstring("go/imex requires Options.ResourceImportPath"),
 			))
 		})
 	})
@@ -179,14 +179,78 @@ var _ = Describe("Go ImEx Plugin", func() {
 				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").ToContain(
 					"package log",
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions"`,
-					`"github.com/synnaxlabs/synnax/pkg/service/ontology"`,
-					"func (s *Service) Export(ctx context.Context, id ontology.ID) "+
+					`"github.com/synnaxlabs/synnax/pkg/service/resource"`,
+					"func (s *Service) Export(ctx context.Context, id resource.ID) "+
 						"(imex.Envelope, error)",
 					"var v Log",
 					"Where(MatchKeys(key))",
 					"Version: versions.Latest, Type: string(s.Type()), Name: v.Name,",
 					"env.Encode(v)",
 				).ToBeValidGoSource()
+			},
+		)
+
+		It(
+			"Should read the name of an exported union through its Base accessor",
+			func(ctx SpecContext) {
+				live := `
+@go output "core/pkg/service/log"
+
+Base struct {
+	key  uuid @key
+	name string
+}
+
+Log union on type extends Base {
+	info {}
+	failure {
+		code int32
+	}
+	@go imex
+}
+`
+				chain := "Base struct {\n\tkey uuid @key\n\tname string\n}\n\n" +
+					"Log union on type extends Base {\n\tinfo {}\n\tfailure {\n" +
+					"\t\tcode int32\n\t}\n\t@go imex\n}\n"
+				req := chainRequest(
+					ctx, GinkgoT().TempDir(), live, map[int]string{0: chain},
+				)
+				resp := MustSucceed(p.Generate(req))
+				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").
+					ToContain("Name: v.Base().Name,").
+					ToBeValidGoSource()
+			},
+		)
+
+		It(
+			"Should error when the variants of an exported union share no base",
+			func(ctx SpecContext) {
+				live := `
+@go output "core/pkg/service/log"
+
+Base struct {
+	key  uuid @key
+	name string
+}
+
+Log union on type extends Base {
+	info {}
+	failure {
+		-name
+	}
+	@go imex
+}
+`
+				chain := "Base struct {\n\tkey uuid @key\n\tname string\n}\n\n" +
+					"Log union on type extends Base {\n\tinfo {}\n\tfailure {\n" +
+					"\t\t-name\n\t}\n\t@go imex\n}\n"
+				req := chainRequest(
+					ctx, GinkgoT().TempDir(), live, map[int]string{0: chain},
+				)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"log.Log: an exported union needs one base that every variant " +
+						"inherits",
+				)))
 			},
 		)
 
@@ -386,7 +450,7 @@ Symbol struct {
 			custom := imex.New(imex.Options{
 				FileNamePattern:    "imex.gen.go",
 				RuntimeImportPath:  "github.com/acme/portable/imex",
-				OntologyImportPath: "github.com/acme/portable/ontology",
+				ResourceImportPath: "github.com/acme/portable/resource",
 			})
 			req := chainRequest(
 				ctx, GinkgoT().TempDir(), liveLog,

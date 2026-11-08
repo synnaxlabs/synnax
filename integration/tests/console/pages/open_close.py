@@ -35,21 +35,21 @@ class OpenClose(HardwareCase, ConsoleCase):
         suffix = random_name()
 
         PROJECT_PAGES: list[tuple[PageType, str]] = [
-            ("Schematic", f"Sch_{suffix}"),
-            ("Line plot", f"LinePlt_{suffix}"),
-            ("Log", f"LogPg_{suffix}"),
-            ("Table", f"TablePg_{suffix}"),
+            ("schematic", f"Sch_{suffix}"),
+            ("lineplot", f"LinePlt_{suffix}"),
+            ("log", f"LogPg_{suffix}"),
+            ("table", f"TablePg_{suffix}"),
         ]
 
         TASK_PAGES: list[tuple[PageType, str]] = [
-            ("NI analog read task", f"NIAR_{suffix}"),
-            ("NI analog write task", f"NIAW_{suffix}"),
-            ("NI digital read task", f"NIDR_{suffix}"),
-            ("NI digital write task", f"NIDW_{suffix}"),
-            ("LabJack read task", f"LJRead_{suffix}"),
-            ("LabJack write task", f"LJWrite_{suffix}"),
-            ("OPC UA read task", f"OPCRead_{suffix}"),
-            ("OPC UA write task", f"OPCWrite_{suffix}"),
+            ("ni_analog_read", f"NIAR_{suffix}"),
+            ("ni_analog_write", f"NIAW_{suffix}"),
+            ("ni_digital_read", f"NIDR_{suffix}"),
+            ("ni_digital_write", f"NIDW_{suffix}"),
+            ("labjack_read", f"LJRead_{suffix}"),
+            ("labjack_write", f"LJWrite_{suffix}"),
+            ("opc_read", f"OPCRead_{suffix}"),
+            ("opc_write", f"OPCWrite_{suffix}"),
         ]
 
         self.log("(1/2) Create pages by cmd palette")
@@ -58,7 +58,7 @@ class OpenClose(HardwareCase, ConsoleCase):
 
         for page_type, page_name in all_pages:
             console.pages.create_by_command_palette(page_type, page_name)
-            if page_type in ("Schematic", "Line plot", "Log", "Table"):
+            if page_type in ("schematic", "lineplot", "log", "table"):
                 self._page_names.append(page_name)
         for _, page_name in all_pages:
             console.layout.close_tab(page_name)
@@ -66,7 +66,7 @@ class OpenClose(HardwareCase, ConsoleCase):
         self.log("(2/2) Create pages by (+) button")
         for page_type, page_name in all_pages:
             console.pages.create_by_new_page_button(page_type, page_name)
-            if page_type in ("Schematic", "Line plot", "Log", "Table"):
+            if page_type in ("schematic", "lineplot", "log", "table"):
                 self._page_names.append(page_name)
         for _, page_name in all_pages:
             console.layout.close_tab(page_name)

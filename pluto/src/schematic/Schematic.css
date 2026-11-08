@@ -51,10 +51,8 @@
 
     .react-flow__handle {
         background: none !important;
-        border: var(--pluto-border) !important;
-        border-color: transparent !important;
+        border: none !important;
         pointer-events: none !important;
-        border-radius: 50%;
 
         /* React Flow pins the opposite edge (bottom/right) for handles facing those
            directions. Pluto positions every handle via top/left, so the extra pin
@@ -98,14 +96,20 @@
 
         & .react-flow__handle {
             display: block !important;
-            border-width: 2px !important;
-            min-width: 1.5rem !important;
-            min-height: 1.5rem !important;
-            width: 1.5rem !important;
-            height: 1.5rem !important;
-            pointer-events: all !important;
-            border-radius: 50%;
             z-index: 1;
+
+            &::before {
+                content: "";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 1.5rem;
+                height: 1.5rem;
+                translate: -50% -50%;
+                border: 2px solid transparent;
+                border-radius: 50%;
+                pointer-events: all;
+            }
         }
 
         /* Lyra controls set their own z-index, which paints them over the handles.
@@ -126,24 +130,24 @@
         }
 
         & .react-flow__node.draggable:hover {
-            .react-flow__handle {
-                border-color: var(--pluto-primary-z) !important;
-                background: var(--pluto-text-color) !important;
+            .react-flow__handle::before {
+                border-color: var(--pluto-primary-z);
+                background: var(--pluto-text-color);
+            }
 
-                &:hover {
-                    background: var(--pluto-primary-z) !important;
-                }
+            .react-flow__handle:hover::before {
+                background: var(--pluto-primary-z);
             }
         }
 
         & .react-flow__container:has(.react-flow__connectionline) {
-            & .react-flow__handle {
-                border-color: var(--pluto-primary-z) !important;
-                background: var(--pluto-text-color) !important;
+            & .react-flow__handle::before {
+                border-color: var(--pluto-primary-z);
+                background: var(--pluto-text-color);
+            }
 
-                &:hover {
-                    background: var(--pluto-primary-z) !important;
-                }
+            & .react-flow__handle:hover::before {
+                background: var(--pluto-primary-z);
             }
         }
     }

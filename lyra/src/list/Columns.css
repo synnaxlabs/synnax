@@ -51,11 +51,11 @@
     border-bottom: var(--pluto-border);
 }
 
-/* Takes the place of a checkable item's checkbox, which has no gap after it. */
+/* Takes the place of a checkable item's checkbox, with the same margins. */
 .lyra-list__headings-check {
     width: var(--pluto-height-medium);
     flex-shrink: 0;
-    margin-inline-end: -1.5rem;
+    margin-inline: -1rem -1.5rem;
 }
 
 /* A field insets its text by its padding and border. */

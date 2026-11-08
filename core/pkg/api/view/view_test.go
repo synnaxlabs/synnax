@@ -42,19 +42,19 @@ var _ = Describe("Rename", func() {
 	It("Should rename the view when update is granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		v := createView(ctx)
-		grantUpdateOn(ctx, u.OntologyID(), v.OntologyID())
+		grantUpdateOn(ctx, u.ResourceID(), v.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
 		)).Error().ToNot(HaveOccurred())
 		renamed := retrieveView(ctx, v.GorpKey())
 		Expect(renamed.Base().Name).To(Equal("After"))
-		Expect(renamed.Type()).To(Equal(view.RangeViewType))
+		Expect(renamed.Type()).To(Equal(view.TypeRange))
 	})
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := createUser(ctx)
 		v := createView(ctx)
-		grantUpdateOn(ctx, u.OntologyID(), v.OntologyID())
+		grantUpdateOn(ctx, u.ResourceID(), v.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apiview.RenameRequest{Key: v.GorpKey(), Name: ""},
@@ -64,7 +64,7 @@ var _ = Describe("Rename", func() {
 	It("Should return a not found error for a missing view", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
-		grantUpdateOn(ctx, u.OntologyID(), view.OntologyID(key))
+		grantUpdateOn(ctx, u.ResourceID(), view.ResourceID(key))
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apiview.RenameRequest{Key: key, Name: "After"},

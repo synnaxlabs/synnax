@@ -1,0 +1,155 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+const rows = Array.from({ length: 9 }, (_, i) => 210 + i * 14);
+const columns = [84, 152, 260, 384, 516, 640];
+---
+
+<svg
+    class="performance-art"
+    viewBox="0 0 600 320"
+    fill="none"
+    aria-hidden="true"
+    focusable="false"
+>
+    <defs>
+        <linearGradient id="performance-art-ink" x1="0" y1="0" x2="1" y2="0.5">
+            <stop class="ink-near" />
+            <stop class="ink-far" offset="1" />
+        </linearGradient>
+        <linearGradient id="performance-art-fade" x1="0" y1="0" x2="1" y2="0">
+            <stop stop-color="white" stop-opacity="0" />
+            <stop stop-color="white" offset="0.2" />
+            <stop stop-color="white" offset="0.75" />
+            <stop stop-color="white" stop-opacity="0" offset="1" />
+        </linearGradient>
+        <mask id="performance-art-field">
+            <rect width="600" height="320" fill="url(#performance-art-fade)" />
+        </mask>
+    </defs>
+    <g mask="url(#performance-art-field)">
+        <path class="datum" d="M 84 60 V 340" />
+        <path class="registration" d="M 80 80 H 88 M 84 76 V 84" />
+        <path class="registration" d="M 80 192 H 88 M 84 188 V 196" />
+        <g class="row-field">
+            {rows.map((y) => (
+                <path class="row-rule" d={`M 20 ${y} H 640`} />
+            ))}
+            {columns.map((x) => (
+                <path class="column-rule" d={`M ${x} 210 V 340`} />
+            ))}
+            {rows.map((y, row) => (
+                <g class="row-values" style={`--pluto-row-delay: ${row * -0.6}s`}>
+                    {columns.slice(0, -1).map((x, column) => (
+                        <path
+                            class:list={[
+                                "row-value",
+                                { accent: (row + column) % 5 === 0 },
+                            ]}
+                            d={`M ${x + 10} ${y + 7} H ${columns[column + 1] - 16}`}
+                        />
+                    ))}
+                </g>
+            ))}
+        </g>
+    </g>
+    <text class="row-count" x="116" y="143">
+        1,000,000,000
+    </text>
+    <text class="row-label" x="119" y="174">
+        rows
+    </text>
+</svg>
+
+<style>
+    .performance-art {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .ink-near {
+        stop-color: light-dark(#344f73, #bdd0e8);
+    }
+
+    .ink-far {
+        stop-color: light-dark(#6883a5, #6688b0);
+    }
+
+    .row-count {
+        fill: url("#performance-art-ink");
+        font: 350 54px / 1 var(--pluto-code-font-family);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -2px;
+    }
+
+    .row-label {
+        fill: var(--pluto-gray-l8);
+        font: 400 14px / 1 var(--pluto-code-font-family);
+        letter-spacing: 0.04em;
+    }
+
+    .datum {
+        stroke: light-dark(#a6b7cd40, #7c98b933);
+        stroke-width: 0.65;
+    }
+
+    .registration {
+        stroke: light-dark(#7993b180, #99b3d066);
+        stroke-width: 0.8;
+    }
+
+    .row-field {
+        opacity: 0.7;
+    }
+
+    .row-rule {
+        stroke: light-dark(#a9b9cc70, #6382a359);
+        stroke-width: 0.65;
+    }
+
+    .column-rule {
+        stroke: light-dark(#afc0d140, #6c89a636);
+        stroke-width: 0.65;
+    }
+
+    .row-value {
+        stroke: light-dark(#8ea3be66, #829eb566);
+        stroke-width: 1.4;
+    }
+
+    .row-value.accent {
+        stroke: var(--pluto-primary-z-60);
+    }
+
+    .row-values {
+        animation: row-activity 9s ease-in-out infinite;
+        animation-delay: var(--pluto-row-delay);
+    }
+
+    @keyframes row-activity {
+        0%,
+        65%,
+        100% {
+            opacity: 0.45;
+        }
+
+        25% {
+            opacity: 1;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .row-values {
+            animation: none;
+        }
+    }
+</style>

@@ -18,15 +18,16 @@ import (
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/encoding/zip"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 // symbolType is the type-wide symbol object Create enforces on.
-var symbolType = ontology.ID{Type: ontology.ResourceTypeSchematicSymbol}
+var symbolType = resource.ID{Type: resource.TypeSchematicSymbol}
 
 var _ = Describe("Create", func() {
 	It("Should create the symbols under the parent when both are granted", func(
@@ -34,18 +35,18 @@ var _ = Describe("Create", func() {
 	) {
 		u := createUser(ctx)
 		g := createGroup(ctx, "creatable")
-		grantCreateOn(ctx, u.OntologyID(), symbolType)
-		grantUpdateOn(ctx, u.OntologyID(), g.OntologyID())
+		grantCreateOn(ctx, u.ResourceID(), symbolType)
+		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
 		res := MustSucceed(apiSvc.Create(
 			AuthedCtx(ctx, u), nil, apisymbol.CreateRequest{
-				Parent:  g.OntologyID(),
+				Parent:  g.ResourceID(),
 				Symbols: []symbol.Symbol{newSymbol("Inlet"), newSymbol("Outlet")},
 			},
 		))
 		Expect(res.Symbols).To(HaveLen(2))
 		Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, g.Key)).To(ConsistOf(
-			symbol.OntologyID(res.Symbols[0].Key),
-			symbol.OntologyID(res.Symbols[1].Key),
+			symbol.ResourceID(res.Symbols[0].Key),
+			symbol.ResourceID(res.Symbols[1].Key),
 		))
 	})
 	It("Should reject the request when create is not granted on the symbol type", func(
@@ -53,9 +54,9 @@ var _ = Describe("Create", func() {
 	) {
 		u := createUser(ctx)
 		g := createGroup(ctx, "uncreatable")
-		grantUpdateOn(ctx, u.OntologyID(), g.OntologyID())
+		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
 		Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apisymbol.CreateRequest{
-			Parent:  g.OntologyID(),
+			Parent:  g.ResourceID(),
 			Symbols: []symbol.Symbol{newSymbol("Inlet")},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
@@ -64,9 +65,9 @@ var _ = Describe("Create", func() {
 	) {
 		u := createUser(ctx)
 		g := createGroup(ctx, "ungranted-parent")
-		grantCreateOn(ctx, u.OntologyID(), symbolType)
+		grantCreateOn(ctx, u.ResourceID(), symbolType)
 		Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apisymbol.CreateRequest{
-			Parent:  g.OntologyID(),
+			Parent:  g.ResourceID(),
 			Symbols: []symbol.Symbol{newSymbol("Inlet")},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
@@ -82,13 +83,17 @@ var _ = Describe("Retrieve", func() {
 		createSymbol(ctx, g, "Vent")
 		grantRetrieveOn(
 			ctx,
-			author.OntologyID(),
-			symbol.OntologyID(first.Key),
-			symbol.OntologyID(second.Key),
+			author.ResourceID(),
+			symbol.ResourceID(first.Key),
+			symbol.ResourceID(second.Key),
 		)
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
-				Keys: []symbol.Key{first.Key, second.Key},
+				Where: &symbol.Where{
+					Key: &filter.Set[symbol.Key]{
+						In: []symbol.Key{first.Key, second.Key},
+					},
+				},
 			},
 		))
 		Expect(res.Symbols).To(ConsistOf(
@@ -97,21 +102,19 @@ var _ = Describe("Retrieve", func() {
 	})
 	It("Should return the symbols the search term matches", func(ctx SpecContext) {
 		sym := createSymbol(ctx, createGroup(ctx, "searchable"), "Pyrometer")
-		grantRetrieveOn(ctx, author.OntologyID(), symbol.OntologyID(sym.Key))
-		Eventually(func(g Gomega) {
-			res, err := apiSvc.Retrieve(
-				AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
-					SearchTerm: "Pyrometer",
-				},
-			)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(res.Symbols).To(ConsistOf(HaveField("Key", sym.Key)))
-		}).Should(Succeed())
+		grantRetrieveOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
+		Eventually(apiSvc.Retrieve).WithArguments(
+			AuthedCtx(ctx, author),
+			apisymbol.RetrieveRequest{SearchTerm: "Pyrometer"},
+		).Should(HaveField("Symbols", ConsistOf(HaveField("Key", sym.Key))))
 	})
-	It("Should return not found when a key names no symbol", func(ctx SpecContext) {
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
-			Keys: []symbol.Key{uuid.New()},
-		})).Error().To(MatchError(query.ErrNotFound))
+	It("Should return no symbols when a key names no symbol", func(ctx SpecContext) {
+		res := MustSucceed(
+			apiSvc.Retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
+				Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: new(uuid.New())}},
+			}),
+		)
+		Expect(res.Symbols).To(BeEmpty())
 	})
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
@@ -119,7 +122,7 @@ var _ = Describe("Retrieve", func() {
 		g := createGroup(ctx, "unretrievable")
 		sym := createSymbol(ctx, g, "Inlet")
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
-			Keys: []symbol.Key{sym.Key},
+			Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: &sym.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 })
@@ -128,7 +131,7 @@ var _ = Describe("Rename", func() {
 	It("Should rename the symbol when update is granted", func(ctx SpecContext) {
 		g := createGroup(ctx, "renamable")
 		sym := createSymbol(ctx, g, "Inlet")
-		grantUpdateOn(ctx, author.OntologyID(), symbol.OntologyID(sym.Key))
+		grantUpdateOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, author), nil,
 			apisymbol.RenameRequest{Key: sym.Key, Name: "Outlet"},
@@ -154,7 +157,7 @@ var _ = Describe("Delete", func() {
 	It("Should delete the symbols when delete is granted", func(ctx SpecContext) {
 		g := createGroup(ctx, "deletable-symbols")
 		sym := createSymbol(ctx, g, "Inlet")
-		grantDeleteOn(ctx, author.OntologyID(), symbol.OntologyID(sym.Key))
+		grantDeleteOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
 		Expect(apiSvc.Delete(
 			AuthedCtx(ctx, author), nil,
 			apisymbol.DeleteRequest{Keys: []symbol.Key{sym.Key}},
@@ -179,7 +182,7 @@ var _ = Describe("RetrieveGroup", func() {
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		grantRetrieveOn(ctx, u.OntologyID(), symbolSvc.Group().OntologyID())
+		grantRetrieveOn(ctx, u.ResourceID(), symbolSvc.Group().ResourceID())
 		Expect(MustSucceed(apiSvc.RetrieveGroup(
 			AuthedCtx(ctx, u), apisymbol.RetrieveGroupRequest{},
 		)).Group).To(Equal(symbolSvc.Group()))
@@ -197,7 +200,7 @@ var _ = Describe("ExportGroup", func() {
 			g := createGroup(ctx, "granted")
 			sym := createSymbol(ctx, g, "Inlet")
 			grantRetrieveOn(
-				ctx, author.OntologyID(), g.OntologyID(), symbol.OntologyID(sym.Key),
+				ctx, author.ResourceID(), g.ResourceID(), symbol.ResourceID(sym.Key),
 			)
 			Expect(MustSucceed(apiSvc.ExportGroup(
 				AuthedCtx(ctx, author),
@@ -210,7 +213,7 @@ var _ = Describe("ExportGroup", func() {
 	)
 	It("Should reject an unsupported encoding", func(ctx SpecContext) {
 		g := createGroup(ctx, "bad-encoding")
-		grantRetrieveOn(ctx, author.OntologyID(), g.OntologyID())
+		grantRetrieveOn(ctx, author.ResourceID(), g.ResourceID())
 		Expect(apiSvc.ExportGroup(
 			AuthedCtx(ctx, author),
 			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: "YAML"},
@@ -221,7 +224,7 @@ var _ = Describe("ExportGroup", func() {
 	) {
 		g := createGroup(ctx, "ungranted-group")
 		sym := createSymbol(ctx, g, "Outlet")
-		grantRetrieveOn(ctx, author.OntologyID(), symbol.OntologyID(sym.Key))
+		grantRetrieveOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
 		Expect(apiSvc.ExportGroup(
 			AuthedCtx(ctx, author),
 			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: apiimex.EncodingJSON},
@@ -231,7 +234,7 @@ var _ = Describe("ExportGroup", func() {
 		ctx SpecContext,
 	) {
 		g := createGroup(ctx, "ungranted-with-nested")
-		MustSucceed(groupSvc.NewWriter(nil).Create(ctx, "Nested", g.OntologyID()))
+		MustSucceed(groupSvc.NewWriter(nil).Create(ctx, "Nested", g.ResourceID()))
 		Expect(apiSvc.ExportGroup(
 			AuthedCtx(ctx, createUser(ctx)),
 			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: apiimex.EncodingJSON},
@@ -242,7 +245,7 @@ var _ = Describe("ExportGroup", func() {
 	) {
 		g := createGroup(ctx, "ungranted-member")
 		createSymbol(ctx, g, "Vent")
-		grantRetrieveOn(ctx, author.OntologyID(), g.OntologyID())
+		grantRetrieveOn(ctx, author.ResourceID(), g.ResourceID())
 		Expect(apiSvc.ExportGroup(
 			AuthedCtx(ctx, author),
 			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: apiimex.EncodingJSON},
@@ -257,7 +260,7 @@ var _ = Describe("DeleteGroup", func() {
 		g := createGroup(ctx, "deletable")
 		sym := createSymbol(ctx, g, "Inlet")
 		grantDeleteOn(
-			ctx, author.OntologyID(), g.OntologyID(), symbol.OntologyID(sym.Key),
+			ctx, author.ResourceID(), g.ResourceID(), symbol.ResourceID(sym.Key),
 		)
 		Expect(apiSvc.DeleteGroup(
 			AuthedCtx(ctx, author), nil, apisymbol.DeleteGroupRequest{Key: g.Key},
@@ -272,7 +275,7 @@ var _ = Describe("DeleteGroup", func() {
 	) {
 		g := createGroup(ctx, "ungranted-group")
 		sym := createSymbol(ctx, g, "Outlet")
-		grantDeleteOn(ctx, author.OntologyID(), symbol.OntologyID(sym.Key))
+		grantDeleteOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
 		Expect(apiSvc.DeleteGroup(
 			AuthedCtx(ctx, author), nil, apisymbol.DeleteGroupRequest{Key: g.Key},
 		)).Error().To(MatchError(access.ErrDenied))
@@ -280,7 +283,7 @@ var _ = Describe("DeleteGroup", func() {
 	It("Should reject the request when a member is not granted", func(ctx SpecContext) {
 		g := createGroup(ctx, "ungranted-member")
 		createSymbol(ctx, g, "Vent")
-		grantDeleteOn(ctx, author.OntologyID(), g.OntologyID())
+		grantDeleteOn(ctx, author.ResourceID(), g.ResourceID())
 		Expect(apiSvc.DeleteGroup(
 			AuthedCtx(ctx, author), nil, apisymbol.DeleteGroupRequest{Key: g.Key},
 		)).Error().To(MatchError(access.ErrDenied))
@@ -289,7 +292,7 @@ var _ = Describe("DeleteGroup", func() {
 		ctx SpecContext,
 	) {
 		g := createGroup(ctx, "ungranted-with-nested")
-		MustSucceed(groupSvc.NewWriter(nil).Create(ctx, "Nested", g.OntologyID()))
+		MustSucceed(groupSvc.NewWriter(nil).Create(ctx, "Nested", g.ResourceID()))
 		Expect(apiSvc.DeleteGroup(
 			AuthedCtx(ctx, createUser(ctx)), nil,
 			apisymbol.DeleteGroupRequest{Key: g.Key},
@@ -298,7 +301,7 @@ var _ = Describe("DeleteGroup", func() {
 })
 
 // groupType is the type-wide group object ImportGroup enforces on.
-var groupType = ontology.ID{Type: ontology.ResourceTypeGroup}
+var groupType = resource.ID{Type: resource.TypeGroup}
 
 // newBundle returns a version 2 symbol group bundle holding one symbol.
 func newBundle(name string) zip.Files {
@@ -317,8 +320,8 @@ var _ = Describe("ImportGroup", func() {
 	It("Should import the bundle when the types and the permanent group are granted",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			grantCreateOn(ctx, u.OntologyID(), groupType, symbolType)
-			grantUpdateOn(ctx, u.OntologyID(), symbolSvc.Group().OntologyID())
+			grantCreateOn(ctx, u.ResourceID(), groupType, symbolType)
+			grantUpdateOn(ctx, u.ResourceID(), symbolSvc.Group().ResourceID())
 			res := MustSucceed(apiSvc.ImportGroup(
 				AuthedCtx(ctx, u), nil, newBundle("Valves"),
 			))
@@ -331,7 +334,7 @@ var _ = Describe("ImportGroup", func() {
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		grantUpdateOn(ctx, u.OntologyID(), symbolSvc.Group().OntologyID())
+		grantUpdateOn(ctx, u.ResourceID(), symbolSvc.Group().ResourceID())
 		Expect(apiSvc.ImportGroup(
 			AuthedCtx(ctx, u), nil, newBundle("Valves"),
 		)).Error().To(MatchError(access.ErrDenied))
@@ -340,8 +343,8 @@ var _ = Describe("ImportGroup", func() {
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		grantCreateOn(ctx, u.OntologyID(), symbolType)
-		grantUpdateOn(ctx, u.OntologyID(), symbolSvc.Group().OntologyID())
+		grantCreateOn(ctx, u.ResourceID(), symbolType)
+		grantUpdateOn(ctx, u.ResourceID(), symbolSvc.Group().ResourceID())
 		Expect(apiSvc.ImportGroup(
 			AuthedCtx(ctx, u), nil, newBundle("Valves"),
 		)).Error().To(MatchError(access.ErrDenied))
@@ -349,7 +352,7 @@ var _ = Describe("ImportGroup", func() {
 	It("Should reject the request when update is not granted on the permanent group",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			grantCreateOn(ctx, u.OntologyID(), groupType, symbolType)
+			grantCreateOn(ctx, u.ResourceID(), groupType, symbolType)
 			Expect(apiSvc.ImportGroup(
 				AuthedCtx(ctx, u), nil, newBundle("Valves"),
 			)).Error().To(MatchError(access.ErrDenied))

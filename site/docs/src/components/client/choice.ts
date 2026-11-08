@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Query } from "@/components/tabs/sync";
+import { type Tabs } from "@/components/tabs";
 
 export const CLIENTS = ["console", "python", "typescript", "arc"] as const;
 
@@ -42,7 +42,7 @@ const store = (client: string): void => {
  * Remembers the chosen client for later pages and shows inline values in its naming
  * style.
  */
-export const QUERY: Query = {
+export const QUERY: Tabs.Query = {
   initial: getStored,
   onChange: (client) => {
     store(client);

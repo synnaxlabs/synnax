@@ -14,9 +14,17 @@ from pathlib import Path
 from framework import failure_report, models
 
 
-def _render(tmp_path: Path, clicks: list[tuple[str, str]], stacks: str = "") -> str:
+def _render(
+    tmp_path: Path,
+    clicks: list[tuple[str, str]],
+    *,
+    stacks: str = "",
+    lines: tuple[str, ...] = (),
+    network: tuple[str, ...] = (),
+) -> str:
     """Render the report for a failed test whose trace has one click per (selector,
-    calling method). A non-empty ``stacks`` replaces the generated trace.stacks."""
+    calling method). A non-empty ``stacks`` replaces the generated trace.stacks.
+    ``lines`` adds raw lines to trace.trace, and ``network`` is trace.network."""
     events: list[dict[str, object]] = []
     frames: list[list[object]] = []
     for i, (selector, caller) in enumerate(clicks):
@@ -36,7 +44,9 @@ def _render(tmp_path: Path, clicks: list[tuple[str, str]], stacks: str = "") -> 
     bundle = tmp_path / "tests" / "case"
     bundle.mkdir(parents=True)
     with zipfile.ZipFile(bundle / "trace.zip", "w") as z:
-        z.writestr("trace.trace", "\n".join(json.dumps(e) for e in events))
+        trace = [json.dumps(e) for e in events]
+        z.writestr("trace.trace", "\n".join([*trace, *lines]))
+        z.writestr("trace.network", "\n".join(network))
         z.writestr(
             "trace.stacks",
             stacks or json.dumps({"files": ["case.py"], "stacks": frames}),
@@ -71,3 +81,34 @@ class TestFailureReport:
         )
         assert "selector=#run" in text
         assert "selector=#cleanup" in text
+
+    def test_should_list_console_errors_and_failed_requests(
+        self, tmp_path: Path
+    ) -> None:
+        console = {"type": "console", "messageType": "error", "text": "boom"}
+        failed = {
+            "snapshot": {
+                "request": {"method": "GET", "url": "http://core/api"},
+                "response": {"status": 500, "statusText": "Server Error"},
+            }
+        }
+        ok = {"snapshot": {"response": {"status": 200}}}
+        text = _render(
+            tmp_path,
+            [("#run", "Case.run")],
+            lines=(json.dumps(console),),
+            network=(json.dumps(failed), json.dumps(ok)),
+        )
+        assert "boom" in text
+        assert "500 Server Error" in text
+        assert "GET http://core/api" in text
+        assert text.count("GET ") == 1
+
+    def test_should_skip_trace_lines_it_cannot_read(self, tmp_path: Path) -> None:
+        text = _render(
+            tmp_path,
+            [("#run", "Case.run")],
+            lines=("{", "[1, 2]", json.dumps({"type": "before", "startTime": "x"})),
+            network=("{", json.dumps({"snapshot": {"response": {"status": "x"}}})),
+        )
+        assert "selector=#run" in text

@@ -32,6 +32,8 @@ import { Label } from "@/label";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
+const path = Label.createFormPath;
+
 const client = createTestClient();
 
 describe("queries", () => {
@@ -146,7 +148,7 @@ describe("queries", () => {
         result.current.retrieve({
           limit: 2,
           offset: 1,
-          keys: labels.map((l) => l.key),
+          where: { key: { in: labels.map((l) => l.key) } },
         });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -223,7 +225,7 @@ describe("queries", () => {
   });
 
   describe("retrieveLabelsOf", () => {
-    it("should retrieve labels for an ontology ID", async () => {
+    it("should retrieve labels for a resource ID", async () => {
       const label1 = await client.labels.create({
         name: "entityLabel1",
         color: "#FF0000",
@@ -237,13 +239,13 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      await client.labels.label(label.ontologyID(targetLabel.key), [
+      await client.labels.label(label.resourceID(targetLabel.key), [
         label1.key,
         label2.key,
       ]);
 
       const { result } = renderHook(
-        () => Label.useResultLabelsOf({ id: label.ontologyID(targetLabel.key) }).data,
+        () => Label.useResultLabelsOf({ id: label.resourceID(targetLabel.key) }).data,
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBeDefined());
@@ -262,7 +264,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Label.useResultLabelsOf({
-            id: label.ontologyID(targetLabel.key),
+            id: label.resourceID(targetLabel.key),
           }).data,
         { wrapper },
       );
@@ -273,7 +275,7 @@ describe("queries", () => {
         name: "addedLabel",
         color: "#FFFF00",
       });
-      await client.labels.label(label.ontologyID(targetLabel.key), [newLabel.key]);
+      await client.labels.label(label.resourceID(targetLabel.key), [newLabel.key]);
 
       await waitFor(() => {
         expect(result.current).toHaveLength(initialLength + 1);
@@ -291,19 +293,19 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      await client.labels.label(label.ontologyID(targetLabel.key), [labelToRemove.key]);
+      await client.labels.label(label.resourceID(targetLabel.key), [labelToRemove.key]);
 
       const { result } = renderHook(
         () =>
           Label.useResultLabelsOf({
-            id: label.ontologyID(targetLabel.key),
+            id: label.resourceID(targetLabel.key),
           }).data,
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBeDefined());
       expect(result.current?.map((l) => l.key)).toContain(labelToRemove.key);
 
-      await client.labels.label(label.ontologyID(targetLabel.key), [], {
+      await client.labels.label(label.resourceID(targetLabel.key), [], {
         replace: true,
       });
 
@@ -322,12 +324,12 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      await client.labels.label(label.ontologyID(targetLabel.key), [originalLabel.key]);
+      await client.labels.label(label.resourceID(targetLabel.key), [originalLabel.key]);
 
       const { result } = renderHook(
         () =>
           Label.useResultLabelsOf({
-            id: label.ontologyID(targetLabel.key),
+            id: label.resourceID(targetLabel.key),
           }).data,
         { wrapper },
       );
@@ -358,12 +360,12 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      await client.labels.label(label.ontologyID(targetLabel.key), [labelToDelete.key]);
+      await client.labels.label(label.resourceID(targetLabel.key), [labelToDelete.key]);
 
       const { result } = renderHook(
         () =>
           Label.useResultLabelsOf({
-            id: label.ontologyID(targetLabel.key),
+            id: label.resourceID(targetLabel.key),
           }).data,
         { wrapper },
       );
@@ -417,12 +419,15 @@ describe("queries", () => {
             { name: "label2", color: "#00FF00" },
           ]);
           const { result } = renderHook(
-            () => Label.useList({ initialQuery: { keys: labels.map((l) => l.key) } }),
+            () =>
+              Label.useList({
+                query: { where: { key: { in: labels.map((l) => l.key) } } },
+              }),
             { wrapper },
           );
           result.current.retrieve({});
           await result.current.retrieveAsync({
-            keys: labels.map((l) => l.key),
+            where: { key: { in: labels.map((l) => l.key) } },
           });
           await waitFor(() => expect(result.current.variant).toEqual("success"));
           const label = result.current.getItem(labels[0].key);
@@ -438,8 +443,8 @@ describe("queries", () => {
         wrapper,
       });
       act(() => {
-        result.current.form.set("name", "newFormLabel");
-        result.current.form.set("color", "#FF00FF");
+        result.current.form.set(path.name, "newFormLabel");
+        result.current.form.set(path.color, color.construct("#FF00FF"));
         result.current.save();
       });
       await waitFor(() => expect(result.current.form.value().key).toBeDefined());
@@ -469,7 +474,7 @@ describe("queries", () => {
         { name: "added", color: "#0000FF" },
         { name: "target", color: "#000000" },
       ]);
-      const id = label.ontologyID(target.key);
+      const id = label.resourceID(target.key);
       await client.labels.label(id, [kept.key, removed.key]);
       const { result } = renderHook(Label.useEditFor, { wrapper });
       await act(async () => {
@@ -480,7 +485,7 @@ describe("queries", () => {
         });
       });
       expect(result.current.variant).toEqual("success");
-      const labels = await client.labels.retrieve({ for: id });
+      const labels = await client.labels.retrieve({ where: { for: id } });
       expect(labels.map((l) => l.key).sort()).toEqual([kept.key, added.key].sort());
     });
   });
@@ -594,7 +599,7 @@ describe("useForm", () => {
     const lbl = await createLabel();
     const { result } = await renderForm(lbl.key);
     const send = spyOnSend(formClient);
-    act(() => result.current.form.set("name", "Anomaly"));
+    act(() => result.current.form.set(path.name, "Anomaly"));
     await act(async () => expect(await result.current.flush()).toBe(true));
     expect(send.mock.calls.map(([target]) => target)).toContain("/label/dispatch");
     expect((await createTestClient().labels.retrieve(lbl.key)).name).toBe("Anomaly");
@@ -603,7 +608,7 @@ describe("useForm", () => {
   it("should send an edit to the color", async () => {
     const lbl = await createLabel();
     const { result } = await renderForm(lbl.key);
-    act(() => result.current.form.set("color", color.construct("#FF0000")));
+    act(() => result.current.form.set(path.color, color.construct("#FF0000")));
     await act(async () => expect(await result.current.flush()).toBe(true));
     const stored = await createTestClient().labels.retrieve(lbl.key);
     expect(stored.color).toEqual(color.construct("#FF0000"));
@@ -612,7 +617,7 @@ describe("useForm", () => {
   it("should hold an empty name without sending it", async () => {
     const lbl = await createLabel();
     const { result } = await renderForm(lbl.key);
-    act(() => result.current.form.set("name", ""));
+    act(() => result.current.form.set(path.name, ""));
     await act(async () => expect(await result.current.flush()).toBe(false));
     expect((await createTestClient().labels.retrieve(lbl.key)).name).toBe("Nominal");
   });
@@ -620,7 +625,7 @@ describe("useForm", () => {
   it("should show a rename from another client and keep the color", async () => {
     const lbl = await createLabel();
     const { result } = await renderForm(lbl.key);
-    const prevColor = result.current.form.get("color").value;
+    const prevColor = result.current.form.get(path.color).value;
     await act(async () => {
       await client.labels.dispatch(
         lbl.key,
@@ -628,6 +633,6 @@ describe("useForm", () => {
       );
     });
     await waitFor(() => expect(result.current.form.value().name).toBe("Anomaly"));
-    expect(result.current.form.get("color").value).toBe(prevColor);
+    expect(result.current.form.get(path.color).value).toBe(prevColor);
   });
 });

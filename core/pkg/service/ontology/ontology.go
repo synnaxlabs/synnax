@@ -26,10 +26,12 @@ package ontology
 import (
 	"context"
 	"iter"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -82,6 +84,7 @@ type Ontology struct {
 	resourceTable       *gorp.Table[string, Resource]
 	relationshipTable   *gorp.Table[string, Relationship]
 	relIndexes          relationshipIndexes
+	owned               ownedTypes
 }
 
 // Open opens the ontology using the given configuration. If the RootID resource does
@@ -95,9 +98,10 @@ func Open(ctx context.Context, configs ...Config) (_ *Ontology, err error) {
 	o := &Ontology{
 		cfg:              cfg,
 		resourceObserver: observe.New[iter.Seq[Change]](),
-		registrar:        serviceRegistrar{ResourceTypeBuiltin: builtin},
+		registrar:        serviceRegistrar{resource.TypeBuiltin: builtin},
 		services:         []Service{builtin},
 		relIndexes:       newRelationshipIndexes(),
+		owned:            newOwnedTypes(),
 	}
 	cleanup, ok := service.NewOpener(ctx, &o.closer)
 	defer func() { err = cleanup(err) }()
@@ -133,7 +137,16 @@ func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 		tx:                o.cfg.DB.OverrideTx(tx),
 		resourceTable:     o.resourceTable,
 		relationshipTable: o.relationshipTable,
+		owned:             o.owned,
 	}
+}
+
+// Own returns the only [Owner] that changes the relationships of ownership. Any other
+// Writer returns a validation error on them.
+func (o *Ontology) Own(ownership Ownership) *Owner {
+	owner := &Owner{otg: o}
+	o.owned.add(ownership, owner)
+	return owner
 }
 
 // NewRetrieve opens a new Retrieve query, which can be used to traverse and read
@@ -186,23 +199,71 @@ func (o *Ontology) RegisterService(svc Service) {
 	)
 }
 
-// searchLimit is the maximum number of IDs that Search returns.
+// searchLimit is the number of IDs that Search returns when a SearchQuery sets no
+// Limit.
 const searchLimit = 100
 
-// Search returns the IDs of the resources of every registered type whose text matches
-// term, closest match first. It returns at most 100 IDs. Search reads the changes
-// staged against tx, falling back to the underlying database when tx is nil.
-func (o *Ontology) Search(ctx context.Context, tx gorp.Tx, term string) ([]ID, error) {
+// SearchQuery selects the resources that [Ontology.Search] returns.
+type SearchQuery struct {
+	// Term is the text that a resource must match.
+	Term string
+	// Types limits the search to resources of these types. Empty searches every type.
+	Types []resource.Type
+	// Root, when non-zero, limits the search to the descendants of Root.
+	Root resource.ID
+	// Limit is the maximum number of IDs to return. Zero returns at most 100.
+	Limit int
+	// Offset is the number of closest matches to skip.
+	Offset int
+}
+
+// Search returns the IDs of the resources that match q, closest match first. Search
+// reads the changes staged against tx, falling back to the underlying database when tx
+// is nil. A negative limit or offset is a validation error.
+func (o *Ontology) Search(
+	ctx context.Context,
+	tx gorp.Tx,
+	q SearchQuery,
+) ([]resource.ID, error) {
+	v := validate.New("ontology.search")
+	v.GreaterThanEq("limit", q.Limit, 0)
+	v.GreaterThanEq("offset", q.Offset, 0)
+	if err := v.Error(); err != nil {
+		return nil, err
+	}
 	tx = o.cfg.DB.OverrideTx(tx)
-	results := make([]search.Result[ID], len(o.services))
-	for i, svc := range o.services {
-		res, err := svc.Search(ctx, tx, term, searchLimit)
+	limit := q.Limit
+	if limit == 0 {
+		limit = searchLimit
+	}
+	var (
+		scope  *descendants
+		except func(resource.ID) bool
+	)
+	if !q.Root.IsZero() {
+		scope = o.newDescendants(tx, q.Root)
+		except = scope.except
+	}
+	results := make([]search.Result[resource.ID], 0, len(o.services))
+	for _, svc := range o.services {
+		if len(q.Types) > 0 && !slices.Contains(q.Types, svc.Type()) {
+			continue
+		}
+		res, err := svc.Search(ctx, tx, search.Query[resource.ID]{
+			Term:   q.Term,
+			Except: except,
+			Limit:  q.Offset + limit,
+		})
 		if err != nil {
 			return nil, err
 		}
-		results[i] = res
+		if scope != nil && scope.err != nil {
+			return nil, scope.err
+		}
+		results = append(results, res)
 	}
-	return search.Merge(searchLimit, results...).Keys, nil
+	keys := search.Merge(q.Offset+limit, results...).Keys
+	return keys[min(q.Offset, len(keys)):], nil
 }
 
 // Close closes the ontology and all of its observers and releases all resources.
@@ -221,19 +282,19 @@ func (o *Ontology) Close() error {
 // the index lets the traverse dispatcher pick the index uniformly without
 // special-casing direction.
 type relationshipIndexes struct {
-	byTo   *gorp.LookupIndex[string, Relationship, ID]
-	byFrom *gorp.LookupIndex[string, Relationship, ID]
+	byTo   *gorp.LookupIndex[string, Relationship, resource.ID]
+	byFrom *gorp.LookupIndex[string, Relationship, resource.ID]
 }
 
 func newRelationshipIndexes() relationshipIndexes {
 	return relationshipIndexes{
 		byTo: gorp.NewLookupIndex(
 			"relationship_by_to",
-			func(r *Relationship) ID { return r.To },
+			func(r *Relationship) resource.ID { return r.To },
 		),
 		byFrom: gorp.NewLookupIndex(
 			"relationship_by_from",
-			func(r *Relationship) ID { return r.From },
+			func(r *Relationship) resource.ID { return r.From },
 		),
 	}
 }

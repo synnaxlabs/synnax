@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/lyra/icon";
-
 import { HARDWARE } from "@/feature/ni/device/hardware";
 import { MAKE } from "@/feature/ni/device/types";
 import { Device } from "@/platform/device";
 
 export interface SelectProps extends Omit<
   Device.SelectProps,
-  "onConfigure" | "emptyContent" | "make" | "connect"
+  "onConfigure" | "emptyContent" | "make" | "connect" | "icon"
 > {}
 
 export const Select = (props: SelectProps) => {
@@ -27,7 +25,7 @@ export const Select = (props: SelectProps) => {
       onConfigure={(deviceKey) => configure({ deviceKey, hardware: HARDWARE })}
       emptyContent="No NI devices connected"
       make={MAKE}
-      icon={<Icon.Logo.NI />}
+      icon={HARDWARE.icon}
       connect={{ title: HARDWARE.title, open: () => find({ hardware: HARDWARE }) }}
     />
   );

@@ -7,21 +7,46 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
 import { group } from "@/group";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
+import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
+import {
+  createTestClient,
+  expectLive,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
 describe("Status", () => {
   describe("set", () => {
+    it("should keep a set that lands before an older fetch", async () => {
+      const s = await client.statuses.set({ variant: "info", message: "before" });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.statuses.retrieve(s.key);
+      const { responded, release } = holdResponses(local, "/status/retrieve");
+      const fetching = local.statuses.retrieve({ where: { key: { eq: s.key } } });
+      await responded;
+      await client.statuses.set({ ...s, message: "after" });
+      await expect
+        .poll(() => expectLive(local.statuses.getCached(s.key)).message)
+        .toBe("after");
+      release();
+      await fetching;
+      expect(expectLive(local.statuses.getCached(s.key)).message).toBe("after");
+    });
     it("should create a new status", async () => {
       const s = await client.statuses.set({
         name: "Test Status",
@@ -88,7 +113,7 @@ describe("Status", () => {
         parent: ontology.ROOT_ID,
         name: "Parent Group",
       });
-      const parentOntologyID = group.ontologyID(parentGroup.key);
+      const parentResourceID = group.resourceID(parentGroup.key);
       const s = await client.statuses.set(
         {
           name: "Child Status",
@@ -97,13 +122,13 @@ describe("Status", () => {
           message: "Status with parent",
           time: TimeStamp.now(),
         },
-        { parent: parentOntologyID },
+        { parent: parentResourceID },
       );
 
       expect(s.key).toBe("child-status");
 
       const resources = await client.ontology.children.retrieve({
-        ids: parentOntologyID,
+        ids: parentResourceID,
       });
 
       const statusResource = resources.find((r) => r.id.key === "child-status");
@@ -302,7 +327,6 @@ describe("Status", () => {
 
       const retrieved = await client.statuses.retrieve({
         key: "undefined-schema-test",
-        includeLabels: true,
         detailsSchema: undefined,
       });
       expect(Array.isArray(retrieved)).toBe(false);
@@ -328,9 +352,7 @@ describe("Status", () => {
         },
       ]);
 
-      const statuses = await client.statuses.retrieve({
-        keys: ["multi-1", "multi-2"],
-      });
+      const statuses = await client.statuses.retrieve(["multi-1", "multi-2"]);
 
       expect(statuses).toHaveLength(2);
       const keys = statuses.map((s) => s.key);
@@ -372,13 +394,13 @@ describe("Status", () => {
       }
 
       const page1 = await client.statuses.retrieve({
-        keys,
+        where: { key: { in: keys } },
         limit: 2,
         offset: 0,
       });
 
       const page2 = await client.statuses.retrieve({
-        keys,
+        where: { key: { in: keys } },
         limit: 2,
         offset: 2,
       });
@@ -500,8 +522,9 @@ describe("Status", () => {
 
       await client.statuses.delete(keys);
 
-      const results = await client.statuses.retrieve({ keys }).catch(() => []);
-      expect(results).toHaveLength(0);
+      expect(
+        await client.statuses.retrieve({ where: { key: { in: keys } } }),
+      ).toHaveLength(0);
     });
 
     it("should be idempotent", async () => {
@@ -540,19 +563,16 @@ describe("Status", () => {
         message: "Test",
         time: TimeStamp.now(),
       });
-      await client.labels.label(status.ontologyID(stat.key), [label1.key, label2.key], {
+      await client.labels.label(status.resourceID(stat.key), [label1.key, label2.key], {
         replace: true,
       });
 
-      const retrievedStat = await client.statuses.retrieve({
-        key: stat.key,
-        includeLabels: true,
-      });
+      const retrievedStat = await client.statuses.retrieve({ key: stat.key });
       expect(retrievedStat.key).toEqual(stat.key);
       expect(retrievedStat.labels).toHaveLength(2);
     });
 
-    it("should update a subscribed hasLabels answer when labels change", async () => {
+    it("should update a subscribed labels answer when labels change", async () => {
       const lbl = await client.labels.create({
         name: "Membership Label",
         color: color.construct("#00FF00"),
@@ -575,20 +595,20 @@ describe("Status", () => {
           time: TimeStamp.now(),
         },
       ]);
-      await client.labels.label(status.ontologyID(member), [lbl.key]);
-      const params = { hasLabels: [lbl.key] };
+      await client.labels.label(status.resourceID(member), [lbl.key]);
+      const params = { where: { labels: [lbl.key] } };
       const off = client.statuses.onChange(params, () => {});
       try {
         const initial = await client.statuses.retrieve(params);
         expect(initial.map((s) => s.key)).toEqual([member]);
-        await client.labels.label(status.ontologyID(joiner), [lbl.key]);
+        await client.labels.label(status.resourceID(joiner), [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.statuses.getCached(params);
             return query.isLive(cached) && cached.some((s) => s.key === joiner);
           })
           .toBe(true);
-        await client.labels.remove(status.ontologyID(member), [lbl.key]);
+        await client.labels.remove(status.resourceID(member), [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.statuses.getCached(params);
@@ -629,8 +649,10 @@ describe("Status", () => {
       ]);
 
       const results = await client.statuses.retrieve({
-        keys: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
-        variants: ["error"],
+        where: {
+          key: { in: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`] },
+          variant: { eq: "error" },
+        },
       });
 
       expect(results).toHaveLength(1);
@@ -664,8 +686,10 @@ describe("Status", () => {
       ]);
 
       const results = await client.statuses.retrieve({
-        keys: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`],
-        variants: ["info", "success"],
+        where: {
+          key: { in: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`] },
+          variant: { in: ["info", "success"] },
+        },
       });
 
       expect(results).toHaveLength(2);
@@ -686,11 +710,110 @@ describe("Status", () => {
       });
 
       const results = await client.statuses.retrieve({
-        keys: [`${prefix}-info`],
-        variants: ["error"],
+        where: { key: { eq: `${prefix}-info` }, variant: { eq: "error" } },
       });
 
       expect(results).toHaveLength(0);
+    });
+
+    it("should filter statuses by a flat filter", async () => {
+      const prefix = `variant-flat-${Date.now()}`;
+      const keys = [`${prefix}-info`, `${prefix}-error`];
+      await client.statuses.set(
+        (["info", "error"] as const).map((variant, i) => ({
+          name: variant,
+          key: keys[i],
+          variant,
+          message: variant,
+          time: TimeStamp.now(),
+        })),
+      );
+
+      const results = await client.statuses.retrieve({ key: keys, variant: "error" });
+
+      expect(results.map((s) => s.key)).toEqual([keys[1]]);
+    });
+
+    it("should return one status for a plain key beside other fields", async () => {
+      const key = `one-status-${id.create()}`;
+      await client.statuses.set({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+      });
+      const retrieved: status.Status = await client.statuses.retrieve({
+        key,
+        variant: "error",
+      });
+      expect(retrieved.key).toEqual(key);
+      await expect(client.statuses.retrieve({ key, variant: "info" })).rejects.toThrow(
+        new NotFoundError(`Found no status where key = "${key}" and variant = "info"`),
+      );
+    });
+
+    it("should return one status for a plain key and a details schema", async () => {
+      const detailsSchema = z.object({ count: z.number() });
+      const key = `one-details-${id.create()}`;
+      await client.statuses.set<typeof detailsSchema>({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+        details: { count: 3 },
+      });
+      const retrieved = await client.statuses.retrieve({
+        key,
+        variant: "error",
+        detailsSchema,
+      });
+      expect(retrieved.details.count).toEqual(3);
+      await expect(
+        client.statuses.retrieve({ key, variant: "info", detailsSchema }),
+      ).rejects.toThrow(
+        new NotFoundError(`Found no status where key = "${key}" and variant = "info"`),
+      );
+    });
+
+    it("should return one status for a key list that sets one", async () => {
+      const detailsSchema = z.object({ count: z.number() });
+      const key = `one-option-${id.create()}`;
+      await client.statuses.set<typeof detailsSchema>({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+        details: { count: 4 },
+      });
+      const retrieved = await client.statuses.retrieve({
+        key: [key],
+        one: true,
+        detailsSchema,
+      });
+      expect(retrieved.details.count).toEqual(4);
+    });
+
+    it("should filter statuses by a tree of filters", async () => {
+      const prefix = `variant-tree-${Date.now()}`;
+      const keys = [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`];
+      await client.statuses.set(
+        (["info", "error", "success"] as const).map((variant, i) => ({
+          name: variant,
+          key: keys[i],
+          variant,
+          message: variant,
+          time: TimeStamp.now(),
+        })),
+      );
+
+      const results = await client.statuses.retrieve({
+        where: { key: { in: keys }, not: { variant: { eq: "error" } } },
+      });
+
+      expect(results.map((s) => s.key).sort()).toEqual([keys[0], keys[2]].sort());
     });
   });
 
@@ -807,6 +930,15 @@ describe("fromException", () => {
     const s = status.fromException(new CustomError("boom"), HEADING);
     expect(s.message).toBe(HEADING);
     expect(s.description).toBe("Failed to parse task config. the formatted breakdown");
+  });
+
+  it("should leave out a toStatus() message that repeats the heading", () => {
+    const s = status.fromException(
+      new CustomError("boom"),
+      "Failed to parse task config",
+    );
+    expect(s.message).toBe("Failed to parse task config");
+    expect(s.description).toBe("the formatted breakdown");
   });
 
   it("should keep the error text when toStatus() gives no description", () => {
@@ -1061,5 +1193,61 @@ describe("toString", () => {
     expect(status.toString(s)).toBe(
       "ERROR: failed to start\n\nDescription: channel is not writable",
     );
+  });
+});
+
+describe("label backfill", () => {
+  // Labels a status with a label the client lacks, so the client fetches it through
+  // retrieveLabel.
+  const backfillLabel = (retrieveLabel: () => Promise<never>) => {
+    let fetched = (): void => {};
+    const fetching = new Promise<void>((resolve) => (fetched = resolve));
+    const unary: UnaryClient = {
+      use: () => {},
+      send: async <RQ extends z.ZodType, RS extends z.ZodType>(
+        target: string,
+        _req: z.input<RQ> | z.infer<RQ>,
+        _reqZ: RQ,
+        resZ: RS,
+      ): Promise<z.infer<RS>> => {
+        if (target !== "/label/retrieve") return resZ.parse({});
+        fetched();
+        return await retrieveLabel();
+      },
+    };
+    const onError = vi.fn();
+    const cache = new query.Cache({ openStreamer: null, onError });
+    const ont = new ontology.Client({ unary, cache });
+    const labels = new label.Client({ unary, cache, ontology: ont });
+    new status.Client({ unary, cache, ontology: ont, labels });
+    const rel: ontology.Relationship = {
+      from: status.resourceID(uuid.create()),
+      type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+      to: label.resourceID(uuid.create()),
+    };
+    ont.cache.relationships.set(ontology.relationshipToString(rel), rel);
+    return { cache, onError, fetching };
+  };
+
+  it("should report no error when the client closes during a backfill", async () => {
+    const { cache, onError, fetching } = backfillLabel(
+      async () => await new Promise(() => {}),
+    );
+    await fetching;
+    await cache.close();
+    // Lets the rejection reach the error handler.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("should report a backfill that fails for another reason", async () => {
+    const err = new ValidationError("bad request");
+    const { cache, onError } = backfillLabel(async () => {
+      throw err;
+    });
+    await vi.waitFor(() =>
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ cause: err })),
+    );
+    await cache.close();
   });
 });

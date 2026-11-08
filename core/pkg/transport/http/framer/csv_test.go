@@ -68,6 +68,129 @@ var _ = Describe("CSV", func() {
 			)))
 		})
 
+		It("Should encode the newest rows of a latest read", func(ctx SpecContext) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2),
+				channels,
+				telem.NewSeriesV[float32](1, 2),
+			)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(3, 4),
+				channels,
+				telem.NewSeriesV[float32](3, 4),
+			)
+			res := response(
+				channels,
+				[]svcchannel.Channel{index},
+				svcframer.IteratorConfig{ChunkSize: 3},
+			)
+			res.Latest = 3
+			b := MustSucceed(framer.CSVEncoder.Encode(ctx, res))
+			Expect(string(b)).To(Equal(fmt.Sprintf(
+				"%s,%s\n2000000000,2\n3000000000,3\n4000000000,4\n",
+				index.Name,
+				channels[0].Name,
+			)))
+		})
+
+		It("Should encode the oldest rows of an earliest read", func(ctx SpecContext) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+				channels,
+				telem.NewSeriesV[float32](1, 2, 3, 4),
+			)
+			res := response(
+				channels,
+				[]svcchannel.Channel{index},
+				svcframer.IteratorConfig{ChunkSize: 2},
+			)
+			res.Earliest = 2
+			b := MustSucceed(framer.CSVEncoder.Encode(ctx, res))
+			Expect(string(b)).To(Equal(fmt.Sprintf(
+				"%s,%s\n1000000000,1\n2000000000,2\n",
+				index.Name,
+				channels[0].Name,
+			)))
+		})
+
+		It("Should leave empty the cells of a channel that lags a latest read", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(ctx, index, telem.NewSeriesSecondsTSV(1, 2, 3, 4), nil)
+			writeData(
+				ctx,
+				channels[0],
+				telem.SecondTS,
+				telem.NewSeriesV[float32](1, 2, 3),
+			)
+			res := response(
+				channels,
+				[]svcchannel.Channel{index},
+				svcframer.IteratorConfig{ChunkSize: 2},
+			)
+			res.Latest = 2
+			b := MustSucceed(framer.CSVEncoder.Encode(ctx, res))
+			Expect(string(b)).To(Equal(fmt.Sprintf(
+				"%s,%s\n3000000000,3\n4000000000,\n",
+				index.Name,
+				channels[0].Name,
+			)))
+		})
+
+		It("Should take the newest rows of each index in a latest read", func(
+			ctx SpecContext,
+		) {
+			firstIndex, first := createIndexed(ctx, telem.Float32T)
+			secondIndex, second := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				firstIndex,
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+				first,
+				telem.NewSeriesV[float32](1, 2, 3),
+			)
+			write(
+				ctx,
+				secondIndex,
+				telem.NewSeriesSecondsTSV(5, 6),
+				second,
+				telem.NewSeriesV[float32](5, 6),
+			)
+			res := response(
+				append(first, second...),
+				[]svcchannel.Channel{firstIndex, secondIndex},
+				svcframer.IteratorConfig{ChunkSize: 1},
+			)
+			res.Latest = 1
+			b := MustSucceed(framer.CSVEncoder.Encode(ctx, res))
+			Expect(string(b)).To(HaveSuffix(
+				"\n3000000000,3,,\n,,6000000000,6\n",
+			))
+		})
+
+		It("Should encode only a header for a latest read with no data", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			res := read(ctx, index, channels...)
+			res.Latest = 2
+			b := MustSucceed(framer.CSVEncoder.Encode(ctx, res))
+			Expect(string(b)).To(Equal(fmt.Sprintf(
+				"%s,%s\n",
+				index.Name,
+				channels[0].Name,
+			)))
+		})
+
 		It("Should quote a value holding a comma", func(ctx SpecContext) {
 			index, channels := createIndexed(ctx, telem.StringT)
 			write(
@@ -274,9 +397,10 @@ var _ = Describe("CSV", func() {
 			res.OpenIterator = func(
 				ctx context.Context,
 				keys svcchannel.Keys,
+				bounds telem.TimeRange,
 			) (*svcframer.Iterator, error) {
 				opened = append(opened, keys)
-				return open(ctx, keys)
+				return open(ctx, keys, bounds)
 			}
 			b := MustSucceed(framer.CSVEncoder.Encode(ctx, res))
 			Expect(opened).To(ConsistOf(

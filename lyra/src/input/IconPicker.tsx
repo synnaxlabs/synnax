@@ -9,8 +9,7 @@
 
 import "@/input/IconPicker.css";
 
-import { type color, type dimensions, grid, type xy } from "@synnaxlabs/x";
-import Fuse from "fuse.js";
+import { type color, type dimensions, grid, search, type xy } from "@synnaxlabs/x";
 import { type KeyboardEvent, type ReactElement, useRef, useState } from "react";
 
 import { Button } from "@/button";
@@ -39,10 +38,13 @@ interface Cell extends Pick<Icon.Pickable, "name" | "icon"> {
   key?: string;
 }
 
-const SEARCH_INDEX = new Fuse(Icon.PICKABLE, {
-  keys: ["name", "tags"],
-  threshold: 0.3,
-});
+const createSearchIndex = (): search.Index<Icon.Pickable> => {
+  const index = new search.Index<Icon.Pickable>();
+  for (const icon of Icon.PICKABLE) index.set(icon, icon.name, ...icon.tags);
+  return index;
+};
+
+const SEARCH_INDEX = createSearchIndex();
 
 const COLUMNS = 10;
 const GRID_STYLE = { [CSS.variable("icon-picker", "columns")]: COLUMNS };
@@ -74,7 +76,7 @@ export const IconPicker = ({
   const searchRef = useRef<HTMLInputElement>(null);
   const cellRefs = useRef(new Map<string | undefined, HTMLElement>());
   let cells: readonly Cell[] = Icon.PICKABLE;
-  if (term !== "") cells = SEARCH_INDEX.search(term).map(({ item }) => item);
+  if (term !== "") cells = SEARCH_INDEX.search(term);
   else if (fallback != null) cells = [{ name: "Default", icon: fallback }, ...cells];
   const indexOf = (key?: string): number => cells.findIndex((c) => c.key === key);
   const focusedIndex = focused == null ? -1 : indexOf(focused.key);

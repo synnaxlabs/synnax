@@ -13,7 +13,6 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <variant>
 
 #include "client/cpp/modbus/json.gen.h"
 
@@ -296,12 +295,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             };
         cfg.iter("channels", [&, this](x::json::Parser &ch) {
             const auto parsed = ::synnax::modbus::parse_read_channel(ch);
-            const auto &base = std::visit(
-                [](const auto &c) -> const ::synnax::modbus::BaseReadChannel & {
-                    return c;
-                },
-                parsed
-            );
+            const auto &base = ::synnax::modbus::base(parsed);
             if (base.disabled) return;
             if (base.channel == 0) {
                 ch.field_err("channel", "channel must be specified");

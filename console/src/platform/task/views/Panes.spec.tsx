@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { useState } from "react";
 import {
@@ -48,12 +49,14 @@ const resize = (next: number): void => {
   act(() => notifiers.forEach((notify) => notify()));
 };
 
+const path = deep.path<{ config: { a: object; b: object } }>();
+
 const Harness = () => {
-  const [selected, setSelected] = useState("config.a");
+  const [selected, setSelected] = useState<deep.Target<object>>(path.config.a);
   return (
     <Task.Views.Panes
       listTitle="Channels"
-      list={<button onClick={() => setSelected("config.b")}>Select b</button>}
+      list={<button onClick={() => setSelected(path.config.b)}>Select b</button>}
       detailsPath={selected}
     >
       <p>Details body</p>

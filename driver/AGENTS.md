@@ -30,8 +30,8 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
 ## Integrations
 
 - **LabJack** (`/driver/labjack/`) — LJM wrapper + device manager. ReadTask has two
-  modes: `StreamSource` (high-performance LJM streaming) and `UnarySource`
-  (thermocouples, with CJC config). Transform chain for scaling.
+  modes: `StreamSource` (high-performance LJM streaming) and `UnarySource` (polled T7
+  thermocouples). The Driver converts thermocouples with `LJM_TCVoltsToTemp`.
 - **NI** (`/driver/ni/`) — DAQmx + NISysCfg wrappers. Analog/digital read/write +
   scanner. Scanner discovers CompactDAQ chassis/modules via link properties
   (`ConnectsToLinkName`/`ProvidesLinkName`) in a two-pass algorithm (collect devices +
@@ -55,7 +55,7 @@ for unrecognized types) and `configure_initial_tasks`; registered in
 
 ## Device hierarchy
 
-Device create API takes optional `parent` ontology ID (e.g. `"device:SERIAL"`),
+Device create API takes optional `parent` resource ID (e.g. `"device:SERIAL"`),
 atomically creating the device + `ParentOf` relationship; defaults to the rack when
 absent (`core/pkg/service/device/writer.go`). The common scan task
 (`driver/common/scan_task.h`) tracks parent changes between cycles and re-creates the

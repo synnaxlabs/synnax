@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, ontology } from "@synnaxlabs/client";
+import { channel, DataType, resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -36,7 +36,7 @@ const client = createTestClient();
 
 const useRename = Tree.createUseRename({
   useUpdate: PChannel.useRename,
-  ontologyID: channel.ontologyID,
+  resourceID: channel.resourceID,
   convertKey: Number,
 });
 
@@ -54,8 +54,8 @@ interface Harness {
 }
 
 const setup = async (ch: channel.Channel): Promise<Harness> => {
-  const otgID = channel.ontologyID(ch.key);
-  const itemID = List.itemNameID(ontology.idToString(otgID));
+  const otgID = channel.resourceID(ch.key);
+  const itemID = List.itemNameID(resource.idToString(otgID));
   const store = await createTestStore();
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),

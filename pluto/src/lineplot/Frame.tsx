@@ -13,6 +13,7 @@ import { context } from "@synnaxlabs/lyra/context";
 import { useEffectCompare } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import {
+  type bounds,
   box,
   type color,
   type CrudeTimeSpan,
@@ -30,6 +31,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type Ref,
+  type RefObject,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -57,7 +59,13 @@ export interface ContextValue {
   viewportElement: HTMLElement | null;
   setViewportElement: (element: HTMLElement | null) => void;
   addViewportHandler: (handler: Viewport.UseHandler) => destructor.Destructor;
-  setHold: (hold: boolean) => void;
+  /**
+   * Zooms the x axis to the decimal bounds x, shows the full y range, and pauses the
+   * plot. A second call with the same key returns to the view and pause state from
+   * before the first call, unless the view changed between them. Calls nest, so each
+   * one returns one level.
+   */
+  toggleZoom: (key: string, x: bounds.Bounds) => void;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -120,6 +128,17 @@ export interface FrameRef {
 
 type LineState = LineSpec[];
 
+interface SavedView {
+  key: string;
+  viewport: box.Box;
+  hold: boolean;
+}
+
+const changesView = ({ mode, stage }: Viewport.UseEvent): boolean =>
+  (mode === "pan" && stage !== "start") ||
+  mode === "zoom" ||
+  (mode === "zoomReset" && stage === "start");
+
 export interface FrameProps
   extends
     PropsWithChildren,
@@ -135,6 +154,11 @@ export interface FrameProps
   onHold?: (hold: boolean) => void;
   loadingMessage?: string;
   ref?: Ref<FrameRef>;
+  /**
+   * The plot's viewport. toggleZoom moves it to each view it sets, and a change of hold
+   * from true to false resets it.
+   */
+  viewportRef?: RefObject<Viewport.UseRefValue | null>;
 }
 
 export const Frame = ({
@@ -148,6 +172,7 @@ export const Frame = ({
   visible,
   loadingMessage,
   ref,
+  viewportRef,
   ...rest
 }: FrameProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
@@ -181,7 +206,19 @@ export const Frame = ({
     methods.getBounds,
   ]);
 
-  useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
+  // Worker pushes can carry an older view, so the frame tracks the last one it set.
+  const appliedRef = useRef<box.Box>(box.DECIMAL);
+  const holdRef = useRef(hold);
+  const holdPropRef = useRef(hold);
+
+  useEffect(() => {
+    // A release from toggleZoom already cleared holdRef and keeps the view it restored.
+    const released = holdPropRef.current && !memoProps.hold && holdRef.current;
+    holdPropRef.current = memoProps.hold;
+    holdRef.current = memoProps.hold;
+    setState((prev) => ({ ...prev, ...memoProps }));
+    if (released) viewportRef?.current?.reset();
+  }, [memoProps]);
 
   const viewportHandlers = useRef<Map<Viewport.UseHandler, null>>(new Map());
 
@@ -190,15 +227,19 @@ export const Frame = ({
     return () => viewportHandlers.current.delete(handler);
   };
 
-  const setViewport: Viewport.UseHandler = (args) => {
-    const { mode, box, stage } = args;
-    if (
-      (mode === "pan" && stage !== "start") ||
-      mode === "zoom" ||
-      (mode === "zoomReset" && stage === "start")
-    )
-      setState((prev) => ({ ...prev, viewport: box }));
+  const zoomHistory = useRef<SavedView[]>([]);
+
+  const applyViewport = (args: Viewport.UseEvent) => {
+    if (changesView(args)) {
+      appliedRef.current = args.box;
+      setState((prev) => ({ ...prev, viewport: args.box }));
+    }
     viewportHandlers.current.forEach((_, handler) => handler(args));
+  };
+
+  const setViewport: Viewport.UseHandler = (args) => {
+    if (changesView(args)) zoomHistory.current = [];
+    applyViewport(args);
   };
 
   const setGridEntry = (meta: grid.Region) => {
@@ -227,8 +268,25 @@ export const Frame = ({
   const frameStyle = { ...style, ...cssGrid };
 
   const setHold = (hold: boolean) => {
+    holdRef.current = hold;
     setState((prev) => ({ ...prev, hold }));
     onHold?.(hold);
+  };
+
+  const toggleZoom = (key: string, x: bounds.Bounds) => {
+    const history = zoomHistory.current;
+    const back = history.at(-1)?.key === key ? history.pop() : undefined;
+    if (back == null)
+      history.push({ key, viewport: appliedRef.current, hold: holdRef.current });
+    const next =
+      back?.viewport ??
+      box.reRoot(
+        box.construct({ x: x.lower, y: 0 }, { x: x.upper, y: 1 }),
+        box.DECIMAL.root,
+      );
+    viewportRef?.current?.sync(next);
+    applyViewport({ box: next, mode: "zoom", cursor: xy.ZERO, stage: "start" });
+    setHold(back?.hold ?? true);
   };
 
   const id = `line-plot-${aetherKey}`;
@@ -243,7 +301,7 @@ export const Frame = ({
     viewportElement,
     setViewportElement,
     addViewportHandler,
-    setHold,
+    toggleZoom,
     id,
   };
 

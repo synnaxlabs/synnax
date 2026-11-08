@@ -7,72 +7,26 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import os
 import subprocess
 from pathlib import Path
 
 import pytest
+from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "check_review.sh"
-
-# Stands in for gh: serves canned JSON from FAKE_GH_DIR for the endpoints the script
-# calls and applies the requested jq expression. A commit with no canned check runs
-# serves an empty list.
-FAKE_GH = """#!/usr/bin/env bash
-set -euo pipefail
-ENDPOINT=""
-EXPR="."
-while [ $# -gt 0 ]; do
-    case "$1" in
-        api | --paginate) shift ;;
-        -f | -F) shift 2 ;;
-        --jq)
-            EXPR=$2
-            shift 2
-            ;;
-        *)
-            ENDPOINT=$1
-            shift
-            ;;
-    esac
-done
-case "$ENDPOINT" in
-    graphql) FILE="$FAKE_GH_DIR/edits.json" ;;
-    */commits/*/check-runs*)
-        SHA=${ENDPOINT#*/commits/}
-        FILE="$FAKE_GH_DIR/check-runs-${SHA%%/*}.json"
-        [ -f "$FILE" ] || FILE="$FAKE_GH_DIR/check-runs-none.json"
-        ;;
-    */pulls/*/commits*) FILE="$FAKE_GH_DIR/commits.json" ;;
-    */pulls/*) FILE="$FAKE_GH_DIR/pull.json" ;;
-    *)
-        echo "unexpected endpoint: $ENDPOINT" >&2
-        exit 1
-        ;;
-esac
-jq -r "$EXPR" "$FILE"
-"""
 
 
 class Harness:
     """A fake gh serving one pull request and the records the gate reads."""
 
     def __init__(self, path: Path) -> None:
-        self.data = path / "gh"
-        self.data.mkdir()
-        bin_dir = path / "bin"
-        bin_dir.mkdir()
-        gh = bin_dir / "gh"
-        gh.write_text(FAKE_GH)
-        gh.chmod(0o755)
+        self.gh = FakeGH(path)
         self.env = {
             **os.environ,
-            "PATH": f"{bin_dir}:{os.environ['PATH']}",
-            "FAKE_GH_DIR": str(self.data),
+            "PATH": f"{self.gh.bin_dir}:{os.environ['PATH']}",
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
         }
-        (self.data / "check-runs-none.json").write_text('{"check_runs": []}')
         self.pull("someone")
         self.commits(commit())
         self.check_runs("head", ("Greptile Review", "success"))
@@ -85,16 +39,16 @@ class Harness:
             "user": {"login": author},
             "labels": [{"name": n} for n in labels or ("review/bot",)],
         }
-        (self.data / "pull.json").write_text(json.dumps(payload))
+        self.gh.serve("api */pulls/42", payload)
 
     def commits(self, *commits: dict[str, object]) -> None:
         """Sets the commits on the pull request's branch."""
-        (self.data / "commits.json").write_text(json.dumps(list(commits)))
+        self.gh.serve("api */pulls/42/commits*", list(commits))
 
     def check_runs(self, sha: str, *runs: tuple[str, str | None]) -> None:
         """Sets the (name, conclusion) check runs a commit reports."""
         payload = {"check_runs": [{"name": n, "conclusion": c} for n, c in runs]}
-        (self.data / f"check-runs-{sha}.json").write_text(json.dumps(payload))
+        self.gh.serve(f"api */commits/{sha}/check-runs*", payload)
 
     def edits(self, *edits: dict[str, object]) -> None:
         """Sets the description revisions, newest first, as GitHub serves them."""
@@ -105,7 +59,7 @@ class Harness:
                 }
             }
         }
-        (self.data / "edits.json").write_text(json.dumps(payload))
+        self.gh.serve("api graphql", payload)
 
     def run(self) -> tuple[str, str]:
         """Runs the script and returns the (state, description) it reports."""
@@ -143,7 +97,19 @@ def greptile_body(*scores: int, sha: str = "head") -> str:
     """A description the way Greptile leaves it after it scores a commit."""
     markers = "".join(f"<!-- greptile_confidence_score:{s} -->\n" for s in scores)
     link = f"https://github.com/synnaxlabs/synnax/commit/{sha})"
-    return f'{markers}<sub>Last reviewed commit: ["Fix"]({link}</sub>'
+    return (
+        f"<!-- greptile_comment -->\n{markers}"
+        f'<sub>Last reviewed commit: ["Fix"]({link}</sub>\n<!-- /greptile_comment -->'
+    )
+
+
+def sedosaur_block(score: int, sha: str = "head") -> str:
+    """The summary another reviewer leaves in the description."""
+    link = f"https://github.com/synnaxlabs/synnax/commit/{sha}"
+    return (
+        f"<!-- sedosaur_comment -->\n<!-- sedosaur_confidence_score:{score} -->\n"
+        f"[Fix]({link})\n<!-- /sedosaur_comment -->"
+    )
 
 
 def greptile_edit(*scores: int, sha: str = "head") -> dict[str, object]:
@@ -217,6 +183,16 @@ class TestScore:
         harness.edits(greptile_edit(3, 5))
         assert harness.run()[0] == "failure"
 
+    def test_rejects_another_block_that_names_the_head(self, harness: Harness) -> None:
+        body = greptile_body(5, sha="earlier") + sedosaur_block(5)
+        harness.edits(edit(body, login="greptile-apps", kind="Bot"))
+        assert harness.run()[0] == "pending"
+
+    def test_ignores_a_marker_outside_the_block(self, harness: Harness) -> None:
+        body = "<!-- greptile_confidence_score:2 -->\n" + greptile_body(5)
+        harness.edits(edit(body, login="greptile-apps", kind="Bot"))
+        assert harness.run()[0] == "success"
+
     def test_pends_on_a_deleted_revision(self, harness: Harness) -> None:
         harness.edits(edit(None, login="greptile-apps", kind="Bot"), greptile_edit(5))
         assert harness.run()[0] == "pending"
@@ -273,4 +249,13 @@ class TestTier:
 
     def test_passes_a_human_tier_without_an_approval(self, harness: Harness) -> None:
         harness.pull("someone", "review/human")
+        assert harness.run() == ("success", "Greptile scored the head 5/5")
+
+    @pytest.mark.parametrize(
+        "route", ["api */pulls/42", "api */check-runs*", "api graphql"]
+    )
+    def test_retries_an_empty_response(self, harness: Harness, route: str) -> None:
+        """Should decide from the retry when GitHub answers a read with nothing."""
+        harness.env["GH_API_RETRY_DELAY"] = "0"
+        harness.gh.fail(route, "unexpected end of JSON input")
         assert harness.run() == ("success", "Greptile scored the head 5/5")

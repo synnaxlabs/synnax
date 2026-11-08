@@ -10,7 +10,7 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import cached_property
-from typing import Protocol
+from typing import Protocol, override
 
 from opentelemetry.propagators.textmap import Setter, TextMapPropagator
 from opentelemetry.trace import Span as OtelSpan
@@ -182,6 +182,7 @@ class Tracer:
             yield span
 
     class _Setter(Setter[Carrier]):
+        @override
         @staticmethod
         def set(carrier: Carrier, key: str, value: str) -> None:
             carrier.set(key, value)

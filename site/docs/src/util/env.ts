@@ -14,4 +14,9 @@ import { envField } from "astro/config";
 export const schema: NonNullable<AstroUserConfig["env"]>["schema"] = {
   // Vercel sets this at build time; flags read it to light up preview deploys.
   VERCEL_ENV: envField.string({ context: "client", access: "public", optional: true }),
+  FLAG_MQTT: envField.boolean({
+    context: "client",
+    access: "public",
+    default: false,
+  }),
 };

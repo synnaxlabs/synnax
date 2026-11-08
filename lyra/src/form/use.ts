@@ -14,13 +14,15 @@ import { type z } from "zod";
 import {
   type BindFunc,
   type ContextValue,
+  type GetFunc,
   type InsertFunc,
   type Listener,
   type Mode,
   type MoveFunc,
+  type RemoveFunc,
   type SetFunc,
 } from "@/form/Context";
-import { type FieldState, type GetOptions, State } from "@/form/state";
+import { type GetOptions, State } from "@/form/state";
 import { createLocalStore, type Store } from "@/form/store";
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 import { Status } from "@/status";
@@ -71,7 +73,7 @@ export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}
  *
  * @example
  * const form = Form.use({ values: initial, schema: rangeZ, onChange: save });
- * return <Form.Form {...form}><Form.TextField path="name" /></Form.Form>;
+ * return <Form.Form {...form}><Form.TextField path={path.name} /></Form.Form>;
  */
 export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => {
   const { schema, mode = "normal", onChange, onHasTouched, store } = params;
@@ -157,19 +159,23 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
   const bind: BindFunc = (handleChange: Listener): destructor.Destructor =>
     ref.current.onChange(handleChange);
 
-  const get: typeof State.prototype.getState = (<V = unknown>(
-    path: string,
-    opts?: GetOptions,
-  ): FieldState<V> | null =>
-    ref.current.getState(path, opts)) as typeof State.prototype.getState;
+  const get = ((path: deep.Target<unknown>, opts?: GetOptions) =>
+    ref.current.getState(String(path), opts)) as GetFunc;
 
-  const remove = (path: string) => commit(path, () => ref.current.remove(path));
+  const remove: RemoveFunc = (target) => {
+    const path = String(target);
+    commit(path, () => ref.current.remove(path));
+  };
 
-  const insert: InsertFunc = (path, value, after) =>
+  const insert: InsertFunc = (target, value, after) => {
+    const path = String(target);
     commit(path, () => ref.current.insert(path, value, after));
+  };
 
-  const move: MoveFunc = (path, key, after) =>
+  const move: MoveFunc = (target, key, after) => {
+    const path = String(target);
     commit(path, () => ref.current.move(path, key, after));
+  };
 
   const reset = (values?: z.infer<Z>) => {
     const prevValues = ref.current.values;
@@ -188,19 +194,22 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
   };
 
-  const validateAsync = async (path?: string): Promise<boolean> => {
+  const validateAsync: ContextValue["validateAsync"] = async (target) => {
+    const path = target == null ? undefined : String(target);
     const valid = await ref.current.validateAsync(true, path);
     ref.current.notify();
     return valid;
   };
 
-  const validate = (path?: string): boolean => {
+  const validate: ContextValue["validate"] = (target) => {
+    const path = target == null ? undefined : String(target);
     const valid = ref.current.validate(true, path);
     ref.current.notify();
     return valid;
   };
 
-  const set: SetFunc = (path, value, options): void => {
+  const set: SetFunc = (target, value, options): void => {
+    const path = String(target);
     const { notifyOnChange = true, markTouched = true } = options ?? {};
     commit(
       path,
@@ -209,11 +218,11 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     );
   };
 
-  const has = (path: string): boolean => deep.has(ref.current.values, path);
+  const has: ContextValue["has"] = (path) => deep.has(ref.current.values, String(path));
 
-  const setStatus = (path: string, status: Status.Crude): void => {
+  const setStatus: ContextValue["setStatus"] = (path, status) => {
     const prevHasTouched = ref.current.hasBeenTouched;
-    ref.current.setStatus(path, status);
+    ref.current.setStatus(String(path), status);
     ref.current.notify();
     const hasTouched = ref.current.hasBeenTouched;
     if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
@@ -224,8 +233,26 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     ref.current.notify();
   };
 
-  const addCheck = (path: string, schema: z.ZodType): destructor.Destructor => {
-    const removeCheck = ref.current.addCheck(path, schema);
+  const focusHandlersRef = useInitializerRef(() => new Map<string, () => void>());
+
+  const focus: ContextValue["focus"] = (target) => {
+    const path = String(target);
+    const handler = focusHandlersRef.current.get(path);
+    if (handler == null) throw new Error(`Field ${path} does not take focus`);
+    handler();
+  };
+
+  const addFocusHandler: ContextValue["addFocusHandler"] = (target, handler) => {
+    const path = String(target);
+    const handlers = focusHandlersRef.current;
+    handlers.set(path, handler);
+    return () => {
+      if (handlers.get(path) === handler) handlers.delete(path);
+    };
+  };
+
+  const addCheck: ContextValue["addCheck"] = (path, schema) => {
+    const removeCheck = ref.current.addCheck(String(path), schema);
     settle([], ref.current.hasBeenTouched);
     return () => {
       removeCheck();
@@ -260,6 +287,8 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     setStatus,
     clearStatuses,
     addCheck,
+    focus,
+    addFocusHandler,
     reset,
     setCurrentStateAsInitialValues,
     getStatuses: () => ref.current.getStatuses(),

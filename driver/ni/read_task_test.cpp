@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
+#include <thread>
 #include <utility>
 
 #include "gtest/gtest.h"
@@ -243,7 +245,7 @@ protected:
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
         auto dev = synnax::device::Device{
-            .key = "opcua123",
+            .key = "ni_device",
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
@@ -750,7 +752,7 @@ protected:
             {"device", dev.key},
             {"channels",
              x::json::json::array({{
-                 {"key", "hCzuNC9glqc"},
+                 {"key", "output_key"},
                  {"port", 0},
                  {"disabled", false},
                  {"line", 1},
@@ -1375,6 +1377,60 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     EXPECT_TRUE(unique_locs.contains("cDAQ1Mod2"));
 }
 
+/// @brief Verify a cross-device task fails to parse when a channel's device is missing.
+TEST(ReadTaskConfigTest, testCrossDeviceMissingDevice) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    auto dev = synnax::device::Device{
+        .key = "missing_cross_d1",
+        .rack = rack.key,
+        .location = "cDAQ1Mod1",
+        .make = "ni",
+        .model = "NI 9229",
+        .name = "dev1",
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    auto ch1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ch1"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    auto ch2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ch2"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    const auto voltage_channel = [](const synnax::channel::Key key,
+                                    const std::string &device) {
+        return x::json::json{
+            {"type", "ai_voltage"},
+            {"key", "key" + std::to_string(key)},
+            {"port", 0},
+            {"disabled", false},
+            {"channel", key},
+            {"terminal_config", "Cfg_Default"},
+            {"min_val", -10},
+            {"max_val", 10},
+            {"custom_scale", {{"type", "none"}}},
+            {"device", device},
+        };
+    };
+    x::json::json j{
+        {"data_saving_disabled", true},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", "cross-device"},
+        {"channels",
+         x::json::json::array(
+             {voltage_channel(ch1.key, dev.key),
+              voltage_channel(ch2.key, "missing_cross_none")}
+         )}
+    };
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+}
+
 /// @brief Verify a counter read config without a top-level device binds each
 /// channel's own device, the wire shape produced by per-channel-device consoles.
 TEST(ReadTaskConfigTest, testCounterReadCrossDeviceChannelLocations) {
@@ -1578,5 +1634,159 @@ TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
+
+/// @brief a reader that blocks for one sample period, as DAQmx does. A reader that
+/// returns at once stamps samples ahead of the clock.
+class PacedReader final : public hardware::Reader<double> {
+public:
+    x::errors::Error start() override { return x::errors::NIL; }
+    x::errors::Error stop() override { return x::errors::NIL; }
+    hardware::ReadResult read(size_t, std::vector<double> &) override {
+        std::this_thread::sleep_for(std::chrono::milliseconds(40));
+        return {};
+    }
+};
+
+/// @brief runs read tasks on one device whose data channels share an index, each
+/// writing to a live Core.
+class SharedIndexReadTest : public ::testing::Test {
+protected:
+    struct Run {
+        std::shared_ptr<task::MockContext> ctx;
+        std::shared_ptr<pipeline::testutil::CoreWriterFactory> writers;
+        std::unique_ptr<common::ReadTask> read_task;
+    };
+
+    std::shared_ptr<synnax::Synnax> client;
+    synnax::rack::Rack rack;
+    synnax::device::Device dev;
+    synnax::channel::Channel index;
+
+    void SetUp() override {
+        this->client = std::make_shared<synnax::Synnax>(new_test_client());
+        this->index = ASSERT_NIL_P(this->client->channels.create(
+            make_unique_channel_name("digital_input_index"),
+            x::telem::TIMESTAMP_T,
+            0,
+            true
+        ));
+        this->rack = ASSERT_NIL_P(this->client->racks.create("cat"));
+        this->dev = synnax::device::Device{
+            .key = make_unique_channel_name("shared_index_device"),
+            .rack = this->rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "PXI-6255",
+            .name = "my_device",
+        };
+        ASSERT_NIL(this->client->devices.create(this->dev));
+    }
+
+    void create_task(
+        const std::string &name,
+        const int port,
+        Run &run,
+        const bool data_saving_disabled = false
+    ) {
+        const auto data = ASSERT_NIL_P(this->client->channels.create(
+            make_unique_channel_name("digital_input_data"),
+            x::telem::FLOAT64_T,
+            this->index.key,
+            false
+        ));
+        auto task = synnax::task::Task{.name = name, .type = "ni_analog_read"};
+        ASSERT_NIL(this->rack.tasks.create(task));
+        auto j = base_analog_config();
+        j["data_saving_disabled"] = data_saving_disabled;
+        j["channels"][0]["port"] = port;
+        j["channels"][0]["device"] = this->dev.key;
+        j["channels"][0]["channel"] = data.key;
+        auto p = x::json::Parser(j);
+        ni::ReadTaskConfig cfg(this->client, p, "ni_analog_read");
+        ASSERT_NIL(p.error());
+        ni::ReadTaskSource<double>::MakeHardware make_hw =
+            [](const ni::ReadTaskConfig &)
+            -> std::pair<std::unique_ptr<hardware::Reader<double>>, x::errors::Error> {
+            return {std::make_unique<PacedReader>(), x::errors::NIL};
+        };
+        run.ctx = std::make_shared<task::MockContext>(this->client);
+        run.writers = std::make_shared<pipeline::testutil::CoreWriterFactory>(
+            this->client
+        );
+        run.read_task = std::make_unique<common::ReadTask>(
+            task,
+            run.ctx,
+            x::breaker::default_config(task.name),
+            std::make_unique<ni::ReadTaskSource<double>>(
+                std::move(cfg),
+                std::move(make_hw)
+            ),
+            run.writers
+        );
+    }
+
+    /// @brief starts first, then asserts that second fails and names first.
+    static void assert_second_task_fails(Run &first, Run &second) {
+        first.read_task->start("start_first");
+        ASSERT_EVENTUALLY_EQ(
+            first.writers->writers_open.load(std::memory_order_acquire),
+            1
+        );
+        second.read_task->start("start_second");
+        ASSERT_EVENTUALLY_GE(second.ctx->snapshot().size(), 2);
+        const auto failed = second.ctx->snapshot().back();
+        EXPECT_EQ(failed.variant, synnax::status::VARIANT_ERROR);
+        EXPECT_FALSE(failed.details.running);
+        EXPECT_TRUE(failed.description.contains("first_task"));
+        EXPECT_TRUE(failed.description.contains("no control authority"));
+        EXPECT_EQ(second.writers->writers_open.load(), 0);
+        for (const auto &status: first.ctx->snapshot())
+            EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR);
+        first.read_task->stop("stop_first", true);
+        second.read_task->stop("stop_second", true);
+    }
+};
+
+/// @brief a second task on a running task's index should fail and name that task.
+TEST_F(SharedIndexReadTest, testSecondTaskFails) {
+    Run first, second;
+    this->create_task("first_task", 0, first);
+    this->create_task("second_task", 1, second);
+    assert_second_task_fails(first, second);
+}
+
+/// @brief a second task should fail when neither task saves data.
+TEST_F(SharedIndexReadTest, testSecondTaskFailsWithDataSavingDisabled) {
+    Run first, second;
+    this->create_task("first_task", 0, first, true);
+    this->create_task("second_task", 1, second, true);
+    assert_second_task_fails(first, second);
+}
+
+/// @brief a task should reopen its writer after a stop, and a stopped task should
+/// leave the index free for another task.
+TEST_F(SharedIndexReadTest, testRestartIgnoresReleasedWriter) {
+    Run first, second;
+    this->create_task("first_task", 0, first);
+    this->create_task("second_task", 1, second);
+    for (size_t i = 1; i <= 3; i++) {
+        first.read_task->start("start_first");
+        ASSERT_EVENTUALLY_EQ(
+            first.writers->writers_open.load(std::memory_order_acquire),
+            i
+        );
+        first.read_task->stop("stop_first", true);
+    }
+    second.read_task->start("start_second");
+    ASSERT_EVENTUALLY_EQ(
+        second.writers->writers_open.load(std::memory_order_acquire),
+        1
+    );
+    second.read_task->stop("stop_second", true);
+    for (const auto &status: first.ctx->snapshot())
+        EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR) << status.description;
+    for (const auto &status: second.ctx->snapshot())
+        EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR) << status.description;
 }
 }

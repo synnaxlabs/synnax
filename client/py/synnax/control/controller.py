@@ -12,7 +12,7 @@ from __future__ import annotations
 from asyncio import Future
 from collections.abc import Callable
 from threading import Event, Lock
-from typing import Any, Protocol, TypeAlias, cast, overload
+from typing import Any, Protocol, TypeAlias, cast, overload, override
 
 import numpy as np
 
@@ -32,6 +32,8 @@ Condition: TypeAlias = (
 class _Processor(Protocol):
     event: Event
 
+    def start(self, state: Controller) -> None: ...
+
     def process(self, state: Controller) -> Any: ...
 
 
@@ -47,6 +49,15 @@ class _WaitUntil(_Processor):
         self.exc = None
         self.reverse = reverse
 
+    @override
+    def start(self, state: Controller) -> None:
+        self.process(state)
+        # A channel with no value yet leaves the decision to the first frame.
+        if isinstance(self.exc, KeyError):
+            self.exc = None
+            self.event.clear()
+
+    @override
     def process(self, state: Controller) -> Any:
         try:
             res = self.callback(state)
@@ -78,6 +89,12 @@ class _RemainsTrueFor(_Processor):
         self.exc = None
         self.target = percentage
 
+    @override
+    def start(self, state: Controller) -> None:
+        # Only samples inside the window count.
+        pass
+
+    @override
     def process(self, state: Controller) -> Any:
         try:
             v = bool(self.callback(state))
@@ -282,18 +299,24 @@ class Controller:
         *,
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
-        """Blocks the controller, calling the provided callback on every new sample
-        received by the controller. Once the callback returns True, the method will
-        return. If a timeout is provided, the method will return False if the timeout is
-        reached before the callback returns True.
+        """Blocks the controller, calling the provided callback once on the current
+        state and then on every new sample received by the controller. Once the callback
+        returns True, the method will return. If a timeout is provided, the method will
+        return False if the timeout is reached before the callback returns True.
+
+        A value from before the call can satisfy the callback, and the method then
+        returns at once. To wait for a new value after a command, first wait for the
+        state to leave the old value.
 
         CAVEAT: Do not call wait_until from within a callback that is being processed by
         the controller. This will cause a deadlock.
 
         :param cond: A callable that takes the controller as an argument and returns
-        a boolean. The controller will execute this callback on every new sample
-        received to the channels it is reading from. The controller will block until
-        the callback returns True.
+        a boolean. The controller will execute this callback once on the current state,
+        and then on every new sample received to the channels it is reading from. A
+        KeyError from the first check means that a channel has no value yet, so the
+        controller waits for the next sample. The controller will block until the
+        callback returns True.
         :param timeout: An optional timeout in seconds. If the timeout is reached before
         the callback returns True, the method will return False.
         :returns: True if the callback returned True before the timeout,
@@ -313,10 +336,12 @@ class Controller:
         *,
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
-        """Blocks the controller, calling the provided callback on every new sample
-        received. The controller will continue to block until the
-        callback returns False. If a timeout is provided, the method will return False
-        if the timeout is reached before the callback returns False.
+        """Blocks the controller, calling the provided callback once on the current
+        state and then on every new sample received. The controller will continue to
+        block until the callback returns False, so a callback that is already False
+        returns at once. If a timeout is provided, the method will return False if the
+        timeout is reached before the callback returns False. See wait_until for how the
+        callback is checked.
         """
         return self._internal_wait_until(cond, timeout, reverse=True)
 
@@ -342,7 +367,7 @@ class Controller:
             raise processor.exc
         return ok
 
-    def sleep(self, dur: float | int | TimeSpan, *, precise: bool = False) -> None:
+    def sleep(self, dur: CrudeTimeSpan, *, precise: bool = False) -> None:
         """Sleeps the controller for the provided duration.
 
         :param dur: The duration to sleep for. This can be a flot or int representing
@@ -361,8 +386,9 @@ class Controller:
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
         """Blocks until the controller has received at least one value from all the
-        provided channels. This is useful for ensuring that the controlled has reached
-        a valid state before proceeding.
+        provided channels. A value that the controller received before the call counts,
+        so the method can return at once. This is useful for ensuring that the
+        controlled has reached a valid state before proceeding.
 
         :param channels: A single channel key or name, or a list of channel keys or
         names to wait for.
@@ -388,7 +414,8 @@ class Controller:
         """Blocks the controller and repeatedly checks that the provided callback
         returns True for the entire duration. Also accepts a decimal target percentage,
         which can be used to check that the callback returns True for a certain
-        percentage of the duration.
+        percentage of the duration. Only samples received after the call count: the
+        current state does not.
 
         :param cond: A callable that takes the controller as an argument and returns
         a boolean. The controller will execute this callback on every new sample
@@ -444,6 +471,7 @@ class Controller:
         """
         return self._receiver.state
 
+    @override
     def __setattr__(self, key: str, value: CrudeSample) -> None:
         """Commands the channel named key, unless key is private or a class
         attribute.
@@ -550,6 +578,7 @@ class _Receiver(AsyncThread):
     def add_processor(self, processor: _Processor) -> None:
         with self.lock:
             self.raise_error()
+            processor.start(self.controller)
             self.processors.add(processor)
 
     def remove_processor(self, processor: _Processor) -> None:
@@ -561,8 +590,13 @@ class _Receiver(AsyncThread):
         if self.error is not None:
             raise self.error
 
-    def _process(self) -> None:
+    def _apply(self, frame: framer.Frame) -> None:
         with self.lock:
+            for i, key in enumerate(frame.channels):
+                if isinstance(key, int):
+                    v = frame.series[i][-1]
+                    if isinstance(v, (np.number, int, float)):
+                        self.state[key] = v
             for p in self.processors:
                 p.process(self.controller)
 
@@ -570,6 +604,7 @@ class _Receiver(AsyncThread):
         await self.shutdown_future
         await self.streamer.close_loop()
 
+    @override
     async def run_async(self) -> None:
         self.shutdown_future = self.loop.create_future()
         error: Exception | None = None
@@ -590,12 +625,7 @@ class _Receiver(AsyncThread):
         close_listener = self.loop.create_task(self._listen_for_close())
         self.startup_ack.set()
         async for frame in self.streamer:
-            for i, key in enumerate(frame.channels):
-                if isinstance(key, int):
-                    v = frame.series[i][-1]
-                    if isinstance(v, (np.number, int, float)):
-                        self.state[key] = v
-            self._process()
+            self._apply(frame)
         if not self.shutdown_future.done():
             raise UnexpectedError("streamer closed before the controller released")
         await close_listener
@@ -622,7 +652,7 @@ class ScheduledCommand:
         *,
         channel: channel_.Key | str,
         value: CrudeSample,
-        delay: float | int | TimeSpan,
+        delay: CrudeTimeSpan,
     ):
         self.channel = channel
         self.value = value

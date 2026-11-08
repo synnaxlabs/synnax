@@ -9,7 +9,14 @@
 
 import "@/feature/channel/tree.css";
 
-import { channel, isCalculated, ontology, ranger, status } from "@synnaxlabs/client";
+import {
+  channel,
+  isCalculated,
+  type ontology,
+  ranger,
+  resource,
+  status,
+} from "@synnaxlabs/client";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -61,7 +68,7 @@ const beforeSetAlias = async ({
 }: Flux.BeforeUpdateParams<PChannel.UpdateAliasParams>) => {
   if (data.channel == null) return false;
   const [alias, renamed] = await Text.asyncEdit(
-    List.itemNameID(ontology.idToString(channel.ontologyID(data.channel))),
+    List.itemNameID(resource.idToString(channel.resourceID(data.channel))),
   );
   if (!renamed) return false;
   return { ...data, alias };
@@ -84,7 +91,7 @@ const useSetAlias = ({
 
 const useRename = Tree.createUseRename({
   useUpdate: PChannel.useRename,
-  ontologyID: channel.ontologyID,
+  resourceID: channel.resourceID,
   convertKey: Number,
 });
 
@@ -111,7 +118,7 @@ const useEditCalculated = () => {
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
-    selection: { ids, rootID },
+    selection: { ids, rootID, parentID },
     state,
   } = props;
   const activeRange = Range.useResolve();
@@ -121,7 +128,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const channelKeys = ids.map((r) => Number(r.key));
   const channels = PChannel.useMultiple({
     rangeKey: activeRange?.key,
-    keys: channelKeys,
+    where: { key: { in: channelKeys } },
   });
   const showDeleteAlias = channels.some((c) => c.alias != null);
   const first = resources[0];
@@ -129,16 +136,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDelete(props);
 
   const hasUpdatePermission = Access.useUpdateGranted(
-    ids.map((id) => channel.ontologyID(Number(id.key))),
+    ids.map((id) => channel.resourceID(Number(id.key))),
   );
   const hasDeletePermission = Access.useDeleteGranted(
-    ids.map((id) => channel.ontologyID(Number(id.key))),
+    ids.map((id) => channel.resourceID(Number(id.key))),
   );
   const hasAliasCreatePermission = Access.useCreateGranted(
-    ids.map((id) => ranger.alias.ontologyID(activeRange?.key ?? "", Number(id.key))),
+    ids.map((id) => ranger.alias.resourceID(activeRange?.key ?? "", Number(id.key))),
   );
   const hasAliasDeletePermission = Access.useDeleteGranted(
-    ids.map((id) => ranger.alias.ontologyID(activeRange?.key ?? "", Number(id.key))),
+    ids.map((id) => ranger.alias.resourceID(activeRange?.key ?? "", Number(id.key))),
   );
   const handleRename = useRename(props);
 
@@ -165,6 +172,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           ids={ids}
           shape={state.shape}
           rootID={rootID}
+          parentID={parentID}
           onClick={() => groupFromSelection(props)}
         />
       )}
@@ -192,7 +200,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {singleResource && (
         <>
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: first.name, ontologyID: first.id })}
+            onClick={() => handleLink({ name: first.name, resourceID: first.id })}
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
         </>
@@ -214,11 +222,12 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const data = resource.data as channel.Payload;
   const DataTypeIcon = PChannel.resolveIcon(data);
   const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);
+  const highlight = Tree.useHighlight();
   return (
     <PTree.Item {...rest}>
       <DataTypeIcon color={10} />
       <Text.MaybeEditable
-        id={List.itemNameID(ontology.idToString(resource.id))}
+        id={List.itemNameID(resource.key)}
         allowDoubleClick={false}
         value={name}
         overflow="fade"
@@ -226,7 +235,9 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
         grow
         disabled={!allowRename(resource)}
         onChange
+        highlight={highlight}
       />
+      <Tree.MatchGroup id={resource.id} />
       {statusVariant != null && (
         <Tooltip.Dialog location="right">
           <Status.Summary variant={statusVariant} hideIcon level="small" weight={450}>

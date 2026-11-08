@@ -110,10 +110,13 @@ runs in the Core.
 
 ### 4.3 Sparkplug B
 
-The read task ends the domains of an edge node when the node goes offline. Only that
-node's channels get a break: the task refuses two tags on one index. After a birth, the
-task writes historical values through a second writer in `persist` mode. A task stop or
-a Core restart needs no command, because the values fall before the new session.
+The read task ends the domains of an edge node when the node goes offline. A death can
+reach the task late or not at all, so a birth that starts a new session of the node ends
+them too. A rebirth does not. Only that node's channels get a break: the task refuses
+two tags on one index. After a birth, the task writes historical values through a second
+writer in `persist` mode, with one writer for each tag and gap so that no writer spans
+stored data. A task stop or a Core restart needs no command, because the values fall
+before the new session.
 
 ### 4.4 Driver forwarding
 

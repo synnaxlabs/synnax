@@ -11,6 +11,7 @@ syntax = "proto3";
 
 package grpc.task;
 
+import "core/pkg/api/task/pb/task.proto";
 import "core/pkg/service/task/pb/task.proto";
 import "google/protobuf/empty.proto";
 
@@ -21,7 +22,7 @@ service TaskCreateService {
 }
 
 service TaskRetrieveService {
-  rpc Exec(RetrieveRequest) returns (RetrieveResponse);
+  rpc Exec(RetrieveRequest) returns (api.task.pb.RetrieveResponse);
 }
 
 service TaskDeleteService {
@@ -41,15 +42,9 @@ message CreateResponse {
 }
 
 message RetrieveRequest {
-  uint32 rack = 1;
-  repeated string keys = 2;
-  repeated string names = 3;
-  repeated string types = 4;
-  bool include_status = 5;
-}
-
-message RetrieveResponse {
-  repeated service.task.pb.Task tasks = 1;
+  reserved 1 to 5;
+  reserved "rack", "keys", "names", "types", "include_status";
+  api.task.pb.RetrieveRequest request = 6;
 }
 
 message DeleteRequest {

@@ -43,9 +43,9 @@ describe("project/Splash", () => {
       const denied = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
-          user.TYPE_ONTOLOGY_ID,
-          access.role.TYPE_ONTOLOGY_ID,
-          access.policy.TYPE_ONTOLOGY_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
         ],
         actions: ["retrieve"],
       });
@@ -220,8 +220,9 @@ describe("project/Splash", () => {
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
         <Triggers.Provider>
-          <Project.Splash />
-          <Modals.Stack />
+          <Modals.Stack>
+            <Project.Splash />
+          </Modals.Stack>
         </Triggers.Provider>,
         { wrapper },
       );
@@ -244,10 +245,9 @@ describe("project/Splash", () => {
     it("should open the create modal and activate the created project", async () => {
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
-        <>
+        <Modals.Stack>
           <Project.Splash />
-          <Modals.Stack />
-        </>,
+        </Modals.Stack>,
         { wrapper },
       );
       const name = `proj-${id.create()}`;

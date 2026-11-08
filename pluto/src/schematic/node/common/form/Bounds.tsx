@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
-import { bounds } from "@synnaxlabs/x";
+import { bounds, type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 const STEP = 10;
@@ -19,7 +19,7 @@ export interface BoundsFieldsProps extends Pick<
   "padHelpText"
 > {
   /** Path to the bounds within the symbol's config. */
-  path: string;
+  path: deep.Path<bounds.Bounds>;
 }
 
 /**
@@ -27,7 +27,7 @@ export interface BoundsFieldsProps extends Pick<
  * cross.
  */
 export const BoundsFields = ({ path, ...rest }: BoundsFieldsProps): ReactElement => {
-  const value = Form.useField<bounds.Bounds>(path, { optional: true })?.value;
+  const value = Form.useField(path, { optional: true })?.value;
   const { lower, upper } = value ?? bounds.INFINITE;
   const lowerProps: Partial<Input.NumericProps> = {
     step: STEP,
@@ -40,13 +40,13 @@ export const BoundsFields = ({ path, ...rest }: BoundsFieldsProps): ReactElement
   return (
     <>
       <Form.NumericField
-        path={`${path}.lower`}
+        path={path.lower}
         label="Min value"
         inputProps={lowerProps}
         {...rest}
       />
       <Form.NumericField
-        path={`${path}.upper`}
+        path={path.upper}
         label="Max value"
         inputProps={upperProps}
         {...rest}

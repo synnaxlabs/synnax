@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/ontology"
 import "schemas/synnax/rack"
+import "schemas/synnax/resource"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 
 @cpp output "client/cpp/device"
 @go output  "core/pkg/service/legacy/device"
@@ -23,13 +24,19 @@ Key = string {
 }
 
 StatusDetails struct {
-    rack   rack.Key {
+    rack      rack.Key {
         @doc value "is the key of the rack this device belongs to."
     }
-    device Key      {
+    device    Key      {
         @doc value "is the device identifier."
     }
-    data   record?  {
+    connected bool = false {
+        @doc value """
+            is true while the Driver confirms that it can reach the device. A device
+            whose state is unknown is not connected.
+        """
+    }
+    data      record?  {
         @doc value "contains device-specific status data."
     }
 
@@ -101,13 +108,15 @@ Device struct<
     status     Status?      {
         @doc value  "is the current operational status of the device."
         @go marshal omit
+        @include
     }
-    parent     ontology.ID? {
+    parent     resource.ID? {
         @doc value  """
             is an optional parent resource ID for hierarchical device organization
             (e.g., NI chassis containing modules).
         """
         @go marshal omit
+        @include
     }
 
     @create
@@ -118,7 +127,19 @@ Device struct<
     """
     @go marshal
     @go migrate
-    @ontology type     "device"
+    @resource type     "device"
     @retrieve
     @ts concrete_types
+}
+
+Where filter Device {
+    key
+    name
+    make
+    model
+    location
+    rack
+
+    @doc value         "is a filter that selects devices."
+    @go request_output "core/pkg/api/device"
 }

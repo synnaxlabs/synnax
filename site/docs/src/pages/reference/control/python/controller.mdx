@@ -193,10 +193,14 @@ no value yet are not in the dictionary.
 ## Wait for conditions
 
 A condition is a function that takes the controller and returns a `bool`, such as
-`lambda c: c["tank_pt"] > 300`. The controller calls it each time a frame arrives on a
-`read` channel, not at once. An exception that the condition raises, such as a
-`KeyError` from a channel with no value, stops the wait and is raised again. Do not call
-a wait method inside a condition: the controller deadlocks.
+`lambda c: c["tank_pt"] > 300`. `wait_until`, `wait_while`, and `wait_until_defined`
+call it once on the current state, then each time a frame arrives on a `read` channel. A
+value from before the call can satisfy the condition, and the wait then returns at once.
+
+An exception that the condition raises stops the wait and is raised again. A `KeyError`
+from the first check is different: it means that a channel has no value yet, so the wait
+continues and the next frame decides. Do not call a wait method inside a condition: the
+controller deadlocks.
 
 Each wait method raises a `ValueError` if `cond` is not callable. If the stream fails,
 the wait raises that error instead of waiting for the timeout. An unexpected stream
@@ -234,7 +238,8 @@ ctrl.wait_while(cond, *, timeout=None) -> bool
 ```
 
 Takes the same parameters as `wait_until`. Returns `True` when `cond` returns false, or
-`False` when the timeout ends first.
+`False` when the timeout ends first. If `cond` is false when the call starts, it returns
+`True` at once.
 
 ### `wait_until_defined`
 
@@ -243,9 +248,9 @@ ctrl.wait_until_defined(channels, *, timeout=None) -> bool
 ```
 
 Blocks until each channel in `channels` has a value. `channels` is one channel or a
-list. Returns `False` when the timeout ends first. A channel that is not in `read` never
-gets a value, so the call blocks until the timeout, or forever. Raises `NotFoundError`
-if a channel does not exist.
+list. A value that arrived before the call counts. Returns `False` when the timeout ends
+first. A channel that is not in `read` never gets a value, so the call blocks until the
+timeout, or forever. Raises `NotFoundError` if a channel does not exist.
 
 ### `remains_true_for`
 
@@ -282,7 +287,8 @@ The fraction of frames, from 0 to 1, for which `cond` must return true.
 </Field.List>
 
 Blocks for up to `duration`. Returns `True` if `cond` returned true for at least
-`percentage` of the frames that arrived. Returns `False` if no frame arrived.
+`percentage` of the frames that arrived. Returns `False` if no frame arrived. It does
+not check the current state.
 
 ### `sleep`
 

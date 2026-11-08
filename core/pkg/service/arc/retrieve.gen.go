@@ -42,7 +42,7 @@ func newIndexes() indexes {
 		search: gorp.NewSearchIndex[Key, Arc](
 			"search",
 			func(e *Arc) []string {
-				return []string{e.Name}
+				return []string{e.Base().Name}
 			},
 		),
 	}
@@ -53,6 +53,14 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Arc] {
 	return []gorp.Index[Key, Arc]{
 		i.search,
+	}
+}
+
+// MatchSearch matches the arcs whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Arc] {
+		return r.indexes.search.Filter(term)
 	}
 }
 
@@ -94,8 +102,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
-	return r
+	return r.Where(MatchSearch(term))
 }
 
 // MatchKeys returns a filter that restricts results to
@@ -115,7 +122,7 @@ func MatchKeys(keys ...Key) Filter {
 func MatchNames(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Arc] {
 		return gorp.Match(func(_ gorp.Context, e *Arc) (bool, error) {
-			return slices.Contains(vals, e.Name), nil
+			return slices.Contains(vals, e.Base().Name), nil
 		})
 	}
 }
@@ -151,6 +158,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no arc as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 

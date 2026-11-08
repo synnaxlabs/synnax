@@ -10,6 +10,7 @@
 import "schemas/x/spatial"
 
 @go output "x/go/border"
+@py output "x/py/x/border"
 @ts output "x/ts/src/border"
 
 Radius struct {
@@ -33,5 +34,7 @@ Radius struct {
         which expands to this canonical shape.
     """
     @go marshal
+    @py hand
+    @py include "x/py/x/border/border"
     @ts hand
 }

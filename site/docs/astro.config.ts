@@ -136,6 +136,7 @@ export default defineConfig({
     "/reference/control/arc/how-to/unit-conversions":
       "/reference/control/arc/compute-values",
     "/reference/control/arc/introduction": "/reference/control/arc",
+    "/reference/control/arc/graph-editor": "/reference/control/arc/automations",
     "/reference/control/arc/concepts/stateful-variables":
       "/reference/control/arc/reference/variables",
     "/reference/control/arc/reference/built-ins":
@@ -219,7 +220,7 @@ export default defineConfig({
     "/reference/concepts/streams": "/reference/client/stream-data",
     "/reference/concepts/writes": "/reference/client/write-data",
     "/reference/console": "/reference/visualize",
-    "/reference/console/get-started": "/reference/enterprise/console",
+    "/reference/console/get-started": "/reference/get-started/install-desktop",
     "/reference/console/line-plots": "/reference/visualize/line-plots",
     "/reference/console/logs": "/reference/visualize/logs",
     "/reference/console/projects": "/reference/visualize/projects",

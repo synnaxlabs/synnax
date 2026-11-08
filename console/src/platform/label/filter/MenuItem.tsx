@@ -11,10 +11,12 @@ import { type label } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type position } from "@synnaxlabs/lyra/position";
 import { type Select } from "@synnaxlabs/lyra/select";
-import { location } from "@synnaxlabs/x";
+import { deep, location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { SelectMultiple } from "@/platform/label/Select";
+
+const path = deep.path<{ where?: { labels?: label.Key[] } }>();
 
 const TRIGGER_PROPS: Select.MultipleTriggerProps<string> = {
   hideTags: true,
@@ -27,15 +29,16 @@ const LABEL_LOCATION: position.LocationPreference = {
 };
 
 export const MenuItem = (): ReactElement => (
-  <Form.Field<label.Key[] | undefined, label.Key[]>
-    path="query.hasLabels"
+  <Form.Field<label.Key[] | undefined>
+    path={deep.present(path.where).labels}
     showLabel={false}
     showHelpText={false}
   >
     {({ value, onChange }) => (
       <SelectMultiple
         value={value ?? []}
-        onChange={onChange}
+        // An empty labels line matches nothing, so no selection drops the line.
+        onChange={(keys) => onChange(keys.length === 0 ? undefined : keys)}
         location={LABEL_LOCATION}
         triggerProps={TRIGGER_PROPS}
       />

@@ -52,6 +52,15 @@ describe("role", () => {
       expect(retrieved.description).toBe(created.description);
     });
 
+    it("should retrieve a role by its name", async () => {
+      const created = await client.access.roles.create({
+        name: `named-role-${id.create()}`,
+        description: "test",
+      });
+      const retrieved = await client.access.roles.retrieve(created.name);
+      expect(retrieved.key).toBe(created.key);
+    });
+
     it("should filter by internal flag when retrieving roles", async () => {
       const created = await client.access.roles.create({
         name: "test-non-internal",
@@ -59,12 +68,16 @@ describe("role", () => {
       });
 
       // Retrieve only internal roles (built-in system roles)
-      const internalRoles = await client.access.roles.retrieve({ internal: true });
+      const internalRoles = await client.access.roles.retrieve({
+        where: { internal: { eq: true } },
+      });
       expect(internalRoles.length).toBeGreaterThan(0);
       expect(internalRoles.every((r) => r.internal === true)).toBe(true);
       expect(internalRoles.find((r) => r.key === created.key)).toBeUndefined();
 
-      const nonInternalRoles = await client.access.roles.retrieve({ internal: false });
+      const nonInternalRoles = await client.access.roles.retrieve({
+        where: { internal: { eq: false } },
+      });
       expect(nonInternalRoles.every((r) => r.internal !== true)).toBe(true);
       expect(nonInternalRoles.find((r) => r.key === created.key)).toBeDefined();
     });
@@ -119,10 +132,10 @@ describe("role", () => {
       const viewer = await createTestClientWithRole(client, "Viewer");
       await viewer.connect();
       const { key } = await viewer.users.current.retrieve();
-      const subject = user.ontologyID(key);
+      const subject = user.resourceID(key);
       const granted = async (action: Action) =>
         await viewer.access.granted.retrieve(subject, {
-          objects: channel.TYPE_ONTOLOGY_ID,
+          objects: channel.TYPE_RESOURCE_ID,
           action,
         });
       await expect(granted("create")).resolves.toBe(false);
@@ -177,7 +190,7 @@ describe("cached reads", () => {
       const a = await createRole();
       const b = await createRole();
       await client.access.roles.retrieve(b.key);
-      const res = await client.access.roles.retrieve({ keys: [a.key, b.key] });
+      const res = await client.access.roles.retrieve([a.key, b.key]);
       expect(res.map((r) => r.key)).toEqual([a.key, b.key]);
     });
   });

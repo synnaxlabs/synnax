@@ -84,6 +84,12 @@ export interface Subscription {
   /** @returns the samples of the channel. The channel must be in the request. */
   value: (key: channel.Key) => Snapshot;
   /**
+   * @returns the Core's stamp of the channel's sample at alignment, else null. Points
+   * requests return null. A first call may return null while the index loads. The
+   * channel must be in the request.
+   */
+  timeAt: (key: channel.Key, alignment: bigint) => TimeStamp | null;
+  /**
    * Replaces the request. An equal request does nothing.
    * @throws {ValidationError} if the count of a points limit is not finite or is
    * negative.

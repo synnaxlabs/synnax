@@ -18,10 +18,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -29,6 +32,7 @@ import (
 
 var _ = Describe("Status", Ordered, func() {
 	var (
+		store    kv.DB
 		db       *gorp.DB
 		svc      *status.Service
 		w        status.Writer
@@ -40,8 +44,9 @@ var _ = Describe("Status", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		// Like the Core on the node that leases each write, the indexes see only the
 		// writes made through their table.
+		store = memkv.New()
 		db = DeferClose(gorp.Wrap(
-			memkv.New(),
+			store,
 			gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
 		))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{
@@ -128,16 +133,16 @@ var _ = Describe("Status", Ordered, func() {
 						Time:    telem.Now(),
 					}
 					Expect(
-						w.SetWithParent(ctx, &child, parent.OntologyID()),
+						w.SetWithParent(ctx, &child, parent.ResourceID()),
 					).To(Succeed())
 
 					var res ontology.Resource
 					Expect(otg.NewRetrieve().
-						WhereIDs(child.OntologyID()).
+						WhereIDs(child.ResourceID()).
 						TraverseTo(ontology.ParentsTraverser).
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(res.ID).To(Equal(parent.OntologyID()))
+					Expect(res.ID).To(Equal(parent.ResourceID()))
 				})
 			})
 		})
@@ -201,6 +206,38 @@ var _ = Describe("Status", Ordered, func() {
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
 					expected := *s
+					expected.Name = "After"
+					Expect(res).To(Equal(expected))
+				},
+			)
+			It(
+				"Should rename a status stored as msgpack, keeping every other field",
+				func(ctx SpecContext) {
+					type details struct {
+						Count int64 `json:"count" msgpack:"count"`
+					}
+					s := status.Status[details]{
+						Name:    "Before",
+						Key:     "rename-msgpack-key",
+						Variant: status.VariantSuccess,
+						Time:    telem.Now(),
+						Details: details{Count: 9007199254740993},
+					}
+					Expect(gorp.NewCreate[status.Key, status.Status[details]]().
+						Entry(&s).
+						Exec(ctx, gorp.Wrap(store, gorp.WithCodec(msgpack.Codec)))).
+						To(Succeed())
+					DeferCleanup(func(ctx SpecContext) {
+						Expect(svc.NewWriter(nil).Delete(ctx, s.Key)).To(Succeed())
+					})
+					Expect(svc.NewWriter(nil).Rename(ctx, s.Key, "After")).
+						To(Succeed())
+					var res status.Status[details]
+					Expect(svc.NewRetrieve[details]().
+						Where(status.MatchKeys[details](s.Key)).
+						Entry(&res).
+						Exec(ctx, nil)).To(Succeed())
+					expected := s
 					expected.Name = "After"
 					Expect(res).To(Equal(expected))
 				},
@@ -355,6 +392,28 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
+		Describe("SkipMissingKeys", func() {
+			It("Should return not found for a missing key without it", func(
+				ctx SpecContext,
+			) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any]("retrieve-a", "missing")).
+					Entries(&statuses).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			})
+
+			It("Should return the found statuses with it", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any]("retrieve-a", "missing")).
+					SkipMissingKeys().
+					Entries(&statuses).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveExactElements(HaveField("Key", "retrieve-a")))
+			})
+		})
+
 		Describe("Limit and Offset", func() {
 			It("Should limit results", func(ctx SpecContext) {
 				var statuses []status.Status[any]
@@ -388,7 +447,7 @@ var _ = Describe("Status", Ordered, func() {
 							Entries(&statuses).
 							Exec(ctx, tx),
 					).To(Succeed())
-					Expect(len(statuses)).To(BeNumerically(">", 1))
+					Expect(statuses).To(HaveLen(1))
 					Expect(statuses[0].Key).To(Equal("retrieve-a"))
 				},
 			)
@@ -559,7 +618,7 @@ var _ = Describe("Status", Ordered, func() {
 					Expect(svc.NewWriter(tx).Set(ctx, s)).To(Succeed())
 					Expect(
 						labelSvc.NewWriter(tx).
-							Label(ctx, s.OntologyID(), []label.Key{l.Key}),
+							Label(ctx, s.ResourceID(), []label.Key{l.Key}),
 					).To(Succeed())
 					var statuses []status.Status[any]
 					Expect(svc.NewRetrieve[any]().
@@ -780,7 +839,7 @@ var _ = Describe("Status", Ordered, func() {
 	})
 
 	Describe("Search", func() {
-		create := func(ctx SpecContext, key, name string) ontology.ID {
+		create := func(ctx SpecContext, key, name string) resource.ID {
 			GinkgoHelper()
 			s := status.Status[any]{
 				Key:     key,
@@ -789,7 +848,7 @@ var _ = Describe("Status", Ordered, func() {
 				Time:    telem.Now(),
 			}
 			Expect(svc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
-			return status.OntologyID(s.Key)
+			return status.ResourceID(s.Key)
 		}
 
 		It(
@@ -797,19 +856,23 @@ var _ = Describe("Status", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "a", "turbopump test")
 				b := create(ctx, "b", "turbopump")
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 0)).Keys).
-					To(Equal([]ontology.ID{b, a}))
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 1)).Keys).
-					To(Equal([]ontology.ID{b}))
+				q := search.Query[resource.ID]{Term: "turbopump"}
+				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
+					To(Equal([]resource.ID{b, a}))
+				q.Limit = 1
+				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
+					To(Equal([]resource.ID{b}))
 			},
 		)
 
 		It("Should match a renamed status by its new name", func(ctx SpecContext) {
 			id := create(ctx, "c", "cryogenic")
 			Expect(svc.NewWriter(nil).Rename(ctx, "c", "hydraulic")).To(Succeed())
-			Expect(MustSucceed(svc.Search(ctx, db, "hydraulic", 0)).Keys).
-				To(Equal([]ontology.ID{id}))
-			Expect(MustSucceed(svc.Search(ctx, db, "cryogenic", 0)).Keys).
+			q := search.Query[resource.ID]{Term: "hydraulic"}
+			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
+				To(Equal([]resource.ID{id}))
+			q = search.Query[resource.ID]{Term: "cryogenic"}
+			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
 				To(BeEmpty())
 		})
 	})

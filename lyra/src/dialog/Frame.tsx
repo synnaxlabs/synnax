@@ -21,7 +21,7 @@ import {
 import { type Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
-import { BACKGROUND_CLASS } from "@/dialog/Background";
+import { BACKGROUND_CLASS, inTopModal } from "@/dialog/Background";
 import { PORTAL_ID_ATTR, useClickOutside } from "@/dialog/useClickOutside";
 import { Flex } from "@/flex";
 import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
@@ -385,9 +385,7 @@ export const Frame = ({
       stopPropagation();
       return;
     }
-    const allModals = Array.from(document.getElementsByClassName(BACKGROUND_CLASS));
-    const thisModalIndex = allModals.findIndex((e) => e.contains(dialogEl));
-    if (thisModalIndex === allModals.length - 1) {
+    if (inTopModal(dialogEl)) {
       close();
       stopPropagation();
     }

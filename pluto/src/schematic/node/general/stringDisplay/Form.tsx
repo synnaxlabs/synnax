@@ -12,7 +12,7 @@ import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { primitive } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -24,17 +24,18 @@ import { Synnax } from "@/synnax";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
+const path = deep.path<schematic.StringDisplayNodeConfig>();
+
 const TelemForm = (): ReactElement => {
   const { set } = Base.useContext();
-  const { value, onChange } =
-    Base.useField<Pick<schematic.StringDisplayNodeConfig, "channel">>("");
+  const { value, onChange } = Base.useField(path);
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const handleSourceChange = (key: channel.Key | null): void => {
     if (primitive.isNonZero(key) && client != null)
       handleError(async () => {
         const { name } = await client.channels.retrieve({ key });
-        set("tooltip", [name]);
+        set(path.tooltip, [name]);
       }, "Failed to retrieve channel");
     onChange({ ...value, channel: key ?? undefined });
   };
@@ -61,20 +62,20 @@ const TelemForm = (): ReactElement => {
 const StyleForm = (): ReactElement => (
   <Base.Sections x>
     <Base.Section title="Label">
-      <Label.Form path="label" />
+      <Label.Form path={path.label} />
     </Base.Section>
     <Base.Section title="Appearance">
-      <Form.ColorField path="strokeColor" label="Stroke" />
-      <Form.ColorField path="textColor" label="Text" />
+      <Form.ColorField path={path.strokeColor} label="Stroke" />
+      <Form.ColorField path={path.textColor} label="Text" />
       <Form.LevelSizeField />
       <Base.NumericField
-        path="inlineSize"
+        path={path.inlineSize}
         label="Width"
         padHelpText={false}
         inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
       />
     </Base.Section>
-    <Orientation.Section path="" hideInner />
+    <Orientation.Section path={path} hideInner />
   </Base.Sections>
 );
 

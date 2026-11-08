@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
+from typing import override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -599,6 +600,7 @@ class BaseAIChannel(BaseModel):
     port: int = Field(default=0, ge=-2147483648, le=2147483647)
     device: device_.Key = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -638,6 +640,7 @@ class BaseCIChannel(BaseModel):
     port: int = Field(default=0, ge=-2147483648, le=2147483647)
     device: device_.Key = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -663,6 +666,7 @@ class BaseAOChannel(BaseModel):
     state_channel_name: str = ""
     port: int = Field(default=0, ge=-2147483648, le=2147483647)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -686,6 +690,7 @@ class DIChannel(BaseModel):
     port: int = Field(default=0, ge=-2147483648, le=2147483647)
     line: int = Field(default=0, ge=-2147483648, le=2147483647)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -713,6 +718,7 @@ class DOChannel(BaseModel):
     port: int = Field(default=0, ge=-2147483648, le=2147483647)
     line: int = Field(default=0, ge=-2147483648, le=2147483647)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -726,6 +732,7 @@ class WriteConfig(task.WriteConfig):
 
     state_rate: telem.Rate = telem.Rate(10)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -733,6 +740,7 @@ class WriteConfig(task.WriteConfig):
 class ScanConfig(task.ScanConfig):
     """Configures the NI device scanner task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -894,6 +902,7 @@ class DigitalReadConfig(task.ReadConfig):
     device: device_.Key = ""
     channels: list[DIChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -907,6 +916,7 @@ class DigitalWriteConfig(WriteConfig):
 
     channels: list[DOChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -1478,6 +1488,7 @@ class AnalogReadConfig(task.ReadConfig):
 
     channels: list[AIChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -1491,6 +1502,7 @@ class CounterReadConfig(task.ReadConfig):
 
     channels: list[CIChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -1504,5 +1516,6 @@ class AnalogWriteConfig(WriteConfig):
 
     channels: list[AOChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

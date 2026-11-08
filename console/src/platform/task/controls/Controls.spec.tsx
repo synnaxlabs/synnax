@@ -7,18 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { Task } from "@/platform/task";
 import {
   clickRedeploy,
   createTaskStatus,
   isRedeployHidden,
+  renderInTaskForm,
   renderInTaskFormWithClient,
 } from "@/platform/task/testutil";
 import { findIconButton, queryIconButton } from "@/testutil";
+
+const path = deep.path<{
+  config: { dataSavingDisabled: boolean; autoStart: boolean };
+}>();
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -126,6 +134,17 @@ describe("Controls.Controls", () => {
     expect(isRedeployHidden()).toBe(true);
   });
 
+  it("should show no status for a task that has none", async () => {
+    await renderInTaskForm(
+      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+      {
+        values: { key: "1", status: null },
+        schema: z.object({ status: task.statusZ().optional().nullable() }),
+      },
+    );
+    expect(await screen.findByText("No status")).toBeTruthy();
+  });
+
   it("should expand the status on click and contract it on a second click", async () => {
     await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
@@ -152,7 +171,7 @@ describe("Controls.Controls", () => {
       const button = await waitFor(() => getSetting("Data saving"));
       expect(button.textContent).toBe("On");
       fireEvent.click(button);
-      expect(form.current?.get("config.dataSavingDisabled").value).toBe(true);
+      expect(form.current?.get(path.config.dataSavingDisabled).value).toBe(true);
       expect(getSetting("Data saving").textContent).toBe("Off");
     });
 
@@ -164,7 +183,7 @@ describe("Controls.Controls", () => {
       const button = await waitFor(() => getSetting("Auto start"));
       expect(button.textContent).toBe("Off");
       fireEvent.click(button);
-      expect(form.current?.get("config.autoStart").value).toBe(true);
+      expect(form.current?.get(path.config.autoStart).value).toBe(true);
       expect(getSetting("Auto start").textContent).toBe("On");
     });
 
@@ -176,7 +195,7 @@ describe("Controls.Controls", () => {
       const button = await waitFor(() => getSetting("Data saving"));
       expect(button.getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(button);
-      expect(form.current?.get("config.dataSavingDisabled").value).toBe(false);
+      expect(form.current?.get(path.config.dataSavingDisabled).value).toBe(false);
     });
 
     it("should leave out a setting the config does not carry", async () => {

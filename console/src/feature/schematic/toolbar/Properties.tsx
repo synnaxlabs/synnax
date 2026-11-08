@@ -28,6 +28,7 @@ import {
 import {
   box,
   color,
+  deep,
   type dimensions,
   type direction,
   location,
@@ -41,6 +42,11 @@ import { Symbol } from "@/feature/schematic/symbol";
 import { CSS } from "@/platform/css";
 import { MultiEdit } from "@/platform/multiedit";
 import { Session } from "@/session";
+
+const path = deep.path<{
+  variant: Schematic.ElementConfig["variant"];
+  specKey?: schematic.symbol.Key;
+}>();
 
 export const Properties = memo((): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();
@@ -74,15 +80,8 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
   const handleTabChange = (tab: PProperties.TabKey) =>
     sessionDispatch(Session.Schematic.setPropertiesTab({ key: schematicKey, tab }));
   const { form } = Schematic.useConfigForm({ elKey });
-  const variant = Form.useFieldValue<
-    Schematic.ElementConfig["variant"],
-    Schematic.ElementConfig["variant"],
-    typeof Schematic.elementConfigZ
-  >("variant", { ctx: form });
-  const specKey = Form.useFieldValue<string, string, typeof Schematic.elementConfigZ>(
-    "specKey",
-    { ctx: form, optional: true },
-  );
+  const variant = Form.useFieldValue(path.variant, { ctx: form });
+  const specKey = Form.useFieldValue(path.specKey, { ctx: form, optional: true });
   const isCustom = z.validate(schematic.symbol.keyZ, specKey) && specKey != null;
   const openEditModal = Symbol.Edit.useModal();
   let actions: ReactNode = null;

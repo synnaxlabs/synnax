@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -43,7 +45,7 @@ var (
 	writer     panel.Writer
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
-	parentID   ontology.ID
+	parentID   resource.ID
 	tx         gorp.Tx
 )
 
@@ -97,15 +99,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Signals:  sigs,
 	}))
 	writer = svc.NewWriter(nil)
+	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+		DB: node.DB,
+	}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
+		Password: passwordSvc,
 	}))
 	parent := MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "panel-parent"}),
 	)
-	parentID = parent.OntologyID()
+	parentID = parent.ResourceID()
 })
 
 var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

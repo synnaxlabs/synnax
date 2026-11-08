@@ -171,7 +171,7 @@ class DevicesToolbar(ConsoleCase):
         properties: dict[str, JsonValue] | None = None,
     ) -> sy.Device:
         """Create a device with auto-suffixed key/name and track for teardown."""
-        parent_id = sy.ontology.ID(type="device", key=parent) if parent else None
+        parent_id = sy.resource.ID(type="device", key=parent) if parent else None
         dev = self.client.devices.create(
             sy.Device(
                 key=f"{key}-{self.suffix}",
@@ -199,7 +199,7 @@ class DevicesToolbar(ConsoleCase):
                 model=device.model,
                 location=device.location,
                 properties=device.properties,
-                parent=sy.ontology.ID(type="device", key=target_chassis.key),
+                parent=sy.resource.ID(type="device", key=target_chassis.key),
             ),
         )
         self.console.devices.expand(target_chassis.name)
@@ -278,11 +278,9 @@ class DevicesToolbar(ConsoleCase):
         )
 
         props = self.console.devices.copy_properties("LabJack T4")
-        assert props["configured"] is True, (
-            f"Expected configured=True, got {props['configured']}"
-        )
-        assert props["name"] == "LabJack T4", (
-            f"Expected name 'LabJack T4', got '{props['name']}'"
+        assert props.configured, f"Expected configured=True, got {props.configured}"
+        assert props.name == "LabJack T4", (
+            f"Expected name 'LabJack T4', got '{props.name}'"
         )
 
         retrieved = self.client.devices.retrieve(key=dev.key)
@@ -329,9 +327,8 @@ class DevicesToolbar(ConsoleCase):
             self.ethercat_dev,
         ]:
             status = self.console.devices.get_status(dev.name)
-            assert status["variant"] == "disabled", (
-                f"Expected 'disabled' variant for '{dev.name}', "
-                f"got '{status['variant']}'"
+            assert status.variant == "disabled", (
+                f"Expected 'disabled' variant for '{dev.name}', got '{status.variant}'"
             )
 
     def test_change_identifier(self) -> None:

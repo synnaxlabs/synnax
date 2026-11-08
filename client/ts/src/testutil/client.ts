@@ -25,6 +25,8 @@ export const TEST_CLIENT_PARAMS: SynnaxParams = {
     baseInterval: TimeSpan.seconds(1),
     scale: 1.5,
   },
+  // An exhausted budget still throws, so a retry that succeeds is not a failure.
+  onRetry: () => {},
 };
 
 // A hook registered mid-test is silently dropped by vitest, so per-client afterAll

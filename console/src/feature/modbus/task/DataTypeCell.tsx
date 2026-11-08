@@ -10,10 +10,10 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Telem } from "@synnaxlabs/pluto";
-import { DataType } from "@synnaxlabs/x";
+import { DataType, deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { SHADOW_TRIGGER_PROPS } from "@/feature/modbus/task/Register";
+import { SHADOW_TRIGGER_PROPS } from "@/feature/modbus/device/Option";
 import {
   BIT_BOUNDS,
   type Channel,
@@ -22,7 +22,7 @@ import {
 import { CSS } from "@/platform/css";
 
 interface DataTypeFieldProps {
-  path: string;
+  path: deep.Target<string>;
   hideDataTypes: DataType[];
 }
 
@@ -30,8 +30,7 @@ const DataTypeField = ({
   path,
   hideDataTypes,
 }: DataTypeFieldProps): ReactElement | null => {
-  const field = Form.useField<string>(`${path}.dataType`);
-  if (field == null) return null;
+  const field = Form.useField(path);
   return (
     <Telem.SelectDataType
       value={field.value}
@@ -45,7 +44,7 @@ const DataTypeField = ({
 };
 
 interface NumberFieldProps {
-  path: string;
+  path: deep.Target<number>;
   label: string;
   bounds: { lower: number; upper: number };
   /** The shorter name in front of the number, when the cell already gives context. */
@@ -73,9 +72,17 @@ const NumberField = ({
   />
 );
 
+// Each register type holds only some of these fields.
+interface CellChannel {
+  type: Channel["type"];
+  bit?: number;
+  dataType?: string;
+  stringLength?: number;
+}
+
 export interface DataTypeCellProps {
   /** The channel's form path. */
-  path: string;
+  path: deep.Target<CellChannel>;
   channel: Channel;
   /** The data types that the task cannot use. */
   hideDataTypes: DataType[];
@@ -91,17 +98,23 @@ export const DataTypeCell = ({
   channel,
   hideDataTypes,
 }: DataTypeCellProps): ReactElement | null => {
+  const fields = deep.widen(path);
   if ("bit" in channel)
-    return <NumberField path={`${path}.bit`} label="Bit" bounds={BIT_BOUNDS} />;
+    return (
+      <NumberField path={deep.present(fields.bit)} label="Bit" bounds={BIT_BOUNDS} />
+    );
   if (!("dataType" in channel)) return null;
   return (
     <Flex.Box x align="center" className={CSS.BE("modbus", "data-type")}>
-      <DataTypeField path={path} hideDataTypes={hideDataTypes} />
+      <DataTypeField
+        path={deep.present(fields.dataType)}
+        hideDataTypes={hideDataTypes}
+      />
       {new DataType(channel.dataType).equals(DataType.STRING) && (
         <NumberField
-          path={`${path}.stringLength`}
+          path={deep.present(fields.stringLength)}
           label="String length"
-          prefix="Length"
+          prefix=""
           bounds={STRING_LENGTH_BOUNDS}
         />
       )}

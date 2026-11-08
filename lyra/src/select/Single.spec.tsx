@@ -321,6 +321,44 @@ describe("Select.Single", () => {
     });
   });
 
+  describe("end content", () => {
+    const renderEndContent = (entry: unknown) =>
+      entry == null ? undefined : `${(entry as TestEntry).key} end`;
+
+    const select = (c: ReturnType<typeof render>): void => {
+      fireEvent.click(c.getByText("Test Item"));
+      fireEvent.click(c.getByText("First Item Option"));
+    };
+
+    it("should render content from the selected entry before the caret", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ renderEndContent }} />);
+      select(c);
+      const end = c.getByText("1 end");
+      expect(end.classList).toContain("lyra-select-single-trigger__end");
+      expect(end.nextElementSibling?.classList).toContain("lyra-caret-animated");
+    });
+
+    it("should render no end content without a selection", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ renderEndContent }} />);
+      expect(c.container.querySelector(".lyra-select-single-trigger__end")).toBeNull();
+    });
+
+    it("should render no end content on an icon-only trigger", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(
+        <SelectSingle
+          icon={<Icon.Add />}
+          triggerProps={{ renderEndContent, iconOnly: true }}
+        />,
+      );
+      fireEvent.click(c.getByRole("button"));
+      fireEvent.click(c.getByText("First Item Option"));
+      expect(c.queryByText("1 end")).toBeNull();
+    });
+  });
+
   describe("clear", () => {
     const select = (c: ReturnType<typeof render>): void => {
       fireEvent.click(c.getByText("Test Item"));

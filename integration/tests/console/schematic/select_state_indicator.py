@@ -42,9 +42,9 @@ class SelectStateIndicator(ConsoleCase):
         )
 
         options = [
-            {"name": "Open", "value": 1},
-            {"name": "Closed", "value": 2},
-            {"name": "Standby", "value": 3},
+            sy.schematic.StateMapping(key="open", name="Open", value=1),
+            sy.schematic.StateMapping(key="closed", name="Closed", value=2),
+            sy.schematic.StateMapping(key="standby", name="Standby", value=3),
         ]
 
         self.log("Creating schematic")

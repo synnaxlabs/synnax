@@ -13,16 +13,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Search", func() {
-	create := func(ctx SpecContext, name string) ontology.ID {
+	create := func(ctx SpecContext, name string) resource.ID {
 		GinkgoHelper()
 		p := lineplot.LinePlot{Name: name}
 		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &p)).To(Succeed())
-		return lineplot.OntologyID(p.Key)
+		return lineplot.ResourceID(p.Key)
 	}
 
 	It(
@@ -30,10 +31,12 @@ var _ = Describe("Search", func() {
 		func(ctx SpecContext) {
 			a := create(ctx, "turbopump test")
 			b := create(ctx, "turbopump")
-			Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
-				To(Equal([]ontology.ID{b, a}))
-			Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
-				To(Equal([]ontology.ID{b}))
+			q := search.Query[resource.ID]{Term: "turbopump"}
+			Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				To(Equal([]resource.ID{b, a}))
+			q.Limit = 1
+			Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				To(Equal([]resource.ID{b}))
 		},
 	)
 
@@ -41,7 +44,8 @@ var _ = Describe("Search", func() {
 		"Should not match a staged line plot outside its transaction",
 		func(ctx SpecContext) {
 			create(ctx, "injector")
-			Expect(MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys).To(BeEmpty())
+			q := search.Query[resource.ID]{Term: "injector"}
+			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 		},
 	)
 })

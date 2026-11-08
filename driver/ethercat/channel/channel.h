@@ -159,6 +159,8 @@ struct Input final : Channel {
     synnax::channel::Key synnax_key;
     /// @brief the Synnax channel object (populated after remote lookup).
     synnax::channel::Channel ch;
+    /// @brief the scale applied to raw samples after acquisition.
+    ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
 
     Input(
         const ::synnax::ethercat::EntryReadChannel &cfg,
@@ -166,7 +168,9 @@ struct Input final : Channel {
         const x::json::Parser &parser,
         const std::string &path = ""
     ):
-        Channel(slave, true, cfg.disabled, cfg.device), synnax_key(cfg.channel) {
+        Channel(slave, true, cfg.disabled, cfg.device),
+        synnax_key(cfg.channel),
+        scale(cfg.scale) {
         this->bind_entry(cfg.index, cfg.sub_index, cfg.data_type, slave, parser, path);
     }
 
@@ -183,6 +187,11 @@ struct Input final : Channel {
     /// @brief binds remote channel information retrieved from Synnax.
     void bind_remote_info(const synnax::channel::Channel &remote_ch) {
         this->ch = remote_ch;
+    }
+
+    /// @brief whether the channel scales its raw samples.
+    [[nodiscard]] bool scaled() const {
+        return !std::holds_alternative<::synnax::task::NoneScale>(this->scale);
     }
 };
 
@@ -219,24 +228,6 @@ struct Output final : Channel {
         this->reject_unresolved(cfg.pdo, slave, parser, path);
     }
 };
-
-/// @brief the shared base fields of a parsed input channel configuration.
-inline const ::synnax::ethercat::BaseReadChannel &
-base(const ::synnax::ethercat::ReadChannel &cfg) {
-    return std::visit(
-        [](const auto &c) -> const ::synnax::ethercat::BaseReadChannel & { return c; },
-        cfg
-    );
-}
-
-/// @brief the shared base fields of a parsed output channel configuration.
-inline const ::synnax::ethercat::BaseWriteChannel &
-base(const ::synnax::ethercat::WriteChannel &cfg) {
-    return std::visit(
-        [](const auto &c) -> const ::synnax::ethercat::BaseWriteChannel & { return c; },
-        cfg
-    );
-}
 
 /// @brief constructs a runtime input channel from a parsed configuration,
 /// accumulating errors on the parser under the given path prefix.

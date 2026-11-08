@@ -40,10 +40,6 @@ In a flow, the upstream triggers are written with `{}`. The function declaration
 writes its triggers with `{}` too. Inputs use `()`, which is how a function is called
 inside a function body and how most other languages write parameters.
 
-Note: the text compiler does not implement input routing tables yet
-(`arc/go/text/analyze.go:1779`). The spec documents them (`arc/docs/spec.md:543`), and
-support is planned.
-
 The swap should be a hard change. There is no period in which both forms are valid. If
 both were valid, `func name(x f64)` would have two meanings, a trigger in the old form
 and an input in the new form, and nothing in the text says which one.

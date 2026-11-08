@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
 
 from console.schematic.symbol import Symbol
 
@@ -52,21 +51,14 @@ class OffPageReference(Symbol):
     def set_properties(
         self,
         *,
-        channel_name: str | None = None,
         page_name: str | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+    ) -> None:
         """Set off-page reference properties.
 
         Args:
-            channel_name: Unused, kept for interface compatibility.
             page_name: Name of the target schematic page to link to.
-
-        Returns:
-            Dictionary of applied properties.
         """
         self.click()
-        applied_properties: dict[str, Any] = {}
 
         self.open_properties_tab()
 
@@ -79,9 +71,6 @@ class OffPageReference(Symbol):
             page_trigger.wait_for(state="visible", timeout=5000)
             page_trigger.click()
             self.layout.select_from_dropdown(page_name)
-            applied_properties["page_name"] = page_name
-
-        return applied_properties
 
     def double_click(self) -> None:
         """Double-click the off-page reference to navigate to the linked page.

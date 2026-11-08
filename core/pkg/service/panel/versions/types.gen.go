@@ -30,7 +30,11 @@ type View = v2.View
 // (name, icon, closability) are resolved at render time from the content. A resource
 // may back at most one tab per panel; views may repeat.
 type Tab = v2.Tab
+
+// TabVariant is implemented by every Tab variant.
 type TabVariant = v2.TabVariant
+
+// TabType is the "variant" value that selects a variant of Tab.
 type TabType = v2.TabType
 
 const (
@@ -55,7 +59,11 @@ type ViewTab = v2.ViewTab
 // split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
 // 2k = first child, 2k+1 = last child).
 type Node = v2.Node
+
+// NodeVariant is implemented by every Node variant.
 type NodeVariant = v2.NodeVariant
+
+// NodeType is the "variant" value that selects a variant of Node.
 type NodeType = v2.NodeType
 
 const (

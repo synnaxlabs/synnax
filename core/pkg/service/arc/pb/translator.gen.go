@@ -14,34 +14,366 @@ package pb
 import (
 	"uuid"
 
+	"github.com/samber/lo"
 	graphpb "github.com/synnaxlabs/arc/graph/pb"
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
+	filterpb "github.com/synnaxlabs/x/filter/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 )
 
-// ArcToPB converts Arc to Arc.
-func ArcToPB(r arc.Arc) (*Arc, error) {
-	modeVal, err := ModeToPB(r.Mode)
+// BaseToPB converts Base to Base.
+func BaseToPB(r arc.Base) (*Base, error) {
+	sourceVal, err := SourceToPB(r.Source)
 	if err != nil {
 		return nil, err
 	}
-	graphVal, err := graphpb.GraphToPB(r.Graph)
-	if err != nil {
-		return nil, err
+	pb := &Base{
+		Name:   r.Name,
+		Key:    r.Key.String(),
+		Source: sourceVal,
 	}
+	return pb, nil
+}
+
+// BaseFromPB converts Base to Base.
+func BaseFromPB(pb *Base) (arc.Base, error) {
+	var r arc.Base
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Key, err = uuid.Parse(pb.Key)
+	if err != nil {
+		return arc.Base{}, err
+	}
+	r.Source, err = SourceFromPB(pb.Source)
+	if err != nil {
+		return arc.Base{}, err
+	}
+	r.Name = pb.Name
+	return r, nil
+}
+
+// BasesToPB converts a slice of Base to Base.
+func BasesToPB(rs []arc.Base) ([]*Base, error) {
+	result := make([]*Base, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = BaseToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// BasesFromPB converts a slice of Base to Base.
+func BasesFromPB(pbs []*Base) ([]arc.Base, error) {
+	result := make([]arc.Base, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = BaseFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UuidSetToPB converts filter.Set[uuid.UUID] to UuidSet.
+func UuidSetToPB(r filter.Set[uuid.UUID]) (*UuidSet, error) {
+	pb := &UuidSet{}
+	if r.Eq != nil {
+		v := r.Eq.String()
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &UuidList{Values: lo.Map(r.In, func(u uuid.UUID, _ int) string { return uuid.UUID(u).String() })}
+	}
+	return pb, nil
+}
+
+// UuidSetFromPB converts UuidSet to filter.Set[uuid.UUID].
+func UuidSetFromPB(pb *UuidSet) (filter.Set[uuid.UUID], error) {
+	var r filter.Set[uuid.UUID]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v, err := uuid.Parse(*pb.Eq)
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		vals, err := func() ([]uuid.UUID, error) {
+			result := make([]uuid.UUID, len(pb.In.Values))
+			for i, s := range pb.In.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = uuid.UUID(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.In = xpb.ListValues(vals)
+	}
+	return r, nil
+}
+
+// UuidSetsToPB converts a slice of filter.Set[uuid.UUID] to UuidSet.
+func UuidSetsToPB(rs []filter.Set[uuid.UUID]) ([]*UuidSet, error) {
+	result := make([]*UuidSet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = UuidSetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UuidSetsFromPB converts a slice of UuidSet to filter.Set[uuid.UUID].
+func UuidSetsFromPB(pbs []*UuidSet) ([]filter.Set[uuid.UUID], error) {
+	result := make([]filter.Set[uuid.UUID], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = UuidSetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WhereToPB converts Where to Where.
+func WhereToPB(r arc.Where) (*Where, error) {
+	pb := &Where{}
+	if r.And != nil {
+		vals, err := WheresToPB(r.And)
+		if err != nil {
+			return nil, err
+		}
+		pb.And = &WhereList{Values: vals}
+	}
+	if r.Or != nil {
+		vals, err := WheresToPB(r.Or)
+		if err != nil {
+			return nil, err
+		}
+		pb.Or = &WhereList{Values: vals}
+	}
+	if r.Not != nil {
+		var err error
+		pb.Not, err = WhereToPB(*r.Not)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Key != nil {
+		var err error
+		pb.Key, err = UuidSetToPB(*r.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Name != nil {
+		var err error
+		pb.Name, err = filterpb.StringToPB(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// WhereFromPB converts Where to Where.
+func WhereFromPB(pb *Where) (arc.Where, error) {
+	var r arc.Where
+	if pb == nil {
+		return r, nil
+	}
+	if pb.And != nil {
+		vals, err := WheresFromPB(pb.And.Values)
+		if err != nil {
+			return arc.Where{}, err
+		}
+		r.And = xpb.ListValues(vals)
+	}
+	if pb.Or != nil {
+		vals, err := WheresFromPB(pb.Or.Values)
+		if err != nil {
+			return arc.Where{}, err
+		}
+		r.Or = xpb.ListValues(vals)
+	}
+	if pb.Not != nil {
+		val, err := WhereFromPB(pb.Not)
+		if err != nil {
+			return arc.Where{}, err
+		}
+		r.Not = &val
+	}
+	if pb.Key != nil {
+		val, err := UuidSetFromPB(pb.Key)
+		if err != nil {
+			return arc.Where{}, err
+		}
+		r.Key = &val
+	}
+	if pb.Name != nil {
+		val, err := filterpb.StringFromPB(pb.Name)
+		if err != nil {
+			return arc.Where{}, err
+		}
+		r.Name = &val
+	}
+	return r, nil
+}
+
+// WheresToPB converts a slice of Where to Where.
+func WheresToPB(rs []arc.Where) ([]*Where, error) {
+	result := make([]*Where, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = WhereToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WheresFromPB converts a slice of Where to Where.
+func WheresFromPB(pbs []*Where) ([]arc.Where, error) {
+	result := make([]arc.Where, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = WhereFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TextSourceToPB converts TextSource to SourceTextPayload.
+func TextSourceToPB(r arc.TextSource) (*SourceTextPayload, error) {
 	textVal, err := textpb.TextToPB(r.Text)
 	if err != nil {
 		return nil, err
 	}
-	pb := &Arc{
-		Name:  r.Name,
-		Key:   r.Key.String(),
-		Mode:  modeVal,
-		Graph: graphVal,
-		Text:  textVal,
+	pb := &SourceTextPayload{
+		Text: textVal,
 	}
+	return pb, nil
+}
+
+// TextSourceFromPB converts SourceTextPayload to TextSource.
+func TextSourceFromPB(pb *SourceTextPayload) (arc.TextSource, error) {
+	var r arc.TextSource
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Text, err = textpb.TextFromPB(pb.Text)
+	if err != nil {
+		return arc.TextSource{}, err
+	}
+	return r, nil
+}
+
+// TextSourcesToPB converts a slice of TextSource to SourceTextPayload.
+func TextSourcesToPB(rs []arc.TextSource) ([]*SourceTextPayload, error) {
+	result := make([]*SourceTextPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TextSourceToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TextSourcesFromPB converts a slice of SourceTextPayload to TextSource.
+func TextSourcesFromPB(pbs []*SourceTextPayload) ([]arc.TextSource, error) {
+	result := make([]arc.TextSource, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TextSourceFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// GraphSourceToPB converts GraphSource to SourceGraphPayload.
+func GraphSourceToPB(r arc.GraphSource) (*SourceGraphPayload, error) {
+	graphVal, err := graphpb.GraphToPB(r.Graph)
+	if err != nil {
+		return nil, err
+	}
+	pb := &SourceGraphPayload{
+		Graph: graphVal,
+	}
+	return pb, nil
+}
+
+// GraphSourceFromPB converts SourceGraphPayload to GraphSource.
+func GraphSourceFromPB(pb *SourceGraphPayload) (arc.GraphSource, error) {
+	var r arc.GraphSource
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Graph, err = graphpb.GraphFromPB(pb.Graph)
+	if err != nil {
+		return arc.GraphSource{}, err
+	}
+	return r, nil
+}
+
+// GraphSourcesToPB converts a slice of GraphSource to SourceGraphPayload.
+func GraphSourcesToPB(rs []arc.GraphSource) ([]*SourceGraphPayload, error) {
+	result := make([]*SourceGraphPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = GraphSourceToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// GraphSourcesFromPB converts a slice of SourceGraphPayload to GraphSource.
+func GraphSourcesFromPB(pbs []*SourceGraphPayload) ([]arc.GraphSource, error) {
+	result := make([]arc.GraphSource, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = GraphSourceFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AutomationArcToPB converts AutomationArc to ArcAutomationPayload.
+func AutomationArcToPB(r arc.AutomationArc) (*ArcAutomationPayload, error) {
+	pb := &ArcAutomationPayload{}
 	if r.Program != nil {
 		var err error
 		pb.Program, err = programpb.ProgramToPB(*r.Program)
@@ -52,36 +384,227 @@ func ArcToPB(r arc.Arc) (*Arc, error) {
 	return pb, nil
 }
 
+// AutomationArcFromPB converts ArcAutomationPayload to AutomationArc.
+func AutomationArcFromPB(pb *ArcAutomationPayload) (arc.AutomationArc, error) {
+	var r arc.AutomationArc
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Program != nil {
+		val, err := programpb.ProgramFromPB(pb.Program)
+		if err != nil {
+			return arc.AutomationArc{}, err
+		}
+		r.Program = &val
+	}
+	return r, nil
+}
+
+// AutomationArcsToPB converts a slice of AutomationArc to ArcAutomationPayload.
+func AutomationArcsToPB(rs []arc.AutomationArc) ([]*ArcAutomationPayload, error) {
+	result := make([]*ArcAutomationPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = AutomationArcToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AutomationArcsFromPB converts a slice of ArcAutomationPayload to AutomationArc.
+func AutomationArcsFromPB(pbs []*ArcAutomationPayload) ([]arc.AutomationArc, error) {
+	result := make([]arc.AutomationArc, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = AutomationArcFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ModuleArcToPB converts ModuleArc to ArcModulePayload.
+func ModuleArcToPB(r arc.ModuleArc) (*ArcModulePayload, error) {
+	pb := &ArcModulePayload{}
+	return pb, nil
+}
+
+// ModuleArcFromPB converts ArcModulePayload to ModuleArc.
+func ModuleArcFromPB(pb *ArcModulePayload) (arc.ModuleArc, error) {
+	var r arc.ModuleArc
+	if pb == nil {
+		return r, nil
+	}
+	return r, nil
+}
+
+// ModuleArcsToPB converts a slice of ModuleArc to ArcModulePayload.
+func ModuleArcsToPB(rs []arc.ModuleArc) ([]*ArcModulePayload, error) {
+	result := make([]*ArcModulePayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ModuleArcToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ModuleArcsFromPB converts a slice of ArcModulePayload to ModuleArc.
+func ModuleArcsFromPB(pbs []*ArcModulePayload) ([]arc.ModuleArc, error) {
+	result := make([]arc.ModuleArc, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ModuleArcFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SourceToPB converts Source to Source.
+func SourceToPB(r arc.Source) (*Source, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &Source{}
+	switch v := r.Variant.(type) {
+	case arc.TextSource:
+		inner, err := TextSourceToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Source_Text{Text: inner}
+	case arc.GraphSource:
+		inner, err := GraphSourceToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Source_Graph{Graph: inner}
+	default:
+		return nil, errors.Newf("Source: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// SourceFromPB converts Source to Source.
+func SourceFromPB(pb *Source) (arc.Source, error) {
+	var r arc.Source
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+	case *Source_Text:
+		inner, err := TextSourceFromPB(v.Text)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	case *Source_Graph:
+		inner, err := GraphSourceFromPB(v.Graph)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	}
+	return r, nil
+}
+
+// SourcesToPB converts a slice of Source to Source.
+func SourcesToPB(rs []arc.Source) ([]*Source, error) {
+	result := make([]*Source, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = SourceToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SourcesFromPB converts a slice of Source to Source.
+func SourcesFromPB(pbs []*Source) ([]arc.Source, error) {
+	result := make([]arc.Source, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = SourceFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ArcToPB converts Arc to Arc.
+func ArcToPB(r arc.Arc) (*Arc, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &Arc{}
+	switch v := r.Variant.(type) {
+	case arc.AutomationArc:
+		inner, err := AutomationArcToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Base, err = BaseToPB(v.Base)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Arc_Automation{Automation: inner}
+	case arc.ModuleArc:
+		inner, err := ModuleArcToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Base, err = BaseToPB(v.Base)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Arc_Module{Module: inner}
+	default:
+		return nil, errors.Newf("Arc: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
 // ArcFromPB converts Arc to Arc.
 func ArcFromPB(pb *Arc) (arc.Arc, error) {
 	var r arc.Arc
 	if pb == nil {
 		return r, nil
 	}
-	var err error
-	r.Key, err = uuid.Parse(pb.Key)
-	if err != nil {
-		return arc.Arc{}, err
-	}
-	r.Mode, err = ModeFromPB(pb.Mode)
-	if err != nil {
-		return arc.Arc{}, err
-	}
-	r.Graph, err = graphpb.GraphFromPB(pb.Graph)
-	if err != nil {
-		return arc.Arc{}, err
-	}
-	r.Text, err = textpb.TextFromPB(pb.Text)
-	if err != nil {
-		return arc.Arc{}, err
-	}
-	r.Name = pb.Name
-	if pb.Program != nil {
-		val, err := programpb.ProgramFromPB(pb.Program)
+	switch v := pb.Variant.(type) {
+	case *Arc_Automation:
+		inner, err := AutomationArcFromPB(v.Automation)
 		if err != nil {
-			return arc.Arc{}, err
+			return r, err
 		}
-		r.Program = &val
+		m := inner
+		m.Base, err = BaseFromPB(pb.Base)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = m
+	case *Arc_Module:
+		inner, err := ModuleArcFromPB(v.Module)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		m.Base, err = BaseFromPB(pb.Base)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = m
 	}
 	return r, nil
 }
@@ -133,5 +656,29 @@ func ModeFromPB(v Mode) (arc.Mode, error) {
 		return arc.ModeGraph, nil
 	default:
 		return arc.Mode(""), errors.Newf("unrecognized Mode value: %v", v)
+	}
+}
+
+// TypeToPB converts arc.Type to Type.
+func TypeToPB(v arc.Type) (Type, error) {
+	switch v {
+	case arc.TypeAutomation:
+		return Type_TYPE_AUTOMATION, nil
+	case arc.TypeModule:
+		return Type_TYPE_MODULE, nil
+	default:
+		return 0, errors.Newf("unrecognized arc.Type value: %v", v)
+	}
+}
+
+// TypeFromPB converts Type to arc.Type.
+func TypeFromPB(v Type) (arc.Type, error) {
+	switch v {
+	case Type_TYPE_AUTOMATION:
+		return arc.TypeAutomation, nil
+	case Type_TYPE_MODULE:
+		return arc.TypeModule, nil
+	default:
+		return arc.Type(""), errors.Newf("unrecognized Type value: %v", v)
 	}
 }

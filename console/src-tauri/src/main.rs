@@ -56,6 +56,8 @@ fn main() {
         supervisor::commands::supervisor_diagnostics,
         supervisor::commands::supervisor_log_tail,
         supervisor::commands::supervisor_export_diagnostics,
+        supervisor::commands::supervisor_api_key,
+        supervisor::commands::supervisor_save_api_key,
         install::install_info,
     ]);
     builder

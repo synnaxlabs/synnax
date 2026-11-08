@@ -10,16 +10,16 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type ontology } from "@/ontology";
 import { panel } from "@/panel";
 import { type query } from "@/query";
+import { type resource } from "@/resource";
 import { createPanelParent, createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
 describe("Panel Client", () => {
   // Panel creation requires a parent; every panel here shares this one.
-  let parent: ontology.ID;
+  let parent: resource.ID;
 
   beforeAll(async () => {
     parent = await createPanelParent(client);
@@ -27,6 +27,36 @@ describe("Panel Client", () => {
 
   const createPanel = async (): Promise<panel.Panel> =>
     await client.panels.create({ name: `panel-${id.create()}`, parent });
+
+  describe("retrieve", () => {
+    it("should combine a parent scope with a where", async () => {
+      const scope = await createPanelParent(client);
+      const [kept] = await client.panels.create([
+        { name: `panel-${id.create()}`, parent: scope },
+        { name: `panel-${id.create()}`, parent: scope },
+      ]);
+      const outsider = await createPanel();
+      const retrieved = await client.panels.retrieve({
+        parent: scope,
+        where: { key: { in: [kept.key, outsider.key] } },
+      });
+      expect(retrieved.map((p) => p.key)).toEqual([kept.key]);
+    });
+
+    it("should combine a parent scope with a flat filter", async () => {
+      const scope = await createPanelParent(client);
+      const [kept] = await client.panels.create([
+        { name: `panel-${id.create()}`, parent: scope },
+        { name: `panel-${id.create()}`, parent: scope },
+      ]);
+      const outsider = await createPanel();
+      const retrieved = await client.panels.retrieve({
+        parent: scope,
+        key: [kept.key, outsider.key],
+      });
+      expect(retrieved.map((p) => p.key)).toEqual([kept.key]);
+    });
+  });
 
   describe("optimistic rename", () => {
     const WRITE_FAILED = new Error("write failed");
@@ -55,7 +85,7 @@ describe("Panel Client", () => {
 
     it("should restore the ontology resource name when the write fails", async () => {
       const pan = await createPanel();
-      const panelID = panel.ontologyID(pan.key);
+      const panelID = panel.resourceID(pan.key);
       await client.ontology.retrieve(panelID);
       await expect(
         client.panels.rename(pan.key, "renamed", { onOptimistic: fail }),

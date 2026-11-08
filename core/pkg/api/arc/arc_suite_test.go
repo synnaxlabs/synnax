@@ -15,6 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -33,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -52,6 +55,7 @@ var (
 	db       *gorp.DB
 	otg      *ontology.Ontology
 	rbacSvc  *rbac.Service
+	groupSvc *group.Service
 	arcSvc   *arc.Service
 	apiSvc   *apiarc.Service
 	author   user.User
@@ -64,7 +68,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
@@ -122,6 +126,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
+		Password: passwordSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -156,9 +161,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // a grant cannot leak into later randomized specs.
 func grantOn(
 	ctx SpecContext,
-	subject ontology.ID,
+	subject resource.ID,
 	action access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
@@ -181,7 +186,23 @@ func grantOn(
 	})
 }
 
-func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
+}
+
+// textOf returns the text of the text-mode Arc b, failing the spec otherwise.
+func textOf(b arc.Base) text.Text {
+	GinkgoHelper()
+	src, ok := b.Source.Variant.(arc.TextSource)
+	Expect(ok).To(BeTrue(), "expected a text source, got %T", b.Source.Variant)
+	return src.Text
+}
+
+// graphOf returns the graph of the graph-mode Arc b, failing the spec otherwise.
+func graphOf(b arc.Base) graph.Graph {
+	GinkgoHelper()
+	src, ok := b.Source.Variant.(arc.GraphSource)
+	Expect(ok).To(BeTrue(), "expected a graph source, got %T", b.Source.Variant)
+	return src.Graph
 }

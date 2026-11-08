@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -84,7 +84,7 @@ type (
 	CreateRequest struct {
 		// Parent is the resource to attach the symbols to. A zero value leaves them
 		// unattached.
-		Parent ontology.ID `json:"parent" msgpack:"parent"`
+		Parent resource.ID `json:"parent" msgpack:"parent"`
 		// Symbols are the symbols to create. The Core mints a key for each.
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
@@ -106,7 +106,7 @@ func (s *Service) Create(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeSchematicSymbol}},
+		Objects: []resource.ID{{Type: resource.TypeSchematicSymbol}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -114,7 +114,7 @@ func (s *Service) Create(
 		if err := enforcer.Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{req.Parent},
+			Objects: []resource.ID{req.Parent},
 		}); err != nil {
 			return CreateResponse{}, err
 		}
@@ -126,43 +126,24 @@ func (s *Service) Create(
 	return CreateResponse{Symbols: req.Symbols}, nil
 }
 
-type (
-	// RetrieveRequest filters symbols by key, by search term, or by both. An empty
-	// request matches every symbol.
-	RetrieveRequest struct {
-		// SearchTerm fuzzy-matches symbol names. Empty applies no name filter.
-		SearchTerm string `json:"search_term" msgpack:"search_term"`
-		// Keys narrows the query to these symbols. Empty applies no key filter.
-		Keys []symbol.Key `json:"keys" msgpack:"keys"`
-	}
-	// RetrieveResponse carries the matched symbols.
-	RetrieveResponse struct {
-		// Symbols are the matched symbols.
-		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
-	}
-)
-
-// Retrieve returns the symbols matching req. It requires retrieve access on every
-// match.
+// Retrieve returns the symbols that the request selects. It requires retrieve access
+// on every match.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve()
-	if len(req.Keys) > 0 {
-		q = q.Where(symbol.MatchKeys(req.Keys...))
-	}
-	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
-	}
 	var res RetrieveResponse
-	if err := q.Entries(&res.Symbols).Exec(ctx, nil); err != nil {
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Symbols))
+	if err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: symbol.OntologyIDsFromSymbols(res.Symbols),
+		Objects: symbol.ResourceIDsFromSymbols(res.Symbols),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -186,7 +167,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{symbol.OntologyID(req.Key)},
+		Objects: []resource.ID{symbol.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -208,7 +189,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: symbol.OntologyIDs(req.Keys),
+		Objects: symbol.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -233,7 +214,7 @@ func (s *Service) RetrieveGroup(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{g.OntologyID()},
+		Objects: []resource.ID{g.ResourceID()},
 	}); err != nil {
 		return RetrieveGroupResponse{}, err
 	}
@@ -272,7 +253,7 @@ func (s *Service) ExportGroup(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
+		Objects: []resource.ID{group.ResourceID(req.Key)},
 	}); err != nil {
 		return nil, err
 	}
@@ -316,9 +297,9 @@ func (s *Service) ImportGroup(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{
-			{Type: ontology.ResourceTypeGroup},
-			{Type: ontology.ResourceTypeSchematicSymbol},
+		Objects: []resource.ID{
+			{Type: resource.TypeGroup},
+			{Type: resource.TypeSchematicSymbol},
 		},
 	}); err != nil {
 		return ImportGroupResponse{}, err
@@ -326,7 +307,7 @@ func (s *Service) ImportGroup(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{s.internal.Group().OntologyID()},
+		Objects: []resource.ID{s.internal.Group().ResourceID()},
 	}); err != nil {
 		return ImportGroupResponse{}, err
 	}
@@ -358,7 +339,7 @@ func (s *Service) DeleteGroup(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionDelete,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
+		Objects: []resource.ID{group.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}

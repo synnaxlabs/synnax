@@ -19,28 +19,53 @@ from synnax.channel.retrieve import retrieve_required as retrieve_required_chann
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
 from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K
-from synnax.telem import CrudeSeries, DataType, Series
+from synnax.telem import CrudeSeries, DataType, LimitReduction, Reduction, Series
 
 
 class ReadFrameAdapter:
+    _aligned: bool
+    _limited: bool
+    _timestamps_included: bool
     _by_name: bool
     _names: dict[channel.Key, str]
+    _indexes: dict[channel.Key, channel.Key]
     _rank: dict[channel.Key | str, int]
     retriever: ChannelRetriever
     keys: list[channel.Key]
     codec: Codec
 
-    def __init__(self, retriever: ChannelRetriever):
+    def __init__(
+        self,
+        retriever: ChannelRetriever,
+        *,
+        reduction: Reduction | None = None,
+        timestamps_included: bool = False,
+    ):
+        """
+        :param timestamps_included: Also reads the index channel of each requested
+            channel that the request leaves out. Frames hold the index series after
+            the requested ones.
+        """
         self.retriever = retriever
+        # A min_max reduction picks the extremes of each channel on its own, so a data
+        # sample does not keep the time of the index sample at its position.
+        self._aligned = not (
+            isinstance(reduction, LimitReduction) and reduction.aggregation == "min_max"
+        )
+        self._limited = isinstance(reduction, LimitReduction)
+        self._timestamps_included = timestamps_included
         self._by_name = False
         self._names = {}
+        self._indexes = {}
         self._rank = {}
         self.keys = []
         self.codec = Codec()
 
     def update(self, channels: channel.Params) -> None:
         normal = channel.normalize_params(channels)
-        fetched = self.retriever.retrieve(normal.channels)
+        fetched = retrieve_required_channel(self.retriever, normal.channels)
+        if self._timestamps_included:
+            fetched += self._retrieve_missing_indexes(fetched)
         new_keys = [ch.key for ch in fetched]
         # The Core counts every update that carries keys, and both sides must agree on
         # the sequence number of each codec state.
@@ -49,25 +74,44 @@ class ReadFrameAdapter:
                 keys=new_keys, data_types=[ch.data_type for ch in fetched]
             )
         self._names = {ch.key: ch.name for ch in fetched}
+        self._indexes = {
+            ch.key: ch.key if ch.is_index else ch.index
+            for ch in fetched
+            if self._time_indexed(ch) and (ch.is_index or ch.index != 0)
+        }
         self._by_name = isinstance(normal, channel.NormalizedNameResult)
         if isinstance(normal, channel.NormalizedKeyResult):
             self.keys = list(normal.channels)
         else:
             keys_by_name = {name: key for key, name in self._names.items()}
-            for name in normal.channels:
-                if name not in keys_by_name:
-                    raise KeyError(f"Channel {name} not found.")
             self.keys = [keys_by_name[name] for name in normal.channels]
+        self.keys += [ch.key for ch in fetched if ch.key not in self.keys]
         self._rank = {}
         for i, key in enumerate(self.keys):
             self._rank.setdefault(key, i)
-            if key in self._names:
-                self._rank.setdefault(self._names[key], i)
+            self._rank.setdefault(self._names[key], i)
+
+    def _time_indexed(self, ch: channel.Payload) -> bool:
+        # A limit reduces the index but keeps every sample of a non-numeric channel.
+        return self._aligned and not (self._limited and not ch.data_type.has_np)
+
+    def _retrieve_missing_indexes(
+        self, fetched: list[channel.Payload]
+    ) -> list[channel.Payload]:
+        present = {ch.key for ch in fetched}
+        missing = {
+            ch.index: None
+            for ch in fetched
+            if self._time_indexed(ch) and ch.index != 0 and ch.index not in present
+        }
+        if len(missing) == 0:
+            return []
+        return self.retriever.retrieve(list(missing))
 
     def adapt(self, fr: Frame) -> Frame:
         """Sorts the frame's series into the order of the requested channels and
-        records the channel names in the frame. When the channels were requested by
-        name, the frame is keyed by name.
+        records the channel names and indexes in the frame. When the channels were
+        requested by name, the frame is keyed by name.
         """
         # The Core can send channels the client has not adapted yet, so purge them.
         items = sorted(
@@ -80,6 +124,7 @@ class ReadFrameAdapter:
         ]
         fr.series = [s for _, s in items]
         fr.names.update(self._names)
+        fr.indexes.update(self._indexes)
         return fr
 
 
