@@ -87,9 +87,11 @@ var _ = Describe("Writer", func() {
 		It("Should refuse a hash proven against a password that changed", func(
 			ctx SpecContext,
 		) {
-			stale := MustSucceed(svc.HashProven(ctx, auth.PasswordProof{
-				Credentials: auth.Credentials{Username: name, Password: "p"},
-			}, "stale"))
+			stale := MustSucceed(svc.HashProven(
+				ctx,
+				auth.PasswordProof{Username: name, Password: "p"},
+				"stale",
+			))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).ChangePassword(ctx, alice, hash(svc, "q"))
 			})).To(Succeed())
@@ -117,9 +119,11 @@ var _ = Describe("Writer", func() {
 		It("Should refuse a hash proven against a password that changed", func(
 			ctx SpecContext,
 		) {
-			stale := MustSucceed(svc.HashProven(ctx, auth.PasswordProof{
-				Credentials: auth.Credentials{Username: name, Password: "p"},
-			}, "stale"))
+			stale := MustSucceed(svc.HashProven(
+				ctx,
+				auth.PasswordProof{Username: name, Password: "p"},
+				"stale",
+			))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).ChangePassword(ctx, alice, hash(svc, "q"))
 			})).To(Succeed())
