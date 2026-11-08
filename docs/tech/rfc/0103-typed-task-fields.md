@@ -218,13 +218,15 @@ Migration clamps a stored magnitude, so a task the user wrote keeps running: bel
 minimum becomes the minimum, or 0 with none, above the maximum becomes the maximum, and
 a fraction truncates, as the Driver's cast does. It logs the task, field, old value, and
 new value. An identifier (NI `port` and `line`, LabJack `neg_chan`) never clamps,
-because a clamped one picks a channel the user did not choose. Out of range, the
-integration's store migration sets it to its minimum, disables its channel, and creates
-a warning in the status list under its own key, naming the task, channel, and old value.
-The Driver never writes that key, so the notice lasts. The store migration gets the
-Status service injected, as `NewReadMigrations` gets channels in §7. Boot succeeds, and
-the task runs its other channels. A `neg_chan` of 199 and a backlog count of 0 become
-absent. Each migration phase tests a clamp at both bounds and a disabled identifier.
+because a clamped one picks a channel the user did not choose. Out of range, the pure
+channel migration sets it to its minimum, disables its channel, and returns the old
+value, so the store migration, `Normalize`, and imports share the rule. Each caller gets
+the Status service injected and writes a warning naming the channel and old value, keyed
+by the task's ontology ID plus `/migration`, under the task with `SetWithParent`. The
+Driver never writes that key, deleting the task removes it, and saving the task clears
+it. Boot succeeds, and the task runs its other channels. A `neg_chan` of 199 and a
+backlog count of 0 become absent. Each migration phase tests a clamp at both bounds and
+a disabled identifier.
 
 LabJack v2 shipped, so LabJack gets v3. NI v3 has not shipped, so NI changes it in place
 if it lands before a release, or else adds v4. Kafka v0 changes in place in Phase 7.
