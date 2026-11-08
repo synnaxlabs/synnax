@@ -223,7 +223,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	res := RetrieveResponse{Statuses: []status.Status[any]{}}
-	q, err := req.Apply(s.internal.NewRetrieve[any]().Entries(&res.Statuses))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve[any]().Entries(&res.Statuses))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
