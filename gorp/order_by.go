@@ -37,8 +37,9 @@ type OrderQuery[K Key, E Entry[K]] interface {
 	// batch keys from the index at a time, or every key at once when batch is 0. A
 	// non-nil keys limits the walk to those keys.
 	walk(keys []K, batch int) iter.Seq2[K, func(e *E) bool]
-	// sort orders entries by the values they hold now, in the walk direction.
-	sort(entries []E)
+	// sort orders entries by the values they hold now, in the walk direction, and drops
+	// each entry that is not strictly past the walk's cursor.
+	sort(entries []E) []E
 }
 
 // SortedQuery is the handle returned by SortedIndex.Ordered. Pass it to
@@ -103,16 +104,31 @@ func (q SortedQuery[K, E, V]) walk(keys []K, batch int) iter.Seq2[K, func(e *E) 
 }
 
 //nolint:unused
-func (q SortedQuery[K, E, V]) sort(entries []E) {
+func (q SortedQuery[K, E, V]) sort(entries []E) []E {
 	compareKeys := key.Order[K]()
-	slices.SortFunc(entries, func(a, b E) int {
-		c := cmp.Compare(q.sorted.extract(&a), q.sorted.extract(&b))
+	compare := func(a, b index.Entry[K, V]) int {
+		c := cmp.Compare(a.Value, b.Value)
 		if c == 0 {
-			c = compareKeys(a.GorpKey(), b.GorpKey())
+			c = compareKeys(a.Key, b.Key)
 		}
 		if q.dir == DirectionDesc {
 			return -c
 		}
 		return c
-	})
+	}
+	at := func(e *E) index.Entry[K, V] {
+		return index.Entry[K, V]{Key: (*e).GorpKey(), Value: q.sorted.extract(e)}
+	}
+	slices.SortFunc(entries, func(a, b E) int { return compare(at(&a), at(&b)) })
+	if q.after == nil {
+		return entries
+	}
+	past := slices.IndexFunc(
+		entries,
+		func(e E) bool { return compare(at(&e), *q.after) > 0 },
+	)
+	if past == -1 {
+		return entries[:0]
+	}
+	return entries[past:]
 }
