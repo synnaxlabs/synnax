@@ -21,6 +21,7 @@
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/igh/master.h"
 #include "driver/ethercat/igh/mock_api.h"
+#include "driver/ethercat/master/contract.h"
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::igh {
@@ -760,4 +761,31 @@ TEST_F(IGHMasterTest, DeactivateDoesNothingBeforeScan) {
     this->master.deactivate();
     EXPECT_FALSE(this->api->released);
 }
+namespace {
+/// @brief an IgH master on its mock for the master contract.
+class Bus {
+    std::shared_ptr<MockAPI> api = std::make_shared<MockAPI>();
+    Master m{this->api, 0, {.clock = x::loop::fake_clock()}};
+
+public:
+    Master &master() { return this->m; }
+
+    void add_slave() {
+        const auto name = "Slave " + std::to_string(this->api->slaves.size() + 1);
+        this->api->add_slave(name).syncs = {
+            {EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x01, 16}}}}},
+        };
+    }
+
+    void refuse(const uint16_t position) {
+        auto &slave = this->api->slaves[position - 1];
+        slave.reaches = EC_AL_STATE_PREOP;
+        slave.refuses = true;
+    }
+};
+}
+}
+
+namespace driver::ethercat::master::contract {
+INSTANTIATE_TYPED_TEST_SUITE_P(IgH, Contract, igh::Bus);
 }

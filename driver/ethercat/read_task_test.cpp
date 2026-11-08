@@ -586,8 +586,8 @@ TEST_F(EtherCATReadTest, StartAppliesSavedSlaveSettingsOnTheNetwork) {
     synnax::task::Command start{.task = task.key, .type = "start"};
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
-    EXPECT_FALSE(this->mock_master->slave_enabled(1));
-    EXPECT_TRUE(this->mock_master->slave_enabled(2));
+    EXPECT_FALSE(this->mock_master->config(1).enabled);
+    EXPECT_TRUE(this->mock_master->config(2).enabled);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     read_task->exec(stop);
 }
@@ -619,7 +619,7 @@ TEST_F(EtherCATReadTest, StartRunsTheModeChosenOnASavedDevice) {
     synnax::task::Command start{.task = task.key, .type = "start"};
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
-    EXPECT_EQ(this->mock_master->chosen_mode(1), choice);
+    EXPECT_EQ(this->mock_master->config(1).op_mode, choice);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     read_task->exec(stop);
 }
@@ -653,7 +653,7 @@ TEST_F(EtherCATReadTest, StartPassesTheStartupParametersOfASavedDevice) {
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
     EXPECT_EQ(
-        this->mock_master->startup_parameters(1),
+        this->mock_master->config(1).startup_parameters,
         (std::vector<slave::StartupParameter>{{
             .index = 0x8000,
             .sub_index = 0x15,
@@ -689,12 +689,12 @@ TEST_F(EtherCATReadTest, StartDropsTheSettingsOfADeletedDevice) {
     synnax::task::Command start{.task = task.key, .type = "start"};
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     read_task->exec(start);
-    ASSERT_FALSE(this->mock_master->slave_enabled(1));
+    ASSERT_FALSE(this->mock_master->config(1).enabled);
     read_task->exec(stop);
     ASSERT_NIL(this->client->devices.del(saved.key));
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
-    EXPECT_TRUE(this->mock_master->slave_enabled(1));
+    EXPECT_TRUE(this->mock_master->config(1).enabled);
     read_task->exec(stop);
 }
 
@@ -810,7 +810,7 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
     ASSERT_NIL(this->client->devices.create(replacement));
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
-    EXPECT_FALSE(this->mock_master->slave_enabled(1));
+    EXPECT_FALSE(this->mock_master->config(1).enabled);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     read_task->exec(stop);
 }

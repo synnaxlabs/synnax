@@ -287,7 +287,7 @@ TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
     );
     for (int i = 0; i < 7; ++i)
         this->scan();
-    EXPECT_EQ(this->master->scan_call_count(), 2);
+    EXPECT_EQ(this->master->call_count("scan"), 2);
 }
 
 /// @brief it should return a partial scan error for an interface it cannot open, then

@@ -26,6 +26,7 @@
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
+#include "driver/ethercat/master/contract.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/soem/mock_api.h"
 
@@ -2501,4 +2502,59 @@ TEST_F(SOEMMasterTest, ActivateClearsStartupFailureFromRecovery) {
     this->master->check(this->brk);
     EXPECT_EQ(this->mock->reconfigured_slaves, (std::vector<uint16_t>{1, 1}));
 }
+
+namespace {
+/// @brief a SOEM master on its mock for the master contract.
+class Bus {
+    MockAPI *api;
+    Master m;
+
+    explicit Bus(std::unique_ptr<MockAPI> api):
+        api(api.get()),
+        m(std::move(api),
+          "eth0",
+          {
+              .pre_op_timeout = x::telem::MILLISECOND * 100,
+              .state_change_timeout = x::telem::MILLISECOND * 100,
+              .init_timeout = x::telem::MILLISECOND * 100,
+              .dc_settle_timeout = x::telem::MILLISECOND * 50,
+          }) {}
+
+public:
+    Bus(): Bus(std::make_unique<MockAPI>()) {}
+
+    Master &master() { return this->m; }
+
+    void add_slave() {
+        MockSlaveInfo slave;
+        slave.state = EC_STATE_PRE_OP;
+        slave.name = "Slave " + std::to_string(this->api->slave_infos.size() + 1);
+        slave.mbx_proto = ECT_MBXPROT_COE;
+        slave.Ibits = 16;
+        slave.input_offset = this->api->ibytes;
+        slave.sdo_objects = {
+            {{0x1C00, 0}, 4},
+            {{0x1C00, 3}, 3},
+            {{0x1C00, 4}, 4},
+            {{ECT_SDO_RXPDOASSIGN, 0}, 0},
+            {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+            {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+            {{0x1A00, 0}, 1},
+            {{0x1A00, 1}, 0x60000110},
+        };
+        this->api->slave_infos.push_back(std::move(slave));
+        this->api->ibytes += 2;
+    }
+
+    void refuse(const uint16_t position) {
+        this->api->slave_infos[position - 1].ALstatuscode = 0x0026;
+        this->api->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                            EC_STATE_ERROR;
+    }
+};
+}
+}
+
+namespace driver::ethercat::master::contract {
+INSTANTIATE_TYPED_TEST_SUITE_P(SOEM, Contract, soem::Bus);
 }

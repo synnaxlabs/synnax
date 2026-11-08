@@ -23,3 +23,17 @@ cc_library(
         "//x/cpp/telem",
     ],
 )
+
+cc_library(
+    name = "contract",
+    testonly = True,
+    hdrs = ["contract.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = [
+        ":master",
+        "//driver/ethercat/errors",
+        "//x/cpp/breaker",
+        "//x/cpp/testutil",
+        "@googletest//:gtest",
+    ],
+)
