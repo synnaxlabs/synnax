@@ -147,6 +147,44 @@ func openMathWithReset(
 	return mathSetup{state: s, inputNode: inputNode, n: n}
 }
 
+// openMathWithVar opens nodeType with param bound to variable node w, the way the text
+// compiler binds a computed input. w holds no value until a spec writes one.
+func openMathWithVar(
+	ctx SpecContext,
+	nodeType, param string,
+	paramType types.Type,
+) (mathSetup, *node.State) {
+	GinkgoHelper()
+	g := makeMathGraph(nodeType, types.F64(), nil)
+	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+	analyzed.Nodes = append(analyzed.Nodes, ir.Node{
+		Key:     "w",
+		Type:    "variable",
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: paramType}},
+	})
+	var mathNode ir.Node
+	for i := range analyzed.Nodes {
+		if n := &analyzed.Nodes[i]; n.Key == "math" {
+			for j := range n.Inputs {
+				if p := &n.Inputs[j]; p.Name == param {
+					p.Type = types.VarRef(paramType, "w")
+					p.Value = types.Zero(paramType)
+				}
+			}
+			mathNode = *n
+		}
+	}
+	s := node.New(analyzed)
+	host := MustSucceed(stlmath.NewHost(ctx, nil))
+	n := MustSucceed(host.Create(node.Config{
+		Node:    mathNode,
+		State:   s.Node("math"),
+		Program: program.Program{IR: analyzed},
+	}))
+	return mathSetup{state: s, inputNode: s.Node("input"), n: n}, s.Node("w")
+}
+
 func nextChanged(ctx SpecContext, n node.Node) set.Set[int] {
 	changed := make(set.Set[int])
 	n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
@@ -468,6 +506,38 @@ var _ = Describe("Avg", func() {
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 150.0)
 		expectOutputTime(s.state, 7*telem.SecondTS)
+	})
+
+	It("Should read a variable-bound count on each batch", func(ctx SpecContext) {
+		s, w := openMathWithVar(ctx, "avg", "count", types.I64())
+		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutput(s.state, 20.0)
+
+		*w.Output(0) = telem.NewSeriesV[int64](3)
+		*s.inputNode.Output(0) = telem.NewSeriesV(40.0, 50.0, 60.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
+		s.inputNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutput(s.state, 50.0)
+	})
+
+	It("Should read a variable-bound duration on each batch", func(ctx SpecContext) {
+		s, w := openMathWithVar(ctx, "avg", "duration", types.TimeSpan())
+		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutput(s.state, 20.0)
+
+		*w.Output(0) = telem.NewSeriesV(int64(2 * telem.Second))
+		*s.inputNode.Output(0) = telem.NewSeriesV(100.0, 200.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(6, 7)
+		s.inputNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutput(s.state, 150.0)
 	})
 
 	It("Should reset on signal", func(ctx SpecContext) {
