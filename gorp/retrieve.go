@@ -574,6 +574,9 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 	if r.limit > 0 {
 		batch = max(r.limit, minWalkBatch)
 	}
+	// One snapshot of the index finds each key once, so the walk keeps an entry that
+	// moved after the snapshot and sorts it into place at the end.
+	snapshot := r.HasFilterKeys() || batch == 0
 	for k, holds := range r.orderBy.walk(bounded, batch) {
 		// A commit between two batches can move a counted key ahead of the walk.
 		if counted.Contains(k) {
@@ -591,14 +594,28 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 		if cErr := closer.Close(); mErr != nil || cErr != nil {
 			return errors.Combine(mErr, cErr)
 		}
+		if !match {
+			continue
+		}
+		if snapshot {
+			matched = append(matched, e)
+			continue
+		}
 		// A commit between the walk and the read can move the entry. Skipping it keeps
 		// the page in walk order.
-		if !match || !holds(&e) {
+		if !holds(&e) {
 			continue
 		}
 		counted.Add(k)
 		if matched = append(matched, e); r.limit > 0 && len(matched) == r.limit {
 			break
+		}
+	}
+	if snapshot {
+		r.orderBy.sort(matched)
+		matched = matched[min(r.offset, len(matched)):]
+		if r.limit > 0 {
+			matched = matched[:min(r.limit, len(matched))]
 		}
 	}
 	r.entries.replace(matched)

@@ -122,6 +122,28 @@ var _ = Describe("Ranger", func() {
 			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
 		It(
+			"Should retrieve only the exact name of names that differ in case",
+			func(ctx SpecContext) {
+				tr := telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				}
+				upper := &ranger.Range{Name: "CaseRange", TimeRange: tr}
+				lower := &ranger.Range{Name: "caserange", TimeRange: tr}
+				Expect(svc.NewWriter(tx).Create(ctx, upper)).To(Succeed())
+				Expect(svc.NewWriter(tx).Create(ctx, lower)).To(Succeed())
+				var res []ranger.Range
+				Expect(
+					svc.NewRetrieve().
+						Where(ranger.MatchNames(upper.Name)).
+						Entries(&res).
+						Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(HaveLen(1))
+				Expect(res[0].Key).To(Equal(upper.Key))
+			},
+		)
+		It(
 			"Should retrieve any ranges that overlap a given time range",
 			func(ctx SpecContext) {
 				r := &ranger.Range{
