@@ -33,13 +33,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// copyRequest is a request that copies its sources.
-type copyRequest struct{ sources []resource.ID }
-
-var _ bind.Copy = copyRequest{}
-
-func (r copyRequest) Sources() []resource.ID { return r.sources }
-
 // apply is the write of a spec.
 type apply func(ctx context.Context, tx gorp.Tx) error
 
@@ -69,14 +62,14 @@ func grant(
 	))
 }
 
-// write runs f through bind.Write as u, with a request that copies sources.
-func write(ctx context.Context, u user.User, f apply, sources ...resource.ID) error {
+// write runs f through bind.Write as u.
+func write(ctx context.Context, u user.User, f apply) error {
 	_, err := bind.Write(
 		binder,
-		func(ctx context.Context, tx gorp.Tx, _ copyRequest) (struct{}, error) {
+		func(ctx context.Context, tx gorp.Tx, _ struct{}) (struct{}, error) {
 			return struct{}{}, f(ctx, tx)
 		},
-	)(AuthedCtx(ctx, u), copyRequest{sources: sources})
+	)(AuthedCtx(ctx, u), struct{}{})
 	return err
 }
 
@@ -144,7 +137,6 @@ type need struct {
 // under test requires.
 type rule struct {
 	write   apply
-	sources []resource.ID
 	granted []need
 	needed  need
 }
@@ -158,10 +150,10 @@ var _ = Describe("Write", func() {
 			for _, g := range r.granted {
 				grant(ctx, u, g.action, g.object)
 			}
-			Expect(write(ctx, u, r.write, r.sources...)).
+			Expect(write(ctx, u, r.write)).
 				To(denied(u, r.needed.action, r.needed.object))
 			grant(ctx, u, r.needed.action, r.needed.object)
-			Expect(write(ctx, u, r.write, r.sources...)).To(Succeed())
+			Expect(write(ctx, u, r.write)).To(Succeed())
 		},
 		Entry("create on a new record", func(ctx context.Context) rule {
 			key := uuid.New()
@@ -206,6 +198,37 @@ var _ = Describe("Write", func() {
 				needed: need{access.ActionDelete, child.ResourceID()},
 			}
 		}),
+		Entry(
+			"update on the place target of a deleted record",
+			func(ctx context.Context) rule {
+				parent := createRange(ctx, nil)
+				child := createRange(ctx, &parent.Key)
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						return svc.Ranger.NewWriter(tx).Delete(ctx, child.Key)
+					},
+					granted: []need{{access.ActionDelete, child.ResourceID()}},
+					needed:  need{access.ActionUpdate, parent.ResourceID()},
+				}
+			},
+		),
+		Entry(
+			"update on the place target of a cascaded record",
+			func(ctx context.Context) rule {
+				parent := createRange(ctx, nil)
+				child := createRange(ctx, &parent.Key)
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						return svc.Ranger.NewWriter(tx).Delete(ctx, parent.Key)
+					},
+					granted: []need{
+						{access.ActionDelete, parent.ResourceID()},
+						{access.ActionDelete, child.ResourceID()},
+					},
+					needed: need{access.ActionUpdate, parent.ResourceID()},
+				}
+			},
+		),
 		Entry("update on a detached record", func(ctx context.Context) rule {
 			l := createLabel(ctx)
 			holder := createRange(ctx, nil, l.Key)
@@ -267,19 +290,6 @@ var _ = Describe("Write", func() {
 				}
 			},
 		),
-		Entry("retrieve on a source", func(ctx context.Context) rule {
-			source := createLabel(ctx)
-			key := uuid.New()
-			return rule{
-				write: func(ctx context.Context, tx gorp.Tx) error {
-					l := label.Label{Key: key, Name: source.Name}
-					return svc.Label.NewWriter(tx).Create(ctx, &l)
-				},
-				sources: []resource.ID{source.ResourceID()},
-				granted: []need{{access.ActionCreate, label.ResourceID(key)}},
-				needed:  need{access.ActionRetrieve, source.ResourceID()},
-			}
-		}),
 	)
 
 	It(
@@ -394,61 +404,4 @@ var _ = Describe("Write", func() {
 			Expect(labelExists(ctx, l.Key)).To(BeFalse())
 		},
 	)
-})
-
-var _ = Describe("PreparedWrite", func() {
-	It("Should pass the result of prepare to apply", func(ctx SpecContext) {
-		u := newUser(ctx)
-		key := uuid.New()
-		grant(ctx, u, access.ActionCreate, label.ResourceID(key))
-		MustSucceed(bind.PreparedWrite(
-			binder,
-			func(_ context.Context, name string) (string, error) {
-				return name + " prepared", nil
-			},
-			func(ctx context.Context, tx gorp.Tx, _, name string) (struct{}, error) {
-				l := label.Label{Key: key, Name: name}
-				return struct{}{}, svc.Label.NewWriter(tx).Create(ctx, &l)
-			},
-		)(AuthedCtx(ctx, u), "label"))
-		var l label.Label
-		Expect(svc.Label.NewRetrieve().
-			Where(label.MatchKeys(key)).
-			Entry(&l).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(l.Name).To(Equal("label prepared"))
-	})
-
-	It("Should run prepare before the transaction opens", func(ctx SpecContext) {
-		u := newUser(ctx)
-		var prepared label.Label
-		MustSucceed(bind.PreparedWrite(
-			binder,
-			func(ctx context.Context, _ struct{}) (struct{}, error) {
-				prepared = label.Label{Name: "prepared"}
-				return struct{}{}, svc.Label.NewWriter(nil).Create(ctx, &prepared)
-			},
-			func(context.Context, gorp.Tx, struct{}, struct{}) (struct{}, error) {
-				return struct{}{}, nil
-			},
-		)(AuthedCtx(ctx, u), struct{}{}))
-		Expect(labelExists(ctx, prepared.Key)).To(BeTrue())
-	})
-
-	It("Should not run apply when prepare fails", func(ctx SpecContext) {
-		u := newUser(ctx)
-		failed := errors.New("failed")
-		applied := false
-		Expect(bind.PreparedWrite(
-			binder,
-			func(context.Context, struct{}) (struct{}, error) {
-				return struct{}{}, failed
-			},
-			func(context.Context, gorp.Tx, struct{}, struct{}) (string, error) {
-				applied = true
-				return "response", nil
-			},
-		)(AuthedCtx(ctx, u), struct{}{})).Error().To(MatchError(failed))
-		Expect(applied).To(BeFalse())
-	})
 })

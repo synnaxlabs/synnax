@@ -48,7 +48,7 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// Service holds what Write and PreparedWrite need to run a write.
+// Service holds what Write needs to run a write.
 type Service struct{ cfg ServiceConfig }
 
 // NewService creates a Service. It returns an error when a required field of the

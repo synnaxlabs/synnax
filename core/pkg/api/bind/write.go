@@ -21,12 +21,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Copy is a request that reads records and copies them into what it writes.
-type Copy interface {
-	// Sources returns the records that the request copies.
-	Sources() []resource.ID
-}
-
 // Write returns a handler that runs apply in one write transaction, checks access on
 // what the transaction changed, and commits. A denial or an error from apply rolls back
 // every write and returns a zero response. The subject of the request needs:
@@ -34,8 +28,7 @@ type Copy interface {
 //   - create on a new record, update on a changed record, and delete on a deleted
 //     record, cascades and detaches included;
 //   - update on the target of each place link added or removed;
-//   - retrieve on the target of each use link added;
-//   - retrieve on each source of a request that implements Copy.
+//   - retrieve on the target of each use link added.
 //
 // Policies are read from committed state, so a policy or role that apply stages grants
 // nothing. A denial wraps access.ErrDenied and names the record.
@@ -43,34 +36,13 @@ func Write[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, RQ) (RS, error),
 ) freighter.UnaryHandler[RQ, RS] {
-	return PreparedWrite(
-		s,
-		func(context.Context, RQ) (struct{}, error) { return struct{}{}, nil },
-		func(ctx context.Context, tx gorp.Tx, req RQ, _ struct{}) (RS, error) {
-			return apply(ctx, tx, req)
-		},
-	)
-}
-
-// PreparedWrite is Write with a prepare step for slow work. It runs prepare before it
-// opens the transaction and passes the result to apply. An error from prepare stops
-// the write before the transaction opens.
-func PreparedWrite[RQ freighter.Payload, P any, RS freighter.Payload](
-	s *Service,
-	prepare func(context.Context, RQ) (P, error),
-	apply func(context.Context, gorp.Tx, RQ, P) (RS, error),
-) freighter.UnaryHandler[RQ, RS] {
 	return func(ctx context.Context, req RQ) (RS, error) {
 		var res, zero RS
-		prepared, err := prepare(ctx, req)
-		if err != nil {
-			return zero, err
-		}
-		if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
-			if res, err = apply(ctx, tx, req, prepared); err != nil {
+		if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			if res, err = apply(ctx, tx, req); err != nil {
 				return err
 			}
-			return s.check(ctx, tx, req)
+			return s.check(ctx, tx)
 		}); err != nil {
 			return zero, err
 		}
@@ -79,8 +51,8 @@ func PreparedWrite[RQ freighter.Payload, P any, RS freighter.Payload](
 }
 
 // check returns an error wrapping access.ErrDenied when the subject of ctx cannot make
-// the changes of tx or read the sources of req.
-func (s *Service) check(ctx context.Context, tx gorp.Tx, req any) error {
+// the changes of tx.
+func (s *Service) check(ctx context.Context, tx gorp.Tx) error {
 	needs := make(map[access.Action][]resource.ID, len(access.AllActions))
 	need := func(action access.Action, target gorp.Target) error {
 		id, err := resourceOf(target)
@@ -107,12 +79,6 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, req any) error {
 				return err
 			}
 		}
-	}
-	if c, ok := req.(Copy); ok {
-		needs[access.ActionRetrieve] = append(
-			needs[access.ActionRetrieve],
-			c.Sources()...,
-		)
 	}
 	enforcer := s.cfg.RBAC.NewEnforcer(nil)
 	subject := auth.GetSubject(ctx)
