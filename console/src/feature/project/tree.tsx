@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  group,
   imex,
   lineplot,
   log,
@@ -73,7 +74,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
     state,
   } = props;
   const handleDelete = useDelete(props);
-  const group = Group.useCreateFromSelection();
+  const groupSelection = Group.useCreateFromSelection();
   const projectKey = ids[0].key;
   const createPlot = LinePlot.useCreate({ project: projectKey });
   const createLog = Log.useCreate({ project: projectKey });
@@ -107,7 +108,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
             shape={state.shape}
             rootID={rootID}
             parentID={parentID}
-            onClick={() => group(props)}
+            onClick={() => groupSelection(props)}
           />
         </>
       )}
@@ -228,7 +229,7 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
     else throw new UnexpectedError(`a ${id.type} does not belong to a project`);
   });
   await client.batch.send([
-    ...Group.moveRequests(client, groups, destination.id),
+    ...group.moveRequests(client, groups, destination.id),
     ...[...byType].map(([type, keys]) =>
       Base.VISUALIZATIONS[type](client).setProjectRequest(keys, destination.id.key),
     ),

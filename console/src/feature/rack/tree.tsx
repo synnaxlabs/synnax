@@ -9,7 +9,7 @@
 
 import "@/feature/rack/tree.css";
 
-import { arc, device, rack, type resource, task } from "@synnaxlabs/client";
+import { arc, device, group, rack, type resource, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -124,7 +124,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasDeviceCreatePermission = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
-  const group = Group.useCreateFromSelection();
+  const groupSelection = Group.useCreateFromSelection();
   const create = Arc.useCreate();
   const openConnectDevice = Device.useConnectModal();
   const openCredentials = Credential.useModal();
@@ -140,7 +140,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           rootID={rootID}
           parentID={parentID}
           shape={shape}
-          onClick={() => group(props)}
+          onClick={() => groupSelection(props)}
         />
       )}
       <Menu.Divider />
@@ -210,10 +210,11 @@ const TreeItem = Tree.createItem({
     ),
   ],
   canDrop: (props) =>
-    props.moved.every(({ id }) => DROPPABLE_TYPES.has(id.type)) && Group.canMove(props),
+    props.moved.every(({ id }) => DROPPABLE_TYPES.has(id.type)) &&
+    group.canMove({ ...props, destination: props.destination.id }),
   drop: async ({ client, destination, items }) => {
     await client.batch.send(
-      Group.moveRequests(
+      group.moveRequests(
         client,
         items.map(({ id }) => id),
         destination.id,

@@ -27,6 +27,7 @@ import (
 	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
 	tsactions "github.com/synnaxlabs/oracle/plugin/ts/actions"
 	tsfilter "github.com/synnaxlabs/oracle/plugin/ts/filter"
+	tsgroup "github.com/synnaxlabs/oracle/plugin/ts/group"
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 )
 
@@ -57,6 +58,7 @@ func buildPluginRegistry() (*plugin.Registry, error) {
 		goimex.New(goimex.DefaultOptions()),
 		tsactions.New(tsactions.DefaultOptions()),
 		tsfilter.New(tsfilter.DefaultOptions()),
+		tsgroup.New(tsgroup.DefaultOptions()),
 	} {
 		if err := registry.Register(p); err != nil {
 			return nil, err
