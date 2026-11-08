@@ -85,12 +85,13 @@ Two kinds of change resync Arcs.
 
 #### 3.2.0 Naming the change
 
-Outside the hashed config, the Core stores the automation's text hash and the compiled
-hash of each module it imports, each with an as-built copy. The text hash leaves imports
-out, so a diff tells an automation edit from a module edit, and promotion never moves
-`config_hash`. A resync promotes stored to as-built when the task status shows the
-Driver running the stored config. A save before the Driver echoes a redeploy skips
-promotion and over-names until a later resync matches.
+Outside the hashed config, the Core stores the automation's text hash and the text hash
+of each module its compile loads, at any depth, each with an as-built copy. A module
+compiles only inside an importer, so its text is what it has to hash. The text hash
+leaves imports out, so a diff tells an automation edit from a module edit, and promotion
+never moves `config_hash`. A resync promotes stored to as-built when the task status
+shows the Driver running the stored config. A save before the Driver echoes a redeploy
+skips promotion and over-names until a later resync matches.
 
 #### 3.2.1 Cost
 
@@ -161,8 +162,8 @@ text, so the Core reads them there instead of keeping a second copy. An `imports
 ontology relationship costs less per module save (§3.2.1), but the ontology refuses
 cycles, so the relationship would need its own cycle rules.
 
-**5.4 An Arc hashes its compiled code.** No rule folds hashes level by level. This
-needs equal text to compile to equal code. The Core compiles an automation on each save.
+**5.4 An Arc hashes its compiled code.** No rule folds hashes level by level. This needs
+equal text to compile to equal code. The Core compiles an automation on each save.
 
 **5.5 Drift names the module that changed.** The text hash, a hash per module, and their
 as-built copies live beside the task config (§3.2.0). RFC 0056 §4.4 rejected a deployed

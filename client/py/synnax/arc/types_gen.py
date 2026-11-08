@@ -22,13 +22,6 @@ from synnax.resource import ID
 from x import filter
 from x.filter import shorthand
 
-MODE_TEXT: Literal["text"] = "text"
-
-MODE_GRAPH: Literal["graph"] = "graph"
-
-
-Mode = Literal["text", "graph"]
-
 TYPE_AUTOMATION: Literal["automation"] = "automation"
 
 TYPE_MODULE: Literal["module"] = "module"
@@ -36,9 +29,39 @@ TYPE_MODULE: Literal["module"] = "module"
 
 Type = Literal["automation", "module"]
 
+CHANGE_KIND_CHANGED: Literal["changed"] = "changed"
+
+CHANGE_KIND_ADDED: Literal["added"] = "added"
+
+CHANGE_KIND_REMOVED: Literal["removed"] = "removed"
+
+
+ChangeKind = Literal["changed", "added", "removed"]
+
+MODE_TEXT: Literal["text"] = "text"
+
+MODE_GRAPH: Literal["graph"] = "graph"
+
+
+Mode = Literal["text", "graph"]
+
 Key: TypeAlias = UUID
 
 Status: TypeAlias = status_.Status
+
+
+class Change(BaseModel):
+    """Is one difference between an automation's content and what its task last ran.
+
+    Attributes:
+        type: Is whether the automation's own text or a module changed.
+        path: Is the import path of the module. Empty for the automation.
+        kind: Is how the content differs from what the task last ran.
+    """
+
+    type: Type
+    path: str = ""
+    kind: ChangeKind
 
 
 class TextSource(BaseModel):
@@ -134,6 +157,7 @@ class RetrieveRequest(BaseModel):
         limit: Is the most arcs to return.
         offset: Is the number of matching arcs to skip.
         include_program: Includes the program of each record.
+        include_changes: Includes the changes of each record.
         include_status: Includes the status of each record.
     """
 
@@ -144,6 +168,7 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
     include_program: bool = False
+    include_changes: bool = False
     include_status: bool = False
 
 
@@ -152,6 +177,7 @@ class AutomationPayload(Base):
 
     type: Literal["automation"] = "automation"
     program: program_.Program | None = None
+    changes: list[Change] = Field(default_factory=list)
 
 
 class ModulePayload(Base):

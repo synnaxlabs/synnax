@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -263,15 +264,19 @@ func subjectOf[E any](
 	)
 }
 
-// resourceOf returns the resource of a record. A task config record maps to its task.
-// It returns an error when no resource type matches the table of the record.
+// resourceOf returns the resource of a record. A task config record and an Arc's drift
+// record map to their task. It returns an error when no resource type matches the table
+// of the record.
 func resourceOf(t gorp.Target) (resource.ID, error) {
 	if id, ok := taskconfig.TaskOf(t); ok {
 		return id, nil
 	}
 	id := resource.ID{Type: resource.Type(t.Table), Key: t.Key}
-	if t.Table == types.Name[alias.Alias]() {
+	switch t.Table {
+	case types.Name[alias.Alias]():
 		id.Type = resource.TypeRangeAlias
+	case types.Name[drift.Record]():
+		id.Type = resource.TypeTask
 	}
 	if !id.Type.IsValid() {
 		return resource.ID{}, errors.Newf(

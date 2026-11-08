@@ -47,6 +47,22 @@ inline x::json::json Base::to_json() const {
     return j;
 }
 
+inline Change Change::parse(x::json::Parser parser) {
+    return Change{
+        .type = parser.field<std::string>("type"),
+        .path = parser.field<std::string>("path", ""),
+        .kind = parser.field<std::string>("kind"),
+    };
+}
+
+inline x::json::json Change::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    j["path"] = this->path;
+    j["kind"] = this->kind;
+    return j;
+}
+
 inline Where Where::parse(x::json::Parser parser) {
     return Where{
         .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
@@ -83,6 +99,7 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
         .offset = parser.field<std::uint32_t>("offset", 0),
         .include_program = parser.field<bool>("include_program", false),
+        .include_changes = parser.field<bool>("include_changes", false),
         .include_status = parser.field<bool>("include_status", false),
     };
 }
@@ -94,6 +111,7 @@ inline x::json::json RetrieveRequest::to_json() const {
     if (this->limit.has_value()) j["limit"] = *this->limit;
     j["offset"] = this->offset;
     j["include_program"] = this->include_program;
+    j["include_changes"] = this->include_changes;
     j["include_status"] = this->include_status;
     return j;
 }
@@ -154,6 +172,10 @@ inline AutomationArc AutomationArc::parse(x::json::Parser parser) {
     AutomationArc result;
     static_cast<Base &>(result) = Base::parse(parser);
     result.program = parser.field<std::optional<::arc::program::Program>>("program");
+    result.changes = parser.field<std::vector<Change>>(
+        "changes",
+        std::vector<Change>{}
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -162,6 +184,7 @@ inline x::json::json AutomationArc::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
     if (this->program.has_value()) j["program"] = this->program->to_json();
+    j["changes"] = x::json::to_array(this->changes);
     j["type"] = this->type;
     return j;
 }

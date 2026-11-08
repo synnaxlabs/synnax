@@ -14,6 +14,7 @@ package v4
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"strconv"
 	"uuid"
 
 	graph "github.com/synnaxlabs/arc/graph/versions/v1"
@@ -211,6 +212,46 @@ func (b Base) Validate() error {
 
 type Status = status.Status[struct{}]
 
+// ChangeKind is how a piece of an automation's content differs from what its task last
+// ran.
+type ChangeKind string
+
+const (
+	ChangeKindChanged ChangeKind = "changed"
+	ChangeKindAdded   ChangeKind = "added"
+	ChangeKindRemoved ChangeKind = "removed"
+)
+
+// IsValid reports whether c is one of the defined ChangeKind
+// values.
+func (c ChangeKind) IsValid() bool {
+	switch c {
+	case ChangeKindChanged, ChangeKindAdded, ChangeKindRemoved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Change is one difference between an automation's content and what its task last ran.
+type Change struct {
+	// Type is whether the automation's own text or a module changed.
+	Type Type `json:"type" msgpack:"type"`
+	// Path is the import path of the module. Empty for the automation.
+	Path string `json:"path" msgpack:"path"`
+	// Kind is how the content differs from what the task last ran.
+	Kind ChangeKind `json:"kind" msgpack:"kind"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Change) Validate() error {
+	v := validate.New("Change")
+	v.Ternaryf("type", !c.Type.IsValid(), "invalid type: %v", c.Type)
+	v.Ternaryf("kind", !c.Kind.IsValid(), "invalid kind: %v", c.Kind)
+	return v.Error()
+}
+
 // ArcVariant is implemented by every Arc variant.
 type ArcVariant interface {
 	isArcVariant()
@@ -221,6 +262,8 @@ type AutomationArc struct {
 	Base
 	// Program is the compiled module output including IR and WebAssembly bytecode.
 	Program *program.Program `json:"program,omitzero" msgpack:"program,omitempty"`
+	// Changes is what changed in the automation since its task was deployed.
+	Changes []Change `json:"changes" msgpack:"changes"`
 }
 
 func (AutomationArc) isArcVariant() {}
@@ -235,6 +278,9 @@ func (a *AutomationArc) ApplyDefaults() {
 func (a AutomationArc) Validate() error {
 	v := validate.New("AutomationArc")
 	v.Exec(a.Base.Validate)
+	for i := range a.Changes {
+		v.Exec(func() error { return validate.PathedError(a.Changes[i].Validate(), "changes", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 

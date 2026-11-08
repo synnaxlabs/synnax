@@ -36,15 +36,20 @@
 namespace synnax::arc {
 
 struct Where;
+struct Change;
 struct RetrieveRequest;
 struct Base;
 struct RetrieveResponse;
 
-constexpr const char *MODE_TEXT = "text";
-constexpr const char *MODE_GRAPH = "graph";
-
 constexpr const char *TYPE_AUTOMATION = "automation";
 constexpr const char *TYPE_MODULE = "module";
+
+constexpr const char *CHANGE_KIND_CHANGED = "changed";
+constexpr const char *CHANGE_KIND_ADDED = "added";
+constexpr const char *CHANGE_KIND_REMOVED = "removed";
+
+constexpr const char *MODE_TEXT = "text";
+constexpr const char *MODE_GRAPH = "graph";
 
 using Key = x::uuid::UUID;
 
@@ -142,6 +147,26 @@ to_proto(const Source &value);
 std::pair<Source, x::errors::Error>
 source_from_proto(const ::service::arc::pb::Source &pb);
 
+/// @brief Change is one difference between an automation's content and what its task
+/// last ran.
+struct Change {
+    /// @brief type is whether the automation's own text or a module changed.
+    std::string type;
+    /// @brief path is the import path of the module. Empty for the automation.
+    std::string path = "";
+    /// @brief kind is how the content differs from what the task last ran.
+    std::string kind;
+
+    static Change parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::arc::pb::Change;
+    [[nodiscard]] std::pair<::service::arc::pb::Change, x::errors::Error>
+    to_proto() const;
+    static std::pair<Change, x::errors::Error>
+    from_proto(const ::service::arc::pb::Change &pb);
+};
+
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
 struct RetrieveOptions {
     /// @brief search_term keeps the arcs that match the term, closest match first.
@@ -152,6 +177,8 @@ struct RetrieveOptions {
     std::uint32_t offset = 0;
     /// @brief include_program includes the program of each record.
     bool include_program = false;
+    /// @brief include_changes includes the changes of each record.
+    bool include_changes = false;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
 };
@@ -168,6 +195,8 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     /// @brief include_program includes the program of each record.
     bool include_program = false;
+    /// @brief include_changes includes the changes of each record.
+    bool include_changes = false;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
 
@@ -179,6 +208,7 @@ struct RetrieveRequest {
             .limit = options.limit,
             .offset = options.offset,
             .include_program = options.include_program,
+            .include_changes = options.include_changes,
             .include_status = options.include_status,
         };
     }
@@ -220,6 +250,8 @@ struct AutomationArc : public Base {
     /// @brief program is the compiled module output including IR and WebAssembly
     /// bytecode.
     std::optional<::arc::program::Program> program;
+    /// @brief changes is what changed in the automation since its task was deployed.
+    std::vector<Change> changes;
 
     static AutomationArc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

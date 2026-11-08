@@ -59,6 +59,26 @@ func (s *Service) retrieveModuleText(
 	path string,
 	filters ...Filter,
 ) (arctext.Text, error) {
+	a, err := s.retrieveModule(ctx, snap, path, filters...)
+	if err != nil {
+		return arctext.Text{}, err
+	}
+	src, ok := a.Base().Source.Variant.(TextSource)
+	if !ok {
+		return arctext.Text{}, errors.Newf(
+			"module %q is a graph and cannot be imported", path,
+		)
+	}
+	return src.Text.Materialize(), nil
+}
+
+// retrieveModule returns the module at an import path that every filter matches.
+func (s *Service) retrieveModule(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	path string,
+	filters ...Filter,
+) (Arc, error) {
 	notFound := errors.Wrapf(symbol.ErrModuleNotFound, "unknown module %q", path)
 	segments := strings.Split(path, ".")
 	parent := s.root
@@ -71,10 +91,10 @@ func (s *Service) retrieveModuleText(
 			)).
 			Entries(&dirs).
 			Exec(ctx, snap); err != nil {
-			return arctext.Text{}, err
+			return Arc{}, err
 		}
 		if len(dirs) == 0 {
-			return arctext.Text{}, notFound
+			return Arc{}, notFound
 		}
 		parent = dirs[0].Key
 	}
@@ -87,22 +107,13 @@ func (s *Service) retrieveModuleText(
 		q = q.Where(f)
 	}
 	if err := q.Entries(&arcs).Exec(ctx, snap); err != nil {
-		return arctext.Text{}, err
+		return Arc{}, err
 	}
 	if len(arcs) == 0 {
-		return arctext.Text{}, notFound
+		return Arc{}, notFound
 	}
-	a := arcs[0]
-	if a.Type() != TypeModule {
-		return arctext.Text{}, errors.Newf(
-			"%q is an automation and cannot be imported", path,
-		)
+	if arcs[0].Type() != TypeModule {
+		return Arc{}, errors.Newf("%q is an automation and cannot be imported", path)
 	}
-	src, ok := a.Base().Source.Variant.(TextSource)
-	if !ok {
-		return arctext.Text{}, errors.Newf(
-			"module %q is a graph and cannot be imported", path,
-		)
-	}
-	return src.Text.Materialize(), nil
+	return arcs[0], nil
 }

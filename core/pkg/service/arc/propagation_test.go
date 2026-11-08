@@ -20,7 +20,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
@@ -56,13 +58,15 @@ var _ = Describe("Change propagation", Ordered, func() {
 		})
 		return a
 	}
-	overwrite := func(ctx SpecContext, a arc.Arc, raw string) {
+	// overwrite replaces the text of a and returns the Arc as stored.
+	overwrite := func(ctx SpecContext, a arc.Arc, raw string) arc.Arc {
 		GinkgoHelper()
 		b := a.Base()
 		b.Source = textSource(raw)
 		a.SetBase(b)
 		Expect(write(ctx, func(w arc.Writer) error { return w.Create(ctx, &a) })).
 			To(Succeed())
+		return a
 	}
 	deploy := func(ctx SpecContext, a arc.Arc) task.Key {
 		GinkgoHelper()
@@ -473,6 +477,187 @@ var _ = Describe("Change propagation", Ordered, func() {
 				return w.Delete(ctx, m.Base().Key)
 			})).To(Succeed())
 			Expect(moduleStatus(ctx, m.Base().Key)().Key).To(BeEmpty())
+		})
+	})
+
+	Describe("Deploy record", func() {
+		const broken = "import pt_m\n\npt_trig -> pt_m.g() -> pt_out"
+		record := func(ctx SpecContext, a arc.Arc) drift.Record {
+			GinkgoHelper()
+			records := MustSucceed(svc.RetrieveDrift(ctx, db, a.Base().Key))
+			Expect(records).To(HaveKey(a.Base().Key))
+			return records[a.Base().Key]
+		}
+		hashOf := func(a arc.Arc) string { return MustSucceed(arc.Hash(a.Base())) }
+		// run reports the task as running the config it holds, as the Driver does.
+		run := func(ctx SpecContext, key task.Key) {
+			GinkgoHelper()
+			stat := &task.Status{
+				Owner:   new(task.ResourceID(key)),
+				Name:    "pt_a",
+				Variant: status.VariantSuccess,
+				Time:    telem.Now(),
+				Details: task.StatusDetails{
+					Running:    true,
+					ConfigHash: configHash(ctx, key)(),
+				},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, stat)
+			})).To(Succeed())
+		}
+
+		It("Should record the text hash and each module's hash at deploy", func(
+			ctx SpecContext,
+		) {
+			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
+			deploy(ctx, a)
+			rec := record(ctx, a)
+			Expect(rec.Stored.Text).To(Equal(hashOf(a)))
+			Expect(rec.Stored.Modules).To(Equal(map[string]string{"pt_m": hashOf(m)}))
+			Expect(rec.Deployed).To(Equal(drift.Hashes{}))
+		})
+
+		It("Should record a module imported through another module", func(
+			ctx SpecContext,
+		) {
+			const outer = "import pt_inner\n\n" +
+				"export func f() {t u8} i64 { return pt_inner.f(t) }"
+			inner := createArc(ctx, arc.TypeModule, "pt_inner", moduleV1)
+			m := createArc(ctx, arc.TypeModule, "pt_m", outer)
+			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
+			deploy(ctx, a)
+			Expect(record(ctx, a).Stored.Modules).To(Equal(map[string]string{
+				"pt_inner": hashOf(inner),
+				"pt_m":     hashOf(m),
+			}))
+		})
+
+		It("Should keep the deployed hashes empty until the Driver runs", func(
+			ctx SpecContext,
+		) {
+			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
+			key := deploy(ctx, a)
+			before := settledHash(ctx, key)
+			edited := overwrite(ctx, m, moduleV2)
+			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
+			rec := record(ctx, a)
+			Expect(rec.Stored.Modules["pt_m"]).To(Equal(hashOf(edited)))
+			Expect(rec.Deployed).To(Equal(drift.Hashes{}))
+		})
+
+		It("Should promote the stored hashes once the Driver runs them", func(
+			ctx SpecContext,
+		) {
+			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
+			key := deploy(ctx, a)
+			before := settledHash(ctx, key)
+			run(ctx, key)
+			edited := overwrite(ctx, m, moduleV2)
+			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
+			rec := record(ctx, a)
+			Expect(rec.Deployed.Text).To(Equal(hashOf(a)))
+			Expect(rec.Deployed.Modules["pt_m"]).To(Equal(hashOf(m)))
+			Expect(rec.Stored.Modules["pt_m"]).To(Equal(hashOf(edited)))
+		})
+
+		It("Should not promote while the Driver runs an older config", func(
+			ctx SpecContext,
+		) {
+			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
+			key := deploy(ctx, a)
+			first := settledHash(ctx, key)
+			run(ctx, key)
+			overwrite(ctx, m, moduleV2)
+			Eventually(configHash(ctx, key)).ShouldNot(Equal(first))
+			second := settledHash(ctx, key)
+			restored := overwrite(ctx, m, moduleV1)
+			Eventually(configHash(ctx, key)).ShouldNot(Equal(second))
+			rec := record(ctx, a)
+			Expect(rec.Deployed.Modules["pt_m"]).To(Equal(hashOf(m)))
+			Expect(rec.Stored.Modules["pt_m"]).To(Equal(hashOf(restored)))
+		})
+
+		It("Should keep the module hashes when the automation stops compiling", func(
+			ctx SpecContext,
+		) {
+			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
+			key := deploy(ctx, a)
+			before := settledHash(ctx, key)
+			edited := overwrite(ctx, a, broken)
+			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
+			rec := record(ctx, a)
+			Expect(rec.Stored.Text).To(Equal(hashOf(edited)))
+			Expect(rec.Stored.Modules).To(Equal(map[string]string{"pt_m": hashOf(m)}))
+		})
+
+		It("Should name the automation first, then each module by path", func() {
+			Expect(arc.Changes(drift.Record{
+				Stored: drift.Hashes{
+					Text: "t2",
+					Modules: map[string]string{
+						"pt_b": "b2",
+						"pt_c": "c1",
+						"pt_d": "d1",
+					},
+				},
+				Deployed: drift.Hashes{
+					Text: "t1",
+					Modules: map[string]string{
+						"pt_a": "a1",
+						"pt_b": "b1",
+						"pt_c": "c1",
+					},
+				},
+			})).To(Equal([]arc.Change{
+				{Type: arc.TypeAutomation, Kind: arc.ChangeKindChanged},
+				{Type: arc.TypeModule, Path: "pt_a", Kind: arc.ChangeKindRemoved},
+				{Type: arc.TypeModule, Path: "pt_b", Kind: arc.ChangeKindChanged},
+				{Type: arc.TypeModule, Path: "pt_d", Kind: arc.ChangeKindAdded},
+			}))
+		})
+
+		It("Should name nothing when the task runs what is stored", func() {
+			hashes := drift.Hashes{Text: "t1", Modules: map[string]string{"pt_m": "m1"}}
+			Expect(
+				arc.Changes(drift.Record{Stored: hashes, Deployed: hashes}),
+			).To(BeEmpty())
+		})
+
+		It("Should delete the record when the automation is unbound", func(
+			ctx SpecContext,
+		) {
+			createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
+			deploy(ctx, a)
+			record(ctx, a)
+			Expect(write(ctx, func(w arc.Writer) error {
+				tsk, err := w.UpdateTask(
+					ctx, a.Base().Key, arc.TaskUpdate{Rack: new(rack.Key)},
+				)
+				Expect(tsk).To(BeNil())
+				return err
+			})).To(Succeed())
+			Expect(MustSucceed(svc.RetrieveDrift(ctx, db, a.Base().Key))).To(BeEmpty())
+		})
+
+		It("Should delete the record with the automation", func(ctx SpecContext) {
+			a := newArc(arc.TypeAutomation, arc.Base{
+				Name: "pt_a", Source: textSource("pt_trig -> pt_out"),
+			})
+			Expect(write(ctx, func(w arc.Writer) error { return w.Create(ctx, &a) })).
+				To(Succeed())
+			deploy(ctx, a)
+			record(ctx, a)
+			Expect(write(ctx, func(w arc.Writer) error {
+				return w.Delete(ctx, a.Base().Key)
+			})).To(Succeed())
+			Expect(MustSucceed(svc.RetrieveDrift(ctx, db, a.Base().Key))).To(BeEmpty())
 		})
 	})
 

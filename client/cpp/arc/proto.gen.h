@@ -37,30 +37,6 @@
 
 namespace synnax::arc {
 
-inline std::pair<::service::arc::pb::Mode, x::errors::Error>
-mode_to_pb(const std::string &cpp) {
-    static const std::unordered_map<std::string, ::service::arc::pb::Mode> kMap = {
-        {MODE_TEXT, ::service::arc::pb::MODE_TEXT},
-        {MODE_GRAPH, ::service::arc::pb::MODE_GRAPH},
-    };
-    auto it = kMap.find(cpp);
-    if (it == kMap.end())
-        return {{}, x::errors::Error("unrecognized Mode value: " + cpp)};
-    return {it->second, x::errors::NIL};
-}
-
-inline std::pair<std::string, x::errors::Error>
-mode_from_pb(::service::arc::pb::Mode pb) {
-    switch (pb) {
-        case ::service::arc::pb::MODE_TEXT:
-            return {MODE_TEXT, x::errors::NIL};
-        case ::service::arc::pb::MODE_GRAPH:
-            return {MODE_GRAPH, x::errors::NIL};
-        default:
-            return {"", x::errors::Error("unrecognized Mode protobuf value")};
-    }
-}
-
 inline std::pair<::service::arc::pb::Type, x::errors::Error>
 type_to_pb(const std::string &cpp) {
     static const std::unordered_map<std::string, ::service::arc::pb::Type> kMap = {
@@ -82,6 +58,58 @@ type_from_pb(::service::arc::pb::Type pb) {
             return {TYPE_MODULE, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized Type protobuf value")};
+    }
+}
+
+inline std::pair<::service::arc::pb::ChangeKind, x::errors::Error>
+change_kind_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::service::arc::pb::ChangeKind> kMap =
+        {
+            {CHANGE_KIND_CHANGED, ::service::arc::pb::CHANGE_KIND_CHANGED},
+            {CHANGE_KIND_ADDED, ::service::arc::pb::CHANGE_KIND_ADDED},
+            {CHANGE_KIND_REMOVED, ::service::arc::pb::CHANGE_KIND_REMOVED},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized ChangeKind value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+change_kind_from_pb(::service::arc::pb::ChangeKind pb) {
+    switch (pb) {
+        case ::service::arc::pb::CHANGE_KIND_CHANGED:
+            return {CHANGE_KIND_CHANGED, x::errors::NIL};
+        case ::service::arc::pb::CHANGE_KIND_ADDED:
+            return {CHANGE_KIND_ADDED, x::errors::NIL};
+        case ::service::arc::pb::CHANGE_KIND_REMOVED:
+            return {CHANGE_KIND_REMOVED, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized ChangeKind protobuf value")};
+    }
+}
+
+inline std::pair<::service::arc::pb::Mode, x::errors::Error>
+mode_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::service::arc::pb::Mode> kMap = {
+        {MODE_TEXT, ::service::arc::pb::MODE_TEXT},
+        {MODE_GRAPH, ::service::arc::pb::MODE_GRAPH},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized Mode value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+mode_from_pb(::service::arc::pb::Mode pb) {
+    switch (pb) {
+        case ::service::arc::pb::MODE_TEXT:
+            return {MODE_TEXT, x::errors::NIL};
+        case ::service::arc::pb::MODE_GRAPH:
+            return {MODE_GRAPH, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized Mode protobuf value")};
     }
 }
 
@@ -153,6 +181,40 @@ Base::from_proto(const ::service::arc::pb::Base &pb) {
         auto [v, err] = x::uuid::UUID::parse(pb.directory());
         if (err) return {{}, err};
         cpp.directory = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::Change, x::errors::Error>
+Change::to_proto() const {
+    ::service::arc::pb::Change pb;
+    {
+        auto [v, err] = type_to_pb(this->type);
+        if (err) return {{}, err};
+        pb.set_type(v);
+    }
+    pb.set_path(this->path);
+    {
+        auto [v, err] = change_kind_to_pb(this->kind);
+        if (err) return {{}, err};
+        pb.set_kind(v);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Change, x::errors::Error>
+Change::from_proto(const ::service::arc::pb::Change &pb) {
+    Change cpp;
+    {
+        auto [v, err] = type_from_pb(pb.type());
+        if (err) return {{}, err};
+        cpp.type = v;
+    }
+    cpp.path = pb.path();
+    {
+        auto [v, err] = change_kind_from_pb(pb.kind());
+        if (err) return {{}, err};
+        cpp.kind = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -250,6 +312,7 @@ RetrieveRequest::to_proto() const {
     if (this->limit.has_value()) pb.set_limit(*this->limit);
     pb.set_offset(this->offset);
     pb.set_include_program(this->include_program);
+    pb.set_include_changes(this->include_changes);
     pb.set_include_status(this->include_status);
     return {pb, x::errors::NIL};
 }
@@ -266,6 +329,7 @@ RetrieveRequest::from_proto(const ::api::arc::pb::RetrieveRequest &pb) {
     if (pb.has_limit()) cpp.limit = pb.limit();
     cpp.offset = pb.offset();
     cpp.include_program = pb.include_program();
+    cpp.include_changes = pb.include_changes();
     cpp.include_status = pb.include_status();
     return {cpp, x::errors::NIL};
 }
@@ -344,6 +408,11 @@ AutomationArc::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_program() = v;
     }
+    for (const auto &item: this->changes) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_changes() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -355,6 +424,8 @@ AutomationArc::from_proto(const ::service::arc::pb::ArcAutomationPayload &pb) {
         if (err) return {{}, err};
         cpp.program = v;
     }
+    if (auto err = x::pb::from_proto_repeated<Change>(cpp.changes, pb.changes()))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

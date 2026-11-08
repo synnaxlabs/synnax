@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
@@ -150,8 +151,10 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	table   *gorp.Table[Key, Arc]
 	indexes indexes
-	closer  xio.MultiCloser
-	cfg     ServiceConfig
+	// drifts stores what changed in each deployed automation since its deploy.
+	drifts *gorp.Table[drift.Key, drift.Record]
+	closer xio.MultiCloser
+	cfg    ServiceConfig
 	// directories stores the directories below root.
 	directories *directory.Table
 	// root is the directory that holds every Arc.
@@ -364,13 +367,20 @@ func (s *Service) snapshotRoot(snap gorp.Snapshot) *symbol.Symbol {
 	)
 }
 
-// compile compiles the automation's source against a root that reads snap.
+// compile compiles the automation's source against a root that reads snap. It also
+// returns the text hash of every module the compile loaded, at any depth, by path.
 func (s *Service) compile(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	automation AutomationArc,
-) (arc.Program, error) {
-	return s.compileWith(ctx, s.snapshotRoot(snap), automation)
+) (arc.Program, map[string]string, error) {
+	root := s.snapshotRoot(snap)
+	prog, err := s.compileWith(ctx, root, automation)
+	if err != nil {
+		return arc.Program{}, nil, err
+	}
+	modules, err := s.moduleHashes(ctx, snap, arctext.LoadedPaths(root))
+	return prog, modules, err
 }
 
 // compileWith compiles the automation's source against root.
@@ -387,6 +397,25 @@ func (s *Service) compileWith(
 		return arc.CompileGraph(ctx, src.Graph, root, opt)
 	}
 	return arc.Program{}, errors.Newf("automation %s has no source", automation.Key)
+}
+
+// moduleHashes returns the text hash of the module at each path.
+func (s *Service) moduleHashes(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	paths []string,
+) (map[string]string, error) {
+	hashes := make(map[string]string, len(paths))
+	for _, path := range paths {
+		m, err := s.retrieveModule(ctx, snap, path)
+		if err != nil {
+			return nil, err
+		}
+		if hashes[path], err = Hash(m.Base()); err != nil {
+			return nil, err
+		}
+	}
+	return hashes, nil
 }
 
 // analyzeModule checks the module's source under the module rules against a root that
@@ -437,6 +466,7 @@ func OpenService(
 		indexes:       cfg.Table.indexes,
 		directories:   cfg.Table.directories,
 		root:          cfg.Table.root,
+		drifts:        cfg.Table.drifts,
 		resyncs:       gorp.NewAttachment[Key](),
 		deletes:       gorp.NewAttachment[Key](),
 		editedModules: gorp.NewAttachment[Key](),
@@ -541,6 +571,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		matchTasks:          s.cfg.MatchTasks,
 		status:              s.cfg.Status,
 		table:               s.table,
+		drifts:              s.drifts,
 		dispatcher:          s.state.Dispatcher(),
 		directoryDispatcher: s.directoryState.Dispatcher(),
 		sweeper:             s.sweeper,

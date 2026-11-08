@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -55,13 +56,14 @@ func (c TableConfig) Validate() error {
 	return v.Error()
 }
 
-// Table stores Arcs and their directories. Open it before the tables that reference
-// Arcs, so their migrations can check that an Arc exists.
+// Table stores Arcs, their directories, and their drift records. Open it before the
+// tables that reference Arcs, so their migrations can check that an Arc exists.
 type Table struct {
 	table       *gorp.Table[Key, Arc]
 	indexes     indexes
 	directories *directory.Table
 	root        directory.Key
+	drifts      *gorp.Table[drift.Key, drift.Record]
 }
 
 // OpenTable opens the Arc table and migrates the stored Arcs. Close the table after the
@@ -91,7 +93,31 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 	}); err != nil {
 		return nil, errors.Combine(err, t.directories.Close())
 	}
+	if t.drifts, err = gorp.OpenTable(ctx, gorp.TableConfig[drift.Key, drift.Record]{
+		DB:              cfg.DB,
+		References:      []gorp.Reference[drift.Key, drift.Record]{newTaskReference()},
+		Instrumentation: cfg.Instrumentation,
+	}); err != nil {
+		return nil, errors.Combine(
+			err,
+			errors.Combine(t.table.Close(), t.directories.Close()),
+		)
+	}
 	return t, nil
+}
+
+// newTaskReference returns the reference from each drift record to its task, so
+// deleting the task deletes the record.
+func newTaskReference() *gorp.KeyReference[drift.Key, drift.Record, drift.Key] {
+	return gorp.NewKeyReference(
+		gorp.KeyReferenceConfig[drift.Key, drift.Record, drift.Key]{
+			Name:     "task",
+			Table:    string(resource.TypeTask),
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
+			Targets:  func(r *drift.Record) []drift.Key { return []drift.Key{r.Task} },
+		},
+	)
 }
 
 // openRoot returns the key of the directory that no directory holds, creating it when
@@ -141,5 +167,8 @@ func newDirectoryReference() *gorp.KeyReference[Key, Arc, directory.Key] {
 
 // Close closes the table.
 func (t *Table) Close() error {
-	return errors.Combine(t.table.Close(), t.directories.Close())
+	return errors.Combine(
+		t.drifts.Close(),
+		errors.Combine(t.table.Close(), t.directories.Close()),
+	)
 }

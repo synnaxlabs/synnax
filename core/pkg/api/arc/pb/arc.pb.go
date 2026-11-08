@@ -46,8 +46,10 @@ type RetrieveRequest struct {
 	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
 	// include_program includes the program of each record.
 	IncludeProgram bool `protobuf:"varint,5,opt,name=include_program,json=includeProgram,proto3" json:"include_program,omitempty"`
+	// include_changes includes the changes of each record.
+	IncludeChanges bool `protobuf:"varint,6,opt,name=include_changes,json=includeChanges,proto3" json:"include_changes,omitempty"`
 	// include_status includes the status of each record.
-	IncludeStatus bool `protobuf:"varint,6,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
+	IncludeStatus bool `protobuf:"varint,7,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -117,6 +119,13 @@ func (x *RetrieveRequest) GetIncludeProgram() bool {
 	return false
 }
 
+func (x *RetrieveRequest) GetIncludeChanges() bool {
+	if x != nil {
+		return x.IncludeChanges
+	}
+	return false
+}
+
 func (x *RetrieveRequest) GetIncludeStatus() bool {
 	if x != nil {
 		return x.IncludeStatus
@@ -175,15 +184,16 @@ var File_core_pkg_api_arc_pb_arc_proto protoreflect.FileDescriptor
 const file_core_pkg_api_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
 	"\x1dcore/pkg/api/arc/pb/arc.proto\x12\n" +
-	"api.arc.pb\x1a!core/pkg/service/arc/pb/arc.proto\"\xfb\x01\n" +
+	"api.arc.pb\x1a!core/pkg/service/arc/pb/arc.proto\"\xa4\x02\n" +
 	"\x0fRetrieveRequest\x120\n" +
 	"\x05where\x18\x01 \x01(\v2\x15.service.arc.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
 	"searchTerm\x12\x19\n" +
 	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
 	"\x06offset\x18\x04 \x01(\rR\x06offset\x12'\n" +
-	"\x0finclude_program\x18\x05 \x01(\bR\x0eincludeProgram\x12%\n" +
-	"\x0einclude_status\x18\x06 \x01(\bR\rincludeStatusB\b\n" +
+	"\x0finclude_program\x18\x05 \x01(\bR\x0eincludeProgram\x12'\n" +
+	"\x0finclude_changes\x18\x06 \x01(\bR\x0eincludeChanges\x12%\n" +
+	"\x0einclude_status\x18\a \x01(\bR\rincludeStatusB\b\n" +
 	"\x06_whereB\b\n" +
 	"\x06_limit\";\n" +
 	"\x10RetrieveResponse\x12'\n" +

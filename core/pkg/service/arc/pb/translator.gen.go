@@ -96,6 +96,69 @@ func BasesFromPB(pbs []*Base) ([]arc.Base, error) {
 	return result, nil
 }
 
+// ChangeToPB converts Change to Change.
+func ChangeToPB(r arc.Change) (*Change, error) {
+	typeVal, err := TypeToPB(r.Type)
+	if err != nil {
+		return nil, err
+	}
+	kindVal, err := ChangeKindToPB(r.Kind)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Change{
+		Path: r.Path,
+		Type: typeVal,
+		Kind: kindVal,
+	}
+	return pb, nil
+}
+
+// ChangeFromPB converts Change to Change.
+func ChangeFromPB(pb *Change) (arc.Change, error) {
+	var r arc.Change
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Type, err = TypeFromPB(pb.Type)
+	if err != nil {
+		return arc.Change{}, err
+	}
+	r.Kind, err = ChangeKindFromPB(pb.Kind)
+	if err != nil {
+		return arc.Change{}, err
+	}
+	r.Path = pb.Path
+	return r, nil
+}
+
+// ChangesToPB converts a slice of Change to Change.
+func ChangesToPB(rs []arc.Change) ([]*Change, error) {
+	result := make([]*Change, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ChangeToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ChangesFromPB converts a slice of Change to Change.
+func ChangesFromPB(pbs []*Change) ([]arc.Change, error) {
+	result := make([]arc.Change, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ChangeFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // UuidSetToPB converts filter.Set[uuid.UUID] to UuidSet.
 func UuidSetToPB(r filter.Set[uuid.UUID]) (*UuidSet, error) {
 	pb := &UuidSet{}
@@ -405,7 +468,13 @@ func GraphSourcesFromPB(pbs []*SourceGraphPayload) ([]arc.GraphSource, error) {
 
 // AutomationArcToPB converts AutomationArc to ArcAutomationPayload.
 func AutomationArcToPB(r arc.AutomationArc) (*ArcAutomationPayload, error) {
-	pb := &ArcAutomationPayload{}
+	changesVal, err := ChangesToPB(r.Changes)
+	if err != nil {
+		return nil, err
+	}
+	pb := &ArcAutomationPayload{
+		Changes: changesVal,
+	}
 	if r.Program != nil {
 		var err error
 		pb.Program, err = programpb.ProgramToPB(*r.Program)
@@ -421,6 +490,11 @@ func AutomationArcFromPB(pb *ArcAutomationPayload) (arc.AutomationArc, error) {
 	var r arc.AutomationArc
 	if pb == nil {
 		return r, nil
+	}
+	var err error
+	r.Changes, err = ChangesFromPB(pb.Changes)
+	if err != nil {
+		return arc.AutomationArc{}, err
 	}
 	if pb.Program != nil {
 		val, err := programpb.ProgramFromPB(pb.Program)
@@ -679,6 +753,34 @@ func ArcsFromPB(pbs []*Arc) ([]arc.Arc, error) {
 		}
 	}
 	return result, nil
+}
+
+// ChangeKindToPB converts arc.ChangeKind to ChangeKind.
+func ChangeKindToPB(v arc.ChangeKind) (ChangeKind, error) {
+	switch v {
+	case arc.ChangeKindChanged:
+		return ChangeKind_CHANGE_KIND_CHANGED, nil
+	case arc.ChangeKindAdded:
+		return ChangeKind_CHANGE_KIND_ADDED, nil
+	case arc.ChangeKindRemoved:
+		return ChangeKind_CHANGE_KIND_REMOVED, nil
+	default:
+		return 0, errors.Newf("unrecognized arc.ChangeKind value: %v", v)
+	}
+}
+
+// ChangeKindFromPB converts ChangeKind to arc.ChangeKind.
+func ChangeKindFromPB(v ChangeKind) (arc.ChangeKind, error) {
+	switch v {
+	case ChangeKind_CHANGE_KIND_CHANGED:
+		return arc.ChangeKindChanged, nil
+	case ChangeKind_CHANGE_KIND_ADDED:
+		return arc.ChangeKindAdded, nil
+	case ChangeKind_CHANGE_KIND_REMOVED:
+		return arc.ChangeKindRemoved, nil
+	default:
+		return arc.ChangeKind(""), errors.Newf("unrecognized ChangeKind value: %v", v)
+	}
 }
 
 // ModeToPB converts arc.Mode to Mode.

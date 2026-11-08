@@ -18,13 +18,30 @@ import { text } from "@/arc/text";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
+export const TYPES = ["automation", "module"] as const;
+export const typeZ = z.enum(TYPES);
+export type Type = z.infer<typeof typeZ>;
+
+export const CHANGE_KINDS = ["changed", "added", "removed"] as const;
+export const changeKindZ = z.enum(CHANGE_KINDS);
+export type ChangeKind = z.infer<typeof changeKindZ>;
+
 export const MODES = ["text", "graph"] as const;
 export const modeZ = z.enum(MODES);
 export type Mode = z.infer<typeof modeZ>;
 
-export const TYPES = ["automation", "module"] as const;
-export const typeZ = z.enum(TYPES);
-export type Type = z.infer<typeof typeZ>;
+/**
+ * Change is one difference between an automation's content and what its task last ran.
+ */
+export const changeZ = z.object({
+  /** type is whether the automation's own text or a module changed. */
+  type: typeZ,
+  /** path is the import path of the module. Empty for the automation. */
+  path: z.string().default(""),
+  /** kind is how the content differs from what the task last ran. */
+  kind: changeKindZ,
+});
+export interface Change extends z.infer<typeof changeZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -114,6 +131,8 @@ export const retrieveRequestZ = z.strictObject({
   offset: z.uint32().optional(),
   /** includeProgram includes the program of each record. */
   includeProgram: z.boolean().optional(),
+  /** includeChanges includes the changes of each record. */
+  includeChanges: z.boolean().optional(),
   /** includeStatus includes the status of each record. */
   includeStatus: z.boolean().optional(),
 });
@@ -124,6 +143,8 @@ export const automationArcZ = baseZ.extend({
   type: z.literal("automation"),
   /** program is the compiled module output including IR and WebAssembly bytecode. */
   program: program.programZ.optional(),
+  /** changes is what changed in the automation since its task was deployed. */
+  changes: changeZ.array().default(() => []),
 });
 export interface AutomationArc extends z.infer<typeof automationArcZ> {}
 
