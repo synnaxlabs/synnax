@@ -43,7 +43,7 @@ const createSubjectWithPolicy = async (pol: TestPolicy) => {
     username: id.create(),
     password: "test",
     name: "test",
-    roles: [r.key],
+    role: r.key,
   });
   return { subject: user.resourceID(u.key), policy: p, role: r };
 };

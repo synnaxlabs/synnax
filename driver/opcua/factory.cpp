@@ -90,11 +90,11 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
-        res = configure_scan(ctx, task, conn_pool_, store_);
+        res = configure_scan(ctx, task, this->pool, this->store);
     else if (task.type == READ_TASK_TYPE)
-        res = configure_read(ctx, task, conn_pool_);
+        res = configure_read(ctx, task, this->pool);
     else if (task.type == WRITE_TASK_TYPE)
-        res = configure_write(ctx, task, conn_pool_);
+        res = configure_write(ctx, task, this->pool);
     return common::handle_config_err(ctx, task, std::move(res), cmd_key);
 }
 

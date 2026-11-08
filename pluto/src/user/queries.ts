@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, user } from "@synnaxlabs/client";
+import { user } from "@synnaxlabs/client";
 import { array, deep, uuid, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -47,11 +47,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export const formSchema = user.newZ.omit({ roles: true }).extend({
-  username: z.string().min(1, "username is required"),
+export const formSchema = user.newZ.extend({
   password: z.string().min(1, "Password is required"),
   name: z.string().min(1, "Name is required"),
-  role: access.role.keyZ,
 });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
@@ -72,8 +70,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   update: async ({ client, value }) => {
-    const { role, ...rest } = value();
-    await client.users.create({ key: uuid.create(), ...rest, roles: [role] });
+    await client.users.create({ key: uuid.create(), ...value() });
   },
 });
 

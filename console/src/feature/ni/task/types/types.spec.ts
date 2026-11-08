@@ -360,16 +360,24 @@ describe("analog read task", () => {
       ).toEqual(true);
     });
 
-    // NOTE: This test is commented out because the validation for "at least one enabled channel"
-    // is handled in the C++ driver code, not in the TypeScript schema. Disabled channels are
-    // filtered out during task configuration. This matches the behavior of Analog Read and Digital Read tasks.
+    // NOTE: This test is commented out because the validation for "at least one enabled
+    // channel" is handled in the C++ driver code, not in the TypeScript schema.
+    // Disabled channels are filtered out during task configuration. This matches the
+    // behavior of Analog Read and Digital Read tasks.
     // it("should fail to parse a task with no enabled channels", () => {
     //   expect(
     //     z.validate(NI.Task.counterReadConfigZ, {
     //       ...NI.Task.COUNTER_READ_SCHEMAS.config.parse({}),
     //       streamRate: 25,
     //       sampleRate: 1000,
-    //       channels: [{ ...NI.Task.createCIChannel(), key: "0", device: "Dev1", enabled: false }],
+    //       channels: [
+    //         {
+    //           ...NI.Task.createCIChannel(),
+    //           key: "0",
+    //           device: "Dev1",
+    //           enabled: false,
+    //         },
+    //       ],
     //     }),
     //   ).toEqual(false);
     // });

@@ -414,6 +414,8 @@ export interface RenderTreeContextMenuOptions extends Pick<
   store?: TestStore;
   baseOverrides?: Partial<Tree.BaseProps>;
   stateOverrides?: Partial<Tree.TreeState>;
+  /** Extra siblings rendered alongside the menu, e.g. CaptureStatuses. */
+  extra?: ReactNode;
 }
 
 export interface TreeContextMenuHandle {
@@ -438,6 +440,7 @@ export const renderTreeContextMenu = async (
     baseOverrides = {},
     stateOverrides = {},
     onCaughtError,
+    extra,
   }: RenderTreeContextMenuOptions,
 ): Promise<TreeContextMenuHandle> => {
   const resolvedStore = store ?? (await createTestStore());
@@ -461,6 +464,7 @@ export const renderTreeContextMenu = async (
         <TreeContextMenu {...props} />
       </Errors.SuspenseBoundary>
       <Modals.Stack />
+      {extra}
     </>,
     { wrapper, onCaughtError },
   );
@@ -469,7 +473,9 @@ export const renderTreeContextMenu = async (
 
 export interface RenderToolbarOptions extends Pick<RenderOptions, "onCaughtError"> {
   client: Synnax;
-  /** Real tree items keyed by resource type; other types fall back to Tree.DefaultItem. */
+  /**
+   * Real tree items keyed by resource type; other types fall back to Tree.DefaultItem.
+   */
   items?: Tree.Items;
 }
 
