@@ -15,10 +15,10 @@ import { Log } from "@/platform/log";
 import { type Selector } from "@/platform/selector";
 
 export const Selectable: Selector.Selectable = {
-  type: log.TYPE_ONTOLOGY_ID.type,
+  type: log.TYPE_RESOURCE_ID.type,
   title: "Log",
   icon: <Icon.Log />,
   description: "A stream of values",
   useOnSelect: Log.useCreate,
-  useVisible: () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(log.TYPE_RESOURCE_ID),
 };

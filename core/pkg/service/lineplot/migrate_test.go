@@ -10,33 +10,57 @@
 package lineplot_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
+
+// openChannels opens a node with a channel service on its DB, and creates count
+// channels. It returns the DB and the channel keys.
+func openChannels(ctx SpecContext, count int) (*gorp.DB, channel.Keys) {
+	GinkgoHelper()
+	node := testutil.NewNode(ctx)
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB: node.DB,
+	}))
+	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostProvider: node.Cluster,
+		Status:       statusSvc,
+	}))
+	keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, count))
+	return node.DB, keys
+}
 
 var _ = Describe("Stored v7 line plots", func() {
 	It(
 		"Should drop key references to ranges the Core does not hold",
 		func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
+			db, keys := openChannels(ctx, 1)
+			ch := keys[0]
 			// Mark the chain through v7 as applied, so only the v8 steps run on open.
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "LinePlot",
-				Migrations: versions.Migrations[:len(versions.Migrations)-2],
+				Migrations: versions.Migrations[:len(versions.Migrations)-4],
 			})).To(Succeed())
 			saved := ranger.Range{
 				Key:       uuid.New(),
@@ -49,26 +73,47 @@ var _ = Describe("Stored v7 line plots", func() {
 			old := v7.LinePlot{
 				Key:      uuid.New(),
 				Name:     "plot",
-				Channels: v7.Channels{Y1: []channel.Key{5}},
+				Channels: v7.Channels{Y1: []channel.Key{ch}},
 				Ranges: v7.Ranges{X1: []string{
 					saved.Key.String(), local, "not-a-uuid", "rolling1m",
 				}},
 				Lines: []v7.Line{
 					{
-						Key:         "y1---x1---" + saved.Key.String() + "---0---5",
+						Key: fmt.Sprintf(
+							"y1---x1---%s---0---%d",
+							saved.Key,
+							ch,
+						),
 						StrokeWidth: 3,
 					},
-					{Key: "y1---x1---" + local + "---0---5", StrokeWidth: 4},
-					{Key: "y1---x1---rolling1m---0---5", StrokeWidth: 5},
+					{
+						Key:         fmt.Sprintf("y1---x1---%s---0---%d", local, ch),
+						StrokeWidth: 4,
+					},
+					{
+						Key:         fmt.Sprintf("y1---x1---rolling1m---0---%d", ch),
+						StrokeWidth: 5,
+					},
 				},
 			}
 			Expect(gorp.NewCreate[v7.Key, v7.LinePlot]().
 				Entry(&old).Exec(ctx, db)).To(Succeed())
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			projects := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+				DB: db,
+			}))
+			proj := project.Project{Name: "Project"}
+			Expect(projects.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+			owner := ontology.Relationship{
+				From: resource.ID{Type: resource.TypeProject, Key: proj.Key.String()},
+				Type: ontology.RelationshipTypeParentOf,
+				To:   resource.ID{Type: resource.TypeLineplot, Key: old.Key.String()},
+			}
+			Expect(gorp.NewCreate[string, ontology.Relationship]().
+				Entry(&owner).
+				Exec(ctx, db)).To(Succeed())
 			MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				ImEx:     imex.NewService(),
+				DB:   db,
+				ImEx: imex.NewService(),
 			}))
 			var got lineplot.LinePlot
 			Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().
@@ -86,4 +131,50 @@ var _ = Describe("Stored v7 line plots", func() {
 			Expect(got.Lines).To(HaveLen(1))
 		},
 	)
+
+	It("Should drop channels the Core does not hold", func(ctx SpecContext) {
+		db, keys := openChannels(ctx, 2)
+		y1, y2 := keys[0], keys[1]
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "LinePlot",
+			Migrations: versions.Migrations,
+		})).To(Succeed())
+		stored := lineplot.LinePlot{
+			Key:  uuid.New(),
+			Name: "plot",
+			Channels: lineplot.Channels{
+				X1: 6,
+				Y1: []channel.Key{y1, 8},
+				Y2: []channel.Key{y2},
+			},
+			Lines: []lineplot.Line{
+				{YAxis: lineplot.YAxisKeyY1, YChannel: y1, XChannel: 6, StrokeWidth: 3},
+				{YAxis: lineplot.YAxisKeyY1, YChannel: 8, XChannel: 6, StrokeWidth: 4},
+			},
+		}
+		Expect(gorp.NewCreate[lineplot.Key, lineplot.LinePlot]().
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
+			DB:   db,
+			ImEx: imex.NewService(),
+		}))
+		var got lineplot.LinePlot
+		Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().
+			Where(gorp.MatchKeys[lineplot.Key, lineplot.LinePlot](stored.Key)).
+			Entry(&got).
+			Exec(ctx, db)).To(Succeed())
+		Expect(got.Channels).To(Equal(lineplot.Channels{
+			Y1: []channel.Key{y1},
+			Y2: []channel.Key{y2},
+		}))
+		Expect(got.Lines).To(HaveLen(2))
+		Expect(got.Lines[0]).To(SatisfyAll(
+			HaveField("YChannel", y1),
+			HaveField("XChannel", channel.Key(0)),
+			HaveField("StrokeWidth", 3.0),
+		))
+		Expect(got.Lines[1].YChannel).To(Equal(y2))
+	})
 })

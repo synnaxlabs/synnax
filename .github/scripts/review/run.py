@@ -94,8 +94,8 @@ class Config:
     docs: list[Doc]
     lenses: list[Lens]
     """The focus of each extra pass. One pass always reviews the pull request with the
-    rules. The passes of the lenses run beside it, and the review joins the findings of
-    all passes."""
+    rules. When no earlier commit in the history of the head has a review, the passes of
+    the lenses run beside it, and the review joins the findings of all passes."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -173,6 +173,16 @@ class Usage:
 
 
 @dataclass(frozen=True, kw_only=True)
+class Pass:
+    """One pass of a review, before the review joins it with the others."""
+
+    lens: str | None
+    """The name of the pass's lens, or None for the pass with the rules."""
+    review: Review
+    usage: Usage
+
+
+@dataclass(frozen=True, kw_only=True)
 class PullRequest:
     number: int
     title: str
@@ -185,6 +195,8 @@ class PullRequest:
     """The path and title of each finding of an earlier review still open."""
     new: str = ""
     """The patches of the pull request's own commits after the last review, if any."""
+    reviewed: bool = False
+    """Whether the bot reviewed an earlier commit in the history of the head."""
 
 
 def load(root: Path) -> Config:
@@ -433,14 +445,15 @@ def _pass(
 
 def run(
     config: Config, pr: PullRequest, *, claude: Claude, workdir: Path
-) -> tuple[Review, Usage]:
-    """Reviews a pull request, and returns the review with what it cost.
+) -> tuple[Review, Usage, list[Pass]]:
+    """Reviews a pull request, and returns the review, what it cost, and each pass.
 
-    The passes of the lenses start once the first response of the pass with the rules
-    begins, so they read the shared prompt from the prompt cache. They do not start
-    when that pass fails first.
+    The passes of the lenses run only when no earlier commit in the history of the head
+    has a review. They start once the first response of the pass with the rules begins,
+    so they read the shared prompt from the prompt cache. They do not start when that
+    pass fails first.
 
-    :param claude: Called from one thread for each pass when the config has lenses.
+    :param claude: Called from one thread for each pass when the lenses run.
     :param workdir: An empty directory that Claude Code starts in and can read.
     :raises RuntimeError: If Claude Code ends with an error.
     """
@@ -453,14 +466,16 @@ def run(
         system = Path(tmp) / "review.md"
         system.write_text(_shared(config, pr, shown, rest))
         rules = _rules(config, pr)
-        if not config.lenses:
+        lenses = [] if pr.reviewed else config.lenses
+        if not lenses:
             review, usage = _pass(
                 config, pr, rules, system=system, claude=claude, workdir=workdir
             )
-            return _cap(review, config.caps), usage
+            only = Pass(lens=None, review=review, usage=usage)
+            return _cap(review, config.caps), usage, [only]
         started = threading.Event()
         begin = time.monotonic()
-        with ThreadPoolExecutor(1 + len(config.lenses)) as pool:
+        with ThreadPoolExecutor(1 + len(lenses)) as pool:
             first = pool.submit(
                 _pass,
                 config,
@@ -489,9 +504,14 @@ def run(
                     effort=lens.effort,
                 )
 
-            lenses = pool.map(focused, config.lenses)
-            passes = [first.result(), *lenses]
+            focuses = pool.map(focused, lenses)
+            results = [first.result(), *focuses]
     wall = round((time.monotonic() - begin) * 1000)
-    review = _merge([r for r, _ in passes], caps=config.caps, open=pr.open)
-    usage = Usage.combine([u for _, u in passes], duration_ms=wall)
-    return _cap(review, config.caps), usage
+    names = [None, *(lens.name for lens in lenses)]
+    passes = [
+        Pass(lens=n, review=r, usage=u)
+        for n, (r, u) in zip(names, results, strict=True)
+    ]
+    review = _merge([p.review for p in passes], caps=config.caps, open=pr.open)
+    usage = Usage.combine([p.usage for p in passes], duration_ms=wall)
+    return _cap(review, config.caps), usage, passes

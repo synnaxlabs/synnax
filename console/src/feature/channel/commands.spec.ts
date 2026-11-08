@@ -39,7 +39,7 @@ describe("Channel Commands", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(channel.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(channel.TYPE_RESOURCE_ID),
       }),
       { client: viewer },
     );

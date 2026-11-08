@@ -12,6 +12,7 @@
 package user
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user/versions"
 	"github.com/synnaxlabs/x/filter"
 )
@@ -35,4 +36,6 @@ type Where struct {
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
 	// Usernames matches the users whose password has any of the given usernames.
 	Usernames []string `json:"usernames,omitzero" msgpack:"usernames,omitempty"`
+	// Roles matches the users that hold any of the given roles.
+	Roles []role.Key `json:"roles,omitzero" msgpack:"roles,omitempty"`
 }

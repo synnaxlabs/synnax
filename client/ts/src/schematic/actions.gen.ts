@@ -13,6 +13,8 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { group } from "@/group";
+import { project } from "@/project";
 import {
   edgeZ,
   elementConfigZ,
@@ -38,6 +40,26 @@ export const renamePayloadZ = z.object({
 });
 
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
+
+/**
+ * SetGroup moves the schematic into a group, or out of its group when group is empty.
+ * Emitted by the Core when it moves the schematic; clients never dispatch it.
+ */
+export const setGroupPayloadZ = z.object({
+  group: group.keyZ.optional(),
+});
+
+export type SetGroupPayload = z.infer<typeof setGroupPayloadZ>;
+
+/**
+ * SetProject moves the schematic into a project. Emitted by the Core when it moves the
+ * schematic; clients never dispatch it.
+ */
+export const setProjectPayloadZ = z.object({
+  project: project.keyZ,
+});
+
+export type SetProjectPayload = z.infer<typeof setProjectPayloadZ>;
 
 /** SetNodePosition moves a node to a new position. */
 export const setNodePositionPayloadZ = z.object({
@@ -147,6 +169,8 @@ export type MovePayload = z.infer<typeof movePayloadZ>;
 export type Action =
   | { type: "create"; create: CreatePayload }
   | { type: "rename"; rename: RenamePayload }
+  | { type: "set_group"; setGroup: SetGroupPayload }
+  | { type: "set_project"; setProject: SetProjectPayload }
   | { type: "set_node_position"; setNodePosition: SetNodePositionPayload }
   | { type: "set_node"; setNode: SetNodePayload }
   | { type: "remove_node"; removeNode: RemoveNodePayload }
@@ -161,6 +185,8 @@ export type Action =
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
+  z.object({ type: z.literal("set_group"), setGroup: setGroupPayloadZ }),
+  z.object({ type: z.literal("set_project"), setProject: setProjectPayloadZ }),
   z.object({
     type: z.literal("set_node_position"),
     setNodePosition: setNodePositionPayloadZ,
@@ -187,6 +213,20 @@ export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
   rename: zod.parse(renamePayloadZ, payload, {
     label: "schematic rename action payload",
+  }),
+});
+
+export const setGroup = (payload: z.input<typeof setGroupPayloadZ>): Action => ({
+  type: "set_group",
+  setGroup: zod.parse(setGroupPayloadZ, payload, {
+    label: "schematic set_group action payload",
+  }),
+});
+
+export const setProject = (payload: z.input<typeof setProjectPayloadZ>): Action => ({
+  type: "set_project",
+  setProject: zod.parse(setProjectPayloadZ, payload, {
+    label: "schematic set_project action payload",
   }),
 });
 
@@ -269,6 +309,8 @@ export type ReduceAllResult = actions.ReduceAllResult<Schematic, Action>;
 export interface Handlers {
   create: (state: Draft<Schematic>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<Schematic>, payload: RenamePayload) => HandlerResult;
+  setGroup: (state: Draft<Schematic>, payload: SetGroupPayload) => HandlerResult;
+  setProject: (state: Draft<Schematic>, payload: SetProjectPayload) => HandlerResult;
   setNodePosition: (
     state: Draft<Schematic>,
     payload: SetNodePositionPayload,
@@ -291,6 +333,10 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
+      case "set_group":
+        return handlers.setGroup(state, action.setGroup);
+      case "set_project":
+        return handlers.setProject(state, action.setProject);
       case "set_node_position":
         return handlers.setNodePosition(state, action.setNodePosition);
       case "set_node":

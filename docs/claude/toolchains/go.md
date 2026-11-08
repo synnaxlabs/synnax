@@ -34,7 +34,7 @@ reproduce a Windows-only failure with `GOOS=windows CGO_ENABLED=0 golangci-lint 
 - Package names: lowercase, one word, singular (`channel`, `framer`, `writer`). When the
   natural name collides with a keyword, extend it (`ranger`, not `range`).
 - One file per concern inside a package: `service.go`, `writer.go`, `retrieve.go`,
-  `ontology.go`, `transport.go`. Tests co-located.
+  `resource.go`, `transport.go`. Tests co-located.
 - Exported names are contextual to the package: `channel.Service`, `channel.Key`,
   `channel.Writer` (see the root namespace rule). The core type may share the package
   name: `channel.Channel`.

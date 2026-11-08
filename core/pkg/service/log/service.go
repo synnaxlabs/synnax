@@ -12,20 +12,27 @@ package log
 import (
 	"context"
 	"io"
+	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for opening a log service.
@@ -36,11 +43,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between logs and other entities in the
-	// Synnax resource graph.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Signals is the optional cluster signals provider. When set, every successful
 	// Writer.Dispatch broadcasts a ScopedAction onto the sy_log_set channel, and
 	// deletes flow through sy_log_delete.
@@ -60,7 +62,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
@@ -70,7 +71,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("log")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("imex", c.ImEx)
 	return v.Error()
 }
@@ -100,14 +100,23 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Log]{
-		DB:              cfg.DB,
-		Indexes:         s.indexes.all(),
-		Migrations:      versions.Migrations,
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
+		Migrations: append(
+			slices.Clone(versions.Migrations),
+			gorp.DanglingMigration("v61_dangling_references"),
+		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
+	// A delete that detaches a target rewrites the log outside the writer. The service
+	// publishes the stored log as a create, in order with the dispatches on it.
+	ok(nil, xio.NoFailCloserFunc(s.table.ObserveDetaches().OnChange(
+		func(ctx context.Context, l Log) { s.publishDetached(ctx, l.Key) },
+	)))
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -133,6 +142,27 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 
 // Close closes the log service and releases any resources.
 func (s *Service) Close() error { return s.closer.Close() }
+
+func (s *Service) publishDetached(ctx context.Context, key Key) {
+	err := s.state.Dispatch(ctx, key, "", nil, func(tx gorp.Tx) ([]Action, error) {
+		var l Log
+		if err := s.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Log](key)).
+			Entry(&l).
+			Exec(ctx, tx); err != nil {
+			return nil, err
+		}
+		return []Action{NewCreateAction(CreatePayload{Log: l})}, nil
+	})
+	// A later delete can remove the log before the broadcast.
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		s.cfg.L.Error(
+			"failed to publish a detached log",
+			zap.Stringer("log", key),
+			zap.Error(err),
+		)
+	}
+}
 
 // OnAction subscribes the given handler to the action stream emitted by Dispatch. The
 // handler runs synchronously inside Dispatch after the underlying transaction commits.
@@ -182,9 +212,8 @@ func (s *Service) Dispatch(
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
+		svc:        s,
 		tx:         tx,
-		otgWriter:  s.cfg.Ontology.NewWriter(tx),
-		otg:        s.cfg.Ontology,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
@@ -197,4 +226,28 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
 	}
+}
+
+// MoveGroups moves the logs in groups into the project top, in tx, after those groups
+// move under top. It returns a validation error when one of the groups holds a log and
+// top is not a project.
+func (s *Service) MoveGroups(
+	ctx context.Context,
+	tx gorp.Tx,
+	groups []group.Key,
+	top *resource.ID,
+) error {
+	var moved []Log
+	if err := s.NewRetrieve().
+		Where(MatchGroups(groups...)).
+		Entries(&moved).
+		Exec(ctx, tx); err != nil || len(moved) == 0 {
+		return err
+	}
+	p, err := project.TopParentProject(top, resource.TypeLog)
+	if err != nil {
+		return err
+	}
+	keys := lo.Map(moved, func(e Log, _ int) Key { return e.Key })
+	return s.NewWriter(tx).setProject(ctx, *p, keys...)
 }

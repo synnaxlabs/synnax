@@ -22,12 +22,13 @@ from pydantic_core import to_jsonable_python
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import rack as rack_
+from synnax import ranger
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.framer import Client as FrameClient
-from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
+from synnax.resource import ID
 from synnax.task.types_gen import (
     Command,
     Key,
@@ -37,7 +38,7 @@ from synnax.task.types_gen import (
     Status,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.util import request_where, returns_one, sole
@@ -65,6 +66,7 @@ class _CopyRequest(BaseModel):
     key: Key
     name: str
     snapshot: bool
+    range: ranger.Key | None = None
 
 
 class _CopyResponse(BaseModel):
@@ -160,8 +162,8 @@ class Task:
         self._cached_frame_client = task._cached_frame_client
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
     def update_device_properties(self, device_client: DeviceClient) -> Device | None:
         """Update device properties before task configuration.
@@ -236,9 +238,8 @@ class Task:
                     try:
                         status = Status.model_validate(sample)
                     except ValidationError:
-                        # The status channel carries statuses for all tasks and
-                        # racks. Rack statuses have a different schema, so
-                        # validation failures are expected and should be skipped.
+                        # The channel carries every status in the cluster, and a status
+                        # that no task owns can carry other details.
                         continue
                     if status.details is not None and status.details.cmd == key:
                         return status
@@ -470,6 +471,8 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -489,6 +492,8 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -508,6 +513,8 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -530,6 +537,8 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -573,6 +582,8 @@ class Client:
             false.
         :param snapshot: Keeps only snapshot tasks when true, or only live tasks when
             false.
+        :param ranges: Keeps the snapshots in any of these ranges.
+        :param arcs: Keeps the tasks that run any of these Arcs.
         :param and_: Keeps tasks that match every filter in the list.
         :param or_: Keeps tasks that match any filter in the list.
         :param not_: Keeps tasks that do not match the filter.
@@ -643,17 +654,38 @@ class Client:
 
         return self.retrieve(rack=rack, internal=False)
 
+    @overload
+    def copy(
+        self, key: Key, name: str, *, snapshot: Literal[False] = False
+    ) -> Task: ...
+
+    @overload
     def copy(
         self,
         key: Key,
         name: str,
+        *,
+        snapshot: Literal[True],
+        range_key: ranger.Key | None = None,
+    ) -> Task: ...
+
+    def copy(
+        self,
+        key: Key,
+        name: str,
+        *,
+        snapshot: bool = False,
+        range_key: ranger.Key | None = None,
     ) -> Task:
         """Copies an existing task with a new name.
 
         :param key: The key of the task to copy.
         :param name: The name for the new task.
+        :param snapshot: Whether the copy is a snapshot of the task.
+        :param range_key: The key of the range that a snapshot copy sits in. Only a
+            snapshot copy can sit in a range.
         :return: The newly created task.
         """
-        req = _CopyRequest(key=key, name=name, snapshot=False)
+        req = _CopyRequest(key=key, name=name, snapshot=snapshot, range=range_key)
         res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]
