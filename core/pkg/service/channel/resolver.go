@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // symbolResolver resolves cluster channels into Arc symbols by name or numeric key. It
@@ -89,13 +91,49 @@ func NewConsistentResolver(r arc.SymbolResolver) arc.SymbolResolver {
 	}
 }
 
+// NewCheckedResolver returns a consistent resolver that looks up channels in snap and
+// records each name it looks up in lookups, for CompileConsistent.
+func (s *Service) NewCheckedResolver(
+	snap gorp.Snapshot,
+	lookups *Lookups,
+) arc.SymbolResolver {
+	return &consistentResolver{
+		SymbolResolver: s.NewArcSymbolResolver(snap),
+		resolved:       make(map[string]resolution),
+		record: func(name string, first resolution) {
+			lookups.Record(func(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+				return first.same(s.NewArcSymbolResolver(snap).Resolve(ctx, name))
+			})
+		},
+	}
+}
+
 type resolution struct {
 	sym *symbol.Symbol
 	err error
 }
 
+// same reports whether a second lookup, which returned sym and err, gives the answer of
+// res: the same symbol ID, type, and name, or not found both times. It returns err when
+// the second lookup fails for another reason.
+func (res resolution) same(sym *symbol.Symbol, err error) (bool, error) {
+	notFound := errors.Is(err, query.ErrNotFound)
+	if err != nil && !notFound {
+		return false, err
+	}
+	if res.err != nil || notFound {
+		return notFound && errors.Is(res.err, query.ErrNotFound), nil
+	}
+	return res.sym.ID == sym.ID &&
+		res.sym.Name == sym.Name &&
+		types.Equal(res.sym.Type, sym.Type), nil
+}
+
 type consistentResolver struct {
 	arc.SymbolResolver
+	// record is called once for each name that the resolver looks up. It is nil when
+	// the resolver records nothing.
+	record   func(name string, first resolution)
 	mu       sync.Mutex
 	resolved map[string]resolution
 }
@@ -109,6 +147,9 @@ func (r *consistentResolver) Resolve(
 	if !ok {
 		res.sym, res.err = r.SymbolResolver.Resolve(ctx, name)
 		r.resolved[name] = res
+		if r.record != nil {
+			r.record(name, res)
+		}
 	}
 	r.mu.Unlock()
 	if res.err != nil {

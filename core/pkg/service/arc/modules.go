@@ -17,6 +17,7 @@ import (
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -27,6 +28,26 @@ func (s *Service) moduleSource(
 ) func(context.Context, string) (arctext.Text, error) {
 	return func(ctx context.Context, path string) (arctext.Text, error) {
 		return s.retrieveModuleText(ctx, snap, path)
+	}
+}
+
+// checkedModuleSource returns a loader source like moduleSource that records each read
+// in lookups. A read gives the same answer when it gives the same text or error.
+func (s *Service) checkedModuleSource(
+	snap gorp.Snapshot,
+	lookups *channel.Lookups,
+) func(context.Context, string) (arctext.Text, error) {
+	return func(ctx context.Context, path string) (arctext.Text, error) {
+		t, err := s.retrieveModuleText(ctx, snap, path)
+		lookups.Record(func(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+			again, againErr := s.retrieveModuleText(ctx, snap, path)
+			if err != nil || againErr != nil {
+				return err != nil && againErr != nil &&
+					err.Error() == againErr.Error(), nil
+			}
+			return t.Raw == again.Raw, nil
+		})
+		return t, err
 	}
 }
 

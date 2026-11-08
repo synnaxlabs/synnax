@@ -16,6 +16,7 @@ import (
 	arclang "github.com/synnaxlabs/arc"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -285,21 +287,24 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	if !ok {
 		return nil
 	}
-	var (
-		prog arclang.Program
-		err  error
-	)
-	switch src := automation.Source.Variant.(type) {
-	case arc.TextSource:
-		prog, err = s.compileText(ctx, src.Text)
-	case arc.GraphSource:
-		prog, err = arclang.CompileGraph(
-			ctx,
-			src.Graph,
-			s.internal.NewRoot(s.db),
-			arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
-		)
-	}
+	prog, err := channel.CompileConsistent(ctx, s.db, func(
+		snap gorp.Snapshot,
+		lookups *channel.Lookups,
+	) (arclang.Program, error) {
+		root := s.internal.NewRoot(snap, lookups)
+		switch src := automation.Source.Variant.(type) {
+		case arc.TextSource:
+			return s.compileText(ctx, src.Text, root)
+		case arc.GraphSource:
+			return arclang.CompileGraph(
+				ctx,
+				src.Graph,
+				root,
+				arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
+			)
+		}
+		return arclang.Program{}, nil
+	})
 	if err != nil {
 		return err
 	}
@@ -308,17 +313,19 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	return nil
 }
 
-// compileText compiles t, reporting parse and analysis failures as a CompileError.
+// compileText compiles t against root, reporting parse and analysis failures as a
+// CompileError.
 func (s *Service) compileText(
 	ctx context.Context,
 	t arctext.Text,
+	root *symbol.Symbol,
 ) (arclang.Program, error) {
 	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
 	parsed, diag := arctext.Parse(t, cfg)
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(s.db), cfg)
+	ir, diag := arctext.Analyze(ctx, parsed, root, cfg)
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}
