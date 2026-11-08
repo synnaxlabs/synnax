@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	apirole "github.com/synnaxlabs/synnax/pkg/api/access/role"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -37,6 +39,9 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	svc    *service.Layer
 	apiSvc *apirole.Service
+	// create and del run their routes as the API layer binds them.
+	create freighter.UnaryHandler[apirole.CreateRequest, apirole.CreateResponse]
+	del    freighter.UnaryHandler[apirole.DeleteRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -44,6 +49,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apirole.NewService(apirole.ServiceConfig{RBAC: svc.RBAC}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
 })
 
 // createUser creates a user that can do nothing.

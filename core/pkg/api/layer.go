@@ -303,7 +303,6 @@ func (l *Layer) BindTo(t Transport) {
 		gate     = license.Middleware(l.config.Service.License)
 		restrict = restrictMiddleware(
 			l.config.Service.Resource,
-			l.config.Service.Task,
 			l.config.Service.RBAC,
 		)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
@@ -542,17 +541,23 @@ func (l *Layer) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
-	t.AuthChangePassword.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
-	)
+	t.AuthChangePassword.BindHandler(bind.WritePrepared(
+		l.binder,
+		l.Auth.PrepareChangePassword,
+		l.Auth.ChangePassword,
+	))
 	t.AuthSessionCreate.BindHandler(l.Auth.CreateSession)
 	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
 	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
-	t.AuthSessionDelete.BindHandler(l.Auth.DeleteSessions)
-	t.AuthKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateKey))
+	t.AuthSessionDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteSessions))
+	t.AuthKeyCreate.BindHandler(bind.Write(l.binder, l.Auth.CreateKey))
 	t.AuthKeyRetrieve.BindHandler(l.Auth.RetrieveKeys)
-	t.AuthKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteKeys))
-	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.SetPassword))
+	t.AuthKeyDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteKeys))
+	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
+		l.binder,
+		l.Auth.PrepareSetPassword,
+		l.Auth.SetPassword,
+	))
 
 	// LICENSE
 	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
@@ -560,14 +565,14 @@ func (l *Layer) BindTo(t Transport) {
 	t.LicenseDeactivate.BindHandler(l.License.Deactivate)
 
 	// USER
-	t.UserRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Rename))
-	t.UserChangeUsername.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.User.ChangeUsername),
+	t.UserRename.BindHandler(bind.Write(l.binder, l.User.Rename))
+	t.UserChangeUsername.BindHandler(bind.Write(l.binder, l.User.ChangeUsername))
+	t.UserCreate.BindHandler(
+		bind.WritePrepared(l.binder, l.User.PrepareCreate, l.User.Create),
 	)
-	t.UserCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Create))
-	t.UserDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Delete))
+	t.UserDelete.BindHandler(bind.Write(l.binder, l.User.Delete))
 	t.UserRetrieve.BindHandler(l.User.Retrieve)
-	t.UserSetRole.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.SetRole))
+	t.UserSetRole.BindHandler(bind.Write(l.binder, l.User.SetRole))
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Create))
@@ -707,49 +712,39 @@ func (l *Layer) BindTo(t Transport) {
 	t.LabelDispatch.BindHandler(bind.Write(l.binder, l.Label.Dispatch))
 
 	// RACK
-	t.RackCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Create))
+	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
 	t.RackRetrieve.BindHandler(l.Rack.Retrieve)
-	t.RackDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Delete))
-	t.RackRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Rename))
+	t.RackDelete.BindHandler(bind.Write(l.binder, l.Rack.Delete))
+	t.RackRename.BindHandler(bind.Write(l.binder, l.Rack.Rename))
 
 	// TASK
-	t.TaskCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Create))
+	t.TaskCreate.BindHandler(bind.Write(l.binder, l.Task.Create))
 	t.TaskRetrieve.BindHandler(l.Task.Retrieve)
 	t.TaskDelete.BindHandler(l.Task.Delete)
-	t.TaskCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Copy))
-	t.TaskRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Rename))
-	t.TaskDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Dispatch))
+	t.TaskCopy.BindHandler(bind.Write(l.binder, l.Task.Copy))
+	t.TaskRename.BindHandler(bind.Write(l.binder, l.Task.Rename))
+	t.TaskDispatch.BindHandler(bind.Write(l.binder, l.Task.Dispatch))
 
 	// DEVICE
-	t.DeviceCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Create))
+	t.DeviceCreate.BindHandler(bind.Write(l.binder, l.Device.Create))
 	t.DeviceRetrieve.BindHandler(l.Device.Retrieve)
-	t.DeviceDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Delete))
-	t.DeviceRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Rename))
+	t.DeviceDelete.BindHandler(bind.Write(l.binder, l.Device.Delete))
+	t.DeviceRename.BindHandler(bind.Write(l.binder, l.Device.Rename))
 
 	// ACCESS
-	t.AccessCreatePolicy.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Policy.Create),
-	)
-	t.AccessDeletePolicy.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Policy.Delete),
-	)
+	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
+	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
 	t.AccessRetrievePolicy.BindHandler(l.Policy.Retrieve)
-	t.AccessCreateRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Role.Create),
-	)
-	t.AccessDeleteRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Role.Delete),
-	)
+	t.AccessCreateRole.BindHandler(bind.Write(l.binder, l.Role.Create))
+	t.AccessDeleteRole.BindHandler(bind.Write(l.binder, l.Role.Delete))
 	t.AccessRetrieveRole.BindHandler(l.Role.Retrieve)
 
 	// STATUS
 	t.StatusSet.BindHandler(bind.Write(l.binder, l.Status.Set))
 	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
-	t.StatusDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Delete))
-	t.StatusRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Rename))
-	t.StatusSetByKeyOrName.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Status.SetByKeyOrName),
-	)
+	t.StatusDelete.BindHandler(bind.Write(l.binder, l.Status.Delete))
+	t.StatusRename.BindHandler(bind.Write(l.binder, l.Status.Rename))
+	t.StatusSetByKeyOrName.BindHandler(bind.Write(l.binder, l.Status.SetByKeyOrName))
 
 	// VIEW
 	t.ViewCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Create))
@@ -800,7 +795,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Password: cfg.Service.Password,
 		APIKey:   cfg.Service.APIKey,
 		User:     cfg.Service.User,
-		Rack:     cfg.Service.Rack,
 		RBAC:     cfg.Service.RBAC,
 		Identity: cfg.Distribution.Identity,
 	}); err != nil {
@@ -810,7 +804,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		RBAC:     cfg.Service.RBAC,
 		User:     cfg.Service.User,
 		Password: cfg.Service.Password,
-		Auth:     cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}
@@ -933,7 +926,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Task:   cfg.Service.Task,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
-		Auth:   cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}

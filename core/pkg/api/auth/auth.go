@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
@@ -62,11 +61,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	User *user.Service
-	// Rack retrieves the racks that API keys log in as.
-	//
-	// [REQUIRED]
-	Rack *rack.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of requests that list API keys or sessions, and of a
+	// password change for another user before its hash.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -88,7 +84,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Password = override.Nil(c.Password, other.Password)
 	c.APIKey = override.Nil(c.APIKey, other.APIKey)
 	c.User = override.Nil(c.User, other.User)
-	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Identity = override.If(
 		c.Identity,
@@ -105,7 +100,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("password", c.Password)
 	v.NotNil("api_key", c.APIKey)
 	v.NotNil("user", c.User)
-	v.NotNil("rack", c.Rack)
 	v.NotNil("rbac", c.RBAC)
 	v.Ternary("identity.key", c.Identity.Key == uuid.Nil(), "must be set")
 	v.NonZero("identity.host_key", c.Identity.HostKey)
@@ -118,7 +112,6 @@ type Service struct {
 	password *password.Service
 	apiKey   *apikey.Service
 	user     *user.Service
-	rack     *rack.Service
 	access   *rbac.Service
 	identity cluster.Identity
 }
@@ -133,7 +126,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		password: cfg.Password,
 		apiKey:   cfg.APIKey,
 		user:     cfg.User,
-		rack:     cfg.Rack,
 		access:   cfg.RBAC,
 		identity: cfg.Identity,
 	}, nil
@@ -188,23 +180,32 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password" msgpack:"new_password"`
 }
 
-// ChangePassword changes the password for the user with the provided credentials and
-// ends every session that password opened, the caller's included.
+// PrepareChangePassword checks the credentials of req and hashes its new password. It
+// returns [auth.ErrInvalidCredentials] when the credentials match no password, and a
+// validation error when the new password is empty.
+func (s *Service) PrepareChangePassword(
+	ctx context.Context,
+	req ChangePasswordRequest,
+) (password.Hash, error) {
+	return s.password.HashProven(
+		ctx,
+		auth.PasswordProof{Credentials: req.Credentials},
+		req.NewPassword,
+	)
+}
+
+// ChangePassword stores the password that PrepareChangePassword hashed and ends every
+// session the old password opened, the caller's included. It returns
+// [auth.ErrInvalidCredentials] when the password changed after its proof.
 func (s *Service) ChangePassword(
 	ctx context.Context,
 	tx gorp.Tx,
-	req ChangePasswordRequest,
+	_ ChangePasswordRequest,
+	hash password.Hash,
 ) (struct{}, error) {
-	identity, err := s.password.Verify(
-		ctx,
-		tx,
-		auth.PasswordProof{Credentials: req.Credentials},
-	)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if err = s.password.NewWriter(tx).
-		ChangePassword(ctx, identity.Subject, req.NewPassword); err != nil {
+	identity, _ := hash.Proven()
+	if err := s.password.NewWriter(tx).
+		ChangePassword(ctx, identity.Subject, hash); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, identity.Credential)

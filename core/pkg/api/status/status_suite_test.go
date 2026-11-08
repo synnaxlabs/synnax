@@ -47,13 +47,19 @@ var (
 	statusSvc *status.Service
 	labelSvc  *label.Service
 	apiSvc    *apistatus.Service
-	// setStatuses runs the Set route as the API layer binds it.
-	setStatuses freighter.UnaryHandler[apistatus.SetRequest, apistatus.SetResponse]
-	author      user.User
-	userSvc     *user.Service
-	rackSvc     *rack.Service
-	devices     *gorp.Table[device.Key, device.Device]
-	tasks       *gorp.Table[task.Key, task.Task]
+	author    user.User
+	userSvc   *user.Service
+	rackSvc   *rack.Service
+	devices   *gorp.Table[device.Key, device.Device]
+	tasks     *gorp.Table[task.Key, task.Task]
+	// The handlers below run their routes as the API layer binds them.
+	setStatuses    freighter.UnaryHandler[apistatus.SetRequest, apistatus.SetResponse]
+	del            freighter.UnaryHandler[apistatus.DeleteRequest, struct{}]
+	rename         freighter.UnaryHandler[apistatus.RenameRequest, struct{}]
+	setByKeyOrName freighter.UnaryHandler[
+		apistatus.SetByKeyOrNameRequest,
+		apistatus.SetByKeyOrNameResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -88,6 +94,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
 	setStatuses = bind.Write(binder, apiSvc.Set)
+	del = bind.Write(binder, apiSvc.Delete)
+	rename = bind.Write(binder, apiSvc.Rename)
+	setByKeyOrName = bind.Write(binder, apiSvc.SetByKeyOrName)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)

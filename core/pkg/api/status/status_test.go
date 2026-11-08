@@ -40,6 +40,19 @@ import (
 // cover any input via the resource.ID IsType matching rule.
 var statusTypeOnly = resource.ID{Type: resource.TypeStatus}
 
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
+}
+
 var _ = Describe("Service.Set", func() {
 	set := func(
 		ctx SpecContext,
@@ -357,19 +370,6 @@ var _ = Describe("Service.Set access", func() {
 	)
 })
 
-// denied matches an error that denies u the action on object.
-func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
-	return SatisfyAll(
-		MatchError(access.ErrDenied),
-		MatchError(ContainSubstring(
-			"%s cannot %s %s",
-			u.ResourceID(),
-			action,
-			object,
-		)),
-	)
-}
-
 func createRack(ctx SpecContext) resource.ID {
 	GinkgoHelper()
 	r := rack.Rack{Key: rack.Key(65536 + rand.Uint32N(1<<16)), Name: "rack"}
@@ -409,9 +409,8 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 					statusTypeOnly)
 
 				res := MustSucceed(
-					apiSvc.SetByKeyOrName(
+					setByKeyOrName(
 						AuthedCtx(ctx, author),
-						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: name,
 							Message:   "hello",
@@ -451,9 +450,8 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 					status.ResourceID(key))
 
 				res := MustSucceed(
-					apiSvc.SetByKeyOrName(
+					setByKeyOrName(
 						AuthedCtx(ctx, author),
-						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: key,
 							Message:   "updated",
@@ -487,9 +485,8 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 					statusTypeOnly)
 
 				res := MustSucceed(
-					apiSvc.SetByKeyOrName(
+					setByKeyOrName(
 						AuthedCtx(ctx, author),
-						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: name,
 							Message:   "updated",
@@ -512,11 +509,14 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 					statusTypeOnly)
 
 				Expect(
-					apiSvc.SetByKeyOrName(AuthedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
-						KeyOrName: name,
-						Message:   "x",
-						Variant:   "bogus",
-					}),
+					setByKeyOrName(
+						AuthedCtx(ctx, author),
+						apistatus.SetByKeyOrNameRequest{
+							KeyOrName: name,
+							Message:   "x",
+							Variant:   "bogus",
+						},
+					),
 				).Error().
 					To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("invalid status variant"))))
 			},
@@ -530,11 +530,14 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 					statusTypeOnly)
 
 				Expect(
-					apiSvc.SetByKeyOrName(AuthedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
-						KeyOrName: "",
-						Message:   "x",
-						Variant:   status.VariantInfo,
-					}),
+					setByKeyOrName(
+						AuthedCtx(ctx, author),
+						apistatus.SetByKeyOrNameRequest{
+							KeyOrName: "",
+							Message:   "x",
+							Variant:   status.VariantInfo,
+						},
+					),
 				).Error().
 					To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("key_or_name is required"))))
 			},
@@ -547,17 +550,21 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 				anon := freshUser(ctx)
 
 				Expect(
-					apiSvc.SetByKeyOrName(
+					setByKeyOrName(
 						AuthedCtx(ctx, anon),
-						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: name,
 							Message:   "noop",
 							Variant:   status.VariantInfo,
 						},
 					),
-				).Error().
-					To(MatchError(access.ErrDenied))
+				).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"%s cannot create status:",
+						anon.ResourceID(),
+					)),
+				))
 
 				Expect(statusSvc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 					Entry(&status.Status[any]{}).
@@ -575,9 +582,8 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 					status.ResourceID(uuid.New().String()))
 
 				Expect(
-					apiSvc.SetByKeyOrName(
+					setByKeyOrName(
 						AuthedCtx(ctx, anon),
-						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: name,
 							Message:   "x",
@@ -696,8 +702,8 @@ var _ = Describe("Service.Rename", func() {
 		grantOn(ctx, u.ResourceID(),
 			[]access.Action{access.ActionUpdate},
 			status.ResourceID(s.Key))
-		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
+		Expect(rename(
+			AuthedCtx(ctx, u),
 			apistatus.RenameRequest{Key: s.Key, Name: "After"},
 		)).Error().ToNot(HaveOccurred())
 		renamed := retrieveStatus(ctx, s.Key)
@@ -712,8 +718,8 @@ var _ = Describe("Service.Rename", func() {
 		grantOn(ctx, u.ResourceID(),
 			[]access.Action{access.ActionUpdate},
 			status.ResourceID(s.Key))
-		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
+		Expect(rename(
+			AuthedCtx(ctx, u),
 			apistatus.RenameRequest{Key: s.Key, Name: ""},
 		)).Error().To(MatchError(ContainSubstring("name: required")))
 		Expect(retrieveStatus(ctx, s.Key).Name).To(Equal("Before"))
@@ -725,8 +731,8 @@ var _ = Describe("Service.Rename", func() {
 		grantOn(ctx, u.ResourceID(),
 			[]access.Action{access.ActionUpdate},
 			status.ResourceID(key))
-		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
+		Expect(rename(
+			AuthedCtx(ctx, u),
 			apistatus.RenameRequest{Key: key, Name: "After"},
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
@@ -734,11 +740,92 @@ var _ = Describe("Service.Rename", func() {
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := freshUser(ctx)
 		s := createStatus(ctx)
-		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
+		Expect(rename(
+			AuthedCtx(ctx, u),
 			apistatus.RenameRequest{Key: s.Key, Name: "After"},
-		)).Error().To(MatchError(access.ErrDenied))
+		)).Error().To(denied(u, access.ActionUpdate, s.ResourceID()))
 		Expect(retrieveStatus(ctx, s.Key).Name).To(Equal("Before"))
+	})
+})
+
+var _ = Describe("Service.Delete", func() {
+	lookup := func(ctx SpecContext, key status.Key) error {
+		return statusSvc.NewRetrieve[any]().
+			Where(status.MatchKeys[any](key)).
+			Entry(&status.Status[any]{}).
+			Exec(ctx, nil)
+	}
+
+	It("Should reject the request when delete is not granted", func(ctx SpecContext) {
+		u := freshUser(ctx)
+		s := createStatus(ctx, "delete-denied")
+		Expect(del(AuthedCtx(ctx, u), apistatus.DeleteRequest{
+			Keys: []status.Key{s.Key},
+		})).Error().To(denied(u, access.ActionDelete, s.ResourceID()))
+		Expect(lookup(ctx, s.Key)).To(Succeed())
+	})
+
+	It("Should delete the status when delete is granted", func(ctx SpecContext) {
+		u := freshUser(ctx)
+		s := createStatus(ctx, "delete-granted")
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			[]access.Action{access.ActionDelete},
+			s.ResourceID(),
+		)
+		MustSucceed(del(AuthedCtx(ctx, u), apistatus.DeleteRequest{
+			Keys: []status.Key{s.Key},
+		}))
+		Expect(lookup(ctx, s.Key)).To(MatchError(query.ErrNotFound))
+	})
+
+	Describe("Owned status", func() {
+		// createOwned creates a status that a new task holds.
+		createOwned := func(ctx SpecContext) (status.Status[any], resource.ID) {
+			GinkgoHelper()
+			owner := createTask(ctx)
+			s := status.Status[any]{
+				Owner:   &owner,
+				Variant: status.VariantInfo,
+				Time:    telem.Now(),
+			}
+			Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+			return s, owner
+		}
+
+		It("Should require update on the owner", func(ctx SpecContext) {
+			u := freshUser(ctx)
+			s, owner := createOwned(ctx)
+			grantOn(
+				ctx,
+				u.ResourceID(),
+				[]access.Action{access.ActionDelete},
+				s.ResourceID(),
+			)
+			Expect(del(AuthedCtx(ctx, u), apistatus.DeleteRequest{
+				Keys: []status.Key{s.Key},
+			})).Error().To(denied(u, access.ActionUpdate, owner))
+			Expect(lookup(ctx, s.Key)).To(Succeed())
+		})
+
+		It("Should delete the status with delete on it and update on the owner", func(
+			ctx SpecContext,
+		) {
+			u := freshUser(ctx)
+			s, owner := createOwned(ctx)
+			grantOn(
+				ctx,
+				u.ResourceID(),
+				[]access.Action{access.ActionDelete},
+				s.ResourceID(),
+			)
+			grantOn(ctx, u.ResourceID(), []access.Action{access.ActionUpdate}, owner)
+			MustSucceed(del(AuthedCtx(ctx, u), apistatus.DeleteRequest{
+				Keys: []status.Key{s.Key},
+			}))
+			Expect(lookup(ctx, s.Key)).To(MatchError(query.ErrNotFound))
+		})
 	})
 })
 

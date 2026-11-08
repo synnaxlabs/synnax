@@ -24,10 +24,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-func subject() resource.ID {
-	return resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
-}
-
 func proof(key string) auth.Proof {
 	return auth.Proof{Variant: auth.APIKeyProof{
 		APIKeyCredentials: auth.APIKeyCredentials{Key: key},
@@ -146,14 +142,16 @@ var _ = Describe("Service", func() {
 			Expect(svc.NewWriter(nil).Delete(ctx, uuid.New())).To(Succeed())
 		})
 	})
-	Describe("DeleteFor", func() {
-		It("Should remove every key of the given subjects", func(ctx SpecContext) {
+	Describe("Subject", func() {
+		It("Should delete every key of a subject when the subject is deleted", func(
+			ctx SpecContext,
+		) {
 			gone, kept := subject(), subject()
 			w := svc.NewWriter(nil)
 			MustSucceed2(w.Create(ctx, gone, "a"))
 			MustSucceed2(w.Create(ctx, gone, "b"))
 			MustSucceed2(w.Create(ctx, kept, "c"))
-			Expect(svc.DeleteFor(ctx, nil, gone)).To(Succeed())
+			deleteSubject(ctx, gone)
 			var keys []apikey.APIKey
 			Expect(svc.NewRetrieve().Where(apikey.MatchSubjects(gone, kept)).
 				Entries(&keys).Exec(ctx, nil)).To(Succeed())

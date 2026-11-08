@@ -23,8 +23,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
@@ -160,6 +162,17 @@ func createRange(
 	r := newRange(parent, labels...)
 	Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 	return r
+}
+
+func createTask(ctx context.Context) task.Task {
+	GinkgoHelper()
+	t := task.Task{
+		Type: pagerduty.AlertTaskType,
+		Rack: svc.Rack.EmbeddedKey,
+		Name: "task",
+	}
+	Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+	return t
 }
 
 func createChannel(ctx context.Context) channel.Channel {
@@ -337,6 +350,37 @@ var _ = Describe("Write", func() {
 				}
 			},
 		),
+		Entry("retrieve on a source", func(ctx context.Context) rule {
+			source := createLabel(ctx)
+			key := uuid.New()
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					l := label.Label{Key: key, Name: source.Name}
+					return svc.Label.NewWriter(tx).Create(ctx, &l)
+				},
+				sources: []resource.ID{source.ResourceID()},
+				granted: []need{{access.ActionCreate, label.ResourceID(key)}},
+				needed:  need{access.ActionRetrieve, source.ResourceID()},
+			}
+		}),
+		Entry(
+			"update on the task of a changed config record",
+			func(ctx context.Context) rule {
+				t := createTask(ctx)
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						_, err := svc.Task.Dispatch(ctx, tx, t.Key, "", []task.Action{
+							task.NewSetAction(task.SetPayload{
+								Path:  []string{"config", "routing_key"},
+								Value: "changed",
+							}),
+						})
+						return err
+					},
+					needed: need{access.ActionUpdate, t.ResourceID()},
+				}
+			},
+		),
 		Entry(
 			"retrieve on the target of a use link added",
 			func(ctx context.Context) rule {
@@ -352,19 +396,6 @@ var _ = Describe("Write", func() {
 				}
 			},
 		),
-		Entry("retrieve on a source", func(ctx context.Context) rule {
-			source := createLabel(ctx)
-			key := uuid.New()
-			return rule{
-				write: func(ctx context.Context, tx gorp.Tx) error {
-					l := label.Label{Key: key, Name: source.Name}
-					return svc.Label.NewWriter(tx).Create(ctx, &l)
-				},
-				sources: []resource.ID{source.ResourceID()},
-				granted: []need{{access.ActionCreate, label.ResourceID(key)}},
-				needed:  need{access.ActionRetrieve, source.ResourceID()},
-			}
-		}),
 		Entry(
 			"update on the range of a new range key-value pair",
 			func(ctx context.Context) rule {
@@ -403,6 +434,43 @@ var _ = Describe("Write", func() {
 				}
 			},
 		),
+		Entry("update on the user of a new API key", func(ctx context.Context) rule {
+			other := newUser(ctx)
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					_, _, err := svc.APIKey.NewWriter(tx).
+						Create(ctx, other.ResourceID(), "key")
+					return err
+				},
+				needed: need{access.ActionUpdate, other.ResourceID()},
+			}
+		}),
+		Entry(
+			"update on the user of a deleted API key",
+			func(ctx context.Context) rule {
+				other := newUser(ctx)
+				k, _ := MustSucceed2(
+					svc.APIKey.NewWriter(nil).Create(ctx, other.ResourceID(), "key"),
+				)
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						return svc.APIKey.NewWriter(tx).Delete(ctx, k.Key)
+					},
+					needed: need{access.ActionUpdate, other.ResourceID()},
+				}
+			},
+		),
+		Entry("update on the user of a new password", func(ctx context.Context) rule {
+			other := newUser(ctx)
+			h := MustSucceed(svc.Password.Hash("secret"))
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					return svc.Password.NewWriter(tx).
+						Set(ctx, other.ResourceID(), other.Name, h)
+				},
+				needed: need{access.ActionUpdate, other.ResourceID()},
+			}
+		}),
 		Entry("create on a new range alias", func(ctx context.Context) rule {
 			r := createRange(ctx, nil)
 			ch := createChannel(ctx)
@@ -446,6 +514,37 @@ var _ = Describe("Write", func() {
 				return svc.Ranger.NewWriter(tx).
 					RemoveLabels(ctx, r.Key, []label.Key{l.Key})
 			})).To(Succeed())
+		},
+	)
+
+	It("Should let a user write its own API keys", func(ctx SpecContext) {
+		u := newUser(ctx)
+		var k apikey.APIKey
+		Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) (err error) {
+			k, _, err = svc.APIKey.NewWriter(tx).Create(ctx, u.ResourceID(), "own")
+			return err
+		})).To(Succeed())
+		Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
+			return svc.APIKey.NewWriter(tx).Delete(ctx, k.Key)
+		})).To(Succeed())
+	})
+
+	It(
+		"Should require update on the user that loses an API key to the subject",
+		func(ctx SpecContext) {
+			u, other := newUser(ctx), newUser(ctx)
+			k, _ := MustSucceed2(
+				svc.APIKey.NewWriter(nil).Create(ctx, other.ResourceID(), "key"),
+			)
+			Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
+				return gorp.NewUpdate[apikey.Key, apikey.APIKey]().
+					Where(gorp.MatchKeys[apikey.Key, apikey.APIKey](k.Key)).
+					Change(func(_ gorp.Context, k apikey.APIKey) apikey.APIKey {
+						k.Subject = u.ResourceID()
+						return k
+					}).
+					Exec(ctx, tx)
+			})).To(denied(u, access.ActionUpdate, other.ResourceID()))
 		},
 	)
 
@@ -549,4 +648,35 @@ var _ = Describe("Write", func() {
 			Expect(labelExists(ctx, l.Key)).To(BeFalse())
 		},
 	)
+})
+
+var _ = Describe("WritePrepared", func() {
+	It("Should pass what prepare returns to apply", func(ctx SpecContext) {
+		u := newUser(ctx)
+		Expect(bind.WritePrepared(
+			binder,
+			func(_ context.Context, req string) (string, error) {
+				return req + " prepared", nil
+			},
+			func(_ context.Context, _ gorp.Tx, _, prepared string) (string, error) {
+				return prepared, nil
+			},
+		)(AuthedCtx(ctx, u), "request")).To(Equal("request prepared"))
+	})
+	It("Should return the error of prepare without running apply", func(
+		ctx SpecContext,
+	) {
+		u := newUser(ctx)
+		failed := errors.New("failed")
+		applied := false
+		Expect(bind.WritePrepared(
+			binder,
+			func(context.Context, string) (string, error) { return "", failed },
+			func(context.Context, gorp.Tx, string, string) (string, error) {
+				applied = true
+				return "response", nil
+			},
+		)(AuthedCtx(ctx, u), "request")).Error().To(MatchError(failed))
+		Expect(applied).To(BeFalse())
+	})
 })

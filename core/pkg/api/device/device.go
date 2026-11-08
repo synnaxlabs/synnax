@@ -12,7 +12,6 @@ package device
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -24,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -38,7 +36,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC checks the access of every request except set group.
+	// RBAC checks the access of retrieve requests, and the read access that a create
+	// response needs.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -94,40 +93,13 @@ type (
 	}
 )
 
+// Create creates or updates the devices. The response holds the status of each device
+// that the subject can retrieve.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeDevice}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	var stored []device.Device
-	if err := s.device.NewRetrieve().
-		Where(device.MatchKeys(lo.Map(
-			req.Devices,
-			func(d device.Device, _ int) device.Key { return d.Key },
-		)...)).
-		Entries(&stored).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return CreateResponse{}, err
-	}
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			req.Devices,
-			stored,
-			func(d device.Device) *group.Key { return d.Group },
-		),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.device.NewWriter(tx).CreateMany(ctx, &req.Devices); err != nil {
 		return CreateResponse{}, err
 	}
@@ -219,19 +191,12 @@ type RenameRequest struct {
 	Key device.Key `json:"key" msgpack:"key"`
 }
 
-// Rename renames the device. It requires update access on it.
+// Rename renames the device and its status.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{device.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.device.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
@@ -239,18 +204,12 @@ type DeleteRequest struct {
 	Keys []device.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the devices, their statuses, and the devices they hold.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: device.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	w := s.device.NewWriter(tx)
 	for _, k := range req.Keys {
 		if err := w.Delete(ctx, k); err != nil {

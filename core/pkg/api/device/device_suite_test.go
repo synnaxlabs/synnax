@@ -38,7 +38,10 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	svc    *service.Layer
 	apiSvc *apidevice.Service
-	// setGroup runs the SetGroup route as the API layer binds it.
+	// These handlers run their routes as the API layer binds them.
+	create   freighter.UnaryHandler[apidevice.CreateRequest, apidevice.CreateResponse]
+	del      freighter.UnaryHandler[apidevice.DeleteRequest, struct{}]
+	rename   freighter.UnaryHandler[apidevice.RenameRequest, struct{}]
 	setGroup freighter.UnaryHandler[apidevice.SetGroupRequest, struct{}]
 )
 
@@ -51,9 +54,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status: svc.Status,
 		RBAC:   svc.RBAC,
 	}))
-	binder := MustSucceed(
-		bind.NewService(bind.ServiceConfig{DB: node.DB, RBAC: svc.RBAC}),
-	)
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	rename = bind.Write(binder, apiSvc.Rename)
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 })
 

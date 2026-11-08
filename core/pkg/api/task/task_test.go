@@ -12,6 +12,7 @@ package task_test
 import (
 	"context"
 	"encoding/json/v2"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -44,6 +46,44 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
+}
+
+// need is an action on an object.
+type need struct {
+	action access.Action
+	object resource.ID
+}
+
+// grantAll grants each need to u.
+func grantAll(ctx SpecContext, u user.User, needs ...need) {
+	GinkgoHelper()
+	for _, n := range needs {
+		grant(ctx, n.action, u.ResourceID(), n.object)
+	}
+}
+
+// statusOf returns the status that t holds.
+func statusOf(ctx SpecContext, t task.Task) resource.ID {
+	GinkgoHelper()
+	var st task.Status
+	Expect(svc.Status.NewRetrieve[task.StatusDetails]().
+		Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+		Entry(&st).
+		Exec(ctx, nil)).To(Succeed())
+	return st.ResourceID()
+}
 
 func createTask(ctx SpecContext) task.Task {
 	GinkgoHelper()
@@ -85,13 +125,21 @@ func retrieveTask(ctx SpecContext, key task.Key) task.Task {
 }
 
 var _ = Describe("Rename", func() {
-	It("Should rename the task when update is granted", func(ctx SpecContext) {
+	It("Should rename the task and its status with update on both", func(
+		ctx SpecContext,
+	) {
 		u := createUser(ctx)
 		t := createTask(ctx)
-		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
-		Expect(rename(
+		grant(
+			ctx,
+			access.ActionUpdate,
+			u.ResourceID(),
+			t.ResourceID(),
+			statusOf(ctx, t),
+		)
+		MustSucceed(rename(
 			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
-		)).Error().ToNot(HaveOccurred())
+		))
 		renamed := retrieveTask(ctx, t.Key)
 		Expect(renamed.Name).To(Equal("After"))
 		Expect(renamed.Snapshot).To(BeTrue())
@@ -100,7 +148,13 @@ var _ = Describe("Rename", func() {
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
-		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
+		grant(
+			ctx,
+			access.ActionUpdate,
+			u.ResourceID(),
+			t.ResourceID(),
+			statusOf(ctx, t),
+		)
 		Expect(rename(
 			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: ""},
 		)).Error().To(MatchError(ContainSubstring("name: required")))
@@ -114,14 +168,25 @@ var _ = Describe("Rename", func() {
 			AuthedCtx(ctx, u), apitask.RenameRequest{Key: key, Name: "After"},
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
-	It("Should reject the request when update is not granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		t := createTask(ctx)
-		Expect(rename(
-			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
-		)).Error().To(MatchError(access.ErrDenied))
-		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
-	})
+	taskID := func(_ SpecContext, t task.Task) resource.ID { return t.ResourceID() }
+	DescribeTable(
+		"Should refuse the rename and keep the name",
+		func(
+			ctx SpecContext,
+			granted func(SpecContext, task.Task) resource.ID,
+			refused func(SpecContext, task.Task) resource.ID,
+		) {
+			u := createUser(ctx)
+			t := createTask(ctx)
+			grant(ctx, access.ActionUpdate, u.ResourceID(), granted(ctx, t))
+			Expect(rename(
+				AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
+			)).Error().To(denied(u, access.ActionUpdate, refused(ctx, t)))
+			Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
+		},
+		Entry("without update on the task", statusOf, taskID),
+		Entry("without update on its status", taskID, statusOf),
+	)
 })
 
 var _ = Describe("Dispatch", func() {
@@ -189,7 +254,7 @@ var _ = Describe("Dispatch", func() {
 				DispatchKey: "dk",
 				Actions:     setRoutingKey,
 			},
-		)).Error().To(MatchError(access.ErrDenied))
+		)).Error().To(denied(u, access.ActionUpdate, t.ResourceID()))
 		Expect(retrieveTask(ctx, t.Key).ConfigHash).To(Equal(t.ConfigHash))
 	})
 	It("Should return the dispatch error", func(ctx SpecContext) {
@@ -208,13 +273,30 @@ var _ = Describe("Dispatch", func() {
 })
 
 var _ = Describe("Create", func() {
+	newTask := func() task.Task {
+		return task.Task{
+			Key:  uuid.New(),
+			Type: pagerduty.AlertTaskType,
+			Rack: svc.Rack.EmbeddedKey,
+			Name: "Created",
+		}
+	}
+	// createNeeds returns what a create of t needs: create on t and its new status, and
+	// update on t and its rack, which the status and t place themselves in.
+	createNeeds := func(t task.Task) []need {
+		return []need{
+			{access.ActionCreate, t.ResourceID()},
+			{access.ActionCreate, resource.ID{Type: resource.TypeStatus}},
+			{access.ActionUpdate, t.ResourceID()},
+			{access.ActionUpdate, t.Rack.ResourceID()},
+		}
+	}
 	It(
 		"Should stamp the dispatch key onto the create broadcast",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
-				Type: resource.TypeTask,
-			})
+			t := newTask()
+			grantAll(ctx, u, createNeeds(t)...)
 			var keys []string
 			DeferCleanup(svc.Task.OnAction(func(
 				_ context.Context,
@@ -222,38 +304,46 @@ var _ = Describe("Create", func() {
 			) {
 				keys = append(keys, f.DispatchKey)
 			}))
-			res := MustSucceed(
-				apiSvc.Create(AuthedCtx(ctx, u), nil, apitask.CreateRequest{
-					Tasks: []task.Task{{
-						Type: pagerduty.AlertTaskType,
-						Rack: svc.Rack.EmbeddedKey,
-						Name: "Created",
-					}},
-					DispatchKey: "dk-create",
-				}),
-			)
+			res := MustSucceed(create(AuthedCtx(ctx, u), apitask.CreateRequest{
+				Tasks:       []task.Task{t},
+				DispatchKey: "dk-create",
+			}))
 			Expect(res.Tasks).To(HaveLen(1))
 			Expect(keys).To(Equal([]string{"dk-create"}))
 		},
+	)
+
+	DescribeTable(
+		"Should refuse the create and store nothing",
+		func(ctx SpecContext, refused int) {
+			u := createUser(ctx)
+			t := newTask()
+			needs := createNeeds(t)
+			grantAll(ctx, u, slices.Delete(slices.Clone(needs), refused, refused+1)...)
+			Expect(create(AuthedCtx(ctx, u), apitask.CreateRequest{
+				Tasks: []task.Task{t},
+			})).Error().To(denied(u, needs[refused].action, needs[refused].object))
+			Expect(svc.Task.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Exists(ctx, nil)).To(BeFalse())
+		},
+		Entry("without create on the task", 0),
+		Entry("without update on the task, which its status sits in", 2),
+		Entry("without update on its rack", 3),
 	)
 
 	It(
 		"Should refuse a snapshot in a range the subject cannot update",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
-				Type: resource.TypeTask,
-			})
+			t := newTask()
+			grantAll(ctx, u, createNeeds(t)...)
 			r := createRange(ctx)
-			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apitask.CreateRequest{
-				Tasks: []task.Task{{
-					Type:     pagerduty.AlertTaskType,
-					Rack:     svc.Rack.EmbeddedKey,
-					Name:     "Snapshot",
-					Snapshot: true,
-					Range:    &r.Key,
-				}},
-			})).Error().To(MatchError(access.ErrDenied))
+			t.Snapshot = true
+			t.Range = &r.Key
+			Expect(create(AuthedCtx(ctx, u), apitask.CreateRequest{
+				Tasks: []task.Task{t},
+			})).Error().To(denied(u, access.ActionUpdate, ranger.ResourceID(r.Key)))
 			Expect(countInRange(ctx, r)).To(BeZero())
 		},
 	)
@@ -699,24 +789,41 @@ var _ = Describe("Delete", func() {
 })
 
 var _ = Describe("Copy", func() {
-	It("Should place a snapshot copy in a range", func(ctx SpecContext) {
-		u := createUser(ctx)
-		t := createTask(ctx)
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
-			Type: resource.TypeTask,
-		})
-		grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
-			Type: resource.TypeTask,
-		})
-		r := createRange(ctx)
-		grant(ctx, access.ActionUpdate, u.ResourceID(), ranger.ResourceID(r.Key))
-		res := MustSucceed(apiSvc.Copy(AuthedCtx(ctx, u), nil, apitask.CopyRequest{
+	var (
+		u user.User
+		t task.Task
+		r ranger.Range
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = createUser(ctx)
+		t = createTask(ctx)
+		r = createRange(ctx)
+	})
+	// copyNeeds returns what a snapshot copy of t into r needs: retrieve on t, create
+	// on the copy and its status, and update on the copy, its rack, and r.
+	copyNeeds := func() []need {
+		return []need{
+			{access.ActionRetrieve, t.ResourceID()},
+			{access.ActionCreate, resource.ID{Type: resource.TypeTask}},
+			{access.ActionCreate, resource.ID{Type: resource.TypeStatus}},
+			{access.ActionUpdate, resource.ID{Type: resource.TypeTask}},
+			{access.ActionUpdate, t.Rack.ResourceID()},
+			{access.ActionUpdate, ranger.ResourceID(r.Key)},
+		}
+	}
+	copyAs := func(ctx SpecContext) (apitask.CopyResponse, error) {
+		return copyTask(AuthedCtx(ctx, u), apitask.CopyRequest{
 			Key:      t.Key,
 			Name:     "Copy",
 			Snapshot: true,
 			Range:    &r.Key,
-		}))
+		})
+	}
+	It("Should place a snapshot copy in a range", func(ctx SpecContext) {
+		grantAll(ctx, u, copyNeeds()...)
+		res := MustSucceed(copyAs(ctx))
 		Expect(res.Task.Range).To(Equal(&r.Key))
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), res.Task.ResourceID())
 		found := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
 			Where: &task.Where{Ranges: []ranger.Key{r.Key}},
 		}))
@@ -724,25 +831,16 @@ var _ = Describe("Copy", func() {
 		Expect(found.Tasks[0].Key).To(Equal(res.Task.Key))
 	})
 
-	It(
-		"Should refuse a snapshot copy into a range the subject cannot update",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			t := createTask(ctx)
-			grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
-				Type: resource.TypeTask,
-			})
-			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
-				Type: resource.TypeTask,
-			})
-			r := createRange(ctx)
-			Expect(apiSvc.Copy(AuthedCtx(ctx, u), nil, apitask.CopyRequest{
-				Key:      t.Key,
-				Name:     "Copy",
-				Snapshot: true,
-				Range:    &r.Key,
-			})).Error().To(MatchError(access.ErrDenied))
+	DescribeTable(
+		"Should refuse the copy and store nothing",
+		func(ctx SpecContext, refused int) {
+			needs := copyNeeds()
+			grantAll(ctx, u, slices.Delete(slices.Clone(needs), refused, refused+1)...)
+			Expect(copyAs(ctx)).Error().
+				To(denied(u, needs[refused].action, needs[refused].object))
 			Expect(countInRange(ctx, r)).To(BeZero())
 		},
+		Entry("without retrieve on the task", 0),
+		Entry("without update on the range", 5),
 	)
 })

@@ -11,13 +11,11 @@ package rack
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -26,8 +24,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -50,14 +46,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC checks the access of every request except set group.
+	// RBAC checks the access of retrieve requests, and the read access that a create
+	// response needs.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Auth ends the sessions of the racks the service deletes.
-	//
-	// [REQUIRED]
-	Auth *svcauth.Service
 }
 
 var (
@@ -72,7 +65,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
-	c.Auth = override.Nil(c.Auth, other.Auth)
 	return c
 }
 
@@ -83,13 +75,11 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
-	v.NotNil("auth", c.Auth)
 	return v.Error()
 }
 
 type Service struct {
 	access *rbac.Service
-	auth   *svcauth.Service
 	rack   *rack.Service
 	task   *task.Service
 	status *status.Service
@@ -105,7 +95,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		task:   cfg.Task,
 		status: cfg.Status,
 		access: cfg.RBAC,
-		auth:   cfg.Auth,
 	}, nil
 }
 
@@ -118,14 +107,13 @@ type (
 	}
 )
 
+// Create creates or updates the racks. The response holds the status of each rack that
+// the subject can retrieve.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.enforceCreate(ctx, tx, req.Racks); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.rack.NewWriter(tx).CreateMany(ctx, &req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
@@ -182,68 +170,6 @@ func (s *Service) attachStatuses(
 	return nil
 }
 
-// enforceCreate requires the update action on each rack that already exists, and the
-// create action when any rack is new, so a subject that may only update racks can
-// still save its own.
-func (s *Service) enforceCreate(
-	ctx context.Context,
-	tx gorp.Tx,
-	racks []rack.Rack,
-) error {
-	keys := make([]rack.Key, 0, len(racks))
-	for _, r := range racks {
-		if !r.Key.IsZero() {
-			keys = append(keys, r.Key)
-		}
-	}
-	var existing []rack.Rack
-	if len(keys) > 0 {
-		if err := s.rack.NewRetrieve().
-			Where(rack.MatchKeys(keys...)).
-			Entries(&existing).
-			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-	}
-	enforcer := s.access.NewEnforcer(tx)
-	subject := auth.GetSubject(ctx)
-	if len(existing) > 0 {
-		if err := enforcer.Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionUpdate,
-			Objects: rack.ResourceIDsFromRacks(existing),
-		}); err != nil {
-			return err
-		}
-	}
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			racks,
-			existing,
-			func(r rack.Rack) *group.Key { return r.Group },
-		),
-	}); err != nil {
-		return err
-	}
-	found := make(set.Set[rack.Key], len(existing))
-	for _, r := range existing {
-		found.Add(r.Key)
-	}
-	if !slices.ContainsFunc(
-		racks,
-		func(r rack.Rack) bool { return !found.Contains(r.Key) },
-	) {
-		return nil
-	}
-	return enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeRack}},
-	})
-}
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -279,19 +205,12 @@ type RenameRequest struct {
 	Key rack.Key `json:"key" msgpack:"key"`
 }
 
-// Rename renames the rack. It requires update access on it.
+// Rename renames the rack and its status.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{req.Key.ResourceID()},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.rack.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
@@ -299,25 +218,14 @@ type DeleteRequest struct {
 	Keys []rack.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete deletes the racks and the internal tasks they hold. It refuses a rack that is
-// embedded or holds a device or a task that is not internal.
+// Delete deletes the racks with the internal tasks, API keys, and sessions they hold.
+// It refuses a rack that is embedded or holds a device or a task that is not internal.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: rack.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.task.NewWriter(tx).DeleteRacks(ctx, req.Keys...); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.auth.NewWriter(tx).
-		DeleteFor(ctx, rack.ResourceIDs(req.Keys)...)
+	return struct{}{}, s.task.NewWriter(tx).DeleteRacks(ctx, req.Keys...)
 }
 
 // SetGroupRequest moves racks into Group, or out of their group when Group is nil.

@@ -32,8 +32,8 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	subject    *gorp.LookupIndex[SessionKey, Session, resource.ID]
 	credential *gorp.LookupIndex[SessionKey, Session, uuid.UUID]
+	subject    *gorp.TargetReference[SessionKey, Session]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -41,14 +41,19 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		subject: gorp.NewLookupIndex[SessionKey, Session, resource.ID](
-			"subject",
-			func(e *Session) resource.ID { return e.Subject },
-		),
 		credential: gorp.NewLookupIndex[SessionKey, Session, uuid.UUID](
 			"credential",
 			func(e *Session) uuid.UUID { return e.Credential },
 		),
+		subject: gorp.NewTargetReference(gorp.TargetReferenceConfig[SessionKey, Session]{
+			Name:     "subject",
+			Tables:   []string{"user", "rack"},
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
+			Targets: func(e *Session) []gorp.Target {
+				return []gorp.Target{resourceTarget(e.Subject)}
+			},
+		}),
 	}
 }
 
@@ -56,9 +61,21 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[SessionKey, Session] {
 	return []gorp.Index[SessionKey, Session]{
-		i.subject,
 		i.credential,
 	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[SessionKey, Session] {
+	return []gorp.Reference[SessionKey, Session]{
+		i.subject,
+	}
+}
+
+// resourceTarget returns the gorp.Target of the resource that id identifies.
+func resourceTarget(id resource.ID) gorp.Target {
+	return gorp.Target{Table: string(id.Type), Key: id.Key}
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -104,12 +121,16 @@ func MatchKeys(keys ...SessionKey) Filter {
 	}
 }
 
-// MatchSubjects returns a filter for
-// sessions whose Subject matches any of the
-// provided values.
+// MatchSubjects returns a filter for sessions
+// whose Subject matches any of the provided
+// values.
 func MatchSubjects(vals ...resource.ID) Filter {
 	return func(r Retrieve) gorp.Filter[SessionKey, Session] {
-		return r.indexes.subject.Filter(vals...)
+		targets := make([]gorp.Target, len(vals))
+		for i, v := range vals {
+			targets[i] = resourceTarget(v)
+		}
+		return r.indexes.subject.Filter(targets...)
 	}
 }
 

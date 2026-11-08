@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -29,7 +29,6 @@ import (
 // records that the caller can retrieve.
 func restrictMiddleware(
 	res *resource.Service,
-	tasks *task.Service,
 	rbacSvc *rbac.Service,
 ) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
@@ -40,13 +39,7 @@ func restrictMiddleware(
 		if err == nil {
 			return oCtx, nil
 		}
-		if described := describeRestrict(
-			ctx,
-			res,
-			tasks,
-			rbacSvc,
-			err,
-		); described != nil {
+		if described := describeRestrict(ctx, res, rbacSvc, err); described != nil {
 			return oCtx, described
 		}
 		return oCtx, err
@@ -59,13 +52,12 @@ func restrictMiddleware(
 func describeRestrict(
 	ctx context.Context,
 	res *resource.Service,
-	tasks *task.Service,
 	rbacSvc *rbac.Service,
 	err error,
 ) error {
 	var pathErr validate.PathError
 	if errors.As(err, &pathErr) {
-		described := describeRestrict(ctx, res, tasks, rbacSvc, pathErr.Err)
+		described := describeRestrict(ctx, res, rbacSvc, pathErr.Err)
 		if described == nil {
 			return nil
 		}
@@ -80,7 +72,7 @@ func describeRestrict(
 		Type: resource.Type(restrict.Target.Table),
 		Key:  restrict.Target.Key,
 	}
-	holder, ofTask := tasks.ConfigTask(restrict.Holder)
+	holder, ofTask := taskconfig.TaskOf(restrict.Holder)
 	if !ofTask {
 		holder = resource.ID{
 			Type: resource.Type(restrict.Holder.Table),

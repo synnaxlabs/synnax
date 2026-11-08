@@ -34,7 +34,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC checks the access of every request except set.
+	// RBAC checks the access of retrieve requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -188,17 +188,6 @@ func (s *Service) SetByKeyOrName(
 		return SetByKeyOrNameResponse{}, err
 	}
 	st := status.SetTarget(matches, req.KeyOrName, req.Message, string(req.Variant))
-	action := access.ActionUpdate
-	if len(matches) == 0 {
-		action = access.ActionCreate
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  action,
-		Objects: []resource.ID{st.ResourceID()},
-	}); err != nil {
-		return SetByKeyOrNameResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).Set(ctx, &st); err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
@@ -239,19 +228,12 @@ type RenameRequest struct {
 	Key status.Key `json:"key" msgpack:"key"`
 }
 
-// Rename renames the status. It requires update access on it.
+// Rename renames the status.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{status.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
@@ -265,12 +247,5 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: status.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
