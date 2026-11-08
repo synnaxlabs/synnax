@@ -101,13 +101,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
 
   /**
    * Builds a request that creates a group. The Core derives the scope from the parent;
-   * a group with no parent needs a scope. A request with a key writes the group to the
-   * cache, when the cache holds what gives its scope.
+   * a group with no parent needs a scope. A request with a key and a scope writes the
+   * group to the cache.
    */
   createRequest(params: CreateParams): batch.Request<z.infer<typeof createReqZ>> {
     const payload = zod.parse(createReqZ, params, { label: "group create request" });
-    const { key, name, parent } = payload;
-    const scope = payload.scope ?? this.scopeUnder(parent);
+    const { key, name, scope, parent } = payload;
     if (key == null || scope == null) return { endpoint: "/group/create", payload };
     return {
       endpoint: "/group/create",
@@ -272,21 +271,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
       commit: async () => await this.cfg.unary.send(endpoint, payload, reqZ, emptyResZ),
     });
     apply?.();
-  }
-
-  // Returns the scope a group takes under the parent, as the Core derives it, or
-  // undefined when the parent is a group the cache does not hold.
-  private scopeUnder(parent?: resource.ID): resource.Type | undefined {
-    switch (parent?.type) {
-      case "project":
-        return "project";
-      case "rack":
-        return "device";
-      case "group":
-        return this.store.get(parent.key)?.scope;
-      default:
-        return undefined;
-    }
   }
 
   private async execRetrieve(req: z.input<typeof retrieveRequestZ>): Promise<Group[]> {
