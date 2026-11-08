@@ -131,7 +131,6 @@ class TestCarry:
             [file(patch=PATCH + "\n+five")],
             [file(), file(filename="b.go")],
             [file(status="renamed", previous_filename="old.go")],
-            [file(patch=None, sha="png")],
         ],
     )
     def test_should_not_carry_a_changed_diff(
@@ -141,11 +140,9 @@ class TestCarry:
         assert not carry(TARGET, gh, key=KEY)
         assert gh.writes == []
 
-    def test_should_compare_a_binary_file_by_its_blob(self, gh: FakeGH) -> None:
-        gh.files = {OLD: [file(patch=None, sha="png")], HEAD: [file(patch=None)]}
+    def test_should_not_carry_a_file_without_a_patch(self, gh: FakeGH) -> None:
+        gh.files = {OLD: [file(patch=None)], HEAD: [file(patch=None)]}
         assert not carry(TARGET, gh, key=KEY)
-        gh.files[HEAD] = [file(patch=None, sha="png")]
-        assert carry(TARGET, gh, key=KEY)
 
     def test_should_not_carry_a_comparison_it_cannot_list(self, gh: FakeGH) -> None:
         many = [file(filename=f"{i}.go") for i in range(300)]

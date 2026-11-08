@@ -67,19 +67,19 @@ def _newest(t: Target, gh: GH, commit: str, key: str) -> dict[str, Any] | None:
 
 def _diff(t: Target, gh: GH, commit: str) -> list[tuple[str, ...]] | None:
     """Returns each file of the diff from the base to a commit, without line numbers,
-    or None when the comparison cannot list every file. A binary file has no patch, so
-    its blob stands in."""
+    or None when the comparison cannot show every file. GitHub leaves out the patch of a
+    binary file and of a text diff too large to show."""
     compare = f"repos/{t.repo}/compare/{t.base}...{commit}"
     out = gh("api", compare, "--jq", ".files[] | tojson")
     files = [json.loads(line) for line in out.splitlines() if line]
-    if len(files) >= LISTED:
+    if len(files) >= LISTED or any(f.get("patch") is None for f in files):
         return None
     return [
         (
             f["filename"],
             f.get("previous_filename", ""),
             f["status"],
-            f["sha"] if f.get("patch") is None else _HUNK.sub("@@", f["patch"]),
+            _HUNK.sub("@@", f["patch"]),
         )
         for f in files
     ]

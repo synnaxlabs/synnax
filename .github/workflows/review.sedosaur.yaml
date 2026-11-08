@@ -153,7 +153,8 @@ jobs:
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
       # A push that leaves the diff the same, as a merge of the base does, gets the last
-      # review of the diff instead of a new one.
+      # review of the diff instead of a new one. A carry only saves a review, so when it
+      # fails, the review runs.
       - name: Carry the last review
         id: carry
         if: steps.skip.outputs.skip == 'false' && !inputs.replay && !inputs.repeat
@@ -167,7 +168,7 @@ jobs:
           KEY: ${{ steps.pr.outputs.key }}
           CHECK_RUN: ${{ steps.check.outputs.id }}
         run: |
-          carried=$(python3 -m review carry)
+          carried=$(python3 -m review carry || echo false)
           echo "carried=$carried" >> "$GITHUB_OUTPUT"
 
       - name: Assume the runner start role
