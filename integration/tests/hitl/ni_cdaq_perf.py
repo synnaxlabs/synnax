@@ -110,10 +110,12 @@ class CDAQAnalogReadRate(CDAQAnalogRead):
         )
         if len(stamps) == 0:
             return [*problems, "no samples"]
-        if (late := sy.TimeSpan(int(stamps[0]) - started)) > 0:
+        if (late := sy.TimeStamp(int(stamps[0])) - started) > 0:
             problems.append(f"the samples start {late} after the task started")
         # The stop can cut short the last chunk of samples, which the Driver drops.
-        if (early := sy.TimeSpan(stopping - int(stamps[-1]))) > self.STREAM_RATE.period:
+        if (
+            early := stopping - sy.TimeStamp(int(stamps[-1]))
+        ) > self.STREAM_RATE.period:
             problems.append(f"the samples end {early} before the task stopped")
         gap = sy.TimeSpan(int(np.diff(stamps).max()))
         if gap > 1.5 * sy.Rate(rate).period:
