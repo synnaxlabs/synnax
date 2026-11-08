@@ -63,7 +63,7 @@ class TestAuthRetry:
                 credential=uuid4(),
                 last_active=sy.TimeStamp(0),
             ),
-            user=sy.User(key=user_key, name="Synnax Labs"),
+            user=sy.User(key=user_key, name="Synnax Labs", role=uuid4()),
         )
         mock_login_client = MockUnaryClient(
             responses=[res, res], response_errors=[None, None]
@@ -176,7 +176,7 @@ class TestSessions:
         client.close()
 
     def test_logout_after_session_ended(
-        self, login_info: tuple[str, int, str, str]
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
     ) -> None:
         """Should not open a new session when logging out of a session the Core
         already ended.
@@ -184,7 +184,7 @@ class TestSessions:
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user_name = str(uuid4())
-        admin.users.create(username=user_name, password="seldon")
+        admin.users.create(username=user_name, password="seldon", role=empty_role.key)
         ending = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         assert ending.auth.session is not None
@@ -199,7 +199,7 @@ class TestSessions:
         admin.close()
 
     def test_close_leaves_no_session(
-        self, login_info: tuple[str, int, str, str]
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
     ) -> None:
         """Should end the client's only session on close, so none stays open behind
         the connectivity thread.
@@ -207,7 +207,7 @@ class TestSessions:
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user_name = str(uuid4())
-        admin.users.create(username=user_name, password="seldon")
+        admin.users.create(username=user_name, password="seldon", role=empty_role.key)
         closing = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         assert other.auth.session is not None
@@ -249,12 +249,16 @@ class TestAPIKeys:
         with pytest.raises(sy.ValidationError):
             sy.Synnax(api_key="syk_key")
 
-    def test_lifecycle(self, login_info: tuple[str, int, str, str]) -> None:
+    def test_lifecycle(
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
+    ) -> None:
         """Should create a key, log in with it, list it, and delete it."""
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         new_username = str(uuid4())
-        admin.users.create(username=new_username, password="seldon")
+        admin.users.create(
+            username=new_username, password="seldon", role=empty_role.key
+        )
         owner = sy.Synnax(
             host=host, port=port, username=new_username, password="seldon"
         )
