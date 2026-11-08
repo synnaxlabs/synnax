@@ -357,6 +357,17 @@ var _ = Describe("Create", func() {
 })
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the tasks that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		granted := createTask(ctx)
+		createTask(ctx)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{}))
+		Expect(res.Tasks).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should attach only each task's own status", func(ctx SpecContext) {
 		u := createUser(ctx)
 		withStatus := createTask(ctx)

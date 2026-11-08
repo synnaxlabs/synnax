@@ -195,6 +195,17 @@ var _ = Describe("Create", func() {
 })
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the policies that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		granted := createPolicy(ctx, createRole(ctx).Key)
+		createPolicy(ctx, createRole(ctx).Key)
+		grantOn(ctx, u.ResourceID(), access.ActionRetrieve, granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{}))
+		Expect(res.Policies).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should return the policies of a subject when retrieve is granted", func(
 		ctx SpecContext,
 	) {

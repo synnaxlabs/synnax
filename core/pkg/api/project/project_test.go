@@ -32,6 +32,17 @@ import (
 )
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the projects that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		granted := createProject(ctx, "leave-out-granted")
+		createProject(ctx, "leave-out-denied")
+		grantRetrieveOn(ctx, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiproject.RetrieveRequest{}))
+		Expect(res.Projects).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
 	) {

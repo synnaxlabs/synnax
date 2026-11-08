@@ -395,3 +395,16 @@ var _ = Describe("Add and Remove", func() {
 		})).Error().To(MatchError(ContainSubstring("id: a channel cannot have labels")))
 	})
 })
+
+var _ = Describe("Retrieve", func() {
+	It("Should leave out the labels that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		granted := createLabel(ctx)
+		createLabel(ctx)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apilabel.RetrieveRequest{}))
+		Expect(res.Labels).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+})

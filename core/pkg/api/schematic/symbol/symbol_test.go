@@ -202,6 +202,18 @@ var _ = Describe("SetGroup", func() {
 })
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the symbols that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		g := createGroup(ctx, "leave-out")
+		granted := createSymbol(ctx, g, "leave-out-granted")
+		createSymbol(ctx, g, "leave-out-denied")
+		grantRetrieveOn(ctx, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apisymbol.RetrieveRequest{}))
+		Expect(res.Symbols).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should return the symbols the keys name when retrieve is granted", func(
 		ctx SpecContext,
 	) {
