@@ -525,7 +525,10 @@ func unsupportedDescription(cmdType string) string {
 // a later create of the same key cannot hide one. A create or an update needs nothing:
 // configs deploy on start, and a rack move leaves the old instance running until the
 // task deploys again.
-func (d *Driver) deleteTasks(_ context.Context, deleted map[task.Key]struct{}) {
+func (d *Driver) deleteTasks(
+	_ context.Context,
+	deleted map[task.Key]struct{}, //nolint:set // coalesce.Worker hands values as a map
+) {
 	for key := range deleted {
 		d.delete(key)
 	}
