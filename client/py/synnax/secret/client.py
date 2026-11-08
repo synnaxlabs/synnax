@@ -199,7 +199,7 @@ class Client:
         :param search_term: Keeps the secrets whose names match, closest match first.
         :param limit: The most secrets to return.
         :param offset: The number of matching secrets to skip.
-        :param include_uses: Whether to fill each secret's uses with the ontology IDs of
+        :param include_uses: Whether to fill each secret's uses with the resource IDs of
             the resources that use it and that the caller can read. Secrets come back
             with no uses when false.
         :param one: Returns one secret for any filter.
@@ -223,4 +223,4 @@ class Client:
             include_uses=include_uses,
         )
         res = self._client.send("/secret/retrieve", req, RetrieveResponse)
-        return sole("Secret", fields, res.secrets) if single else res.secrets
+        return sole("secret", req, res.secrets) if single else res.secrets

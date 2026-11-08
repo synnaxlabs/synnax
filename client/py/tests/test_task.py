@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import threading
+from collections.abc import Callable
 from typing import Any, assert_type
 from uuid import UUID, uuid4
 
@@ -42,9 +43,11 @@ class TestTaskClient:
         assert tasks[0].name == "test1"
         assert tasks[1].name == "test2"
 
-    def test_rename(self, client: sy.Synnax) -> None:
+    def test_rename(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should rename a task and keep its config."""
-        routing_key = str(uuid4())
+        routing_key = str(create_routing_key())
         task = client.tasks.create(
             name="Before Rename",
             type="pagerduty_alert",
@@ -91,7 +94,7 @@ class TestTaskClient:
         res = client.tasks.retrieve(key=task.key, include_status=True)
         assert isinstance(res.status, sy.task.Status)
         assert res.status.details is not None
-        assert res.status.details.task == task.key
+        assert res.status.owner == task.resource_id
 
     def test_retrieve_by_rack(self, client: sy.Synnax) -> None:
         """Should return a list of only the tasks on the given rack."""
@@ -134,7 +137,7 @@ class TestTaskClient:
             client.tasks.create(name=name, type="pagerduty_alert")
         with pytest.raises(
             sy.MultipleFoundError,
-            match=rf"Expected one Task matching .*{name}.*, but found 2",
+            match=rf"Expected one task where .*{name}.*, but found 2",
         ):
             client.tasks.retrieve(name=name)
         with pytest.raises(sy.MultipleFoundError):
@@ -245,14 +248,10 @@ class TestTaskClient:
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
                 client.statuses.set(
                     sy.task.Status(
-                        key=str(sy.task.ontology_id(cmd.task)),
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Command executed.",
-                        details=sy.task.StatusDetails(
-                            task=cmd.task,
-                            running=False,
-                            cmd=cmd.key,
-                        ),
+                        details=sy.task.StatusDetails(running=False, cmd=cmd.key),
+                        owner=sy.task.resource_id(cmd.task),
                     )
                 )
 
@@ -332,22 +331,26 @@ class TestTaskClient:
                     break
             assert matches[0]["args"] == {"target": str(target)}
 
-    def test_create_converts_dict_config_to_json(self, client: sy.Synnax) -> None:
+    def test_create_converts_dict_config_to_json(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should store a UUID in a dict config as a string."""
-        ref = uuid4()
+        ref = create_routing_key()
         task = client.tasks.create(
             name="test", type="pagerduty_alert", config={"routing_key": ref}
         )
         res = client.tasks.retrieve(key=task.key)
         assert res.config["routing_key"] == str(ref)
 
-    def test_create_converts_model_config_by_alias(self, client: sy.Synnax) -> None:
+    def test_create_converts_model_config_by_alias(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should store a model config by its field aliases."""
 
         class Config(BaseModel):
             ref: UUID = Field(alias="routing_key")
 
-        ref = uuid4()
+        ref = create_routing_key()
         task = client.tasks.create(
             name="test", type="pagerduty_alert", config=Config(routing_key=ref)
         )
@@ -366,9 +369,11 @@ class TestTaskClient:
         tsk.config = {"ref": ref}
         assert tsk.to_payload().config == {"ref": str(ref)}
 
-    def test_task_configure_saves_without_ack(self, client: sy.Synnax) -> None:
+    def test_task_configure_saves_without_ack(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should save the task without waiting for a driver acknowledgement."""
-        routing_key = str(uuid4())
+        routing_key = str(create_routing_key())
         tsk = sy.Task(
             name="test", type="pagerduty_alert", config={"routing_key": routing_key}
         )
@@ -378,13 +383,17 @@ class TestTaskClient:
         assert res.rack != 0
         assert res.config["routing_key"] == routing_key
 
-    def test_task_configure_updates_config(self, client: sy.Synnax) -> None:
+    def test_task_configure_updates_config(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should overwrite the stored config when configured again."""
         tsk = sy.Task(
-            name="test", type="pagerduty_alert", config={"routing_key": str(uuid4())}
+            name="test",
+            type="pagerduty_alert",
+            config={"routing_key": str(create_routing_key())},
         )
         client.tasks.configure(tsk)
-        routing_key = str(uuid4())
+        routing_key = str(create_routing_key())
         tsk.config = {"routing_key": routing_key}
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
@@ -400,12 +409,14 @@ class TestTaskClient:
         assert client.tasks.retrieve(key=tsk.key).rack == rack.key
 
     def test_configure_puts_task_without_device_on_embedded_rack(
-        self, client: sy.Synnax
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
     ) -> None:
         """Should configure a task whose config names no device onto the embedded
         rack."""
         tsk = sy.Task(
-            name="test", type="pagerduty_alert", config={"routing_key": str(uuid4())}
+            name="test",
+            type="pagerduty_alert",
+            config={"routing_key": str(create_routing_key())},
         )
         client.tasks.configure(tsk)
         assert tsk.rack == client.racks.retrieve_embedded_rack().key
@@ -426,7 +437,9 @@ class TestTaskClient:
     def test_configure_rejects_missing_device(self, client: sy.Synnax) -> None:
         """Should raise when the config names a device that does not exist."""
         tsk = sy.Task(name="test", type="modbus_read", config={"device": "missing"})
-        with pytest.raises(sy.NotFoundError, match=r"(?i)not found"):
+        with pytest.raises(
+            sy.NotFoundError, match='Found no device where key = "missing"'
+        ):
             client.tasks.configure(tsk)
 
     def test_list_tasks(self, client: sy.Synnax) -> None:
@@ -443,14 +456,16 @@ class TestTaskClient:
         assert task1.key in task_keys
         assert task2.key in task_keys
 
-    def test_copy_task(self, client: sy.Synnax) -> None:
+    def test_copy_task(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should copy a task with a new name."""
         # Create an original task
         original_name = str(uuid4())
         original = client.tasks.create(
             name=original_name,
             type="pagerduty_alert",
-            config={"routing_key": str(uuid4())},
+            config={"routing_key": str(create_routing_key())},
         )
 
         # Copy the task
@@ -465,6 +480,36 @@ class TestTaskClient:
         assert copied.name == copy_name
         assert copied.type == original.type
         assert copied.config["routing_key"] == original.config["routing_key"]
+
+    def test_copy_snapshot_into_range(self, client: sy.Synnax) -> None:
+        """Should place a snapshot copy in a range and retrieve it by that range."""
+        rng = client.ranges.create(
+            name=str(uuid4()),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        original = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        snap = client.tasks.copy(
+            original.key, str(uuid4()), snapshot=True, range_key=rng.key
+        )
+        assert snap.snapshot
+        assert [t.key for t in client.tasks.retrieve(ranges=[rng.key])] == [snap.key]
+        assert [t.key for t in rng.snapshots()] == [snap.key]
+
+    def test_delete_range_deletes_snapshots(self, client: sy.Synnax) -> None:
+        """Should delete the snapshots in a range when the range is deleted."""
+        rng = client.ranges.create(
+            name=str(uuid4()),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        original = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        snap = client.tasks.copy(
+            original.key, str(uuid4()), snapshot=True, range_key=rng.key
+        )
+        client.ranges.delete(rng.key)
+        with pytest.raises(
+            sy.NotFoundError, match=f'Found no task where key = "{snap.key}"'
+        ):
+            client.tasks.retrieve(key=snap.key)
 
 
 @pytest.mark.task

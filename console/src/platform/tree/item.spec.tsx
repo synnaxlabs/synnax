@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Tree } from "@/platform/tree";
 
-const resource = (key: string, name: string): ontology.Resource => {
-  const id: ontology.ID = { type: "group", key };
-  return { key: ontology.idToString(id), id, name };
+const createResource = (key: string, name: string): resource.Resource => {
+  const id: resource.ID = { type: "group", key };
+  return { key: resource.idToString(id), id, name };
 };
 
 describe("Tree.createItem", () => {
@@ -27,18 +27,20 @@ describe("Tree.createItem", () => {
       type: "group",
       icon: (r) => (r.name === "named" ? named : other),
     });
-    expect(item.icon(resource("a", "named"))?.type).toBe(named.type);
-    expect(item.icon(resource("b", "other"))?.type).toBe(other.type);
+    expect(item.icon(createResource("a", "named"))?.type).toBe(named.type);
+    expect(item.icon(createResource("b", "other"))?.type).toBe(other.type);
   });
 
   it("returns no icon for an item without one", () => {
-    expect(Tree.createItem({ type: "group" }).icon(resource("a", "a"))).toBeUndefined();
+    expect(
+      Tree.createItem({ type: "group" }).icon(createResource("a", "a")),
+    ).toBeUndefined();
   });
 
   it("hands its children the handler that a double click runs", () => {
     const onSelect = vi.fn();
     const item = Tree.createItem({ type: "group", useOnSelect: () => onSelect });
-    const target = resource("a", "a");
+    const target = createResource("a", "a");
     render(
       <item.OnSelect>
         {(select) => <button onClick={() => select(target)}>open</button>}

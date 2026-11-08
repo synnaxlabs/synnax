@@ -49,7 +49,7 @@ View union on type Type extends Base {
     """
     @go marshal
     @go migrate
-    @ontology type "view"
+    @resource type "view"
     @retrieve
 }
 

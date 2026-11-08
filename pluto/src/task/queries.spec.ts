@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, rack, status, task } from "@synnaxlabs/client";
+import { rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { deep, id, uuid } from "@synnaxlabs/x";
+import { deep, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -21,10 +21,12 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
-// A routing key is the key of a secret. No spec here deploys a task, so neither key
-// names a secret that exists.
-const ROUTING_KEY = uuid.create();
-const OTHER_ROUTING_KEY = uuid.create();
+// A routing key is the key of a secret, which must exist when a config names it.
+const createRoutingKey = async (): Promise<string> =>
+  (await client.secrets.create({ name: "Routing key", source: "stored", value: "rk" }))
+    .key;
+const ROUTING_KEY = await createRoutingKey();
+const OTHER_ROUTING_KEY = await createRoutingKey();
 
 describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
@@ -257,11 +259,10 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
-        key: id.create(),
+        owner: task.resourceID(testTask.key),
         variant: "error",
         message: "Task failed",
         details: {
-          task: testTask.key,
           running: false,
           cmd: "",
           configHash: "",
@@ -303,11 +304,10 @@ describe("queries", () => {
       // command on a down rack shows its warning rather than a wait for an answer.
       await act(async () => {
         await client.statuses.set(
-          status.create<typeof rack.statusDetailsZ>({
-            key: rack.statusKey(testRack.key),
+          status.create({
+            owner: rack.resourceID(testRack.key),
             variant: "success",
             message: "Driver is running",
-            details: { rack: testRack.key },
           }),
         );
       });
@@ -371,11 +371,10 @@ describe("queries", () => {
       });
 
       const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
-        key: task.statusKey(testTask.key),
+        owner: task.resourceID(testTask.key),
         variant: "success",
         message: "Task running",
         details: {
-          task: testTask.key,
           running: true,
           cmd: "",
           configHash: "",
@@ -451,11 +450,10 @@ describe("queries", () => {
 
       const _errorStatusDetailsZ = task.statusDetailsZ(z.object({ error: z.string() }));
       const newStatus = status.create<typeof _errorStatusDetailsZ>({
-        key: task.statusKey(testTask.key),
+        owner: task.resourceID(testTask.key),
         variant: "error",
         message: "Task failed",
         details: {
-          task: testTask.key,
           running: false,
           cmd: "",
           configHash: "",
@@ -557,6 +555,12 @@ describe("queries", () => {
   });
 
   describe("useCreateSnapshot", () => {
+    const createRange = async () =>
+      await client.ranges.create({
+        name: `snapshots-${id.create()}`,
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+
     it("should create a snapshot of a single task", async () => {
       const rack = await client.racks.create({
         name: "snapshotRack",
@@ -567,17 +571,14 @@ describe("queries", () => {
         type: "pagerduty_alert",
         config: { routingKey: ROUTING_KEY },
       });
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "snapshot_parent",
-      });
+      const rng = await createRange();
 
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
-          parentID: group.ontologyID(parentGroup.key),
+          range: rng.key,
         });
       });
 
@@ -607,10 +608,7 @@ describe("queries", () => {
         type: "pagerduty_alert",
         config: { routingKey: OTHER_ROUTING_KEY },
       });
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "multi_snapshot_parent",
-      });
+      const rng = await createRange();
 
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
@@ -620,7 +618,7 @@ describe("queries", () => {
             { key: task1.key, name: task1.name },
             { key: task2.key, name: task2.name },
           ],
-          parentID: group.ontologyID(parentGroup.key),
+          range: rng.key,
         });
       });
 
@@ -643,46 +641,42 @@ describe("queries", () => {
       });
     });
 
-    it("should add snapshots to parent ontology group", async () => {
-      const rack = await client.racks.create({
-        name: "ontologyRack",
-      });
-      const originalName = id.create();
+    it("should place each snapshot in the range", async () => {
+      const rack = await client.racks.create({ name: "rangeRack" });
       const originalTask = await rack.createTask({
-        name: originalName,
+        name: id.create(),
         type: "pagerduty_alert",
         config: {},
       });
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "ontology_parent",
-      });
+      const rng = await createRange();
 
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
-          parentID: group.ontologyID(parentGroup.key),
+          range: rng.key,
         });
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(parentGroup.key),
-      });
-      expect(children.length).toBeGreaterThan(0);
-
-      const snapshotChild = children.find(
-        (c) => c.name === `${originalTask.name} (Snapshot)`,
-      );
-      expect(snapshotChild).toBeDefined();
+      const inRange = await client.tasks.retrieve({ where: { ranges: [rng.key] } });
+      expect(inRange.map(({ name }) => name)).toEqual([
+        `${originalTask.name} (Snapshot)`,
+      ]);
+      expect(inRange[0].range).toEqual(rng.key);
     });
 
     it("should preserve task configuration in snapshots", async () => {
       const rack = await client.racks.create({
         name: "configRack",
+      });
+      await client.statuses.set({
+        key: "st1",
+        name: "st1",
+        variant: "info",
+        message: "st1",
       });
       const complexConfig = {
         routingKey: ROUTING_KEY,
@@ -695,17 +689,14 @@ describe("queries", () => {
         type: "pagerduty_alert",
         config: complexConfig,
       });
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "config_parent",
-      });
+      const rng = await createRange();
 
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
-          parentID: group.ontologyID(parentGroup.key),
+          range: rng.key,
         });
       });
 
@@ -717,6 +708,44 @@ describe("queries", () => {
       expect(snapshot).toBeDefined();
       expect(snapshot.config).toMatchObject(complexConfig);
       expect(snapshot.type).toEqual("pagerduty_alert");
+    });
+  });
+
+  describe("useRange", () => {
+    const renderRange = async (key: task.Key) =>
+      await renderHookSuspended(
+        () => {
+          Task.useEnsure({ key });
+          return Task.useRange({ key });
+        },
+        { wrapper },
+      );
+
+    it("should return the range of a snapshot", async () => {
+      const rack = await client.racks.create({ name: "rangeRack" });
+      const original = await rack.createTask({
+        name: id.create(),
+        type: "pagerduty_alert",
+        config: { routingKey: ROUTING_KEY },
+      });
+      const rng = await client.ranges.create({
+        name: `range-${id.create()}`,
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      const snapshot = await client.tasks.copy(original.key, "Snapshot", true, rng.key);
+      const { result } = await renderRange(snapshot.key);
+      await waitFor(() => expect(result.current).toEqual(rng.key));
+    });
+
+    it("should return nothing for a task in no range", async () => {
+      const rack = await client.racks.create({ name: "noRangeRack" });
+      const tsk = await rack.createTask({
+        name: id.create(),
+        type: "pagerduty_alert",
+        config: { routingKey: OTHER_ROUTING_KEY },
+      });
+      const { result } = await renderRange(tsk.key);
+      expect(result.current).toBeUndefined();
     });
   });
 
@@ -871,11 +900,10 @@ describe("queries", () => {
       const { result } = await renderForm(t.key);
       const _errorStatusDetailsZ = task.statusDetailsZ(statusData);
       const taskStatus: task.Status = status.create<typeof _errorStatusDetailsZ>({
-        key: task.statusKey(t.key),
+        owner: task.resourceID(t.key),
         variant: "error",
         message: "Task error",
         details: {
-          task: t.key,
           running: false,
           cmd: "",
           configHash: "",
@@ -962,7 +990,6 @@ describe("queries", () => {
           variant: "success",
           message: "Command executed successfully",
           details: {
-            task: t.key,
             running: true,
             cmd: "",
             configHash: "",

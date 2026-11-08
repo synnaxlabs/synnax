@@ -104,7 +104,7 @@ func (s *Service) Retrieve(
 	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: framer.OntologyIDs(keys),
+		Objects: framer.ResourceIDs(keys),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}

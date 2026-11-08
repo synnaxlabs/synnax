@@ -24,6 +24,7 @@ import { z } from "zod";
 import { access } from "@/access";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
+import { batch } from "@/batch";
 import { certificate } from "@/certificate";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
@@ -37,12 +38,12 @@ import { label } from "@/label";
 import { license } from "@/license";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
-import { ontology } from "@/ontology";
 import { panel } from "@/panel";
 import { project } from "@/project";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { ranger } from "@/ranger";
+import { resource } from "@/resource";
 import { schematic } from "@/schematic";
 import { secret } from "@/secret";
 import { status } from "@/status";
@@ -127,12 +128,58 @@ const authorityOf = ({
   persistent: sessionPersistent,
 });
 
+const changes = (set: string, del: string): resource.Channels => ({ set, delete: del });
+
+// A null entry is a type with no change channels, whose searches do not stay current.
+const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
+  arc: changes(arc.SET_CHANNEL_NAME, arc.DELETE_CHANNEL_NAME),
+  arc_directory: changes(
+    arc.directory.SET_CHANNEL_NAME,
+    arc.directory.DELETE_CHANNEL_NAME,
+  ),
+  builtin: null,
+  certificate: changes(certificate.SET_CHANNEL_NAME, certificate.DELETE_CHANNEL_NAME),
+  channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
+  device: changes(device.SET_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
+  ethercat_master: null,
+  ethercat_slave: null,
+  framer: null,
+  group: changes(group.SET_CHANNEL_NAME, group.DELETE_CHANNEL_NAME),
+  http_server: null,
+  label: changes(label.ACTION_CHANNEL_NAME, label.DELETE_CHANNEL_NAME),
+  labjack_device: null,
+  lineplot: changes(lineplot.SET_CHANNEL_NAME, lineplot.DELETE_CHANNEL_NAME),
+  log: changes(log.SET_CHANNEL_NAME, log.DELETE_CHANNEL_NAME),
+  modbus_server: null,
+  ni_chassis: null,
+  ni_device: null,
+  node: null,
+  opcua_server: null,
+  panel: changes(panel.SET_CHANNEL_NAME, panel.DELETE_CHANNEL_NAME),
+  policy: changes(access.policy.SET_CHANNEL_NAME, access.policy.DELETE_CHANNEL_NAME),
+  project: changes(project.SET_CHANNEL_NAME, project.DELETE_CHANNEL_NAME),
+  rack: changes(rack.SET_CHANNEL_NAME, rack.DELETE_CHANNEL_NAME),
+  range: changes(ranger.ACTION_CHANNEL_NAME, ranger.DELETE_CHANNEL_NAME),
+  "range-alias": null,
+  role: changes(access.role.SET_CHANNEL_NAME, access.role.DELETE_CHANNEL_NAME),
+  schematic: changes(schematic.SET_CHANNEL_NAME, schematic.DELETE_CHANNEL_NAME),
+  schematic_symbol: changes(
+    schematic.symbol.SET_CHANNEL_NAME,
+    schematic.symbol.DELETE_CHANNEL_NAME,
+  ),
+  secret: changes(secret.SET_CHANNEL_NAME, secret.DELETE_CHANNEL_NAME),
+  status: changes(status.SET_CHANNEL_NAME, status.DELETE_CHANNEL_NAME),
+  table: changes(table.SET_CHANNEL_NAME, table.DELETE_CHANNEL_NAME),
+  task: changes(task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME),
+  user: changes(user.SET_CHANNEL_NAME, user.DELETE_CHANNEL_NAME),
+  view: changes(view.SET_CHANNEL_NAME, view.DELETE_CHANNEL_NAME),
+};
+
 /**
  * Client to perform operations against a Synnax cluster.
  * @property channel - Channel client for creating and retrieving channels.
  * @property data - Data client for reading and writing telemetry.
  * @property connection - The connection state machine.
- * @property ontology - Client for querying the cluster's ontology.
  */
 export default class Synnax extends framer.Client {
   readonly key: string;
@@ -144,7 +191,7 @@ export default class Synnax extends framer.Client {
   readonly users: user.Client;
   readonly access: access.Client;
   readonly connection: connection.Handle;
-  readonly ontology: ontology.Client;
+  readonly resources: resource.Client;
   readonly projects: project.Client;
   readonly labels: label.Client;
   readonly license: license.Client;
@@ -163,6 +210,7 @@ export default class Synnax extends framer.Client {
   readonly logs: log.Client;
   readonly tables: table.Client;
   readonly groups: group.Client;
+  readonly batch: batch.Client;
   readonly imex: imex.Client;
   private readonly cache: query.Cache;
   private readonly transport: Transport;
@@ -261,21 +309,24 @@ export default class Synnax extends framer.Client {
     this.params = parsedParams;
     this.transport = transport;
     const unary = this.transport.unary;
-    this.ontology = new ontology.Client({ unary, cache });
+    this.resources = new resource.Client({ unary, cache, channels: RESOURCE_CHANNELS });
     this.license = new license.Client({ unary, connection: this.conn, cache });
-    this.labels = new label.Client({ unary, cache, ontology: this.ontology });
-    this.statuses = new status.Client({
+    this.labels = new label.Client({
       unary,
       cache,
-      ontology: this.ontology,
-      labels: this.labels,
+      relabel: {
+        [ranger.TYPE_RESOURCE_ID.type]: (key, update) =>
+          this.ranges.relabel(key, update),
+        [status.TYPE_RESOURCE_ID.type]: (key, update) =>
+          this.statuses.relabel(key, update),
+      },
     });
+    this.statuses = new status.Client({ unary, cache });
     this.ranges = new ranger.Client({
       framer: this,
       unary,
       channels: retrieveChannels,
       labels: this.labels,
-      ontology: this.ontology,
       cache,
     });
     this.channels = new channel.Client({
@@ -285,27 +336,27 @@ export default class Synnax extends framer.Client {
       statuses: this.statuses,
       ranges: this.ranges,
       cache,
-      ontology: this.ontology,
     });
     this.control = new control.Client({ unary, cache });
-    this.access = new access.Client({ unary, cache, ontology: this.ontology });
     this.users = new user.Client({
       unary,
       cache,
-      ontology: this.ontology,
       connection: this.conn,
       identity,
+    });
+    this.access = new access.Client({
+      unary,
+      cache,
+      users: this.users,
     });
     this.projects = new project.Client({
       unary,
       file: this.transport.file,
       cache,
-      ontology: this.ontology,
     });
     this.tasks = new task.Client({
       unary,
       framer: this,
-      ontology: this.ontology,
       ranges: this.ranges,
       cache,
       statuses: this.statuses,
@@ -314,55 +365,42 @@ export default class Synnax extends framer.Client {
       unary,
       tasks: this.tasks,
       cache,
-      statusStore: this.statuses.store,
-      ontology: this.ontology,
+      statuses: this.statuses,
     });
     this.devices = new device.Client({
       unary,
       cache,
-      statusStore: this.statuses.store,
-      ontology: this.ontology,
+      statuses: this.statuses,
     });
     this.arcs = new arc.Client({
       unary,
       stream: this.transport.stream,
-      ontology: this.ontology,
       tasks: this.tasks,
       cache,
-      statusStore: this.statuses.store,
+      statuses: this.statuses,
     });
-    this.views = new view.Client({ unary, cache, ontology: this.ontology });
+    this.views = new view.Client({ unary, cache });
     this.secrets = new secret.Client({
       unary,
       cache,
-      ontology: this.ontology,
       usesChannels: [task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME],
     });
-    this.certificates = new certificate.Client({
-      unary,
-      cache,
-      ontology: this.ontology,
-    });
-    this.groups = new group.Client({
-      unary,
-      ontology: this.ontology,
-      cache,
-    });
+    this.certificates = new certificate.Client({ unary, cache });
+    this.groups = new group.Client({ unary, cache });
+    this.batch = new batch.Client(unary);
     this.schematics = new schematic.Client({
       unary,
       file: this.transport.file,
-      ontology: this.ontology,
       cache,
       groupStore: this.groups.store,
     });
-    this.lineplots = new lineplot.Client({ unary, cache, ontology: this.ontology });
+    this.lineplots = new lineplot.Client({ unary, cache });
     this.panels = new panel.Client({
       unary,
-      ontology: this.ontology,
       cache,
     });
-    this.logs = new log.Client({ unary, cache, ontology: this.ontology });
-    this.tables = new table.Client({ unary, cache, ontology: this.ontology });
+    this.logs = new log.Client({ unary, cache });
+    this.tables = new table.Client({ unary, cache });
     this.imex = new imex.Client({ file: this.transport.file });
   }
 

@@ -26,8 +26,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
@@ -37,9 +37,8 @@ import (
 // scopedAction is a short local alias for the Arc action envelope.
 type scopedAction = actions.Scoped[arc.Key, arc.Action]
 
-// createArc persists a fresh Arc and returns it with its key populated. Writes
-// commit immediately (nil tx) so access-control reads can observe the new
-// ontology resource.
+// createArc persists a fresh Arc and returns it with its key populated. Writes commit
+// immediately (nil tx) so access-control reads can observe the new Arc.
 func createArc(ctx context.Context, name string) arc.Arc {
 	GinkgoHelper()
 	a := arc.Arc{Variant: arc.AutomationArc{
@@ -75,7 +74,7 @@ var _ = Describe("Service", func() {
 				DeferCleanup(func(ctx SpecContext) {
 					Expect(w.Delete(ctx, a.Base().Key)).To(Succeed())
 				})
-				grantOn(ctx, author.OntologyID(), access.ActionRetrieve, a.OntologyID())
+				grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
 						Where: &arc.Where{
@@ -119,10 +118,10 @@ var _ = Describe("Service", func() {
 				})
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					access.ActionRetrieve,
-					automation.OntologyID(),
-					module.OntologyID(),
+					automation.ResourceID(),
+					module.ResourceID(),
 				)
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
@@ -154,9 +153,9 @@ var _ = Describe("Service", func() {
 				a := createArc(ctx, "partial-survivor")
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					access.ActionRetrieve,
-					arc.OntologyID(a.Base().Key),
+					arc.ResourceID(a.Base().Key),
 				)
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
@@ -211,9 +210,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					access.ActionCreate,
-					ontology.ID{Type: ontology.ResourceTypeArc},
+					resource.ID{Type: resource.TypeArc},
 				)
 				a := apiarc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
 					Name: "lying-raw",
@@ -237,9 +236,9 @@ var _ = Describe("Service", func() {
 		) {
 			grantOn(
 				ctx,
-				author.OntologyID(),
+				author.ResourceID(),
 				access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypeArc},
+				resource.ID{Type: resource.TypeArc},
 			)
 			rec := &Recorder[arc.Key, arc.Action]{}
 			DeferCleanup(arcSvc.OnAction(rec.Record))
@@ -268,7 +267,7 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					a := createArc(ctx, "no-policy")
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -285,9 +284,9 @@ var _ = Describe("Service", func() {
 				"Should accept the request when the subject's policy permits update on the target Arc",
 				func(ctx SpecContext) {
 					a := createArc(ctx, "with-policy")
-					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -316,9 +315,9 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					a := createArc(ctx, "policy-target")
 					b := createArc(ctx, "no-policy-target")
-					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         b.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -337,9 +336,9 @@ var _ = Describe("Service", func() {
 				"Should apply a multi-action sequence to the target Arc",
 				func(ctx SpecContext) {
 					a := createArc(ctx, "multi-action")
-					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -368,9 +367,9 @@ var _ = Describe("Service", func() {
 				"Should bubble up query.ErrNotFound when the target Arc does not exist",
 				func(ctx SpecContext) {
 					missing := uuid.New()
-					grantUpdateOn(ctx, author.OntologyID(), arc.OntologyID(missing))
+					grantUpdateOn(ctx, author.ResourceID(), arc.ResourceID(missing))
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         missing,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -389,7 +388,7 @@ var _ = Describe("Service", func() {
 				"Should pass the DispatchKey verbatim into the action observer",
 				func(ctx SpecContext) {
 					a := createArc(ctx, "session-propagation")
-					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					seen := make(chan scopedAction, 1)
 					DeferCleanup(
 						arcSvc.OnAction(func(_ context.Context, sa scopedAction) {
@@ -397,7 +396,7 @@ var _ = Describe("Service", func() {
 						}),
 					)
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "session-marker-xyz",
 							Actions: []arc.Action{
@@ -421,12 +420,12 @@ var _ = Describe("Service", func() {
 	Describe("UpdateTask", func() {
 		grantBind := func(ctx SpecContext, a arc.Arc) {
 			GinkgoHelper()
-			grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+			grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 			grantOn(
 				ctx,
-				author.OntologyID(),
+				author.ResourceID(),
 				access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypeTask},
+				resource.ID{Type: resource.TypeTask},
 			)
 		}
 
@@ -452,7 +451,7 @@ var _ = Describe("Service", func() {
 			"Should reject when the subject may update the arc but not create tasks",
 			func(ctx SpecContext) {
 				a := createArc(ctx, "set-rack-no-task-policy")
-				grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+				grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 				Expect(
 					apiSvc.UpdateTask(
 						AuthedCtx(ctx, author),
@@ -489,9 +488,9 @@ var _ = Describe("Service", func() {
 			grantBind(ctx, a)
 			grantOn(
 				ctx,
-				author.OntologyID(),
+				author.ResourceID(),
 				access.ActionDelete,
-				ontology.ID{Type: ontology.ResourceTypeTask},
+				resource.ID{Type: resource.TypeTask},
 			)
 			deployed := MustSucceed(
 				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{
@@ -548,9 +547,9 @@ var _ = Describe("Service", func() {
 				grantBind(ctx, a)
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					access.ActionUpdate,
-					ontology.ID{Type: ontology.ResourceTypeTask},
+					resource.ID{Type: resource.TypeTask},
 				)
 				MustSucceed(
 					apiSvc.UpdateTask(
@@ -579,12 +578,12 @@ var _ = Describe("Service", func() {
 
 		It("Should bubble up not found for a nonexistent arc", func(ctx SpecContext) {
 			missing := uuid.New()
-			grantUpdateOn(ctx, author.OntologyID(), arc.OntologyID(missing))
+			grantUpdateOn(ctx, author.ResourceID(), arc.ResourceID(missing))
 			grantOn(
 				ctx,
-				author.OntologyID(),
+				author.ResourceID(),
 				access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypeTask},
+				resource.ID{Type: resource.TypeTask},
 			)
 			Expect(
 				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{

@@ -11,7 +11,7 @@ import { array } from "@synnaxlabs/x";
 
 import { type Action } from "@/access/action/types.gen";
 import { type Policy } from "@/access/policy/types.gen";
-import { type ontology } from "@/ontology";
+import { type resource } from "@/resource";
 
 /**
  * Request represents an access control request to check if a subject
@@ -19,11 +19,11 @@ import { type ontology } from "@/ontology";
  */
 export interface Request {
   /** The subject making the request (typically a user) */
-  subject: ontology.ID;
+  subject: resource.ID;
   /** The action being requested */
   action: Action;
   /** The objects being accessed */
-  objects: ontology.ID | ontology.ID[];
+  objects: resource.ID | resource.ID[];
 }
 
 /**

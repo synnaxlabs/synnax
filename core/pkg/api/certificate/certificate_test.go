@@ -27,7 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
@@ -35,8 +35,8 @@ import (
 )
 
 var (
-	certificateType = ontology.ID{Type: ontology.ResourceTypeCertificate}
-	secretType      = ontology.ID{Type: ontology.ResourceTypeSecret}
+	certificateType = resource.ID{Type: resource.TypeCertificate}
+	secretType      = resource.ID{Type: resource.TypeSecret}
 	create          = []access.Action{access.ActionCreate}
 )
 
@@ -118,7 +118,7 @@ var _ = Describe("Service", func() {
 			"Should create a stored certificate with its private key",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.OntologyID(), create, certificateType, secretType)
+				grant(ctx, u.ResourceID(), create, certificateType, secretType)
 				certPEM, keyPEM := newPair()
 				res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
@@ -136,7 +136,7 @@ var _ = Describe("Service", func() {
 		It("Should create a file certificate with the details it is given",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.OntologyID(), create, certificateType)
+				grant(ctx, u.ResourceID(), create, certificateType)
 				keyPath := "/etc/plant/key.pem"
 				res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
@@ -166,7 +166,7 @@ var _ = Describe("Service", func() {
 		It("Should require create access on secrets for a private key",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.OntologyID(), create, certificateType)
+				grant(ctx, u.ResourceID(), create, certificateType)
 				certPEM, keyPEM := newPair()
 				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil,
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
@@ -181,7 +181,7 @@ var _ = Describe("Service", func() {
 		It("Should create a certificate at an unused key without update access",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.OntologyID(), create, certificateType)
+				grant(ctx, u.ResourceID(), create, certificateType)
 				key := uuid.New()
 				res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
@@ -198,7 +198,7 @@ var _ = Describe("Service", func() {
 		It("Should deny replacing a certificate without update access",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.OntologyID(), create, certificateType)
+				grant(ctx, u.ResourceID(), create, certificateType)
 				c := createCertificate(ctx, "Plant")
 				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil,
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
@@ -209,8 +209,8 @@ var _ = Describe("Service", func() {
 					}}},
 				)).Error().To(SatisfyAll(
 					MatchError(access.ErrDenied),
-					MatchError(u.OntologyID().String()+" cannot update "+
-						c.OntologyID().String()+": access denied: auth error"),
+					MatchError(u.ResourceID().String()+" cannot update "+
+						c.ResourceID().String()+": access denied: auth error"),
 				))
 				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
 			},
@@ -218,7 +218,7 @@ var _ = Describe("Service", func() {
 		It("Should deny a request that also replaces a certificate",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.OntologyID(), create, certificateType)
+				grant(ctx, u.ResourceID(), create, certificateType)
 				c := createCertificate(ctx, "Plant")
 				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil,
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{
@@ -237,18 +237,18 @@ var _ = Describe("Service", func() {
 					}},
 				)).Error().To(SatisfyAll(
 					MatchError(access.ErrDenied),
-					MatchError(u.OntologyID().String()+" cannot update "+
-						c.OntologyID().String()+": access denied: auth error"),
+					MatchError(u.ResourceID().String()+" cannot update "+
+						c.ResourceID().String()+": access denied: auth error"),
 				))
 				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
 			},
 		)
 		It("Should let an Owner replace a certificate", func(ctx SpecContext) {
 			u := createUser(ctx)
-			Expect(svc.RBAC.Role.NewWriter(nil, true).AssignRole(
+			Expect(svc.User.NewWriter(nil).AssignRole(
 				ctx,
-				u.OntologyID(),
 				svc.RBAC.Builtin.OwnerKey,
+				u.Key,
 			)).To(Succeed())
 			c := createCertificate(ctx, "Plant")
 			MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
@@ -266,7 +266,7 @@ var _ = Describe("Service", func() {
 		DescribeTable("Should reject an invalid input",
 			func(ctx SpecContext, in apicertificate.Input, msg string) {
 				u := createUser(ctx)
-				grant(ctx, u.OntologyID(), create, certificateType)
+				grant(ctx, u.ResourceID(), create, certificateType)
 				Expect(apiSvc.Create(
 					AuthedCtx(ctx, u),
 					nil,
@@ -307,7 +307,7 @@ var _ = Describe("Service", func() {
 			u := createUser(ctx)
 			grant(
 				ctx,
-				u.OntologyID(),
+				u.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
 				certificateType,
 			)
@@ -322,7 +322,7 @@ var _ = Describe("Service", func() {
 			u := createUser(ctx)
 			grant(
 				ctx,
-				u.OntologyID(),
+				u.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
 				certificateType,
 			)
@@ -350,9 +350,9 @@ var _ = Describe("Service", func() {
 				c := createCertificate(ctx, "Before")
 				grant(
 					ctx,
-					u.OntologyID(),
+					u.ResourceID(),
 					[]access.Action{access.ActionUpdate},
-					c.OntologyID(),
+					c.ResourceID(),
 				)
 				MustSucceed(apiSvc.Rename(AuthedCtx(ctx, u), nil,
 					apicertificate.RenameRequest{Key: c.Base().Key, Name: "After"},
@@ -379,9 +379,9 @@ var _ = Describe("Service", func() {
 				c := createCertificate(ctx, "Plant")
 				grant(
 					ctx,
-					u.OntologyID(),
+					u.ResourceID(),
 					[]access.Action{access.ActionDelete},
-					c.OntologyID(),
+					c.ResourceID(),
 				)
 				MustSucceed(apiSvc.Delete(AuthedCtx(ctx, u), nil,
 					apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},

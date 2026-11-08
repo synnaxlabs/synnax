@@ -16,9 +16,10 @@ from typing import override as _override
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from synnax import group as group_
 from synnax import node
 from synnax import status as status_
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import control, filter, telem
 from x.filter import shorthand
 
@@ -77,9 +78,8 @@ class Where(BaseModel):
         internal: Selects by internal.
         virtual: Matches virtual channels that are not calculated, or every other
             channel when false.
-        name_patterns: Matches channels whose name matches any of the given patterns. A
-            valid channel name matches exactly, and any other pattern is a regular
-            expression, anchored when unanchored.
+        groups: Matches the channels in any of the given groups.
+        grouped: Matches the channels in a group, or in no group when false.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -94,9 +94,10 @@ class Where(BaseModel):
     is_index: filter.Bool | None = None
     internal: filter.Bool | None = None
     virtual: bool | None = None
-    name_patterns: list[str] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
 
-    @field_validator("name_patterns", mode="before")
+    @field_validator("groups", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -117,7 +118,8 @@ WhereInput = TypedDict(
         "is_index": filter.BoolInput,
         "internal": filter.BoolInput,
         "virtual": bool,
-        "name_patterns": str | list[str],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
     },
     total=False,
 )
@@ -152,6 +154,7 @@ class Payload(BaseModel):
         concurrency: Sets the policy for concurrent writes to the channel's data. Only
             virtual channels can have a policy of shared concurrency.
         status: Is the current operational status of the channel.
+        group: Is the group the channel sits in, if any.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
@@ -167,6 +170,7 @@ class Payload(BaseModel):
     operations: list[Operation] = Field(default_factory=list)
     concurrency: control.Concurrency = control.Concurrency.exclusive
     status: Status | None = None
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -206,8 +210,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="channel")
+TYPE_RESOURCE_ID = ID(type="channel")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="channel", key=str(key))

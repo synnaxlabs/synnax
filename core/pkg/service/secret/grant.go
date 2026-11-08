@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -29,7 +29,7 @@ import (
 func (s *Service) Grant(
 	ctx context.Context,
 	tx gorp.Tx,
-	subject ontology.ID,
+	subject resource.ID,
 	keys ...Key,
 ) (grant.Key, error) {
 	if err := s.NewRetrieve().Where(MatchKeys(keys...)).Exec(ctx, tx); err != nil {
@@ -51,7 +51,7 @@ func (s *Service) Grant(
 func (s *Service) Resolve(
 	ctx context.Context,
 	tx gorp.Tx,
-	rack ontology.ID,
+	rack resource.ID,
 	grantKey grant.Key,
 	keys ...Key,
 ) (map[Key][]byte, error) {

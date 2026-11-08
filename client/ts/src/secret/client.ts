@@ -12,14 +12,13 @@ import { array, sync } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { NotFoundError } from "@/errors";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
 import {
   type Base,
   fileSecretZ,
   type Key,
   keyZ,
-  ontologyID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -54,7 +53,7 @@ const emptyResZ = z.object({});
 const grantKeyZ = z.uuid();
 /** GrantKey is the key of a grant that lets a subject read secrets once. */
 export type GrantKey = z.infer<typeof grantKeyZ>;
-const grantCreateReqZ = z.object({ subject: ontology.idZ, secrets: keyZ.array() });
+const grantCreateReqZ = z.object({ subject: resource.idZ, secrets: keyZ.array() });
 export interface GrantParams extends z.input<typeof grantCreateReqZ> {}
 const grantCreateResZ = z.object({ grant: grantKeyZ });
 
@@ -99,7 +98,6 @@ const toUses = ({ key, uses }: Secret): Uses => ({ key, uses });
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
   /**
    * The channels that announce changes to resources that can use a secret. A change on
    * one refetches the uses the client holds.
@@ -216,10 +214,7 @@ export class Client extends query.Retriever<
    * @throws {AccessDeniedError} if the caller cannot update the secret.
    */
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
@@ -241,12 +236,7 @@ export class Client extends query.Retriever<
    */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const ids = ontologyID(keysArr);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(ids),
-      this.store.delete(keysArr),
-      this.cfg.ontology.cache.resources.delete(ontology.idToString(ids)),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

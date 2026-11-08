@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -61,13 +61,13 @@ var _ = Describe("Signals", Ordered, func() {
 	// with the given key.
 	receive := func(
 		key channel.Key,
-		recordOf func([]byte) (ontology.ID, error),
-	) []ontology.ID {
+		recordOf func([]byte) (resource.ID, error),
+	) []resource.ID {
 		GinkgoHelper()
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.KeysSlice()).To(ConsistOf(key))
-		var records []ontology.ID
+		var records []resource.ID
 		for sample := range res.Frame.SeriesAt(0).Samples() {
 			records = append(records, MustSucceed(recordOf(sample)))
 		}
@@ -86,7 +86,7 @@ var _ = Describe("Signals", Ordered, func() {
 	It("Should publish each created secret on the set channel", func(ctx SpecContext) {
 		s := create(ctx)
 		Expect(receive(layer.Secret.SetChannelKey(), secret.SetRecord)).
-			To(Equal([]ontology.ID{s.OntologyID()}))
+			To(Equal([]resource.ID{s.ResourceID()}))
 	})
 	It(
 		"Should publish the key of each deleted secret on the delete channel",
@@ -96,7 +96,7 @@ var _ = Describe("Signals", Ordered, func() {
 			Expect(layer.Secret.NewWriter(nil).Delete(ctx, s.Base().Key)).
 				To(Succeed())
 			Expect(receive(layer.Secret.DeleteChannelKey(), secret.DeleteRecord)).
-				To(Equal([]ontology.ID{s.OntologyID()}))
+				To(Equal([]resource.ID{s.ResourceID()}))
 		},
 	)
 })

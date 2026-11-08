@@ -113,7 +113,7 @@ var _ = Describe("AlertTask", func() {
 				})).To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Details.Cmd).To(Equal("cmd-again"))
 				Expect(stat.Details.Running).To(Equal(running))
@@ -290,13 +290,14 @@ var _ = Describe("AlertTask", func() {
 				other := createRoutingKey(ctx, strings.Repeat("c", 32))
 				cfg := validConfig(pd.Alert{Status: "saved-key"})
 				cfg.RoutingKey = &other
-				MustSucceed(alertSvc.Alert.Write(
+				rec := MustSucceed(alertSvc.Alert.Prepare(
 					ctx,
 					nil,
 					t.Key,
 					t.Name,
 					encodeConfig(cfg),
 				))
+				Expect(rec.Write(ctx, nil)).To(Succeed())
 
 				setStatus(ctx, "saved-key", status.VariantError, "Trigger", nil)
 				Eventually(func() int { return len(sender.getEvents()) }).
@@ -317,16 +318,11 @@ var _ = Describe("AlertTask", func() {
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 				replaceRoutingKey(ctx, routingKey, "tooshort")
-				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).
-					To(MatchError(ContainSubstring(
-						"routing_key: must be exactly 32 characters",
-					)))
+				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 				Eventually(func(g Gomega) {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](
-							t.OntologyID().String(),
-						)).
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&stat).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
@@ -504,9 +500,7 @@ var _ = Describe("AlertTask", func() {
 				retrieve := func(g Gomega) task.Status {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](
-							t.OntologyID().String(),
-						)).
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&stat).
 						Exec(ctx, nil)).To(Succeed())
 					return stat

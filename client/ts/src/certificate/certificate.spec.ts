@@ -230,8 +230,8 @@ describe("Certificate", () => {
       const del = client.secrets.delete(privateKey);
       await expect(del).rejects.toThrow(ValidationError);
       await expect(del).rejects.toThrow(
-        'cannot delete secret "In use private key" because certificate "In use" uses ' +
-          "it: validation error",
+        "cannot delete secret In use private key because certificate In use uses it " +
+          "as its private_key: validation error",
       );
       const retrieved = await createTestClient().secrets.retrieve(privateKey);
       expect(retrieved.key).toBe(privateKey);
@@ -250,7 +250,7 @@ describe("Certificate", () => {
       });
       assert(c.source === "stored" && c.privateKey != null);
       const grant = await client.secrets.grant({
-        subject: rack.ontologyID(r.key),
+        subject: rack.resourceID(r.key),
         secrets: [c.privateKey],
       });
       expect(grant).toHaveLength(36);

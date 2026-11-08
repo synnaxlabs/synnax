@@ -71,46 +71,32 @@ const Create = ({
             showLabel={false}
             inputProps={NAME_INPUT_PROPS}
           />
-          <Form.Field path={path.type} label="Type">
-            {({ value, onChange }) => (
-              <Select.Buttons value={value} onChange={onChange} variant="outlined">
-                <Select.Item itemKey="automation">
-                  <Icon.Arc />
-                  Automation
-                </Select.Item>
-                <Select.Item itemKey="module">
-                  <Icon.Module />
-                  Module
-                </Select.Item>
-              </Select.Buttons>
-            )}
-          </Form.Field>
-          <Form.Field path={path.mode} label="Editor mode" full="x">
+          <Form.Field path={path.type} label="Type" full="x">
             {({ value, onChange }) => (
               <Select.Buttons value={value} onChange={onChange} variant="card" full="x">
-                <Select.Item itemKey="text">
+                <Select.Item itemKey="automation">
                   <Icon.Tile size="large">
-                    <Icon.Text />
+                    <Icon.Arc />
                   </Icon.Tile>
                   <Flex.Box el="span" y gap="tiny">
                     <Text.Text el="span" weight={500}>
-                      Text
+                      Automation
                     </Text.Text>
                     <Text.Text color={9} level="small">
-                      Best for complex automations such as control sequences
+                      Runs as a task, such as a control sequence or an alarm
                     </Text.Text>
                   </Flex.Box>
                 </Select.Item>
-                <Select.Item itemKey="graph">
+                <Select.Item itemKey="module">
                   <Icon.Tile size="large">
-                    <Icon.Schematic />
+                    <Icon.Module />
                   </Icon.Tile>
                   <Flex.Box el="span" y gap="tiny">
                     <Text.Text el="span" weight={500}>
-                      Graph
+                      Module
                     </Text.Text>
                     <Text.Text color={9} level="small">
-                      Best for simple automations such as alarms
+                      Holds code that other Arcs import
                     </Text.Text>
                   </Flex.Box>
                 </Select.Item>

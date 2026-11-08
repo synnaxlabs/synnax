@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import secret
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter, telem
 
 Key: TypeAlias = UUID
@@ -150,8 +150,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="certificate")
+TYPE_RESOURCE_ID = ID(type="certificate")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="certificate", key=str(key))

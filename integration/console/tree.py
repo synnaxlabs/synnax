@@ -65,7 +65,7 @@ _NESTED_NAMES_JS = """(parent, prefix) => {
 
 
 class Tree:
-    """Utility class for working with ontology tree elements in Console UI.
+    """Utility class for working with resource tree elements in Console UI.
 
     Tree items in the Console have IDs in the format `type:uuid`, e.g.:
     - `role:6edfe3a6-898a-4342-b838-a7e6ed292a62`
@@ -244,7 +244,7 @@ class Tree:
         :param item: The Locator for the tree item.
         :returns: The text content.
         """
-        # Try editable text element first (common in ontology tree items)
+        # Try editable text element first (common in resource tree items)
         text_element = item.locator("p.lyra-text--editable")
         if text_element.count() > 0:
             return text_element.inner_text().strip()

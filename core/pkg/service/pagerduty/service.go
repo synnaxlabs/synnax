@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/legacy"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -78,13 +79,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Alert, err = config.OpenService(
 		ctx, config.ServiceConfig[TaskConfig]{
 			DB:              cfg.DB,
+			References:      taskConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            AlertTaskType,
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.TaskConfigLadder,
 			Legacy:          &legacy.Alert,
-			Migrations:      []gorp.Migration{v2.NewMigration(create)},
-			SetEntryKey:     (*TaskConfig).SetKey,
+			Migrations: []gorp.Migration{
+				v1.StatusKeysMigration,
+				v2.NewMigration(create),
+			},
+			SetEntryKey: (*TaskConfig).SetKey,
 			ResolveEntry: func(
 				ctx context.Context,
 				tx gorp.Tx,

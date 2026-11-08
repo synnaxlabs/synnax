@@ -2028,61 +2028,61 @@ TEST(CheckToSampleValue, Unknown) {
 // ==================== check_from_sample_value ====================
 
 TEST(CheckFromSampleValue, Float64ToNumberOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::FLOAT64_T, x::json::Type::Number)
     );
 }
 
 TEST(CheckFromSampleValue, Float64ToStringOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::FLOAT64_T, x::json::Type::String)
     );
 }
 
 TEST(CheckFromSampleValue, Float64ToBooleanOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::FLOAT64_T, x::json::Type::Boolean)
     );
 }
 
 TEST(CheckFromSampleValue, Int64ToNumberOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::INT64_T, x::json::Type::Number)
     );
 }
 
 TEST(CheckFromSampleValue, Int64ToStringOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::INT64_T, x::json::Type::String)
     );
 }
 
 TEST(CheckFromSampleValue, Int64ToBooleanOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::INT64_T, x::json::Type::Boolean)
     );
 }
 
 TEST(CheckFromSampleValue, Uint8ToNumberOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::UINT8_T, x::json::Type::Number)
     );
 }
 
 TEST(CheckFromSampleValue, Uint8ToStringOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::UINT8_T, x::json::Type::String)
     );
 }
 
 TEST(CheckFromSampleValue, Uint8ToBooleanOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::UINT8_T, x::json::Type::Boolean)
     );
 }
 
 TEST(CheckFromSampleValue, StringToStringOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::STRING_T, x::json::Type::String)
     );
 }
