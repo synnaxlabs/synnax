@@ -11,6 +11,7 @@
 
     python3 -m review run <review.json>
     python3 -m review post <review.json>
+    python3 -m review carry
     python3 -m review compare <days>
 
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
@@ -22,9 +23,11 @@ Claude Code. A replay needs no CHECK_RUN.
 
 `run` writes a record of the review: when it ran, the pull request, the commits, the
 policy commit, the usage, the review, and each pass before the join. `post` posts the
-review in a record. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone
-with full history, and prints a Markdown comparison of the records of the last days
-with Greptile's reviews of the same commits.
+review in a record. `carry` gives the head the newest review of the pull request when
+the diff did not change, and prints `true` if it did. It takes KEY, the external ID of
+the check run, `<pr>:<base ref>`, and no CHECK_RUN. `compare` takes only GH_TOKEN and
+GITHUB_REPOSITORY, runs in a clone with full history, and prints a Markdown comparison
+of the records of the last days with Greptile's reviews of the same commits.
 """
 
 import contextlib
@@ -41,6 +44,7 @@ from pathlib import Path
 from review import (
     PullRequest,
     Target,
+    carry,
     compare,
     gh,
     load,
@@ -157,7 +161,8 @@ def _before(head: Path, commit: str, tip: str) -> bool:
 
 
 def main(argv: list[str]) -> None:
-    if len(argv) != 2 or argv[0] not in ("run", "post", "compare"):
+    args = {"run": 2, "post": 2, "carry": 1, "compare": 2}
+    if not argv or args.get(argv[0]) != len(argv):
         sys.exit(__doc__)
     env = os.environ
     if argv[0] == "compare":
@@ -176,6 +181,9 @@ def main(argv: list[str]) -> None:
         run_url=env["RUN_URL"],
         bot=env["BOT"],
     )
+    if argv[0] == "carry":
+        print(str(carry(target, gh, key=env["KEY"])).lower())
+        return
     path = Path(argv[1])
     if argv[0] == "run":
         review(target, path, replay=env.get("REPLAY") == "true")

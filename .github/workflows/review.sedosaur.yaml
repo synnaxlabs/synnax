@@ -74,7 +74,9 @@ jobs:
     outputs:
       head: ${{ steps.pr.outputs.head }}
       base: ${{ steps.pr.outputs.base }}
-      skip: ${{ steps.skip.outputs.skip }}
+      skip:
+        ${{ steps.skip.outputs.skip == 'true' || steps.carry.outputs.carried == 'true'
+        }}
       check: ${{ steps.check.outputs.id }}
     steps:
       - name: Read the pull request
@@ -126,8 +128,34 @@ jobs:
           skip=$(.github/scripts/sedosaur_skip.sh)
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
 
-      - name: Assume the runner start role
+      - name: Mint the GitHub App token
+        id: app
         if: steps.skip.outputs.skip == 'false'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+          permission-contents: read
+          permission-pull-requests: read
+
+      # A push that leaves the diff the same, as a merge of the base does, gets the last
+      # review of the diff instead of a new one.
+      - name: Carry the last review
+        id: carry
+        if: steps.skip.outputs.skip == 'false' && !inputs.replay && !inputs.repeat
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+          PR: ${{ inputs.pr }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          BASE_SHA: ${{ steps.pr.outputs.base }}
+          KEY: ${{ steps.pr.outputs.key }}
+        run: echo "carried=$(python3 -m review carry)" >> "$GITHUB_OUTPUT"
+
+      - name: Assume the runner start role
+        if: steps.skip.outputs.skip == 'false' && steps.carry.outputs.carried != 'true'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
@@ -137,7 +165,7 @@ jobs:
       # two concurrent starts sees an instance's previous state as stopped, so the other
       # tries again. The job waits for any runner when none is stopped.
       - name: Start a stopped runner
-        if: steps.skip.outputs.skip == 'false'
+        if: steps.skip.outputs.skip == 'false' && steps.carry.outputs.carried != 'true'
         run: |
           for _ in 1 2 3; do
             ids=$(aws ec2 describe-instances --output text \
@@ -152,19 +180,12 @@ jobs:
             if [ "$previous" = stopped ]; then exit 0; fi
           done
 
-      - name: Mint the GitHub App token
-        id: app
-        if: steps.skip.outputs.skip == 'false'
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
-        with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
-          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
-          permission-checks: write
-
       # The check run shows on the pull request while the runner boots.
       - name: Queue the check run
         id: check
-        if: steps.skip.outputs.skip == 'false' && !inputs.replay
+        if: >-
+          steps.skip.outputs.skip == 'false' && !inputs.replay &&
+          steps.carry.outputs.carried != 'true'
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           HEAD_SHA: ${{ steps.pr.outputs.head }}
