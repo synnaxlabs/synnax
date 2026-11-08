@@ -12,6 +12,7 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -23,13 +24,14 @@ import (
 
 var _ = Describe("Retrieve", Ordered, func() {
 	var (
-		svc    *channel.Service
-		writer channel.Writer
+		db  *gorp.DB
+		svc *channel.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		svc = openService(ctx, testutil.NewNode(ctx))
-		writer = svc.NewWriter(nil)
+		node := testutil.NewNode(ctx)
+		db = node.DB
+		svc = openService(ctx, node)
 	})
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a set of channels", func(ctx SpecContext) {
@@ -45,7 +47,9 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     UniqueChannelName(),
 				},
 			}
-			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).CreateMany(ctx, &created)
+			})).To(Succeed())
 
 			var resChannels []channel.Channel
 
@@ -53,7 +57,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				NewRetrieve().
 				Where(channel.MatchLeaseholders(1)).
 				Entries(&resChannels).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(resChannels).To(HaveLen(len(created)))
 		})
 		It("Should correctly retrieve a channel by its key", func(ctx SpecContext) {
@@ -69,14 +73,16 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     UniqueChannelName(),
 				},
 			}
-			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).CreateMany(ctx, &created)
+			})).To(Succeed())
 			var resChannels []channel.Channel
 
 			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchKeys(created[0].Key())).
 				Entries(&resChannels).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Key()).To(Equal(created[0].Key()))
 		})
@@ -89,14 +95,16 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     n,
 				},
 			}
-			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).CreateMany(ctx, &created)
+			})).To(Succeed())
 			var resChannels []channel.Channel
 
 			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchNames(n)).
 				Entries(&resChannels).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Name).To(Equal(n))
 		})
@@ -108,7 +116,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					NewRetrieve().
 					Where(channel.MatchKeys(435)).
 					Entries(&resChannels).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 				).To(MatchError(ContainSubstring("Channels with keys [435] not found")))
 			},
 		)
@@ -125,13 +133,15 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "catalina",
 				},
 			}
-			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).CreateMany(ctx, &created)
+			})).To(Succeed())
 			var resChannels []channel.Channel
 			Expect(svc.
 				NewRetrieve().
 				Search("catalina").
 				Entries(&resChannels).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(resChannels).To(HaveExactElements(HaveField("Name", "catalina")))
 		})
 
@@ -143,7 +153,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					NewRetrieve().
 					Where(channel.MatchKeys(0)).
 					Entries(&resChannels).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 	})
@@ -160,15 +170,19 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Name:       "wc_calc",
 				Expression: "return wc_base * 2",
 			}
-			Expect(writer.Create(ctx, &base)).To(Succeed())
-			Expect(writer.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &base)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 
 			var results []channel.Channel
 			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchCalculated()).
 				Entries(&results).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			for _, ch := range results {
 				Expect(ch.IsCalculated()).To(BeTrue())
 			}
@@ -180,21 +194,24 @@ var _ = Describe("Retrieve", Ordered, func() {
 		It(
 			"Should return empty when no calculated channels exist on a fresh node",
 			func(ctx SpecContext) {
-				freshSvc := openService(ctx, testutil.NewNode(ctx))
+				fresh := testutil.NewNode(ctx)
+				freshSvc := openService(ctx, fresh)
 				base := channel.Channel{
 					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     "wc_only_base",
 				}
-				Expect(freshSvc.NewWriter(nil).
-					CreateMany(ctx, &[]channel.Channel{base})).To(Succeed())
+				Expect(fresh.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return freshSvc.NewWriter(tx).
+						CreateMany(ctx, &[]channel.Channel{base})
+				})).To(Succeed())
 
 				var results []channel.Channel
 				Expect(freshSvc.
 					NewRetrieve().
 					Where(channel.MatchCalculated()).
 					Entries(&results).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, fresh.DB)).To(Succeed())
 				Expect(results).To(BeEmpty())
 			},
 		)
@@ -208,7 +225,9 @@ var _ = Describe("Retrieve", Ordered, func() {
 			idx := channel.Channel{
 				Name: prefix + "_time", DataType: telem.TimestampT, IsIndex: true,
 			}
-			Expect(writer.Create(ctx, &idx)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &idx)
+			})).To(Succeed())
 			data := []channel.Channel{
 				{
 					Name:       prefix + "_a",
@@ -221,7 +240,9 @@ var _ = Describe("Retrieve", Ordered, func() {
 					LocalIndex: idx.LocalKey,
 				},
 			}
-			Expect(writer.CreateMany(ctx, &data)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).CreateMany(ctx, &data)
+			})).To(Succeed())
 			return idx, data
 		}
 		retrieveKeys := func(ctx SpecContext, keys ...channel.Key) channel.Keys {
@@ -230,7 +251,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(svc.NewRetrieve().
 				Where(svc.MatchIndexes(keys...)).
 				Entries(&results).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			return channel.KeysFromChannels(results)
 		}
 
@@ -253,8 +274,12 @@ var _ = Describe("Retrieve", Ordered, func() {
 				DataType:   telem.Float32T,
 				Expression: "return mi_base * 2",
 			}
-			Expect(writer.Create(ctx, &base)).To(Succeed())
-			Expect(writer.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &base)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			Expect(retrieveKeys(ctx, calc.Index())).To(ConsistOf(calc.Key()))
 		})
 
@@ -281,7 +306,9 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 		It("Should stop matching a channel once it is deleted", func(ctx SpecContext) {
 			idx, data := createIndexed(ctx, "mi_deleted")
-			Expect(writer.Delete(ctx, data[0].Key(), false)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, data[0].Key(), false)
+			})).To(Succeed())
 			Expect(retrieveKeys(ctx, idx.Key())).To(ConsistOf(data[1].Key()))
 		})
 	})
@@ -300,12 +327,14 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     UniqueChannelName(),
 				},
 			}
-			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).CreateMany(ctx, &created)
+			})).To(Succeed())
 
 			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchKeys(created[0].Key())).
-				Exists(ctx, nil),
+				Exists(ctx, db),
 			).To(BeTrue())
 		})
 	})

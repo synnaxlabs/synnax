@@ -30,11 +30,6 @@ func ResourceID(key Key) resource.ID {
 	return resource.ID{Type: resource.TypeRange, Key: key.String()}
 }
 
-// ResourceIDs converts a slice of keys to a slice of resource IDs.
-func ResourceIDs(keys []Key) []resource.ID {
-	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
-}
-
 // KeyFromResourceID returns the key of the range that id names. A malformed key is a
 // validation error.
 func KeyFromResourceID(id resource.ID) (Key, error) { return resource.ParseUUIDKey(id) }

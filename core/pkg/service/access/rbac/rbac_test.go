@@ -741,6 +741,22 @@ var _ = Describe("Service", func() {
 				To(Equal([]role.Key{r.Key}))
 		})
 
+		It("Should return the roles of a subject through a snapshot", func(
+			ctx SpecContext,
+		) {
+			r := &role.Role{Name: "snapshot"}
+			Expect(rbacSvc.Role.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
+			subject := createUser(ctx, tx)
+			setRole(ctx, tx, subject, r.Key)
+			Expect(tx.Commit(ctx)).To(Succeed())
+			var roles []role.Key
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				roles, err = rbacSvc.RolesOf(ctx, snap, subject)
+				return err
+			})).To(Succeed())
+			Expect(roles).To(Equal([]role.Key{r.Key}))
+		})
+
 		It("Should return not found for a user that does not exist", func(
 			ctx SpecContext,
 		) {
@@ -809,11 +825,39 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("NewEnforcer", func() {
+		It("Should enforce through a snapshot", func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
+			subject := createUser(ctx, tx)
+			obj := resource.ID{Type: "channel", Key: "snapshot-channel"}
+			r := &role.Role{Name: "snapshot-enforcer"}
+			Expect(rbacSvc.Role.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
+			Expect(rbacSvc.Policy.NewWriter(tx, true).Create(ctx, &policy.Policy{
+				Role:    r.Key,
+				Name:    "allow-read",
+				Objects: []resource.ID{obj},
+				Actions: []access.Action{access.ActionRetrieve},
+			})).To(Succeed())
+			setRole(ctx, tx, subject, r.Key)
+			Expect(tx.Commit(ctx)).To(Succeed())
+			req := access.Request{
+				Subject: subject,
+				Objects: []resource.ID{obj},
+				Action:  access.ActionRetrieve,
+			}
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+				return rbacSvc.NewEnforcer(snap).Enforce(ctx, req)
+			})).To(Succeed())
+		})
+
 		It("Should create a functional enforcer", func(ctx SpecContext) {
-			enforcer := rbacSvc.NewEnforcer(nil)
+			enforcer := rbacSvc.NewEnforcer(db)
 			Expect(enforcer).ToNot(BeNil())
 
-			subject := createUser(ctx, nil)
+			var subject resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				subject = createUser(ctx, tx)
+				return nil
+			})).To(Succeed())
 			obj := resource.ID{Type: "channel", Key: "ch1"}
 			req := access.Request{
 				Subject: subject,

@@ -47,44 +47,24 @@ func validateWrite(l Log) error {
 }
 
 // Writer is used to create, update, and delete logs within Synnax. The writer executes
-// all operations within the transaction provided to the Service.NewWriter method. If no
-// transaction is provided, the writer will execute operations directly on the database.
+// all operations within the transaction provided to the Service.NewWriter method.
 type Writer struct {
-	svc        *Service
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Log]
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
-// broadcasts it emits, so the client that sent the create recognizes its own echo.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
-}
-
-// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
-// dispatch key of w when w has no transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	db, ok := w.tx.(*gorp.DB)
-	if !ok {
-		return f(w)
-	}
-	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		bound := w.svc.NewWriter(tx)
-		bound.dispatcher = w.dispatcher
-		return f(bound)
-	})
 }
 
 // Create creates the given log, assigning a new key when l.Key is zero. The log must
 // belong to exactly one of a project and a range. An existing log keeps its group,
 // project, and range. A new log in a group belongs to the project that holds the group.
 func (w Writer) Create(ctx context.Context, l *Log) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, l) })
-}
-
-func (w Writer) create(ctx context.Context, l *Log) error {
 	var (
 		exists bool
 		err    error
@@ -120,8 +100,7 @@ func (w Writer) create(ctx context.Context, l *Log) error {
 	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		l.Key,
 		NewCreateAction(CreatePayload{Log: *l}),
@@ -132,44 +111,43 @@ func (w Writer) create(ctx context.Context, l *Log) error {
 // SetGroup moves the logs with keys into g, or out of their group when g is nil. A log
 // in a group belongs to the project that holds the group.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		p, err := project.GroupProject(ctx, w.tx, g, resource.TypeLog)
-		if err != nil {
-			return err
-		}
-		if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		w.notifyGroup(ctx, g, keys)
-		if p == nil {
-			return nil
-		}
-		return w.setProject(ctx, *p, keys...)
-	})
+	p, err := project.GroupProject(ctx, w.tx, g, resource.TypeLog)
+	if err != nil {
+		return err
+	}
+	if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.attachGroup(g, keys)
+	if p == nil {
+		return nil
+	}
+	return w.setProject(ctx, *p, keys...)
 }
 
 // SetProject moves the logs with keys out of their group and into the project p. It
 // returns a validation error when a log belongs to a range.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		w.notifyGroup(ctx, nil, keys)
-		return w.setProject(ctx, p, keys...)
-	})
+	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.attachGroup(nil, keys)
+	return w.setProject(ctx, p, keys...)
 }
 
-// setProject moves the logs with keys into the project p, and notifies a project
-// change for each one that was not in p.
+// setProject moves the logs with keys that are not in the project p into p, and
+// attaches a set project action for each one.
 func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) error {
 	var moved []Key
 	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Log](keys...)).
+		Where(gorp.And(
+			gorp.MatchKeys[Key, Log](keys...),
+			gorp.Match(func(_ gorp.Context, e *Log) (bool, error) {
+				return e.Project == nil || *e.Project != p, nil
+			}),
+		)).
 		ChangeErr(func(_ gorp.Context, e Log) (Log, error) {
-			if e.Project == nil || *e.Project != p {
-				moved = append(moved, e.Key)
-			}
+			moved = append(moved, e.Key)
 			e.Project = &p
 			return e, project.ValidateOwner(e.Project, e.Range)
 		}).
@@ -177,8 +155,7 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 		return err
 	}
 	for _, k := range moved {
-		w.dispatcher.NotifyOnCommit(
-			ctx,
+		w.dispatcher.Attach(
 			w.tx,
 			k,
 			NewSetProjectAction(SetProjectPayload{Project: p}),
@@ -187,10 +164,9 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
-func (w Writer) notifyGroup(ctx context.Context, g *group.Key, keys []Key) {
+func (w Writer) attachGroup(g *group.Key, keys []Key) {
 	for _, k := range keys {
-		w.dispatcher.NotifyOnCommit(
-			ctx,
+		w.dispatcher.Attach(
 			w.tx,
 			k,
 			NewSetGroupAction(SetGroupPayload{Group: g}),
@@ -216,4 +192,25 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		NewDelete().
 		Where(gorp.MatchKeys[Key, Log](keys...)).
 		Exec(ctx, w.tx)
+}
+
+// Apply applies a sequence of actions to the log with the given key and attaches them
+// to the transaction of w, so its commit broadcasts them with the dispatch key of w.
+// Returns a validation error, and stores nothing, if the actions leave the log invalid.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Log](key)).
+		ChangeErr(func(_ gorp.Context, l Log) (Log, error) {
+			reduced, err := Reduce(l, acts...)
+			if err != nil {
+				return Log{}, err
+			}
+			if err = validateWrite(reduced); err != nil {
+				return Log{}, err
+			}
+			return reduced, nil
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }

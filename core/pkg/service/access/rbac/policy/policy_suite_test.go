@@ -45,7 +45,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Role: roleSvc,
 	}))
 	owner = role.Role{Name: "owner"}
-	Expect(roleSvc.NewWriter(nil, true).Create(ctx, &owner)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return roleSvc.NewWriter(tx, true).Create(ctx, &owner)
+	})).To(Succeed())
 })
 
 func TestPolicy(t *testing.T) {

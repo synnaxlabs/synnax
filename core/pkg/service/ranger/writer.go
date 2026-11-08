@@ -23,10 +23,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer is used to create ranges within the DB. A Writer with no transaction runs each
-// Create in a transaction of its own.
+// Writer is used to create ranges within the DB.
 type Writer struct {
-	svc        *Service
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Range]
 	dispatcher actions.Dispatcher[Key, Action]
@@ -39,20 +37,6 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
-// dispatch key of w when w has no transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	db, ok := w.tx.(*gorp.DB)
-	if !ok {
-		return f(w)
-	}
-	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		bound := w.svc.NewWriter(tx)
-		bound.dispatcher = w.dispatcher
-		return f(bound)
-	})
-}
-
 // Create creates or updates the given range, assigning a new key when it has none. A
 // create stores the labels r carries. An update keeps the stored labels, which change
 // only through AddLabels, ReplaceLabels, and RemoveLabels, and keeps the stored parent
@@ -60,10 +44,6 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 // range or one of its descendants. On return, r holds what was stored. After the
 // transaction commits, Create broadcasts a create action that carries the stored range.
 func (w Writer) Create(ctx context.Context, r *Range) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, r) })
-}
-
-func (w Writer) create(ctx context.Context, r *Range) error {
 	if r.Key == uuid.Nil() {
 		r.Key = uuid.New()
 	}
@@ -90,8 +70,7 @@ func (w Writer) create(ctx context.Context, r *Range) error {
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		r.Key,
 		NewCreateAction(CreatePayload{Range: *r}),
@@ -153,13 +132,26 @@ func (w Writer) editLabels(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.NotifyOnCommit(ctx, w.tx, key, labelsAction(labels))
+	w.dispatcher.Attach(w.tx, key, labelsAction(labels))
 	return nil
 }
 
 // labelsAction returns the action that sets the labels of a range to labels.
 func labelsAction(labels []label.Key) Action {
 	return NewSetAction(SetPayload{Path: []string{"labels"}, Value: labels})
+}
+
+// Apply applies the actions to the range with the given key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create or the
+// result fails to decode or validate, and an error wrapping query.ErrNotFound when no
+// range has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.apply(ctx, key, acts); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }
 
 // apply applies the actions to the range with the given key and stores the result.

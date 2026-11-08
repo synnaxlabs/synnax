@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -88,19 +89,22 @@ var _ = Describe("ReadTask", func() {
 		t = task.Task{Key: uuid.New(), Name: "read-task-test", Type: "mock"}
 		createTask(ctx, t)
 		src = newQueueSource()
-		w := channelSvc.NewWriter(nil)
 		idxCh = channel.Channel{
 			Name:     UniqueChannelName(),
 			DataType: telem.TimestampT,
 			IsIndex:  true,
 		}
-		Expect(w.Create(ctx, &idxCh)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &idxCh)
+		})).To(Succeed())
 		dataCh = channel.Channel{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float32T,
 			LocalIndex: idxCh.LocalKey,
 		}
-		Expect(w.Create(ctx, &dataCh)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &dataCh)
+		})).To(Succeed())
 	})
 
 	openWithBreaker := func(brk breaker.Config) *driver.ReadTask {
@@ -267,19 +271,22 @@ var _ = Describe("ReadTask", func() {
 
 		It("Should write a first frame whose second index starts before its first",
 			func(ctx SpecContext) {
-				w := channelSvc.NewWriter(nil)
 				earlyIdx := channel.Channel{
 					Name:     UniqueChannelName(),
 					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}
-				Expect(w.Create(ctx, &earlyIdx)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &earlyIdx)
+				})).To(Succeed())
 				earlyData := channel.Channel{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float32T,
 					LocalIndex: earlyIdx.LocalKey,
 				}
-				Expect(w.Create(ctx, &earlyData)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &earlyData)
+				})).To(Succeed())
 				keys := channel.Keys{
 					idxCh.Key(), dataCh.Key(), earlyIdx.Key(), earlyData.Key(),
 				}
@@ -310,19 +317,22 @@ var _ = Describe("ReadTask", func() {
 
 		It("Should write an index that starts inside the stored data of another index",
 			func(ctx SpecContext) {
-				w := channelSvc.NewWriter(nil)
 				behindIdx := channel.Channel{
 					Name:     UniqueChannelName(),
 					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}
-				Expect(w.Create(ctx, &behindIdx)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &behindIdx)
+				})).To(Succeed())
 				behindData := channel.Channel{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float32T,
 					LocalIndex: behindIdx.LocalKey,
 				}
-				Expect(w.Create(ctx, &behindData)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &behindData)
+				})).To(Succeed())
 				stored := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Keys:  channel.Keys{idxCh.Key(), dataCh.Key()},
 					Start: telem.SecondTS,

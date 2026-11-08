@@ -57,14 +57,14 @@ func ParseUUIDKey(id ID) (uuid.UUID, error) {
 }
 
 // Dependents returns the ID of every record that references the entry of table with
-// key, as seen by tx. It blocks and fails as gorp.Table.Dependents does.
+// key, as seen by snap. It blocks and fails as gorp.Table.Dependents does.
 func Dependents[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	table *gorp.Table[K, E],
 	key K,
 ) ([]ID, error) {
-	deps, err := table.Dependents(ctx, tx, key)
+	deps, err := table.Dependents(ctx, snap, key)
 	if err != nil {
 		return nil, err
 	}
