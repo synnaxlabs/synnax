@@ -143,12 +143,15 @@ var _ = Describe("Identity", func() {
 		"Should reject the data directory of a node other than node 1",
 		func(ctx SpecContext) {
 			Expect(db.Set(ctx, identityKey, aspenRecord(2, 2))).To(Succeed())
-			Expect(cluster.OpenIdentity(ctx, db, "localhost:9090")).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(
-					"the data directory belongs to node 2 of a cluster",
-				)),
-			))
+			Expect(
+				cluster.OpenIdentity(ctx, db, "localhost:9090"),
+			).Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"the data directory belongs to node 2 of a cluster",
+					)),
+				))
 		},
 	)
 
