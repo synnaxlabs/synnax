@@ -15,7 +15,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	apipolicy "github.com/synnaxlabs/synnax/pkg/api/access/policy"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -37,14 +40,23 @@ func TestAPIPolicy(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apipolicy.Service
 	root   user.User
+	// create, del, and retrieve run their routes as the API layer binds them.
+	create   freighter.UnaryHandler[apipolicy.CreateRequest, apipolicy.CreateResponse]
+	del      freighter.UnaryHandler[apipolicy.DeleteRequest, struct{}]
+	retrieve freighter.UnaryHandler[
+		apipolicy.RetrieveRequest,
+		apipolicy.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	creds := auth.Credentials{Username: "root", Password: "p"}
 	svc = MustOpen(svctestutil.OpenLayer(
 		ctx,
@@ -59,12 +71,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		svc.RBAC.Builtin.OwnerKey,
 	))
 	apiSvc = MustSucceed(apipolicy.NewService(apipolicy.ServiceConfig{RBAC: svc.RBAC}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 // createUser creates a user that can do nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
@@ -73,7 +92,9 @@ func createUser(ctx SpecContext) user.User {
 func createRole(ctx SpecContext) role.Role {
 	GinkgoHelper()
 	r := role.Role{Name: "role-" + uuid.New().String()}
-	Expect(svc.RBAC.Role.NewWriter(nil, false).Create(ctx, &r)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.RBAC.Role.NewWriter(tx, false).Create(ctx, &r)
+	})).To(Succeed())
 	return r
 }
 
@@ -89,6 +110,6 @@ func grantOn(
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
 	return MustSucceed(
-		rbactestutil.Grant(ctx, svc.RBAC, svc.User, key, actions, objects...),
+		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, key, actions, objects...),
 	)
 }

@@ -133,14 +133,14 @@ var _ = Describe("Migration", func() {
 				gSvc.NewRetrieve().
 					Where(group.MatchNames("Ranges")).
 					Entry(&g).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).
 				To(MatchError(query.ErrNotFound))
 			Expect(
 				gSvc.NewRetrieve().
 					Where(group.MatchNames("Subgroup")).
 					Entry(&g).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).
 				To(MatchError(query.ErrNotFound))
 
@@ -188,7 +188,7 @@ var _ = Describe("Migration", func() {
 			Expect(gSvc.NewRetrieve().
 				Where(group.MatchNames("Ranges", "Subgroup")).
 				Entries(&groups).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(groups).To(HaveLen(2))
 		},
 	)

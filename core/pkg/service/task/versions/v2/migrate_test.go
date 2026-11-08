@@ -69,14 +69,18 @@ var _ = Describe("Migrations", func() {
 				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:         db,
-				HostKey:    1,
-				Status:     stat,
-				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+				DB:      db,
+				HostKey: 1,
+				Status:  stat,
+				DriverRole: MustSucceed(
+					racktestutil.CreateDriverRole(ctx, db, roleSvc),
+				),
 			}))
 
 			testRack := &rack.Rack{Name: "Migration Test Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, testRack)
+			})).To(Succeed())
 
 			legacyKey := v1.Key(uint64(testRack.Key)<<32 | 99)
 			legacyTask := v1.Task{
@@ -114,7 +118,9 @@ var _ = Describe("Migrations", func() {
 					"cmd":     "start",
 				},
 			}
-			Expect(stat.NewMigrationWriter(nil).Set(ctx, legacyStatus)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return stat.NewMigrationWriter(tx).Set(ctx, legacyStatus)
+			})).To(Succeed())
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
@@ -130,7 +136,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Legacy Task")).
 				Entry(&migrated).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migrated.Key).ToNot(Equal(uuid.Nil()))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
 			Expect(migrated.Config).To(HaveKeyWithValue("routing_key", "rk-legacy"))
@@ -142,7 +148,7 @@ var _ = Describe("Migrations", func() {
 			Expect(stat.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchOwners[task.StatusDetails](task.ResourceID(migrated.Key))).
 				Entry(&restoredStatus).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(restoredStatus.Key).To(Equal(legacyStatusKey))
 			Expect(restoredStatus.Details.Running).To(BeTrue())
 			Expect(restoredStatus.Details.Cmd).To(Equal("start"))
@@ -175,14 +181,19 @@ var _ = Describe("Migrations", func() {
 				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:         db,
-				HostKey:    1,
-				Status:     stat,
-				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+				DB:      db,
+				HostKey: 1,
+				Status:  stat,
+				DriverRole: MustSucceed(
+					racktestutil.CreateDriverRole(ctx, db, roleSvc),
+				),
 			}))
 			testRack := &rack.Rack{Name: "Decompose Test Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, testRack)
+			})).To(Succeed())
 			targets := tasktestutil.NewTargets(tasktestutil.TargetsConfig{
+				DB: db,
 				Device: MustOpen(device.OpenService(ctx, device.ServiceConfig{
 					DB:     db,
 					Status: stat,
@@ -199,7 +210,7 @@ var _ = Describe("Migrations", func() {
 				HostKey: node.Identity.HostKey,
 				Status:  stat,
 			}))
-			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 4))
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 4))
 			cmdKey, stateKey, tcKey, freqKey := keys[0], keys[1], keys[2], keys[3]
 
 			MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
@@ -352,7 +363,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored PD Task")).
 				Entry(&migratedPD).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedPD.Config).To(
 				HaveKeyWithValue("routing_key", "rk-stored"),
 			)
@@ -364,7 +375,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored Arc Task")).
 				Entry(&migratedArc).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedArc.Type).To(Equal("arc"))
 			Expect(migratedArc.Config).To(
 				HaveKeyWithValue("arc_key", arcModuleKey),
@@ -379,7 +390,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored LabJack Scan Task")).
 				Entry(&migratedScan).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedScan.Config).To(
 				HaveKeyWithValue("rate", BeEquivalentTo(0.2)),
 			)
@@ -388,7 +399,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored LabJack Write Task")).
 				Entry(&migratedLJ).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedLJ.Config).To(HaveKeyWithValue("device", "dev-lj"))
 			Expect(migratedLJ.Config).To(
 				HaveKeyWithValue("data_saving_disabled", false),
@@ -408,7 +419,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored NI Analog Read Task")).
 				Entry(&migratedNI).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedNI.Config).ToNot(HaveKey("device"))
 			Expect(migratedNI.Config).To(
 				HaveKeyWithValue("data_saving_disabled", false),
@@ -433,7 +444,7 @@ var _ = Describe("Migrations", func() {
 
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Bogus Task")).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 			rekeyed, rekeyCloser := MustSucceed2(
 				db.Get(ctx, v2.LegacyKeyKVKey(bogusTask.Key)),
 			)
@@ -448,7 +459,7 @@ var _ = Describe("Migrations", func() {
 			for _, retired := range retiredTasks {
 				Expect(svc.NewRetrieve().
 					Where(task.MatchNames(retired.Name)).
-					Exists(ctx, nil)).To(BeFalse())
+					Exists(ctx, db)).To(BeFalse())
 				rekeyed, rekeyCloser := MustSucceed2(
 					db.Get(ctx, v2.LegacyKeyKVKey(retired.Key)),
 				)

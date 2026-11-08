@@ -12,9 +12,9 @@ package device
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -38,7 +37,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the read access that a create response needs.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -94,40 +93,13 @@ type (
 	}
 )
 
+// Create creates or updates the devices. The response holds the status of each device
+// that the subject can retrieve.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeDevice}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	var stored []device.Device
-	if err := s.device.NewRetrieve().
-		Where(device.MatchKeys(lo.Map(
-			req.Devices,
-			func(d device.Device, _ int) device.Key { return d.Key },
-		)...)).
-		Entries(&stored).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return CreateResponse{}, err
-	}
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			req.Devices,
-			stored,
-			func(d device.Device) *group.Key { return d.Group },
-		),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.device.NewWriter(tx).CreateMany(ctx, &req.Devices); err != nil {
 		return CreateResponse{}, err
 	}
@@ -167,12 +139,12 @@ func (s *Service) attachReadableStatuses(
 
 func (s *Service) attachStatuses(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	devices []device.Device,
 ) error {
 	statuses, err := s.status.Join[device.StatusDetails](
 		ctx,
-		tx,
+		snap,
 		device.ResourceIDsFromDevices(devices),
 	)
 	if err != nil {
@@ -184,8 +156,21 @@ func (s *Service) attachStatuses(
 	return nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the devices that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, device.ResourceID)
+}
+
+// Retrieve returns the devices that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -193,20 +178,13 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
+	if err := q.Where(bind.Filter(snap, device.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if req.IncludeStatus {
-		if err := s.attachStatuses(ctx, nil, res.Devices); err != nil {
+		if err := s.attachStatuses(ctx, snap, res.Devices); err != nil {
 			return RetrieveResponse{}, err
 		}
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: device.ResourceIDsFromDevices(res.Devices),
-	}); err != nil {
-		return RetrieveResponse{}, err
 	}
 	return res, nil
 }
@@ -219,19 +197,12 @@ type RenameRequest struct {
 	Key device.Key `json:"key" msgpack:"key"`
 }
 
-// Rename renames the device. It requires update access on it.
+// Rename renames the device and its status.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{device.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.device.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
@@ -239,18 +210,12 @@ type DeleteRequest struct {
 	Keys []device.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the devices, their statuses, and the devices they hold.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: device.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	w := s.device.NewWriter(tx)
 	for _, k := range req.Keys {
 		if err := w.Delete(ctx, k); err != nil {
@@ -272,23 +237,5 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
-	var devices []device.Device
-	if err := s.device.NewRetrieve().
-		Where(device.MatchKeys(req.Keys...)).
-		Entries(&devices).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			device.ResourceIDs(req.Keys),
-			lo.Map(devices, func(e device.Device, _ int) *group.Key { return e.Group }),
-			req.Group,
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.device.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

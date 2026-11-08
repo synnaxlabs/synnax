@@ -23,6 +23,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -47,36 +48,34 @@ var _ = Describe("Channel references", func() {
 	}
 
 	It(
-		"Should broadcast an edit that commits between a detach and its broadcast",
+		"Should attach the log as written to the delete that detaches a channel",
 		func(ctx SpecContext) {
-			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 2))
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 2))
 			gone, kept := keys[0], keys[1]
 			l := log.Log{
 				Project:  &proj.Key,
 				Name:     "edited",
 				Channels: []log.ChannelEntry{{Channel: gone}, {Channel: kept}},
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &l)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, l.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, l.Key)
+				})).To(Succeed())
 			})
 			rec := &Recorder[log.Key, log.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
-			tx := DeferClose(db.OpenTx())
-			gorp.OnCommit(tx, func() {
-				Expect(svc.Dispatch(ctx, l.Key, "", []log.Action{
-					log.NewRenameAction(log.RenamePayload{Name: "renamed"}),
-				})).To(Succeed())
-			})
-			Expect(channelSvc.NewWriter(tx).Delete(ctx, gone, false)).To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, gone, false)
+			})).To(Succeed())
 			seen := rec.Snapshot()
-			Expect(seen).ToNot(BeEmpty())
-			last := seen[len(seen)-1]
-			Expect(last.Actions).To(HaveLen(1))
-			Expect(last.Actions[0].Create).ToNot(BeNil())
-			Expect(last.Actions[0].Create.Log.Name).To(Equal("renamed"))
-			Expect(channelsOf(last.Actions[0].Create.Log)).
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Key).To(Equal(l.Key))
+			Expect(seen[0].Actions).To(HaveLen(1))
+			Expect(seen[0].Actions[0].Create).ToNot(BeNil())
+			Expect(channelsOf(seen[0].Actions[0].Create.Log)).
 				To(Equal([]channel.Key{kept}))
 		},
 	)
@@ -87,7 +86,9 @@ var _ = Describe("Channel references", func() {
 			Name:     "missing",
 			Channels: []log.ChannelEntry{{Channel: ch5}, {Channel: 404}},
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &l)).To(MatchError(
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &l)
+		})).To(MatchError(
 			ContainSubstring("channels.channel: channel 404 does not exist"),
 		))
 	})
@@ -95,7 +96,7 @@ var _ = Describe("Channel references", func() {
 	It(
 		"Should remove the entry of a deleted channel and keep the others",
 		func(ctx SpecContext) {
-			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 3))
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 3))
 			first, gone, third := keys[0], keys[1], keys[2]
 			l := log.Log{
 				Project: &proj.Key,
@@ -106,11 +107,17 @@ var _ = Describe("Channel references", func() {
 					{Channel: third, Alias: "third"},
 				},
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &l)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, l.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, l.Key)
+				})).To(Succeed())
 			})
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, gone, false)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, gone, false)
+			})).To(Succeed())
 			res := retrieve(ctx, db, l.Key)
 			Expect(channelsOf(res)).To(Equal([]channel.Key{first, third}))
 			Expect(res.Channels[0].Alias).To(Equal("first"))
@@ -121,22 +128,26 @@ var _ = Describe("Channel references", func() {
 	It(
 		"Should drop channels the Core does not hold from an imported log",
 		func(ctx SpecContext) {
-			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 2))
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 2))
 			kept, gone := keys[0], keys[1]
 			l := log.Log{
 				Project:  &proj.Key,
 				Name:     "export",
 				Channels: []log.ChannelEntry{{Channel: kept}, {Channel: gone}},
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, l.ResourceID()))
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, gone, false)).To(Succeed())
-			id := MustSucceed(imexSvc.Import(
-				ctx,
-				db,
-				WireRoundTrip(env),
-				imex.ImportOptions{Parent: proj.ResourceID()},
-			))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &l)
+			})).To(Succeed())
+			env := MustSucceed(svc.Export(ctx, db, l.ResourceID()))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, gone, false)
+			})).To(Succeed())
+			var id resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),
+					imex.ImportOptions{Parent: proj.ResourceID()})
+				return err
+			})).To(Succeed())
 			res := retrieve(ctx, db, MustSucceed(uuid.Parse(id.Key)))
 			Expect(channelsOf(res)).To(Equal([]channel.Key{kept}))
 		},
@@ -153,7 +164,9 @@ var _ = Describe("Channel references", func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		kept := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
+		kept := MustSucceed(
+			channeltestutil.CreateVirtual(ctx, node.DB, channelSvc, 1),
+		)[0]
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         node.DB,
 			Namespace:  "Log",

@@ -22,9 +22,10 @@ APIKey struct {
         @key
     }
     subject resource.ID     {
-        @doc value    "is the user or rack the key logs in as."
-        @filter
-        @index lookup
+        @doc value     "is the user or rack the key logs in as."
+        @ref kind      place
+        @ref on_delete cascade
+        @ref types     user rack
     }
     hash    bytes           {
         @doc value "is the SHA-256 hash of the secret in the key."

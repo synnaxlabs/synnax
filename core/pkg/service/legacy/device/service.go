@@ -13,7 +13,6 @@ package device
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -114,11 +113,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(
+		if err = cfg.Signals.PublishTable(
 			ctx,
-			signals.GorpPublisherConfigString(s.table.Observe()),
-		); !ok(err, sig) {
+			signals.TableConfig[Key, Device]{
+				Changes:  s.table.Changes,
+				Resource: ResourceID,
+			},
+		); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -128,13 +129,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the device service and releases any resources that it may have acquired.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a new Writer to create, update, and delete devices. If tx is not nil,
-// the writer will use that transaction. If tx is nil, the writer will execute
-// operations directly against the underlying gorp.DB.
+// NewWriter opens a new Writer to create, update, and delete devices in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		svc:      s,
 		tx:       tx,
 		status:   s.cfg.Status.NewWriter(tx),
 		statuses: s.cfg.Status,
@@ -146,7 +143,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes: s.indexes,
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 	}
 }
@@ -162,9 +158,12 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 		return err
 	}
 	var devices []Device
-	if err := s.NewRetrieve().Where(MatchRacks(rackKey)).
-		Entries(&devices).
-		Exec(ctx, nil); err != nil {
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.NewRetrieve().
+			Where(MatchRacks(rackKey)).
+			Entries(&devices).
+			Exec(ctx, snap)
+	}); err != nil {
 		return errors.Wrap(err, "failed to retrieve devices on suspect rack")
 	}
 	statuses := make([]Status, len(devices))

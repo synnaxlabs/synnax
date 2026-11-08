@@ -29,22 +29,19 @@ type Writer struct {
 	tx  gorp.Tx
 }
 
-// Set stores creds as the subject's password, replacing any it already holds. It
-// returns [auth.ErrRepeatedUsername] when another subject holds creds.Username and a
-// validation error when creds has an empty username or password.
+// Set stores h as the password of the subject under username, replacing any password
+// it holds. It returns [auth.ErrRepeatedUsername] when another subject holds username,
+// a validation error when username is empty, and the errors of a write of h.
 func (w Writer) Set(
 	ctx context.Context,
 	subject resource.ID,
-	creds auth.Credentials,
+	username string,
+	h Hash,
 ) error {
-	if err := creds.Validate(); err != nil {
-		return err
+	if username == "" {
+		return errors.Wrap(validate.ErrValidation, "username: required")
 	}
-	if err := w.assertUsernameFree(ctx, subject, creds.Username); err != nil {
-		return err
-	}
-	hash, err := w.svc.current.hash(creds.Password)
-	if err != nil {
+	if err := w.assertUsernameFree(ctx, subject, username); err != nil {
 		return err
 	}
 	p, err := w.retrieve(ctx, subject)
@@ -52,48 +49,44 @@ func (w Writer) Set(
 		return w.svc.table.NewCreate().Entry(&Password{
 			Key:      uuid.New(),
 			Subject:  subject,
-			Username: creds.Username,
-			Hash:     hash,
+			Username: username,
+			Hash:     h.value,
 			Created:  telem.Now(),
 		}).Exec(ctx, w.tx)
 	}
 	if err != nil {
 		return err
 	}
+	if err = h.check(p); err != nil {
+		return err
+	}
 	return w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Password](p.Key)).
 		Change(func(_ gorp.Context, p Password) Password {
-			p.Username = creds.Username
-			p.Hash = hash
+			p.Username = username
+			p.Hash = h.value
 			p.Created = next(p.Created)
 			return p
 		}).
 		Exec(ctx, w.tx)
 }
 
-// ChangePassword replaces the subject's password and keeps its username. It returns an
-// error wrapping query.ErrNotFound when the subject has no password and a validation
-// error when password is empty.
-func (w Writer) ChangePassword(
-	ctx context.Context,
-	subject resource.ID,
-	password string,
-) error {
-	if password == "" {
-		return errors.Wrap(validate.ErrValidation, "password: required")
-	}
-	hash, err := w.svc.current.hash(password)
+// ChangePassword stores h as the subject's password and keeps its username. It returns
+// an error wrapping query.ErrNotFound when the subject has no password, and
+// [auth.ErrInvalidCredentials] when h was proven against a password the subject no
+// longer holds.
+func (w Writer) ChangePassword(ctx context.Context, subject resource.ID, h Hash) error {
+	p, err := w.retrieve(ctx, subject)
 	if err != nil {
 		return err
 	}
-	p, err := w.retrieve(ctx, subject)
-	if err != nil {
+	if err = h.check(p); err != nil {
 		return err
 	}
 	return w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Password](p.Key)).
 		Change(func(_ gorp.Context, p Password) Password {
-			p.Hash = hash
+			p.Hash = h.value
 			p.Created = next(p.Created)
 			return p
 		}).
@@ -121,13 +114,6 @@ func (w Writer) Rename(
 			p.Username = username
 			return p
 		}).
-		Exec(ctx, w.tx)
-}
-
-// DeleteFor removes the passwords of the given subjects.
-func (w Writer) DeleteFor(ctx context.Context, subjects ...resource.ID) error {
-	return w.svc.table.NewDelete().
-		Where(MatchSubjects(subjects...)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)
 }
 
