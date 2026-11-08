@@ -78,9 +78,9 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 
 // Apply applies the actions to the user with the given key and attaches them to the
 // transaction of w, so its commit broadcasts them with the dispatch key of w. A set
-// username action renames the user's password. Apply returns a validation error when
-// an action is a create, changes the role of a root user, or leaves the user invalid,
-// the errors of password.Writer.Apply for a set username action, and an error wrapping
+// username action renames the user's password. Apply returns a validation error when an
+// action is a create, changes the role of a root user, or leaves the user invalid, the
+// errors of password.Writer.Apply for a set username action, and an error wrapping
 // query.ErrNotFound when no user has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.table.NewUpdate().

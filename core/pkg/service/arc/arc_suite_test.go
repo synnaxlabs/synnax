@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -143,6 +144,14 @@ func newModule(b arc.Base) arc.Arc { return arc.Arc{Variant: arc.ModuleArc{Base:
 func readAll(context.Context) (func(resource.ID) bool, error) {
 	return func(resource.ID) bool { return true }, nil
 }
+
+// noRename is an LSP rename for specs that never rename. It returns an error.
+func noRename(context.Context, channel.Key, string) error {
+	return errors.New("unexpected rename")
+}
+
+// lspConfig lets the LSP subject retrieve every record and rejects every rename.
+var lspConfig = arc.LSPConfig{Allowed: readAll, Rename: noRename}
 
 // newArc returns an Arc of type t that holds b.
 func newArc(t arc.Type, b arc.Base) arc.Arc {

@@ -139,18 +139,37 @@ var _ = Describe("CompileProgram", func() {
 
 var _ = Describe("NewLSP", func() {
 	It("Should create an LSP server without error", func(ctx SpecContext) {
-		server := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: readAll}))
+		server := MustSucceed(svc.NewLSP(lspConfig))
 		Expect(server).ToNot(BeNil())
 	})
 
+	DescribeTable(
+		"Should reject a config with a missing function",
+		func(clear func(*arc.LSPConfig), msg string) {
+			cfg := lspConfig
+			clear(&cfg)
+			Expect(svc.NewLSP(cfg)).Error().To(MatchError(msg))
+		},
+		Entry(
+			"allowed",
+			func(c *arc.LSPConfig) { c.Allowed = nil },
+			"allowed: must be non-nil",
+		),
+		Entry(
+			"rename",
+			func(c *arc.LSPConfig) { c.Rename = nil },
+			"rename: must be non-nil",
+		),
+	)
+
 	It("Should create multiple independent LSP servers", func(ctx SpecContext) {
-		server1 := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: readAll}))
-		server2 := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: readAll}))
+		server1 := MustSucceed(svc.NewLSP(lspConfig))
+		server2 := MustSucceed(svc.NewLSP(lspConfig))
 		Expect(server1).ToNot(BeIdenticalTo(server2))
 	})
 
 	It("Should republish diagnostics when channels change", func(ctx SpecContext) {
-		server := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: readAll}))
+		server := MustSucceed(svc.NewLSP(lspConfig))
 		DeferCleanup(func() { Expect(server.Shutdown(ctx)).To(Succeed()) })
 		client := &MockClient{}
 		server.SetClient(client)
@@ -218,7 +237,10 @@ var _ = Describe("NewLSP", func() {
 			source string,
 		) (*lsp.Server, *MockClient) {
 			GinkgoHelper()
-			server := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: allowed}))
+			server := MustSucceed(svc.NewLSP(arc.LSPConfig{
+				Allowed: allowed,
+				Rename:  noRename,
+			}))
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(server.Shutdown(ctx)).To(Succeed())
 			})
