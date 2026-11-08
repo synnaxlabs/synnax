@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -33,23 +34,27 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 )
 
 var (
-	node         testutil.Node
-	db           *gorp.DB
-	rackService  *rack.Service
-	deviceSvc    *device.Service
-	taskService  *task.Service
-	taskWriter   task.Writer
-	channelSvc   *channel.Service
-	framerSvc    *framer.Service
-	statusSvc    *status.Service
-	hostProvider = testutil.NewStaticHostProvider(1)
+	node testutil.Node
+	// hookedKV stores the node, so a spec can intercept the commits of db.
+	hookedKV    *hookkv.DB
+	db          *gorp.DB
+	rackService *rack.Service
+	deviceSvc   *device.Service
+	taskService *task.Service
+	taskWriter  task.Writer
+	channelSvc  *channel.Service
+	framerSvc   *framer.Service
+	statusSvc   *status.Service
 )
 
 func TestDriver(t *testing.T) {
@@ -61,7 +66,11 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = testutil.NewNode(ctx)
+	st := DeferClose(storagetestutil.OpenLayer(ctx))
+	hookedKV = hookkv.Wrap(st.KV)
+	node = testutil.NewNode(ctx, distribution.LayerConfig{
+		Storage: &storage.Layer{KV: hookedKV, TS: st.TS},
+	})
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: node.DB,
@@ -73,10 +82,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: node.DB,
 	}))
 	rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           node.DB,
-		HostProvider: hostProvider,
-		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DB:         node.DB,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		// No Driver reports for the rack, so a check would overwrite task statuses.
+		HealthCheckInterval: telem.Hour,
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     node.DB,
@@ -84,10 +95,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Rack:   rackService,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      node.DB,

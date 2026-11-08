@@ -41,9 +41,7 @@ type MigrationConfig struct {
 	Owner role.Key
 }
 
-// NoAccessKey is the key of the role that the migration gives each user that held no
-// role.
-var NoAccessKey = uuid.MustParse("3f6b2a1e-8c4d-4e7a-9b5f-1d2c3e4f5a6b")
+var noAccessKey = uuid.MustParse("3f6b2a1e-8c4d-4e7a-9b5f-1d2c3e4f5a6b")
 
 // NewMigration returns the migration that gives one role to each stored user with no
 // role. A root user gets the Owner role. A user that held roles through ontology edges
@@ -91,9 +89,9 @@ func migrateUsers(ctx context.Context, tx gorp.Tx, cfg MigrationConfig) error {
 		}
 		byRole[r] = append(byRole[r], u.Key)
 	}
-	if _, ok := byRole[NoAccessKey]; ok {
+	if _, ok := byRole[noAccessKey]; ok {
 		if err = cfg.Role.NewWriter(tx, false).Create(ctx, &role.Role{
-			Key:  NoAccessKey,
+			Key:  noAccessKey,
 			Name: "No access",
 			Description: "Grants no permissions. Holds the users that had no role " +
 				"before the upgrade.",
@@ -150,7 +148,7 @@ func pickRole(
 	case u.RootUser:
 		return cfg.Owner, nil
 	case len(held) == 0:
-		return NoAccessKey, nil
+		return noAccessKey, nil
 	case len(held) == 1:
 		return held[0], nil
 	}

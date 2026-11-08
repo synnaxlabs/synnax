@@ -23,12 +23,6 @@ var _ = Describe("Device", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Device{}.SetOptions()).To(BeNil())
-		})
-	})
-
 	Describe("ResourceID", func() {
 		It("Should return the device resource identifier", func() {
 			Expect(v0.Device{Key: "dev-1"}.ResourceID()).To(Equal(resource.ID{

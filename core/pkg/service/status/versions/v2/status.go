@@ -80,9 +80,6 @@ var _ gorp.Entry[Key] = (*Status[any])(nil)
 // GorpKey implements gorp.Entry.
 func (s Status[D]) GorpKey() Key { return s.Key }
 
-// SetOptions implements gorp.Entry.
-func (Status[D]) SetOptions() []any { return nil }
-
 // ResourceID returns the unique resource identifier for the status.
 func (s Status[D]) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeStatus, Key: s.Key}

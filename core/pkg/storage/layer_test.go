@@ -10,6 +10,7 @@
 package storage_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -19,6 +20,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -95,6 +98,51 @@ var _ = Describe("storage", func() {
 				cfg.InMemory = new(true)
 				MustOpen(storage.OpenLayer(ctx, cfg))
 			})
+		})
+		Describe("Change handlers", func() {
+			It(
+				"Should return from a write before its change handlers finish",
+				func(ctx SpecContext) {
+					cfg.InMemory = new(true)
+					l := MustOpen(storage.OpenLayer(ctx, cfg))
+					release := make(chan struct{})
+					done := make(chan struct{})
+					disconnect := l.KV.OnChange(func(context.Context, kv.TxReader) {
+						<-release
+						close(done)
+					})
+					defer disconnect()
+					Expect(l.KV.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+					close(release)
+					Eventually(done).Should(BeClosed())
+				},
+			)
+		})
+		Describe("Aspen keys", func() {
+			It(
+				"Should delete only the digests and the version counter",
+				func(ctx SpecContext) {
+					deleted := []string{"--dig/a", "--dig/b", "ver"}
+					kept := []string{"aspen.cluster", "--dig", "--dig0", "ve", "vera"}
+					l := MustSucceed(storage.OpenLayer(ctx, cfg))
+					for _, key := range append(deleted, kept...) {
+						Expect(
+							l.KV.Set(ctx, []byte(key), []byte("value")),
+						).To(Succeed())
+					}
+					Expect(l.Close()).To(Succeed())
+					l = MustOpen(storage.OpenLayer(ctx, cfg))
+					for _, key := range deleted {
+						Expect(l.KV.Get(ctx, []byte(key))).Error().
+							To(MatchError(query.ErrNotFound))
+					}
+					for _, key := range kept {
+						value, closer := MustSucceed2(l.KV.Get(ctx, []byte(key)))
+						Expect(value).To(Equal([]byte("value")))
+						Expect(closer.Close()).To(Succeed())
+					}
+				},
+			)
 		})
 	})
 	Describe("ServiceConfig", func() {

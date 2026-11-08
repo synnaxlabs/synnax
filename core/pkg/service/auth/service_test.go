@@ -521,7 +521,7 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
-			"Should keep a session another node may have seen within the last quarter",
+			"Should keep a session for a quarter period past the idle timeout",
 			func(ctx SpecContext) {
 				session, _ := login(ctx)
 				clock.Advance(idle + time.Minute)

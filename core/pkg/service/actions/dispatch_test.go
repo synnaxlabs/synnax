@@ -30,8 +30,6 @@ type counter struct {
 
 func (c counter) GorpKey() string { return c.Key }
 
-func (counter) SetOptions() []any { return nil }
-
 var _ = Describe("Dispatch", func() {
 	var (
 		db  *gorp.DB
