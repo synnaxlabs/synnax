@@ -11,21 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel as channel_
-from synnax import group as group_
-from synnax import project as project_
-from synnax import ranger
+from synnax import channel as channel_, group as group_, project as project_, ranger
 from synnax.resource import ID
 from synnax.schematic import symbol
-from x import border, filter, spatial, text
-from x import color as color_
-from x import notation as notation_
+from x import border, color as color_, filter, notation as notation_, spatial, text
 from x.filter import shorthand
 
 FLEX_ALIGNMENT_START: Literal["start"] = "start"

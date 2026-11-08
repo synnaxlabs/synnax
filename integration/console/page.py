@@ -10,9 +10,14 @@
 import os
 from typing import Literal, Self
 
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import (
+    Error as PlaywrightError,
+    FloatRect,
+    Locator,
+    Page,
+    TimeoutError as PlaywrightTimeoutError,
+    ViewportSize,
+)
 from pydantic import JsonValue
 
 import synnax as sy
