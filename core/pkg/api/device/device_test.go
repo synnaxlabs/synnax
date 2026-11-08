@@ -390,6 +390,17 @@ var _ = Describe("Delete", func() {
 })
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the devices that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		granted := createDevice(ctx, "leave-out-granted")
+		createDevice(ctx, "leave-out-denied")
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apidevice.RetrieveRequest{}))
+		Expect(res.Devices).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should attach only each device's own status", func(ctx SpecContext) {
 		u := createUser(ctx)
 		withStatus := createDevice(ctx, "retrieve-with-status")

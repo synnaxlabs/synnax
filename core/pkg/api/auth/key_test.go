@@ -22,6 +22,7 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -243,7 +244,23 @@ var _ = Describe("API keys", func() {
 			)).Error().To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should ignore unknown keys", func(ctx SpecContext) {
-			Expect(del(ctx, bobToken, uuid.New())).To(Succeed())
+			res := MustSucceed(create(ctx, bobToken, resource.ID{}))
+			Expect(del(ctx, bobToken, uuid.New(), res.Key.Key)).To(Succeed())
+			Expect(apiSvc.CreateSession(
+				requestCtx(ctx),
+				apiauth.SessionCreateRequest{Proof: keyProof(res.Token)},
+			)).Error().To(MatchError(auth.ErrInvalidCredentials))
+		})
+		It("Should not end the sessions of a password whose key is sent", func(
+			ctx SpecContext,
+		) {
+			var p password.Password
+			Expect(passwordSvc.NewRetrieve().
+				Where(password.MatchSubjects(bob.ResourceID())).
+				Entry(&p).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(del(ctx, bobToken, p.Key)).To(Succeed())
+			MustSucceed(authSvc.Authenticate(ctx, bobToken))
 		})
 	})
 })

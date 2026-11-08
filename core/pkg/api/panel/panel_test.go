@@ -176,6 +176,17 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Retrieve", func() {
+		It("Should leave out the panels that the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			u := newUser(ctx)
+			granted := createPanel(ctx, "leave-out-granted")
+			createPanel(ctx, "leave-out-denied")
+			grant(ctx, u.ResourceID(), access.ActionRetrieve, granted.ResourceID())
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipanel.RetrieveRequest{}))
+			Expect(res.Panels).To(HaveExactElements(HaveField("Key", granted.Key)))
+		})
+
 		It(
 			"Should return the panels matching the requested keys",
 			func(ctx SpecContext) {

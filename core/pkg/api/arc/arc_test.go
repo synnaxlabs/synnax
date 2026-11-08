@@ -23,6 +23,7 @@ import (
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -31,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
@@ -71,6 +73,26 @@ func deploy(ctx context.Context, a arc.Arc) task.Task {
 
 var _ = Describe("Service", func() {
 	Describe("Retrieve", func() {
+		It("Should leave out the automations that the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			u := MustSucceed(rbactestutil.CreateUser(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				user.User{Name: "leave-out"},
+			))
+			granted := createArc(ctx, "leave-out-granted")
+			createArc(ctx, "leave-out-denied")
+			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, granted.ResourceID())
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiarc.RetrieveRequest{}))
+			Expect(res.Arcs).To(HaveExactElements(WithTransform(
+				func(a arc.Arc) arc.Key { return a.Base().Key },
+				Equal(granted.Base().Key),
+			)))
+		})
+
 		It(
 			"Should compile the graph of a graph-mode automation",
 			func(ctx SpecContext) {

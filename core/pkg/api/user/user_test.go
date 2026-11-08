@@ -206,6 +206,25 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Retrieve", func() {
+		It("Should leave out the users that the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			fctx, u := nonRootCtx(ctx)
+			granted := createUser(ctx, "leave-out-granted-"+uuid.New().String())
+			createUser(ctx, "leave-out-denied-"+uuid.New().String())
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				u.Key,
+				[]access.Action{access.ActionRetrieve},
+				granted.ResourceID(),
+			))
+			res := MustSucceed(retrieve(fctx, apiuser.RetrieveRequest{}))
+			Expect(res.Users).To(HaveExactElements(HaveField("Key", granted.Key)))
+		})
+
 		It(
 			"Should retrieve users by key when the subject has retrieve access",
 			func(ctx SpecContext) {
@@ -658,13 +677,16 @@ var _ = Describe("Service", func() {
 			Expect(roleOf(ctx, root.Key)).To(Equal(rbacSvc.Builtin.OwnerKey))
 		})
 		It(
-			"Should refuse to change the role of the root user before checking access",
+			"Should not reveal the root user to a subject that cannot update it",
 			func(ctx SpecContext) {
-				fctx, _ := nonRootCtx(ctx)
+				fctx, u := nonRootCtx(ctx)
 				Expect(setRole(fctx, apiuser.SetRoleRequest{
 					Keys: []user.Key{root.Key},
 					Role: rbacSvc.Builtin.ViewerKey,
-				})).Error().To(MatchError(validate.ErrValidation))
+				})).Error().To(SatisfyAll(
+					denied(u, access.ActionUpdate, root.ResourceID()),
+					Not(MatchError(ContainSubstring("root user"))),
+				))
 			},
 		)
 		It(
@@ -819,6 +841,18 @@ var _ = Describe("Service", func() {
 				userSvc.NewRetrieve().Where(user.MatchKeys(root.Key)).Exists(ctx, db),
 			).To(BeTrue())
 		})
+		It(
+			"Should not reveal the root user to a subject that cannot delete it",
+			func(ctx SpecContext) {
+				fctx, u := nonRootCtx(ctx)
+				Expect(del(fctx, apiuser.DeleteRequest{
+					Keys: []user.Key{root.Key},
+				})).Error().To(SatisfyAll(
+					denied(u, access.ActionDelete, root.ResourceID()),
+					Not(MatchError(ContainSubstring("root user"))),
+				))
+			},
+		)
 	})
 })
 

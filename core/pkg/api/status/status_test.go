@@ -855,3 +855,21 @@ var _ = Describe("RetrieveRequest", func() {
 		Entry("in a nested where", `{"where":{"or":[{"keys":[]}]}}`),
 	)
 })
+
+var _ = Describe("Retrieve access", func() {
+	It("Should leave out the statuses that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := freshUser(ctx)
+		granted := createStatus(ctx, "leave-out-granted")
+		createStatus(ctx, "leave-out-denied")
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			[]access.Action{access.ActionRetrieve},
+			granted.ResourceID(),
+		)
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apistatus.RetrieveRequest{}))
+		Expect(res.Statuses).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+})

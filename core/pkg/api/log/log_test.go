@@ -61,6 +61,17 @@ func createChannel(ctx SpecContext) channel.Channel {
 }
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the logs that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := newUser(ctx)
+		granted := createLog(ctx, "leave-out-granted")
+		createLog(ctx, "leave-out-denied")
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apilog.RetrieveRequest{}))
+		Expect(res.Logs).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
 	) {
