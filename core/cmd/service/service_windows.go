@@ -37,8 +37,7 @@ import (
 const (
 	// startCheckpointInterval is how often a starting Core tells the service manager
 	// that its start makes progress. The start has no time limit, because the first
-	// start of a
-	// new version migrates the data.
+	// start of a new version migrates the data.
 	startCheckpointInterval = 5 * time.Second
 	shutdownTimeout         = 30 * time.Second
 	stopTimeout             = shutdownTimeout + 15*time.Second

@@ -184,9 +184,9 @@ const (
 // UpdateState returns the state of the update of the data to version. It takes no lock,
 // so it can watch a Core that runs on the data.
 func (b *Backups) UpdateState(version string) (UpdateState, error) {
-	// The Core writes the marker before the version, and the failure record before a
-	// restore removes the marker, so reads in this order never take an undo for a
-	// commit.
+	// The Core writes the marker before the version, and a restore writes the version
+	// before it removes the markers. A version that changed during the reads is part of
+	// one of these steps.
 	recorded, err := b.readVersion()
 	if err != nil {
 		return 0, err
@@ -203,8 +203,12 @@ func (b *Backups) UpdateState(version string) (UpdateState, error) {
 	if err != nil {
 		return 0, err
 	}
+	again, err := b.readVersion()
+	if err != nil {
+		return 0, err
+	}
 	switch {
-	case updating || restoring:
+	case updating || restoring || again != recorded:
 		return UpdatePending, nil
 	case failed == version:
 		return UpdateUndone, nil

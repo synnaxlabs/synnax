@@ -13,7 +13,6 @@
 package testutil
 
 import (
-	"encoding/json/v2"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -75,13 +74,13 @@ func (s *Systemctl) Install(workDir, binary string, args ...string) {
 		0o644,
 	)).To(gomega.Succeed())
 	argv := append([]string{binary}, args...)
-	property := map[string]any{
-		"type": "a(sasbttttuii)",
-		"data": [][]any{{binary, argv, false, 0, 0, 0, 0, 0, 0, 0}},
+	property := fmt.Appendf(nil, "a(sasbttttuii) 1 %q %d", binary, len(argv))
+	for _, arg := range argv {
+		property = fmt.Appendf(property, " %q", arg)
 	}
 	gomega.Expect(os.WriteFile(
 		filepath.Join(s.dir, "exec-start"),
-		testutil.MustSucceed(json.Marshal(property)),
+		append(property, " false 0 0 0 0 0 0 0\n"...),
 		0o644,
 	)).To(gomega.Succeed())
 }

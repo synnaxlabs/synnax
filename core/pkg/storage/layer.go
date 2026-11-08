@@ -201,8 +201,8 @@ type Layer struct {
 	// TS is the time-series engine for the node.
 	TS *cesium.DB
 	// Update is the update of the data that OpenLayer started, or nil when it started
-	// none. The caller commits it once the Core serves. If the Core fails before that,
-	// the caller closes the Layer, then undoes the update.
+	// none. The caller commits it before the Core serves clients. If the Core fails
+	// before that, the caller closes the Layer, then undoes the update.
 	Update *Update
 	// closer is used for shutting down the storage layer.
 	closer xio.MultiCloser

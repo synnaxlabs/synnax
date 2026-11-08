@@ -13,8 +13,6 @@ package service
 
 import (
 	"bytes"
-	"encoding/json/jsontext"
-	"encoding/json/v2"
 	"fmt"
 	"os"
 	"os/exec"
@@ -37,8 +35,7 @@ const (
 	name     = "synnax"
 	unitPath = "/etc/systemd/system/synnax.service"
 	// home is the home directory of the service user, which systemd creates as the
-	// state
-	// directory of the service.
+	// state directory of the service.
 	home = "/var/lib/synnax"
 )
 
@@ -261,7 +258,6 @@ func execStart() (string, []string, error) {
 	out, err := run(
 		"busctl",
 		"get-property",
-		"--json=short",
 		"org.freedesktop.systemd1",
 		"/org/freedesktop/systemd1/unit/synnax_2eservice",
 		"org.freedesktop.systemd1.Service",
@@ -270,30 +266,45 @@ func execStart() (string, []string, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	// Each command is a D-Bus structure that starts with the binary and the argv.
-	var property struct {
-		Data [][]jsontext.Value `json:"data"`
-	}
-	if err = json.Unmarshal([]byte(out), &property); err != nil {
+	// busctl prints the signature and the number of commands, then the binary, the
+	// number of arguments, and the arguments of the first command.
+	values, err := busValues(out)
+	if err != nil {
 		return "", nil, errors.Wrapf(err, "failed to read the command of %s", name)
 	}
-	if len(property.Data) == 0 || len(property.Data[0]) < 2 {
+	if len(values) < 4 {
 		return "", nil, errors.Newf("service %s has no command", name)
 	}
-	var (
-		binary string
-		argv   []string
-	)
-	if err = json.Unmarshal(property.Data[0][0], &binary); err != nil {
-		return "", nil, errors.Wrapf(err, "failed to read the binary of %s", name)
+	argc, err := strconv.Atoi(values[3])
+	if err != nil || argc == 0 || len(values) < 4+argc {
+		return "", nil, errors.Newf("failed to read the command of %s: %s", name, out)
 	}
-	if err = json.Unmarshal(property.Data[0][1], &argv); err != nil {
-		return "", nil, errors.Wrapf(err, "failed to read the arguments of %s", name)
+	return values[2], values[5 : 4+argc], nil
+}
+
+// busValues splits the text that busctl prints for a property into its values. busctl
+// quotes each string with C escapes.
+func busValues(out string) ([]string, error) {
+	var values []string
+	for rest := strings.TrimSpace(out); rest != ""; rest = strings.TrimSpace(rest) {
+		if rest[0] != '"' {
+			var value string
+			value, rest, _ = strings.Cut(rest, " ")
+			values = append(values, value)
+			continue
+		}
+		quoted, err := strconv.QuotedPrefix(rest)
+		if err != nil {
+			return nil, err
+		}
+		value, err := strconv.Unquote(quoted)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, value)
+		rest = rest[len(quoted):]
 	}
-	if len(argv) == 0 {
-		return "", nil, errors.Newf("service %s has no command", name)
-	}
-	return binary, argv[1:], nil
+	return values, nil
 }
 
 // dataDir returns the data directory of a `synnax start` with the given arguments in

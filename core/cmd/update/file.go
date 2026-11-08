@@ -27,8 +27,7 @@ import (
 
 const (
 	// oldSuffix names the binary that an update replaced, next to the binary that
-	// replaced
-	// it.
+	// replaced it.
 	oldSuffix = ".old"
 	// stagedSuffix names the new binary while the update checks it.
 	stagedSuffix = ".new"

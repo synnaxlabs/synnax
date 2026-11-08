@@ -54,7 +54,7 @@ func beRefused() types.GomegaMatcher {
 }
 
 // openLayer opens a Layer on dir as a Core of the given version, and commits the update
-// that the open starts, as a Core does once it serves.
+// that the open starts, as a Core does before it serves clients.
 func openLayer(ctx context.Context, dir, version string) *storage.Layer {
 	GinkgoHelper()
 	l := MustSucceed(storage.OpenLayer(
