@@ -393,15 +393,19 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
            {"channel", data_ch.key},
            {"disabled", false}}}}
     };
+    auto second = cfg["channels"][0];
+    second["sub_index"] = 2;
+    cfg["channels"].push_back(second);
 
     auto parser = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
     const auto errors = parser.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 1);
+    ASSERT_EQ(errors.size(), 2);
     EXPECT_EQ(errors[0]["path"], "channels.0.device");
+    EXPECT_EQ(errors[1]["path"], "channels.1.device");
     EXPECT_EQ(
-        errors[0]["message"],
+        errors[1]["message"],
         R"(Found no device where key = "nonexistent_device_key")"
     );
 }

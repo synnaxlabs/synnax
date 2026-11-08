@@ -72,8 +72,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
         channel::Claims claims;
         cfg.iter("channels", [&](x::json::Parser &ch) {
+            // The channels share one error list, so an earlier channel's error shows
+            // in ch.error().
+            const auto errors_before = ch.errors->size();
             const auto parsed = ::synnax::ethercat::parse_read_channel(ch);
-            if (ch.error()) return;
+            if (ch.errors->size() != errors_before) return;
             const auto &base = ::synnax::ethercat::base(parsed);
             if (base.disabled) return;
             const auto *slave = this->slaves.resolve(*client, base.device, ch);

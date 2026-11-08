@@ -135,6 +135,16 @@ TEST(ReadLayoutTest, FailsOnAnAssignedPDOThatIsMissing) {
     );
 }
 
+/// @brief it should fail when a PDO counts more objects than it can map.
+TEST(ReadLayoutTest, FailsOnAPDOThatCountsTooManyObjects) {
+    const auto res = read_layout(reader(with(LAYOUT, {{{0x1A00, 0}, 0xFFFFFFFF}})), 8);
+    ASSERT_OCCURRED_AS_P(res, errors::PDO_DISCOVERY_ERROR);
+    EXPECT_EQ(
+        res.second.data,
+        "0x1A00:00 counts 4294967295 entries, above the maximum of 254"
+    );
+}
+
 /// @brief it should read only the sync managers the master configures when the slave
 /// counts more.
 TEST(ReadLayoutTest, ReadsOnlyTheSyncManagersTheMasterConfigures) {
