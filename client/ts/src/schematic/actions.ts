@@ -33,9 +33,34 @@ import {
   schematicZ,
 } from "@/schematic/types.gen";
 
-// Path actions edit only the element configs.
-const applyPath = (state: Draft<Schematic>, action: patch.Action): HandlerResult =>
-  actions.applyEntryPath(state, action, ["configs"], schematicZ);
+const CONFIGS_FIELD = "configs";
+
+const hasNode = (state: Draft<Schematic>, key: string): boolean =>
+  state.nodes.some((n) => n.key === key);
+
+const hasEdge = (state: Draft<Schematic>, key: string): boolean =>
+  state.edges.some((e) => e.key === key);
+
+// Only the key of a node or edge can name a config.
+const hasElement = (state: Draft<Schematic>, key: string): boolean =>
+  hasNode(state, key) || hasEdge(state, key);
+
+// Path actions edit only the element configs. An action on the config of a node or edge
+// that does not exist does nothing.
+const applyPath = (state: Draft<Schematic>, action: patch.Action): HandlerResult => {
+  const path = patch.pathOf(action);
+  if (path.length > 1 && path[0] === CONFIGS_FIELD && !hasElement(state, path[1]))
+    return actions.NO_OP_RESULT;
+  return actions.applyEntryPath(state, action, [CONFIGS_FIELD], schematicZ);
+};
+
+const snapshotConfig = (
+  state: Draft<Schematic>,
+  key: string,
+): ElementConfig | undefined => {
+  const config = state.configs[key];
+  return config != null ? actions.snapshotDraft(config) : undefined;
+};
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -106,19 +131,26 @@ const handlers: Handlers = {
     const idx = state.nodes.findIndex((n) => n.key === payload.key);
     if (idx === -1) return actions.NO_OP_RESULT;
     const oldNode = actions.snapshotDraft(state.nodes[idx]);
-    const oldConfigRaw = state.configs[payload.key];
-    const oldConfig =
-      oldConfigRaw != null ? actions.snapshotDraft(oldConfigRaw) : undefined;
+    const oldConfig = snapshotConfig(state, payload.key);
     state.nodes.splice(idx, 1);
     delete state.configs[payload.key];
-    const inverse: Action[] = [
-      setNode(
-        oldConfig != null
-          ? { node: oldNode, config: oldConfig }
-          : { node: oldNode, config: undefined },
-      ),
-    ];
+    const inverse: Action[] = [setNode({ node: oldNode, config: oldConfig })];
     const targets = [payload.key];
+    const connected = state.edges.filter(
+      (e) => e.source.node === payload.key || e.target.node === payload.key,
+    );
+    for (const e of connected) {
+      const oldEdge = actions.snapshotDraft(e);
+      const oldEdgeConfig = snapshotConfig(state, e.key);
+      delete state.configs[e.key];
+      inverse.push(addEdge({ edge: oldEdge }));
+      if (oldEdgeConfig != null)
+        inverse.push(setConfig({ key: e.key, config: oldEdgeConfig }));
+      targets.push(e.key);
+    }
+    state.edges = state.edges.filter(
+      (e) => e.source.node !== payload.key && e.target.node !== payload.key,
+    );
     for (const [key, config] of Object.entries(state.configs)) {
       if (config?.variant !== "group_box") continue;
       const { members } = config;
@@ -131,7 +163,12 @@ const handlers: Handlers = {
     return { inverse, targets };
   },
   addEdge: (state, payload) => {
-    if (state.edges.some((e) => e.key === payload.edge.key))
+    const { key, source, target } = payload.edge;
+    if (
+      hasEdge(state, key) ||
+      !hasNode(state, source.node) ||
+      !hasNode(state, target.node)
+    )
       return actions.NO_OP_RESULT;
     state.edges.push(payload.edge);
     return {
@@ -144,15 +181,17 @@ const handlers: Handlers = {
     const idx = state.edges.findIndex((e) => e.key === payload.key);
     if (idx === -1) return actions.NO_OP_RESULT;
     const oldEdge = actions.snapshotDraft(state.edges[idx]);
+    const oldConfig = snapshotConfig(state, payload.key);
     state.edges.splice(idx, 1);
-    return {
-      inverse: [addEdge({ edge: oldEdge })],
-      targets: [payload.key],
-    };
+    delete state.configs[payload.key];
+    const inverse: Action[] = [addEdge({ edge: oldEdge })];
+    if (oldConfig != null)
+      inverse.push(setConfig({ key: payload.key, config: oldConfig }));
+    return { inverse, targets: [payload.key] };
   },
   setConfig: (state, payload) => {
-    const existing = state.configs[payload.key];
-    const prev = existing != null ? actions.snapshotDraft(existing) : undefined;
+    if (!hasElement(state, payload.key)) return actions.NO_OP_RESULT;
+    const prev = snapshotConfig(state, payload.key);
     state.configs[payload.key] = payload.config;
     return {
       inverse: prev != null ? [setConfig({ key: payload.key, config: prev })] : [],

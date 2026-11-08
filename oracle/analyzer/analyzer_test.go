@@ -11,6 +11,7 @@ package analyzer_test
 
 import (
 	"slices"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1082,6 +1083,37 @@ Node union on variant {
 					value? { @validate max_length 64 }
 				}
 			`),
+		)
+	})
+
+	Describe("Number literals", func() {
+		hugeFloat := "1" + strings.Repeat("0", 400) + ".0"
+		DescribeTable("Should reject a literal that does not fit in 64 bits",
+			func(ctx SpecContext, source, message string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(message))
+			},
+			Entry("an array size", `
+				Entry struct {
+					data uint8[99999999999999999999]
+				}
+			`, "integer 99999999999999999999 does not fit in an int64"),
+			Entry("an enum value", `
+				Size enum {
+					large = 99999999999999999999
+				}
+			`, "integer 99999999999999999999 does not fit in an int64"),
+			Entry("an integer default", `
+				Entry struct {
+					count int64 = 99999999999999999999
+				}
+			`, "integer 99999999999999999999 does not fit in an int64"),
+			Entry("a float default", `
+				Entry struct {
+					ratio float64 = `+hugeFloat+`
+				}
+			`, "number "+hugeFloat+" does not fit in a float64"),
 		)
 	})
 
