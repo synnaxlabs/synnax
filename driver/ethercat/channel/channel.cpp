@@ -10,6 +10,7 @@
 #include <cmath>
 #include <format>
 #include <limits>
+#include <optional>
 
 #include "x/cpp/telem/telem.h"
 
@@ -27,9 +28,9 @@ std::string bytes(const size_t n) {
 }
 
 /// @brief returns the entry at an address on slave, with the slave's bit length and
-/// data_type. Accumulates a field error under path and returns an entry with index 0
-/// when the slave lacks the entry or data_type does not fit it.
-pdo::Entry bind(
+/// data_type. Accumulates a field error under path and returns nullopt when the slave
+/// lacks the entry or data_type does not fit it.
+std::optional<pdo::Entry> bind(
     const bool is_input,
     const uint16_t index,
     const uint8_t sub_index,
@@ -38,7 +39,6 @@ pdo::Entry bind(
     const x::json::Parser &parser,
     const std::string &path
 ) {
-    pdo::Entry unbound{.slave_position = slave.position, .is_input = is_input};
     const auto pdo = slave.find_pdo(index, sub_index, is_input);
     if (!pdo) {
         parser.field_err(
@@ -46,7 +46,7 @@ pdo::Entry bind(
             "slave " + slave.name + " has no " + direction(is_input) + " entry at " +
                 telem::format_index_sub_index(index, sub_index)
         );
-        return unbound;
+        return std::nullopt;
     }
     static const std::vector NUMBER_TYPES = {
         x::telem::FLOAT64_T,
@@ -70,7 +70,7 @@ pdo::Entry bind(
             "data type " + data_type.name() + " cannot be exchanged with " + entry +
                 ". " + pick + "number type."
         );
-        return unbound;
+        return std::nullopt;
     }
     if (data_type.density() != width) {
         parser.field_err(
@@ -79,7 +79,7 @@ pdo::Entry bind(
                 " but " + entry + " holds " + bytes(pdo->byte_length()) + ". " + pick +
                 "type."
         );
-        return unbound;
+        return std::nullopt;
     }
     // Only the 24-bit write turns a float type into an integer of a narrower entry.
     const auto bits = data_type.density() * 8;
@@ -91,9 +91,9 @@ pdo::Entry bind(
                 " bit entry, but " + entry + " holds " +
                 std::to_string(pdo->bit_length) + " bits. Pick an integer type."
         );
-        return unbound;
+        return std::nullopt;
     }
-    return {
+    return pdo::Entry{
         .slave_position = slave.position,
         .index = index,
         .sub_index = sub_index,
@@ -104,8 +104,8 @@ pdo::Entry bind(
 }
 
 /// @brief accumulates a field error under path for an entry name that matches no single
-/// entry, listing the addresses that carry it. Returns an entry with index 0.
-pdo::Entry reject_unresolved(
+/// entry, listing the addresses that carry it.
+void reject_unresolved(
     const bool is_input,
     const std::string &name,
     const slave::Properties &slave,
@@ -136,7 +136,6 @@ pdo::Entry reject_unresolved(
             msg += (i == 0 ? "" : ", ") + labels[i];
     }
     parser.field_err(path + "pdo", msg + ". Pick an entry.");
-    return {.slave_position = slave.position, .is_input = is_input};
 }
 
 /// @brief accumulates a field error under path when stop_value does not fit entry.
@@ -206,14 +205,15 @@ std::unique_ptr<Input> make_input(
     const slave::Properties &slave,
     const x::json::Parser &parser
 ) {
-    if (const auto *c = std::get_if<::synnax::ethercat::UnresolvedReadChannel>(&cfg))
-        return std::make_unique<Input>(Input{
-            .entry = reject_unresolved(true, c->pdo, slave, parser, ""),
-            .synnax_key = c->channel,
-        });
+    if (const auto *c = std::get_if<::synnax::ethercat::UnresolvedReadChannel>(&cfg)) {
+        reject_unresolved(true, c->pdo, slave, parser, "");
+        return nullptr;
+    }
     const auto &c = std::get<::synnax::ethercat::EntryReadChannel>(cfg);
+    const auto entry = bind(true, c.index, c.sub_index, c.data_type, slave, parser, "");
+    if (!entry) return nullptr;
     return std::make_unique<Input>(Input{
-        .entry = bind(true, c.index, c.sub_index, c.data_type, slave, parser, ""),
+        .entry = *entry,
         .synnax_key = c.channel,
         .scale = c.scale,
     });
@@ -225,15 +225,16 @@ std::unique_ptr<Output> make_output(
     const x::json::Parser &parser,
     const std::string &path
 ) {
-    if (const auto *c = std::get_if<::synnax::ethercat::UnresolvedWriteChannel>(&cfg))
-        return std::make_unique<Output>(Output{
-            .entry = reject_unresolved(false, c->pdo, slave, parser, path),
-            .command_key = c->cmd_channel,
-            .state_key = c->state_channel,
-        });
+    if (const auto *c = std::get_if<::synnax::ethercat::UnresolvedWriteChannel>(&cfg)) {
+        reject_unresolved(false, c->pdo, slave, parser, path);
+        return nullptr;
+    }
     const auto &c = std::get<::synnax::ethercat::EntryWriteChannel>(cfg);
+    const auto
+        entry = bind(false, c.index, c.sub_index, c.data_type, slave, parser, path);
+    if (!entry) return nullptr;
     auto out = std::make_unique<Output>(Output{
-        .entry = bind(false, c.index, c.sub_index, c.data_type, slave, parser, path),
+        .entry = *entry,
         .command_key = c.cmd_channel,
         .state_key = c.state_channel,
         .stop_value = c.stop_value,
@@ -248,7 +249,6 @@ void Claims::claim(
     const x::json::Parser &parser,
     const std::string &path
 ) {
-    if (entry.index == 0) return;
     const pdo::Key key{
         entry.slave_position,
         entry.index,

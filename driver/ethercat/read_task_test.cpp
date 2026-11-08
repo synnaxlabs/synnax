@@ -244,6 +244,25 @@ TEST_F(EtherCATReadTest, ParseConfigWithInvalidChannel) {
     EXPECT_EQ(errors[0]["message"], "channels matching keys 99999 not found.");
 }
 
+/// @brief it should report only the entry error of a read channel whose entry it cannot
+/// find.
+TEST_F(EtherCATReadTest, ParseConfigReportsAChannelWithNoEntry) {
+    const auto ch = create_data_channel("ch", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(create_unresolved_input_channel_config(ch, "Missing"));
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.pdo");
+    EXPECT_EQ(
+        errors[0]["message"],
+        "'Missing' matches no input entry on slave Test Slave. Pick an entry."
+    );
+}
+
 /// @brief it should report a second read channel on an entry another channel already
 /// uses.
 TEST_F(EtherCATReadTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
