@@ -23,12 +23,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Iterator", func() {
@@ -222,7 +222,7 @@ var _ = Describe("Read failure", func() {
 	It("Should return the read error from Close", func(ctx SpecContext) {
 		faulty := WrapFaultyFS(xfs.NewMem())
 		store := &storage.Layer{
-			KV: DeferClose(storagetestutil.OpenKV()),
+			KV: DeferClose(memkv.New()),
 			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
 		}
 		gateway := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
