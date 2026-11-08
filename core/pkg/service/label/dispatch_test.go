@@ -51,7 +51,9 @@ var _ = Describe("Dispatch", func() {
 		acts []label.Action,
 	) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Dispatch(ctx, tx, key, dispatchKey, acts)
+			return svc.NewWriter(tx).
+				WithDispatchKey(dispatchKey).
+				Apply(ctx, key, acts...)
 		})
 	}
 	record := func() *Recorder[label.Key, label.Action] {
@@ -96,6 +98,22 @@ var _ = Describe("Dispatch", func() {
 		Expect(f.Seq).To(BeNumerically(">", 0))
 		Expect(f.Actions).To(Equal(acts))
 	})
+
+	It(
+		"Should apply and broadcast through a writer with no transaction",
+		func(ctx SpecContext) {
+			rec := record()
+			Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
+				ctx,
+				nominal.Key,
+				set([]string{"name"}, "Anomaly"),
+			)).To(Succeed())
+			Expect(retrieve(ctx).Name).To(Equal("Anomaly"))
+			frames := rec.Snapshot()
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].DispatchKey).To(Equal("dk"))
+		},
+	)
 
 	It("Should apply none of the actions when one fails", func(ctx SpecContext) {
 		rec := record()

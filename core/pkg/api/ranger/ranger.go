@@ -132,13 +132,9 @@ func (s *Service) Dispatch(
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	return struct{}{}, s.internal.Dispatch(
-		ctx,
-		tx,
-		req.Key,
-		req.DispatchKey,
-		req.Actions,
-	)
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 func (s *Service) Retrieve(
@@ -175,9 +171,11 @@ func (s *Service) Rename(
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	return struct{}{}, s.internal.Dispatch(ctx, tx, req.Key, "", []ranger.Action{
+	return struct{}{}, s.internal.NewWriter(tx).Apply(
+		ctx,
+		req.Key,
 		ranger.NewSetAction(ranger.SetPayload{Path: []string{"name"}, Value: req.Name}),
-	})
+	)
 }
 
 type SetEndRequest struct {
@@ -191,12 +189,14 @@ func (s *Service) SetEnd(
 	tx gorp.Tx,
 	req SetEndRequest,
 ) (struct{}, error) {
-	return struct{}{}, s.internal.Dispatch(ctx, tx, req.Key, "", []ranger.Action{
+	return struct{}{}, s.internal.NewWriter(tx).Apply(
+		ctx,
+		req.Key,
 		ranger.NewSetAction(ranger.SetPayload{
 			Path:  []string{"time_range", "end"},
 			Value: req.End,
 		}),
-	})
+	)
 }
 
 type DeleteRequest struct {

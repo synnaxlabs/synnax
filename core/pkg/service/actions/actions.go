@@ -14,12 +14,11 @@
 // change channels. This package hosts the pieces of that shape that are independent of
 // the per-service action variant set: the Scoped envelope that a commit delivers, the
 // DispatchRequest wire body accepted by the API layer, the State that owns the
-// attachment and runs dispatches, and the Dispatcher that attaches each batch.
+// attachment, and the Dispatcher that attaches each batch.
 package actions
 
 import (
 	"context"
-	"slices"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/gorp"
@@ -57,10 +56,9 @@ type Scoped[K comparable, A any] struct {
 }
 
 // DispatchRequest is the wire-format request body for the per-service dispatch
-// endpoint. The API layer decodes it, enforces access, and forwards Key,
-// DispatchKey, and Actions to the service-level Writer.Dispatch. The shape
-// matches Scoped on the fields a client controls: the Seq is server-assigned
-// and therefore not part of the request.
+// endpoint. The API layer decodes it and forwards Key, DispatchKey, and Actions to the
+// service-level Writer.Apply. The shape matches Scoped on the fields a client controls:
+// the Seq is server-assigned and therefore not part of the request.
 type DispatchRequest[K comparable, A any] struct {
 	// Key identifies the entry the action sequence targets.
 	Key K `json:"key" msgpack:"key"`
@@ -80,9 +78,8 @@ type DispatchResponse[A any] struct {
 	Actions []A `json:"actions" msgpack:"actions"`
 }
 
-// State attaches the action batches of one service to the transactions that apply them,
-// and runs the dispatches of the service. Construct it once in OpenService and hand
-// Dispatcher() to each Writer.
+// State attaches the action batches of one service to the transactions that apply
+// them. Construct it once in OpenService and hand Dispatcher() to each Writer.
 type State[K comparable, A any] struct {
 	db       *gorp.DB
 	attached *gorp.Attachment[Scoped[K, A]]
@@ -94,27 +91,6 @@ type State[K comparable, A any] struct {
 // NewState constructs a State on db.
 func NewState[K comparable, A any](db *gorp.DB) *State[K, A] {
 	return &State[K, A]{db: db, attached: gorp.NewAttachment[Scoped[K, A]]()}
-}
-
-// Dispatch runs stage in tx, then attaches acts and the actions that stage returns,
-// such as a set of a field that only the Core computes, as one batch with dispatchKey.
-// When stage fails, Dispatch attaches nothing. The commit of tx delivers the batch, and
-// a rollback of tx drops it. It panics when tx is a DB.
-func (s *State[K, A]) Dispatch(
-	tx gorp.Tx,
-	key K,
-	dispatchKey string,
-	acts []A,
-	stage func(gorp.Tx) ([]A, error),
-) error {
-	added, err := stage(tx)
-	if err != nil {
-		return err
-	}
-	s.Dispatcher().
-		WithDispatchKey(dispatchKey).
-		Attach(tx, key, slices.Concat(acts, added)...)
-	return nil
 }
 
 // Of returns the action batches that the transaction of c attached, in the order that

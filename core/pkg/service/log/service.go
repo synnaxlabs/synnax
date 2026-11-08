@@ -40,7 +40,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DB *gorp.DB
 	// Signals is the optional cluster signals provider. When set, every successful
-	// Writer.Dispatch broadcasts a ScopedAction onto the sy_log_set channel, and
+	// Writer.Apply broadcasts a ScopedAction onto the sy_log_set channel, and
 	// deletes flow through sy_log_delete.
 	//
 	// [OPTIONAL]
@@ -148,39 +148,6 @@ func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnChange(handler)
-}
-
-// Dispatch applies a sequence of actions to the log with the given key in tx and
-// attaches them to tx, so the commit of tx broadcasts them. dispatchKey is a
-// client-generated identifier carried verbatim onto the broadcast so the originating
-// client can recognize its own echo. Returns a validation error, and stores nothing, if
-// the actions leave the log invalid.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	return s.state.Dispatch(
-		tx,
-		key,
-		dispatchKey,
-		acts,
-		func(tx gorp.Tx) ([]Action, error) {
-			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Log](key)).
-				ChangeErr(func(_ gorp.Context, l Log) (Log, error) {
-					reduced, err := Reduce(l, acts...)
-					if err != nil {
-						return Log{}, err
-					}
-					if err = validateWrite(reduced); err != nil {
-						return Log{}, err
-					}
-					return reduced, nil
-				}).Exec(ctx, tx)
-		},
-	)
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If

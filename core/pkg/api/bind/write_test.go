@@ -369,12 +369,14 @@ var _ = Describe("Write", func() {
 				t := createTask(ctx)
 				return rule{
 					write: func(ctx context.Context, tx gorp.Tx) error {
-						_, err := svc.Task.Dispatch(ctx, tx, t.Key, "", []task.Action{
+						_, err := svc.Task.NewWriter(tx).Apply(
+							ctx,
+							t.Key,
 							task.NewSetAction(task.SetPayload{
 								Path:  []string{"config", "routing_key"},
 								Value: "changed",
 							}),
-						})
+						)
 						return err
 					},
 					needed: need{access.ActionUpdate, t.ResourceID()},

@@ -106,29 +106,6 @@ func (s *Service) Changes(
 // transactions.
 func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
-// Dispatch applies the actions to the label with the given key in tx and attaches them
-// to tx, so the commit of tx broadcasts them. dispatchKey is carried onto the broadcast
-// so the sender recognizes its echo. Dispatch returns an error wrapping
-// validate.ErrValidation when an action is a create or the result fails to decode or
-// validate, and an error wrapping query.ErrNotFound when no label has the key.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	return s.state.Dispatch(
-		tx,
-		key,
-		dispatchKey,
-		acts,
-		func(tx gorp.Tx) ([]Action, error) {
-			return nil, s.NewWriter(tx).apply(ctx, key, acts)
-		},
-	)
-}
-
 // NewRetrieve opens a new Retrieve query to fetch labels.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{

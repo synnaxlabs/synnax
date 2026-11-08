@@ -19,69 +19,77 @@ import (
 	"go.uber.org/zap"
 )
 
-// Dispatch applies a sequence of actions to the Arc with the given key in tx and
-// attaches them to tx, so the commit of tx carries them to the change channels.
-// dispatchKey is a client-generated identifier carried verbatim onto the actions so the
-// originating client can recognize its own echo.
+// Apply applies a sequence of actions to the Arc with the given key and attaches them
+// to the transaction of w, so its commit carries them to the change channels with the
+// dispatch key of w.
 //
-// When the Arc's text has gone quiet, Dispatch also reclaims the space held by
-// tombstoned characters: it forgets the characters that were already dead before this
-// dispatch and attaches that sweep as a second batch with an empty dispatchKey, so
-// every editor (including the originator, which skips its own echo) applies it.
+// When the Arc's text has gone quiet, Apply also reclaims the space held by tombstoned
+// characters: it forgets the characters that were already dead before this apply and
+// attaches that sweep as a second batch with an empty dispatch key, so every editor
+// (including the originator, which skips its own echo) applies it.
 //
-// Dispatch also schedules a debounced rewrite of the Arc's task config, so a burst of
-// edits produces one rewrite instead of one per edit. The rewrite opens its own
-// transaction, so it reads the Arc after tx commits or rolls back.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	var sweep []Action
-	if err := s.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
-		ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
-			sweep = nil
-			var dead []crdt.ID
-			src, isText := a.Base().Source.Variant.(TextSource)
-			if isText && s.sweeper.quiet(key) {
-				dead = s.sweeper.forgettable(src.Text.Doc)
-			}
-			name := a.Base().Name
-			a, err := Reduce(a, acts...)
-			if err != nil {
-				return a, err
-			}
-			if renamed := a.Base().Name; renamed != name {
-				if err = s.NewWriter(tx).validateName(
-					ctx, ResourceID(key), renamed, a.Type() == TypeModule,
-				); err != nil {
-					return Arc{}, err
+// When the transaction of w commits, the Arc's task config gets a debounced rewrite, so
+// a burst of edits produces one rewrite instead of one per edit.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	return w.inTx(ctx, func(w Writer) error {
+		var sweep []Action
+		if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
+			ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
+				sweep = nil
+				var dead []crdt.ID
+				src, isText := a.Base().Source.Variant.(TextSource)
+				if isText && w.sweeper.quiet(key) {
+					dead = w.sweeper.forgettable(src.Text.Doc)
 				}
-			}
-			if len(dead) > 0 {
-				sweep = []Action{
-					NewForgetCharsAction(ForgetCharsPayload{IDs: dead}),
-				}
-				if a, err = Reduce(a, sweep...); err != nil {
+				name := a.Base().Name
+				a, err := Reduce(a, acts...)
+				if err != nil {
 					return a, err
 				}
-			}
-			if containsTextEdit(acts) {
-				s.sweeper.recordEdit(key)
-			}
-			return a, nil
-		}).Exec(ctx, tx); err != nil {
-		return err
+				if renamed := a.Base().Name; renamed != name {
+					if err = w.validateName(
+						ctx, ResourceID(key), renamed, a.Type() == TypeModule,
+					); err != nil {
+						return Arc{}, err
+					}
+				}
+				if len(dead) > 0 {
+					sweep = []Action{
+						NewForgetCharsAction(ForgetCharsPayload{IDs: dead}),
+					}
+					if a, err = Reduce(a, sweep...); err != nil {
+						return a, err
+					}
+				}
+				// A rolled back edit stays recorded. That only delays a sweep, and the
+				// next dispatch must not sweep before the edit that this one commits.
+				if containsTextEdit(acts) {
+					w.sweeper.recordEdit(key)
+				}
+				return a, nil
+			}).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.dispatcher.Attach(w.tx, key, acts...)
+		if len(sweep) > 0 {
+			w.dispatcher.WithDispatchKey("").Attach(w.tx, key, sweep...)
+		}
+		w.resyncs.Add(w.tx, key)
+		return nil
+	})
+}
+
+// followCommit schedules a task resync for each Arc that c dispatched to, then drops
+// the edit time and pending resync of each Arc that c deleted. It runs only for a
+// commit, so a denied or failed write changes neither.
+func (s *Service) followCommit(_ context.Context, c gorp.Commit) {
+	for _, key := range s.resyncs.Of(c) {
+		s.taskSync.Trigger(key)
 	}
-	dispatcher := s.state.Dispatcher()
-	dispatcher.WithDispatchKey(dispatchKey).Attach(tx, key, acts...)
-	if len(sweep) > 0 {
-		dispatcher.Attach(tx, key, sweep...)
+	for _, key := range s.deletes.Of(c) {
+		s.sweeper.forget(key)
+		s.taskSync.Forget(key)
 	}
-	s.taskSync.Trigger(key)
-	return nil
 }
 
 // resyncTask rewrites the Arc's task config from its current content. It runs on the

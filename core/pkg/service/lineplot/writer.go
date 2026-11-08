@@ -30,8 +30,8 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
-// broadcasts it emits, so the client that sent the create recognizes its own echo.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
@@ -191,4 +191,28 @@ func (w Writer) CreateMany(ctx context.Context, plots *[]LinePlot) error {
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().Where(gorp.MatchKeys[Key, LinePlot](keys...)).
 		Exec(ctx, w.tx)
+}
+
+// Apply applies a sequence of actions to the line plot with the given key and attaches
+// them to the transaction of w, so its commit broadcasts them with the dispatch key of
+// w. Returns a validation error, and stores nothing, if the actions leave the line plot
+// invalid.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	return w.inTx(ctx, func(w Writer) error {
+		if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
+			ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
+				reduced, err := Reduce(p, acts...)
+				if err != nil {
+					return LinePlot{}, err
+				}
+				if err = reduced.Validate(); err != nil {
+					return LinePlot{}, err
+				}
+				return reduced, nil
+			}).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.dispatcher.Attach(w.tx, key, acts...)
+		return nil
+	})
 }

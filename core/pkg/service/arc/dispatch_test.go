@@ -18,9 +18,11 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/crdt"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
@@ -167,6 +169,37 @@ var _ = Describe("Dispatch", func() {
 			Expect(seen[0].Actions).To(HaveLen(2))
 			Expect(seen[0].Actions[0].Type).To(Equal(arc.ActionTypeSetNode))
 			Expect(seen[0].Actions[1].Type).To(Equal(arc.ActionTypeRename))
+		},
+	)
+
+	It(
+		"Should apply and broadcast through a writer with no transaction",
+		func(ctx SpecContext) {
+			a := newAutomation(
+				arc.Base{
+					Name:   "before",
+					Source: arc.Source{Variant: arc.GraphSource{}},
+				},
+			)
+			Expect(writer.Create(ctx, &a)).To(Succeed())
+			rec := &Recorder[arc.Key, arc.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
+				ctx,
+				a.Base().Key,
+				arc.NewRenameAction(arc.RenamePayload{Name: "after"}),
+			)).To(Succeed())
+			var res arc.Arc
+			Expect(
+				svc.NewRetrieve().
+					Where(arc.MatchKeys(a.Base().Key)).
+					Entry(&res).
+					Exec(ctx, nil),
+			).To(Succeed())
+			Expect(res.Base().Name).To(Equal("after"))
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].DispatchKey).To(Equal("dk"))
 		},
 	)
 
@@ -382,6 +415,49 @@ var _ = Describe("Collaborative text", func() {
 			Expect(textOf(swept.Base()).Doc.Deletes).To(BeEmpty())
 			Expect(textOf(swept.Base()).Doc.Inserts).To(HaveLen(8))
 			Expect(textOf(swept.Base()).Materialize().Raw).To(Equal("YXhello "))
+		},
+	)
+
+	It(
+		"Should keep the quiet window of an Arc whose delete rolls back",
+		func(ctx SpecContext) {
+			base := telem.Now()
+			arcClock = func() telem.TimeStamp { return base }
+			DeferCleanup(func() { arcClock = telem.Now })
+			a := newAutomation(arc.Base{
+				Name: "collab-sweep-rollback",
+				Source: arc.Source{
+					Variant: arc.TextSource{Text: text.Text{Raw: "hello world"}},
+				},
+			})
+			Expect(writer.Create(ctx, &a)).To(Succeed())
+			client := crdt.New(2)
+			seeded := fetch(ctx, a.Base().Key)
+			client.Load(
+				textOf(seeded.Base()).Doc.Inserts,
+				textOf(seeded.Base()).Doc.Deletes,
+			)
+			Expect(dispatch(
+				ctx,
+				a.Base().Key,
+				"dk",
+				toDeleteActions(client.Delete(6, 5)),
+			)).To(Succeed())
+			base = base.Add(2 * telem.Second)
+			rollback := errors.New("rolled back")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := svc.NewWriter(tx).Delete(ctx, a.Base().Key); err != nil {
+					return err
+				}
+				return rollback
+			})).To(MatchError(rollback))
+			Expect(dispatch(
+				ctx,
+				a.Base().Key,
+				"dk",
+				toInsertActions(client.Insert(0, "X")),
+			)).To(Succeed())
+			Expect(textOf(fetch(ctx, a.Base().Key).Base()).Doc.Deletes).To(HaveLen(5))
 		},
 	)
 

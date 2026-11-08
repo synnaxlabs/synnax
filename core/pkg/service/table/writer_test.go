@@ -308,5 +308,23 @@ var _ = Describe("Writer", func() {
 				Expect(received[1].Seq > received[0].Seq).To(BeTrue())
 			},
 		)
+
+		It(
+			"Should apply and broadcast through a writer with no transaction",
+			func(ctx SpecContext) {
+				s := seed(ctx)
+				rec := &Recorder[table.Key, table.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
+					ctx,
+					s.Key,
+					table.NewRenameAction(table.RenamePayload{Name: "after"}),
+				)).To(Succeed())
+				Expect(retrieve(ctx, s.Key).Name).To(Equal("after"))
+				received := rec.Snapshot()
+				Expect(received).To(HaveLen(1))
+				Expect(received[0].DispatchKey).To(Equal("dk"))
+			},
+		)
 	})
 })

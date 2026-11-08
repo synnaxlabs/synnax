@@ -159,6 +159,10 @@ type Service struct {
 	state    *actions.State[Key, Action]
 	sweeper  textSweeper
 	taskSync *debounce.Keyed[Key]
+	// resyncs and deletes hold the Arcs that a transaction dispatched to and deleted.
+	// followCommit reads them once the transaction commits.
+	resyncs *gorp.Attachment[Key]
+	deletes *gorp.Attachment[Key]
 }
 
 // NewRoot builds the production analysis root: the STL, status, and ranges modules,
@@ -277,6 +281,8 @@ func OpenService(
 		indexes:     cfg.Table.indexes,
 		directories: cfg.Table.directories,
 		root:        cfg.Table.root,
+		resyncs:     gorp.NewAttachment[Key](),
+		deletes:     gorp.NewAttachment[Key](),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -292,6 +298,7 @@ func OpenService(
 	}); !ok(err, s.taskSync) {
 		return nil, err
 	}
+	ok(nil, xio.NoFailCloserFunc(cfg.DB.Observe().OnChange(s.followCommit)))
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -355,7 +362,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		table:       s.table,
 		dispatcher:  s.state.Dispatcher(),
 		sweeper:     s.sweeper,
-		taskSync:    s.taskSync,
+		resyncs:     s.resyncs,
+		deletes:     s.deletes,
 	}
 }
 

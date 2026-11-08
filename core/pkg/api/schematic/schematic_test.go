@@ -308,7 +308,7 @@ var _ = Describe("Service", func() {
 			)
 		})
 
-		Describe("delegation to Writer.Dispatch", func() {
+		Describe("delegation to Writer.Apply", func() {
 			It(
 				"Should apply a multi-action sequence to the target schematic",
 				func(ctx SpecContext) {

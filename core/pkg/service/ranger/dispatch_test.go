@@ -74,6 +74,23 @@ var _ = Describe("Dispatch", func() {
 		Expect(f.Actions).To(Equal(acts))
 	})
 
+	It(
+		"Should apply and broadcast through a writer with no transaction",
+		func(ctx SpecContext) {
+			rec := &Recorder[ranger.Key, ranger.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(svc.NewWriter(nil).WithDispatchKey("dk").Apply(
+				ctx,
+				hotFire.Key,
+				set([]string{"name"}, "Cold flow"),
+			)).To(Succeed())
+			Expect(retrieve(ctx, hotFire.Key).Name).To(Equal("Cold flow"))
+			frames := rec.Snapshot()
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].DispatchKey).To(Equal("dk"))
+		},
+	)
+
 	It("Should apply none of the actions when one fails", func(ctx SpecContext) {
 		rec := &Recorder[ranger.Key, ranger.Action]{}
 		DeferCleanup(svc.OnAction(rec.Record))

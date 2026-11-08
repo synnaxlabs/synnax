@@ -753,22 +753,16 @@ func (l *Layer) BindTo(t Transport) {
 	t.ViewRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Rename))
 
 	// ARC
-	t.ArcCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Create))
-	t.ArcDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Delete))
+	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
+	t.ArcDelete.BindHandler(bind.Write(l.binder, l.Arc.Delete))
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
-	t.ArcDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Dispatch))
-	t.ArcUpdateTask.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.UpdateTask))
+	t.ArcDispatch.BindHandler(bind.Write(l.binder, l.Arc.Dispatch))
+	t.ArcUpdateTask.BindHandler(bind.Write(l.binder, l.Arc.UpdateTask))
 	t.ArcRetrieveDirectory.BindHandler(l.Arc.RetrieveDirectories)
-	t.ArcCreateDirectory.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Arc.CreateDirectory),
-	)
-	t.ArcRenameDirectory.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Arc.RenameDirectory),
-	)
-	t.ArcDeleteDirectory.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Arc.DeleteDirectory),
-	)
-	t.ArcMove.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Move))
+	t.ArcCreateDirectory.BindHandler(bind.Write(l.binder, l.Arc.CreateDirectory))
+	t.ArcRenameDirectory.BindHandler(bind.Write(l.binder, l.Arc.RenameDirectory))
+	t.ArcDeleteDirectory.BindHandler(bind.Write(l.binder, l.Arc.DeleteDirectory))
+	t.ArcMove.BindHandler(bind.Write(l.binder, l.Arc.Move))
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT

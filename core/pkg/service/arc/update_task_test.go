@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
@@ -479,6 +480,31 @@ var _ = Describe("Task sync", func() {
 		})).To(Succeed())
 		Eventually(taskName(ctx, tsk.Key)).Should(Equal("renamed_by_dispatch"))
 	})
+
+	It(
+		"Should keep the pending task rename when a delete of the Arc rolls back",
+		func(ctx SpecContext) {
+			createArc(ctx, arc.ModeText)
+			tsk := MustSucceed(
+				writer.UpdateTask(
+					ctx,
+					a.Base().Key,
+					arc.TaskUpdate{Rack: new(testRack.Key)},
+				),
+			)
+			Expect(dispatch(ctx, a.Base().Key, "", []arc.Action{
+				arc.NewRenameAction(arc.RenamePayload{Name: "renamed_before_rollback"}),
+			})).To(Succeed())
+			rollback := errors.New("rolled back")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := svc.NewWriter(tx).Delete(ctx, a.Base().Key); err != nil {
+					return err
+				}
+				return rollback
+			})).To(MatchError(rollback))
+			Eventually(taskName(ctx, tsk.Key)).Should(Equal("renamed_before_rollback"))
+		},
+	)
 
 	It(
 		"Should rename the task when an overwrite renames the Arc",

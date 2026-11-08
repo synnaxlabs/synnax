@@ -111,7 +111,7 @@ func createPlot(ctx context.Context, tx gorp.Tx, key uuid.UUID) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// dispatch runs svc.Dispatch in a transaction of its own.
+// dispatch runs Writer.Apply in a transaction of its own.
 func dispatch(
 	ctx context.Context,
 	key panel.Key,
@@ -119,6 +119,6 @@ func dispatch(
 	acts []panel.Action,
 ) error {
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.Dispatch(ctx, tx, key, dispatchKey, acts)
+		return svc.NewWriter(tx).WithDispatchKey(dispatchKey).Apply(ctx, key, acts...)
 	})
 }

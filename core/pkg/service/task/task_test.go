@@ -705,7 +705,9 @@ var _ = Describe("Task", Ordered, func() {
 		) ([]task.Action, error) {
 			var added []task.Action
 			if err := db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-				added, err = svc.Dispatch(ctx, tx, key, dispatchKey, acts)
+				added, err = svc.NewWriter(tx).
+					WithDispatchKey(dispatchKey).
+					Apply(ctx, key, acts...)
 				return err
 			}); err != nil {
 				return nil, err
@@ -927,6 +929,25 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(f.DispatchKey).To(Equal("dk-1"))
 			Expect(f.Seq).To(BeNumerically(">", 0))
 			Expect(f.Actions).To(Equal(append(acts, computed...)))
+		})
+
+		It("Should apply and broadcast through a writer with no transaction", func(
+			ctx SpecContext,
+		) {
+			frames := collect()
+			acts := []task.Action{set([]string{"name"}, "Renamed")}
+			computed := MustSucceed(
+				svc.NewWriter(nil).
+					WithDispatchKey("dk").
+					Apply(ctx, alerts.Key, acts...),
+			)
+			res := retrieve(ctx, alerts.Key)
+			Expect(res.Name).To(Equal("Renamed"))
+			Expect(
+				computed,
+			).To(Equal([]task.Action{set([]string{"config_hash"}, res.ConfigHash)}))
+			Expect(*frames).To(HaveLen(1))
+			Expect((*frames)[0].DispatchKey).To(Equal("dk"))
 		})
 
 		It(

@@ -40,7 +40,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DB *gorp.DB
 	// Signals is the cluster signals provider. When set, every successful
-	// Writer.Dispatch broadcasts a ScopedAction onto the sy_lineplot_set channel, and
+	// Writer.Apply broadcasts a ScopedAction onto the sy_lineplot_set channel, and
 	// deletes flow through sy_lineplot_delete.
 	//
 	// [OPTIONAL] - Defaults to nil, which disables signal broadcasting.
@@ -149,39 +149,6 @@ func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnChange(handler)
-}
-
-// Dispatch applies a sequence of actions to the line plot with the given key in tx and
-// attaches them to tx, so the commit of tx broadcasts them. dispatchKey is a
-// client-generated identifier carried verbatim onto the broadcast so the originating
-// client can recognize its own echo. Returns a validation error, and stores nothing, if
-// the actions leave the line plot invalid.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	return s.state.Dispatch(
-		tx,
-		key,
-		dispatchKey,
-		acts,
-		func(tx gorp.Tx) ([]Action, error) {
-			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
-				ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
-					reduced, err := Reduce(p, acts...)
-					if err != nil {
-						return LinePlot{}, err
-					}
-					if err = reduced.Validate(); err != nil {
-						return LinePlot{}, err
-					}
-					return reduced, nil
-				}).Exec(ctx, tx)
-		},
-	)
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting line plots in
