@@ -111,6 +111,25 @@ struct Server::Impl {
                 res.set_redirect(route.redirect_to, route.status_code);
                 return;
             }
+            if (route.body_delay > x::telem::TimeSpan::ZERO()) {
+                res.status = route.status_code;
+                res.set_chunked_content_provider(
+                    route.content_type,
+                    [this, route](size_t, httplib::DataSink &sink) {
+                        std::unique_lock lock(this->stop_mu);
+                        this->stop_cv.wait_for(lock, route.body_delay.chrono(), [this] {
+                            return !this->running.load();
+                        });
+                        sink.write(
+                            route.response_body.data(),
+                            route.response_body.size()
+                        );
+                        sink.done();
+                        return true;
+                    }
+                );
+                return;
+            }
             if (route.remaining_failures > 0 && counter->fetch_sub(1) <= 0) {
                 res.status = 200;
                 res.set_content(R"({"status":"ok"})", route.content_type);

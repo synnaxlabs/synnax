@@ -34,6 +34,7 @@ func replyFirst(ctx context.Context, h *driver.StatusHandler) error {
 		"cmd-1",
 		status.VariantSuccess,
 		"Command executed successfully",
+		"",
 		msgpack.EncodedJSON{"attempts": 3.0},
 	)
 }
@@ -63,7 +64,7 @@ var _ = Describe("StatusHandler", func() {
 		handler *driver.StatusHandler
 	)
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		t = task.Task{
 			Key:        uuid.New(),
 			Name:       "handler-test",
@@ -71,20 +72,17 @@ var _ = Describe("StatusHandler", func() {
 			ConfigHash: "hash-1",
 			Rack:       7,
 		}
+		createTask(ctx, t)
 		handler = driver.NewStatusHandler(db, statusSvc, t)
 	})
 
-	// setUnreadable stores a status under the key of t whose details are not task
-	// details, so the handler fails to read it back and every write fails.
+	// setUnreadable stores a status owned by t whose details are not task details, so
+	// the handler fails to read it back and every write fails.
 	setUnreadable := func(ctx SpecContext) {
 		GinkgoHelper()
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			w := statusSvc.NewWriter(tx)
-			if err := w.Delete(ctx, t.OntologyID().String()); err != nil {
-				return err
-			}
-			return w.Set(ctx, &status.Status[string]{
-				Key:     t.OntologyID().String(),
+			return statusSvc.NewWriter(tx).Set(ctx, &status.Status[string]{
+				Owner:   new(t.ResourceID()),
 				Name:    t.Name,
 				Time:    telem.Now(),
 				Variant: status.VariantInfo,
@@ -95,16 +93,14 @@ var _ = Describe("StatusHandler", func() {
 
 	deleteStored := func(ctx SpecContext) {
 		GinkgoHelper()
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return statusSvc.NewWriter(tx).Delete(ctx, t.OntologyID().String())
-		})).To(Succeed())
+		Expect(statusSvc.NewWriter(nil).DeleteOwned(ctx, t.ResourceID())).To(Succeed())
 	}
 
 	retrieve := func(ctx SpecContext) task.Status {
 		GinkgoHelper()
 		var stat task.Status
 		Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+			Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 			Entry(&stat).Exec(ctx, nil)).To(Succeed())
 		return stat
 	}
@@ -191,10 +187,10 @@ var _ = Describe("StatusHandler", func() {
 				"Started task",
 				"",
 			)).To(Succeed())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return statusSvc.NewWriter(tx).
-					Rename(ctx, t.OntologyID().String(), "renamed")
-			})).To(Succeed())
+			Expect(
+				statusSvc.NewWriter(nil).RenameOwned(ctx, t.ResourceID(), "renamed"),
+			).
+				To(Succeed())
 			Expect(handler.Ack(ctx, "cmd-2", true)).To(Succeed())
 			Expect(retrieve(ctx).Name).To(Equal("renamed"))
 		})
@@ -421,12 +417,12 @@ var _ = Describe("StatusHandler", func() {
 			// unreachable, without stopping the live instance.
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
-					Key:     t.OntologyID().String(),
+					Owner:   new(t.ResourceID()),
 					Name:    t.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantWarning,
 					Message: "Rack unreachable",
-					Details: task.StatusDetails{Task: t.Key, Running: false},
+					Details: task.StatusDetails{Running: false},
 				})
 			})).To(Succeed())
 			Expect(handler.Ack(ctx, "cmd-4", true)).To(Succeed())
@@ -465,12 +461,14 @@ var _ = Describe("StatusHandler", func() {
 					ctx,
 					"cmd-2",
 					status.VariantError,
+					"Failed to reach broker",
 					"connection refused",
 					msgpack.EncodedJSON{"attempts": 3.0},
 				)).To(Succeed())
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("connection refused"))
+				Expect(stat.Message).To(Equal("Failed to reach broker"))
+				Expect(stat.Description).To(Equal("connection refused"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 				Expect(stat.Details.Running).To(BeTrue())
 				Expect(stat.Details.Data).To(HaveKeyWithValue("attempts", 3.0))
@@ -481,6 +479,7 @@ var _ = Describe("StatusHandler", func() {
 				ctx,
 				"cmd-2",
 				status.VariantError,
+				"Failed to reach broker",
 				"connection refused",
 				msgpack.EncodedJSON{"attempts": 3.0},
 			)).To(Succeed())
@@ -488,6 +487,7 @@ var _ = Describe("StatusHandler", func() {
 			stat := retrieve(ctx)
 			Expect(stat.Variant).To(Equal(status.VariantSuccess))
 			Expect(stat.Message).To(Equal("Task configured"))
+			Expect(stat.Description).To(BeEmpty())
 			Expect(stat.Details.Data).To(BeEmpty())
 		})
 	})
@@ -569,10 +569,9 @@ var _ = Describe("StatusHandler", func() {
 		It("should write no status at boot for a task that does not start",
 			func(ctx SpecContext) {
 				reporter().Report(ctx, t, driver.NoCommand, false, cfgErr)
-				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](
-						t.OntologyID().String(),
-					)).
+				Expect(statusSvc.NewRetrieve[any]().
+					Where(status.MatchOwners[any](t.ResourceID())).
+					Entry(new(status.Status[any])).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)

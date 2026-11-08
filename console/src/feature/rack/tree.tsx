@@ -9,7 +9,7 @@
 
 import "@/feature/rack/tree.css";
 
-import { arc, device, rack, task } from "@synnaxlabs/client";
+import { arc, device, rack, type resource, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -40,13 +40,13 @@ const ConnectDeviceIcon = Icon.createComposite(Icon.Device, {
 
 const useRename = Tree.createUseRename({
   useUpdate: Rack.useRename,
-  ontologyID: rack.ontologyID,
+  resourceID: rack.resourceID,
   convertKey: Number,
 });
 
 const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const status = Rack.useResult({ key: Number(resource.id.key) }).data?.status;
+  const { data } = Rack.useResult({ key: Number(resource.id.key) });
 
   return (
     <PTree.Item {...rest}>
@@ -60,7 +60,12 @@ const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
         grow
         onChange
       />
-      <Rack.StatusIndicator status={status} />
+      {data?.version != null && (
+        <Text.Text level="small" color={9}>
+          v{data.version}
+        </Text.Text>
+      )}
+      <Rack.StatusIndicator status={data?.status} />
     </PTree.Item>
   );
 };
@@ -116,12 +121,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     state: { shape, getResource },
   } = props;
   const { ids, rootID, parentID } = selection;
-  const ontologyIDs = ids.map((id) => rack.ontologyID(Number(id.key)));
-  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
-  const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
-  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
-  const hasTaskCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-  const hasDeviceCreatePermission = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
+  const resourceIDs = ids.map((id) => rack.resourceID(Number(id.key)));
+  const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
+  const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
+  const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
+  const hasTaskCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
+  const hasDeviceCreatePermission = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
@@ -167,7 +172,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             itemKey="credentials"
             onClick={() =>
               openCredentials({
-                subject: ontologyIDs[0],
+                subject: resourceIDs[0],
                 title: ["Credentials", getResource(ids[0]).name],
               })
             }
@@ -187,9 +192,39 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+const toResource = (r: rack.Rack): Tree.Resource => Tree.toResource("rack")(r.payload);
+
+/** Lists the racks that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "rack",
+  children: (client, key) =>
+    Tree.createSource(client.racks, { where: { groups: [key] } }, toResource),
+};
+
+const DROPPABLE_TYPES = new Set<resource.Type>(["group", "device"]);
+
 const TreeItem = Tree.createItem({
   type: "rack",
   icon: <Icon.Rack />,
+  children: ({ client, id }) => [
+    Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
+    Tree.createSource(
+      client.devices,
+      { where: { rack: { eq: Number(id.key) }, grouped: false, nested: false } },
+      Tree.toResource("device"),
+    ),
+  ],
+  canDrop: (props) =>
+    props.moved.every(({ id }) => DROPPABLE_TYPES.has(id.type)) && Group.canMove(props),
+  drop: async ({ client, destination, items }) => {
+    await client.batch.send(
+      Group.moveRequests(
+        client,
+        items.map(({ id }) => id),
+        destination.id,
+      ),
+    );
+  },
   ContextMenu: TreeContextMenu,
   Content,
 });

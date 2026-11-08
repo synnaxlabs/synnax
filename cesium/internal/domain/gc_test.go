@@ -1159,6 +1159,55 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
 				})
 
+				DescribeTable(
+					"Should persist the offsets of a file compacted before a failure",
+					func(ctx SpecContext, fail FaultyFSOption) {
+						Expect(testutil.WriteDomain(
+							ctx,
+							db,
+							(30 * telem.SecondTS).Range(39*telem.SecondTS+1),
+							[]byte{30, 31, 32, 33, 34, 35, 36, 37, 38, 39},
+						)).To(Succeed())
+						Expect(db.Delete(
+							ctx,
+							telem.TimeRange{
+								Start: 32*telem.SecondTS + 1,
+								End:   36*telem.SecondTS + 1,
+							},
+							fixedOffset(3),
+							fixedOffset(7),
+						)).To(Succeed())
+						faulty.SetOptions(fail)
+						Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
+						faulty.SetOptions()
+						Expect(
+							MustSucceed(fs.Stat("1.domain")).Size(),
+						).To(Equal(int64(6)))
+						Expect(testutil.WriteDomain(
+							ctx,
+							db,
+							(50 * telem.SecondTS).Range(52*telem.SecondTS+1),
+							[]byte{50, 51, 52},
+						)).To(Succeed())
+
+						Expect(db.Close()).To(Succeed())
+						db = MustSucceed(domain.Open(domain.Config{
+							FS:              faulty,
+							FileSize:        9 * telem.Byte,
+							Instrumentation: PanicLogger(),
+						}))
+						Expect(
+							testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
+						).To(Equal([]byte{
+							10, 11, 12, 17, 18, 19,
+							30, 31, 32, 37, 38, 39,
+							50, 51, 52,
+						}))
+					},
+					Entry("writing the copy", WithFailWrite("2.domain_gc")),
+					Entry("renaming the file", WithFailRename("2.domain")),
+				)
+
 				It("Should surface a failed rejuvenation", func(ctx SpecContext) {
 					faulty.SetOptions(
 						WithFailStat("1.domain"),

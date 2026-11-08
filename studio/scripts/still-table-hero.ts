@@ -187,10 +187,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     if (tpc == null) throw new Error(`no project named "${world.project}"`);
     const names = SECTIONS.flat().flatMap((s) => s.readings.map(([, name]) => name));
     const channels = await client.channels.retrieve(names);
-    await client.tables.create(
-      tpc.key,
-      sensorTable(new Map(channels.map((ch) => [ch.name, ch.key]))),
-    );
+    await client.tables.create({
+      ...sensorTable(new Map(channels.map((ch) => [ch.name, ch.key]))),
+      project: tpc.key,
+    });
 
     await capture.login(session, world.project);
     await session.click(page.getByText("Operations", { exact: true }).first());

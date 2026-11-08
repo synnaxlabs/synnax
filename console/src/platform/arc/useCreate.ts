@@ -27,7 +27,7 @@ export const useCreate = ({ tabKey }: UseCreateProps = {}): (() => void) => {
       if (result == null) return;
       openTab({
         variant: "resource",
-        resource: arc.ontologyID(result.key),
+        resource: arc.resourceID(result.key),
         key: tabKey,
       });
     }, "Failed to create automation");

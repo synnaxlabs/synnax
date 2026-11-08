@@ -205,7 +205,7 @@ func BootupCore(
 
 	// Any data stored on the node is considered sensitive, so we need to set the
 	// permission mask for all files appropriately.
-	disablePermissionBits()
+	DisablePermissionBits()
 
 	var closer xio.MultiCloser
 
@@ -235,6 +235,7 @@ func BootupCore(
 		Instrumentation: cfg.Child("storage"),
 		InMemory:        cfg.memBacked,
 		Dirname:         cfg.dataPath,
+		Version:         vsn,
 	})
 	if !ok(err, storageLayer) {
 		return err
@@ -310,7 +311,9 @@ func BootupCore(
 	}
 
 	var embeddedConsole *console.Console
-	if embeddedConsole, err = console.New(); !ok(err, nil) {
+	if embeddedConsole, err = console.New(
+		console.Config{Insecure: cfg.insecure},
+	); !ok(err, nil) {
 		return err
 	}
 

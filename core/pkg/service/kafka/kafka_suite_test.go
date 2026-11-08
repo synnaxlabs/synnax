@@ -12,6 +12,7 @@ package kafka_test
 import (
 	"context"
 	"encoding/json/v2"
+	"net"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -21,24 +22,26 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/kmsg"
@@ -51,6 +54,7 @@ var (
 	deviceSvc  *device.Service
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
+	taskWriter task.Writer
 	cluster    *kfake.Cluster
 )
 
@@ -63,43 +67,30 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	db = node.DB
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: db,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: otg,
-		DB:       db,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: db,
+	}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB: db,
 	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           db,
-		Ontology:     otg,
-		Group:        groupSvc,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Status:   statusSvc,
-		Rack:     rackSvc,
+		DB:     db,
+		Status: statusSvc,
+		Rack:   rackSvc,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           db,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
@@ -113,6 +104,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
+	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: db}))
+	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:      db,
+		Rack:    rackSvc,
+		Status:  statusSvc,
+		Channel: channelSvc,
+		ImEx:    imex.NewService(),
+		Configs: MustSucceed(taskconfig.NewRegistry(kafkaSvc.Stores()...)),
+	}))
+	taskWriter = taskSvc.NewWriter(nil)
 	cluster = MustSucceed(kfake.NewCluster(
 		kfake.NumBrokers(1),
 		kfake.AllowAutoTopicCreation(),
@@ -121,6 +122,36 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var errCommit = errors.New("commit failed")
+
+// uncommittableDB is a kv.DB whose transactions fail to commit.
+type uncommittableDB struct{ kv.DB }
+
+func (d uncommittableDB) OpenTx() kv.Tx { return uncommittableTx{Tx: d.DB.OpenTx()} }
+
+type uncommittableTx struct{ kv.Tx }
+
+func (uncommittableTx) Commit(context.Context, ...any) error { return errCommit }
+
+// cancelingDB is a kv.DB whose transactions call cancel once they commit.
+type cancelingDB struct {
+	kv.DB
+	cancel context.CancelFunc
+}
+
+func (d cancelingDB) OpenTx() kv.Tx { return cancelingTx{Tx: d.DB.OpenTx(), db: d} }
+
+type cancelingTx struct {
+	kv.Tx
+	db cancelingDB
+}
+
+func (t cancelingTx) Commit(ctx context.Context, opts ...any) error {
+	err := t.Tx.Commit(ctx, opts...)
+	t.db.cancel()
+	return err
+}
 
 // gatedDB is a kv.DB that, once gated, holds the next commit until release closes.
 type gatedDB struct {
@@ -215,16 +246,23 @@ func createIndexed(
 	return index, data
 }
 
-// newTask returns a stored task row of typ holding cfg.
-func newTask(typ string, cfg any) task.Task {
+// newTask stores and returns a task of typ holding cfg. It skips task.Writer, which
+// writes a status of its own, so a spec sees only the statuses the factory writes.
+func newTask(ctx context.Context, typ string, cfg any) task.Task {
 	GinkgoHelper()
-	return task.Task{
+	t := task.Task{
 		Key:    uuid.New(),
 		Rack:   rackSvc.EmbeddedKey,
 		Name:   "test-" + typ,
 		Type:   typ,
 		Config: toJSON(cfg),
 	}
+	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+		To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+	})
+	return t
 }
 
 // taskStatus retrieves the status of t.
@@ -232,7 +270,7 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 	GinkgoHelper()
 	var stat task.Status
 	Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-		Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+		Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 		Entry(&stat).
 		Exec(ctx, nil)).To(Succeed())
 	return stat
@@ -243,7 +281,7 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 	GinkgoHelper()
 	var stat device.Status
 	Expect(statusSvc.NewRetrieve[device.StatusDetails]().
-		Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
+		Where(status.MatchOwners[device.StatusDetails](dev.ResourceID())).
 		Entry(&stat).
 		Exec(ctx, nil)).To(Succeed())
 	return stat
@@ -271,6 +309,77 @@ func produceJSON(ctx context.Context, cl *kgo.Client, topic, key string, doc any
 		rec.Key = []byte(key)
 	}
 	Expect(cl.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+}
+
+// produceInTransaction produces count JSON records to topic in one transaction and
+// commits it. The commit writes a control record after them.
+func produceInTransaction(ctx context.Context, topic string, count int) {
+	GinkgoHelper()
+	cl := newKafkaClient(kgo.TransactionalID(uniqueTopic()))
+	Expect(cl.BeginTransaction()).To(Succeed())
+	for i := range count {
+		produceJSON(ctx, cl, topic, "", map[string]int{"v": i})
+	}
+	Expect(cl.EndTransaction(ctx, kgo.TryCommit)).To(Succeed())
+}
+
+// newSlowCluster starts a cluster that holds topic with one record and drops every
+// fetch.
+func newSlowCluster(ctx context.Context, topic string) *kfake.Cluster {
+	GinkgoHelper()
+	slow := MustSucceed(
+		kfake.NewCluster(kfake.NumBrokers(1), kfake.SeedTopics(1, topic)),
+	)
+	DeferCleanup(slow.Close)
+	cl := newKafkaClient(kgo.SeedBrokers(slow.ListenAddrs()...))
+	produceJSON(ctx, cl, topic, "", map[string]int{"v": 1})
+	slow.ControlKey(int16(kmsg.Fetch), func(kmsg.Request) (kmsg.Response, error, bool) {
+		slow.KeepControl()
+		return nil, errors.New("fetch cut"), true
+	})
+	return slow
+}
+
+// newLeaderlessCluster starts a cluster that holds topic with one record and answers
+// each offset listing with no leader for each partition.
+func newLeaderlessCluster(ctx context.Context, topic string) *kfake.Cluster {
+	GinkgoHelper()
+	c := MustSucceed(
+		kfake.NewCluster(kfake.NumBrokers(1), kfake.SeedTopics(1, topic)),
+	)
+	DeferCleanup(c.Close)
+	cl := newKafkaClient(kgo.SeedBrokers(c.ListenAddrs()...))
+	produceJSON(ctx, cl, topic, "", map[string]int{"v": 1})
+	c.ControlKey(
+		int16(kmsg.ListOffsets),
+		func(kreq kmsg.Request) (kmsg.Response, error, bool) {
+			c.KeepControl()
+			req := kreq.(*kmsg.ListOffsetsRequest)
+			res := req.ResponseKind().(*kmsg.ListOffsetsResponse)
+			for _, rt := range req.Topics {
+				t := kmsg.NewListOffsetsResponseTopic()
+				t.Topic = rt.Topic
+				for _, rp := range rt.Partitions {
+					p := kmsg.NewListOffsetsResponseTopicPartition()
+					p.Partition = rp.Partition
+					p.ErrorCode = kerr.LeaderNotAvailable.Code
+					t.Partitions = append(t.Partitions, p)
+				}
+				res.Topics = append(res.Topics, t)
+			}
+			return res, nil, true
+		},
+	)
+	return c
+}
+
+// closedAddress returns a local address that refuses connections.
+func closedAddress() string {
+	GinkgoHelper()
+	l := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
+	addr := l.Addr().String()
+	Expect(l.Close()).To(Succeed())
+	return addr
 }
 
 // uniqueTopic returns a topic name no other spec uses.

@@ -15,17 +15,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create an Arc with generated key", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			a := newAutomation(
 				arc.Base{
 					Name:   "test-arc",
@@ -39,6 +43,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				a := newAutomation(
 					arc.Base{Source: arc.Source{Variant: arc.TextSource{}}},
 				)
@@ -48,6 +53,7 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should create an Arc with explicit key", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			key := uuid.New()
 			a := newAutomation(
 				arc.Base{
@@ -60,7 +66,8 @@ var _ = Describe("Writer", func() {
 			Expect(a.Base().Key).To(Equal(key))
 		})
 
-		It("Should parent the Arc under the root directory", func(ctx SpecContext) {
+		It("Should put the Arc in the root directory", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			a := newAutomation(
 				arc.Base{
 					Name:   "parented-arc",
@@ -68,25 +75,44 @@ var _ = Describe("Writer", func() {
 				},
 			)
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(a.OntologyID()).
-				TraverseTo(ontology.ParentsTraverser).
-				Entries(&parents).
+			root := rootDirectory(ctx, tx)
+			Expect(root.Name).To(Equal("Arcs"))
+			Expect(a.Base().Directory).To(HaveValue(Equal(root.Key)))
+		})
+
+		It("Should keep the directory of a moved Arc on update", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			w := svc.NewWriter(tx)
+			root := rootDirectory(ctx, tx).Key
+			lib := directory.Directory{Name: "lib"}
+			Expect(w.CreateDirectory(ctx, &lib, root)).To(Succeed())
+			a := newModule(
+				arc.Base{Name: "moved", Source: arc.Source{Variant: arc.TextSource{}}},
+			)
+			Expect(w.Create(ctx, &a)).To(Succeed())
+			Expect(w.Move(ctx, root, lib.Key, a.ResourceID())).To(Succeed())
+			b := a.Base()
+			b.Directory = nil
+			a.SetBase(b)
+			Expect(w.Create(ctx, &a)).To(Succeed())
+			var stored arc.Arc
+			Expect(svc.NewRetrieve().
+				Where(arc.MatchKeys(b.Key)).
+				Entry(&stored).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).To(HaveLen(1))
-			Expect(parents[0].ID.Type).To(Equal(ontology.ResourceTypeArcDirectory))
-			Expect(parents[0].Name).To(Equal("Arcs"))
+			Expect(stored.Base().Directory).To(HaveValue(Equal(lib.Key)))
 		})
 
 		It("Should reject an Arc that is neither an automation nor a module", func(
 			ctx SpecContext,
 		) {
+			tx := DeferClose(db.OpenTx())
 			Expect(svc.NewWriter(tx).Create(ctx, &arc.Arc{})).
 				To(MatchError(validate.ErrValidation))
 		})
 
 		It("Should reject a change of type", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			a := newModule(
 				arc.Base{Name: "typed", Source: arc.Source{Variant: arc.TextSource{}}},
 			)
@@ -97,6 +123,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should handle multiple Arc creations", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			a1 := newAutomation(
 				arc.Base{Name: "arc-1", Source: arc.Source{Variant: arc.TextSource{}}},
 			)
@@ -113,6 +140,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				rec := &Recorder[arc.Key, arc.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				v := newAutomation(
@@ -155,6 +183,8 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("CreateMany", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should create multiple Arcs", func(ctx SpecContext) {
 			arcs := []arc.Arc{
 				newAutomation(
@@ -182,6 +212,8 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Update", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should update an existing Arc", func(ctx SpecContext) {
 			key := uuid.New()
 			a := newAutomation(arc.Base{
@@ -206,6 +238,8 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Delete", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should delete an Arc", func(ctx SpecContext) {
 			a := newAutomation(arc.Base{
 				Name:   "arc-to-delete",
@@ -258,20 +292,26 @@ var _ = Describe("Writer", func() {
 				},
 			)
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			b := newAutomation(arc.Base{
+				Name:   "other-arc",
+				Source: arc.Source{Variant: arc.TextSource{}},
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &b)).To(Succeed())
 
 			t := &task.Task{
-				Rack: testRack.Key,
-				Name: "child-task",
-				Type: arc.TaskType,
+				Rack:   testRack.Key,
+				Name:   "child-task",
+				Type:   arc.TaskType,
+				Config: msgpack.EncodedJSON{"arc_key": a.Base().Key.String()},
+			}
+			other := &task.Task{
+				Rack:   testRack.Key,
+				Name:   "other-arc-task",
+				Type:   arc.TaskType,
+				Config: msgpack.EncodedJSON{"arc_key": b.Base().Key.String()},
 			}
 			Expect(taskSvc.NewWriter(tx).Create(ctx, t)).To(Succeed())
-
-			Expect(otg.NewWriter(tx).DefineRelationships(
-				ctx,
-				a.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				t.OntologyID(),
-			)).To(Succeed())
+			Expect(taskSvc.NewWriter(tx).Create(ctx, other)).To(Succeed())
 
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Base().Key)).To(Succeed())
 
@@ -279,7 +319,32 @@ var _ = Describe("Writer", func() {
 				To(MatchError(query.ErrNotFound))
 			Expect(taskSvc.NewRetrieve().Where(task.MatchKeys(t.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
+			Expect(taskSvc.NewRetrieve().
+				Where(task.MatchKeys(other.Key)).
+				Exists(ctx, tx)).To(BeTrue())
 		})
+
+		It(
+			"Should delete the config records of its child tasks",
+			func(ctx SpecContext) {
+				a := newAutomation(arc.Base{
+					Name:   "arc-with-config",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				})
+				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+				t := &task.Task{
+					Rack:   testRack.Key,
+					Name:   "child-task",
+					Type:   arc.TaskType,
+					Config: msgpack.EncodedJSON{"arc_key": a.Base().Key.String()},
+				}
+				Expect(taskSvc.NewWriter(tx).Create(ctx, t)).To(Succeed())
+				MustSucceed(arcTaskSvc.Config.Read(ctx, tx, t.Key))
+				Expect(svc.NewWriter(tx).Delete(ctx, a.Base().Key)).To(Succeed())
+				Expect(arcTaskSvc.Config.Read(ctx, tx, t.Key)).Error().
+					To(MatchError(query.ErrNotFound))
+			},
+		)
 
 		It(
 			"Should handle Arc deletion when Arc has no child tasks",
@@ -310,32 +375,21 @@ var _ = Describe("Writer", func() {
 				)
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
+				cfg := msgpack.EncodedJSON{"arc_key": a.Base().Key.String()}
 				t1 := &task.Task{
-					Rack: testRack.Key,
-					Name: "child-task-1",
-					Type: arc.TaskType,
+					Rack:   testRack.Key,
+					Name:   "child-task-1",
+					Type:   arc.TaskType,
+					Config: cfg,
 				}
 				t2 := &task.Task{
-					Rack: testRack.Key,
-					Name: "child-task-2",
-					Type: arc.TaskType,
+					Rack:   testRack.Key,
+					Name:   "child-task-2",
+					Type:   arc.TaskType,
+					Config: cfg,
 				}
 				Expect(taskSvc.NewWriter(tx).Create(ctx, t1)).To(Succeed())
 				Expect(taskSvc.NewWriter(tx).Create(ctx, t2)).To(Succeed())
-
-				otgWriter := otg.NewWriter(tx)
-				Expect(otgWriter.DefineRelationships(
-					ctx,
-					a.OntologyID(),
-					ontology.RelationshipTypeParentOf,
-					t1.OntologyID(),
-				)).To(Succeed())
-				Expect(otgWriter.DefineRelationships(
-					ctx,
-					a.OntologyID(),
-					ontology.RelationshipTypeParentOf,
-					t2.OntologyID(),
-				)).To(Succeed())
 
 				Expect(svc.NewWriter(tx).Delete(ctx, a.Base().Key)).To(Succeed())
 

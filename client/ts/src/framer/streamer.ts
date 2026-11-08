@@ -143,7 +143,7 @@ export const createStreamOpener =
       cfg.excludeGroups,
       cfg.keepAlive,
     );
-    stream.send({
+    await stream.send({
       keys: Array.from(adapter.keys),
       downsampleFactor: cfg.downsampleFactor,
       throttleRate: cfg.throttleRate,
@@ -267,17 +267,23 @@ class BaseStreamer implements Streamer {
     if (this.failure != null) throw this.failure;
     if (!hasChanged && !waitForAck) return;
     this.adapter.advance();
-    this.stream.send({
+    const sent = this.stream.send({
       keys: Array.from(this.adapter.keys),
       downsampleFactor: this.downsampleFactor,
       throttleRate: this.throttleRate,
       excludeGroups: this.excludeGroups,
       ackRequested: waitForAck,
     });
-    if (!waitForAck) return;
+    if (!waitForAck) return await sent;
+    // Queued before send can wait, so a read that fails meanwhile rejects it.
     const ack = Promise.withResolvers<void>();
     this.pendingAcks.push(ack);
-    await ack.promise;
+    const unsent = sent.catch((err: unknown) => {
+      const i = this.pendingAcks.indexOf(ack);
+      if (i !== -1) this.pendingAcks.splice(i, 1);
+      throw errors.fromUnknown(err);
+    });
+    await Promise.all([unsent, ack.promise]);
   }
 
   close(): void {

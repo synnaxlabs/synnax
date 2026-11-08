@@ -412,7 +412,7 @@ TEST_F(SecurityTest, PoolClosesIdleConnectionAfterCertificateChange) {
     cfg.server_certificate = server_id.certificate;
     { auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX)); }
     ASSERT_EQ(pool.available_count(ENDPOINT), 1);
-    ASSERT_NIL(store->regenerate().second);
+    ASSERT_NIL_P(store->regenerate());
     const auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
     ASSERT_TRUE(activated(conn.get()));
     ASSERT_EQ(pool.size(), 1);
@@ -458,7 +458,7 @@ TEST_F(SecurityTest, PoolRefreshClosesOldConnection) {
     auto cfg = config();
     cfg.server_certificate = server_id.certificate;
     auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
-    ASSERT_NIL(store->regenerate().second);
+    ASSERT_NIL_P(store->regenerate());
     conn = ASSERT_NIL_P(pool.refresh(conn, cfg, LOG_PREFIX));
     ASSERT_TRUE(conn);
     ASSERT_EQ(pool.size(), 1);
@@ -500,7 +500,7 @@ TEST_F(SecurityTest, PoolRefreshKeepsTrustedServer) {
     const auto cfg = config();
     auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
     auto *const first = conn.get();
-    ASSERT_NIL(store->regenerate().second);
+    ASSERT_NIL_P(store->regenerate());
     this->start_server(other_id);
     const auto err = pool.refresh(conn, cfg, LOG_PREFIX).second;
     ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_UNTRUSTED);

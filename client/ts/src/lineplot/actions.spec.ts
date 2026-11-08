@@ -856,3 +856,55 @@ describe("scopedActionZ", () => {
     expect(parsed.seq).toEqual(0);
   });
 });
+
+describe("setGroup", () => {
+  const G1 = "11111111-1111-4111-8111-111111111111";
+  const G2 = "22222222-2222-4222-8222-222222222222";
+  it("should move the document into the group", () => {
+    const doc = createEmpty();
+    expect(
+      lineplot.reduceAll(doc, [lineplot.setGroup({ group: G1 })]).next.group,
+    ).toEqual(G1);
+  });
+  it("should move the document out of its group", () => {
+    const doc = createEmpty({ group: G1 });
+    expect(lineplot.reduceAll(doc, [lineplot.setGroup({})]).next.group).toBeUndefined();
+  });
+  it("should restore the previous group through its inverse", () => {
+    const doc = createEmpty({ group: G1 });
+    const { next, inverse } = lineplot.reduceAll(doc, [
+      lineplot.setGroup({ group: G2 }),
+    ]);
+    expect(lineplot.reduceAll(next, inverse).next.group).toEqual(G1);
+  });
+  it("should target nothing, so it never enters the undo stack", () => {
+    const doc = createEmpty();
+    expect(lineplot.reduceAll(doc, [lineplot.setGroup({ group: G1 })]).targets).toEqual(
+      [],
+    );
+  });
+});
+
+describe("setProject", () => {
+  const P1 = "11111111-1111-4111-8111-111111111111";
+  const P2 = "22222222-2222-4222-8222-222222222222";
+  it("should move the document into the project", () => {
+    const doc = createEmpty({ project: P1 });
+    expect(
+      lineplot.reduceAll(doc, [lineplot.setProject({ project: P2 })]).next.project,
+    ).toEqual(P2);
+  });
+  it("should restore the previous project through its inverse", () => {
+    const doc = createEmpty({ project: P1 });
+    const { next, inverse } = lineplot.reduceAll(doc, [
+      lineplot.setProject({ project: P2 }),
+    ]);
+    expect(lineplot.reduceAll(next, inverse).next.project).toEqual(P1);
+  });
+  it("should target nothing, so it never enters the undo stack", () => {
+    const doc = createEmpty();
+    expect(
+      lineplot.reduceAll(doc, [lineplot.setProject({ project: P1 })]).targets,
+    ).toEqual([]);
+  });
+});

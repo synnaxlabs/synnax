@@ -53,12 +53,14 @@ class Hold(TestCase):
         self._error_message = None
         self._error_traceback = None
         self.skip_reason = None
+        self.metrics = {}
         self.log_client = LogClient(name=name)
 
     def run(self) -> None:
         pass
 
     def execute(self) -> None:
+        self.metrics["hold_s"] = self.params["hold"]
         start = time.monotonic()
         time.sleep(self.params["hold"])
         span = {
@@ -192,6 +194,22 @@ def run(
 
 
 class TestExecutionClient:
+    def test_metrics(self, cases_dir: Path) -> None:
+        """Should keep the numbers that each test measured in its result."""
+        execution, loaded, results = client(cases_dir, sequence("a", "plain", hold=0.1))
+        execution.run(loaded)
+        assert [t.metrics for t in results] == [{"hold_s": 0.1}]
+
+    def test_metrics_of_timeout(self, cases_dir: Path) -> None:
+        """Should keep the numbers that a test measured before it timed out."""
+        execution, loaded, results = client(
+            cases_dir, sequence("a", "plain", hold=2, timeout=0.1)
+        )
+        execution.run(loaded)
+        assert [(t.status, t.metrics) for t in results] == [
+            (STATUS.TIMEOUT, {"hold_s": 2})
+        ]
+
     def test_free_resources(self, cases_dir: Path) -> None:
         """Should run tests that hold nothing at the same time."""
         spans = run(cases_dir, sequence("a", "plain", "plain", order="asynchronous"))
