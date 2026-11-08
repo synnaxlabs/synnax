@@ -14,8 +14,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Literal
 
-from playwright.sync_api import Locator, Page, expect
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import (
+    Locator,
+    Page,
+    TimeoutError as PlaywrightTimeoutError,
+    expect,
+)
 
 import synnax as sy
 from console.context_menu import ContextMenu
