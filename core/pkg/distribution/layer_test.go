@@ -12,7 +12,6 @@ package distribution_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	aspentransporttestutil "github.com/synnaxlabs/aspen/transport/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	transporttestutil "github.com/synnaxlabs/synnax/pkg/distribution/transport/testutil"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
@@ -32,14 +31,10 @@ var _ = Describe("OpenLayer", func() {
 			store := DeferClose(storagetestutil.NewCluster()).Provision(ctx)
 			Expect(store.KV.Set(ctx, []byte("aspen.cluster"), []byte(otherNode))).
 				To(Succeed())
-			var (
-				addr     = address.Address("localhost:0")
-				aspenNet = aspentransporttestutil.NewNetwork()
-			)
+			addr := address.Address("localhost:0")
 			Expect(distribution.OpenLayer(ctx, distribution.LayerConfig{
 				Storage:          store,
 				Transport:        transporttestutil.NewNetwork().New(addr, 1),
-				AspenTransport:   aspenNet.NewTransport(addr),
 				AdvertiseAddress: addr,
 			})).Error().To(MatchError(validate.ErrValidation))
 		},
