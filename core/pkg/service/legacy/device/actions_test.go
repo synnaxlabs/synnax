@@ -237,5 +237,38 @@ var _ = Describe("Actions", func() {
 			Expect(moved.Group).To(BeNil())
 			Expect(retrieveStatus(ctx).Details.Rack).To(Equal(other.Key))
 		})
+
+		It("Should move the device under a parent and out of its group", func(
+			ctx SpecContext,
+		) {
+			parent := device.Device{
+				Key:        "parent",
+				Rack:       rackSvc.EmbeddedKey,
+				Location:   "parent1",
+				Name:       "Parent",
+				Make:       "Make",
+				Model:      "Model",
+				Properties: msgpack.EncodedJSON{},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := svc.NewWriter(tx).Create(ctx, &parent); err != nil {
+					return err
+				}
+				return svc.NewWriter(tx).SetGroup(ctx, &g.Key, dev.Key)
+			})).To(Succeed())
+			setRack := device.NewSetRackAction(device.SetRackPayload{
+				Rack:   rackSvc.EmbeddedKey,
+				Parent: &parent.Key,
+			})
+			Expect(write(ctx, func(w device.Writer) error {
+				return w.Apply(ctx, dev.Key, setRack)
+			})).To(Succeed())
+			moved := retrieve(ctx)
+			Expect(moved.Rack).To(Equal(rackSvc.EmbeddedKey))
+			Expect(moved.Parent).To(Equal(&parent.Key))
+			Expect(moved.Group).To(BeNil())
+			frames := rec.Snapshot()
+			Expect(frames[len(frames)-1].Actions).To(Equal([]device.Action{setRack}))
+		})
 	})
 })
