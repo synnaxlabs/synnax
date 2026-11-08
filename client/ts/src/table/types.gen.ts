@@ -14,6 +14,8 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { group } from "@/group";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 
 export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
@@ -142,6 +144,8 @@ export type Where = {
   key?: filter.Set<typeof keyZ>;
   groups?: group.Key[];
   grouped?: boolean;
+  projects?: project.Key[];
+  ranges?: ranger.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -162,6 +166,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the tables in a group, or in no group when false. */
   grouped: z.boolean().optional(),
+  /** projects matches the tables owned by any of the given projects. */
+  projects: zod.nullToUndefined(project.keyZ.array()),
+  /** ranges matches the tables owned by any of the given ranges. */
+  ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
 
 /**
@@ -199,6 +207,16 @@ export const tableZ = z.object({
   cells: caseconv.preserveKeys(z.record(z.string(), cellConfigZ).default(() => ({}))),
   /** group is the group the table sits in, if any. */
   group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the table, if any. Exactly one of project and
+   * range is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the table, if any. Exactly one of project and range is
+   * set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface Table extends z.infer<typeof tableZ> {}
 

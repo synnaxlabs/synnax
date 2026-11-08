@@ -10,15 +10,18 @@
 package lineplot_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
@@ -39,8 +42,8 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export a line plot as a versioned envelope", func(ctx SpecContext) {
-			lp := lineplot.LinePlot{Name: "exported"}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &lp)).To(Succeed())
+			lp := lineplot.LinePlot{Project: &proj.Key, Name: "exported"}
+			Expect(svc.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(lp.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("lineplot"))
@@ -142,6 +145,31 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It(
+			"Should refuse a group that is not in the parent project",
+			func(ctx SpecContext) {
+				other := project.Project{Name: "other"}
+				Expect(projectSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+				g := group.Group{
+					Name:   "in other",
+					Parent: new(project.ResourceID(other.Key)),
+				}
+				Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+				Expect(imexSvc.Import(ctx, db,
+					LoadEnvelope("versions/testdata/import_v5.json"),
+					imex.ImportOptions{Parent: proj.ResourceID(), Group: &g.Key},
+				)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"group: group %s is not in project %s", g.Key, proj.Key,
+					))),
+					MatchError(ContainSubstring("validation error")),
+				))
+				Expect(svc.NewRetrieve().
+					Where(lineplot.MatchGroups(g.Key)).
+					Count(ctx, db)).To(BeZero())
+			},
+		)
+
+		It(
 			"Should generate a fresh key, discarding the key on the wire",
 			func(ctx SpecContext) {
 				id := MustSucceed(imexSvc.Import(
@@ -162,12 +190,13 @@ var _ = Describe("ImEx", func() {
 			"Should preserve plot content through export then import",
 			func(ctx SpecContext) {
 				original := lineplot.LinePlot{
+					Project:  &proj.Key,
 					Name:     "round-trip",
 					Channels: lineplot.Channels{Y1: []channel.Key{4, 5}},
 					Ranges:   []ranger.Ref{recentRef},
 				}
 				Expect(
-					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
+					svc.NewWriter(nil).Create(ctx, &original),
 				).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(original.Key)))
 				id := MustSucceed(imexSvc.Import(

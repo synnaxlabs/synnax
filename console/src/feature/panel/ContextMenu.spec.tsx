@@ -298,12 +298,11 @@ describe("Panel.TabMenuItems", () => {
     it("opens the picker on the tab the menu was opened on", async () => {
       const projectKey = (await client.projects.create({ name: uniqueName("project") }))
         .key;
-      const parent = project.resourceID(projectKey);
       const [front, moved] = [resourceTab(), resourceTab()];
       const source = await client.panels.create({
         key: uuid.create(),
         name: uniqueName("panel"),
-        parent,
+        project: projectKey,
         // The menu opens on the second tab, so a picker fed the panel's front tab
         // instead moves the wrong one.
         root: { variant: "leaf", tabs: [front, moved] },
@@ -311,7 +310,7 @@ describe("Panel.TabMenuItems", () => {
       const destination = await client.panels.create({
         key: uuid.create(),
         name: uniqueName("panel"),
-        parent,
+        project: projectKey,
         root: { variant: "leaf", tabs: [] },
       });
       const { wrapper } = await createPanelWrapper({

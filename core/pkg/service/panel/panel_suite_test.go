@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -24,10 +23,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -45,7 +43,8 @@ var (
 	writer     panel.Writer
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
-	parentID   resource.ID
+	projectSvc *project.Service
+	proj       project.Project
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -95,19 +94,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Signals:  sigs,
 	}))
 	writer = svc.NewWriter(nil)
-	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
-		DB: node.DB,
-	}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Group:    groupSvc,
-		Password: passwordSvc,
 	}))
-	parent := MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "panel-parent"}),
-	)
-	parentID = parent.ResourceID()
+	proj = project.Project{Name: "panel-project"}
+	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

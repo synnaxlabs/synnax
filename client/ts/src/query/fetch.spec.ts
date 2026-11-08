@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Synnax } from "@/index";
-import { project } from "@/project";
+import { type project } from "@/project";
 import { createTestClient } from "@/testutil";
 
 // Every document table declares a fetch that resolves keys against the cluster and
@@ -39,7 +39,8 @@ const DOMAINS: Domain[] = [
   {
     name: "schematic",
     create: async () =>
-      (await writer.schematics.create(proj.key, { name: `s-${id.create()}` })).key,
+      (await writer.schematics.create({ project: proj.key, name: `s-${id.create()}` }))
+        .key,
     del: async (key) => await writer.schematics.delete(key),
     retrieveKeys: async (reader, keys) =>
       await reader.schematics.retrieve({ where: { key: { in: keys } } }),
@@ -47,7 +48,8 @@ const DOMAINS: Domain[] = [
   {
     name: "lineplot",
     create: async () =>
-      (await writer.lineplots.create(proj.key, { name: `lp-${id.create()}` })).key,
+      (await writer.lineplots.create({ project: proj.key, name: `lp-${id.create()}` }))
+        .key,
     del: async (key) => await writer.lineplots.delete(key),
     retrieveKeys: async (reader, keys) =>
       await reader.lineplots.retrieve({ where: { key: { in: keys } } }),
@@ -55,7 +57,7 @@ const DOMAINS: Domain[] = [
   {
     name: "log",
     create: async () =>
-      (await writer.logs.create(proj.key, { name: `log-${id.create()}` })).key,
+      (await writer.logs.create({ project: proj.key, name: `log-${id.create()}` })).key,
     del: async (key) => await writer.logs.delete(key),
     retrieveKeys: async (reader, keys) =>
       await reader.logs.retrieve({ where: { key: { in: keys } } }),
@@ -63,7 +65,7 @@ const DOMAINS: Domain[] = [
   {
     name: "table",
     create: async () =>
-      (await writer.tables.create(proj.key, { name: `t-${id.create()}` })).key,
+      (await writer.tables.create({ project: proj.key, name: `t-${id.create()}` })).key,
     del: async (key) => await writer.tables.delete(key),
     retrieveKeys: async (reader, keys) =>
       await reader.tables.retrieve({ where: { key: { in: keys } } }),
@@ -88,7 +90,7 @@ const DOMAINS: Domain[] = [
       (
         await writer.panels.create({
           name: `p-${id.create()}`,
-          parent: project.resourceID(proj.key),
+          project: proj.key,
         })
       ).key,
     del: async (key) => await writer.panels.delete(key),

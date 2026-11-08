@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package project
+// Package bundle exports a project and its members as a directory of files, and imports
+// one back as a new project.
+package bundle
 
 import (
 	"context"
@@ -21,17 +23,85 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filename"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// Config is the configuration for creating a Service.
+type Config struct {
+	// DB is the database bundles are read from and written to.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
+	// Ontology names the members of a bundle.
+	//
+	// [REQUIRED]
+	Ontology *ontology.Ontology
+	// Project stores the projects bundles hold.
+	//
+	// [REQUIRED]
+	Project *project.Service
+	// Group stores the groups that become bundle directories.
+	//
+	// [REQUIRED]
+	Group *group.Service
+	// Panel stores the panels a bundle holds.
+	//
+	// [REQUIRED]
+	Panel *panel.Service
+	// ImEx is the leaf import/export registry member documents go through.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
+}
+
+var _ config.Config[Config] = Config{}
+
+// Override implements config.Config.
+func (c Config) Override(other Config) Config {
+	c.DB = override.Nil(c.DB, other.DB)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Project = override.Nil(c.Project, other.Project)
+	c.Group = override.Nil(c.Group, other.Group)
+	c.Panel = override.Nil(c.Panel, other.Panel)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	return c
+}
+
+// Validate implements config.Config.
+func (c Config) Validate() error {
+	v := validate.New("project.bundle")
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("project", c.Project)
+	v.NotNil("group", c.Group)
+	v.NotNil("panel", c.Panel)
+	v.NotNil("imex", c.ImEx)
+	return v.Error()
+}
+
+// Service exports and imports project bundles.
+type Service struct{ cfg Config }
+
+// NewService returns a Service built from the configs, each overriding the one before.
+func NewService(cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(Config{}, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{cfg: cfg}, nil
+}
 
 const (
 	manifestVersion = 1
@@ -39,19 +109,18 @@ const (
 )
 
 // unreachedTypes are the resource types a bundle can hold that the walk over the
-// project's ontology descendants never reaches: a task parents under its rack's task
-// group and an Arc under the root Arcs directory. A panel tab is the only way one
-// enters a bundle, and an import leaves each where its importer put it rather than
-// under the directory that held it.
+// project's members never reaches, since no project owns a task or an Arc. A panel tab
+// is the only way one enters a bundle, and an import leaves each where its importer put
+// it rather than under the directory that held it.
 var unreachedTypes = set.New(
 	resource.TypeTask,
 	resource.TypeArc,
 )
 
-// Export serializes the project identified by key and its ontology descendants as a
-// bundle: one envelope per member document and panel, group children as directories,
-// and a manifest naming the project at the root. It also returns the resource ID of
-// every resource that shaped the artifact — documents, panels, and groups — so a caller
+// Export serializes the project identified by key and the groups and visualizations it
+// owns as a bundle: one envelope per member document and panel, group children as
+// directories, and a manifest naming the project at the root. It also returns the
+// resource ID of every document, panel, and group that shaped the artifact, so a caller
 // can enforce access on them. The encoder decides both the serialization and the
 // extension every file takes.
 //
@@ -64,14 +133,14 @@ var unreachedTypes = set.New(
 // no project has key.
 func (s *Service) Export(
 	ctx context.Context,
-	key Key,
+	key project.Key,
 	encoder encoding.FileEncoder,
 ) (files zip.Files, members []resource.ID, err error) {
 	tx := s.cfg.DB.OpenTx()
 	defer func() { err = errors.Combine(err, tx.Close()) }()
-	var proj Project
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
+	var proj project.Project
+	if err = s.cfg.Project.NewRetrieve().
+		Where(project.MatchKeys(key)).
 		Entry(&proj).
 		Exec(ctx, tx); err != nil {
 		return nil, nil, err
@@ -83,12 +152,12 @@ func (s *Service) Export(
 		visited: set.New[resource.ID](),
 		refs:    map[resource.ID]string{},
 	}
-	if w.grouped, err = s.groupedMembers(ctx, tx, ResourceID(key)); err != nil {
+	if w.grouped, err = s.groupedMembers(ctx, tx, project.ResourceID(key)); err != nil {
 		return nil, nil, err
 	}
 	manifestFileName := imex.ManifestBaseName + w.ext
 	claims := imex.NewClaims(manifestFileName)
-	if err = w.directory(ctx, ResourceID(key), "", claims); err != nil {
+	if err = w.directory(ctx, project.ResourceID(key), "", claims); err != nil {
 		return nil, nil, err
 	}
 	files = make(zip.Files, len(w.refs)+len(w.panels)+1)
@@ -117,7 +186,7 @@ func (s *Service) Export(
 }
 
 // bundleWalk accumulates the bundle's members while directory recurses through the
-// project's ontology descendants.
+// project's groups.
 type bundleWalk struct {
 	svc *Service
 	// tx is the transaction every read in the walk runs on, so the bundle reflects one
@@ -234,26 +303,17 @@ func (w *bundleWalk) children(
 ) ([]ontology.Resource, error) {
 	var ids []resource.ID
 	if parent.Type == resource.TypeProject {
-		var groups []group.Group
-		if err := w.svc.cfg.Group.NewRetrieve().
-			Where(group.MatchParents(parent)).
-			Entries(&groups).
-			Exec(ctx, w.tx); err != nil {
+		key, err := project.KeyFromResourceID(parent)
+		if err != nil {
 			return nil, err
 		}
-		ids = group.ResourceIDsFromGroups(groups)
-		var members []ontology.Resource
-		if err := w.svc.cfg.Ontology.NewRetrieve().
-			WhereIDs(parent).
-			TraverseTo(ontology.ChildrenTraverser).
-			ExcludeFieldData(true).
-			Entries(&members).
-			Exec(ctx, w.tx); err != nil {
+		deps, err := w.svc.cfg.Project.Children(ctx, w.tx, key)
+		if err != nil {
 			return nil, err
 		}
-		for _, m := range members {
-			if !w.grouped.Contains(m.ID) {
-				ids = append(ids, m.ID)
+		for _, id := range deps {
+			if !w.grouped.Contains(id) {
+				ids = append(ids, id)
 			}
 		}
 	} else {
@@ -384,29 +444,28 @@ func (w *bundleWalk) encodePanels(
 
 // Import creates a fresh project from the bundle in files on tx: the manifest (or the
 // extension-stripped fileName) names it, directories become groups, members import
-// through the leaf registry, and panels are recreated with their resource tabs
-// resolved to the minted IDs. A root LAYOUT.json with no manifest is the legacy
-// (version 0) format. Invalid bundles return validation errors naming the offending
-// file.
+// through the leaf registry, and panels are recreated with their resource tabs resolved
+// to the minted IDs. A root LAYOUT.json with no manifest is the legacy (version 0)
+// format. Invalid bundles return validation errors naming the offending file.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	files zip.Files,
 	fileName string,
-) (Project, error) {
+) (project.Project, error) {
 	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
 	manifestData, ok := files[manifestFileName]
 	if !ok {
 		if layoutData, ok := files[legacy.LayoutFileName]; ok {
 			return s.importLegacy(ctx, tx, layoutData, files, fileName)
 		}
-		return Project{}, errors.Wrapf(
+		return project.Project{}, errors.Wrapf(
 			validate.ErrValidation, "bundle holds no %s", manifestFileName,
 		)
 	}
 	manifest, err := decodeManifest(ctx, manifestData, manifestFileName)
 	if err != nil {
-		return Project{}, err
+		return project.Project{}, err
 	}
 	name := manifest.Name
 	if name == "" {
@@ -414,16 +473,16 @@ func (s *Service) Import(
 	}
 	members, err := s.bundleMembers(ctx, files)
 	if err != nil {
-		return Project{}, err
+		return project.Project{}, err
 	}
-	proj := Project{Name: name}
-	if err = s.NewWriter(tx).Create(ctx, &proj); err != nil {
-		return Project{}, err
+	proj := project.Project{Name: name}
+	if err = s.cfg.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
+		return project.Project{}, err
 	}
-	projID := ResourceID(proj.Key)
+	projID := project.ResourceID(proj.Key)
 	groups, err := s.createGroups(ctx, tx, projID, members)
 	if err != nil {
-		return Project{}, err
+		return project.Project{}, err
 	}
 	refs := make(map[string]resource.ID, len(members))
 	for _, m := range members {
@@ -436,7 +495,7 @@ func (s *Service) Import(
 			Group:    groups[path.Dir(m.path)],
 		})
 		if err != nil {
-			return Project{}, errors.Wrap(err, m.path)
+			return project.Project{}, errors.Wrap(err, m.path)
 		}
 		refs[m.path] = id
 	}
@@ -447,15 +506,15 @@ func (s *Service) Import(
 		}
 		p, err := panel.DecodeBundle(ctx, m.env, refs)
 		if err != nil {
-			return Project{}, errors.Wrap(err, m.path)
+			return project.Project{}, errors.Wrap(err, m.path)
 		}
 		if p.Name == "" {
 			p.Name = filename.Stem(m.path)
 		}
-		p.Parent = &projID
+		p.Project = &proj.Key
 		p.Group = groups[path.Dir(m.path)]
 		if err = panelWriter.Create(ctx, &p); err != nil {
-			return Project{}, errors.Wrap(err, m.path)
+			return project.Project{}, errors.Wrap(err, m.path)
 		}
 	}
 	return proj, nil
@@ -470,16 +529,16 @@ func (s *Service) importLegacy(
 	layoutData []byte,
 	files zip.Files,
 	fileName string,
-) (Project, error) {
+) (project.Project, error) {
 	members, err := legacy.Members(ctx, layoutData, files)
 	if err != nil {
-		return Project{}, err
+		return project.Project{}, err
 	}
-	proj := Project{Name: filename.Stem(fileName)}
-	if err = s.NewWriter(tx).Create(ctx, &proj); err != nil {
-		return Project{}, err
+	proj := project.Project{Name: filename.Stem(fileName)}
+	if err = s.cfg.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
+		return project.Project{}, err
 	}
-	projID := ResourceID(proj.Key)
+	projID := project.ResourceID(proj.Key)
 	refs := make(map[string]resource.ID, len(members))
 	for _, m := range members {
 		id, err := s.cfg.ImEx.Import(ctx, tx, m.Env, imex.ImportOptions{
@@ -487,14 +546,14 @@ func (s *Service) importLegacy(
 			Parent:   projID,
 		})
 		if err != nil {
-			return Project{}, errors.Wrap(err, m.Path)
+			return project.Project{}, errors.Wrap(err, m.Path)
 		}
 		refs[m.LayoutKey] = id
 	}
 	if err = legacy.CreatePanels(
-		ctx, tx, s.cfg.Panel, projID, layoutData, refs,
+		ctx, tx, s.cfg.Panel, proj.Key, layoutData, refs,
 	); err != nil {
-		return Project{}, err
+		return project.Project{}, err
 	}
 	return proj, nil
 }
@@ -647,8 +706,8 @@ func (s *Service) bundleMembers(
 }
 
 // validateMemberPaths rejects two names in one directory that compare equal
-// case-folded, which collide when the Console extracts a bundle onto a
-// case-insensitive filesystem. File and directory names share the namespace.
+// case-folded, which collide when the Console extracts a bundle onto a case-insensitive
+// filesystem. File and directory names share the namespace.
 func validateMemberPaths(paths []string) error {
 	type segment struct {
 		path string

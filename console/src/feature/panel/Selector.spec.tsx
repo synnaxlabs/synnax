@@ -68,7 +68,7 @@ const createProjectPanel = async (
     key,
     ...rest,
     name: uniqueName(name),
-    parent: project.resourceID(projectKey),
+    project: projectKey,
     root: { variant: "leaf", tabs: [tab] },
   });
 

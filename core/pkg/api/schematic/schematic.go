@@ -11,6 +11,7 @@ package schematic
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/config"
@@ -78,7 +80,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 type (
 	CreateRequest struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
-		Project    project.Key           `json:"project"    msgpack:"project"`
 		// DispatchKey is stamped onto the create broadcasts so the sender skips its
 		// echo.
 		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
@@ -111,20 +112,37 @@ func (s *Service) Create(
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return CreateResponse{}, err
 	}
-	if err := enforcer.Enforce(ctx, access.Request{
+	owners, err := project.CreateObjects(
+		ctx,
+		tx,
+		resource.TypeSchematic,
+		req.Schematics,
+		stored,
+		func(e schematic.Schematic) *group.Key { return e.Group },
+		func(e schematic.Schematic) *resource.ID {
+			return project.OwnerID(e.Project, e.Range)
+		},
+	)
+	if err != nil {
+		return CreateResponse{}, err
+	}
+	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			req.Schematics,
-			stored,
-			func(e schematic.Schematic) *group.Key { return e.Group },
+		Objects: slices.Concat(
+			group.CreateObjects(
+				req.Schematics,
+				stored,
+				func(e schematic.Schematic) *group.Key { return e.Group },
+			),
+			owners,
 		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
-		CreateMany(ctx, req.Project, &req.Schematics); err != nil {
+		CreateMany(ctx, &req.Schematics); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Schematics: req.Schematics}, nil
@@ -199,6 +217,9 @@ type (
 		Name     string        `json:"name"     msgpack:"name"`
 		Key      schematic.Key `json:"key"      msgpack:"key"`
 		Snapshot bool          `json:"snapshot" msgpack:"snapshot"`
+		// Range, when set, makes the copy belong to the range instead of the original's
+		// project.
+		Range *ranger.Key `json:"range" msgpack:"range"`
 	}
 	CopyResponse struct {
 		Schematic schematic.Schematic `json:"schematic" msgpack:"schematic"`
@@ -219,13 +240,23 @@ func (s *Service) Copy(
 	}
 	var res CopyResponse
 	if err := s.internal.NewWriter(tx).
-		Copy(ctx, req.Key, req.Name, req.Snapshot, &res.Schematic); err != nil {
+		Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range, &res.Schematic); err != nil {
 		return CopyResponse{}, err
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{schematic.ResourceID(res.Schematic.Key)},
+	}); err != nil {
+		return CopyResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []resource.ID{
+			*project.OwnerID(res.Schematic.Project, res.Schematic.Range),
+		},
 	}); err != nil {
 		return CopyResponse{}, err
 	}
@@ -238,7 +269,9 @@ type SetGroupRequest struct {
 	Keys  []schematic.Key `json:"keys"  msgpack:"keys"`
 }
 
-// SetGroup moves the schematics with the given keys into a group.
+// SetGroup moves the schematics with the given keys into a group. A move into a group
+// under another project also requires update access on the stored owner and on that
+// project.
 func (s *Service) SetGroup(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -265,5 +298,67 @@ func (s *Service) SetGroup(
 	}); err != nil {
 		return struct{}{}, err
 	}
+	projects, err := project.SetGroupObjects(
+		ctx,
+		tx,
+		req.Group,
+		resource.TypeSchematic,
+		lo.Map(schematics, func(e schematic.Schematic, _ int) *resource.ID {
+			return project.OwnerID(e.Project, e.Range)
+		}),
+	)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: projects,
+	}); err != nil {
+		return struct{}{}, err
+	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
+}
+
+// SetProjectRequest moves schematics into Project.
+type SetProjectRequest struct {
+	Project project.Key     `json:"project" msgpack:"project"`
+	Keys    []schematic.Key `json:"keys"    msgpack:"keys"`
+}
+
+// SetProject moves the schematics with the given keys out of their group and into a
+// project. It requires update access on the schematics, their groups, their owners, and
+// the project.
+func (s *Service) SetProject(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetProjectRequest,
+) (struct{}, error) {
+	var stored []schematic.Schematic
+	if err := s.internal.NewRetrieve().
+		Where(schematic.MatchKeys(req.Keys...)).
+		Entries(&stored).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(
+			project.MoveObjects(
+				schematic.ResourceIDs(req.Keys),
+				lo.Map(stored, func(e schematic.Schematic, _ int) *resource.ID {
+					return project.OwnerID(e.Project, e.Range)
+				}),
+				new(project.ResourceID(req.Project)),
+			),
+			lo.Map(stored, func(e schematic.Schematic, _ int) *group.Key {
+				return e.Group
+			}),
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).
+		SetProject(ctx, req.Project, req.Keys...)
 }

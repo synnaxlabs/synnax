@@ -9,14 +9,13 @@
 
 import {
   access,
+  arc,
   AuthError,
   channel,
   framer,
-  project,
   query,
   ranger,
   type resource,
-  schematic,
   type Synnax,
   user,
 } from "@synnaxlabs/client";
@@ -250,12 +249,7 @@ describe("Access Queries", () => {
     it("should ignore relationship changes that cannot affect permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [
-          ranger.TYPE_RESOURCE_ID,
-          project.TYPE_RESOURCE_ID,
-          schematic.TYPE_RESOURCE_ID,
-          ...baseObjects,
-        ],
+        objects: [ranger.TYPE_RESOURCE_ID, arc.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve", "create"],
       });
       let renders = 0;
@@ -273,14 +267,17 @@ describe("Access Queries", () => {
         expect(result.current).toBe(true);
       });
       const rendersWhenSettled = renders;
-      // A project -> schematic link is not a role link, so the gate must drop it: no
+      // An Arc directory -> Arc link is not a role link, so the gate must drop it: no
       // re-evaluation, no re-render.
-      const proj = await userClient.projects.create({ name: id.create() });
-      const s = await userClient.schematics.create(proj.key, { name: id.create() });
+      const a = await userClient.arcs.create({
+        name: id.create(),
+        type: "automation",
+        source: { mode: "text" },
+      });
       // Wait until the link reaches the cache (event delivered)...
       await waitFor(() => {
         const rels = userClient.ontology.cache.relationships.get(
-          (rel) => rel.from.type === "project" && rel.to.key === s.key,
+          (rel) => rel.from.type === "arc_directory" && rel.to.key === a.key,
         );
         expect(rels.length).toBeGreaterThan(0);
       });

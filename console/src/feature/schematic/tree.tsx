@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, resource, schematic } from "@synnaxlabs/client";
+import { resource, schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -95,8 +95,7 @@ const useRangeSnapshot = () => {
       key: id.key,
       name: getResource(id).name,
     }));
-    const parentID = ranger.resourceID(rng.key);
-    update({ schematics, parentID });
+    update({ schematics, range: rng.key });
   };
 };
 

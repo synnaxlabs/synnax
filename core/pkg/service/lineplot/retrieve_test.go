@@ -19,8 +19,8 @@ import (
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a LinePlot", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		p := lineplot.LinePlot{Name: "test"}
-		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &p)).To(Succeed())
+		p := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
+		Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 		var res lineplot.LinePlot
 		Expect(
 			svc.NewRetrieve().

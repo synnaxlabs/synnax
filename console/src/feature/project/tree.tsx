@@ -13,10 +13,11 @@ import {
   log,
   type ontology,
   project,
-  resource,
+  type resource,
   schematic,
   type Synnax as Client,
   table,
+  UnexpectedError,
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -186,15 +187,7 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   };
 };
 
-const VISUALIZATION_TYPES: resource.Type[] = [
-  "schematic",
-  "lineplot",
-  "log",
-  "table",
-  "panel",
-];
-
-const DROPPABLE_TYPES = new Set<resource.Type>([...VISUALIZATION_TYPES, "group"]);
+const DROPPABLE_TYPES = new Set<resource.Type>([...Base.VISUALIZATION_TYPES, "group"]);
 
 /** Lists the projects that sit in a group. */
 export const GROUP_MEMBER: Group.Member = {
@@ -215,42 +208,32 @@ export const listTreeRoot = (client: Client): Tree.Source[] => [
 
 const children: Tree.Children = ({ client, id }) => [
   Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
-  // A project lists its visualizations through the ontology.
-  Tree.createOntologySource(
-    client,
-    id,
-    VISUALIZATION_TYPES,
-    ({ data }) => data?.group == null,
+  ...Base.VISUALIZATION_TYPES.map((type) =>
+    Tree.createSource(
+      Base.VISUALIZATIONS[type](client),
+      { projects: [id.key], grouped: false },
+      Tree.toResource(type),
+    ),
   ),
 ];
 
+// A dropped visualization leaves its group. The Core moves the visualizations in a
+// dropped group along with it.
 const drop: Tree.Drop = async ({ client, destination, items }) => {
-  await client.batch.send(
-    Group.moveRequests(
-      client,
-      items.map(({ id }) => id),
-      destination.id,
-    ),
-  );
-  // A visualization from another project moves its ontology edge.
-  const bySource = new Map<string, resource.ID[]>();
-  items.forEach(({ id, ancestors }) => {
-    if (id.type === "group") return;
-    const source = ancestors.find(({ type }) => type === "project");
-    if (source == null || resource.idsEqual(source, destination.id)) return;
-    const key = resource.idToString(source);
-    bySource.set(key, [...(bySource.get(key) ?? []), id]);
+  const groups: resource.ID[] = [];
+  const byType = new Map<Base.VisualizationType, string[]>();
+  items.forEach(({ id }) => {
+    if (id.type === "group") groups.push(id);
+    else if (Base.isVisualizationType(id.type))
+      byType.set(id.type, [...(byType.get(id.type) ?? []), id.key]);
+    else throw new UnexpectedError(`a ${id.type} does not belong to a project`);
   });
-  await Promise.all(
-    [...bySource].map(
-      async ([source, ids]) =>
-        await client.ontology.moveChildren(
-          resource.parseID(source),
-          destination.id,
-          ...ids,
-        ),
+  await client.batch.send([
+    ...Group.moveRequests(client, groups, destination.id),
+    ...[...byType].map(([type, keys]) =>
+      Base.VISUALIZATIONS[type](client).setProjectRequest(keys, destination.id.key),
     ),
-  );
+  ]);
 };
 
 const TreeItem = Tree.createItem({

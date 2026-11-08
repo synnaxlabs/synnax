@@ -114,12 +114,15 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should reject a create", func(ctx SpecContext) {
+		overwritten := nominal
+		overwritten.Name = "Overwritten"
 		Expect(svc.Dispatch(ctx, nominal.Key, "dk", []label.Action{
-			label.NewCreateAction(label.CreatePayload{Label: nominal}),
+			label.NewCreateAction(label.CreatePayload{Label: overwritten}),
 		})).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("only the Core dispatches a label create")),
 		))
+		Expect(retrieve(ctx)).To(Equal(nominal))
 	})
 
 	It("Should return not found for a missing label", func(ctx SpecContext) {

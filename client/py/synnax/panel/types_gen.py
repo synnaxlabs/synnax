@@ -18,6 +18,8 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import group as group_
+from synnax import project as project_
+from synnax import ranger
 from synnax import resource as resource_
 from synnax.resource import ID
 from x import color as color_
@@ -62,6 +64,8 @@ class Where(BaseModel):
         key: Selects by key.
         groups: Matches the panels in any of the given groups.
         grouped: Matches the panels in a group, or in no group when false.
+        projects: Matches the panels owned by any of the given projects.
+        ranges: Matches the panels owned by any of the given ranges.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -72,8 +76,10 @@ class Where(BaseModel):
     key: filter.Set[Key] | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
+    projects: list[project_.Key] | None = None
+    ranges: list[ranger.Key] | None = None
 
-    @field_validator("groups", mode="before")
+    @field_validator("groups", "projects", "ranges", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -90,6 +96,8 @@ WhereInput = TypedDict(
         "key": filter.SetInput[Key],
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
+        "projects": project_.Key | list[project_.Key],
+        "ranges": ranger.Key | list[ranger.Key],
     },
     total=False,
 )
@@ -174,21 +182,24 @@ class Panel(BaseModel):
         key: Is the unique identifier for this panel.
         name: Is a human-readable name for the panel.
         root: Is the root of the panel tree.
-        parent: Is the parent resource for the panel in the ontology. Required on create
-            and absent on retrieve.
         icon: Is the key of the icon that marks the panel in lists. When null, the
             Console draws its default panel icon.
         color: Is the color of the panel's icon. When null, the theme picks it.
         group: Is the group the panel sits in, if any.
+        project: Is the project that owns the panel, if any. Exactly one of project and
+            range is set.
+        range: Is the range that owns the panel, if any. Exactly one of project and
+            range is set.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
     root: Node = Field(default_factory=lambda: LeafNode(variant="leaf", tabs=[]))
-    parent: resource_.ID | None = None
     icon: str | None = None
     color: color_.Color | None = None
     group: group_.Key | None = None
+    project: project_.Key | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

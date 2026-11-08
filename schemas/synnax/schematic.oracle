@@ -9,6 +9,8 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/group"
+import "schemas/synnax/project"
+import "schemas/synnax/ranger"
 import "schemas/synnax/symbol"
 import "schemas/x/border"
 import "schemas/x/color"
@@ -916,6 +918,7 @@ Schematic struct {
     }
     snapshot bool = false {
         @doc value "is true if this schematic is an immutable snapshot copy."
+        @filter
     }
     nodes    Node[] = [] {
         @doc value "contains all diagram nodes in the schematic."
@@ -933,6 +936,20 @@ Schematic struct {
     group    group.Key?                 {
         @doc value     "is the group the schematic sits in, if any."
         @ref on_delete detach
+    }
+    project  project.Key?               {
+        @doc value     """
+            is the project that owns the schematic, if any. Exactly one of project and
+            range is set.
+        """
+        @ref on_delete cascade
+    }
+    range    ranger.Key?                {
+        @doc value     """
+            is the range that owns the schematic, if any. Exactly one of project and
+            range is set.
+        """
+        @ref on_delete cascade
     }
 
     action Create {
@@ -956,6 +973,15 @@ Schematic struct {
         @doc value """
             moves the schematic into a group, or out of its group when group is empty.
             Emitted by the Core when it moves the schematic; clients never dispatch it.
+        """
+    }
+
+    action SetProject {
+        project project.Key
+
+        @doc value """
+            moves the schematic into a project. Emitted by the Core when it moves the
+            schematic; clients never dispatch it.
         """
     }
 
@@ -1041,11 +1067,18 @@ Schematic struct {
 
 Where filter Schematic {
     key
-    groups  group.Key[] {
+    snapshot
+    groups   group.Key[]   {
         @doc value "matches the schematics in any of the given groups."
     }
-    grouped bool        {
+    grouped  bool          {
         @doc value "matches the schematics in a group, or in no group when false."
+    }
+    projects project.Key[] {
+        @doc value "matches the schematics owned by any of the given projects."
+    }
+    ranges   ranger.Key[]  {
+        @doc value "matches the schematics owned by any of the given ranges."
     }
 
     @doc value         "is a filter that selects schematics."

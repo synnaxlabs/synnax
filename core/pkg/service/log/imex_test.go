@@ -11,12 +11,14 @@ package log_test
 
 import (
 	"encoding/json/v2"
+	"fmt"
 	"os"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -34,7 +36,8 @@ import (
 var _ = Describe("ImEx", func() {
 	createLog := func(ctx SpecContext, l log.Log) log.Log {
 		GinkgoHelper()
-		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+		l.Project = &proj.Key
+		Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 		return l
 	}
 
@@ -229,25 +232,24 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It(
-			"Should create the imported log under the parent project from the options",
+			"Should give the imported log the parent project from the options",
 			func(ctx SpecContext) {
-				id := MustSucceed(imexSvc.Import(
-					ctx, db, LoadEnvelope(v2Fixture),
-					imex.ImportOptions{Parent: proj.ResourceID()},
-				))
-				Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
-					From: proj.ResourceID(),
-					Type: ontology.RelationshipTypeParentOf,
-					To:   id,
-				})).To(BeTrue())
+				_, l := importAndRetrieve(ctx, v2Fixture)
+				Expect(l.Project).To(HaveValue(Equal(proj.Key)))
+				Expect(l.Range).To(BeNil())
 			},
 		)
 
 		It("Should reject a parent project that does not exist", func(ctx SpecContext) {
+			missing := uuid.New()
 			Expect(imexSvc.Import(
 				ctx, db, LoadEnvelope(v2Fixture),
-				imex.ImportOptions{Parent: project.ResourceID(uuid.New())},
-			)).Error().To(MatchError(query.ErrNotFound))
+				imex.ImportOptions{Parent: project.ResourceID(missing)},
+			)).Error().To(MatchError(
+				ContainSubstring(
+					"project: project " + missing.String() + " does not exist",
+				),
+			))
 		})
 
 		It("Should reject a parent that is not a project", func(ctx SpecContext) {
@@ -305,6 +307,31 @@ var _ = Describe("ImEx", func() {
 					),
 				)
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
+			},
+		)
+
+		It(
+			"Should refuse a group that is not in the parent project",
+			func(ctx SpecContext) {
+				other := project.Project{Name: "other"}
+				Expect(projectSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+				g := group.Group{
+					Name:   "in other",
+					Parent: new(project.ResourceID(other.Key)),
+				}
+				Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+				Expect(imexSvc.Import(ctx, db,
+					LoadEnvelope(v2Fixture),
+					imex.ImportOptions{Parent: proj.ResourceID(), Group: &g.Key},
+				)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"group: group %s is not in project %s", g.Key, proj.Key,
+					))),
+					MatchError(ContainSubstring("validation error")),
+				))
+				Expect(svc.NewRetrieve().
+					Where(log.MatchGroups(g.Key)).
+					Count(ctx, db)).To(BeZero())
 			},
 		)
 

@@ -12,6 +12,8 @@ import { filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { group } from "@/group";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
 import { keyZ, type Schematic, type Where } from "@/schematic/types.gen";
 
 /**
@@ -22,6 +24,9 @@ export interface Lines {
   groups: ((record: Schematic, value: NonNullable<Where["groups"]>) => boolean) | null;
   grouped:
     ((record: Schematic, value: NonNullable<Where["grouped"]>) => boolean) | null;
+  projects:
+    ((record: Schematic, value: NonNullable<Where["projects"]>) => boolean) | null;
+  ranges: ((record: Schematic, value: NonNullable<Where["ranges"]>) => boolean) | null;
 }
 
 /**
@@ -36,6 +41,8 @@ export const matches = (lines: Lines, record: Schematic, where?: Where): boolean
     return false;
   if (where.not != null && matches(lines, record, where.not)) return false;
   if (where.key != null && !filter.matchesSet(where.key, record.key)) return false;
+  if (where.snapshot != null && !filter.matchesSet(where.snapshot, record.snapshot))
+    return false;
   if (where.groups != null) {
     if (lines.groups == null) throw new Error("only the Core can check groups");
     if (!lines.groups(record, where.groups)) return false;
@@ -43,6 +50,14 @@ export const matches = (lines: Lines, record: Schematic, where?: Where): boolean
   if (where.grouped != null) {
     if (lines.grouped == null) throw new Error("only the Core can check grouped");
     if (!lines.grouped(record, where.grouped)) return false;
+  }
+  if (where.projects != null) {
+    if (lines.projects == null) throw new Error("only the Core can check projects");
+    if (!lines.projects(record, where.projects)) return false;
+  }
+  if (where.ranges != null) {
+    if (lines.ranges == null) throw new Error("only the Core can check ranges");
+    if (!lines.ranges(record, where.ranges)) return false;
   }
   return true;
 };
@@ -57,15 +72,23 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     where.or?.some((w) => serverComputed(lines, w)) === true ||
     (where.not != null && serverComputed(lines, where.not)) ||
     (where.groups != null && lines.groups == null) ||
-    (where.grouped != null && lines.grouped == null));
+    (where.grouped != null && lines.grouped == null) ||
+    (where.projects != null && lines.projects == null) ||
+    (where.ranges != null && lines.ranges == null));
 
 const inputs = {
   /** key selects by key. */
   key: filter.setInputZ(keyZ).exactOptional(),
+  /** snapshot selects by snapshot. */
+  snapshot: filter.boolInputZ.exactOptional(),
   /** groups matches the schematics in any of the given groups. */
   groups: filter.listInputZ(group.keyZ).exactOptional(),
   /** grouped matches the schematics in a group, or in no group when false. */
   grouped: z.boolean().exactOptional(),
+  /** projects matches the schematics owned by any of the given projects. */
+  projects: filter.listInputZ(project.keyZ).exactOptional(),
+  /** ranges matches the schematics owned by any of the given ranges. */
+  ranges: filter.listInputZ(ranger.keyZ).exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -103,5 +126,15 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ...options,
     })
     .transform((input) =>
-      filter.split(input, ["and", "or", "not", "key", "groups", "grouped"]),
+      filter.split(input, [
+        "and",
+        "or",
+        "not",
+        "key",
+        "snapshot",
+        "groups",
+        "grouped",
+        "projects",
+        "ranges",
+      ]),
     );

@@ -47,7 +47,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "test_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "retrieve_test",
       });
 
@@ -68,7 +69,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "cache_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "cached_table",
       });
 
@@ -220,7 +222,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "rename_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "original_name",
       });
 
@@ -251,7 +254,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "rename_cache_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "cache_original",
       });
 
@@ -282,7 +286,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "delete_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "delete_single",
       });
 
@@ -299,10 +304,12 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "delete_multi_project",
       });
-      const created1 = await client.tables.create(project.key, {
+      const created1 = await client.tables.create({
+        project: project.key,
         name: "delete_multi_1",
       });
-      const created2 = await client.tables.create(project.key, {
+      const created2 = await client.tables.create({
+        project: project.key,
         name: "delete_multi_2",
       });
 
@@ -324,7 +331,8 @@ describe("table queries", () => {
       const proj = await client.projects.create({
         name: `dispatch_ws_${uuid.create()}`,
       });
-      return await client.tables.create(proj.key, {
+      return await client.tables.create({
+        project: proj.key,
         name: "dispatch_test",
         rows: [{ key: "r0", size: 36, cells: ["a", "b"] }],
         columns: [
@@ -556,7 +564,8 @@ describe("table queries", () => {
       const proj = await client.projects.create({
         name: `ensure_ws_${uuid.create()}`,
       });
-      const created = await client.tables.create(proj.key, {
+      const created = await client.tables.create({
+        project: proj.key,
         name: "ensure_test",
         rows: [{ size: 30, cells: ["a"] }],
         columns: [{ size: 80 }],
@@ -573,7 +582,8 @@ describe("table queries", () => {
       const proj = await client.projects.create({
         name: `fastpath_ws_${uuid.create()}`,
       });
-      const created = await client.tables.create(proj.key, {
+      const created = await client.tables.create({
+        project: proj.key,
         name: "fastpath_test",
         rows: [{ size: 30, cells: ["a"] }],
         columns: [{ size: 80 }],
@@ -607,7 +617,8 @@ describe("table queries", () => {
       const proj = await client.projects.create({
         name: `selector_ws_${uuid.create()}`,
       });
-      return await client.tables.create(proj.key, {
+      return await client.tables.create({
+        project: proj.key,
         name: "selector_test",
         rows: [
           { key: "r0", size: 30, cells: ["a", "b"] },
@@ -855,7 +866,8 @@ describe("table queries", () => {
 
     const createTable = async () => {
       const proj = await client.projects.create({ name: `cell_form_${uuid.create()}` });
-      return await client.tables.create(proj.key, {
+      return await client.tables.create({
+        project: proj.key,
         name: "cell_form_test",
         rows: [{ key: "r0", size: 36, cells: ["a", "b"] }],
         columns: [

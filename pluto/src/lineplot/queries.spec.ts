@@ -35,7 +35,8 @@ describe("lineplot queries", () => {
       const project = await client.projects.create({
         name: "test_project",
       });
-      const plot = await client.lineplots.create(project.key, {
+      const plot = await client.lineplots.create({
+        project: project.key,
         name: "retrieve_test",
       });
 
@@ -56,7 +57,8 @@ describe("lineplot queries", () => {
       const project = await client.projects.create({
         name: "cache_project",
       });
-      const plot = await client.lineplots.create(project.key, {
+      const plot = await client.lineplots.create({
+        project: project.key,
         name: "cached_plot",
       });
 
@@ -132,7 +134,8 @@ describe("lineplot queries", () => {
       const project = await client.projects.create({
         name: "rename_project",
       });
-      const plot = await client.lineplots.create(project.key, {
+      const plot = await client.lineplots.create({
+        project: project.key,
         name: "original_name",
       });
 
@@ -166,7 +169,8 @@ describe("lineplot queries", () => {
       const project = await client.projects.create({
         name: "rename_cache_project",
       });
-      const plot = await client.lineplots.create(project.key, {
+      const plot = await client.lineplots.create({
+        project: project.key,
         name: "cache_original",
       });
 
@@ -197,7 +201,8 @@ describe("lineplot queries", () => {
       const project = await client.projects.create({
         name: "delete_project",
       });
-      const plot = await client.lineplots.create(project.key, {
+      const plot = await client.lineplots.create({
+        project: project.key,
         name: "delete_single",
       });
 
@@ -214,10 +219,12 @@ describe("lineplot queries", () => {
       const project = await client.projects.create({
         name: "delete_multi_project",
       });
-      const plot1 = await client.lineplots.create(project.key, {
+      const plot1 = await client.lineplots.create({
+        project: project.key,
         name: "delete_multi_1",
       });
-      const plot2 = await client.lineplots.create(project.key, {
+      const plot2 = await client.lineplots.create({
+        project: project.key,
         name: "delete_multi_2",
       });
 
@@ -239,7 +246,10 @@ describe("lineplot queries", () => {
       const proj = await client.projects.create({
         name: `dispatch_ws_${uuid.create()}`,
       });
-      return await client.lineplots.create(proj.key, { name: "dispatch_test" });
+      return await client.lineplots.create({
+        project: proj.key,
+        name: "dispatch_test",
+      });
     };
 
     const loadAndUse = async <T>(key: string, hook: () => T) => {
@@ -471,7 +481,10 @@ describe("lineplot queries", () => {
       const proj = await client.projects.create({
         name: `selector_ws_${uuid.create()}`,
       });
-      return await client.lineplots.create(proj.key, { name: "selector_test" });
+      return await client.lineplots.create({
+        project: proj.key,
+        name: "selector_test",
+      });
     };
 
     const loadAndUse = async <T>(key: string, hook: () => T) => {
@@ -939,7 +952,10 @@ describe("lineplot queries", () => {
       const proj = await client.projects.create({
         name: `stability_ws_${uuid.create()}`,
       });
-      return await client.lineplots.create(proj.key, { name: "stability_test" });
+      return await client.lineplots.create({
+        project: proj.key,
+        name: "stability_test",
+      });
     };
 
     const loadAndCount = async <T>(key: string, hook: () => T) => {

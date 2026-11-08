@@ -60,7 +60,8 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
         }
         const project = getSelectedProject();
         if (virtual) {
-          const { key } = await client.logs.create(project, {
+          const { key } = await client.logs.create({
+            project,
             name: "Log",
             channels: [{ channel: channelKey, color: color.ZERO }],
           });
@@ -68,7 +69,8 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
           openTab({ variant: "resource", resource: log.resourceID(key) });
           return;
         }
-        const { key } = await client.lineplots.create(project, {
+        const { key } = await client.lineplots.create({
+          project,
           name: "Line plot",
           channels: { y1: [channelKey] },
           ranges: [getSelectedRef()],

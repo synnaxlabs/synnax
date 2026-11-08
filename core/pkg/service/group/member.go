@@ -115,12 +115,11 @@ func CheckMember(
 // pinnedMember returns the first member of a pinned type that sits in the group with
 // key or in a group under it, or nil when there is none.
 func (w Writer) pinnedMember(ctx context.Context, key Key) (*resource.ID, error) {
-	deps, err := w.table.Dependents(ctx, w.tx, key)
+	deps, err := resource.Dependents(ctx, w.tx, w.table, key)
 	if err != nil {
 		return nil, err
 	}
-	for _, d := range deps {
-		id := resource.ID{Type: resource.Type(d.Table), Key: d.Key}
+	for _, id := range deps {
 		if id.Type != resource.TypeGroup {
 			if memberRules[id.Type].pinned {
 				return &id, nil
@@ -138,41 +137,128 @@ func (w Writer) pinnedMember(ctx context.Context, key Key) (*resource.ID, error)
 	return nil, nil
 }
 
-// checkMove returns a validation error when moving g under parent changes the top
-// parent of a group that holds a member of a pinned type.
-func (w Writer) checkMove(ctx context.Context, g Group, parent *resource.ID) error {
+// checkMove returns the top parent that moving g under parent gives g, and whether it
+// differs from the top parent g has now. It returns a validation error when the top
+// parent changes and g holds a member of a pinned type.
+func (w Writer) checkMove(
+	ctx context.Context,
+	g Group,
+	parent *resource.ID,
+) (*resource.ID, bool, error) {
 	before, err := topParent(ctx, w.tx, g)
 	if err != nil {
-		return err
+		return nil, false, err
 	}
-	after := parent
-	if parent != nil && parent.Type == resource.TypeGroup {
-		key, err := KeyFromResourceID(*parent)
-		if err != nil {
-			return validate.PathedError(err, "parent")
-		}
-		p, err := retrieveGroup(ctx, w.tx, key)
-		if err != nil {
-			return validate.PathedError(err, "parent")
-		}
-		if after, err = topParent(ctx, w.tx, p); err != nil {
-			return err
-		}
+	after, err := parentTop(ctx, w.tx, parent)
+	if err != nil {
+		return nil, false, err
 	}
 	if sameID(before, after) {
-		return nil
+		return after, false, nil
 	}
 	member, err := w.pinnedMember(ctx, g.Key)
-	if member == nil || err != nil {
-		return err
+	if err != nil {
+		return nil, false, err
 	}
-	return validate.PathedError(errors.Wrapf(
+	if member == nil {
+		return after, true, nil
+	}
+	return nil, false, validate.PathedError(errors.Wrapf(
 		validate.ErrValidation,
 		"cannot move group %s under a new top parent because it holds %s %s",
 		g.Name,
 		member.Type,
 		member.Key,
 	), "parent")
+}
+
+// parentTop returns the top parent that a group takes under parent.
+func parentTop(
+	ctx context.Context,
+	tx gorp.Tx,
+	parent *resource.ID,
+) (*resource.ID, error) {
+	if parent == nil || parent.Type != resource.TypeGroup {
+		return parent, nil
+	}
+	key, err := KeyFromResourceID(*parent)
+	if err != nil {
+		return nil, validate.PathedError(err, "parent")
+	}
+	p, err := retrieveGroup(ctx, tx, key)
+	if err != nil {
+		return nil, validate.PathedError(err, "parent")
+	}
+	return topParent(ctx, tx, p)
+}
+
+// SetParentObjects returns the top parents that moving the groups in gs under parent
+// needs update access on: for each group whose top parent the move changes, the top
+// parent it leaves and the one it joins. A nil top parent adds nothing.
+func SetParentObjects(
+	ctx context.Context,
+	tx gorp.Tx,
+	gs []Group,
+	parent *resource.ID,
+) ([]resource.ID, error) {
+	after, err := parentTop(ctx, tx, parent)
+	if err != nil {
+		return nil, err
+	}
+	var objects []resource.ID
+	add := func(id *resource.ID) {
+		if id != nil && !slices.Contains(objects, *id) {
+			objects = append(objects, *id)
+		}
+	}
+	for _, g := range gs {
+		before, err := topParent(ctx, tx, g)
+		if err != nil {
+			return nil, err
+		}
+		if !sameID(before, after) {
+			add(before)
+			add(after)
+		}
+	}
+	return objects, nil
+}
+
+// moveMembers passes the groups with keys and every group under them to the
+// MoveMembers hook, after those groups move under the top parent top.
+func (w Writer) moveMembers(ctx context.Context, keys []Key, top *resource.ID) error {
+	if w.onMove == nil || len(keys) == 0 {
+		return nil
+	}
+	groups := slices.Clone(keys)
+	for i := 0; i < len(groups); i++ {
+		deps, err := resource.Dependents(ctx, w.tx, w.table, groups[i])
+		if err != nil {
+			return err
+		}
+		for _, id := range deps {
+			if id.Type != resource.TypeGroup {
+				continue
+			}
+			child, err := KeyFromResourceID(id)
+			if err != nil {
+				return err
+			}
+			groups = append(groups, child)
+		}
+	}
+	return w.onMove(ctx, w.tx, groups, top)
+}
+
+// TopParent returns the parent of the group at the top of the chain that holds the
+// group with key, as seen by tx, or nil when that group has no parent. It returns a
+// validation error when no group has key.
+func TopParent(ctx context.Context, tx gorp.Tx, key Key) (*resource.ID, error) {
+	g, err := retrieveGroup(ctx, tx, key)
+	if err != nil {
+		return nil, err
+	}
+	return topParent(ctx, tx, g)
 }
 
 // retrieveGroup returns the group with key, or a validation error when it does not

@@ -28,6 +28,11 @@ const (
 	PathLogSetGroup             = "/log/set-group"
 	PathTableSetGroup           = "/table/set-group"
 	PathPanelSetGroup           = "/panel/set-group"
+	PathSchematicSetProject     = "/schematic/set-project"
+	PathLinePlotSetProject      = "/lineplot/set-project"
+	PathLogSetProject           = "/log/set-project"
+	PathTableSetProject         = "/table/set-project"
+	PathPanelSetProject         = "/panel/set-project"
 	PathStatusSet               = "/status/set"
 	PathLabelSet                = "/label/set"
 	PathLabelRemove             = "/label/remove"
@@ -52,6 +57,11 @@ func (l *Layer) batchRoutes() batch.Routes {
 		PathLogSetGroup:             batch.Route(l.Log.SetGroup),
 		PathTableSetGroup:           batch.Route(l.Table.SetGroup),
 		PathPanelSetGroup:           batch.Route(l.Panel.SetGroup),
+		PathSchematicSetProject:     batch.Route(l.Schematic.SetProject),
+		PathLinePlotSetProject:      batch.Route(l.LinePlot.SetProject),
+		PathLogSetProject:           batch.Route(l.Log.SetProject),
+		PathTableSetProject:         batch.Route(l.Table.SetProject),
+		PathPanelSetProject:         batch.Route(l.Panel.SetProject),
 		PathStatusSet:               batch.Route(l.Status.Set),
 		PathLabelSet:                batch.Route(l.Label.Add),
 		PathLabelRemove:             batch.Route(l.Label.Remove),

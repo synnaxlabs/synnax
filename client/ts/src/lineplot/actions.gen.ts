@@ -29,6 +29,7 @@ import {
   xAxisKeyZ,
   yAxisKeyZ,
 } from "@/lineplot/types.gen";
+import { project } from "@/project";
 import { ranger } from "@/ranger";
 
 /**
@@ -57,6 +58,16 @@ export const setGroupPayloadZ = z.object({
 });
 
 export type SetGroupPayload = z.infer<typeof setGroupPayloadZ>;
+
+/**
+ * SetProject moves the line plot into a project. Emitted by the Core when it moves the
+ * line plot; clients never dispatch it.
+ */
+export const setProjectPayloadZ = z.object({
+  project: project.keyZ,
+});
+
+export type SetProjectPayload = z.infer<typeof setProjectPayloadZ>;
 
 /** SetTitleVisible sets whether the plot title is shown above the plot. */
 export const setTitleVisiblePayloadZ = z.object({
@@ -359,6 +370,7 @@ export type Action =
   | { type: "create"; create: CreatePayload }
   | { type: "rename"; rename: RenamePayload }
   | { type: "set_group"; setGroup: SetGroupPayload }
+  | { type: "set_project"; setProject: SetProjectPayload }
   | { type: "set_title_visible"; setTitleVisible: SetTitleVisiblePayload }
   | { type: "set_title_level"; setTitleLevel: SetTitleLevelPayload }
   | { type: "set_legend_hidden"; setLegendHidden: SetLegendHiddenPayload }
@@ -399,6 +411,7 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("set_group"), setGroup: setGroupPayloadZ }),
+  z.object({ type: z.literal("set_project"), setProject: setProjectPayloadZ }),
   z.object({
     type: z.literal("set_title_visible"),
     setTitleVisible: setTitleVisiblePayloadZ,
@@ -493,6 +506,13 @@ export const setGroup = (payload: z.input<typeof setGroupPayloadZ>): Action => (
   type: "set_group",
   setGroup: zod.parse(setGroupPayloadZ, payload, {
     label: "line plot set_group action payload",
+  }),
+});
+
+export const setProject = (payload: z.input<typeof setProjectPayloadZ>): Action => ({
+  type: "set_project",
+  setProject: zod.parse(setProjectPayloadZ, payload, {
+    label: "line plot set_project action payload",
   }),
 });
 
@@ -770,6 +790,7 @@ export interface Handlers {
   create: (state: Draft<LinePlot>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<LinePlot>, payload: RenamePayload) => HandlerResult;
   setGroup: (state: Draft<LinePlot>, payload: SetGroupPayload) => HandlerResult;
+  setProject: (state: Draft<LinePlot>, payload: SetProjectPayload) => HandlerResult;
   setTitleVisible: (
     state: Draft<LinePlot>,
     payload: SetTitleVisiblePayload,
@@ -858,6 +879,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.rename(state, action.rename);
       case "set_group":
         return handlers.setGroup(state, action.setGroup);
+      case "set_project":
+        return handlers.setProject(state, action.setProject);
       case "set_title_visible":
         return handlers.setTitleVisible(state, action.setTitleVisible);
       case "set_title_level":

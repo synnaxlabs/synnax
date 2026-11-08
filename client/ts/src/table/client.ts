@@ -35,12 +35,14 @@ import {
   type Table,
   tableZ,
 } from "@/table/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/table/where.gen";
+import { type Lines, matches, retrieveInputZ, serverComputed } from "@/table/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_table_set";
 export const DELETE_CHANNEL_NAME = "sy_table_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
+
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
@@ -55,7 +57,6 @@ export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const createReqZ = z.object({
-  project: project.keyZ,
   dispatchKey: z.string(),
   tables: tableZ.array(),
 });
@@ -74,6 +75,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
   private readonly store: query.Table<Key, Table>;
   /** Builds requests that move tables between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move tables out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Table, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -103,8 +106,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (table, req) => matches(group.MEMBER_LINES, table, req.where),
-        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
+        matches: (table, req) => matches(LINES, table, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
@@ -112,21 +115,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     this.setGroupRequest = group.createMoveRequest("/table/set-group", (keys, to) =>
       group.moveCached(store, keys, to),
     );
+    this.setProjectRequest = project.createMoveRequest(
+      "/table/set-project",
+      (keys, to) => project.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 
+  async create(table: New, opts?: query.WriteOptions<Table[]>): Promise<Table>;
+  async create(tables: New[], opts?: query.WriteOptions<Table[]>): Promise<Table[]>;
   async create(
-    project: project.Key,
-    table: New,
-    opts?: query.WriteOptions<Table[]>,
-  ): Promise<Table>;
-  async create(
-    project: project.Key,
-    tables: New[],
-    opts?: query.WriteOptions<Table[]>,
-  ): Promise<Table[]>;
-  async create(
-    project: project.Key,
     tables: New | New[],
     opts: query.WriteOptions<Table[]> = {},
   ): Promise<Table | Table[]> {
@@ -143,7 +141,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
           async (dispatchKey) =>
             await this.cfg.unary.send(
               "/table/create",
-              { project, dispatchKey, tables: optimistic },
+              { dispatchKey, tables: optimistic },
               createReqZ,
               createResZ,
             ),

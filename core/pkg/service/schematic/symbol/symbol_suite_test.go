@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	. "github.com/synnaxlabs/x/testutil"
@@ -47,17 +46,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 	}))
-	panelSvc := MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
 	imexSvc = imex.NewService()
 	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
-		ImEx:     imexSvc,
-		Panel:    panelSvc,
 	}))
 	svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 		DB:       db,

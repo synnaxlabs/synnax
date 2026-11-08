@@ -26,7 +26,7 @@ const renderPanelTree = async (
   const pan = await client.panels.create({
     ...appearance,
     name: uniqueName("panel"),
-    parent: project.resourceID(key),
+    project: key,
   });
   await renderOntologyTree({
     client,

@@ -163,3 +163,25 @@ describe("setGroup", () => {
     expect(table.reduceAll(doc, [table.setGroup({ group: G1 })]).targets).toEqual([]);
   });
 });
+
+describe("setProject", () => {
+  const P1 = "11111111-1111-4111-8111-111111111111";
+  const P2 = "22222222-2222-4222-8222-222222222222";
+  it("should move the document into the project", () => {
+    const doc = table.tableZ.parse({ name: "Readings", project: P1 });
+    expect(
+      table.reduceAll(doc, [table.setProject({ project: P2 })]).next.project,
+    ).toEqual(P2);
+  });
+  it("should restore the previous project through its inverse", () => {
+    const doc = table.tableZ.parse({ name: "Readings", project: P1 });
+    const { next, inverse } = table.reduceAll(doc, [table.setProject({ project: P2 })]);
+    expect(table.reduceAll(next, inverse).next.project).toEqual(P1);
+  });
+  it("should target nothing, so it never enters the undo stack", () => {
+    const doc = table.tableZ.parse({ name: "Readings" });
+    expect(table.reduceAll(doc, [table.setProject({ project: P1 })]).targets).toEqual(
+      [],
+    );
+  });
+});

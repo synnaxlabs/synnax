@@ -29,10 +29,23 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// MoveMembers moves the records in groups that belong to the top parent of their group,
+// in tx, after groups move under the top parent top. groups holds each moved group and
+// every group under it.
+type MoveMembers func(
+	ctx context.Context,
+	tx gorp.Tx,
+	groups []Key,
+	top *resource.ID,
+) error
+
 type ServiceConfig struct {
 	alamos.Instrumentation
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
+	// MoveMembers runs in each write that moves groups under a new top parent. Nil
+	// means no record belongs to the top parent of its group.
+	MoveMembers MoveMembers
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -42,6 +55,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.MoveMembers = override.Nil(c.MoveMembers, other.MoveMembers)
 	return c
 }
 
@@ -117,6 +131,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		table:     s.table,
+		onMove:    s.cfg.MoveMembers,
 	}
 }
 
@@ -182,33 +197,7 @@ func (s *Service) Children(
 	tx gorp.Tx,
 	key Key,
 ) ([]resource.ID, error) {
-	deps, err := s.table.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), key)
-	if err != nil {
-		return nil, err
-	}
-	ids := make([]resource.ID, len(deps))
-	for i, d := range deps {
-		ids[i] = resource.ID{Type: resource.Type(d.Table), Key: d.Key}
-	}
-	return ids, nil
-}
-
-// TopParent returns the parent of the group at the top of the chain that holds the
-// group with key, or nil when that group has no parent. It returns query.ErrNotFound
-// when no group has key.
-func (s *Service) TopParent(
-	ctx context.Context,
-	tx gorp.Tx,
-	key Key,
-) (*resource.ID, error) {
-	var g Group
-	if err := s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&g).
-		Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	return topParent(ctx, gorp.OverrideTx(s.cfg.DB, tx), g)
+	return resource.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), s.table, key)
 }
 
 func (s *Service) Close() error {
@@ -223,6 +212,7 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	table     *gorp.Table[Key, Group]
+	onMove    MoveMembers
 }
 
 // inTx calls f with w, or with a Writer on a transaction of its own when w has no
@@ -280,8 +270,15 @@ func (w Writer) create(ctx context.Context, g *Group) error {
 
 // SetParent moves the groups with keys under parent, or to the top level when parent is
 // nil. Each group's scope must match the scope of parent. A group that holds a rack,
-// device, or project cannot move under a new top parent.
+// device, or project cannot move under a new top parent. A move under a new top parent
+// runs the MoveMembers hook.
 func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
+	return w.inTx(ctx, func(w Writer) error {
+		return w.setParent(ctx, parent, keys...)
+	})
+}
+
+func (w Writer) setParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
 	var scope resource.Type
 	if parent != nil {
 		var err error
@@ -289,11 +286,19 @@ func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key)
 			return err
 		}
 	}
-	return w.table.NewUpdate().
+	var (
+		top   *resource.ID
+		moved []Key
+	)
+	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Group](keys...)).
 		ChangeErr(func(ctx gorp.Context, g Group) (Group, error) {
-			if err := w.checkMove(ctx, g, parent); err != nil {
+			after, changed, err := w.checkMove(ctx, g, parent)
+			if err != nil {
 				return g, err
+			}
+			if changed {
+				top, moved = after, append(moved, g.Key)
 			}
 			g.Parent = parent
 			if parent == nil {
@@ -301,7 +306,10 @@ func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key)
 			}
 			return g, checkScope(g, scope)
 		}).
-		Exec(ctx, w.tx)
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	return w.moveMembers(ctx, moved, top)
 }
 
 // parentScope returns the scope a group takes under parent: the scope of a parent

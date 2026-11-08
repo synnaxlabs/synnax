@@ -11,6 +11,7 @@ package table
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -80,8 +81,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Tables  []table.Table `json:"tables"  msgpack:"tables"`
-		Project project.Key   `json:"project" msgpack:"project"`
+		Tables []table.Table `json:"tables" msgpack:"tables"`
 		// DispatchKey is stamped onto the create broadcasts so the sender skips its
 		// echo.
 		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
@@ -114,20 +114,37 @@ func (s *Service) Create(
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return CreateResponse{}, err
 	}
-	if err := enforcer.Enforce(ctx, access.Request{
+	owners, err := project.CreateObjects(
+		ctx,
+		tx,
+		resource.TypeTable,
+		req.Tables,
+		stored,
+		func(e table.Table) *group.Key { return e.Group },
+		func(e table.Table) *resource.ID {
+			return project.OwnerID(e.Project, e.Range)
+		},
+	)
+	if err != nil {
+		return CreateResponse{}, err
+	}
+	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			req.Tables,
-			stored,
-			func(e table.Table) *group.Key { return e.Group },
+		Objects: slices.Concat(
+			group.CreateObjects(
+				req.Tables,
+				stored,
+				func(e table.Table) *group.Key { return e.Group },
+			),
+			owners,
 		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
-		CreateMany(ctx, req.Project, &req.Tables); err != nil {
+		CreateMany(ctx, &req.Tables); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Tables: req.Tables}, nil
@@ -203,7 +220,8 @@ type SetGroupRequest struct {
 	Keys  []table.Key `json:"keys"  msgpack:"keys"`
 }
 
-// SetGroup moves the tables with the given keys into a group.
+// SetGroup moves the tables with the given keys into a group. A move into a group under
+// another project also requires update access on the stored owner and on that project.
 func (s *Service) SetGroup(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -227,5 +245,65 @@ func (s *Service) SetGroup(
 	}); err != nil {
 		return struct{}{}, err
 	}
+	projects, err := project.SetGroupObjects(
+		ctx,
+		tx,
+		req.Group,
+		resource.TypeTable,
+		lo.Map(tables, func(e table.Table, _ int) *resource.ID {
+			return project.OwnerID(e.Project, e.Range)
+		}),
+	)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: projects,
+	}); err != nil {
+		return struct{}{}, err
+	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
+}
+
+// SetProjectRequest moves tables into Project.
+type SetProjectRequest struct {
+	Project project.Key `json:"project" msgpack:"project"`
+	Keys    []table.Key `json:"keys"    msgpack:"keys"`
+}
+
+// SetProject moves the tables with the given keys out of their group and into a
+// project. It requires update access on the tables, their groups, their owners, and the
+// project.
+func (s *Service) SetProject(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetProjectRequest,
+) (struct{}, error) {
+	var stored []table.Table
+	if err := s.internal.NewRetrieve().
+		Where(table.MatchKeys(req.Keys...)).
+		Entries(&stored).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(
+			project.MoveObjects(
+				table.ResourceIDs(req.Keys),
+				lo.Map(stored, func(e table.Table, _ int) *resource.ID {
+					return project.OwnerID(e.Project, e.Range)
+				}),
+				new(project.ResourceID(req.Project)),
+			),
+			lo.Map(stored, func(e table.Table, _ int) *group.Key { return e.Group }),
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).
+		SetProject(ctx, req.Project, req.Keys...)
 }

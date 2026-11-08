@@ -29,9 +29,9 @@ func (*Service) Match(body map[string]any) bool {
 	return ok
 }
 
-// Import decodes env into a Log created under opts.Parent, which must be a project. The
-// key on the wire is discarded so every import mints a new resource. An unknown
-// envelope version is a path-scoped validation error.
+// Import decodes env into a Log created under opts.Parent, which must be a project. A
+// group must be in the parent project. The key on the wire is discarded so every import
+// mints a new resource. An unknown envelope version is a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -42,12 +42,17 @@ func (s *Service) Import(
 	if err != nil {
 		return resource.ID{}, validate.PathedError(err, "parent")
 	}
+	if err = project.ValidateGroup(
+		ctx, tx, proj, opts.Group, resource.TypeLog,
+	); err != nil {
+		return resource.ID{}, err
+	}
 	l, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
 		return resource.ID{}, err
 	}
-	l.Group = opts.Group
-	if err = s.NewWriter(tx).Create(ctx, proj, &l); err != nil {
+	l.Group, l.Project, l.Range = opts.Group, &proj, nil
+	if err = s.NewWriter(tx).Create(ctx, &l); err != nil {
 		return resource.ID{}, err
 	}
 	return l.ResourceID(), nil

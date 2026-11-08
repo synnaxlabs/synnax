@@ -19,6 +19,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import channel as channel_
 from synnax import group as group_
+from synnax import project as project_
+from synnax import ranger
 from synnax.resource import ID
 from synnax.schematic import symbol
 from x import border, filter, spatial, text
@@ -231,8 +233,11 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
+        snapshot: Selects by snapshot.
         groups: Matches the schematics in any of the given groups.
         grouped: Matches the schematics in a group, or in no group when false.
+        projects: Matches the schematics owned by any of the given projects.
+        ranges: Matches the schematics owned by any of the given ranges.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -241,10 +246,13 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
+    snapshot: filter.Bool | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
+    projects: list[project_.Key] | None = None
+    ranges: list[ranger.Key] | None = None
 
-    @field_validator("groups", mode="before")
+    @field_validator("groups", "projects", "ranges", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -259,8 +267,11 @@ WhereInput = TypedDict(
         "or": list["WhereInput"],
         "not": "WhereInput",
         "key": filter.SetInput[Key],
+        "snapshot": filter.BoolInput,
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
+        "projects": project_.Key | list[project_.Key],
+        "ranges": ranger.Key | list[ranger.Key],
     },
     total=False,
 )
@@ -1971,6 +1982,10 @@ class Schematic(BaseModel):
         configs: Contains per-element configuration keyed by node or edge key. The
             variant of each value selects the symbol or edge style it configures.
         group: Is the group the schematic sits in, if any.
+        project: Is the project that owns the schematic, if any. Exactly one of project
+            and range is set.
+        range: Is the range that owns the schematic, if any. Exactly one of project and
+            range is set.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -1980,6 +1995,8 @@ class Schematic(BaseModel):
     edges: list[Edge] = Field(default_factory=list)
     configs: dict[str, ElementConfig] = Field(default_factory=dict)
     group: group_.Key | None = None
+    project: project_.Key | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

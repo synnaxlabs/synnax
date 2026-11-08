@@ -24,8 +24,8 @@ var _ = Describe("Search", func() {
 	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	create := func(ctx SpecContext, name string) resource.ID {
 		GinkgoHelper()
-		p := lineplot.LinePlot{Name: name}
-		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &p)).To(Succeed())
+		p := lineplot.LinePlot{Project: &proj.Key, Name: name}
+		Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 		return lineplot.ResourceID(p.Key)
 	}
 
