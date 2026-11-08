@@ -49,7 +49,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	channelSvc = svc.Channel
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
 		DB:      db,
-		RBAC:    svc.RBAC,
 		Channel: svc.Channel,
 		Status:  svc.Status,
 		Alias:   svc.Alias,
