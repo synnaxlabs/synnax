@@ -33,8 +33,8 @@ type Sorted[S Scope, K comparable, V cmp.Ordered] struct {
 	// until the load finishes.
 	mu         sync.RWMutex
 	population population
-	// entries holds the committed mappings in ascending order. An insert costs a
-	// binary search and a slice shift.
+	// entries holds the committed mappings in ascending order. An insert costs a binary
+	// search and a slice shift.
 	entries     []Entry[K, V]
 	reverse     map[K]V
 	compareKeys func(a, b K) int
