@@ -149,7 +149,7 @@ interface SecretItemProps extends List.ItemProps<secret.Key> {
 const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
   const { itemKey } = rest;
   const s = List.useItem<secret.Key, secret.Secret>(itemKey);
-  const canUpdate = Access.useUpdateGranted(secret.ontologyID(itemKey));
+  const canUpdate = Access.useUpdateGranted(secret.resourceID(itemKey));
   const { update: rename } = Secret.useRename();
   const [element, setElement] = useState<HTMLElement | null>(null);
   if (s == null) return null;
@@ -191,7 +191,7 @@ interface CertificateItemProps extends List.ItemProps<certificate.Key> {
 const CertificateItem = ({ now, ...rest }: CertificateItemProps) => {
   const { itemKey } = rest;
   const c = List.useItem<certificate.Key, certificate.Certificate>(itemKey);
-  const canUpdate = Access.useUpdateGranted(certificate.ontologyID(itemKey));
+  const canUpdate = Access.useUpdateGranted(certificate.resourceID(itemKey));
   const { update: rename } = Certificate.useRename();
   if (c == null) return null;
   const { text, status } = Validity.describeCertificate(c, now);

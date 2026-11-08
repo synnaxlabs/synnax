@@ -51,7 +51,8 @@ BaseReadChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that samples are written to."
+        @doc value     "is the Synnax channel that samples are written to."
+        @ref on_delete restrict
     }
     address  uint16 = 0 {
         @doc value "is the Modbus address the channel reads from."
@@ -108,7 +109,8 @@ BaseWriteChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref on_delete restrict
     }
     address  uint16 = 0 {
         @doc value "is the Modbus address the channel writes to."
@@ -138,16 +140,18 @@ WriteChannel union on type extends BaseWriteChannel {
 
 ReadConfig struct extends task.ReadConfig {
     device   device.Key = "" {
-        @doc value "is the key of the device the task acquires from."
+        @doc value     "is the key of the device the task acquires from."
+        @ref on_delete restrict
     }
     channels ReadChannel[] {
         @doc value "are the channels the task acquires."
     }
 
-    @doc value  "configures a Modbus read task."
-    @go imex    body
+    @doc value           "configures a Modbus read task."
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 WriteConfig struct extends task.WriteConfig {
@@ -155,10 +159,11 @@ WriteConfig struct extends task.WriteConfig {
         @doc value "are the channels the task drives."
     }
 
-    @doc value  "configures a Modbus write task."
-    @go imex    body
+    @doc value           "configures a Modbus write task."
+    @go imex             body
     @go marshal
     @go migrate
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {

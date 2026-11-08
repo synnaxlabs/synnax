@@ -419,5 +419,7 @@ const browseSparkplugResultZ = z.object({
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: record.nullishToEmpty(),
-  statusData: z.union([browseResultZ, browseSparkplugResultZ]).nullish(),
+  statusData: z
+    .union([mqtt.sampleResultZ, browseResultZ, browseSparkplugResultZ])
+    .nullish(),
 } as const satisfies task.Schemas;

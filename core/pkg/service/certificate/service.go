@@ -16,8 +16,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -37,14 +35,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology holds a resource for each certificate.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
-	// Group holds the "Certificates" group, the default parent of every certificate.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Secret stores the private key of each certificate that has one.
 	//
 	// [REQUIRED]
@@ -82,8 +72,6 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
@@ -99,8 +87,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("certificate.service")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	v.NotNil("secret", c.Secret)
 	v.NotNil("status", c.Status)
 	v.NotNil("now", c.Now)
@@ -111,7 +97,6 @@ func (c ServiceConfig) Validate() error {
 // Service stores certificates, reads their details, and reports their expiry as
 // statuses.
 type Service struct {
-	group   group.Group
 	table   *gorp.Table[Key, Certificate]
 	indexes indexes
 	closer  xio.MultiCloser
@@ -128,21 +113,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.group, err = s.cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Certificates",
-		ontology.RootID,
-	); !ok(err, nil) {
-		return nil, err
-	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Certificate]{
 		DB:              s.cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s.cfg.Ontology.RegisterService(s)
 	if s.cfg.Signals != nil {
 		var sig io.Closer
 		if sig, err = s.cfg.Signals.PublishFromGorp(
@@ -184,13 +163,11 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:        tx,
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		group:     s.group,
-		table:     s.table,
-		secrets:   s.cfg.Secret.NewWriter(tx),
-		statuses:  s.cfg.Status.NewWriter(tx),
-		now:       s.cfg.Now,
+		tx:       tx,
+		table:    s.table,
+		secrets:  s.cfg.Secret.NewWriter(tx),
+		statuses: s.cfg.Status.NewWriter(tx),
+		now:      s.cfg.Now,
 	}
 }
 

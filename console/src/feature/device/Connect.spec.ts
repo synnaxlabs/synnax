@@ -13,6 +13,8 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
+import { EtherCAT } from "@/feature/ethercat";
+import { createSlaveDevice } from "@/feature/ethercat/testutil";
 import { LabJack } from "@/feature/labjack";
 import { createRunningRack, createTestDevice } from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
@@ -79,6 +81,23 @@ describe("Device.useConnectModal", () => {
       expect(await screen.findByText(found.name)).toBeTruthy();
     });
 
+    it("should configure a found EtherCAT slave in the EtherCAT form", async () => {
+      const rack = await createRunningRack(client, EtherCAT.Device.HARDWARE.key);
+      const found = await createSlaveDevice(
+        client,
+        rack.key,
+        { name: uniqueName("slave"), network: "eth0" },
+        false,
+      );
+      await open({ integration: EtherCAT.Device.HARDWARE.key, rack: rack.key });
+      await screen.findByText(found.name);
+      fireEvent.click(findButton("Configure"));
+      expect(await screen.findByText("General")).toBeTruthy();
+      expect(findButton("Save and create read task")).toBeTruthy();
+      fireEvent.click(findButton("Back"));
+      expect(await screen.findByText(found.name)).toBeTruthy();
+    });
+
     it("should explain a scoped Driver that does not run the integration", async () => {
       const rack = await createRunningRack(client, "opc");
       await open({ integration: "labjack", rack: rack.key });
@@ -116,7 +135,7 @@ describe("Device.useConnectModal", () => {
           variant: "error",
           message: "Failed to start scan task",
           description: "LJM library not found",
-          details: { task: scanner.key, rack: rack.key },
+          details: { rack: rack.key },
         }),
       });
       await open({ integration: "labjack", rack: rack.key });

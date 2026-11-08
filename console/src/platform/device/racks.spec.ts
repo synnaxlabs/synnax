@@ -18,11 +18,7 @@ const createRack = (key: rack.Key, integrations: string[], running: boolean) =>
     name: `Rack ${key}`,
     integrations,
     status: running
-      ? status.create<typeof rack.statusDetailsZ>({
-          variant: "success",
-          message: "Running",
-          details: { rack: key },
-        })
+      ? status.create({ variant: "success", message: "Running" })
       : undefined,
   });
 
@@ -55,6 +51,21 @@ describe("getBlockedReason", () => {
       const racks = [createRack(1, ["opc"], false), createRack(2, ["opc"], true)];
       expect(Device.getBlockedReason(racks, { ...OPC, rack: 1 })).toBe(
         "Rack 1 is not running",
+      );
+    });
+
+    it("should name the error of a rack whose Driver reports one", () => {
+      const r = rack.payloadZ.parse({
+        key: 1,
+        name: "Rack 1",
+        integrations: ["opc"],
+        status: status.create({
+          variant: "error",
+          message: "Driver 0.59.3 cannot work with Core 0.60.1",
+        }),
+      });
+      expect(Device.getBlockedReason([r], { ...OPC, rack: 1 })).toBe(
+        "Driver 0.59.3 cannot work with Core 0.60.1",
       );
     });
 

@@ -15,9 +15,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -28,8 +28,9 @@ import (
 
 var _ = Describe("Dispatch", Ordered, func() {
 	var (
-		db  *gorp.DB
-		svc *status.Service
+		db    *gorp.DB
+		svc   *status.Service
+		racks *gorp.Table[rack.Key, rack.Rack]
 	)
 	// setStatus writes st in its own transaction, the way a caller outside an existing
 	// operation does.
@@ -42,15 +43,15 @@ var _ = Describe("Dispatch", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db, Ontology: otg,
+		// Status labels reference the label table, so it must be open.
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB: db,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB: db, Ontology: otg, Group: g,
+		racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
+			DB: db, Name: string(resource.TypeRack),
 		}))
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB: db, Ontology: otg, Group: g, Label: labelSvc,
+			DB: db,
 		}))
 	})
 
@@ -389,21 +390,23 @@ var _ = Describe("Dispatch", Ordered, func() {
 		It(
 			"Should return the status of each resource in order, nil for a missing one",
 			func(ctx SpecContext) {
-				stored := ontology.ID{Type: "rack", Key: "join_stored"}
-				missing := ontology.ID{Type: "rack", Key: "join_missing"}
+				r := rack.Rack{Key: 65537, Name: "stored"}
+				Expect(racks.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
+				stored := r.ResourceID()
+				missing := rack.Key(65538).ResourceID()
 				Expect(setStatus(ctx, &status.Status[any]{
-					Key:     stored.String(),
+					Owner:   &stored,
 					Name:    "stored",
 					Variant: status.VariantSuccess,
 					Message: "running",
 					Time:    telem.Now(),
 				})).To(Succeed())
 				joined := MustSucceed(
-					svc.Join[any](ctx, nil, []ontology.ID{missing, stored}),
+					svc.Join[any](ctx, nil, []resource.ID{missing, stored}),
 				)
 				Expect(joined).To(HaveLen(2))
 				Expect(joined[0]).To(BeNil())
-				Expect(joined[1].Key).To(Equal(stored.String()))
+				Expect(joined[1].Owner).To(HaveValue(Equal(stored)))
 				Expect(joined[1].Message).To(Equal("running"))
 			},
 		)

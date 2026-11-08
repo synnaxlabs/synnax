@@ -21,8 +21,8 @@ interface Retrievable {
 
 /** Returns which of secrets and certificates the user can retrieve. */
 export const useRetrievable = (): Retrievable => {
-  const secrets = Access.useRetrieveGranted(secret.TYPE_ONTOLOGY_ID);
-  const certificates = Access.useRetrieveGranted(certificate.TYPE_ONTOLOGY_ID);
+  const secrets = Access.useRetrieveGranted(secret.TYPE_RESOURCE_ID);
+  const certificates = Access.useRetrieveGranted(certificate.TYPE_RESOURCE_ID);
   return { secrets, certificates };
 };
 

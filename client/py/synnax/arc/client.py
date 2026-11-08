@@ -32,9 +32,9 @@ from synnax.arc.types_gen import (
     Type,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -60,16 +60,16 @@ class Automation(AutomationPayload):
     """
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
 
 class Module(ModulePayload):
     """An Arc that holds code for other Arcs to import."""
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
 
 Arc = Automation | Module
@@ -254,19 +254,16 @@ class Client:
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
         )
-        res = self._client.send(
-            "/arc/retrieve",
-            RetrieveRequest(
-                where=request_where(Where, filter.merge(where, flat), fields),
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-                include_program=include_program,
-            ),
-            RetrieveResponse,
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
+            include_program=include_program,
         )
+        res = self._client.send("/arc/retrieve", req, RetrieveResponse)
         arcs = self._sugar(res.arcs)
-        return sole("Arc", fields, arcs) if single else arcs
+        return sole("Arc", req, arcs) if single else arcs
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)

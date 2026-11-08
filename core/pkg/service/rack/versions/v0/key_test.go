@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // key composes node 3 in the upper 16 bits and local key 7 in the lower 16.
@@ -27,10 +27,10 @@ var _ = Describe("Key", func() {
 		})
 	})
 
-	Describe("OntologyID", func() {
-		It("Should return the rack ontology identifier", func() {
-			Expect(key.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeRack,
+	Describe("ResourceID", func() {
+		It("Should return the rack resource identifier", func() {
+			Expect(key.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeRack,
 				Key:  "196615",
 			}))
 		})

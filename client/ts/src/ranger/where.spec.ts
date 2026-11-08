@@ -11,19 +11,15 @@ import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { ranger } from "@/ranger";
-import { createLines } from "@/ranger/where";
+import { LINES } from "@/ranger/where";
 import { matches, retrieveInputZ, serverComputed } from "@/ranger/where.gen";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
-
-const lines = createLines(
-  (r, keys) => r.labels?.some((l) => keys.includes(l.key)) ?? false,
-);
 
 describe("Where", () => {
   itMatchesVectors(
     readVectors("ranges", ranger.payloadZ, ranger.whereZ),
-    (r, where) => matches(lines, r, where),
-    (where) => serverComputed(lines, where),
+    (r, where) => matches(LINES, r, where),
+    (where) => serverComputed(LINES, where),
   );
 });
 
@@ -64,13 +60,10 @@ describe("retrieveInputZ", () => {
   });
 
   it("should split the options from the fields", () => {
-    expect(
-      inputZ.parse({ name: "a", limit: 2, offset: 1, includeLabels: true }),
-    ).toEqual({
+    expect(inputZ.parse({ name: "a", limit: 2, offset: 1 })).toEqual({
       where: { name: { eq: "a" } },
       limit: 2,
       offset: 1,
-      includeLabels: true,
     });
   });
 

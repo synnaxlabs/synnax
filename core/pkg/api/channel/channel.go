@@ -23,9 +23,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -121,8 +121,12 @@ func (s *Service) RetrieveDataTypes(
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	return lo.Map(channels, func(ch channel.Channel, _ int) telem.DataType {
-		return ch.DataType
+	dataTypes := make(map[channel.Key]telem.DataType, len(channels))
+	for _, ch := range channels {
+		dataTypes[ch.Key()] = ch.DataType
+	}
+	return lo.Map(keys, func(k channel.Key, _ int) telem.DataType {
+		return dataTypes[k]
 	}), nil
 }
 
@@ -165,10 +169,32 @@ func (s *Service) Create(
 	for i := range translated {
 		translated[i].Internal = false
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeChannel}},
+		Objects: []resource.ID{{Type: resource.TypeChannel}},
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	var stored []channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(lo.Map(
+			translated,
+			func(ch channel.Channel, _ int) channel.Key { return ch.Key() },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return CreateResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.CreateObjects(
+			translated,
+			stored,
+			func(ch channel.Channel) *group.Key { return ch.Group },
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -240,14 +266,14 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	res := RetrieveResponse{Channels: translateChannelsForward(resChannels)}
-	ids := channel.OntologyIDsFromChannels(resChannels)
+	ids := channel.ResourceIDsFromChannels(resChannels)
 	objects := ids
 	if req.RangeKey != nil {
 		aliased, err := s.fillAliases(ctx, *req.RangeKey, res.Channels)
 		if err != nil {
 			return RetrieveResponse{}, err
 		}
-		objects = append(objects, alias.OntologyIDs(*req.RangeKey, aliased)...)
+		objects = append(objects, alias.ResourceIDs(*req.RangeKey, aliased)...)
 	}
 	if req.Request.IncludeStatus {
 		statuses, err := s.status.Join[struct{}](ctx, nil, ids)
@@ -339,6 +365,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
+			Group:       ch.Group,
 		}
 	}
 	return translated
@@ -362,6 +389,7 @@ func translateChannelsBackward(
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
+			Group:       ch.Group,
 		}
 		if ch.IsIndex {
 			tCh.LocalIndex = tCh.LocalKey
@@ -387,7 +415,7 @@ func (s *Service) Delete(
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionDelete,
-			Objects: channel.OntologyIDsFromKeys(req.Keys),
+			Objects: channel.ResourceIDsFromKeys(req.Keys),
 		}); err != nil {
 			return struct{}{}, err
 		}
@@ -398,7 +426,7 @@ func (s *Service) Delete(
 	if len(req.Names) > 0 {
 		res := make([]channel.Channel, 0, len(req.Names))
 		if err := s.internal.NewRetrieve().
-			Where(channel.MatchNamePatterns(req.Names...)).
+			Where(channel.MatchNames(req.Names...)).
 			Entries(&res).
 			Exec(ctx, tx); err != nil {
 			return struct{}{}, err
@@ -406,11 +434,11 @@ func (s *Service) Delete(
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionDelete,
-			Objects: channel.OntologyIDsFromChannels(res),
+			Objects: channel.ResourceIDsFromChannels(res),
 		}); err != nil {
 			return struct{}{}, err
 		}
-		return struct{}{}, w.DeleteManyByNamePatterns(ctx, req.Names, false)
+		return struct{}{}, w.DeleteManyByNames(ctx, req.Names, false)
 	}
 	return struct{}{}, nil
 }
@@ -428,7 +456,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: channel.OntologyIDsFromKeys(req.Keys),
+		Objects: channel.ResourceIDsFromKeys(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -437,23 +465,38 @@ func (s *Service) Rename(
 	)
 }
 
-type RetrieveGroupRequest struct{}
-
-type RetrieveGroupResponse struct {
-	Group group.Group `json:"group" msgpack:"group"`
+// SetGroupRequest moves channels into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key    `json:"group" msgpack:"group"`
+	Keys  []channel.Key `json:"keys"  msgpack:"keys"`
 }
 
-func (s *Service) RetrieveGroup(
+// SetGroup moves the channels with the given keys into a group.
+func (s *Service) SetGroup(
 	ctx context.Context,
-	_ RetrieveGroupRequest,
-) (RetrieveGroupResponse, error) {
-	g := s.internal.Group()
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{g.OntologyID()},
-	}); err != nil {
-		return RetrieveGroupResponse{}, err
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	var channels []channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(req.Keys...)).
+		Entries(&channels).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
 	}
-	return RetrieveGroupResponse{Group: g}, nil
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(
+			channel.ResourceIDsFromKeys(req.Keys),
+			lo.Map(
+				channels,
+				func(e channel.Channel, _ int) *group.Key { return e.Group },
+			),
+			req.Group,
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

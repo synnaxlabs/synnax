@@ -210,8 +210,8 @@ describe("secret/Toolbar", () => {
   it("offers no replacement to a user who cannot create secrets", async () => {
     const s = await createSecret();
     const editor = await createTestClientWithGrants(client, {
-      retrieve: [secret.TYPE_ONTOLOGY_ID],
-      update: [secret.TYPE_ONTOLOGY_ID],
+      retrieve: [secret.TYPE_RESOURCE_ID],
+      update: [secret.TYPE_RESOURCE_ID],
     });
     await renderToolbar(editor);
     await openMenu(s.name);
@@ -241,8 +241,8 @@ describe("secret/Toolbar", () => {
     });
     expect(failed.message).toBe("Failed to delete secret");
     expect(failed.description).toBe(
-      `cannot delete secret "${privateKey.name}" because certificate ` +
-        `"${c.name}" uses it: validation error`,
+      `cannot delete secret ${privateKey.name} because certificate ${c.name} ` +
+        "uses it as its private_key: validation error",
     );
     expect(await client.secrets.retrieve(privateKey.key)).toEqual(privateKey);
   });
@@ -315,7 +315,7 @@ describe("secret/Toolbar", () => {
   it("lists only certificates to a user who cannot read secrets", async () => {
     const { certificate: c, privateKey } = await createCertificate();
     const reader = await createTestClientWithGrants(client, {
-      retrieve: [certificate.TYPE_ONTOLOGY_ID],
+      retrieve: [certificate.TYPE_RESOURCE_ID],
     });
     await renderToolbar(reader);
     await screen.findByText(c.name);
@@ -327,7 +327,7 @@ describe("secret/Toolbar", () => {
     assertDefined(Secret.TOOLBAR.useVisible);
     const { result } = await renderHookWithConsole(Secret.TOOLBAR.useVisible, {
       client: await createTestClientWithGrants(client, {
-        retrieve: [certificate.TYPE_ONTOLOGY_ID],
+        retrieve: [certificate.TYPE_RESOURCE_ID],
       }),
     });
     await waitFor(() => expect(result.current).toBe(true));
@@ -339,7 +339,7 @@ describe("secret/Toolbar", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: useVisible(),
-        resolved: Access.useRetrieveGranted(user.TYPE_ONTOLOGY_ID),
+        resolved: Access.useRetrieveGranted(user.TYPE_RESOURCE_ID),
       }),
       { client: await createTestClientWithGrants(client) },
     );
@@ -349,7 +349,7 @@ describe("secret/Toolbar", () => {
 
   it("offers to create a secret when there are no credentials", async () => {
     const creator = await createTestClientWithGrants(client, {
-      create: [secret.TYPE_ONTOLOGY_ID],
+      create: [secret.TYPE_RESOURCE_ID],
     });
     await renderToolbar(creator);
     await screen.findByText("No credentials");
@@ -359,7 +359,7 @@ describe("secret/Toolbar", () => {
 
   it("offers no create action to a user who cannot create secrets", async () => {
     const outsider = await createTestClientWithGrants(client);
-    await awaitGranted(outsider, user.TYPE_ONTOLOGY_ID, "retrieve");
+    await awaitGranted(outsider, user.TYPE_RESOURCE_ID, "retrieve");
     await renderToolbar(outsider);
     await screen.findByText("No credentials");
     expect(screen.queryByText("Create secret")).toBeNull();

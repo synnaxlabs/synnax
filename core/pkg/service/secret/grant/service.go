@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -116,7 +116,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) Redeem(
 	ctx context.Context,
 	key Key,
-	subject ontology.ID,
+	subject resource.ID,
 ) (Grant, error) {
 	s.redeem.Lock()
 	defer s.redeem.Unlock()

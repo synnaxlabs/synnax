@@ -19,6 +19,20 @@
 #include "driver/http/read_task.h"
 
 namespace driver::http {
+namespace {
+bool is_absent(
+    const x::json::json &body,
+    const x::json::json::json_pointer &pointer,
+    const x::telem::DataType &data_type
+) {
+    if (!body.contains(pointer)) return true;
+    const auto &value = body.at(pointer);
+    if (value.is_null()) return true;
+    return data_type != x::telem::STRING_T && value.is_string() &&
+           value.get_ref<const std::string &>().empty();
+}
+}
+
 std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
@@ -55,6 +69,12 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                     );
                     fmt_err)
                     parser.field_err("endpoints.fields.time_format", fmt_err);
+
+            if (field.fill_value.has_value() && !field.optional)
+                parser.field_err(
+                    "endpoints.fields.fill_value",
+                    "a fill value needs an optional field"
+                );
 
             std::set<std::string> labels;
             for (const auto &entry: field.enum_values)
@@ -127,6 +147,46 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                 continue;
             }
 
+            if (field.optional && ch.is_index) {
+                parser.field_err(
+                    "endpoints.fields.optional",
+                    "channel " + ch.name +
+                        " is an index channel, so it cannot be optional"
+                );
+                continue;
+            }
+
+            if (field.fill_value.has_value()) {
+                x::json::EnumMap enum_values;
+                for (const auto &entry: field.enum_values)
+                    enum_values.emplace(entry.label, entry.value);
+                auto [fill, fill_err] = x::json::to_sample_value(
+                    field.fill_value.value(),
+                    dt,
+                    field.time_format.has_value()
+                        ? x::json::parse_time_format(field.time_format.value()).first
+                        : x::json::TimeFormat::ISO8601,
+                    enum_values.empty() ? nullptr : &enum_values
+                );
+                if (fill_err) {
+                    parser.field_err(
+                        "endpoints.fields.fill_value",
+                        "channel " + ch.name + ": " + fill_err.data
+                    );
+                    continue;
+                }
+                cfg.fill_values.emplace(field.channel, std::move(fill));
+            } else if (
+                field.optional && dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T
+            ) {
+                parser.field_err(
+                    "endpoints.fields.fill_value",
+                    "channel " + ch.name + " has data type " + dt.name() +
+                        ", so an optional field needs a fill value"
+                );
+                continue;
+            }
+
             if (ch.index == 0) continue;
             const auto idx_key = ch.index;
             if (enabled_field_keys.contains(idx_key)) continue;
@@ -172,6 +232,10 @@ ReadTaskSource::ReadTaskSource(
             GroupField gf;
             gf.channel = field.channel;
             gf.pointer = x::json::json::json_pointer(field.pointer);
+            gf.optional = field.optional;
+            if (const auto fill = this->cfg.fill_values.find(field.channel);
+                fill != this->cfg.fill_values.end())
+                gf.fill_value = fill->second;
             if (field.time_format.has_value())
                 if (auto [fmt, fmt_err] = x::json::parse_time_format(
                         *field.time_format
@@ -331,6 +395,19 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
         for (const auto &field: group.fields) {
             const auto &ch = this->cfg.channels.at(field.channel);
+            if (field.optional && is_absent(body, field.pointer, ch.data_type)) {
+                group_data.emplace_back(
+                    field.channel,
+                    x::telem::Series(
+                        field.fill_value.has_value()
+                            ? *field.fill_value
+                            : ch.data_type.cast(
+                                  std::numeric_limits<double>::quiet_NaN()
+                              )
+                    )
+                );
+                continue;
+            }
             x::telem::SampleValue sample_val;
             std::string warning;
             if (!body.contains(field.pointer))

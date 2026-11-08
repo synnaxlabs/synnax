@@ -123,7 +123,7 @@ var _ = Describe("Completion", func() {
 			openDoc(ctx, "file:///domain.oracle", "  @\n")
 			list := completionFor(ctx, "file:///domain.oracle", 0, 3)
 			Expect(labels(list.Items)).To(ContainElements(
-				"key", "validate", "ontology", "doc", "go", "ts", "py", "cpp",
+				"key", "validate", "resource", "doc", "go", "ts", "py", "cpp",
 				"pb", "filter", "response", "include",
 			))
 		})
@@ -161,12 +161,12 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
-	Describe("Ontology Expression Completions", func() {
+	Describe("Resource Expression Completions", func() {
 		It(
-			"should return ontology expressions inside ontology domain",
+			"should return resource expressions inside resource domain",
 			func(ctx SpecContext) {
-				openDoc(ctx, "file:///ontology-domain.oracle", "  @ontology \n")
-				list := completionFor(ctx, "file:///ontology-domain.oracle", 0, 12)
+				openDoc(ctx, "file:///resource-domain.oracle", "  @resource \n")
+				list := completionFor(ctx, "file:///resource-domain.oracle", 0, 12)
 				Expect(labels(list.Items)).To(ContainElement("type"))
 			},
 		)

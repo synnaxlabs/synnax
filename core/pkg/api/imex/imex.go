@@ -19,8 +19,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
@@ -116,7 +117,7 @@ type (
 	// ImportRequest is the request type for the Import endpoint.
 	ImportRequest = imex.Envelope
 	// ImportResponse is the response type for the Import endpoint.
-	ImportResponse = ontology.ID
+	ImportResponse = resource.ID
 )
 
 // Import imports a resource from an envelope.
@@ -144,14 +145,21 @@ func (s *Service) Import(
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
+		Objects: []resource.ID{{Type: resourceType, Key: ""}},
 	}); err != nil {
 		return ImportResponse{}, err
+	}
+	var updated []resource.ID
+	if !opts.Parent.IsZero() {
+		updated = append(updated, opts.Parent)
+	}
+	if opts.Group != nil {
+		updated = append(updated, group.ResourceID(*opts.Group))
 	}
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{opts.Parent},
+		Objects: updated,
 	}); err != nil {
 		return ImportResponse{}, err
 	}
@@ -165,13 +173,17 @@ func (s *Service) Import(
 type importParams struct {
 	// FileName is the name of the file the envelope was read from, e.g. "table.json".
 	FileName string `json:"file_name"`
-	// Parent carries the compact "type:key" string form clients send.
+	// Parent carries the compact "type:key" string form clients send, or is empty for
+	// none.
 	Parent string `json:"parent"`
+	// Group is the group to put the imported resource in, or nil for none.
+	Group *group.Key `json:"group"`
 }
 
 // parseImportOptions decodes the required "params" request param — a JSON object
-// carrying the out-of-band import options. A missing param, malformed JSON, or a
-// missing or invalid field returns a validation error scoped to the offending field.
+// carrying the out-of-band import options. A missing param, malformed JSON, a missing
+// file name, or an invalid field returns a validation error scoped to the offending
+// field.
 func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 	v, ok := freighter.MDFromContext(ctx).Get("params")
 	s, isStr := v.(string)
@@ -193,13 +205,11 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 			validate.ErrRequired, "file_name",
 		)
 	}
+	opts := imex.ImportOptions{FileName: params.FileName, Group: params.Group}
 	if params.Parent == "" {
-		return imex.ImportOptions{}, validate.PathedError(
-			validate.ErrRequired,
-			"parent",
-		)
+		return opts, nil
 	}
-	parent, err := ontology.ParseID(params.Parent)
+	parent, err := resource.ParseID(params.Parent)
 	if err != nil {
 		return imex.ImportOptions{}, validate.PathedError(err, "parent")
 	}
@@ -209,12 +219,13 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 			"parent",
 		)
 	}
-	return imex.ImportOptions{FileName: params.FileName, Parent: parent}, nil
+	opts.Parent = parent
+	return opts, nil
 }
 
 type (
 	// ExportRequest is the request type for the Export endpoint.
-	ExportRequest = ontology.ID
+	ExportRequest = resource.ID
 	// ExportResponse is the response type for the Export endpoint.
 	ExportResponse = imex.Envelope
 )
@@ -227,7 +238,7 @@ func (s *Service) Export(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{req},
+		Objects: []resource.ID{req},
 	}); err != nil {
 		return ExportResponse{}, err
 	}

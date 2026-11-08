@@ -10,6 +10,8 @@
 package index_test
 
 import (
+	"sync/atomic"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
@@ -1450,4 +1452,78 @@ var _ = Describe("Domain", func() {
 			})
 		})
 	}
+})
+
+// failReadFS fails only the ReadAt of a data file whose number is failAt, counting from
+// one.
+type failReadFS struct {
+	xfs.FS
+	reads  atomic.Int64
+	failAt int64
+}
+
+func (fs *failReadFS) Open(name string, flag int) (xfs.File, error) {
+	f, err := fs.FS.Open(name, flag)
+	if err != nil || name == "index.domain" {
+		return f, err
+	}
+	return &failReadFile{File: f, fs: fs}, nil
+}
+
+type failReadFile struct {
+	xfs.File
+	fs *failReadFS
+}
+
+func (f *failReadFile) ReadAt(p []byte, off int64) (int, error) {
+	if f.fs.reads.Add(1) == f.fs.failAt {
+		return 0, ErrFault
+	}
+	return f.File.ReadAt(p, off)
+}
+
+var _ = Describe("Domain lookup errors", func() {
+	var (
+		fs  *failReadFS
+		idx *index.Domain
+	)
+	BeforeEach(func(ctx SpecContext) {
+		fs = &failReadFS{FS: MustSucceed(xfs.NewMem().Sub("index"))}
+		db := MustOpen(domain.Open(domain.Config{
+			FS:              fs,
+			Instrumentation: PanicLogger(),
+		}))
+		Expect(testutil.WriteDomain(
+			ctx,
+			db,
+			(1 * telem.SecondTS).Range(2*telem.SecondTS+1),
+			telem.NewSeriesSecondsTSV(1, 2).Data,
+		)).To(Succeed())
+		idx = &index.Domain{DB: db}
+		fs.reads.Store(0)
+	})
+
+	It("Should return a zero distance when a read fails", func(ctx SpecContext) {
+		fs.failAt = 2
+		Expect(idx.Distance(
+			ctx,
+			(1 * telem.SecondTS).Range(2*telem.SecondTS+1),
+			index.MustBeContinuous,
+		)).Error().To(MatchError(ErrFault))
+	})
+
+	It("Should return a zero stamp when a read fails", func(ctx SpecContext) {
+		fs.failAt = 3
+		Expect(idx.Stamp(ctx, 1*telem.SecondTS, 1, index.MustBeContinuous)).
+			Error().To(MatchError(ErrFault))
+	})
+
+	It(
+		"Should return the error of a failed search for a zero offset",
+		func(ctx SpecContext) {
+			fs.failAt = 1
+			Expect(idx.Stamp(ctx, 1*telem.SecondTS, 0, index.MustBeContinuous)).
+				Error().To(MatchError(ErrFault))
+		},
+	)
 })
