@@ -552,7 +552,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryReadsTheSIIWithoutSyncManagerTypes) {
 }
 
 /// @brief it should read the PDOs in the SII of a CoE slave that fails to give its PDO
-/// layout, as SOEM maps the slave from its SII.
+/// layout, as SOEM maps the slave from its SII, and keep the error of the CoE read.
 TEST_F(SOEMMasterTest, CoEDiscoveryFallsBackToTheSIIOnAFailedRead) {
     MockSlaveInfo slave;
     slave.state = EC_STATE_PRE_OP;
@@ -577,7 +577,11 @@ TEST_F(SOEMMasterTest, CoEDiscoveryFallsBackToTheSIIOnAFailedRead) {
 
     ASSERT_EQ(slaves[0].properties.input_pdos.size(), 1);
     EXPECT_EQ(slaves[0].properties.input_pdos[0].index, 0x6000);
-    EXPECT_TRUE(slaves[0].status.pdo_discovery_error.empty());
+    EXPECT_EQ(
+        slaves[0].status.pdo_discovery_error,
+        "failed to read the PDO layout: failed to read 0x1A00:00: Object does not "
+        "exist in the object dictionary, so the Driver uses the PDOs in its SII"
+    );
 }
 
 /// @brief it should report why a CoE slave failed to give its PDO layout when its SII

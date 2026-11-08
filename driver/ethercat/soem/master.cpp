@@ -656,14 +656,13 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     if (props.input_pdos.empty() && props.output_pdos.empty())
         this->discover_pdos_sii(slave);
     if (layout_err) {
-        const auto msg = "failed to read the PDO layout: " + layout_err.data;
+        auto &msg = slave.status.pdo_discovery_error;
+        msg = "failed to read the PDO layout: " + layout_err.data;
         if (props.input_pdos.empty() && props.output_pdos.empty()) {
-            slave.status.pdo_discovery_error = msg;
             esi::fill(slave);
             return;
         }
-        LOG(WARNING) << "[ethercat] slave " << pos << " (" << props.name << "): " << msg
-                     << ", using the PDOs in its SII";
+        msg += ", so the Driver uses the PDOs in its SII";
     }
     slave.status.pdos_discovered = true;
     esi::fill(slave);
