@@ -27,6 +27,7 @@ var errRefused = errors.New("refused")
 func refuse(func() error) error { return errRefused }
 
 func set(ctx context.Context, db kv.DB, key string) error {
+	GinkgoHelper()
 	tx := db.OpenTx()
 	defer func() { Expect(tx.Close()).To(Succeed()) }()
 	Expect(tx.Set(ctx, []byte(key), []byte("value"))).To(Succeed())
@@ -34,6 +35,7 @@ func set(ctx context.Context, db kv.DB, key string) error {
 }
 
 func stored(ctx context.Context, db kv.DB, key string) bool {
+	GinkgoHelper()
 	_, closer, err := db.Get(ctx, []byte(key))
 	if errors.Is(err, query.ErrNotFound) {
 		return false
@@ -92,9 +94,9 @@ var _ = Describe("DB", func() {
 				Eventually(held).Should(BeClosed())
 				Consistently(first).ShouldNot(Receive())
 				Expect(stored(ctx, db, "mark-1")).To(BeFalse())
+				Expect(set(ctx, db, "mark-2")).To(Succeed())
 				close(release)
 				Eventually(first).Should(Receive(BeNil()))
-				Expect(set(ctx, db, "mark-2")).To(Succeed())
 				Expect(stored(ctx, db, "mark-1")).To(BeTrue())
 			},
 		)

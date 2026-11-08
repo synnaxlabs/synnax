@@ -16,6 +16,7 @@ import (
 	"bytes"
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/set"
@@ -65,12 +66,12 @@ func (d *DB) HookKey(marker []byte, hook Hook) (remove func()) {
 // Hold returns a Hook that holds the first commit it intercepts until release closes,
 // and closes held once that commit waits. Later commits pass.
 func Hold(held chan<- struct{}, release <-chan struct{}) Hook {
-	var once sync.Once
+	var taken atomic.Bool
 	return func(commit func() error) error {
-		once.Do(func() {
+		if taken.CompareAndSwap(false, true) {
 			close(held)
 			<-release
-		})
+		}
 		return commit()
 	}
 }
