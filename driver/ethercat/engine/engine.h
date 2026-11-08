@@ -86,10 +86,10 @@ class Engine {
     struct Input {
         /// @brief where one entry sits in the input image and in a sample.
         struct Entry {
-            size_t image_byte;
-            size_t sample_offset;
+            size_t image_byte = 0;
+            size_t sample_offset = 0;
             /// @brief the number of image bytes the entry spans.
-            size_t length;
+            size_t length = 0;
             telem::Decoder decoder;
         };
         std::vector<Entry> entries;
