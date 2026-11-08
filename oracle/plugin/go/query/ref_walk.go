@@ -799,14 +799,14 @@ func extractReferencesInfo(
 	r *resolver.Resolver,
 	ctx *resolver.Context,
 ) (referencesInfo, error) {
-	if form, ok := typ.Form.(resolution.StructForm); ok && len(form.TypeParams) > 0 {
+	if len(resolution.TypeParams(typ.Form)) > 0 {
 		return referencesInfo{}, errors.Newf(
 			"%s: @retrieve references does not support a generic type",
 			typ.QualifiedName,
 		)
 	}
 	var keyField *resolution.Field
-	fields := resolution.UnifiedFields(typ, table)
+	fields, _ := resolution.RecordFields(typ, table)
 	for i := range fields {
 		if plugindomain.HasDomainFromField(fields[i], "key") {
 			keyField = &fields[i]
