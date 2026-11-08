@@ -101,8 +101,8 @@ or generator logic and schemas disagree.
   so a live-only rule on that type (label's `name`) drops the frozen package's
   `Validate` call into it. Restate such a rule in the dependency's version file too. The
   `frozen` gate enforces this. Hand-written frozen definer files are marked `@go hand`
-  in their version file; hand-ness is version-local — an aliased member whose definer
-  is an older version still generates in the current package as a backward alias.
+  in their version file; hand-ness is version-local — an aliased member whose definer is
+  an older version still generates in the current package as a backward alias.
   `migrate.gen.go` is a pure function of the two adjacent version files; hand-written
   transforms live in `migrate.go` (renames and cross-resource moves have no generated
   counterpart).
