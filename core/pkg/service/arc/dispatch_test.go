@@ -70,7 +70,7 @@ var _ = Describe("Dispatch", func() {
 			Expect(svc.NewRetrieve().
 				Where(arc.MatchKeys(other.Base().Key)).
 				Entry(&res).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(res.Base().Name).To(Equal("other"))
 		},
 	)
@@ -100,7 +100,7 @@ var _ = Describe("Dispatch", func() {
 				svc.NewRetrieve().
 					Where(arc.MatchKeys(a.Base().Key)).
 					Entry(&res).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).To(Succeed())
 			Expect(
 				graphOf(res.Base()).Nodes[0].Position,
@@ -142,7 +142,7 @@ var _ = Describe("Dispatch", func() {
 				svc.NewRetrieve().
 					Where(arc.MatchKeys(a.Base().Key)).
 					Entry(&res).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).To(Succeed())
 			Expect(graphOf(res.Base()).Nodes).To(HaveLen(2))
 			Expect(graphOf(res.Base()).Edges).To(HaveLen(1))
@@ -253,7 +253,7 @@ var _ = Describe("Collaborative text", func() {
 		GinkgoHelper()
 		var got arc.Arc
 		Expect(
-			svc.NewRetrieve().Where(arc.MatchKeys(key)).Entry(&got).Exec(ctx, nil),
+			svc.NewRetrieve().Where(arc.MatchKeys(key)).Entry(&got).Exec(ctx, db),
 		).
 			To(Succeed())
 		return got

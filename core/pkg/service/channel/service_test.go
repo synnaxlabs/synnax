@@ -55,7 +55,7 @@ var _ = Describe("Service", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &ch)
 				})).To(Succeed())
-				sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, ch.Name))
+				sym := MustSucceed(svc.NewArcSymbolResolver(db).Resolve(ctx, ch.Name))
 				Expect(sym.Name).To(Equal(ch.Name))
 				Expect(sym.ID).To(Equal(int(ch.Key())))
 			},
@@ -69,7 +69,7 @@ var _ = Describe("Service", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &ch)
 			})).To(Succeed())
-			Expect(svc.NewArcSymbolResolver(nil).Search(ctx, ch.Name)).
+			Expect(svc.NewArcSymbolResolver(db).Search(ctx, ch.Name)).
 				To(ContainElement(HaveField("Name", ch.Name)))
 		})
 	})
@@ -89,7 +89,7 @@ var _ = Describe("Service", func() {
 				var retrieved channel.Channel
 				Expect(svc.NewRetrieve().Where(
 					channel.MatchKeys(ch.Key()),
-				).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
+				).Entry(&retrieved).Exec(ctx, db)).To(Succeed())
 				Expect(retrieved.Name).To(Equal(ch.Name))
 			},
 		)

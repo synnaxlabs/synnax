@@ -850,7 +850,7 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should create a functional enforcer", func(ctx SpecContext) {
-			enforcer := rbacSvc.NewEnforcer(nil)
+			enforcer := rbacSvc.NewEnforcer(db)
 			Expect(enforcer).ToNot(BeNil())
 
 			var subject resource.ID

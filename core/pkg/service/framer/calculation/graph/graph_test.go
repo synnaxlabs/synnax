@@ -56,6 +56,7 @@ var _ = Describe("Graph", func() {
 	BeforeEach(func() {
 		g = MustSucceed(graph.New(graph.Config{
 			Channel: channelSvc,
+			DB:      db,
 		}))
 	})
 	Describe("Add", func() {

@@ -83,7 +83,7 @@ var _ = Describe("Create", func() {
 		Expect(svc.Table.NewRetrieve().
 			Where(table.MatchKeys(t.Key)).
 			Entry(&table.Table{}).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
 	It("Should refuse to overwrite a table without update on it", func(
 		ctx SpecContext,
@@ -150,7 +150,7 @@ var _ = Describe("Delete", func() {
 			Expect(svc.Table.NewRetrieve().
 				Where(table.MatchKeys(t.Key)).
 				Entry(&table.Table{}).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		},
 	)
 })
@@ -212,7 +212,7 @@ func retrieveTable(ctx SpecContext, key table.Key) table.Table {
 	Expect(svc.Table.NewRetrieve().
 		Where(table.MatchKeys(key)).
 		Entry(&t).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return t
 }
 

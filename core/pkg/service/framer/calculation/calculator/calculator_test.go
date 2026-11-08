@@ -87,7 +87,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, calc)
 		})).To(Succeed())
-		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        *calc,
 		}))
@@ -991,7 +991,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &calc)
 				})).To(Succeed())
-				Expect(compiler.Compile(ctx, compiler.Config{
+				Expect(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,
 				})).Error().To(MatchError(ContainSubstring("type mismatch")))
@@ -1420,14 +1420,14 @@ var _ = Describe("Calculator", Ordered, func() {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
 			})).To(Succeed())
 			res := MustSucceed(
-				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(nil)).
+				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(db)).
 					Analyze(ctx, *calc),
 			)
 			calc.DataType = res.ChanDataType
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).Create(ctx, calc)
 			})).To(Succeed())
-			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+			mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 				ChannelService: channelSvc,
 				Channel:        *calc,
 			}))
@@ -1535,7 +1535,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &calc)
 				})).To(Succeed())
-				mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+				mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,
 				}))

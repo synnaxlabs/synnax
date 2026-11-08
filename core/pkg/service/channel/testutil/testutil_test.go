@@ -62,7 +62,7 @@ var _ = Describe("CreateVirtual", func() {
 		Expect(svc.NewRetrieve().
 			Where(channel.MatchKeys(keys...)).
 			Entries(&channels).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(channel.KeysFromChannels(channels)).To(ConsistOf(keys))
 		Expect(channels).To(HaveEach(HaveField("Virtual", BeTrue())))
 		Expect(set.New(channel.Names(channels)...)).To(HaveLen(3))

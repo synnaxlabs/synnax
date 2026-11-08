@@ -38,7 +38,7 @@ var _ = Describe("Directories", func() {
 		Expect(arcSvc.NewDirectoryRetrieve().
 			Where(directory.MatchKeys(key)).
 			Entry(&d).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return d
 	}
 	parentsOf := func(ctx SpecContext, id resource.ID) []resource.ID {
@@ -53,7 +53,7 @@ var _ = Describe("Directories", func() {
 		Expect(arcSvc.NewRetrieve().
 			Where(arc.MatchKeys(key)).
 			Entry(&a).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return []resource.ID{directory.ResourceID(*a.Base().Directory)}
 	}
 	// newDirectory creates a directory under the root as the Core, deleted on cleanup.
@@ -200,7 +200,7 @@ var _ = Describe("Directories", func() {
 				Expect(arcSvc.NewDirectoryRetrieve().
 					Where(directory.MatchKeys(d.Key)).
 					Entry(&res).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 		It("Should deny a caller without delete access", func(ctx SpecContext) {

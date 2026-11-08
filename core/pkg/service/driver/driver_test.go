@@ -44,7 +44,7 @@ var _ = Describe("Driver", func() {
 		Expect(rackService.NewRetrieve().
 			Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
 			Entry(&r).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return r.Key
 	}
 
@@ -127,7 +127,7 @@ var _ = Describe("Driver", func() {
 			Expect(rackService.NewRetrieve().
 				Where(rack.MatchKeys(embeddedRackKey(ctx))).
 				Entries(&racks).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(racks).To(HaveLen(1))
 			Expect(racks[0].Embedded).To(BeTrue())
 		})
@@ -152,7 +152,7 @@ var _ = Describe("Driver", func() {
 				Expect(rackService.NewRetrieve().
 					Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
 					Entry(&r).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(r.Integrations).To(Equal([]string{"arc", "opc"}))
 			},
 		)
@@ -163,7 +163,7 @@ var _ = Describe("Driver", func() {
 			Expect(rackService.NewRetrieve().
 				Where(rack.MatchKeys(embeddedRackKey(ctx))).
 				Entry(&r).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(r.Version).To(HaveValue(Equal(version.Get())))
 		})
 
@@ -201,7 +201,7 @@ var _ = Describe("Driver", func() {
 				Expect(rackService.NewRetrieve().
 					Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
 					Entry(&r).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(r.Integrations).To(Equal([]string{"arc", "ni", "opc"}))
 			},
 		)
@@ -216,11 +216,11 @@ var _ = Describe("Driver", func() {
 			Expect(rackService.NewRetrieve().
 				Where(rack.MatchKeys(key)).
 				Entry(&r).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(r.Name).To(Equal("Renamed Driver"))
 			Expect(rackService.NewRetrieve().
 				Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 		})
 
 		It("should fail with invalid config", func(ctx SpecContext) {
@@ -272,7 +272,7 @@ var _ = Describe("Driver", func() {
 					task.MatchTypes(pagerduty.AlertTaskType),
 				)).
 				Entries(&tasks).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			return tasks
 		}
 
@@ -409,7 +409,7 @@ var _ = Describe("Driver", func() {
 						task.ResourceID(ghost),
 					)).
 					Entry(&stat).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -741,7 +741,7 @@ var _ = Describe("Driver", func() {
 						t.ResourceID(),
 					)).
 					Entry(&stat).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				return stat
 			}
 
@@ -1061,7 +1061,7 @@ var _ = Describe("Driver", func() {
 						t.ResourceID(),
 					)).
 					Entry(&stat).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 

@@ -63,7 +63,7 @@ var _ = Describe("Compile", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &calc)
 		})).To(Succeed())
-		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
@@ -87,7 +87,7 @@ var _ = Describe("Compile", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &calc)
 		})).To(Succeed())
-		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
@@ -112,7 +112,7 @@ var _ = Describe("Compile", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &calc)
 		})).To(Succeed())
-		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
@@ -141,7 +141,7 @@ var _ = Describe("Compile", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &calc)
 		})).To(Succeed())
-		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
@@ -160,7 +160,7 @@ var _ = Describe("Compile", func() {
 			return channelSvc.NewWriter(tx).Create(ctx, &calc)
 		})).To(Succeed())
 		calc.Expression = "return invalid_syntax {{"
-		Expect(compiler.Compile(ctx, compiler.Config{
+		Expect(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
 		})).Error().To(ContainSubstring("extraneous input '{'"))

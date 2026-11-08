@@ -1312,7 +1312,7 @@ var _ = Describe("Device", func() {
 					g.Expect(stat.NewRetrieve[device.StatusDetails]().
 						Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 						Entry(&deviceStatus).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					g.Expect(deviceStatus.Variant).To(Equal(status.VariantWarning))
 					g.Expect(deviceStatus.Message).To(Equal("Driver not running"))
 					g.Expect(deviceStatus.Owner).To(HaveValue(Equal(d.ResourceID())))
@@ -1493,7 +1493,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				Expect(svc.NewRetrieve().
 					Where(device.MatchKeys(d.Key)).
 					Entry(&stored).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				return stored.Group
 			}
 			var (

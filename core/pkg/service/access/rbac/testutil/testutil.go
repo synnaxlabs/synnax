@@ -153,14 +153,14 @@ func ownRole(
 	if err := users.NewRetrieve().
 		Where(user.MatchKeys(key)).
 		Entry(&u).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, tx); err != nil {
 		return uuid.Nil(), err
 	}
 	var held role.Role
 	if err := rbacSvc.Role.NewRetrieve().
 		Where(role.MatchKeys(u.Role)).
 		Entry(&held).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, tx); err != nil {
 		return uuid.Nil(), err
 	}
 	if held.Name == ownRoleName(key) {

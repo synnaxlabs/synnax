@@ -67,7 +67,7 @@ var _ = Describe("Service", func() {
 					"status": "status-1",
 				}},
 			}))
-			data := MustSucceed(svc.Alert.Read(ctx, nil, key))
+			data := MustSucceed(svc.Alert.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["routing_key"]).To(Equal("rk-1"))
 			Expect(data["auto_start"]).To(BeTrue())

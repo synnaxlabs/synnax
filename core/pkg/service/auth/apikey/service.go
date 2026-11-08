@@ -120,10 +120,9 @@ func (s *Service) Authenticate(
 		return auth.Identity{}, auth.ErrInvalidCredentials
 	}
 	var k APIKey
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&k).
-		Exec(ctx, nil); err != nil {
+	if err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.NewRetrieve().Where(MatchKeys(key)).Entry(&k).Exec(ctx, snap)
+	}); err != nil {
 		if errors.Is(err, query.ErrNotFound) {
 			return auth.Identity{}, auth.ErrInvalidCredentials
 		}

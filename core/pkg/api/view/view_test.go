@@ -38,7 +38,7 @@ func retrieveView(ctx SpecContext, key view.Key) view.View {
 	Expect(svc.View.NewRetrieve().
 		Where(view.MatchKeys(key)).
 		Entry(&v).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return v
 }
 

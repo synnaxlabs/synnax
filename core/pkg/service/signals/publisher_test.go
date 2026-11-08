@@ -60,12 +60,12 @@ var _ = Describe("Publisher", Serial, func() {
 		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(publisherSetChannelName)).
 			Entry(&cfg.SetChannel).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		).To(Succeed())
 		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(publisherDeleteChannelName)).
 			Entry(&cfg.DeleteChannel).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		).To(Succeed())
 		streamer = MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{cfg.SetChannel.Key(), cfg.DeleteChannel.Key()},

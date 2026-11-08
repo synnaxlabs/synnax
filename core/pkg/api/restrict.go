@@ -28,6 +28,7 @@ import (
 // so it names the records involved instead of their tables and keys. It names only the
 // records that the caller can retrieve.
 func restrictMiddleware(
+	db *gorp.DB,
 	res *resource.Service,
 	rbacSvc *rbac.Service,
 ) freighter.Middleware {
@@ -39,7 +40,7 @@ func restrictMiddleware(
 		if err == nil {
 			return oCtx, nil
 		}
-		if described := describeRestrict(ctx, res, rbacSvc, err); described != nil {
+		if described := describeRestrict(ctx, db, res, rbacSvc, err); described != nil {
 			return oCtx, described
 		}
 		return oCtx, err
@@ -51,13 +52,14 @@ func restrictMiddleware(
 // gorp.RestrictError.
 func describeRestrict(
 	ctx context.Context,
+	db *gorp.DB,
 	res *resource.Service,
 	rbacSvc *rbac.Service,
 	err error,
 ) error {
 	var pathErr validate.PathError
 	if errors.As(err, &pathErr) {
-		described := describeRestrict(ctx, res, rbacSvc, pathErr.Err)
+		described := describeRestrict(ctx, db, res, rbacSvc, pathErr.Err)
 		if described == nil {
 			return nil
 		}
@@ -79,19 +81,22 @@ func describeRestrict(
 			Key:  restrict.Holder.Key,
 		}
 	}
-	allowed, aErr := rbacSvc.NewEnforcer(nil).Allowed(
-		ctx,
-		auth.GetSubject(ctx),
-		access.ActionRetrieve,
-	)
-	if aErr != nil {
-		return aErr
-	}
-	found, rErr := res.Retrieve(ctx, nil, lo.Filter(
-		[]resource.ID{target, holder},
-		func(id resource.ID, _ int) bool { return allowed(id) },
-	)...)
-	if rErr != nil {
+	var found []resource.Resource
+	if rErr := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		allowed, err := rbacSvc.NewEnforcer(snap).Allowed(
+			ctx,
+			auth.GetSubject(ctx),
+			access.ActionRetrieve,
+		)
+		if err != nil {
+			return err
+		}
+		found, err = res.Retrieve(ctx, snap, lo.Filter(
+			[]resource.ID{target, holder},
+			func(id resource.ID, _ int) bool { return allowed(id) },
+		)...)
+		return err
+	}); rErr != nil {
 		return rErr
 	}
 	names := make(map[resource.ID]string, len(found))

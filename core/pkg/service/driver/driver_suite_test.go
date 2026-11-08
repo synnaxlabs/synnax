@@ -144,7 +144,7 @@ func retrieveStatus[D any](ctx context.Context, owner resource.ID) status.Status
 		statusSvc.NewRetrieve[D]().
 			Where(status.MatchOwners[D](owner)).
 			Entry(&stat).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		query.ErrNotFound,
 	)).To(Succeed())
 	return stat

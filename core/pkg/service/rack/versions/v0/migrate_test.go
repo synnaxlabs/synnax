@@ -84,7 +84,7 @@ var _ = Describe("Migration", func() {
 		Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 			Where(status.MatchOwners[v0.StatusDetails](r.ResourceID())).
 			Entry(&restoredStatus).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		key, _ := statusv2.MigrateKey(r.ResourceID().String())
 		Expect(restoredStatus.Key).To(Equal(key))
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -207,7 +207,7 @@ var _ = Describe("Status backfill", func() {
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 				Where(status.MatchOwners[v0.StatusDetails](rackKey.ResourceID())).
 				Entry(&restoredStatus).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(restoredStatus.Key).To(Equal("legacy-rack-status"))
 			Expect(restoredStatus.Details.Rack).To(Equal(rackKey))
 		},

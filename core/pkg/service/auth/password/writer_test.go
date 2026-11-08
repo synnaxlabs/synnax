@@ -41,7 +41,7 @@ var _ = Describe("Writer", func() {
 		GinkgoHelper()
 		var p password.Password
 		Expect(svc.NewRetrieve().Where(password.MatchSubjects(subject)).Entry(&p).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return p
 	}
 	Describe("Set", func() {
@@ -65,7 +65,7 @@ var _ = Describe("Writer", func() {
 				Expect(after.Username).To(Equal(renamed))
 				Expect(after.Hash).ToNot(Equal(before.Hash))
 				Expect(svc.NewRetrieve().Where(password.MatchSubjects(alice)).
-					Count(ctx, nil)).To(Equal(1))
+					Count(ctx, db)).To(Equal(1))
 				MustSucceed(svc.Authenticate(ctx, proof(renamed, "q")))
 				Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().
 					To(MatchError(auth.ErrInvalidCredentials))

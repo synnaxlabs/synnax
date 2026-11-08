@@ -57,7 +57,7 @@ func retrieveAlias(
 	r ranger.Range,
 	ch channel.Channel,
 ) (string, error) {
-	return svc.Alias.NewReader(nil).Retrieve(ctx, r.Key, ch.Key())
+	return svc.Alias.NewReader(db).Retrieve(ctx, r.Key, ch.Key())
 }
 
 var _ = Describe("Set", func() {

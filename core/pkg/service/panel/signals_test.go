@@ -37,7 +37,7 @@ var _ = Describe("Signals", func() {
 		GinkgoHelper()
 		var ch channel.Channel
 		Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{ch.Key()},
 		}))
@@ -58,7 +58,7 @@ var _ = Describe("Signals", func() {
 		for _, name := range []string{setChannelName, deleteChannelName} {
 			var ch channel.Channel
 			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())
 		}

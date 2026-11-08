@@ -121,10 +121,9 @@ func (s *Service) userOf(ctx context.Context, subject resource.ID) (*user.User, 
 		return nil, err
 	}
 	var u user.User
-	if err := s.user.NewRetrieve().
-		Where(user.MatchKeys(key)).
-		Entry(&u).
-		Exec(ctx, nil); err != nil {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.user.NewRetrieve().Where(user.MatchKeys(key)).Entry(&u).Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
 	return &u, nil

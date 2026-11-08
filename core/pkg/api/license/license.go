@@ -15,6 +15,7 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -28,6 +29,10 @@ import (
 
 // ServiceConfig is the configuration for the license API service.
 type ServiceConfig struct {
+	// DB opens the snapshots that access checks read.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// RBAC enforces access control on every request.
 	//
 	// [REQUIRED]
@@ -46,6 +51,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.License = override.Nil(c.License, other.License)
 	return c
@@ -54,12 +60,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.license")
+	v.NotNil("db", c.DB)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("license", c.License)
 	return v.Error()
 }
 
 type Service struct {
+	db       *gorp.DB
 	access   *rbac.Service
 	internal *license.Service
 }
@@ -70,6 +78,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:       cfg.DB,
 		access:   cfg.RBAC,
 		internal: cfg.License,
 	}, nil
@@ -113,10 +122,12 @@ func (s *Service) Activate(
 	ctx context.Context,
 	req ActivateRequest,
 ) (ActivateResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{objectID},
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: []resource.ID{objectID},
+		})
 	}); err != nil {
 		return ActivateResponse{}, err
 	}
@@ -129,10 +140,12 @@ func (s *Service) Deactivate(
 	ctx context.Context,
 	req DeactivateRequest,
 ) (DeactivateResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{objectID},
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: []resource.ID{objectID},
+		})
 	}); err != nil {
 		return DeactivateResponse{}, err
 	}

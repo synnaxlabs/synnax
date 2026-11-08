@@ -50,6 +50,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:  statusSvc,
 	}))
 	writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
+		DB:      mockNode.DB,
 		Framer:  mockNode.Framer,
 		Channel: channelSvc,
 	}))

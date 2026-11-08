@@ -215,7 +215,7 @@ func (s *Service) Retrieve(
 	for i := range res.Arcs {
 		res.Arcs[i] = materialize(res.Arcs[i])
 		if req.IncludeProgram {
-			if err := s.compile(ctx, &res.Arcs[i]); err != nil {
+			if err := s.compile(ctx, snap, &res.Arcs[i]); err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
@@ -256,7 +256,7 @@ func materialize(a Arc) Arc {
 
 // compile compiles the source of an automation into its program and leaves a module as
 // is. Returns an error if parsing, analysis, or compilation fails.
-func (s *Service) compile(ctx context.Context, a *Arc) error {
+func (s *Service) compile(ctx context.Context, snap gorp.Snapshot, a *Arc) error {
 	automation, ok := a.Variant.(arc.AutomationArc)
 	if !ok {
 		return nil
@@ -267,12 +267,12 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	)
 	switch src := automation.Source.Variant.(type) {
 	case arc.TextSource:
-		prog, err = s.compileText(ctx, src.Text)
+		prog, err = s.compileText(ctx, snap, src.Text)
 	case arc.GraphSource:
 		prog, err = arclang.CompileGraph(
 			ctx,
 			src.Graph,
-			s.internal.NewRoot(nil),
+			s.internal.NewRoot(snap),
 			arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
 		)
 	}
@@ -287,6 +287,7 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 // compileText compiles t, reporting parse and analysis failures as a CompileError.
 func (s *Service) compileText(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	t arctext.Text,
 ) (arclang.Program, error) {
 	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
@@ -294,7 +295,7 @@ func (s *Service) compileText(
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil), cfg)
+	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(snap), cfg)
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}

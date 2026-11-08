@@ -70,7 +70,7 @@ var _ = Describe("Layer", func() {
 			}),
 		)
 		var existing []channel.Channel
-		Expect(layer.Channel.NewRetrieve().Entries(&existing).Exec(ctx, nil)).
+		Expect(layer.Channel.NewRetrieve().Entries(&existing).Exec(ctx, node.DB)).
 			To(Succeed())
 		external := lo.CountBy(existing, func(ch channel.Channel) bool {
 			return !ch.Internal && !ch.Virtual
@@ -132,7 +132,7 @@ var _ = Describe("Layer", func() {
 		Expect(layer.Task.NewRetrieve().
 			Where(task.MatchNames("Snapshot")).
 			Entry(&migrated).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, legacyDB)).To(Succeed())
 		Expect(migrated.Range).To(HaveValue(Equal(rng.Key)))
 	})
 
@@ -388,7 +388,7 @@ var _ = Describe("Workspace-era upgrade", func() {
 			Expect(layer.Schematic.NewRetrieve().
 				Where(schematic.MatchKeys(loose.Key, grouped.Key)).
 				Entries(&schematics).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, legacyDB)).To(Succeed())
 			Expect(schematics).To(HaveLen(2))
 			for _, s := range schematics {
 				Expect(s.Project).To(HaveValue(Equal(ws.Key)))
@@ -397,35 +397,40 @@ var _ = Describe("Workspace-era upgrade", func() {
 			Expect(layer.LinePlot.NewRetrieve().
 				Where(lineplot.MatchKeys(lp.Key)).
 				Entry(&plot).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, legacyDB)).To(Succeed())
 			Expect(plot.Project).To(HaveValue(Equal(ws.Key)))
 			var l log.Log
 			Expect(layer.Log.NewRetrieve().
 				Where(log.MatchKeys(lg.Key)).
 				Entry(&l).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, legacyDB)).To(Succeed())
 			Expect(l.Project).To(HaveValue(Equal(ws.Key)))
 			var t table.Table
 			Expect(layer.Table.NewRetrieve().
 				Where(table.MatchKeys(tbl.Key)).
 				Entry(&t).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, legacyDB)).To(Succeed())
 			Expect(t.Project).To(HaveValue(Equal(ws.Key)))
 		},
 	)
 })
 
 var _ = Describe("Resource search", Ordered, func() {
-	var layer *service.Layer
+	var (
+		layer *service.Layer
+		db    *gorp.DB
+	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		layer = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+		node := testutil.NewNode(ctx)
+		db = node.DB
+		layer = MustOpen(svctestutil.OpenLayer(ctx, node))
 	})
 
 	DescribeTable(
 		"Should search every type that names records",
 		func(ctx SpecContext, t resource.Type) {
-			MustSucceed(layer.Resource.Search(ctx, nil, resource.SearchQuery{
+			MustSucceed(layer.Resource.Search(ctx, db, resource.SearchQuery{
 				Term:  "pump",
 				Types: []resource.Type{t},
 			}))
@@ -505,19 +510,19 @@ var _ = Describe("Group moves", Ordered, func() {
 		owners = func(ctx SpecContext) []*project.Key {
 			GinkgoHelper()
 			Expect(l.Schematic.NewRetrieve().
-				Where(schematic.MatchKeys(sch.Key)).Entry(&sch).Exec(ctx, nil)).
+				Where(schematic.MatchKeys(sch.Key)).Entry(&sch).Exec(ctx, db)).
 				To(Succeed())
 			Expect(l.LinePlot.NewRetrieve().
-				Where(lineplot.MatchKeys(lp.Key)).Entry(&lp).Exec(ctx, nil)).
+				Where(lineplot.MatchKeys(lp.Key)).Entry(&lp).Exec(ctx, db)).
 				To(Succeed())
 			Expect(l.Log.NewRetrieve().
-				Where(log.MatchKeys(lg.Key)).Entry(&lg).Exec(ctx, nil)).
+				Where(log.MatchKeys(lg.Key)).Entry(&lg).Exec(ctx, db)).
 				To(Succeed())
 			Expect(l.Table.NewRetrieve().
-				Where(table.MatchKeys(tb.Key)).Entry(&tb).Exec(ctx, nil)).
+				Where(table.MatchKeys(tb.Key)).Entry(&tb).Exec(ctx, db)).
 				To(Succeed())
 			Expect(l.Panel.NewRetrieve().
-				Where(panel.MatchKeys(pn.Key)).Entry(&pn).Exec(ctx, nil)).
+				Where(panel.MatchKeys(pn.Key)).Entry(&pn).Exec(ctx, db)).
 				To(Succeed())
 			return []*project.Key{
 				sch.Project,

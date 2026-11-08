@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -37,11 +38,15 @@ func (s recordSender) Send(res StreamerResponse) error {
 	if !s.carriesRecords(res.Frame) {
 		return s.StreamSender.Send(res)
 	}
-	allowed, err := s.service.access.NewEnforcer(nil).Allowed(
-		s.ctx,
-		s.subject,
-		access.ActionRetrieve,
-	)
+	var allowed func(resource.ID) bool
+	err := s.service.db.WithSnapshot(s.ctx, func(snap gorp.Snapshot) (err error) {
+		allowed, err = s.service.access.NewEnforcer(snap).Allowed(
+			s.ctx,
+			s.subject,
+			access.ActionRetrieve,
+		)
+		return err
+	})
 	if err != nil {
 		return err
 	}

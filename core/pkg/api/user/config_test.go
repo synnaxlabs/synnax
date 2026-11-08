@@ -12,6 +12,7 @@ package user_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -21,6 +22,7 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiuser.ServiceConfig {
 		return apiuser.ServiceConfig{
+			DB:       &gorp.DB{},
 			RBAC:     &rbac.Service{},
 			User:     &user.Service{},
 			Password: &password.Service{},
@@ -39,6 +41,11 @@ var _ = Describe("ServiceConfig", func() {
 				clear(&cfg)
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
+			Entry(
+				"db",
+				func(c *apiuser.ServiceConfig) { c.DB = nil },
+				"db: must be non-nil",
+			),
 			Entry(
 				"rbac",
 				func(c *apiuser.ServiceConfig) { c.RBAC = nil },
@@ -61,6 +68,7 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take the other config's services when set", func() {
 			cfg := full()
 			merged := apiuser.ServiceConfig{}.Override(cfg)
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.User).To(BeIdenticalTo(cfg.User))
 			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
@@ -69,6 +77,7 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apiuser.ServiceConfig{})
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.User).To(BeIdenticalTo(cfg.User))
 			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))

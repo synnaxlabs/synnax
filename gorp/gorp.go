@@ -16,7 +16,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
@@ -143,11 +142,6 @@ func (db *DB) WithSnapshot(_ context.Context, f func(Snapshot) error) error {
 	return f(snapshot{Reader: db.DB, Decoder: db.Codec})
 }
 
-// OverrideTx replaces the given Tx with the DB if the given Tx is nil. This
-// method is useful for allowing a caller to execute directly against the underlying
-// DB if they choose to do so, or to execute against a transaction if they provide one.
-func (db *DB) OverrideTx(override Tx) Tx { return OverrideTx(db, override) }
-
 // Close closes the underlying DB. Although embedded into the DB struct, Jetbrains
 // Goland complains of an ambiguous reference to the Close method if it is not
 // explicitly defined.
@@ -155,20 +149,6 @@ func (db *DB) Close() error { return db.DB.Close() }
 
 // KV returns the underlying key-value storage backing the DB.
 func (db *DB) KV() kv.DB { return db.DB }
-
-// OverrideTx returns the override transaction if it is not nil. Otherwise,
-// it returns the base transaction.
-func OverrideTx(
-	base, override Tx,
-) Tx {
-	return lo.Ternary(override != nil, override, base)
-}
-
-// OverrideSnapshot returns the override snapshot if it is not nil. Otherwise, it
-// returns the base snapshot.
-func OverrideSnapshot(base, override Snapshot) Snapshot {
-	return lo.Ternary(override != nil, override, base)
-}
 
 // Tx extends the kv.Tx interface to provide gorp-required utilities for
 // executing a strongly-typed, atomic transaction against a DB. To open a

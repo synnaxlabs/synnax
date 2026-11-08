@@ -75,7 +75,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, db, channelSvc, prog))
 			Expect(deps.Reads.Contains(ch.Key())).To(BeTrue())
 			Expect(deps.Writes.Contains(ch.Key())).To(BeFalse())
 			Expect(deps.ChannelDigests).To(HaveLen(1))
@@ -107,7 +107,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, db, channelSvc, prog))
 			Expect(deps.Writes.Contains(ch.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(ch.Key())).To(BeFalse())
 		})
@@ -134,7 +134,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, db, channelSvc, prog))
 			Expect(deps.Writes.Contains(ch.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(ch.Key())).To(BeFalse())
 		})
@@ -174,7 +174,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, db, channelSvc, prog))
 			Expect(deps.Reads.Contains(dataCh.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(indexCh.Key())).To(BeTrue())
 			Expect(deps.ChannelDigests).To(HaveLen(2))
@@ -215,7 +215,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, db, channelSvc, prog))
 			Expect(deps.Writes.Contains(dataCh.Key())).To(BeTrue())
 			Expect(deps.Writes.Contains(indexCh.Key())).To(BeTrue())
 		})
@@ -258,7 +258,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 					},
 				}
 
-				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+				deps := MustSucceed(runtime.NewDependencies(ctx, db, channelSvc, prog))
 				Expect(deps.Reads.Contains(readCh.Key())).To(BeTrue())
 				Expect(deps.Writes.Contains(writeCh.Key())).To(BeTrue())
 				Expect(deps.ChannelDigests).To(HaveLen(2))
@@ -300,7 +300,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 					},
 				}
 
-				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+				deps := MustSucceed(runtime.NewDependencies(ctx, db, channelSvc, prog))
 				Expect(deps.Reads.Contains(sharedCh.Key())).To(BeTrue())
 				Expect(deps.ChannelDigests).To(HaveLen(1))
 			},
@@ -310,7 +310,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 			prog := arc.Program{
 				Nodes: []ir.Node{},
 			}
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, db, channelSvc, prog))
 			Expect(deps.Reads).To(BeEmpty())
 			Expect(deps.Writes).To(BeEmpty())
 			Expect(deps.ChannelDigests).To(BeEmpty())
@@ -329,7 +329,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 					},
 				}
 
-				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+				deps := MustSucceed(runtime.NewDependencies(ctx, db, channelSvc, prog))
 				Expect(deps.Reads).To(BeEmpty())
 				Expect(deps.Writes).To(BeEmpty())
 				Expect(deps.ChannelDigests).To(BeEmpty())
@@ -349,7 +349,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			Expect(runtime.NewDependencies(ctx, channelSvc, prog)).
+			Expect(runtime.NewDependencies(ctx, db, channelSvc, prog)).
 				Error().To(MatchError(query.ErrNotFound))
 		})
 
@@ -380,7 +380,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 					},
 				}
 
-				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+				deps := MustSucceed(runtime.NewDependencies(ctx, db, channelSvc, prog))
 				Expect(deps.Reads.Contains(virtualCh.Key())).To(BeTrue())
 				Expect(deps.ChannelDigests).To(HaveLen(1))
 			},
@@ -409,12 +409,14 @@ var _ = Describe("Dependencies", Ordered, func() {
 				`, virtCh.Name),
 				}
 
-				resolver := channelSvc.NewArcSymbolResolver(nil)
+				resolver := channelSvc.NewArcSymbolResolver(db)
 				compiled := MustSucceed(
 					arc.CompileText(ctx, prog, arc.NewRoot(resolver)),
 				)
 
-				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, compiled))
+				deps := MustSucceed(
+					runtime.NewDependencies(ctx, db, channelSvc, compiled),
+				)
 				Expect(deps.Reads).To(BeEmpty())
 				Expect(deps.Writes.Contains(virtCh.Key())).To(BeTrue())
 				Expect(deps.Writes).To(HaveLen(1))
@@ -456,12 +458,14 @@ var _ = Describe("Dependencies", Ordered, func() {
 				`, valveCh.Name, triggerCh.Name),
 				}
 
-				resolver := channelSvc.NewArcSymbolResolver(nil)
+				resolver := channelSvc.NewArcSymbolResolver(db)
 				compiled := MustSucceed(
 					arc.CompileText(ctx, prog, arc.NewRoot(resolver)),
 				)
 
-				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, compiled))
+				deps := MustSucceed(
+					runtime.NewDependencies(ctx, db, channelSvc, compiled),
+				)
 				Expect(deps.Writes.Contains(valveCh.Key())).To(BeTrue(),
 					"channel referenced only in set_authority config should be in writes")
 			},
@@ -488,7 +492,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 					Nodes: []ir.Node{},
 				}
 
-				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+				deps := MustSucceed(runtime.NewDependencies(ctx, db, channelSvc, prog))
 				Expect(deps.Writes.Contains(authOnlyCh.Key())).To(BeTrue())
 				Expect(deps.ChannelDigests).To(HaveLen(1))
 				Expect(deps.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
@@ -562,7 +566,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 					},
 				}
 
-				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+				deps := MustSucceed(runtime.NewDependencies(ctx, db, channelSvc, prog))
 				Expect(deps.Reads.Contains(readCh1.Key())).To(BeTrue())
 				Expect(deps.Reads.Contains(readCh2.Key())).To(BeTrue())
 				Expect(deps.Reads.Contains(indexCh.Key())).To(BeTrue())

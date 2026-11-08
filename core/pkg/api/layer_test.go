@@ -69,7 +69,7 @@ func execBatch(
 var _ = Describe("Layer", func() {
 	DescribeTable("Should refuse a batch request that writes channel storage",
 		func(ctx SpecContext, endpoint string) {
-			Expect(apiLayer.Batch.Exec(ctx, nil, batch.ExecRequest{
+			Expect(apiLayer.Batch.Exec(ctx, db, batch.ExecRequest{
 				Requests: []batch.Request{{Endpoint: endpoint}},
 			})).Error().To(MatchError(ContainSubstring(fmt.Sprintf(
 				"requests.0.endpoint: %q cannot run in a batch",
@@ -103,7 +103,7 @@ var _ = Describe("Layer", func() {
 			Expect(svc.Project.NewRetrieve().
 				Where(project.MatchKeys(proj.Key)).
 				Entry(&stored).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(stored.Group).To(Equal(&key))
 		},
 	)
@@ -137,7 +137,7 @@ var _ = Describe("Layer", func() {
 			Expect(svc.Group.NewRetrieve().
 				Where(group.MatchKeys(key)).
 				Entry(&group.Group{}).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		},
 	)
 
@@ -164,7 +164,7 @@ var _ = Describe("Layer", func() {
 		Expect(svc.Group.NewRetrieve().
 			Where(group.MatchKeys(key)).
 			Entry(&group.Group{}).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
 
 	It(
@@ -200,7 +200,7 @@ var _ = Describe("Layer", func() {
 			Expect(svc.Status.NewRetrieve[any]().
 				Where(status.MatchKeys[any](key)).
 				Entry(&stored).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(stored.Labels).To(Equal([]label.Key{l.Key}))
 		},
 	)

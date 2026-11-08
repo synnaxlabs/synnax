@@ -59,7 +59,7 @@ func openControlStreamer(ctx SpecContext) confluence.Outlet[framer.StreamerRespo
 	Expect(channelSvc.NewRetrieve().
 		Where(channel.MatchNames("sy_control")).
 		Entry(&ch).
-		Exec(ctx, nil),
+		Exec(ctx, dist.DB),
 	).To(Succeed())
 	streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 		Keys:        channel.Keys{ch.Key()},
@@ -105,7 +105,7 @@ var _ = Describe("Control", func() {
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames("sy_control")).
 				Entry(&ch).
-				Exec(ctx, nil),
+				Exec(ctx, dist.DB),
 			).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Free()).To(BeTrue())

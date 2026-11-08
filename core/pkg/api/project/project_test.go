@@ -309,7 +309,7 @@ var _ = Describe("Delete", func() {
 			Expect(projectExists(ctx, p.Key)).To(BeFalse())
 			Expect(logSvc.NewRetrieve().
 				Where(log.MatchKeys(l.Key)).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 		},
 	)
 })
@@ -343,7 +343,7 @@ func projectExists(ctx SpecContext, key project.Key) bool {
 	GinkgoHelper()
 	return MustSucceed(projectSvc.NewRetrieve().
 		Where(project.MatchKeys(key)).
-		Exists(ctx, nil))
+		Exists(ctx, db))
 }
 
 // createProjectGroup creates a project group with no top parent.
@@ -362,7 +362,7 @@ func retrieveProject(ctx SpecContext, key project.Key) project.Project {
 	Expect(projectSvc.NewRetrieve().
 		Where(project.MatchKeys(key)).
 		Entry(&p).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return p
 }
 

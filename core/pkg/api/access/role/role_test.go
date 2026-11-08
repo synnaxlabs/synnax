@@ -61,7 +61,7 @@ func roleExists(ctx SpecContext, key role.Key) bool {
 	GinkgoHelper()
 	return MustSucceed(svc.RBAC.Role.NewRetrieve().
 		Where(role.MatchKeys(key)).
-		Exists(ctx, nil))
+		Exists(ctx, db))
 }
 
 func newRole() role.Role {
@@ -114,7 +114,7 @@ var _ = Describe("Create", func() {
 		Expect(svc.RBAC.Role.NewRetrieve().
 			Where(role.MatchKeys(r.Key)).
 			Entry(&stored).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(stored.Name).To(Equal(r.Name))
 	})
 })
@@ -153,7 +153,7 @@ var _ = Describe("Delete", func() {
 		Expect(roleExists(ctx, r.Key)).To(BeTrue())
 		Expect(MustSucceed(svc.RBAC.Policy.NewRetrieve().
 			Where(policy.MatchKeys(p.Key)).
-			Exists(ctx, nil))).To(BeTrue())
+			Exists(ctx, db))).To(BeTrue())
 	},
 		Entry("update on the role", 0),
 		Entry("delete on the role", 1),
@@ -170,7 +170,7 @@ var _ = Describe("Delete", func() {
 		Expect(roleExists(ctx, r.Key)).To(BeFalse())
 		Expect(MustSucceed(svc.RBAC.Policy.NewRetrieve().
 			Where(policy.MatchKeys(p.Key)).
-			Exists(ctx, nil))).To(BeFalse())
+			Exists(ctx, db))).To(BeFalse())
 	})
 })
 

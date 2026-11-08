@@ -621,7 +621,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				Expect(svc.NewRetrieve().
 					Where(policy.MatchKeys(key)).
 					Entry(&stored).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(stored.Role).To(Equal(builtin.Key))
 			}
 		},

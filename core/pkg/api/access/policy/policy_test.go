@@ -78,7 +78,7 @@ func policyExists(ctx SpecContext, key policy.Key) bool {
 	GinkgoHelper()
 	return MustSucceed(svc.RBAC.Policy.NewRetrieve().
 		Where(policy.MatchKeys(key)).
-		Exists(ctx, nil))
+		Exists(ctx, db))
 }
 
 // builtinPolicy returns a policy of the built-in Viewer role.
@@ -89,7 +89,7 @@ func builtinPolicy(ctx SpecContext) policy.Policy {
 		Where(policy.MatchRoles(svc.RBAC.Builtin.ViewerKey)).
 		Limit(1).
 		Entry(&p).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return p
 }
 
@@ -104,7 +104,7 @@ var _ = Describe("Create", func() {
 		})).Error().To(denied(u, access.ActionUpdate, role.ResourceID(r.Key)))
 		Expect(svc.RBAC.Policy.NewRetrieve().
 			Where(policy.MatchRoles(r.Key)).
-			Exists(ctx, nil)).To(BeFalse())
+			Exists(ctx, db)).To(BeFalse())
 	})
 
 	It("Should refuse a subject that cannot create the policy", func(
@@ -147,7 +147,7 @@ var _ = Describe("Create", func() {
 		Expect(svc.RBAC.Policy.NewRetrieve().
 			Where(policy.MatchKeys(p.Key)).
 			Entry(&stored).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(stored.Role).To(Equal(from.Key))
 	})
 
@@ -164,7 +164,7 @@ var _ = Describe("Create", func() {
 		Expect(svc.RBAC.Policy.NewRetrieve().
 			Where(policy.MatchKeys(p.Key)).
 			Entry(&stored).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(stored.Name).To(Equal(p.Name))
 	})
 

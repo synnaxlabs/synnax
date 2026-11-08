@@ -64,20 +64,24 @@ func (s *Service) PrepareSetPassword(
 	}
 	if subject != caller {
 		// Each hash is slow, so a caller that cannot update the user costs none.
-		if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-			Subject: caller,
-			Action:  access.ActionUpdate,
-			Objects: []resource.ID{subject},
+		if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+				Subject: caller,
+				Action:  access.ActionUpdate,
+				Objects: []resource.ID{subject},
+			})
 		}); err != nil {
 			return password.Hash{}, err
 		}
 		return s.password.Hash(req.Password)
 	}
 	var current password.Password
-	if err := s.password.NewRetrieve().
-		Where(password.MatchSubjects(subject)).
-		Entry(&current).
-		Exec(ctx, nil); err != nil {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.password.NewRetrieve().
+			Where(password.MatchSubjects(subject)).
+			Entry(&current).
+			Exec(ctx, snap)
+	}); err != nil {
 		return password.Hash{}, err
 	}
 	proof := auth.PasswordProof{}

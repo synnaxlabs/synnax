@@ -223,20 +223,25 @@ func changes(stored calculation.Status, found bool, next *calculation.Status) bo
 func (g *Graph) Failed(ctx context.Context, key channel.Key) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	stored, found, err := g.retrieveStatus(ctx, nil, key)
-	return found && stored.Variant == status.VariantError, err
+	var failed bool
+	err := g.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		stored, found, err := g.retrieveStatus(ctx, snap, key)
+		failed = found && stored.Variant == status.VariantError
+		return err
+	})
+	return failed, err
 }
 
 func (g *Graph) retrieveStatus(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	key channel.Key,
 ) (calculation.Status, bool, error) {
 	var stored calculation.Status
 	err := g.status.NewRetrieve[struct{}]().
 		Where(status.MatchOwners[struct{}](channel.ResourceID(key))).
 		Entry(&stored).
-		Exec(ctx, tx)
+		Exec(ctx, snap)
 	if errors.Is(err, query.ErrNotFound) {
 		return stored, false, nil
 	}

@@ -74,6 +74,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: kvDB, Anchors: signer.Anchors,
 	}))
 	apiSvc = MustSucceed(apilicense.NewService(apilicense.ServiceConfig{
+		DB:      db,
 		RBAC:    rbacSvc,
 		License: licenseSvc,
 	}))

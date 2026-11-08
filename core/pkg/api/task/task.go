@@ -32,7 +32,7 @@ import (
 
 // ServiceConfig is the configuration for the task API service.
 type ServiceConfig struct {
-	// DB runs the transaction of a delete.
+	// DB runs the snapshot and the transaction of a delete.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -168,7 +168,7 @@ func (s *Service) Dispatch(
 	if err != nil {
 		return DispatchResponse{}, err
 	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []resource.ID{task.ResourceID(req.Key)},
@@ -250,10 +250,12 @@ type DeleteRequest struct {
 // in time is still deleted, and it can hold its channels open until its Driver removes
 // it. Delete holds no transaction while it waits for the stops.
 func (s *Service) Delete(ctx context.Context, req DeleteRequest) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: task.ResourceIDs(req.Keys),
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: task.ResourceIDs(req.Keys),
+		})
 	}); err != nil {
 		return struct{}{}, err
 	}

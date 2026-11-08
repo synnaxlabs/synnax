@@ -72,7 +72,7 @@ var _ = Describe("Dispatch", func() {
 		Expect(svc.NewRetrieve().
 			Where(label.MatchKeys(nominal.Key)).
 			Entry(&res).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return res
 	}
 

@@ -312,7 +312,7 @@ var _ = Describe("Service", func() {
 			})).Error().To(denied(author, access.ActionCreate, a.ResourceID()))
 			Expect(arcSvc.NewRetrieve().
 				Where(arc.MatchKeys(a.Base().Key)).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 		})
 
 		It(
@@ -332,7 +332,7 @@ var _ = Describe("Service", func() {
 				)
 				Expect(arcSvc.NewRetrieve().
 					Where(arc.MatchKeys(a.Base().Key)).
-					Exists(ctx, nil)).To(BeFalse())
+					Exists(ctx, db)).To(BeFalse())
 			},
 		)
 	})
@@ -349,7 +349,7 @@ var _ = Describe("Service", func() {
 				}))
 				Expect(arcSvc.NewRetrieve().
 					Where(arc.MatchKeys(a.Base().Key)).
-					Exists(ctx, nil)).To(BeFalse())
+					Exists(ctx, db)).To(BeFalse())
 			},
 		)
 
@@ -361,7 +361,7 @@ var _ = Describe("Service", func() {
 			})).Error().To(denied(author, access.ActionDelete, a.ResourceID()))
 			Expect(arcSvc.NewRetrieve().
 				Where(arc.MatchKeys(a.Base().Key)).
-				Exists(ctx, nil)).To(BeTrue())
+				Exists(ctx, db)).To(BeTrue())
 		})
 
 		It(
@@ -376,7 +376,7 @@ var _ = Describe("Service", func() {
 				)
 				Expect(arcSvc.NewRetrieve().
 					Where(arc.MatchKeys(a.Base().Key)).
-					Exists(ctx, nil)).To(BeTrue())
+					Exists(ctx, db)).To(BeTrue())
 			},
 		)
 
@@ -415,7 +415,7 @@ var _ = Describe("Service", func() {
 				)
 				Expect(taskSvc.NewRetrieve().
 					Where(task.MatchKeys(tsk.Key)).
-					Exists(ctx, nil)).To(BeTrue())
+					Exists(ctx, db)).To(BeTrue())
 			})
 
 			It("Should delete the Arc and its task with delete access to both", func(
@@ -435,10 +435,10 @@ var _ = Describe("Service", func() {
 				}))
 				Expect(arcSvc.NewRetrieve().
 					Where(arc.MatchKeys(a.Base().Key)).
-					Exists(ctx, nil)).To(BeFalse())
+					Exists(ctx, db)).To(BeFalse())
 				Expect(taskSvc.NewRetrieve().
 					Where(task.MatchKeys(tsk.Key)).
-					Exists(ctx, nil)).To(BeFalse())
+					Exists(ctx, db)).To(BeFalse())
 			})
 		})
 	})
@@ -485,7 +485,7 @@ var _ = Describe("Service", func() {
 					var res arc.Arc
 					Expect(arcSvc.NewRetrieve().
 						Where(arc.MatchKeys(a.Base().Key)).
-						Entry(&res).Exec(ctx, nil)).To(Succeed())
+						Entry(&res).Exec(ctx, db)).To(Succeed())
 					Expect(graphOf(res.Base()).Nodes).To(HaveLen(1))
 					Expect(
 						graphOf(res.Base()).Nodes[0].Position,
@@ -540,7 +540,7 @@ var _ = Describe("Service", func() {
 					var res arc.Arc
 					Expect(arcSvc.NewRetrieve().
 						Where(arc.MatchKeys(a.Base().Key)).
-						Entry(&res).Exec(ctx, nil)).To(Succeed())
+						Entry(&res).Exec(ctx, db)).To(Succeed())
 					Expect(graphOf(res.Base()).Nodes).To(HaveLen(2))
 					Expect(res.Base().Name).To(Equal("renamed-multi"))
 				},
@@ -714,7 +714,7 @@ var _ = Describe("Service", func() {
 			Expect(res.Task).To(BeNil())
 			Expect(arcSvc.NewRetrieve().
 				Where(arc.MatchKeys(a.Base().Key)).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 		})
 
 		It(

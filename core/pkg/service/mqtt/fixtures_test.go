@@ -263,7 +263,7 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 		statusSvc.NewRetrieve[task.StatusDetails]().
 			Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 			Entry(&stat).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		query.ErrNotFound,
 	)).To(Succeed())
 	return stat
@@ -381,7 +381,7 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 		statusSvc.NewRetrieve[device.StatusDetails]().
 			Where(status.MatchOwners[device.StatusDetails](dev.ResourceID())).
 			Entry(&stat).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		query.ErrNotFound,
 	)).To(Succeed())
 	return stat

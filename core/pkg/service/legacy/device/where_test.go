@@ -88,7 +88,7 @@ var _ = Describe("Where", Ordered, func() {
 				SkipMissingKeys().
 				Where(f).
 				Entries(&res).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(lo.Map(res, func(d device.Device, _ int) string {
 				return aliases[d.Key]
 			})).To(ConsistOf(c.Expected))

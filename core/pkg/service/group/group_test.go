@@ -58,7 +58,7 @@ var _ = Describe("Group", Ordered, func() {
 		Expect(svc.NewRetrieve().
 			Where(group.MatchKeys(key)).
 			Entry(&g).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return g
 	}
 
@@ -202,7 +202,7 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(svc.NewRetrieve().
 				Where(group.MatchKeys(g1.Key, g2.Key)).
 				Entries(&ret).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(ret).To(ConsistOf(g1, g2))
 		})
 
@@ -212,7 +212,7 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(svc.NewRetrieve().
 				Where(group.MatchNames(created.Name)).
 				Entry(&g).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(g).To(Equal(created))
 		})
 
@@ -224,13 +224,13 @@ var _ = Describe("Group", Ordered, func() {
 				Where(group.MatchKeys(parent.Key, child.Key)).
 				Where(group.MatchHasParent(true)).
 				Entries(&nested).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(nested).To(ConsistOf(child))
 			Expect(svc.NewRetrieve().
 				Where(group.MatchKeys(parent.Key, child.Key)).
 				Where(group.MatchHasParent(false)).
 				Entries(&top).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(top).To(ConsistOf(parent))
 		})
 	})
@@ -243,14 +243,14 @@ var _ = Describe("Group", Ordered, func() {
 				mid := create(ctx, "mid", &root)
 				a := create(ctx, "a", &mid)
 				b := create(ctx, "b", &mid)
-				Expect(svc.Ancestors(ctx, nil, a.Key, b.Key)).
+				Expect(svc.Ancestors(ctx, db, a.Key, b.Key)).
 					To(ConsistOf(mid, root))
 			},
 		)
 
 		It("Should return nothing for a top-level group", func(ctx SpecContext) {
 			g := create(ctx, "lonely", nil)
-			Expect(svc.Ancestors(ctx, nil, g.Key)).To(BeEmpty())
+			Expect(svc.Ancestors(ctx, db, g.Key)).To(BeEmpty())
 		})
 	})
 
@@ -280,7 +280,7 @@ var _ = Describe("Group", Ordered, func() {
 			parent := create(ctx, "children-parent", nil)
 			a := create(ctx, "children-a", &parent)
 			b := create(ctx, "children-b", &parent)
-			Expect(svc.Children(ctx, nil, parent.Key)).
+			Expect(svc.Children(ctx, db, parent.Key)).
 				To(ConsistOf(a.ResourceID(), b.ResourceID()))
 		})
 	})
@@ -403,7 +403,7 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(svc.NewRetrieve().
 				Where(group.MatchKeys(created.Key)).
 				Entry(new(group.Group)).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		})
 
 		It(
@@ -420,7 +420,7 @@ var _ = Describe("Group", Ordered, func() {
 				Expect(svc.NewRetrieve().
 					Where(group.MatchKeys(root.Key, level1.Key, level2.Key)).
 					Entries(&groups).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 				Expect(groups).To(BeEmpty())
 			},
 		)
@@ -442,7 +442,7 @@ var _ = Describe("Group", Ordered, func() {
 			})).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(group.MatchScopes(resource.TypeBuiltin)).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 			Expect(retrieve(ctx, kept.Key).Name).To(Equal("kept-by-builtin-delete"))
 		})
 	})

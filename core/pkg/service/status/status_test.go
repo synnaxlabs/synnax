@@ -124,7 +124,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(svc.NewRetrieve[details]().
 					Where(status.MatchKeys[details](s.Key)).
 					Entry(&res).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				expected := s
 				expected.Name = "After"
 				Expect(res).To(Equal(expected))

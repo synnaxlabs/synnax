@@ -130,7 +130,7 @@ func roleOf(ctx SpecContext, key user.Key) role.Key {
 	Expect(userSvc.NewRetrieve().
 		Where(user.MatchKeys(key)).
 		Entry(&u).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return u.Role
 }
 
@@ -334,7 +334,7 @@ var _ = Describe("Service", func() {
 				})).Error().ToNot(HaveOccurred())
 				var updated user.User
 				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
-					Entry(&updated).Exec(ctx, nil)).To(Succeed())
+					Entry(&updated).Exec(ctx, db)).To(Succeed())
 				Expect(updated.Name).To(Equal("Renamed User"))
 			},
 		)
@@ -364,7 +364,7 @@ var _ = Describe("Service", func() {
 				))
 				var stored user.User
 				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
-					Entry(&stored).Exec(ctx, nil)).To(Succeed())
+					Entry(&stored).Exec(ctx, db)).To(Succeed())
 				Expect(stored.Name).To(Equal("rename-denied"))
 			},
 		)
@@ -760,7 +760,7 @@ var _ = Describe("Service", func() {
 				Expect(
 					userSvc.NewRetrieve().
 						Where(user.MatchKeys(created.Key)).
-						Exists(ctx, nil),
+						Exists(ctx, db),
 				).
 					To(BeFalse())
 				Expect(login(ctx, username, "password")).Error().
@@ -790,7 +790,7 @@ var _ = Describe("Service", func() {
 					Error().
 					To(denied(subject, access.ActionDelete, u.ResourceID()))
 				Expect(
-					userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).Exists(ctx, nil),
+					userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).Exists(ctx, db),
 				).
 					To(BeTrue())
 			},
@@ -816,7 +816,7 @@ var _ = Describe("Service", func() {
 				Keys: []user.Key{root.Key},
 			})).Error().To(MatchError(ContainSubstring("cannot delete root user")))
 			Expect(
-				userSvc.NewRetrieve().Where(user.MatchKeys(root.Key)).Exists(ctx, nil),
+				userSvc.NewRetrieve().Where(user.MatchKeys(root.Key)).Exists(ctx, db),
 			).To(BeTrue())
 		})
 	})

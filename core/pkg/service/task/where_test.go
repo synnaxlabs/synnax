@@ -35,6 +35,7 @@ import (
 var _ = Describe("Where", Ordered, func() {
 	var (
 		v   vectors.Vectors[task.Task, task.Where]
+		db  *gorp.DB
 		svc *task.Service
 	)
 	v = MustSucceed(vectors.Read[task.Task, task.Where]("tasks"))
@@ -47,7 +48,7 @@ var _ = Describe("Where", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))
@@ -96,7 +97,7 @@ var _ = Describe("Where", Ordered, func() {
 				SkipMissingKeys().
 				Where(f).
 				Entries(&res).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(lo.Map(res, func(t task.Task, _ int) string {
 				return aliases[t.Key]
 			})).To(ConsistOf(c.Expected))

@@ -435,7 +435,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 					statusSvc.NewRetrieve[any]().
 						Where(status.MatchKeys[any](res.Key)).
 						Entry(&s).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(s.Key).To(Equal(res.Key))
 				Expect(s.Name).To(Equal(name))
@@ -576,7 +576,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				Expect(statusSvc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 					Entry(&status.Status[any]{}).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -702,7 +702,7 @@ var _ = Describe("Service.Rename", func() {
 		Expect(statusSvc.NewRetrieve[any]().
 			Where(status.MatchKeys[any](key)).
 			Entry(&s).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return s
 	}
 
@@ -763,7 +763,7 @@ var _ = Describe("Service.Delete", func() {
 		return statusSvc.NewRetrieve[any]().
 			Where(status.MatchKeys[any](key)).
 			Entry(&status.Status[any]{}).
-			Exec(ctx, nil)
+			Exec(ctx, db)
 	}
 
 	It("Should reject the request when delete is not granted", func(ctx SpecContext) {

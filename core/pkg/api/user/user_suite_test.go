@@ -87,6 +87,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		),
 	)
 	apiSvc = MustSucceed(apiuser.NewService(apiuser.ServiceConfig{
+		DB:       db,
 		RBAC:     rbacSvc,
 		User:     userSvc,
 		Password: passwordSvc,
@@ -113,7 +114,7 @@ func findRoot(ctx SpecContext, svc *user.Service) user.User {
 	GinkgoHelper()
 	var u user.User
 	Expect(
-		svc.NewRetrieve().Where(user.MatchRootUser(true)).Entry(&u).Exec(ctx, nil),
+		svc.NewRetrieve().Where(user.MatchRootUser(true)).Entry(&u).Exec(ctx, db),
 	).To(Succeed())
 	return u
 }

@@ -105,7 +105,7 @@ var _ = Describe("Metrics", func() {
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
-				Exec(ctx, nil),
+				Exec(ctx, dist.DB),
 			).To(Succeed())
 			Expect(ch.Name).To(Equal(expectedName))
 			Expect(ch.DataType).To(Equal(telem.TimestampT))
@@ -117,7 +117,7 @@ var _ = Describe("Metrics", func() {
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
-				Exec(ctx, nil),
+				Exec(ctx, dist.DB),
 			).To(Succeed())
 			Expect(ch.Name).To(Equal(expectedName))
 			Expect(ch.DataType).To(Equal(telem.Float32T))
@@ -129,7 +129,7 @@ var _ = Describe("Metrics", func() {
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
-				Exec(ctx, nil),
+				Exec(ctx, dist.DB),
 			).To(Succeed())
 			Expect(ch.Name).To(Equal(expectedName))
 			Expect(ch.DataType).To(Equal(telem.Float32T))
@@ -143,7 +143,7 @@ var _ = Describe("Metrics", func() {
 				Expect(channelSvc.NewRetrieve().
 					Where(channel.MatchNames(expectedName)).
 					Entry(&ch).
-					Exec(ctx, nil),
+					Exec(ctx, dist.DB),
 				).To(Succeed())
 				Expect(ch.Name).To(Equal(expectedName))
 				Expect(ch.DataType).To(Equal(telem.Float32T))
@@ -156,7 +156,7 @@ var _ = Describe("Metrics", func() {
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
-				Exec(ctx, nil),
+				Exec(ctx, dist.DB),
 			).To(Succeed())
 			Expect(ch.Name).To(Equal(expectedName))
 			Expect(ch.DataType).To(Equal(telem.Float32T))
@@ -168,7 +168,7 @@ var _ = Describe("Metrics", func() {
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
-				Exec(ctx, nil),
+				Exec(ctx, dist.DB),
 			).To(Succeed())
 			Expect(ch.Name).To(Equal(expectedName))
 			Expect(ch.DataType).To(Equal(telem.Float32T))
@@ -189,7 +189,7 @@ var _ = Describe("Metrics", func() {
 				NewRetrieve().
 				Where(channel.MatchNames(names...)).
 				Entries(&channels).
-				Exec(ctx, nil),
+				Exec(ctx, dist.DB),
 			).To(Succeed())
 			Expect(channels).To(HaveLen(len(names)))
 			Expect(svc2.Close()).To(Succeed())
@@ -214,7 +214,7 @@ var _ = Describe("Metrics", func() {
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(name)).
 				Entry(&ch).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, dist.DB)).To(Succeed())
 			return ch
 		}
 
@@ -328,7 +328,7 @@ var _ = Describe("Metrics", func() {
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(names...)).
 				Entries(&channels).
-				Exec(ctx, nil),
+				Exec(ctx, dist.DB),
 			).To(Succeed())
 			Expect(channels).To(HaveLen(len(names)))
 			streamer = MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
@@ -348,7 +348,7 @@ var _ = Describe("Metrics", func() {
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(names...)).
 				Entries(&channels).
-				Exec(ctx, nil),
+				Exec(ctx, dist.DB),
 			).To(Succeed())
 			keyByName := make(map[string]channel.Key, len(channels))
 			for _, ch := range channels {

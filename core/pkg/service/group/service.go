@@ -208,7 +208,7 @@ func (s *Service) Children(
 	snap gorp.Snapshot,
 	key Key,
 ) ([]resource.ID, error) {
-	return resource.Dependents(ctx, gorp.OverrideSnapshot(s.cfg.DB, snap), s.table, key)
+	return resource.Dependents(ctx, snap, s.table, key)
 }
 
 func (s *Service) Close() error {

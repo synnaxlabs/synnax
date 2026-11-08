@@ -136,7 +136,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Legacy Task")).
 				Entry(&migrated).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migrated.Key).ToNot(Equal(uuid.Nil()))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
 			Expect(migrated.Config).To(HaveKeyWithValue("routing_key", "rk-legacy"))
@@ -148,7 +148,7 @@ var _ = Describe("Migrations", func() {
 			Expect(stat.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchOwners[task.StatusDetails](task.ResourceID(migrated.Key))).
 				Entry(&restoredStatus).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(restoredStatus.Key).To(Equal(legacyStatusKey))
 			Expect(restoredStatus.Details.Running).To(BeTrue())
 			Expect(restoredStatus.Details.Cmd).To(Equal("start"))
@@ -363,7 +363,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored PD Task")).
 				Entry(&migratedPD).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedPD.Config).To(
 				HaveKeyWithValue("routing_key", "rk-stored"),
 			)
@@ -375,7 +375,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored Arc Task")).
 				Entry(&migratedArc).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedArc.Type).To(Equal("arc"))
 			Expect(migratedArc.Config).To(
 				HaveKeyWithValue("arc_key", arcModuleKey),
@@ -390,7 +390,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored LabJack Scan Task")).
 				Entry(&migratedScan).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedScan.Config).To(
 				HaveKeyWithValue("rate", BeEquivalentTo(0.2)),
 			)
@@ -399,7 +399,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored LabJack Write Task")).
 				Entry(&migratedLJ).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedLJ.Config).To(HaveKeyWithValue("device", "dev-lj"))
 			Expect(migratedLJ.Config).To(
 				HaveKeyWithValue("data_saving_disabled", false),
@@ -419,7 +419,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored NI Analog Read Task")).
 				Entry(&migratedNI).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedNI.Config).ToNot(HaveKey("device"))
 			Expect(migratedNI.Config).To(
 				HaveKeyWithValue("data_saving_disabled", false),
@@ -444,7 +444,7 @@ var _ = Describe("Migrations", func() {
 
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Bogus Task")).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 			rekeyed, rekeyCloser := MustSucceed2(
 				db.Get(ctx, v2.LegacyKeyKVKey(bogusTask.Key)),
 			)
@@ -459,7 +459,7 @@ var _ = Describe("Migrations", func() {
 			for _, retired := range retiredTasks {
 				Expect(svc.NewRetrieve().
 					Where(task.MatchNames(retired.Name)).
-					Exists(ctx, nil)).To(BeFalse())
+					Exists(ctx, db)).To(BeFalse())
 				rekeyed, rekeyCloser := MustSucceed2(
 					db.Get(ctx, v2.LegacyKeyKVKey(retired.Key)),
 				)

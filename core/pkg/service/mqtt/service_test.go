@@ -66,9 +66,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext, store func(*mqtt.Service) config.Store) {
 				s := store(svc)
 				Expect(s.Version()).To(BeEquivalentTo(1))
-				MustSucceed(s.Normalize(ctx, nil, 1, msgpack.EncodedJSON{}))
+				MustSucceed(s.Normalize(ctx, db, 1, msgpack.EncodedJSON{}))
 				newer := " version 2 is newer than this Core supports (latest: 1)"
-				Expect(s.Normalize(ctx, nil, 2, msgpack.EncodedJSON{})).Error().
+				Expect(s.Normalize(ctx, db, 2, msgpack.EncodedJSON{})).Error().
 					To(MatchError(ContainSubstring(s.Type() + newer)))
 			},
 			Entry("read", func(s *mqtt.Service) config.Store { return s.Read }),
@@ -91,7 +91,7 @@ var _ = Describe("Service", func() {
 					"topic": "plant/line1/temperature",
 				}},
 			}))
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("broker-1"))
 			Expect(data["entries"]).To(HaveExactElements(SatisfyAll(
@@ -111,7 +111,7 @@ var _ = Describe("Service", func() {
 					"tag":       "temperature",
 				}},
 			}))
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["entries"]).To(HaveExactElements(SatisfyAll(
 				HaveKeyWithValue("edge_node", "line1"),
 				HaveKeyWithValue("data_type", "float64"),
@@ -124,7 +124,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"targets": []any{map[string]any{"key": "target-1", "type": "plain"}},
 			}))
-			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			data := MustSucceed(svc.Write.Read(ctx, db, key))
 			Expect(data["targets"]).To(HaveExactElements(SatisfyAll(
 				HaveKeyWithValue("qos", "at_least_once"),
 				HaveKeyWithValue("retained", false),
@@ -135,7 +135,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
+			data := MustSucceed(svc.Scan.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 
@@ -147,7 +147,7 @@ var _ = Describe("Service", func() {
 				"edge_node": "synnax",
 				"tags":      []any{map[string]any{"key": "tag-1", "name": "pressure"}},
 			}))
-			data := MustSucceed(svc.Edge.Read(ctx, nil, key))
+			data := MustSucceed(svc.Edge.Read(ctx, db, key))
 			Expect(data["tags"]).To(HaveExactElements(
 				HaveKeyWithValue("tag_type", "double"),
 			))
@@ -156,7 +156,7 @@ var _ = Describe("Service", func() {
 		It("Should return the validation error for an invalid QoS", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
 				"entries": []any{map[string]any{"type": "plain", "qos": "twice"}},
 			})).Error().
 				To(MatchError(ContainSubstring("twice")))
@@ -165,7 +165,7 @@ var _ = Describe("Service", func() {
 		It("Should return the validation error for an unknown entry type", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
 				"entries": []any{map[string]any{"type": "amqp"}},
 			})).Error().
 				To(MatchError(ContainSubstring("amqp")))

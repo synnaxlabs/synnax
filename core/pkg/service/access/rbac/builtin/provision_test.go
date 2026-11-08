@@ -48,7 +48,7 @@ var _ = Describe("Provision", func() {
 		Expect(roleSvc.NewRetrieve().
 			Where(role.MatchKeys(key)).
 			Entry(&r).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return r
 	}
 
@@ -68,7 +68,7 @@ var _ = Describe("Provision", func() {
 		Expect(policySvc.NewRetrieve().
 			Where(policy.MatchNames("Driver Edit Access")).
 			Entry(&edit).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(gorp.NewUpdate[role.Key, role.Role]().
 			Where(gorp.MatchKeys[role.Key, role.Role](first.DriverKey)).
 			Change(func(_ gorp.Context, r role.Role) role.Role {
@@ -88,7 +88,7 @@ var _ = Describe("Provision", func() {
 		Expect(policySvc.NewRetrieve().
 			Where(policy.MatchKeys(edit.Key)).
 			Entry(&renamed).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(renamed.Name).To(Equal("Driver Edit Access"))
 	})
 

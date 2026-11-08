@@ -91,7 +91,7 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Ancient Task")).
 				Entry(&migrated).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migrated.Key).ToNot(Equal(uuid.Nil()))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
 			Expect(migrated.Config).To(HaveKeyWithValue("routing_key", "rk-ancient"))

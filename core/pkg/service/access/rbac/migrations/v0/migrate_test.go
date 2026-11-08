@@ -204,8 +204,8 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(roleSvc.NewRetrieve().
 			Where(role.MatchNames("Owner")).
 			Entry(&owner).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(roleOf(ctx, nil, userSvc, root.Key)).To(Equal(owner.Key))
+			Exec(ctx, db)).To(Succeed())
+		Expect(roleOf(ctx, db, userSvc, root.Key)).To(Equal(owner.Key))
 	})
 
 	It("Should keep the roles of a store that already converted to roles", func(
@@ -253,6 +253,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 				Roles: builtinRoles,
 			})},
 		})).To(Succeed())
-		Expect(roleOf(ctx, nil, userSvc, viewer.Key)).To(Equal(builtinRoles.ViewerKey))
+		Expect(roleOf(ctx, db, userSvc, viewer.Key)).To(Equal(builtinRoles.ViewerKey))
 	})
 })

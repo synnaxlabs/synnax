@@ -122,7 +122,7 @@ func (s *Service) Authenticate(
 			proof.Variant,
 		)
 	}
-	p, h, err := s.verify(ctx, nil, creds)
+	p, h, err := s.verify(ctx, creds)
 	if err != nil {
 		return auth.Identity{}, err
 	}
@@ -134,47 +134,68 @@ func (s *Service) Authenticate(
 	return identityOf(p), nil
 }
 
-// Verify returns the identity that creds prove, reading through tx. It returns the
+// Verify returns the identity that creds prove, reading through snap. It returns the
 // errors of Authenticate, and it never stores a new hash, so it can run in an open
 // transaction.
 func (s *Service) Verify(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	creds auth.PasswordProof,
 ) (auth.Identity, error) {
-	p, _, err := s.verify(ctx, tx, creds)
-	return identityOf(p), err
+	p, err := s.find(ctx, snap, creds)
+	if err != nil {
+		return auth.Identity{}, err
+	}
+	if _, err = s.check(p, creds); err != nil {
+		return auth.Identity{}, err
+	}
+	return identityOf(p), nil
 }
 
+// verify checks the password after its snapshot closes, since a check is slow.
 func (s *Service) verify(
 	ctx context.Context,
-	tx gorp.Tx,
 	creds auth.PasswordProof,
 ) (Password, verifier, error) {
-	if err := creds.Validate(); err != nil {
+	var p Password
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		p, err = s.find(ctx, snap, creds)
+		return err
+	}); err != nil {
 		return Password{}, nil, err
+	}
+	h, err := s.check(p, creds)
+	return p, h, err
+}
+
+func (s *Service) find(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	creds auth.PasswordProof,
+) (Password, error) {
+	if err := creds.Validate(); err != nil {
+		return Password{}, err
 	}
 	var p Password
-	if err := s.NewRetrieve().
+	err := s.NewRetrieve().
 		Where(MatchUsernames(creds.Username)).
 		Entry(&p).
-		Exec(ctx, tx); err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return Password{}, nil, auth.ErrInvalidCredentials
-		}
-		return Password{}, nil, err
+		Exec(ctx, snap)
+	if errors.Is(err, query.ErrNotFound) {
+		return Password{}, auth.ErrInvalidCredentials
 	}
+	return p, err
+}
+
+func (s *Service) check(p Password, creds auth.PasswordProof) (verifier, error) {
 	h, ok := s.verifierFor(p.Hash)
 	if !ok {
-		return Password{}, nil, errors.Wrap(
+		return nil, errors.Wrap(
 			auth.ErrInvalidCredentials,
 			"the stored hash uses an algorithm this Core does not accept",
 		)
 	}
-	if err := h.verify(p.Hash, creds.Password); err != nil {
-		return Password{}, nil, err
-	}
-	return p, h, nil
+	return h, h.verify(p.Hash, creds.Password)
 }
 
 // Hash is a password hash made outside any write transaction, since hashing is slow.
@@ -225,10 +246,11 @@ func (s *Service) HashProven(
 	proof auth.PasswordProof,
 	plaintext string,
 ) (Hash, error) {
-	identity, err := s.Verify(ctx, nil, proof)
+	p, _, err := s.verify(ctx, proof)
 	if err != nil {
 		return Hash{}, err
 	}
+	identity := identityOf(p)
 	h, err := s.Hash(plaintext)
 	if err != nil {
 		return Hash{}, err

@@ -303,6 +303,7 @@ func (l *Layer) BindTo(t Transport) {
 		rec      = recovery.Middleware(l.config.Instrumentation)
 		gate     = license.Middleware(l.config.Service.License)
 		restrict = restrictMiddleware(
+			l.config.Distribution.DB,
 			l.config.Service.Resource,
 			l.config.Service.RBAC,
 		)
@@ -800,6 +801,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Auth, err = auth.NewService(auth.ServiceConfig{
+		DB:       cfg.Distribution.DB,
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,
 		APIKey:   cfg.Service.APIKey,
@@ -810,6 +812,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.User, err = user.NewService(user.ServiceConfig{
+		DB:       cfg.Distribution.DB,
 		RBAC:     cfg.Service.RBAC,
 		User:     cfg.Service.User,
 		Password: cfg.Service.Password,
@@ -828,6 +831,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Framer, err = framer.NewService(framer.ServiceConfig{
 		Instrumentation: cfg.Instrumentation,
+		DB:              cfg.Distribution.DB,
 		Framer:          cfg.Service.Framer,
 		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
@@ -836,6 +840,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Channel, err = channel.NewService(channel.ServiceConfig{
+		DB:      cfg.Distribution.DB,
 		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
 		Status:  cfg.Service.Status,
@@ -855,6 +860,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.License, err = license.NewService(license.ServiceConfig{
+		DB:      cfg.Distribution.DB,
 		RBAC:    cfg.Service.RBAC,
 		License: cfg.Service.License,
 	}); err != nil {

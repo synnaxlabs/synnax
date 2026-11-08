@@ -207,7 +207,11 @@ func (s *Service) Hold(
 		})
 	}
 	// registered before the lookup, so a deletion in between still ends the hold
-	exists, err := s.NewRetrieve().Where(MatchKeys(key)).Exists(ctx, nil)
+	var exists bool
+	err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		exists, err = s.NewRetrieve().Where(MatchKeys(key)).Exists(ctx, snap)
+		return err
+	})
 	if err != nil || !exists {
 		release()
 		if err != nil {
@@ -489,7 +493,9 @@ func (s *Service) Sweep(ctx context.Context) error {
 	// collected before the read, so a hold registered after it is never ended here
 	held := set.New(s.held()...)
 	var all []Session
-	if err := s.NewRetrieve().Entries(&all).Exec(ctx, nil); err != nil {
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.NewRetrieve().Entries(&all).Exec(ctx, snap)
+	}); err != nil {
 		return err
 	}
 	keep := make(set.Set[SessionKey], len(all))

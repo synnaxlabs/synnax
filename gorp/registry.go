@@ -25,8 +25,8 @@ type registeredTable interface {
 	// canonical reports whether k is a key of the table in the text form that
 	// FormatKey returns.
 	canonical(k string) bool
-	// exists reports whether the entry with the text key k exists in tx.
-	exists(ctx context.Context, tx Tx, k string) (bool, error)
+	// exists reports whether the entry with the text key k exists in snap.
+	exists(ctx context.Context, snap Snapshot, k string) (bool, error)
 	// deleteKeys deletes the entries with the text keys keys as a cascade.
 	deleteKeys(ctx context.Context, tx Tx, keys []string) error
 	// detach removes the targets of ops from the entry with the text key k and writes

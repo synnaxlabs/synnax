@@ -125,7 +125,7 @@ var _ = Describe("Service", func() {
 				for range 10 {
 					var symbols []symbol.Symbol
 					Expect(
-						svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil),
+						svc.NewRetrieve().Entries(&symbols).Exec(ctx, db),
 					).To(Succeed())
 				}
 				done <- true
@@ -137,7 +137,7 @@ var _ = Describe("Service", func() {
 				for range 10 {
 					var symbols []symbol.Symbol
 					Expect(
-						svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil),
+						svc.NewRetrieve().Entries(&symbols).Exec(ctx, db),
 					).To(Succeed())
 				}
 				done <- true

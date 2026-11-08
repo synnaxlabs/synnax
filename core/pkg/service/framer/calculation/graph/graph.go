@@ -17,6 +17,8 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
@@ -35,6 +37,10 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// DB holds the channels that the graph compiles.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - defaults to noop instrumentation.
@@ -46,12 +52,14 @@ var _ config.Config[Config] = Config{}
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
 
 func (c Config) Validate() error {
 	v := validate.New("calculation.graph")
 	v.NotNil("channel", c.Channel)
+	v.NotNil("db", c.DB)
 	return v.Error()
 }
 
@@ -175,10 +183,7 @@ func (g *Graph) recompileDependents(ctx context.Context, changedKey channel.Key)
 		if info == nil {
 			continue
 		}
-		mod, cErr := compiler.Compile(ctx, compiler.Config{
-			ChannelService: g.cfg.Channel,
-			Channel:        ch,
-		})
+		mod, cErr := g.compile(ctx, ch)
 		if cErr != nil {
 			for _, s := range snapshots {
 				g.channels[s.key].module = s.old
@@ -262,10 +267,7 @@ func (g *Graph) updateSingle(
 	defer func() { info.processing = false }()
 
 	// Recompile with new expression
-	mod, err := compiler.Compile(ctx, compiler.Config{
-		ChannelService: g.cfg.Channel,
-		Channel:        ch,
-	})
+	mod, err := g.compile(ctx, ch)
 	if err != nil {
 		g.logCompileError(ctx, err, ch)
 		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
@@ -535,10 +537,7 @@ func (g *Graph) addInternal(
 	g.channels[ch.Key()] = info
 	defer func() { info.processing = false }()
 
-	mod, err := compiler.Compile(ctx, compiler.Config{
-		ChannelService: g.cfg.Channel,
-		Channel:        ch,
-	})
+	mod, err := g.compile(ctx, ch)
 	if err != nil {
 		delete(g.channels, ch.Key())
 		g.logCompileError(ctx, err, ch)
@@ -617,13 +616,30 @@ func (g *Graph) fetchChannels(
 	keys []channel.Key,
 ) ([]channel.Channel, error) {
 	var channels []channel.Channel
-	if err := g.cfg.Channel.NewRetrieve().
-		Entries(&channels).
-		Where(channel.MatchKeys(keys...)).
-		Exec(ctx, nil); err != nil {
+	if err := g.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return g.cfg.Channel.NewRetrieve().
+			Entries(&channels).
+			Where(channel.MatchKeys(keys...)).
+			Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
 	return channels, nil
+}
+
+func (g *Graph) compile(
+	ctx context.Context,
+	ch channel.Channel,
+) (compiler.Module, error) {
+	var mod compiler.Module
+	err := g.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		mod, err = compiler.Compile(ctx, snap, compiler.Config{
+			ChannelService: g.cfg.Channel,
+			Channel:        ch,
+		})
+		return err
+	})
+	return mod, err
 }
 
 // resolveBaseDependencies recursively resolves all dependencies to find the concrete
@@ -985,9 +1001,13 @@ func (g *Graph) fetchDependencyDiagnostics(
 	ch channel.Channel,
 ) []channel.Channel {
 	// Try preProcess to discover channel references from the expression
-	prog, preErr := compiler.PreProcess(ctx, compiler.Config{
-		ChannelService: g.cfg.Channel,
-		Channel:        ch,
+	var prog arc.Program
+	preErr := g.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		prog, err = compiler.PreProcess(ctx, snap, compiler.Config{
+			ChannelService: g.cfg.Channel,
+			Channel:        ch,
+		})
+		return err
 	})
 	if preErr != nil || len(prog.Functions) == 0 {
 		return nil

@@ -41,6 +41,10 @@ type Key = channel.Key
 
 // ServiceConfig is the configuration for the channel API service.
 type ServiceConfig struct {
+	// DB opens the snapshots that codec lookups read.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// RBAC checks the access of every request except set group.
 	//
 	// [REQUIRED]
@@ -67,6 +71,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
@@ -77,6 +82,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.channel")
+	v.NotNil("db", c.DB)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("status", c.Status)
@@ -86,6 +92,7 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the central service for all things Channel related.
 type Service struct {
+	db       *gorp.DB
 	access   *rbac.Service
 	internal *channel.Service
 	status   *status.Service
@@ -98,6 +105,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:       cfg.DB,
 		access:   cfg.RBAC,
 		internal: cfg.Channel,
 		status:   cfg.Status,
@@ -116,10 +124,12 @@ func (s *Service) RetrieveDataTypes(
 	keys channel.Keys,
 ) ([]telem.DataType, error) {
 	var channels []channel.Channel
-	if err := s.internal.NewRetrieve().
-		Where(channel.MatchKeys(keys...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.internal.NewRetrieve().
+			Where(channel.MatchKeys(keys...)).
+			Entries(&channels).
+			Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
 	dataTypes := make(map[channel.Key]telem.DataType, len(channels))
@@ -135,10 +145,12 @@ func (s *Service) RetrieveDataTypes(
 // the given key, returning an empty string if no channel with the key exists.
 func (s *Service) RetrieveName(ctx context.Context, key channel.Key) string {
 	var ch channel.Channel
-	if err := s.internal.NewRetrieve().
-		Where(channel.MatchKeys(key)).
-		Entry(&ch).
-		Exec(ctx, nil); err != nil {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.internal.NewRetrieve().
+			Where(channel.MatchKeys(key)).
+			Entry(&ch).
+			Exec(ctx, snap)
+	}); err != nil {
 		return ""
 	}
 	return ch.Name

@@ -70,7 +70,7 @@ var _ = Describe("Migration", func() {
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 				Where(status.MatchOwners[v0.StatusDetails](d.ResourceID())).
 				Entry(&restoredStatus).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			key, _ := statusv2.MigrateKey(d.ResourceID().String())
 			Expect(restoredStatus.Key).To(Equal(key))
 			Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -118,7 +118,7 @@ var _ = Describe("Migration", func() {
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 				Where(status.MatchOwners[v0.StatusDetails](d.ResourceID())).
 				Entry(&deviceStatus).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(deviceStatus.Key).To(Equal(existing.Key))
 			Expect(deviceStatus.Variant).To(Equal(status.VariantSuccess))
 			Expect(deviceStatus.Message).To(ContainSubstring("Device With Status"))

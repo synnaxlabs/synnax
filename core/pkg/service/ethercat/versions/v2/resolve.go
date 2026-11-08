@@ -41,11 +41,11 @@ type Slave struct {
 	Outputs []Entry `json:"outputs"`
 }
 
-// Slaves returns the slaves among keys, read through tx. A key with no slave is absent
-// from the result.
+// Slaves returns the slaves among keys, read through snap. A key with no slave is
+// absent from the result.
 type Slaves func(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	keys []string,
 ) (map[string]Slave, error)
 
@@ -191,16 +191,16 @@ func FindEntry(entries []Entry, name string) (Entry, bool) {
 	return matches[0], true
 }
 
-// ReadSlaves returns the slaves among keys, read through tx. It reads nothing when keys
-// is empty.
+// ReadSlaves returns the slaves among keys, read through snap. It reads nothing when
+// keys is empty.
 func ReadSlaves(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	slaves Slaves,
 	keys []string,
 ) (map[string]Slave, error) {
 	if len(keys) == 0 {
 		return nil, nil
 	}
-	return slaves(ctx, tx, lo.Uniq(keys))
+	return slaves(ctx, snap, lo.Uniq(keys))
 }

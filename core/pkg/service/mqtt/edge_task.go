@@ -142,6 +142,7 @@ type edgeNode struct {
 	ins alamos.Instrumentation
 	// broker is the key of the broker device, whose edits the edge node follows.
 	broker    device.Key
+	db        *gorp.DB
 	devices   *device.Service
 	newClient clientFactory
 	// command is the topic of the NCMD messages to the edge node.
@@ -278,10 +279,12 @@ func (n *edgeNode) brokerConfig(
 	current clientConfig,
 ) (clientConfig, bool, error) {
 	var dev device.Device
-	if err := n.devices.NewRetrieve().
-		Where(device.MatchKeys(n.broker)).
-		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+	if err := n.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return n.devices.NewRetrieve().
+			Where(device.MatchKeys(n.broker)).
+			Entry(&dev).
+			Exec(ctx, snap)
+	}); err != nil {
 		return clientConfig{}, false, err
 	}
 	props, err := parseProperties(dev)

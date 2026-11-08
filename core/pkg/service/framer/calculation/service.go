@@ -43,7 +43,7 @@ type Status = calculation.Status
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
-	// DB opens the transactions that status writes run in.
+	// DB holds the channels that the service reads, and stores statuses.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -116,6 +116,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	g, err := graph.New(graph.Config{
 		Instrumentation: cfg.Child("calculation.graph"),
 		Channel:         cfg.Channel,
+		DB:              cfg.DB,
 	})
 	if err != nil {
 		return nil, err
@@ -363,10 +364,12 @@ func (s *Service) updateRequests(
 	ctx context.Context, added, removed []channel.Key,
 ) error {
 	var channels []channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
-		Where(channel.MatchKeys(added...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.cfg.Channel.NewRetrieve().
+			Where(channel.MatchKeys(added...)).
+			Entries(&channels).
+			Exec(ctx, snap)
+	}); err != nil {
 		return err
 	}
 	s.mu.Lock()

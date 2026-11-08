@@ -80,7 +80,7 @@ var _ = Describe("Service", func() {
 			Expect(panelSvc.NewRetrieve().
 				Where(panel.MatchKeys(p.Key)).
 				Entry(&panel.Panel{}).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should refuse to overwrite a panel without update on it", func(
@@ -110,7 +110,7 @@ var _ = Describe("Service", func() {
 			Expect(res.Panels[0].Key).To(Equal(p.Key))
 			var got panel.Panel
 			Expect(panelSvc.NewRetrieve().Where(panel.MatchKeys(p.Key)).
-				Entry(&got).Exec(ctx, nil)).To(Succeed())
+				Entry(&got).Exec(ctx, db)).To(Succeed())
 			Expect(got.Name).To(Equal("with-parent"))
 			Expect(got.Project).To(HaveValue(Equal(proj.Key)))
 		})
@@ -405,7 +405,7 @@ var _ = Describe("Service", func() {
 					To(Succeed())
 				var got panel.Panel
 				Expect(panelSvc.NewRetrieve().Where(panel.MatchKeys(p.Key)).
-					Entry(&got).Exec(ctx, nil)).To(Succeed())
+					Entry(&got).Exec(ctx, db)).To(Succeed())
 				Expect(got.Name).To(Equal("renamed"))
 			},
 		)
@@ -464,7 +464,7 @@ var _ = Describe("Service", func() {
 				Expect(panelSvc.NewRetrieve().
 					Where(panel.MatchKeys(p.Key)).
 					Entry(&panel.Panel{}).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 	})
@@ -486,7 +486,7 @@ func retrievePanel(ctx SpecContext, key panel.Key) panel.Panel {
 	Expect(panelSvc.NewRetrieve().
 		Where(panel.MatchKeys(key)).
 		Entry(&p).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return p
 }
 

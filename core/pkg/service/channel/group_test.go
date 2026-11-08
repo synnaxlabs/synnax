@@ -60,7 +60,7 @@ var _ = Describe("Group", Ordered, func() {
 		Expect(svc.NewRetrieve().
 			Where(channel.MatchKeys(key)).
 			Entry(&ch).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return ch
 	}
 
@@ -120,13 +120,13 @@ var _ = Describe("Group", Ordered, func() {
 			Where(channel.MatchKeys(in.Key(), out.Key())).
 			Where(channel.MatchGroups(g.Key)).
 			Entries(&grouped).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(channel.KeysFromChannels(grouped)).To(ConsistOf(in.Key()))
 		Expect(svc.NewRetrieve().
 			Where(channel.MatchKeys(in.Key(), out.Key())).
 			Where(channel.MatchHasGroup(false)).
 			Entries(&ungrouped).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(channel.KeysFromChannels(ungrouped)).To(ConsistOf(out.Key()))
 	})
 

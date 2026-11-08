@@ -172,7 +172,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(arcSvc.NewDirectoryRetrieve().
 		Where(directory.MatchNested(false)).
 		Entry(&r).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	root = r.Key
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),

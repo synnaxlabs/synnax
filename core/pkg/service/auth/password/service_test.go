@@ -40,7 +40,7 @@ func storedHash(
 	GinkgoHelper()
 	var p password.Password
 	Expect(svc.NewRetrieve().Where(password.MatchSubjects(subject)).Entry(&p).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return p.Hash
 }
 
@@ -126,7 +126,7 @@ var _ = Describe("Service", func() {
 			Expect(identity.Subject).To(Equal(alice))
 			var p password.Password
 			Expect(svc.NewRetrieve().Where(password.MatchSubjects(alice)).Entry(&p).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(identity.Credential).To(Equal(p.Key))
 			Expect(identity.Version).To(Equal(p.Created))
 		})
@@ -157,7 +157,7 @@ var _ = Describe("Service", func() {
 				createHash(ctx, db, bob, uuid.New().String(), hash)
 				var p password.Password
 				Expect(svc.NewRetrieve().Where(password.MatchSubjects(bob)).Entry(&p).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(
 					MustSucceed(svc.Authenticate(ctx, proof(p.Username, "p"))).Subject,
 				).
@@ -226,7 +226,7 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It("Should reject a wrong password", func(ctx SpecContext) {
-			Expect(svc.Verify(ctx, nil, auth.PasswordProof{
+			Expect(svc.Verify(ctx, db, auth.PasswordProof{
 				Username: username,
 				Password: "wrong",
 			})).Error().To(MatchError(auth.ErrInvalidCredentials))
@@ -278,10 +278,10 @@ var _ = Describe("Service", func() {
 		It("Should find a password by key", func(ctx SpecContext) {
 			var p password.Password
 			Expect(svc.NewRetrieve().Where(password.MatchSubjects(alice)).Entry(&p).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			var byKey password.Password
 			Expect(svc.NewRetrieve().Where(password.MatchKeys(p.Key)).Entry(&byKey).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(byKey).To(Equal(p))
 		})
 		It("Should compose filters", func(ctx SpecContext) {
@@ -289,17 +289,17 @@ var _ = Describe("Service", func() {
 			Expect(svc.NewRetrieve().Where(password.Or(
 				password.MatchSubjects(alice),
 				password.MatchSubjects(bob),
-			)).Entries(&ps).Exec(ctx, nil)).To(Succeed())
+			)).Entries(&ps).Exec(ctx, db)).To(Succeed())
 			Expect(ps).To(HaveLen(2))
 			Expect(svc.NewRetrieve().Where(password.And(
 				password.MatchSubjects(alice),
 				password.Not(password.MatchSubjects(alice)),
-			)).Count(ctx, nil)).To(Equal(0))
+			)).Count(ctx, db)).To(Equal(0))
 			Expect(svc.NewRetrieve().Where(password.Match(
 				func(_ gorp.Context, _ password.Retrieve, p *password.Password) (bool, error) {
 					return p.Subject == bob, nil
 				},
-			)).Count(ctx, nil)).To(Equal(1))
+			)).Count(ctx, db)).To(Equal(1))
 		})
 		It("Should page through passwords", func(ctx SpecContext) {
 			both := password.Or(
@@ -308,9 +308,9 @@ var _ = Describe("Service", func() {
 			)
 			var first, second []password.Password
 			Expect(svc.NewRetrieve().Where(both).Limit(1).Entries(&first).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(svc.NewRetrieve().Where(both).Limit(1).Offset(1).Entries(&second).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(first).To(HaveLen(1))
 			Expect(second).To(HaveLen(1))
 			Expect(first[0].Key).ToNot(Equal(second[0].Key))
@@ -323,18 +323,18 @@ var _ = Describe("Service", func() {
 				return svc.NewWriter(tx).
 					ChangePassword(ctx, alice, hash(svc, "changed"))
 			})).To(Succeed())
-			changed := MustSucceed(svc.Version(ctx, nil, identity.Credential))
+			changed := MustSucceed(svc.Version(ctx, db, identity.Credential))
 			Expect(changed).To(BeNumerically(">", identity.Version))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Set(ctx, alice, username, hash(svc, "again"))
 			})).To(Succeed())
-			Expect(svc.Version(ctx, nil, identity.Credential)).
+			Expect(svc.Version(ctx, db, identity.Credential)).
 				To(BeNumerically(">", changed))
 		})
 		It(
 			"Should return a not found error for an unknown credential",
 			func(ctx SpecContext) {
-				Expect(svc.Version(ctx, nil, uuid.New())).Error().
+				Expect(svc.Version(ctx, db, uuid.New())).Error().
 					To(MatchError(query.ErrNotFound))
 			},
 		)

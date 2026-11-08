@@ -81,13 +81,17 @@ func (t *Table[K, E]) canonical(k string) bool {
 }
 
 // exists implements registeredTable.
-func (t *Table[K, E]) exists(ctx context.Context, tx Tx, k string) (bool, error) {
+func (t *Table[K, E]) exists(
+	ctx context.Context,
+	snap Snapshot,
+	k string,
+) (bool, error) {
 	pk, err := key.Parse[K](k)
 	if err != nil {
 		return false, err
 	}
 	codec := key.NewCodec[K](t.keyPrefix)
-	_, closer, err := tx.Get(ctx, codec.Encode(pk))
+	_, closer, err := snap.Get(ctx, codec.Encode(pk))
 	if errors.Is(err, query.ErrNotFound) {
 		return false, nil
 	}

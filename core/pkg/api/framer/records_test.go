@@ -52,7 +52,7 @@ var _ = Describe("Change channels", func() {
 		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(name)).
 			Entry(&ch).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		keys := channel.Keys{ch.Key()}
 		u := createUserGranted(
 			ctx,

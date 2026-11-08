@@ -119,7 +119,6 @@ func (s *Service) ResolveKeyOrName(
 	if keyOrName == "" {
 		return nil, errors.Wrap(validate.ErrValidation, "key_or_name is required")
 	}
-	snap = gorp.OverrideSnapshot(s.cfg.DB, snap)
 	var st Status[any]
 	err := s.NewRetrieve[any]().Where(MatchKeys[any](keyOrName)).
 		Entry(&st).

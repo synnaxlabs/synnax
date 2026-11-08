@@ -155,7 +155,7 @@ var _ = Describe("References", Ordered, func() {
 			Expect(layer.Task.NewRetrieve().
 				Where(task.MatchKeys(tsk.Key)).
 				Entry(&res).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(res.Config["alerts"]).To(HaveExactElements(SatisfyAll(
 				HaveKeyWithValue("key", "alert-1"),
 				HaveKeyWithValue("status", ""),

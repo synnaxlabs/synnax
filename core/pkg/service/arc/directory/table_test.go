@@ -49,7 +49,7 @@ var _ = Describe("Table", func() {
 	retrieve := func(ctx context.Context, f directory.Filter) []directory.Directory {
 		GinkgoHelper()
 		var res []directory.Directory
-		Expect(table.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil)).
+		Expect(table.NewRetrieve().Where(f).Entries(&res).Exec(ctx, db)).
 			To(Succeed())
 		return res
 	}
@@ -145,7 +145,7 @@ var _ = Describe("Table", func() {
 			Expect(table.NewRetrieve().
 				Where(directory.MatchKeys(d.Key)).
 				Entry(&directory.Directory{}).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should reject a directory that holds a directory", func(ctx SpecContext) {
@@ -184,7 +184,7 @@ var _ = Describe("Table", func() {
 			func(ctx SpecContext) {
 				Expect(table.Resources().Retrieve(
 					ctx,
-					nil,
+					db,
 					[]resource.ID{{Type: resource.TypeArcDirectory, Key: "bad"}},
 				)).Error().To(And(
 					MatchError(validate.ErrValidation),

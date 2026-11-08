@@ -181,7 +181,7 @@ func rangeExists(ctx SpecContext, key ranger.Key) bool {
 	GinkgoHelper()
 	return MustSucceed(svc.Ranger.NewRetrieve().
 		Where(ranger.MatchKeys(key)).
-		Exists(ctx, nil))
+		Exists(ctx, db))
 }
 
 func retrieveRange(ctx SpecContext, key ranger.Key) ranger.Range {
@@ -190,7 +190,7 @@ func retrieveRange(ctx SpecContext, key ranger.Key) ranger.Range {
 	Expect(svc.Ranger.NewRetrieve().
 		Where(ranger.MatchKeys(key)).
 		Entry(&r).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return r
 }
 

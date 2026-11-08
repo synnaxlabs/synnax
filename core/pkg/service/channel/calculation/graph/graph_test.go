@@ -80,7 +80,7 @@ func fetchStatus(ctx context.Context, key channel.Key) (calculation.Status, bool
 	err := statusSvc.NewRetrieve[struct{}]().
 		Where(status.MatchOwners[struct{}](channel.ResourceID(key))).
 		Entries(&statuses).
-		Exec(ctx, nil)
+		Exec(ctx, db)
 	if err != nil || len(statuses) == 0 {
 		return calculation.Status{}, false
 	}
@@ -125,7 +125,7 @@ func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataTyp
 		channelSvc.NewRetrieve().
 			Where(channel.MatchKeys(key)).
 			Entry(&ch).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 	).To(Succeed())
 	return ch.DataType
 }

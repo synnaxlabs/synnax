@@ -55,7 +55,7 @@ var _ = Describe("Create", func() {
 			},
 		))
 		Expect(res.Symbols).To(HaveLen(2))
-		Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, g.Key)).To(ConsistOf(
+		Expect(symbolSvc.RetrieveGroupSymbols(ctx, db, g.Key)).To(ConsistOf(
 			symbol.ResourceID(res.Symbols[0].Key),
 			symbol.ResourceID(res.Symbols[1].Key),
 		))
@@ -138,7 +138,7 @@ var _ = Describe("SetGroup", func() {
 			)
 			Expect(move(ctx, u, to, sym)).
 				Error().To(denied(u.ResourceID(), access.ActionUpdate, to.ResourceID()))
-			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, from.Key)).To(
+			Expect(symbolSvc.RetrieveGroupSymbols(ctx, db, from.Key)).To(
 				ConsistOf(symbol.ResourceID(sym.Key)),
 			)
 		},
@@ -159,7 +159,7 @@ var _ = Describe("SetGroup", func() {
 			Expect(move(ctx, u, to, sym)).
 				Error().
 				To(denied(u.ResourceID(), access.ActionUpdate, from.ResourceID()))
-			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, from.Key)).To(
+			Expect(symbolSvc.RetrieveGroupSymbols(ctx, db, from.Key)).To(
 				ConsistOf(symbol.ResourceID(sym.Key)),
 			)
 		},
@@ -175,7 +175,7 @@ var _ = Describe("SetGroup", func() {
 			access.ActionUpdate,
 			symbol.ResourceID(sym.Key),
 		))
-		Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, from.Key)).To(
+		Expect(symbolSvc.RetrieveGroupSymbols(ctx, db, from.Key)).To(
 			ConsistOf(symbol.ResourceID(sym.Key)),
 		)
 	})
@@ -194,7 +194,7 @@ var _ = Describe("SetGroup", func() {
 				to.ResourceID(),
 			)
 			MustSucceed(move(ctx, u, to, sym))
-			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, to.Key)).To(
+			Expect(symbolSvc.RetrieveGroupSymbols(ctx, db, to.Key)).To(
 				ConsistOf(symbol.ResourceID(sym.Key)),
 			)
 		},
@@ -270,7 +270,7 @@ var _ = Describe("Rename", func() {
 		Expect(symbolSvc.NewRetrieve().
 			Where(symbol.MatchKeys(sym.Key)).
 			Entry(&renamed).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(renamed.Name).To(Equal("Outlet"))
 	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
@@ -295,7 +295,7 @@ var _ = Describe("Delete", func() {
 		Expect(symbolSvc.NewRetrieve().
 			Where(symbol.MatchKeys(sym.Key)).
 			Entry(&symbol.Symbol{}).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
 	It("Should reject the request when delete is not granted", func(ctx SpecContext) {
 		g := createGroup(ctx, "undeletable-symbols")
@@ -384,7 +384,7 @@ var _ = Describe("DeleteGroup", func() {
 		Expect(symbolSvc.NewRetrieve().
 			Where(symbol.MatchKeys(sym.Key)).
 			Entry(&symbol.Symbol{}).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
 	It("Should reject the request when the group is not granted", func(
 		ctx SpecContext,
@@ -444,7 +444,7 @@ var _ = Describe("ImportGroup", func() {
 				AuthedCtx(ctx, u), newBundle("Valves"),
 			))
 			Expect(res.Group.Name).To(Equal("Valves"))
-			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, res.Group.Key)).
+			Expect(symbolSvc.RetrieveGroupSymbols(ctx, db, res.Group.Key)).
 				To(HaveLen(1))
 		},
 	)

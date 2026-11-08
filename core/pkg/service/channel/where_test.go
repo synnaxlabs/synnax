@@ -87,7 +87,7 @@ var _ = Describe("Where", Ordered, func() {
 				SkipMissingKeys().
 				Where(f).
 				Entries(&res).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(lo.Map(res, func(ch channel.Channel, _ int) string {
 				return byName[ch.Name]
 			})).To(ConsistOf(c.Expected))

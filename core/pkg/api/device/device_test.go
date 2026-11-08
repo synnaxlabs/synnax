@@ -83,7 +83,7 @@ func statusOf(ctx SpecContext, d device.Device) resource.ID {
 	Expect(svc.Status.NewRetrieve[device.StatusDetails]().
 		Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 		Entry(&st).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return st.ResourceID()
 }
 
@@ -113,7 +113,7 @@ func retrieveDevice(ctx SpecContext, key string) device.Device {
 	Expect(svc.Device.NewRetrieve().
 		Where(device.MatchKeys(key)).
 		Entry(&d).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return d
 }
 
@@ -193,7 +193,7 @@ var _ = Describe("Create", func() {
 			)).Error().To(denied(u, needs[refused].action, needs[refused].object))
 			Expect(svc.Device.NewRetrieve().
 				Where(device.MatchKeys(key)).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 		},
 		Entry("without create on the device", 0, "create-denied-device"),
 		Entry(
@@ -257,7 +257,7 @@ var _ = Describe("Create", func() {
 			Expect(svc.Status.NewRetrieve[device.StatusDetails]().
 				Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 				Entry(&stored).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(stored.Message).To(Equal("Device is running"))
 		},
 	)
@@ -354,7 +354,7 @@ var _ = Describe("Delete", func() {
 		GinkgoHelper()
 		return MustSucceed(svc.Device.NewRetrieve().
 			Where(device.MatchKeys(key)).
-			Exists(ctx, nil))
+			Exists(ctx, db))
 	}
 	It("Should delete the device and its status", func(ctx SpecContext) {
 		u := createUser(ctx)
@@ -368,7 +368,7 @@ var _ = Describe("Delete", func() {
 		Expect(svc.Status.NewRetrieve[device.StatusDetails]().
 			Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 			Entry(&device.Status{}).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
 	DescribeTable(
 		"Should refuse the delete and keep the device",

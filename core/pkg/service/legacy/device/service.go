@@ -159,9 +159,12 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 		return err
 	}
 	var devices []Device
-	if err := s.NewRetrieve().Where(MatchRacks(rackKey)).
-		Entries(&devices).
-		Exec(ctx, nil); err != nil {
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.NewRetrieve().
+			Where(MatchRacks(rackKey)).
+			Entries(&devices).
+			Exec(ctx, snap)
+	}); err != nil {
 		return errors.Wrap(err, "failed to retrieve devices on suspect rack")
 	}
 	statuses := make([]Status, len(devices))

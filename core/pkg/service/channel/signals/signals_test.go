@@ -39,7 +39,7 @@ func openStreamer(
 	Expect(channelSvc.NewRetrieve().
 		Where(channel.MatchNames(name)).
 		Entry(&sigCh).
-		Exec(ctx, nil),
+		Exec(ctx, db),
 	).To(Succeed())
 	streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 		Keys:        channel.Keys{sigCh.Key()},
