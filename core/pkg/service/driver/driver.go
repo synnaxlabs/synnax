@@ -32,7 +32,6 @@ import (
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -104,11 +103,11 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	d.configureExistingTasks(ctx)
 	// A reader of a commit must not wait for a task to stop, so a worker stops the
 	// tasks that commits delete.
-	deleted, err := coalesce.Open(coalesce.Config[task.Key]{
+	changed, err := coalesce.Open(coalesce.Config[task.Key, change.Variant]{
 		Instrumentation: cfg.Instrumentation,
 		Handle:          d.deleteTasks,
 	})
-	if !ok(err, deleted) {
+	if !ok(err, changed) {
 		return nil, err
 	}
 	disconnect := cfg.Task.Observe().OnChange(func(
@@ -116,9 +115,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 		r gorp.TxReader[task.Key, task.Task],
 	) {
 		for ch := range r {
-			if ch.Variant == change.VariantDelete {
-				deleted.Add(ch.Key)
-			}
+			changed.Add(ch.Key, ch.Variant)
 		}
 	})
 	ok(nil, io.NoFailCloserFunc(disconnect))
@@ -523,24 +520,14 @@ func unsupportedDescription(cmdType string) string {
 	return fmt.Sprintf("The task does not accept the '%s' command.", cmdType)
 }
 
-// deleteTasks stops the instance of each task with a key in keys that no longer exists.
-// Sets need nothing: configs deploy on start, and a rack move leaves the old instance
+// deleteTasks stops the instance of each task whose latest change is a delete. Sets
+// need nothing: configs deploy on start, and a rack move leaves the old instance
 // running until the task deploys again.
-func (d *Driver) deleteTasks(ctx context.Context, keys set.Set[task.Key]) {
-	var kept []task.Task
-	if err := d.cfg.Task.NewRetrieve().
-		Where(task.MatchKeys(keys.Slice()...)).
-		SkipMissingKeys().
-		Entries(&kept).
-		Exec(ctx, nil); err != nil {
-		d.cfg.L.Error("failed to retrieve deleted tasks", zap.Error(err))
-		return
-	}
-	for _, t := range kept {
-		keys.Remove(t.Key)
-	}
-	for key := range keys {
-		d.delete(key)
+func (d *Driver) deleteTasks(_ context.Context, latest map[task.Key]change.Variant) {
+	for key, variant := range latest {
+		if variant == change.VariantDelete {
+			d.delete(key)
+		}
 	}
 }
 

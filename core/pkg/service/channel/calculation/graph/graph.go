@@ -35,6 +35,9 @@ import (
 // Changes is a batch of channel changes the Graph reconciles as a unit.
 type Changes = gorp.TxReader[channel.Key, channel.Channel]
 
+// channelChange is one change to a channel.
+type channelChange = change.Change[channel.Key, channel.Channel]
+
 type node struct {
 	channel.Channel
 	deps       channel.Keys
@@ -55,9 +58,9 @@ type Graph struct {
 	status     *status.Service
 	obs        observe.Observer[Changes]
 	disconnect observe.Disconnect
-	// changed reconciles the channels that commits change, since a reader of a commit
-	// must not commit.
-	changed *coalesce.Worker[channel.Key]
+	// changed reconciles the latest change to each channel that commits change, since a
+	// reader of a commit must not commit.
+	changed *coalesce.Worker[channel.Key, channelChange]
 	mu      struct {
 		nodes            map[channel.Key]node
 		dependents       map[channel.Key]set.Set[channel.Key]
@@ -135,7 +138,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	}); err != nil {
 		return nil, err
 	}
-	if g.changed, err = coalesce.Open(coalesce.Config[channel.Key]{
+	if g.changed, err = coalesce.Open(coalesce.Config[channel.Key, channelChange]{
 		Instrumentation: cfg.Instrumentation,
 		Handle:          g.handleChanges,
 	}); err != nil {
@@ -143,7 +146,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	}
 	g.disconnect = cfg.Channel.Observe().OnChange(func(_ context.Context, r Changes) {
 		for ch := range r {
-			g.changed.Add(ch.Key)
+			g.changed.Add(ch.Key, ch)
 		}
 	})
 	return g, nil
@@ -412,24 +415,22 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 	return nil
 }
 
-// handleChanges reconciles the Graph with the channels with keys as the DB stores them.
-// A key with no channel is a delete.
-func (g *Graph) handleChanges(ctx context.Context, keys set.Set[channel.Key]) {
+// handleChanges reconciles the Graph with the latest change to each channel.
+func (g *Graph) handleChanges(
+	ctx context.Context,
+	latest map[channel.Key]channelChange,
+) {
 	var (
 		updates []channel.Channel
 		valid   []channel.Channel
-		batch   []change.Change[channel.Key, channel.Channel]
+		batch   []channelChange
 	)
 	g.mu.Lock()
 	err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
-		reader, err := g.retrieveChanges(ctx, tx, keys)
-		if err != nil {
-			return err
-		}
 		analyzer := g.newAnalyzer(tx)
 		queued := make(set.Set[channel.Key])
 		var unresolvedNames []string
-		for chg := range reader {
+		for _, chg := range latest {
 			batch = append(batch, chg)
 			ch := chg.Value
 			if chg.Variant == change.VariantDelete {
@@ -521,38 +522,6 @@ func (g *Graph) handleChanges(ctx context.Context, keys set.Set[channel.Key]) {
 			}
 		}
 	}
-}
-
-func (g *Graph) retrieveChanges(
-	ctx context.Context,
-	tx gorp.Tx,
-	keys set.Set[channel.Key],
-) (Changes, error) {
-	var stored []channel.Channel
-	if err := g.svc.NewRetrieve().
-		Where(channel.MatchKeys(keys.Slice()...)).
-		SkipMissingKeys().
-		Entries(&stored).
-		Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	changes := make([]change.Change[channel.Key, channel.Channel], 0, len(keys))
-	deleted := keys.Copy()
-	for _, ch := range stored {
-		deleted.Remove(ch.Key())
-		changes = append(changes, change.Change[channel.Key, channel.Channel]{
-			Key:     ch.Key(),
-			Value:   ch,
-			Variant: change.VariantSet,
-		})
-	}
-	for k := range deleted {
-		changes = append(changes, change.Change[channel.Key, channel.Channel]{
-			Key:     k,
-			Variant: change.VariantDelete,
-		})
-	}
-	return slices.Values(changes), nil
 }
 
 func (g *Graph) setNodeStatus(

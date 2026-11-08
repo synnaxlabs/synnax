@@ -140,14 +140,12 @@ var _ = Describe("Actions", func() {
 			))
 		})
 
-		It("Should set the Seq of each batch to the number of its commit", func(
-			ctx SpecContext,
-		) {
+		It("Should write the Seq of each batch", func(ctx SpecContext) {
 			key := uuid.New()
-			var commits []uint64
+			var attached []uint64
 			DeferCleanup(db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
-				if len(state.Of(c)) > 0 {
-					commits = append(commits, c.Seq)
+				for _, b := range state.Of(c) {
+					attached = append(attached, b.Seq)
 				}
 			}))
 			d := state.Dispatcher()
@@ -165,7 +163,7 @@ var _ = Describe("Actions", func() {
 					seqs = append(seqs, sa.Seq)
 				}
 			}
-			Expect(seqs).To(Equal(commits))
+			Expect(seqs).To(Equal(attached))
 		})
 
 		It(
