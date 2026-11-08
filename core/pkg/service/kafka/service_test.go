@@ -160,12 +160,12 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(
 				tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{"rate": 0}),
 			)
-			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
+			data := MustSucceed(svc.Scan.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0))
 		})
 
 		It("Should reject an explicit empty start offset", func(ctx SpecContext) {
-			Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
 				"start_offset": "",
 			})).Error().To(MatchError(ContainSubstring("invalid start_offset")))
 		})
@@ -174,7 +174,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"record": map[string]any{"value_pointer": ""},
 			}))
-			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			data := MustSucceed(svc.Write.Read(ctx, db, key))
 			Expect(data["record"]).To(HaveKeyWithValue("value_pointer", ""))
 		})
 
