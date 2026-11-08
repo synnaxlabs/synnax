@@ -53,6 +53,8 @@ export type Where = {
   rack?: filter.Set<typeof rack.keyZ>;
   groups?: group.Key[];
   grouped?: boolean;
+  parents?: Key[];
+  nested?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -83,6 +85,13 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the devices in a group, or in no group when false. */
   grouped: z.boolean().optional(),
+  /** parents matches the devices that any of the given devices hold. */
+  parents: zod.nullToUndefined(keyZ.array()),
+  /**
+   * nested matches the devices that another device holds, or the devices that sit
+   * directly on their rack when false.
+   */
+  nested: z.boolean().optional(),
 });
 
 export interface DeviceSchemas<
@@ -111,7 +120,7 @@ export const deviceZ = <
     properties: properties ?? record.unknownZ().default(() => ({})),
     status: statusZ.optional(),
     group: group.keyZ.optional(),
-    parent: resource.idZ.optional(),
+    parent: keyZ.optional(),
   });
 export interface Device<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -128,7 +137,7 @@ export interface Device<
   properties: z.infer<Properties>;
   status?: Status;
   group?: group.Key;
-  parent?: resource.ID;
+  parent?: Key;
 }
 
 /** RetrieveRequest is a request to retrieve devices. */
@@ -143,8 +152,6 @@ export const retrieveRequestZ = z.strictObject({
   offset: z.uint32().optional(),
   /** includeStatus includes the status of each record. */
   includeStatus: z.boolean().optional(),
-  /** includeParent includes the parent of each record. */
-  includeParent: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export type New<

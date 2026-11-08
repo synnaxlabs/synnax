@@ -19,8 +19,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -83,12 +83,13 @@ var _ = Describe("NewMigration", func() {
 		})).To(Succeed())
 	}
 
+	// run migrates the stored tasks as the task table does when it opens.
 	run := func(ctx SpecContext, stores ...config.Store) {
 		GinkgoHelper()
 		configs := MustSucceed(config.NewRegistry(stores...))
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Task",
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Task]{
+			DB:   db,
+			Name: string(resource.TypeTask),
 			Migrations: []gorp.Migration{
 				v3.NewMigration(v3.MigrationConfig{
 					Status:   statusSvc,
@@ -96,29 +97,38 @@ var _ = Describe("NewMigration", func() {
 					Configs:  configs,
 				}),
 			},
-		})).To(Succeed())
+		}))
 	}
 
+	// openArcStore opens the Arc table and the Arc task config store, in the order the
+	// Core opens them.
 	openArcStore := func(ctx SpecContext) config.Store {
 		GinkgoHelper()
-		return MustOpen(config.OpenService(
-			ctx,
-			config.ServiceConfig[arctask.Config]{
-				DB:                 db,
-				Type:               "arc",
-				Ladder:             arcversions.ConfigLadder,
-				SetEntryKey:        (*arctask.Config).SetKey,
-				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
-				ValidateEntry:      (*arctask.Config).Validate,
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db, Ontology: otg}))
+		return MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db})).Config
+	}
+
+	createArc := func(ctx SpecContext) arc.Key {
+		GinkgoHelper()
+		a := arc.Arc{
+			Variant: arc.AutomationArc{
+				Base: arc.Base{
+					Key:    uuid.New(),
+					Name:   "Stored Arc",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
 			},
-		))
+		}
+		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entry(&a).Exec(ctx, db)).
+			To(Succeed())
+		return a.Base().Key
 	}
 
 	It(
 		"Should normalize the config into its record store under the task's key",
 		func(ctx SpecContext) {
 			store := openArcStore(ctx)
-			key, arcKey := uuid.New(), uuid.New()
+			key, arcKey := uuid.New(), createArc(ctx)
 			seed(ctx, v2.Task{
 				Key:  key,
 				Name: "Stored Arc Task",
@@ -212,6 +222,38 @@ var _ = Describe("NewMigration", func() {
 		},
 	)
 
+	It("Should store a record for every task it converts", func(ctx SpecContext) {
+		store := openArcStore(ctx)
+		rt := MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{DB: db}))
+		arcKeys := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
+		for i, k := range arcKeys {
+			seed(ctx, v2.Task{
+				Key:    k,
+				Name:   fmt.Sprintf("Arc Task %d", i),
+				Type:   "arc",
+				Config: msgpack.EncodedJSON{"arcKey": createArc(ctx).String()},
+			})
+		}
+		statusKey := uuid.New()
+		seed(ctx, v2.Task{
+			Key:      statusKey,
+			Name:     "Rack Status",
+			Type:     "Rack Status",
+			Internal: true,
+		})
+		run(ctx, append(rt.Stores(), store)...)
+
+		var migrated []v2.Task
+		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
+			Entries(&migrated).Exec(ctx, db)).To(Succeed())
+		Expect(migrated).To(HaveLen(4))
+		for _, k := range arcKeys {
+			Expect(store.Read(ctx, nil, k)).To(HaveKeyWithValue("key", k.String()))
+		}
+		Expect(rt.Status.Read(ctx, nil, statusKey)).
+			To(HaveKeyWithValue("key", statusKey.String()))
+	})
+
 	It("Should quarantine a task of an unknown type", func(ctx SpecContext) {
 		key := uuid.New()
 		seed(ctx, v2.Task{
@@ -243,6 +285,26 @@ var _ = Describe("NewMigration", func() {
 		}).Exists(ctx, nil)).To(BeFalse())
 		staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
 		Expect(string(staged)).To(ContainSubstring("Bogus Task"))
+		Expect(closer.Close()).To(Succeed())
+	})
+
+	It("Should quarantine a task whose Arc does not exist", func(ctx SpecContext) {
+		store := openArcStore(ctx)
+		key, missing := uuid.New(), uuid.New()
+		seed(ctx, v2.Task{
+			Key:    key,
+			Name:   "Orphaned Arc Task",
+			Type:   "arc",
+			Config: msgpack.EncodedJSON{"arcKey": missing.String()},
+		})
+		run(ctx, store)
+
+		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
+			Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
+			Exists(ctx, db)).To(BeFalse())
+		Expect(store.Read(ctx, nil, key)).Error().To(MatchError(query.ErrNotFound))
+		staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
+		Expect(string(staged)).To(ContainSubstring("Orphaned Arc Task"))
 		Expect(closer.Close()).To(Succeed())
 	})
 

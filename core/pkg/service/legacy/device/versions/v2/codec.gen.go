@@ -41,6 +41,12 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if d.Parent != nil {
+		w.Bool(true)
+		w.String(*d.Parent)
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -92,6 +98,19 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			d.Group = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv Key
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			d.Parent = &hv
 		}
 	}
 	return nil

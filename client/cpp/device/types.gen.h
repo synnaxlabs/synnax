@@ -128,8 +128,6 @@ struct RetrieveOptions {
     std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
-    /// @brief include_parent includes the parent of each record.
-    bool include_parent = false;
 };
 
 /// @brief RetrieveRequest is a request to retrieve devices.
@@ -145,8 +143,6 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
-    /// @brief include_parent includes the parent of each record.
-    bool include_parent = false;
 
     /// @brief returns a request for the records that where selects.
     static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
@@ -156,7 +152,6 @@ struct RetrieveRequest {
             .limit = options.limit,
             .offset = options.offset,
             .include_status = options.include_status,
-            .include_parent = options.include_parent,
         };
     }
 
@@ -195,9 +190,9 @@ struct Device {
     x::json::json::object_t properties;
     /// @brief status is the current operational status of the device.
     std::optional<Status> status;
-    /// @brief parent is an optional parent resource ID for hierarchical device
-    /// organization (e.g., NI chassis containing modules).
-    std::optional<::synnax::resource::ID> parent;
+    /// @brief parent is the key of the device that holds this device, such as the NI
+    /// chassis of a module. Empty for a device that sits directly on its rack.
+    std::optional<Key> parent;
 
     static Device parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -90,6 +90,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
 	imexSvc := imex.NewService()
+	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db, Ontology: otg}))
 	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
@@ -109,12 +110,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Channel:  channelSvc,
-		Task:     taskSvc,
-		Status:   statusSvc,
-		ImEx:     imexSvc,
+		DB:         db,
+		Table:      arcTable,
+		Ontology:   otg,
+		Channel:    channelSvc,
+		Task:       taskSvc,
+		MatchTasks: arcTaskSvc.MatchArcs,
+		Status:     statusSvc,
+		ImEx:       imexSvc,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{

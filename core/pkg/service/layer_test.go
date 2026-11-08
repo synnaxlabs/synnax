@@ -10,6 +10,7 @@
 package service_test
 
 import (
+	"strconv"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,10 +26,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	panelv0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
+	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -73,6 +78,45 @@ var _ = Describe("Layer", func() {
 			MatchError(license.ErrTooMany),
 			MatchError(ContainSubstring("limit is 50 channels")),
 		))
+	})
+
+	It("Should put a stored snapshot in its stored range", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
+		rng := rangerv0.Range{
+			Key:       uuid.New(),
+			Name:      "Range",
+			TimeRange: telem.TimeRange{Start: 1, End: 2},
+		}
+		Expect(gorp.WrapWriter[rangerv0.Key, rangerv0.Range](legacyDB).Set(ctx, rng)).
+			To(Succeed())
+		snap := taskv0.Task{
+			Key:      taskv0.Key(uint64(65537)<<32 | 1),
+			Name:     "Snapshot",
+			Type:     pagerduty.AlertTaskType,
+			Config:   msgpack.EncodedJSON{"routing_key": "rk"},
+			Snapshot: true,
+		}
+		Expect(gorp.WrapWriter[taskv0.Key, taskv0.Task](legacyDB).Set(ctx, snap)).
+			To(Succeed())
+		Expect(gorp.WrapWriter[string, ontology.Relationship](node.DB).Set(
+			ctx,
+			ontology.Relationship{
+				From: resource.ID{Type: resource.TypeRange, Key: rng.Key.String()},
+				Type: ontology.RelationshipTypeParentOf,
+				To: resource.ID{
+					Type: resource.TypeTask,
+					Key:  strconv.FormatUint(uint64(snap.Key), 10),
+				},
+			},
+		)).To(Succeed())
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+		var migrated task.Task
+		Expect(layer.Task.NewRetrieve().
+			Where(task.MatchNames("Snapshot")).
+			Entry(&migrated).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(migrated.Range).To(HaveValue(Equal(rng.Key)))
 	})
 
 	It(

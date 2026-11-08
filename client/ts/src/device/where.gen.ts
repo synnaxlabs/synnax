@@ -22,6 +22,8 @@ import { rack } from "@/rack";
 export interface Lines {
   groups: ((record: Device, value: NonNullable<Where["groups"]>) => boolean) | null;
   grouped: ((record: Device, value: NonNullable<Where["grouped"]>) => boolean) | null;
+  parents: ((record: Device, value: NonNullable<Where["parents"]>) => boolean) | null;
+  nested: ((record: Device, value: NonNullable<Where["nested"]>) => boolean) | null;
 }
 
 /**
@@ -53,6 +55,14 @@ export const matches = (lines: Lines, record: Device, where?: Where): boolean =>
     if (lines.grouped == null) throw new Error("only the Core can check grouped");
     if (!lines.grouped(record, where.grouped)) return false;
   }
+  if (where.parents != null) {
+    if (lines.parents == null) throw new Error("only the Core can check parents");
+    if (!lines.parents(record, where.parents)) return false;
+  }
+  if (where.nested != null) {
+    if (lines.nested == null) throw new Error("only the Core can check nested");
+    if (!lines.nested(record, where.nested)) return false;
+  }
   return true;
 };
 
@@ -70,7 +80,9 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     where.model?.regex != null ||
     where.location?.regex != null ||
     (where.groups != null && lines.groups == null) ||
-    (where.grouped != null && lines.grouped == null));
+    (where.grouped != null && lines.grouped == null) ||
+    (where.parents != null && lines.parents == null) ||
+    (where.nested != null && lines.nested == null));
 
 const inputs = {
   /** key selects by key. */
@@ -89,6 +101,13 @@ const inputs = {
   groups: filter.listInputZ(group.keyZ).exactOptional(),
   /** grouped matches the devices in a group, or in no group when false. */
   grouped: z.boolean().exactOptional(),
+  /** parents matches the devices that any of the given devices hold. */
+  parents: filter.listInputZ(keyZ).exactOptional(),
+  /**
+   * nested matches the devices that another device holds, or the devices that sit
+   * directly on their rack when false.
+   */
+  nested: z.boolean().exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -138,5 +157,7 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "rack",
         "groups",
         "grouped",
+        "parents",
+        "nested",
       ]),
     );

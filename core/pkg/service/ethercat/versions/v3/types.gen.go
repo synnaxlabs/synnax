@@ -16,7 +16,8 @@ import (
 	"encoding/json/v2"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -52,7 +53,7 @@ type EntryReadChannel struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// Scale is the scale applied to raw samples after acquisition. A scaled channel
 	// writes to a float Synnax channel.
-	Scale task.Scale `json:"scale" msgpack:"scale"`
+	Scale taskv2.Scale `json:"scale" msgpack:"scale"`
 }
 
 func (EntryReadChannel) isReadChannelVariant() {}
@@ -60,7 +61,7 @@ func (EntryReadChannel) isReadChannelVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (e *EntryReadChannel) ApplyDefaults() {
 	if e.Scale.Variant == nil {
-		e.Scale.Variant = task.NoneScale{}
+		e.Scale.Variant = taskv2.NoneScale{}
 	}
 	e.Scale.ApplyDefaults()
 }

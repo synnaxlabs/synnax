@@ -69,6 +69,11 @@ const renderOverview = async (
       onClick: onSnapshotClick,
       onDelete: onSnapshotDelete,
     },
+    task: {
+      icon: <Icon.Task />,
+      onClick: onSnapshotClick,
+      onDelete: onSnapshotDelete,
+    },
   };
   const { wrapper } = await createConsoleWrapper({ client: as });
   const { panelKey, tabKey } = await createResourceTab(
@@ -179,6 +184,22 @@ describe("range/overview/Overview", () => {
     expect(statuses).not.toContainEqual(
       expect.objectContaining({ message: "Failed to open snapshot" }),
     );
+  });
+
+  it("lists the task snapshots in the range", async () => {
+    const rng = await createTestRange(client);
+    const rack = await client.racks.create({ name: uniqueName("rack") });
+    const source = await rack.createTask({
+      name: uniqueName("tsk"),
+      type: "pagerduty_alert",
+      config: {},
+    });
+    const snap = await client.tasks.copy(source.key, uniqueName("snap"), true, rng.key);
+    const { onSnapshotClick } = await renderOverview(rng.key);
+    fireEvent.click(await screen.findByText(snap.name));
+    await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
+    const [resource] = onSnapshotClick.mock.calls[0] as [ontology.Resource];
+    expect(resource.id).toEqual({ type: "task", key: snap.key });
   });
 
   it("deletes a snapshot through its service after confirmation", async () => {

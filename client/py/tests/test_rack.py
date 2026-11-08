@@ -104,10 +104,7 @@ class TestRackClient:
             location="dev1",
             properties={"foo": "bar"},
         )
-        with pytest.raises(
-            sy.ValidationError,
-            match="cannot delete rack when devices are still attached",
-        ):
+        with pytest.raises(sy.ValidationError, match="references it through rack"):
             client.racks.delete([rack.key])
 
     def test_delete_task_attached(self, client: sy.Synnax) -> None:
@@ -119,7 +116,7 @@ class TestRackClient:
             type="pagerduty_alert",
             config={"routing_key": "rk"},
         )
-        with pytest.raises(sy.ValidationError, match="tasks are still attached"):
+        with pytest.raises(sy.ValidationError, match="still holds tasks"):
             client.racks.delete([rack.key])
 
     def test_create_with_integrations(self, client: sy.Synnax) -> None:

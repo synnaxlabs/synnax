@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	resourcepb "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
@@ -262,6 +261,12 @@ func WhereToPB(r device.Where) (*Where, error) {
 	if r.Grouped != nil {
 		pb.Grouped = r.Grouped
 	}
+	if r.Parents != nil {
+		pb.Parents = &KeyList{Values: r.Parents}
+	}
+	if r.Nested != nil {
+		pb.Nested = r.Nested
+	}
 	return pb, nil
 }
 
@@ -354,6 +359,12 @@ func WhereFromPB(pb *Where) (device.Where, error) {
 	if pb.Grouped != nil {
 		r.Grouped = pb.Grouped
 	}
+	if pb.Parents != nil {
+		r.Parents = xpb.ListValues(pb.Parents.Values)
+	}
+	if pb.Nested != nil {
+		r.Nested = pb.Nested
+	}
 	return r, nil
 }
 
@@ -414,11 +425,7 @@ func DeviceToPB(
 		pb.Group = &v
 	}
 	if r.Parent != nil {
-		var err error
-		pb.Parent, err = resourcepb.IDToPB(*r.Parent)
-		if err != nil {
-			return nil, err
-		}
+		pb.Parent = r.Parent
 	}
 	return pb, nil
 }
@@ -455,11 +462,7 @@ func DeviceFromPB(
 		r.Group = &v
 	}
 	if pb.Parent != nil {
-		val, err := resourcepb.IDFromPB(pb.Parent)
-		if err != nil {
-			return device.Device{}, err
-		}
-		r.Parent = &val
+		r.Parent = pb.Parent
 	}
 	return r, nil
 }

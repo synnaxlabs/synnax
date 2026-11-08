@@ -662,6 +662,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Kafka) {
 		return nil, err
 	}
+	// Arc task configs reference Arcs, and the task migrations write them.
+	arcTable, err := arc.OpenTable(ctx, arc.TableConfig{
+		Instrumentation: cfg.Child("arc"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+	})
+	if !ok(err, arcTable) {
+		return nil, err
+	}
 	if l.ArcTask, err = arctask.OpenService(ctx, arctask.ServiceConfig{
 		Instrumentation: cfg.Child("arc_task"),
 		DB:              cfg.Distribution.DB,
@@ -705,6 +714,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 		Configs:         taskConfigs,
+		MatchArcs:       l.ArcTask.MatchArcs,
 		// An Arc task holds a key and hash pointing at an Arc document, so it has no
 		// file form of its own, and the Arc service owns the "arc" file type.
 		ImExExcluded: []string{arctask.Type},
@@ -716,9 +726,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		arc.ServiceConfig{
 			Instrumentation: cfg.Child("arc"),
 			DB:              cfg.Distribution.DB,
+			Table:           arcTable,
 			Ontology:        l.Ontology,
 			Channel:         l.Channel,
 			Task:            l.Task,
+			MatchTasks:      l.ArcTask.MatchArcs,
 			Status:          l.Status,
 			Signals:         l.Signals,
 			ImEx:            l.ImEx,

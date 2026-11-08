@@ -16,15 +16,23 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var svc *http.Service
+	var (
+		svc   *http.Service
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(http.OpenService(ctx, http.ServiceConfig{
 			DB: db,
+		}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: svc.Stores(),
 		}))
 	})
 
@@ -77,8 +85,7 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device": "dev-1",
 				"rate":   25,
 				"endpoints": []any{map[string]any{
@@ -96,8 +103,7 @@ var _ = Describe("Service", func() {
 		It("Should apply read config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 1))
 		})
@@ -105,8 +111,7 @@ var _ = Describe("Service", func() {
 		It("Should apply write endpoint schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"key": "ep-1"}},
 			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
@@ -118,8 +123,7 @@ var _ = Describe("Service", func() {
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
@@ -127,7 +131,7 @@ var _ = Describe("Service", func() {
 		It("Should return the read validation error for an invalid endpoint", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"method": "BOGUS"}},
 			})).Error().To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})
@@ -135,7 +139,7 @@ var _ = Describe("Service", func() {
 		It("Should return the write validation error for an invalid endpoint", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Write.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"method": "BOGUS"}},
 			})).Error().To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})

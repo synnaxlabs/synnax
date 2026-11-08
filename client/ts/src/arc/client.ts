@@ -32,14 +32,12 @@ import {
   type Key,
   keyZ,
   type New,
-  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/arc/types.gen";
 import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/arc/where.gen";
-import { NotFoundError } from "@/errors";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { type status } from "@/status";
@@ -108,12 +106,17 @@ export interface UpdateTaskParams {
   performance?: Performance;
 }
 
-const isTaskChild = (rel: ontology.Relationship, arcKey: Key): boolean =>
-  ontology.matchRelationship(rel, {
-    from: resourceID(arcKey),
-    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-    to: { type: "task" },
-  });
+/** The type of the task that runs an Arc. */
+const TASK_TYPE = "arc";
+
+const taskConfigZ = z.object({ arcKey: keyZ });
+
+/** Returns the key of the Arc that the task runs, or undefined for any other task. */
+const arcKeyOf = (t: Pick<task.Task, "type" | "config">): Key | undefined => {
+  if (t.type !== TASK_TYPE) return undefined;
+  const parsed = taskConfigZ.safeParse(t.config);
+  return parsed.success ? parsed.data.arcKey : undefined;
+};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -210,24 +213,7 @@ export class Client extends query.Retriever<
         return tsk == null ? [] : [tsk.key];
       },
       compose: (records) => records[0] ?? null,
-      matches: (t, q) =>
-        this.cfg.ontology.cache.relationships.has(
-          ontology.relationshipToString({
-            from: resourceID(q),
-            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-            to: task.resourceID(t.key),
-          }),
-        ),
-      watch: [
-        query.watch(this.cfg.ontology.cache.relationships, (event, q: Key) => {
-          const rel =
-            event.variant === "set"
-              ? event.value
-              : ontology.relationshipZ.parse(event.key);
-          if (!isTaskChild(rel, q)) return null;
-          return [rel.to.key];
-        }),
-      ],
+      matches: (t, q) => !t.snapshot && arcKeyOf(t) === q,
     });
   }
 
@@ -444,19 +430,9 @@ export class Client extends query.Retriever<
   }
 
   private async fetchTask(arcKey: Key): Promise<task.Task | null> {
-    let children: ontology.Resource[];
-    try {
-      children = await this.cfg.ontology.children.retrieve({
-        ids: resourceID(arcKey),
-        types: ["task"],
-      });
-    } catch (e) {
-      // An Arc that does not exist cannot have a task.
-      if (NotFoundError.matches(e)) return null;
-      throw errors.fromUnknown(e);
-    }
-    const child = children[0];
-    if (child == null) return null;
-    return await this.cfg.tasks.retrieve(child.id.key);
+    const [tsk] = await this.cfg.tasks.retrieve({
+      where: { arcs: [arcKey], snapshot: { eq: false } },
+    });
+    return tsk ?? null;
   }
 }

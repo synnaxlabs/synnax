@@ -58,4 +58,9 @@ type Where struct {
 	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
 	// Grouped matches the devices in a group, or in no group when false.
 	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
+	// Parents matches the devices that any of the given devices hold.
+	Parents []Key `json:"parents,omitzero" msgpack:"parents,omitempty"`
+	// Nested matches the devices that another device holds, or the devices that sit
+	// directly on their rack when false.
+	Nested *bool `json:"nested,omitzero" msgpack:"nested,omitempty"`
 }

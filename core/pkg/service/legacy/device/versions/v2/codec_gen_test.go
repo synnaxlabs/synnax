@@ -47,6 +47,7 @@ var _ = Describe("Codec", func() {
 				Configured: true,
 				Properties: msgpack.EncodedJSON{"key_8": "value_8"},
 				Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+				Parent:     new(v2.Key("test_10")),
 			}),
 			Entry("zero values", v2.Device{
 				Key:        "",
@@ -58,6 +59,7 @@ var _ = Describe("Codec", func() {
 				Configured: false,
 				Properties: msgpack.EncodedJSON{},
 				Group:      nil,
+				Parent:     nil,
 			}),
 		)
 	})
@@ -74,6 +76,7 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 		Configured: true,
 		Properties: msgpack.EncodedJSON{"key_8": "value_8"},
 		Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+		Parent:     new(v2.Key("test_10")),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -102,6 +105,7 @@ func FuzzDecodeDevice(f *testing.F) {
 			Configured: true,
 			Properties: msgpack.EncodedJSON{"key_8": "value_8"},
 			Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+			Parent:     new(v2.Key("test_10")),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -120,6 +124,7 @@ func FuzzDecodeDevice(f *testing.F) {
 			Configured: false,
 			Properties: msgpack.EncodedJSON{},
 			Group:      nil,
+			Parent:     nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

@@ -17,8 +17,7 @@ import (
 	"uuid"
 
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -56,7 +55,7 @@ type Task struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Rack is the key of the rack this task deploys to. Zero for a draft that has not
 	// been assigned a rack; required to start.
-	Rack rackv2.Key `json:"rack" msgpack:"rack"`
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Name is a human-readable name for the task.
 	Name string `json:"name" msgpack:"name"`
 	// Type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
@@ -75,14 +74,6 @@ type Task struct {
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t Task) Validate() error {
-	v := validate.New("Task")
-	v.NotEmptyString("name", t.Name)
-	return v.Error()
 }
 
 // KeyedConfig is the base for every stored task configuration record.

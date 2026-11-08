@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { device } from "@/device";
 import { rack } from "@/rack";
+import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
@@ -176,6 +177,8 @@ export type Where = {
   rack?: filter.Set<typeof rack.keyZ>;
   internal?: filter.Bool;
   snapshot?: filter.Bool;
+  ranges?: ranger.Key[];
+  arcs?: string[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -202,6 +205,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   internal: filter.boolZ.optional(),
   /** snapshot selects by snapshot. */
   snapshot: filter.boolZ.optional(),
+  /** ranges matches the tasks that are snapshots in any of the given ranges. */
+  ranges: zod.nullToUndefined(ranger.keyZ.array()),
+  /** arcs matches the tasks that run any of the Arcs with the given keys. */
+  arcs: zod.nullToUndefined(z.uuid().array()),
 });
 
 /** Command is a command to execute on a task in the Driver system. */
@@ -257,6 +264,7 @@ export const payloadZ = <
     internal: z.boolean().default(false),
     snapshot: z.boolean().default(false),
     status: status.statusZ({ details: statusDetailsZ(statusData) }).optional(),
+    range: ranger.keyZ.optional(),
   });
 export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   key: Key;
@@ -268,6 +276,7 @@ export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   internal: boolean;
   snapshot: boolean;
   status?: Status<S["statusData"]>;
+  range?: ranger.Key;
 }
 
 export const persistConfigZ = startConfigZ.extend({

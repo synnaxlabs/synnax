@@ -33,7 +33,7 @@ import {
   resourceID as rackResourceID,
   statusZ as rackStatusZ,
 } from "@/rack/types.gen";
-import { type ranger } from "@/ranger";
+import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { status } from "@/status";
 import { createOf, encode, reduceAll } from "@/task/actions";
@@ -60,6 +60,7 @@ import {
   statusZ,
   type Where,
 } from "@/task/types.gen";
+import { LINES } from "@/task/where";
 import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/task/where.gen";
 import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
@@ -113,12 +114,6 @@ interface CommandDeadline {
  */
 export const defaultStatusZ = statusZ();
 
-const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
-  const parents = await ontologyClient.parents.retrieve({ ids: resourceID(taskKey) });
-  if (parents.length === 0) return null;
-  return parents[0];
-};
-
 /** One command sent to a task, as issued from the task itself. */
 export interface TaskExecuteCommandParams {
   type: string;
@@ -163,6 +158,8 @@ export class Task<S extends Schemas = Schemas> {
   internal: boolean;
   type: z.infer<S["type"]>;
   snapshot: boolean;
+  /** The range the task is a snapshot in, if any. */
+  readonly range?: ranger.Key;
   config: z.infer<S["config"]>;
   readonly configHash: string;
   status?: Status<S["statusData"]>;
@@ -170,18 +167,12 @@ export class Task<S extends Schemas = Schemas> {
   readonly schemas: S;
   private readonly clients?: {
     frame: framer.Client;
-    ontology: ontology.Client;
     range: ranger.Client;
   };
 
   get frameClient(): framer.Client {
     if (this.clients == null) throw new Error("Task not created");
     return this.clients.frame;
-  }
-
-  get ontologyClient(): ontology.Client {
-    if (this.clients == null) throw new Error("Task not created");
-    return this.clients.ontology;
   }
 
   get rangeClient(): ranger.Client {
@@ -199,11 +190,11 @@ export class Task<S extends Schemas = Schemas> {
       configHash = "",
       internal = false,
       snapshot = false,
+      range,
       status,
     }: Payload<S>,
     schemas?: S,
     frameClient?: framer.Client,
-    ontologyClient?: ontology.Client,
     rangeClient?: ranger.Client,
   ) {
     this.key = key;
@@ -221,13 +212,10 @@ export class Task<S extends Schemas = Schemas> {
       } as unknown as S);
     this.internal = internal;
     this.snapshot = snapshot;
+    this.range = range;
     this.status = status;
-    if (frameClient != null && ontologyClient != null && rangeClient != null)
-      this.clients = {
-        frame: frameClient,
-        ontology: ontologyClient,
-        range: rangeClient,
-      };
+    if (frameClient != null && rangeClient != null)
+      this.clients = { frame: frameClient, range: rangeClient };
   }
 
   get payload(): Payload<S> {
@@ -241,6 +229,7 @@ export class Task<S extends Schemas = Schemas> {
       status: this.status,
       internal: this.internal,
       snapshot: this.snapshot,
+      range: this.range,
     };
   }
 
@@ -293,11 +282,10 @@ export class Task<S extends Schemas = Schemas> {
     }
   }
 
-  async snapshottedTo(): Promise<ontology.Resource | null> {
-    if (this.ontologyClient == null || this.rangeClient == null)
-      throw new Error("Task not created");
-    if (!this.snapshot) return null;
-    return await retrieveSnapshottedTo(this.key, this.ontologyClient);
+  /** Returns the range the task is a snapshot in, or null if it sits in no range. */
+  async snapshottedTo(): Promise<ranger.Range | null> {
+    if (this.range == null) return null;
+    return await this.rangeClient.retrieve(this.range);
   }
 }
 
@@ -376,12 +364,17 @@ const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
-const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
+const copyReqZ = z.object({
+  key: keyZ,
+  name: z.string(),
+  snapshot: z.boolean(),
+  range: ranger.keyZ.optional(),
+});
 const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ task: payloadZ(schemas) });
 
 const matchesSingle = (t: Omit<Task, "status">, q: SingleRequest): boolean =>
-  matches(t, singleWhere(q));
+  matches(LINES, t, singleWhere(q));
 
 /** Config for {@link Client}. */
 export interface ClientConfig {
@@ -501,8 +494,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
-        matches: (t, req) => matches(t, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (t, req) => matches(LINES, t, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         watch: [query.watch(statusStore, (event) => affectedKeys(event))],
       },
       compose: (record) => this.compose(record),
@@ -657,11 +650,23 @@ export class Client extends query.Retriever<
     return (await super.retrieve(params)) as unknown as Task<S>[];
   }
 
-  async copy(key: Key, name: string, snapshot: boolean): Promise<Task> {
+  /**
+   * Copies the task with the given key under a new key and name. A snapshot copy sits
+   * in the range with key range, or in no range when range is undefined. Only a
+   * snapshot copy can sit in a range.
+   */
+  async copy(key: Key, name: string, snapshot: false): Promise<Task>;
+  async copy(key: Key, name: string, snapshot: true, range?: ranger.Key): Promise<Task>;
+  async copy(
+    key: Key,
+    name: string,
+    snapshot: boolean,
+    range?: ranger.Key,
+  ): Promise<Task> {
     const copyRes = copyResZ();
     const response = await this.cfg.unary.send(
       "/task/copy",
-      { key, name, snapshot },
+      { key, name, snapshot, range },
       copyReqZ,
       copyRes,
     );
@@ -677,11 +682,6 @@ export class Client extends query.Retriever<
         rack: rack == null ? undefined : { eq: rack },
       },
     });
-  }
-
-  async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
-    if (this.cfg.ontology == null) throw new Error("Task not created");
-    return await retrieveSnapshottedTo(taskKey, this.cfg.ontology);
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(
@@ -862,26 +862,9 @@ export class Client extends query.Retriever<
     schemas?: S,
   ): Task<S>[] | Task<S> {
     const isSingle = !Array.isArray(payloads);
-    const res = array.toArray(payloads).map(
-      ({ key, rack, name, type, config, configHash, status, internal, snapshot }) =>
-        new Task(
-          {
-            key,
-            rack,
-            name,
-            type,
-            config,
-            configHash,
-            internal,
-            snapshot,
-            status,
-          },
-          schemas,
-          this.cfg.framer,
-          this.cfg.ontology,
-          this.cfg.ranges,
-        ),
-    );
+    const res = array
+      .toArray(payloads)
+      .map((payload) => new Task(payload, schemas, this.cfg.framer, this.cfg.ranges));
     return isSingle ? res[0] : res;
   }
 

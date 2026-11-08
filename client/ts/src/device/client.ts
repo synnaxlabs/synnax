@@ -23,6 +23,7 @@ import {
   retrieveRequestZ,
   statusZ,
 } from "@/device/types.gen";
+import { LINES } from "@/device/where";
 import { matches, retrieveInputZ, serverComputed } from "@/device/where.gen";
 import { group } from "@/group";
 import { type ontology } from "@/ontology";
@@ -102,7 +103,7 @@ type RetrieveSchemas<
 > = { schemas: DeviceSchemas<Properties, Make, Model> };
 
 /** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeParent"] as const;
+const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = ({ key, includeStatus }: RetrieveSingleParams): SingleQuery =>
@@ -120,15 +121,13 @@ const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =
   device;
 
 /**
- * Removes the fields that make the Core write a device's status and parent. Use it to
- * send a retrieved device or a create reply back to {@link Client.create}: a reply
- * carries a parent, and the Core writes the status of any device sent with one.
+ * Removes the status of a device. Use it to send a retrieved device or a create reply
+ * back to {@link Client.create} without replacing the status the Core holds.
  */
-export const toUpdate = <D extends Pick<Device, "status" | "parent">>({
-  status: _status,
-  parent: _parent,
+export const toUpdate = <D extends Pick<Device, "status">>({
+  status: _,
   ...device
-}: D): Omit<D, "status" | "parent"> => device;
+}: D): Omit<D, "status"> => device;
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -196,8 +195,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
-        matches: (d, req) => matches(group.MEMBER_LINES, d, req.where),
-        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
+        matches: (d, req) => matches(LINES, d, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         serverFields: SERVER_FIELDS,
         watch: [
           query.watch(statusStore, (event, q: RetrieveRequest) => {

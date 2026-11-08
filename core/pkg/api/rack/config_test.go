@@ -15,7 +15,6 @@ import (
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -25,7 +24,6 @@ var _ = Describe("ServiceConfig", func() {
 	full := func() apirack.ServiceConfig {
 		return apirack.ServiceConfig{
 			Rack:   &rack.Service{},
-			Device: &device.Service{},
 			Task:   &task.Service{},
 			Status: &status.Service{},
 			RBAC:   &rbac.Service{},
@@ -49,11 +47,6 @@ var _ = Describe("ServiceConfig", func() {
 				"rack",
 				func(c *apirack.ServiceConfig) { c.Rack = nil },
 				"rack: must be non-nil",
-			),
-			Entry(
-				"device",
-				func(c *apirack.ServiceConfig) { c.Device = nil },
-				"device: must be non-nil",
 			),
 			Entry(
 				"task",
@@ -83,7 +76,6 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apirack.ServiceConfig{}.Override(cfg)
 			Expect(merged.Rack).To(BeIdenticalTo(cfg.Rack))
-			Expect(merged.Device).To(BeIdenticalTo(cfg.Device))
 			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
@@ -94,7 +86,6 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := cfg.Override(apirack.ServiceConfig{})
 			Expect(merged.Rack).To(BeIdenticalTo(cfg.Rack))
-			Expect(merged.Device).To(BeIdenticalTo(cfg.Device))
 			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))

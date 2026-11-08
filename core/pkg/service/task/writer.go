@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
@@ -29,6 +30,7 @@ import (
 )
 
 type Writer struct {
+	svc        *Service
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
 	otg        *ontology.Ontology
@@ -37,6 +39,8 @@ type Writer struct {
 	table      *gorp.Table[Key, Task]
 	configs    config.Registry
 	dispatcher actions.Dispatcher[Key, Action]
+	racks      rack.Writer
+	guardRack  gorp.GuardFunc[rack.Key, rack.Rack]
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -44,6 +48,20 @@ type Writer struct {
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
+}
+
+// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
+// dispatch key of w when w has no transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		bound := w.svc.NewWriter(tx)
+		bound.dispatcher = w.dispatcher
+		return f(bound)
+	})
 }
 
 // resolveStatus returns the status to persist for t. Without a provided status, a task
@@ -102,15 +120,24 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 
 // Create creates or updates a task. The task's config is stored as a record keyed by
 // the task's key in its type's config store; the task row itself carries only the
-// config hash. A provided status is persisted as given. Without one, a new task gets
-// a "not deployed" placeholder, and an existing task keeps its reported status (healed
-// to "status unknown" if the row is missing). After the transaction commits, Create
-// broadcasts a create action that carries the stored task.
+// config hash. An existing snapshot stays a snapshot and keeps its config and range.
+// Create returns a validation error when a task that is not a snapshot has a range. A
+// provided status is persisted as given. Without one, a new task gets a "not deployed"
+// placeholder, and an existing task keeps its reported status (healed to "status
+// unknown" if the row is missing). After the transaction commits, Create broadcasts a
+// create action that carries the stored task.
 func (w Writer) Create(ctx context.Context, t *Task) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, t) })
+}
+
+func (w Writer) create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
 	}
 	if err := t.Validate(); err != nil {
+		return err
+	}
+	if err := validateRange(t.Snapshot, t.Range); err != nil {
 		return err
 	}
 	store, ok := w.configs.Store(t.Type)
@@ -129,7 +156,10 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		existed = false
 	}
 	otgID := t.ResourceID()
+	var record *config.Record
 	if existed && existing.Snapshot {
+		t.Snapshot = true
+		t.Range = existing.Range
 		t.ConfigHash = existing.ConfigHash
 		existingStore, ok := w.configs.Store(existing.Type)
 		if !ok {
@@ -146,24 +176,15 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 			t.Config = data
 		}
 	} else {
-		stored, err := store.Write(ctx, w.tx, t.Key, t.Config)
+		rec, err := store.Prepare(ctx, w.tx, t.Key, t.Config)
 		if err != nil {
 			return err
 		}
-		t.Config = stored
-		if t.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
+		t.Config = rec.Data()
+		if t.ConfigHash, err = hashConfig(configContent(t.Config)); err != nil {
 			return err
 		}
-		// Delete the old type's record only after the new config is stored, so a
-		// rejected config cannot destroy the prior one. Records of different types
-		// live in different tables, so the same key never collides.
-		if existed && existing.Type != t.Type {
-			if oldStore, ok := w.configs.Store(existing.Type); ok {
-				if err := oldStore.Delete(ctx, w.tx, t.Key); err != nil {
-					return err
-				}
-			}
-		}
+		record = &rec
 	}
 	cfg := t.Config // Restored after the row write; rows do not store config.
 	providedStatus := t.Status
@@ -172,6 +193,20 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	t.Config = cfg
 	if err != nil {
 		return err
+	}
+	if record != nil {
+		if err := record.Write(ctx, w.tx); err != nil {
+			return err
+		}
+		// Records of different types live in different tables, so the same key never
+		// collides.
+		if existed && existing.Type != t.Type {
+			if oldStore, ok := w.configs.Store(existing.Type); ok {
+				if err := oldStore.Delete(ctx, w.tx, t.Key); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	stat := resolveStatus(t, providedStatus, existed)
 	if providedStatus != nil {
@@ -254,10 +289,14 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 	if err = next.Validate(); err != nil {
 		return nil, err
 	}
-	stored, err := store.WriteStrict(ctx, w.tx, key, next.Config)
+	rec, err := store.PrepareStrict(ctx, w.tx, key, next.Config)
 	if err != nil {
 		return nil, err
 	}
+	if err = rec.Write(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	stored := rec.Data()
 	if next.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
 		return nil, err
 	}
@@ -294,24 +333,6 @@ func renamesOnly(acts []Action) bool {
 // Delete deletes the task with the given key, its config record, and its associated
 // status.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
-	var t Task
-	found := true
-	if err := w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Task](key)).
-		Entry(&t).
-		Exec(ctx, w.tx); err != nil {
-		if !errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-		found = false
-	}
-	if found {
-		if store, ok := w.configs.Store(t.Type); ok {
-			if err := store.Delete(ctx, w.tx, key); err != nil {
-				return err
-			}
-		}
-	}
 	if err := w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Task](key)).
 		Exec(ctx, w.tx); err != nil {
@@ -320,36 +341,55 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	return w.otgWriter.DeleteResources(ctx, ResourceID(key))
 }
 
-// DeleteByRacks deletes every task attached to the given racks, along with each task's
-// config record and status. It is the caller's job to reject the delete when a rack
-// still holds tasks the user must remove first.
-func (w Writer) DeleteByRacks(ctx context.Context, keys ...rack.Key) error {
-	var tasks []Task
-	if err := w.table.NewRetrieve().
-		Where(gorp.Match(func(_ gorp.Context, t *Task) (bool, error) {
-			return lo.Contains(keys, t.Rack), nil
-		})).
-		Entries(&tasks).
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
+func validateRange(snapshot bool, rng *ranger.Key) error {
+	if rng == nil || snapshot {
+		return nil
 	}
-	for _, t := range tasks {
-		if err := w.Delete(ctx, t.Key, true); err != nil {
-			return err
-		}
-	}
-	return nil
+	return validate.PathedError(errors.Wrap(
+		validate.ErrValidation,
+		"only a snapshot can sit in a range",
+	), "range")
+}
+
+// DeleteRacks deletes the racks with keys, their statuses, and the internal tasks they
+// hold. It returns a validation error when a rack is embedded, holds a device, or holds
+// a task that is not internal.
+func (w Writer) DeleteRacks(ctx context.Context, keys ...rack.Key) error {
+	return w.racks.Delete(ctx, w.guardRack, keys...)
 }
 
 // Copy stores a copy of the task with the given key under a new key and name, with its
-// config. After the transaction commits, Copy broadcasts a create action that carries
-// the copy. It returns query.ErrNotFound if no task with the key exists.
+// config. A snapshot copy sits in rng, or in no range when rng is nil. After the
+// transaction commits, Copy broadcasts a create action that carries the copy. It
+// returns query.ErrNotFound if no task with the key exists, and a validation error when
+// rng is set for a copy that is not a snapshot.
 func (w Writer) Copy(
 	ctx context.Context,
 	key Key,
 	name string,
 	snapshot bool,
+	rng *ranger.Key,
 ) (Task, error) {
+	var res Task
+	if err := w.inTx(ctx, func(w Writer) (err error) {
+		res, err = w.copy(ctx, key, name, snapshot, rng)
+		return err
+	}); err != nil {
+		return Task{}, err
+	}
+	return res, nil
+}
+
+func (w Writer) copy(
+	ctx context.Context,
+	key Key,
+	name string,
+	snapshot bool,
+	rng *ranger.Key,
+) (Task, error) {
+	if err := validateRange(snapshot, rng); err != nil {
+		return Task{}, err
+	}
 	newKey := uuid.New()
 	var res Task
 	if err := w.table.NewUpdate().
@@ -358,6 +398,7 @@ func (w Writer) Copy(
 			t.Key = newKey
 			t.Name = name
 			t.Snapshot = snapshot
+			t.Range = rng
 			res = t
 			return t, t.Validate()
 		}).

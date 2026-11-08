@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/modbus"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -40,10 +41,17 @@ func channel(cfg msgpack.EncodedJSON) map[string]any {
 }
 
 var _ = Describe("Service", func() {
-	var svc *modbus.Service
+	var (
+		svc   *modbus.Service
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{
 			DB: db,
+		}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: svc.Stores(),
 		}))
 	})
 
@@ -72,8 +80,7 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
@@ -92,8 +99,7 @@ var _ = Describe("Service", func() {
 		It("Should apply read config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
@@ -102,8 +108,7 @@ var _ = Describe("Service", func() {
 		It("Should apply write channel schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type": "holding_register",
 					"key":  "chan-1",
@@ -118,8 +123,7 @@ var _ = Describe("Service", func() {
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
@@ -133,7 +137,7 @@ var _ = Describe("Service", func() {
 			) {
 				key := uuid.New()
 				write := func(bit int) error {
-					_, err := store().Write(ctx, nil, key, msgpack.EncodedJSON{
+					_, err := store().Prepare(ctx, nil, key, msgpack.EncodedJSON{
 						"channels": []any{map[string]any{
 							"type":    channelType,
 							"key":     "chan-1",
@@ -175,8 +179,7 @@ var _ = Describe("Service", func() {
 		It("Should store a channel with no override without swap fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"channels": []any{register(nil)},
 			}))
 			ch := channel(MustSucceed(svc.Read.Read(ctx, nil, key)))
@@ -185,8 +188,7 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should keep an explicit override, false included", func(ctx SpecContext) {
-			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"channels": []any{register(map[string]any{
 					"bytes_swapped": false,
 					"words_swapped": true,

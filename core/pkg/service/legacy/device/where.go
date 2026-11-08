@@ -12,3 +12,7 @@ package device
 // MatchGrouped returns a filter for devices in a group when grouped is true, and for
 // devices in no group when grouped is false.
 func MatchGrouped(grouped bool) Filter { return MatchHasGroup(grouped) }
+
+// MatchNested returns a filter for devices that another device holds when nested is
+// true, and for devices that sit directly on their rack when nested is false.
+func MatchNested(nested bool) Filter { return MatchHasParent(nested) }
