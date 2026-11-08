@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
@@ -486,7 +487,7 @@ func childOfType(
 var _ = Describe("Import", func() {
 	importProject := func(ctx SpecContext, files zip.Files) project.Project {
 		GinkgoHelper()
-		return MustSucceed(svc.Import(ctx, tx, files, "Fallback.zip"))
+		return MustSucceed(svc.Import(ctx, tx, files, "Fallback.zip", nil))
 	}
 
 	Describe("A whole bundle directory", func() {
@@ -514,6 +515,30 @@ var _ = Describe("Import", func() {
 
 		It("Should name the project after the manifest", func(ctx SpecContext) {
 			Expect(importProject(ctx, bundle()).Name).To(Equal("Test Stand Alpha"))
+		})
+
+		It("Should hand the guard to the import of each member", func(ctx SpecContext) {
+			var calls int
+			MustSucceed(svc.Import(ctx, tx, bundle(), "Fallback.zip", func(
+				ids []resource.ID,
+			) error {
+				calls++
+				Expect(
+					ids,
+				).ToNot(ContainElement(HaveField("Type", resource.TypeSecret)))
+				return nil
+			}))
+			Expect(calls).To(Equal(1))
+		})
+
+		It("Should fail the import with the error of the guard", func(ctx SpecContext) {
+			Expect(svc.Import(ctx, tx, bundle(), "Fallback.zip", func(
+				[]resource.ID,
+			) error {
+				return errors.New("denied")
+			})).Error().To(MatchError(
+				"Ground Station Poll.json: import envelope: denied",
+			))
 		})
 
 		It("Should replace a lone surrogate in the manifest with U+FFFD", func(
@@ -695,7 +720,7 @@ var _ = Describe("Import", func() {
 			ctx,
 			tx,
 			zip.Files{"manifest.json": bundleManifest("")},
-			"My Project.zip",
+			"My Project.zip", nil,
 		))
 		Expect(proj.Name).To(Equal("My Project"))
 	})
@@ -800,7 +825,7 @@ var _ = Describe("Import", func() {
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
 		tx = DeferClose(db.OpenTx())
-		Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().
+		Expect(svc.Import(ctx, tx, files, "Fallback.zip", nil)).Error().
 			To(MatchError(ContainSubstring(`name "Startup" is already used`)))
 	})
 
@@ -830,10 +855,13 @@ var _ = Describe("Import", func() {
 	DescribeTable("Should reject an invalid bundle",
 		func(ctx SpecContext, files zip.Files, reason string) {
 			tx = DeferClose(db.OpenTx())
-			Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(reason)),
-			))
+			Expect(
+				svc.Import(ctx, tx, files, "Fallback.zip", nil),
+			).Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(reason)),
+				))
 		},
 		Entry("no manifest or legacy layout",
 			zip.Files{"Metrics.json": []byte("{}")}, "bundle holds no manifest.json"),
@@ -870,7 +898,7 @@ var _ = Describe("Import", func() {
 			"Plot.json":     []byte(`{"version":1,"type":"lineplot","name":"Plot"}`),
 		}
 		// PathedError breaks the errors.Is chain, so the assertion matches on text.
-		Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().To(SatisfyAll(
+		Expect(svc.Import(ctx, tx, files, "Fallback.zip", nil)).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("Plot.json")),
 			MatchError(ContainSubstring("no importer registered")),
 		))
@@ -881,7 +909,7 @@ var _ = Describe("Import", func() {
 		files := zip.Files{"manifest.json": []byte(
 			`{"version":2,"type":"project","name":"Future"}`,
 		)}
-		Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().To(SatisfyAll(
+		Expect(svc.Import(ctx, tx, files, "Fallback.zip", nil)).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("project version 2")),
 			MatchError(ContainSubstring("newer than this Core supports")),
 		))
@@ -895,7 +923,7 @@ var _ = Describe("Import", func() {
 			"manifest.json": bundleManifest("Dangling"),
 			"Controls.json": bundlePanel("Controls", "Missing.json"),
 		}
-		Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().To(SatisfyAll(
+		Expect(svc.Import(ctx, tx, files, "Fallback.zip", nil)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("Controls.json")),
 			MatchError(ContainSubstring(`"Missing.json"`)),
@@ -910,7 +938,7 @@ var _ = Describe("Import", func() {
 			"manifest.json": bundleManifest("Broken"),
 			"Bad.json":      []byte("not json"),
 		}
-		Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().
+		Expect(svc.Import(ctx, tx, files, "Fallback.zip", nil)).Error().
 			To(MatchError(ContainSubstring("Bad.json")))
 	})
 })
@@ -975,7 +1003,7 @@ func legacyLogState(extra map[string]any) []byte {
 var _ = Describe("Legacy import", func() {
 	importLegacy := func(ctx SpecContext, files zip.Files) project.Project {
 		GinkgoHelper()
-		return MustSucceed(svc.Import(ctx, tx, files, "Legacy Project.zip"))
+		return MustSucceed(svc.Import(ctx, tx, files, "Legacy Project.zip", nil))
 	}
 	logLayout := map[string]map[string]any{
 		"k1": {"key": "k1", "type": "log", "name": "Metrics"},
@@ -1072,7 +1100,7 @@ var _ = Describe("Legacy import", func() {
 	) {
 		tx = DeferClose(db.OpenTx())
 		files := zip.Files{"LAYOUT.json": legacyLayoutFile(logLayout)}
-		Expect(svc.Import(ctx, tx, files, "Legacy.zip")).Error().To(SatisfyAll(
+		Expect(svc.Import(ctx, tx, files, "Legacy.zip", nil)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`data for layout "k1" not found`)),
 		))
@@ -1114,7 +1142,7 @@ var _ = Describe("Legacy tiling", func() {
 	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	importTiling := func(ctx SpecContext, files zip.Files) project.Project {
 		GinkgoHelper()
-		return MustSucceed(svc.Import(ctx, tx, files, "Legacy Project.zip"))
+		return MustSucceed(svc.Import(ctx, tx, files, "Legacy Project.zip", nil))
 	}
 	tiledLayouts := map[string]map[string]any{
 		"main": {"key": "main", "type": "main", "name": "Main"},

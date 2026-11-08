@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"os"
 	"path/filepath"
 	"uuid"
@@ -28,12 +29,14 @@ import (
 	pdversions "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -209,6 +212,48 @@ var _ = Describe("ImEx", Ordered, func() {
 				Expect(imported.Config["key"]).ToNot(Equal(t.Config["key"]))
 			},
 		)
+
+		It(
+			"Should give the guard the secrets the imported config names",
+			func(ctx SpecContext) {
+				var env imex.Envelope
+				Expect(json.Unmarshal(fmt.Appendf(nil,
+					`{"version":%d,"type":%q,"name":"Guarded","routing_key":%q}`,
+					pdversions.Latest,
+					pagerduty.AlertTaskType,
+					routingKey1,
+				), &env)).To(Succeed())
+				var seen []resource.ID
+				MustSucceed(imexSvc.Import(ctx, nil, env, imex.ImportOptions{
+					Guard: func(ids []resource.ID) error {
+						seen = ids
+						return nil
+					},
+				}))
+				Expect(seen).To(Equal([]resource.ID{
+					secret.ResourceID(uuid.MustParse(routingKey1)),
+				}))
+			},
+		)
+
+		It("Should import no task when the guard fails", func(ctx SpecContext) {
+			var env imex.Envelope
+			Expect(json.Unmarshal(fmt.Appendf(nil,
+				`{"version":%d,"type":%q,"name":"Denied import","routing_key":%q}`,
+				pdversions.Latest,
+				pagerduty.AlertTaskType,
+				routingKey1,
+			), &env)).To(Succeed())
+			Expect(imexSvc.Import(ctx, nil, env, imex.ImportOptions{
+				Guard: func([]resource.ID) error { return errors.New("denied") },
+			})).Error().To(MatchError("import envelope: denied"))
+			var imported []task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Denied import")).
+				Entries(&imported).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(imported).To(BeEmpty())
+		})
 
 		It(
 			"Should upgrade a legacy Console export through the boot transforms",

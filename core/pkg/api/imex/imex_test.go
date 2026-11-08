@@ -19,8 +19,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
+	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -103,6 +107,39 @@ var _ = Describe("Import", func() {
 			))
 			id := MustSucceed(apiSvc.Import(fctx, db, env))
 			Expect(id.Key).To(Equal("Legacy State"))
+		},
+	)
+
+	It(
+		"Should hand the importer a guard on the secrets the subject can retrieve",
+		func(ctx SpecContext) {
+			u := MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, users, user.User{
+				Name: "importer-" + uuid.New().String(),
+			}))
+			readable := resource.ID{Type: resource.TypeSecret, Key: uuid.New().String()}
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				rbacSvc,
+				users,
+				u.Key,
+				[]access.Action{access.ActionCreate},
+				resource.ID{Type: resource.TypeChannel},
+			))
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				rbacSvc,
+				users,
+				u.Key,
+				[]access.Action{access.ActionRetrieve},
+				readable,
+			))
+			fctx := AuthedCtx(ctx, u)
+			fctx.Set("params", `{"file_name":"Guarded.json"}`)
+			MustSucceed(apiSvc.Import(fctx, db, testEnvelope("guarded")))
+			denied := resource.ID{Type: resource.TypeSecret, Key: uuid.New().String()}
+			Expect(importer.opts.Guard([]resource.ID{readable})).To(Succeed())
+			Expect(importer.opts.Guard([]resource.ID{readable, denied})).
+				To(MatchError(access.ErrDenied))
 		},
 	)
 

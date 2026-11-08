@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -120,7 +121,9 @@ type (
 	ImportResponse = resource.ID
 )
 
-// Import imports a resource from an envelope.
+// Import imports a resource from an envelope. It needs create access on the resource
+// type, update access on the parent and group, and retrieve access on each secret the
+// resource references.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -163,6 +166,7 @@ func (s *Service) Import(
 	}); err != nil {
 		return ImportResponse{}, err
 	}
+	opts.Guard = apisecret.Guard(ctx, enforcer)
 	id, err := s.internal.Import(ctx, tx, req, opts)
 	if err != nil {
 		return ImportResponse{}, err

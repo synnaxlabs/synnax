@@ -127,7 +127,7 @@ var _ = Describe("Service", func() {
 					"type":              "thermocouple",
 					"thermocouple_type": "BOGUS",
 				}},
-			})).Error().To(MatchError(ContainSubstring("invalid thermocouple_type: BOGUS")))
+			}, nil)).Error().To(MatchError(ContainSubstring("invalid thermocouple_type: BOGUS")))
 		})
 	})
 })

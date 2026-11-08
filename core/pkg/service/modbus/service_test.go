@@ -161,7 +161,7 @@ var _ = Describe("Service", func() {
 							"address": 4,
 							"bit":     bit,
 						}},
-					})
+					}, nil)
 					return err
 				}
 				Expect(write(15)).To(Succeed())

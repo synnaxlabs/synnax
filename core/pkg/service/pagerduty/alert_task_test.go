@@ -296,7 +296,7 @@ var _ = Describe("AlertTask", func() {
 					nil,
 					t.Key,
 					t.Name,
-					encodeConfig(cfg),
+					encodeConfig(cfg), nil,
 				))
 				Expect(rec.Write(ctx, nil)).To(Succeed())
 

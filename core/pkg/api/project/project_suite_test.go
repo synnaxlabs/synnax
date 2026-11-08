@@ -10,6 +10,7 @@
 package project_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -51,7 +52,26 @@ var (
 	userSvc    *user.Service
 	apiSvc     *apiproject.Service
 	author     user.User
+	recorder   *guardRecorder
 )
+
+// guardRecorder imports channel envelopes, keeping the guard that each import hands
+// it.
+type guardRecorder struct{ guard func([]resource.ID) error }
+
+func (*guardRecorder) Type() resource.Type { return resource.TypeChannel }
+
+func (r *guardRecorder) Import(
+	_ context.Context,
+	_ gorp.Tx,
+	env imex.Envelope,
+	opts imex.ImportOptions,
+) (resource.ID, error) {
+	r.guard = opts.Guard
+	return resource.ID{Type: resource.TypeChannel, Key: env.Name}, nil
+}
+
+func (*guardRecorder) Match(map[string]any) bool { return false }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
@@ -82,6 +102,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		),
 	)
 	imexSvc := imex.NewService()
+	recorder = &guardRecorder{}
+	Expect(imexSvc.RegisterImporter(string(resource.TypeChannel), recorder)).
+		To(Succeed())
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB: db,
 	}))

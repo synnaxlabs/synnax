@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -40,28 +41,30 @@ var (
 	apiSvc   *apiimex.Service
 	importer *recordingImporter
 	root     user.User
+	users    *user.Service
+	rbacSvc  *rbac.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+	users = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Password: passwordSvc,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
 	}))
-	rbacSvc := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 		DB:     db,
-		User:   userSvc,
+		User:   users,
 		Status: statusSvc,
 	})).RBAC
 	MustSucceed2(
 		user.ProvisionRoot(
 			ctx,
-			userSvc,
+			users,
 			passwordSvc,
 			auth.Credentials{Username: "api-imex-suite-root", Password: "p"},
 			rbacSvc.Builtin.OwnerKey,
@@ -74,7 +77,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx: imexSvc,
 		RBAC: rbacSvc,
 	}))
-	Expect(userSvc.NewRetrieve().
+	Expect(users.NewRetrieve().
 		Where(user.MatchRootUser(true)).
 		Entry(&root).Exec(ctx, nil)).To(Succeed())
 })

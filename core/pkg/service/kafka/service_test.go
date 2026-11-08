@@ -151,7 +151,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				Expect(svc.Read.Prepare(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 					"start_offset": "bogus",
-				})).Error().To(MatchError(ContainSubstring("invalid start_offset: bogus")))
+				}, nil)).Error().To(MatchError(ContainSubstring("invalid start_offset: bogus")))
 			},
 		)
 
@@ -159,7 +159,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				Expect(svc.Write.Prepare(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 					"record_key": "bogus",
-				})).Error().To(MatchError(ContainSubstring("invalid record_key: bogus")))
+				}, nil)).Error().To(MatchError(ContainSubstring("invalid record_key: bogus")))
 			},
 		)
 	})

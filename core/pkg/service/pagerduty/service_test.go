@@ -159,7 +159,7 @@ var _ = Describe("Service", func() {
 					tx,
 					uuid.New(),
 					"Pump alerts",
-					msgpack.EncodedJSON{"plain_routing_key": plainKey},
+					msgpack.EncodedJSON{"plain_routing_key": plainKey}, nil,
 				))
 				routingKey := routingKeyOf(rec.Data())
 				Expect(secrets.NewRetrieve().
@@ -180,7 +180,7 @@ var _ = Describe("Service", func() {
 				tx,
 				uuid.New(),
 				"Aborted",
-				msgpack.EncodedJSON{"plain_routing_key": plainKey},
+				msgpack.EncodedJSON{"plain_routing_key": plainKey}, nil,
 			))
 			Expect(tx.Close()).To(Succeed())
 			Expect(secrets.NewRetrieve().

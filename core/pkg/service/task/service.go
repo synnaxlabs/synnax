@@ -258,6 +258,7 @@ func (s *Service) Dispatch(
 	key Key,
 	dispatchKey string,
 	acts []Action,
+	guard func([]resource.ID) error,
 ) ([]Action, error) {
 	var added []Action
 	if err := s.state.Dispatch(
@@ -266,7 +267,7 @@ func (s *Service) Dispatch(
 		dispatchKey,
 		acts,
 		func(tx gorp.Tx) (_ []Action, err error) {
-			added, err = s.NewWriter(tx).apply(ctx, key, acts)
+			added, err = s.NewWriter(tx).WithGuard(guard).apply(ctx, key, acts)
 			return added, err
 		},
 	); err != nil {

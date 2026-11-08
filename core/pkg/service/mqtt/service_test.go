@@ -158,7 +158,7 @@ var _ = Describe("Service", func() {
 		) {
 			Expect(svc.Read.Prepare(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 				"entries": []any{map[string]any{"type": "plain", "qos": "twice"}},
-			})).Error().
+			}, nil)).Error().
 				To(MatchError(ContainSubstring("twice")))
 		})
 
@@ -167,7 +167,7 @@ var _ = Describe("Service", func() {
 		) {
 			Expect(svc.Read.Prepare(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 				"entries": []any{map[string]any{"type": "amqp"}},
-			})).Error().
+			}, nil)).Error().
 				To(MatchError(ContainSubstring("amqp")))
 		})
 	})
