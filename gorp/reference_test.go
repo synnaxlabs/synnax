@@ -1064,6 +1064,14 @@ var _ = Describe("Reference", func() {
 			},
 		)
 
+		It("Should free the key prefix of a closed table", func(ctx SpecContext) {
+			Expect(racks.Close()).To(Succeed())
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+				DB:   db,
+				Name: "other_rack",
+			}))
+		})
+
 		DescribeTable(
 			"Should reject an invalid reference",
 			func(

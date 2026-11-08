@@ -161,6 +161,23 @@ var _ = Describe("Changes", func() {
 		},
 	)
 
+	It(
+		"Should name a write through an unnamed table by the named table of its type",
+		func(ctx SpecContext) {
+			unnamed := MustOpen(
+				gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
+			)
+			tx := DeferClose(db.OpenTx())
+			Expect(unnamed.NewCreate().Entry(&entry{ID: 1, Data: "a"}).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(
+				gorp.ChangesOf(tx),
+			).To(HaveExactElements(HaveField("Record", record)))
+			Expect(remove(ctx, tx)).To(Succeed())
+			Expect(gorp.ChangesOf(tx)).To(BeEmpty())
+		},
+	)
+
 	It("Should not record a raw key-value write", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
 		Expect(tx.Set(ctx, []byte("raw"), []byte("value"))).To(Succeed())
