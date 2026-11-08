@@ -219,7 +219,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithEntryChannel) {
     ReadTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
     EXPECT_EQ(task_cfg.channels.size(), 1);
-    EXPECT_EQ(task_cfg.interface_name, "eth0");
+    EXPECT_EQ(task_cfg.slaves.network, "eth0");
     EXPECT_EQ(task_cfg.channels[0]->index, 0x6000);
     EXPECT_EQ(task_cfg.channels[0]->sub_index, 1);
     EXPECT_EQ(task_cfg.channels[0]->bit_length, 16);

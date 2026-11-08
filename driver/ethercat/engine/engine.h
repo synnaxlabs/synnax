@@ -205,6 +205,18 @@ class Engine {
     /// errors::PDO_MAPPING_ERROR when the image does not hold an entry.
     [[nodiscard]] std::pair<std::vector<pdo::Offset>, x::errors::Error>
     offsets_locked(const std::vector<pdo::Entry> &entries, size_t image_size) const;
+    /// @brief returns the bus rate in millihertz and the offset of each entry once the
+    /// bus runs at a rate that also serves rate as a read rate, or as a write rate when
+    /// output is true. Starts the bus when it is stopped, and stops it again on an
+    /// error.
+    [[nodiscard]] std::
+        pair<std::pair<uint64_t, std::vector<pdo::Offset>>, x::errors::Error>
+        join_locked(
+            std::unique_lock<std::mutex> &lock,
+            const std::vector<pdo::Entry> &entries,
+            x::telem::Rate rate,
+            bool output
+        );
     void close_input(const std::shared_ptr<Input> &input);
     void close_output(const std::shared_ptr<Output> &output);
 

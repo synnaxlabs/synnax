@@ -393,14 +393,4 @@ struct DiscoveryResult {
     Status status;
 };
 
-/// @brief extracts properties from a vector of discovery results.
-inline std::vector<Properties>
-discovered_properties(const std::vector<DiscoveryResult> &results) {
-    std::vector<Properties> props;
-    props.reserve(results.size());
-    for (const auto &r: results)
-        props.push_back(r.properties);
-    return props;
-}
-
 }

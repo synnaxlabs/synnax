@@ -614,28 +614,44 @@ Engine::~Engine() {
     this->stop_locked();
 }
 
+std::pair<std::pair<uint64_t, std::vector<pdo::Offset>>, x::errors::Error>
+Engine::join_locked(
+    std::unique_lock<std::mutex> &lock,
+    const std::vector<pdo::Entry> &entries,
+    const x::telem::Rate rate,
+    const bool output
+) {
+    auto [configs, configs_err] = this->read_slave_configs(lock);
+    auto reads = this->read_rates_locked();
+    auto writes = this->write_rates_locked();
+    (output ? writes : reads).push_back(rate);
+    const auto [mhz, rate_err] = this->rate_locked(reads, writes);
+    if (rate_err) return {{}, rate_err};
+    const bool started = !this->running();
+    if (started) {
+        if (configs_err) return {{}, configs_err};
+        if (auto err = this->start_locked(mhz, std::move(configs)); err)
+            return {{}, err};
+    }
+    const auto image_size = output ? this->image.outputs.size()
+                                   : this->image.inputs.size();
+    auto [offsets, err] = this->offsets_locked(entries, image_size);
+    if (err) {
+        if (started) this->stop_locked();
+        return {{}, err};
+    }
+    return {{mhz, std::move(offsets)}, x::errors::NIL};
+}
+
 std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader(
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate sample_rate,
     const size_t samples_per_read
 ) {
     std::unique_lock lock(this->mu);
-    auto [configs, configs_err] = this->read_slave_configs(lock);
-    auto reads = this->read_rates_locked();
-    reads.push_back(sample_rate);
-    const auto [mhz, rate_err] = this->rate_locked(reads, this->write_rates_locked());
-    if (rate_err) return {nullptr, rate_err};
-    const bool started = !this->running();
-    if (started) {
-        if (configs_err) return {nullptr, configs_err};
-        if (auto err = this->start_locked(mhz, std::move(configs)); err)
-            return {nullptr, err};
-    }
-    auto [offsets, err] = this->offsets_locked(entries, this->image.inputs.size());
-    if (err) {
-        if (started) this->stop_locked();
-        return {nullptr, err};
-    }
+    auto [joined, err] = this->join_locked(lock, entries, sample_rate, false);
+    if (err) return {nullptr, err};
+    auto &[mhz, offsets] = joined;
     auto input = std::make_shared<Input>(
         entries,
         std::move(offsets),
@@ -660,22 +676,9 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         stop_values.push_back(stop_value);
     }
     std::unique_lock lock(this->mu);
-    auto [configs, configs_err] = this->read_slave_configs(lock);
-    auto writes = this->write_rates_locked();
-    writes.push_back(execution_rate);
-    const auto [mhz, rate_err] = this->rate_locked(this->read_rates_locked(), writes);
-    if (rate_err) return {nullptr, rate_err};
-    const bool started = !this->running();
-    if (started) {
-        if (configs_err) return {nullptr, configs_err};
-        if (auto err = this->start_locked(mhz, std::move(configs)); err)
-            return {nullptr, err};
-    }
-    auto [offsets, err] = this->offsets_locked(pdo_entries, this->image.outputs.size());
-    if (err) {
-        if (started) this->stop_locked();
-        return {nullptr, err};
-    }
+    auto [joined, err] = this->join_locked(lock, pdo_entries, execution_rate, true);
+    if (err) return {nullptr, err};
+    auto &[mhz, offsets] = joined;
     auto output = std::make_shared<Output>(Output{
         .entries = std::move(pdo_entries),
         .rate = execution_rate,

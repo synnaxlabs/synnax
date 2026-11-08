@@ -16,6 +16,29 @@ config_setting(
 )
 
 cc_library(
+    name = "slaves",
+    hdrs = ["slaves.h"],
+    deps = [
+        "//client/cpp:synnax",
+        "//driver/common",
+        "//driver/ethercat/errors",
+        "//driver/ethercat/slave",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+    ],
+)
+
+cc_test(
+    name = "slaves_test",
+    srcs = ["slaves_test.cpp"],
+    deps = [
+        ":slaves",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "ethercat",
     srcs = [
         "factory.cpp",
@@ -39,8 +62,8 @@ cc_library(
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
         "//driver/ethercat/soem",
+        ":slaves",
         "//driver/ethercat/telem",
-        "//driver/ethercat/topology",
         "//driver/pipeline",
         "//driver/task",
         "//driver/transform",
