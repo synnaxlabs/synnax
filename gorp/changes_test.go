@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,6 +38,19 @@ func parentLink(k string) gorp.Link {
 
 func labelLink(k string) gorp.Link {
 	return gorp.Link{Target: gorp.NewTarget("label", k), Kind: gorp.Use}
+}
+
+var errUndecodable = errors.New("undecodable")
+
+// deviceRefusingCodec fails to decode a refDevice, as a store does with a record that a
+// migration missed.
+type deviceRefusingCodec struct{ encoding.Codec }
+
+func (c deviceRefusingCodec) Decode(ctx context.Context, data []byte, value any) error {
+	if _, ok := value.(*refDevice); ok {
+		return errUndecodable
+	}
+	return c.Codec.Decode(ctx, data, value)
 }
 
 var _ = Describe("Changes", func() {
@@ -481,5 +495,47 @@ var _ = Describe("Changes", func() {
 		},
 		Entry("when the index has loaded", true),
 		Entry("when the index has not loaded", false),
+	)
+
+	It(
+		"Should fail a write whose stored record cannot be decoded, naming the record",
+		func(ctx SpecContext) {
+			kvs := DeferClose(memkv.New())
+			pre := gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec))
+			Expect(gorp.NewCreate[uint32, refRack]().
+				Entry(&refRack{Key: 1}).
+				Exec(ctx, pre)).To(Succeed())
+			Expect(gorp.NewCreate[string, refDevice]().
+				Entry(&refDevice{Key: "d", Rack: 1}).
+				Exec(ctx, pre)).To(Succeed())
+			linked := gorp.Wrap(
+				kvs,
+				gorp.WithCodec(deviceRefusingCodec{Codec: msgpack.Codec}),
+			)
+			refs := newDeviceRefs()
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
+				DB:         linked,
+				Name:       "device",
+				References: refs.all(),
+			}))
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+				DB:   linked,
+				Name: "rack",
+			}))
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refLabel]{
+				DB:   linked,
+				Name: "label",
+			}))
+			Expect(refs.rack.Get(ctx, nil, 1)).Error().
+				To(MatchError(gorp.ErrIndexInvalid))
+			tx := DeferClose(linked.OpenTx())
+			Expect(
+				gorp.WrapWriter[string, refDevice](tx).Delete(ctx, "d"),
+			).To(SatisfyAll(
+				MatchError(errUndecodable),
+				MatchError("[gorp] - read the links of device d: undecodable"),
+			))
+			Expect(gorp.ChangesOf(tx)).To(BeEmpty())
+		},
 	)
 })
