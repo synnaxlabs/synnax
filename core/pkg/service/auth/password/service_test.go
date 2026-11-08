@@ -338,12 +338,7 @@ var _ = Describe("Service with FIPS", func() {
 			Username: name,
 			Password: "p",
 		})).To(Succeed())
-		// A table indexes the writes of another table only when it opens.
-		fips := MustOpen(password.OpenService(ctx, password.ServiceConfig{
-			DB:   db,
-			FIPS: new(true),
-		}))
-		Expect(fips.Authenticate(ctx, proof(name, "p"))).Error().To(SatisfyAll(
+		Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().To(SatisfyAll(
 			MatchError(auth.ErrInvalidCredentials),
 			MatchError(ContainSubstring("does not accept")),
 		))
