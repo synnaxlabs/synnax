@@ -44,9 +44,7 @@ const connectAs = async (
 ) => {
   const client = createTestClient({ username, password: "test", onInternalError });
   try {
-    await client.access.policies.retrieve({
-      where: { subjects: [user.resourceID(key)] },
-    });
+    await client.access.policies.retrieve({ subjects: [user.resourceID(key)] });
   } catch (err) {
     if (!isDenial(err)) throw errors.fromUnknown(err);
   }
