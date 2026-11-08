@@ -18,7 +18,12 @@ import {
   InvalidTokenError,
   SessionEndedError,
 } from "@/errors";
-import { createTestClient, TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
+import {
+  createEmptyRole,
+  createTestClient,
+  TEST_CLIENT_PARAMS,
+  TEST_CREDENTIALS,
+} from "@/testutil";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 
@@ -198,7 +203,8 @@ describe("auth", () => {
     it("should not open a new session when logging out of an ended session", async () => {
       const admin = createTestClient();
       const credentials = { username: id.create(), password: "seldon" };
-      await admin.users.create(credentials);
+      const { key: role } = await createEmptyRole(admin);
+      await admin.users.create({ ...credentials, role });
       const ending = makeClient(credentials);
       const other = makeClient(credentials);
       await login(ending);
@@ -349,7 +355,8 @@ describe("auth", () => {
     it("should let the newest login win when two interleave", async () => {
       const admin = createTestClient();
       const second = { username: id.create(), password: "seldon" };
-      await admin.users.create(second);
+      const { key: role } = await createEmptyRole(admin);
+      await admin.users.create({ ...second, role });
       let username: string | undefined;
       const client = makeClient(TEST_CREDENTIALS, {
         onUser: (u) => (username = u?.name),
@@ -365,7 +372,8 @@ describe("auth", () => {
     it("should keep a newer login when an older renew answers late", async () => {
       const admin = createTestClient();
       const second = { username: id.create(), password: "seldon" };
-      await admin.users.create(second);
+      const { key: role } = await createEmptyRole(admin);
+      await admin.users.create({ ...second, role });
       let username: string | undefined;
       const client = makeClient(TEST_CREDENTIALS, {
         onUser: (u) => (username = u?.name),
@@ -386,7 +394,8 @@ describe("auth", () => {
     it("should keep a newer login when an older request is rejected late", async () => {
       const admin = createTestClient();
       const second = { username: id.create(), password: "seldon" };
-      await admin.users.create(second);
+      const { key: role } = await createEmptyRole(admin);
+      await admin.users.create({ ...second, role });
       let username: string | undefined;
       const client = makeClient(TEST_CREDENTIALS, {
         onUser: (u) => (username = u?.name),
@@ -527,12 +536,15 @@ describe("auth", () => {
     };
     const createUser = async () => {
       const username = `set-password-${id.create()}`;
-      const u = await createTestClient().users.create({
+      const admin = createTestClient();
+      const { key: role } = await createEmptyRole(admin);
+      const u = await admin.users.create({
         username,
         password: "old",
         name: "Set Password",
+        role,
       });
-      return { username, subject: user.ontologyID(u.key) };
+      return { username, subject: user.resourceID(u.key) };
     };
 
     it("should let an owner set another user's password", async () => {

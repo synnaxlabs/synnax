@@ -57,7 +57,7 @@ func (s *Service) Dispatch(
 					}
 					if renamed := a.Base().Name; renamed != name {
 						if err = s.NewWriter(tx).validateName(
-							ctx, OntologyID(key), renamed, a.Type() == TypeModule,
+							ctx, ResourceID(key), renamed, a.Type() == TypeModule,
 						); err != nil {
 							return Arc{}, err
 						}
@@ -85,6 +85,30 @@ func (s *Service) Dispatch(
 		s.taskSync.Trigger(key)
 		return nil
 	})
+}
+
+// publish broadcasts the stored Arc with key as a create, in order with the dispatches
+// on it.
+func (s *Service) publish(ctx context.Context, key Key) {
+	err := s.locks.Do(key, func() error {
+		var a Arc
+		if err := s.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Arc](key)).
+			Entry(&a).
+			Exec(ctx, s.cfg.DB); err != nil {
+			return err
+		}
+		s.state.Dispatcher().Notify(ctx, key, NewCreateAction(CreatePayload{Arc: a}))
+		return nil
+	})
+	// A later delete can remove the Arc before the broadcast.
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		s.cfg.L.Error(
+			"failed to publish a moved arc",
+			zap.Error(err),
+			zap.Stringer("key", key),
+		)
+	}
 }
 
 // resyncTask rewrites the Arc's task config from its current content. It runs on the

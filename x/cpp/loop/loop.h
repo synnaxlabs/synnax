@@ -48,6 +48,13 @@ public:
     explicit Timer(const telem::TimeSpan &interval):
         interval(interval), last(hs_clock::now()) {}
 
+    /// @brief a timer that waits on the host's steady clock. A precise timer spins to
+    /// each deadline at any interval. Otherwise, only an interval under
+    /// HIGH_RES_THRESHOLD spins, and a longer one sleeps, which on Windows can wake up
+    /// to 2 ms late.
+    Timer(const telem::TimeSpan &interval, const bool precise):
+        interval(interval), precise(precise), last(hs_clock::now()) {}
+
     /// @brief a timer that reads and sleeps on clock in place of the host's steady
     /// clock.
     Timer(const telem::TimeSpan &interval, Clock clock):
@@ -75,7 +82,7 @@ public:
         const auto deadline = now + remaining.chrono();
         if (this->clock)
             this->clock->sleep(remaining);
-        else if (this->high_rate())
+        else if (this->precise || this->high_rate())
             this->precise_sleep(remaining);
         else
             std::this_thread::sleep_for(remaining.chrono());
@@ -96,8 +103,8 @@ public:
         const auto deadline = now + remaining.chrono();
         if (this->clock)
             this->clock->sleep(remaining);
-        else if (this->high_rate())
-            this->precise_sleep(remaining);
+        else if (this->precise || this->high_rate())
+            this->precise_sleep(remaining, breaker);
         else if (this->medium_rate())
             std::this_thread::sleep_for(remaining.chrono());
         else
@@ -134,17 +141,17 @@ private:
         while (true) {
             if (!running()) return;
             const auto start = hs_clock::now();
-            if (telem::TimeSpan(end - start) <= sleep_estimate_) break;
+            if (telem::TimeSpan(end - start) <= sleep_estimate) break;
             this->step();
             const auto curr_end = hs_clock::now();
             const auto elapsed_ns = std::chrono::duration_cast<nanos>(curr_end - start)
                                         .count();
-            const telem::TimeSpan delta = elapsed_ns - sleep_mean_;
-            sleep_mean_ += delta / sleep_count_;
-            sleep_M2_ += delta * (elapsed_ns - sleep_mean_);
-            const auto stddev = std::sqrt((sleep_M2_ / sleep_count_).nanoseconds());
-            sleep_estimate_ = sleep_mean_ + static_cast<int64_t>(stddev);
-            sleep_count_++;
+            const telem::TimeSpan delta = elapsed_ns - sleep_mean;
+            sleep_mean += delta / sleep_count;
+            sleep_M2 += delta * (elapsed_ns - sleep_mean);
+            const auto stddev = std::sqrt((sleep_M2 / sleep_count).nanoseconds());
+            sleep_estimate = sleep_mean + static_cast<int64_t>(stddev);
+            sleep_count++;
         }
         while (end > hs_clock::now())
             if (!running()) return;
@@ -174,20 +181,21 @@ private:
 
     telem::TimeSpan interval;
     std::optional<Clock> clock;
+    bool precise = false;
     bool last_set = false;
     hs_clock::time_point last;
     /// @brief the OS state of a sleep step.
-    ImplPtr impl_ = make_impl();
+    ImplPtr impl = make_impl();
 
     /// @brief Welford's algorithm state: the most one step is expected to take. It
     /// starts at one step, so a sleep longer than one step measures a step.
-    telem::TimeSpan sleep_estimate_ = RESOLUTION;
+    telem::TimeSpan sleep_estimate = RESOLUTION;
     /// @brief Welford's algorithm state: running mean of step durations.
-    telem::TimeSpan sleep_mean_ = RESOLUTION;
+    telem::TimeSpan sleep_mean = RESOLUTION;
     /// @brief Welford's algorithm state: sum of squared deviations.
-    telem::TimeSpan sleep_M2_ = telem::TimeSpan::ZERO();
+    telem::TimeSpan sleep_M2 = telem::TimeSpan::ZERO();
     /// @brief Welford's algorithm state: sample count.
-    int64_t sleep_count_ = 1;
+    int64_t sleep_count = 1;
 };
 
 /// @brief the host clocks that a loop reads: steady time to wait on and wall time to
@@ -220,9 +228,11 @@ public:
             std::this_thread::sleep_for(span.chrono());
     }
 
-    /// @brief returns a timer that waits on this clock.
-    [[nodiscard]] Timer timer(const telem::TimeSpan &interval) const {
-        if (!this->source) return Timer(interval);
+    /// @brief returns a timer that waits on this clock. precise is as for Timer. A
+    /// timer on a source waits exactly at any interval.
+    [[nodiscard]] Timer
+    timer(const telem::TimeSpan &interval, const bool precise = false) const {
+        if (!this->source) return {interval, precise};
         return {interval, *this->source};
     }
 

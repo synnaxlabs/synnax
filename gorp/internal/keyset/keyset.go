@@ -64,6 +64,9 @@ func Ranked[K comparable](keys []K) Set[K] {
 	return s
 }
 
+// Ranked reports whether s holds its keys in rank order.
+func (s Set[K]) Ranked() bool { return s.ranked }
+
 // Bounded reports whether s constrains keys.
 func (s Set[K]) Bounded() bool { return s.keys != nil }
 

@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Literal, overload
-from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -35,17 +34,7 @@ _CreateResponse = _CreateRequest
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[UUID]
-
-
-class _AssignRequest(BaseModel):
-    user: UUID
-    role: UUID
-
-
-class _UnassignRequest(BaseModel):
-    user: UUID
-    role: UUID
+    keys: list[Key]
 
 
 class Client:
@@ -83,7 +72,7 @@ class Client:
         return res.roles[0] if is_single else res.roles
 
     @overload
-    def retrieve(self, key: UUID) -> Role: ...
+    def retrieve(self, key: Key) -> Role: ...
 
     @overload
     def retrieve(
@@ -126,7 +115,7 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         one: Literal[True],
     ) -> Role: ...
@@ -142,7 +131,7 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
         offset: int = ...,
@@ -154,7 +143,7 @@ class Client:
         key: filter.SetInput[Key] | None = None,
         *,
         where: Where | None = None,
-        keys: list[UUID] | None = None,
+        keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
@@ -189,7 +178,7 @@ class Client:
         if key is not None:
             fields["key"] = key
         single = returns_one(fields, one, limit, offset)
-        flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
@@ -199,26 +188,6 @@ class Client:
         res = self._client.send("/access/role/retrieve", req, RetrieveResponse)
         return sole("role", req, res.roles) if single else res.roles
 
-    def delete(self, keys: UUID | list[UUID]) -> None:
+    def delete(self, keys: Key | list[Key]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         self._client.send("/access/role/delete", req, Empty)
-
-    def assign(self, *, user: UUID, role: UUID) -> None:
-        """Assign a role to a user.
-
-        Args:
-            user: The UUID of the user to assign the role to
-            role: The UUID of the role to assign
-        """
-        req = _AssignRequest(user=user, role=role)
-        self._client.send("/access/role/assign", req, Empty)
-
-    def unassign(self, *, user: UUID, role: UUID) -> None:
-        """Remove a role from a user.
-
-        Args:
-            user: The UUID of the user to unassign the role from
-            role: The UUID of the role to unassign
-        """
-        req = _UnassignRequest(user=user, role=role)
-        self._client.send("/access/role/unassign", req, Empty)

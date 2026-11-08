@@ -108,7 +108,8 @@ type async[T any] struct {
 // a dedicated goroutine via a buffered channel. If a handler falls behind,
 // notifications are dropped rather than blocking the caller. Goroutines are managed by
 // the provided signal.Go, which handles panic recovery, lifecycle tracking, and
-// context-driven shutdown.
+// context-driven shutdown. Handlers run after Notify returns, so the context they
+// receive keeps the notifier's values but not its cancellation.
 func NewAsync[T any](ctx signal.Context, opts ...signal.RoutineOption) Observer[T] {
 	return &async[T]{
 		ctx:      ctx,
@@ -158,7 +159,7 @@ func (a *async[T]) OnChange(handler func(context.Context, T)) Disconnect {
 func (a *async[T]) Notify(ctx context.Context, v T) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	msg := asyncMessage[T]{ctx: ctx, val: v}
+	msg := asyncMessage[T]{ctx: context.WithoutCancel(ctx), val: v}
 	for h := range a.handlers {
 		select {
 		case h.ch <- msg:
@@ -171,7 +172,7 @@ func (a *async[T]) NotifyGenerator(ctx context.Context, generator func() T) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	for h := range a.handlers {
-		msg := asyncMessage[T]{ctx: ctx, val: generator()}
+		msg := asyncMessage[T]{ctx: context.WithoutCancel(ctx), val: generator()}
 		select {
 		case h.ch <- msg:
 		default:
@@ -180,7 +181,7 @@ func (a *async[T]) NotifyGenerator(ctx context.Context, generator func() T) {
 }
 
 func (a *async[T]) GoNotify(ctx context.Context, v T) {
-	go a.Notify(context.WithoutCancel(ctx), v)
+	go a.Notify(ctx, v)
 }
 
 // Noop is an observable that never calls its OnChange function and does

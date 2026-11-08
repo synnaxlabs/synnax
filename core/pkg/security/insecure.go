@@ -23,10 +23,6 @@ func newInsecureProvider(ProviderConfig) (Provider, error) {
 
 func (*insecureProvider) TLSConfigFor(cert.Source) *tls.Config { return nil }
 
-func (*insecureProvider) NodeClientConfig() *tls.Config { return nil }
-
 func (*insecureProvider) VerifyCertHost(cert.Source, string) error { return nil }
-
-func (*insecureProvider) VerifyCertCoreCA(cert.Source) error { return nil }
 
 func (*insecureProvider) VerifyCertTrustAnchors(cert.Source) error { return nil }

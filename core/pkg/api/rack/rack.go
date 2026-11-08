@@ -13,14 +13,15 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -42,10 +43,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Rack *rack.Service
-	// Device stores and retrieves devices.
-	//
-	// [REQUIRED]
-	Device *device.Service
 	// Task stores and retrieves tasks.
 	//
 	// [REQUIRED]
@@ -73,7 +70,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Rack = override.Nil(c.Rack, other.Rack)
-	c.Device = override.Nil(c.Device, other.Device)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
@@ -85,7 +81,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.rack")
 	v.NotNil("rack", c.Rack)
-	v.NotNil("device", c.Device)
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
@@ -97,7 +92,6 @@ type Service struct {
 	access *rbac.Service
 	auth   *svcauth.Service
 	rack   *rack.Service
-	device *device.Service
 	task   *task.Service
 	status *status.Service
 }
@@ -109,7 +103,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		rack:   cfg.Rack,
-		device: cfg.Device,
 		task:   cfg.Task,
 		status: cfg.Status,
 		access: cfg.RBAC,
@@ -154,7 +147,7 @@ func (s *Service) attachReadableStatuses(
 		err := enforcer.Enforce(ctx, access.Request{
 			Subject: subject,
 			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{racks[i].OntologyID()},
+			Objects: []resource.ID{racks[i].ResourceID()},
 		})
 		// Create accepts update access, which does not grant read access.
 		if errors.Is(err, access.ErrDenied) {
@@ -176,10 +169,10 @@ func (s *Service) attachStatuses(
 	tx gorp.Tx,
 	racks []rack.Rack,
 ) error {
-	statuses, err := s.status.Join[rack.StatusDetails](
+	statuses, err := s.status.Join[struct{}](
 		ctx,
 		tx,
-		rack.OntologyIDsFromRacks(racks),
+		rack.ResourceIDsFromRacks(racks),
 	)
 	if err != nil {
 		return err
@@ -219,10 +212,21 @@ func (s *Service) enforceCreate(
 		if err := enforcer.Enforce(ctx, access.Request{
 			Subject: subject,
 			Action:  access.ActionUpdate,
-			Objects: rack.OntologyIDsFromRacks(existing),
+			Objects: rack.ResourceIDsFromRacks(existing),
 		}); err != nil {
 			return err
 		}
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionUpdate,
+		Objects: group.CreateObjects(
+			racks,
+			existing,
+			func(r rack.Rack) *group.Key { return r.Group },
+		),
+	}); err != nil {
+		return err
 	}
 	found := make(set.Set[rack.Key], len(existing))
 	for _, r := range existing {
@@ -237,7 +241,7 @@ func (s *Service) enforceCreate(
 	return enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
+		Objects: []resource.ID{{Type: resource.TypeRack}},
 	})
 }
 
@@ -246,7 +250,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.rack.NewRetrieve().Entries(&res.Racks))
+	q, err := ApplyRetrieve(req, s.rack.NewRetrieve().Entries(&res.Racks))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -261,7 +265,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rack.OntologyIDsFromRacks(res.Racks),
+		Objects: rack.ResourceIDsFromRacks(res.Racks),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -285,7 +289,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{req.Key.OntologyID()},
+		Objects: []resource.ID{req.Key.ResourceID()},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -296,13 +300,8 @@ type DeleteRequest struct {
 	Keys []rack.Key `json:"keys" msgpack:"keys"`
 }
 
-func embeddedGuard(_ gorp.Context, r rack.Rack) error {
-	if !r.Embedded {
-		return nil
-	}
-	return errors.Wrapf(validate.ErrValidation, "cannot delete embedded rack")
-}
-
+// Delete deletes the racks and the internal tasks they hold. It refuses a rack that is
+// embedded or holds a device or a task that is not internal.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -311,45 +310,46 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: rack.OntologyIDs(req.Keys),
+		Objects: rack.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
-	exists, err := s.device.NewRetrieve().
-		Where(device.MatchRacks(req.Keys...)).
-		Exists(ctx, tx)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if exists {
-		return struct{}{}, errors.Wrapf(
-			validate.ErrValidation,
-			"cannot delete rack when devices are still attached",
-		)
-	}
-	exists, err = s.task.NewRetrieve().
-		Where(task.And(task.MatchInternal(false), task.MatchRacks(req.Keys...))).
-		Exists(ctx, tx)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if exists {
-		return struct{}{}, errors.Wrapf(
-			validate.ErrValidation,
-			"cannot delete rack when tasks are still attached",
-		)
-	}
-	w := s.rack.NewWriter(tx)
-	for _, k := range req.Keys {
-		if err := w.DeleteGuard(ctx, k, embeddedGuard); err != nil {
-			return struct{}{}, err
-		}
-	}
-	// Only internal tasks are left: the check above rejects the delete while the user
-	// still has tasks of their own on the rack.
-	if err := s.task.NewWriter(tx).DeleteByRacks(ctx, req.Keys...); err != nil {
+	if err := s.task.NewWriter(tx).DeleteRacks(ctx, req.Keys...); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.auth.NewWriter(tx).
-		DeleteFor(ctx, rack.OntologyIDs(req.Keys)...)
+		DeleteFor(ctx, rack.ResourceIDs(req.Keys)...)
+}
+
+// SetGroupRequest moves racks into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key `json:"group" msgpack:"group"`
+	Keys  []rack.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the racks with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	var racks []rack.Rack
+	if err := s.rack.NewRetrieve().
+		Where(rack.MatchKeys(req.Keys...)).
+		Entries(&racks).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(
+			rack.ResourceIDs(req.Keys),
+			lo.Map(racks, func(e rack.Rack, _ int) *group.Key { return e.Group }),
+			req.Group,
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.rack.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

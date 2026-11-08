@@ -12,32 +12,68 @@ import { filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Group, keyZ, type Where } from "@/group/types.gen";
+import { resource } from "@/resource";
+
+/**
+ * Lines checks the typed lines of a Where against a record. A null entry marks a line
+ * that only the Core can check.
+ */
+export interface Lines {
+  parents: ((record: Group, value: NonNullable<Where["parents"]>) => boolean) | null;
+  nested: ((record: Group, value: NonNullable<Where["nested"]>) => boolean) | null;
+}
 
 /**
  * @returns whether the record matches where. An absent where matches every record.
+ * @throws {Error} if where is server-computed, since only the Core can check it.
  */
-export const matches = (record: Group, where?: Where): boolean => {
+export const matches = (lines: Lines, record: Group, where?: Where): boolean => {
   if (where == null) return true;
-  if (where.and != null && !where.and.every((w) => matches(record, w))) return false;
-  if (where.or != null && !where.or.some((w) => matches(record, w))) return false;
-  if (where.not != null && matches(record, where.not)) return false;
+  if (where.and != null && !where.and.every((w) => matches(lines, record, w)))
+    return false;
+  if (where.or != null && !where.or.some((w) => matches(lines, record, w)))
+    return false;
+  if (where.not != null && matches(lines, record, where.not)) return false;
   if (where.key != null && !filter.matchesSet(where.key, record.key)) return false;
+  if (where.name != null && !filter.matchesString(where.name, record.name))
+    return false;
+  if (where.scope != null && !filter.matchesSet(where.scope, record.scope))
+    return false;
+  if (where.parents != null) {
+    if (lines.parents == null) throw new Error("only the Core can check parents");
+    if (!lines.parents(record, where.parents)) return false;
+  }
+  if (where.nested != null) {
+    if (lines.nested == null) throw new Error("only the Core can check nested");
+    if (!lines.nested(record, where.nested)) return false;
+  }
   return true;
 };
 
 /**
- * @returns whether only the Core can check where, because it holds a regex. An absent
- * where is not server-computed.
+ * @returns whether only the Core can check where, because it holds a regex or a line
+ * whose entry in lines is null. An absent where is not server-computed.
  */
-export const serverComputed = (where?: Where): boolean =>
+export const serverComputed = (lines: Lines, where?: Where): boolean =>
   where != null &&
-  (where.and?.some((w) => serverComputed(w)) === true ||
-    where.or?.some((w) => serverComputed(w)) === true ||
-    (where.not != null && serverComputed(where.not)));
+  (where.and?.some((w) => serverComputed(lines, w)) === true ||
+    where.or?.some((w) => serverComputed(lines, w)) === true ||
+    (where.not != null && serverComputed(lines, where.not)) ||
+    where.name?.regex != null ||
+    (where.parents != null && lines.parents == null) ||
+    (where.nested != null && lines.nested == null));
 
 const inputs = {
   /** key selects by key. */
   key: filter.setInputZ(keyZ).exactOptional(),
+  /** name selects by name. */
+  name: filter.stringInputZ.exactOptional(),
+  /** scope selects by scope. */
+  scope: filter.setInputZ(resource.typeZ).exactOptional(),
+  /** parents matches the groups that sit in any of the given resources. */
+  parents: filter.listInputZ(resource.idZ).exactOptional(),
+  /** nested matches the groups that sit in a parent, or the top groups when false. */
+  nested: z.boolean().exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -74,4 +110,29 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ...inputs,
       ...options,
     })
-    .transform((input) => filter.split(input, ["and", "or", "not", "key"]));
+    .transform((input) =>
+      filter.split(input, [
+        "and",
+        "or",
+        "not",
+        "key",
+        "name",
+        "scope",
+        "parents",
+        "nested",
+      ]),
+    );
+
+/**
+ * shortcutZ reads a key, a name, or a list of either into a request whose where holds
+ * it. A list reads as keys only when every member is a key.
+ */
+export const shortcutZ = z.union([
+  keyZ.transform((key) => ({ where: { key: { eq: key } } })),
+  z.string().transform((name) => ({ where: { name: { eq: name } } })),
+  keyZ.array().transform((keys) => ({ where: { key: { in: keys } } })),
+  z
+    .string()
+    .array()
+    .transform((names) => ({ where: { name: { in: names } } })),
+]);

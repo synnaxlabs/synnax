@@ -11,12 +11,18 @@ package group_test
 
 import (
 	"testing"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apigroup "github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,21 +36,41 @@ func TestAPIGroup(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apigroup.Service
-	// author has no role assignments.
-	author user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apigroup.NewService(apigroup.ServiceConfig{
-		Group: svc.Group,
 		RBAC:  svc.RBAC,
-	}))
-	author = MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
-		Name: "author",
+		Group: svc.Group,
 	}))
 })
+
+// grant returns a policy that allows actions on objects.
+func grant(actions []access.Action, objects ...resource.ID) policy.Policy {
+	return policy.Policy{
+		Name:    "policy-" + uuid.New().String(),
+		Objects: objects,
+		Actions: actions,
+	}
+}
+
+// newUser creates a user that holds policies.
+func newUser(ctx SpecContext, policies ...policy.Policy) user.User {
+	GinkgoHelper()
+	u := MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+		Name: "user-" + uuid.New().String(),
+	}))
+	for _, p := range policies {
+		MustSucceed(
+			rbactestutil.Grant(ctx, svc.RBAC, svc.User, u.Key, p.Actions, p.Objects...),
+		)
+	}
+	return u
+}

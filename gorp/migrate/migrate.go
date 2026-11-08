@@ -16,8 +16,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/internal/progress"
 	"github.com/synnaxlabs/x/errors"
-	"go.uber.org/zap"
 )
 
 type migration struct {
@@ -75,7 +75,7 @@ func NewInstrumentedEntry[IK, OK gorp.Key, I gorp.Entry[IK], O gorp.Entry[OK]](
 			var (
 				reader   = gorp.WrapReader[IK, I](tx)
 				writer   = gorp.WrapWriter[OK, O](tx)
-				logger   = &progressLogger{key: key, ins: ins}
+				logger   = &progress.Logger{Instrumentation: ins, Key: key}
 				newEntry O
 			)
 			iter, err := reader.OpenIterator(gorp.IterOptions{})
@@ -95,7 +95,7 @@ func NewInstrumentedEntry[IK, OK gorp.Key, I gorp.Entry[IK], O gorp.Entry[OK]](
 				if err = writer.Set(ctx, newEntry); err != nil {
 					return err
 				}
-				logger.increment()
+				logger.Increment()
 			}
 			return err
 		},
@@ -109,45 +109,4 @@ func Codec[K gorp.Key, E gorp.Entry[K]](key string) gorp.Migration {
 		key,
 		func(_ context.Context, e E) (E, error) { return e, nil },
 	)
-}
-
-const progressMax = 1000
-
-// progressLogger emits periodic info-level progress messages during a long-running
-// migration.
-type progressLogger struct {
-	// ins is the instrumentation used to emit progress logs.
-	ins alamos.Instrumentation
-	// key identifies the migration the logger is reporting on.
-	key string
-	// count is the number of entries processed so far.
-	count int
-}
-
-// increment counts one more processed entry and logs at the progress interval.
-func (p *progressLogger) increment() {
-	p.count++
-	if p.shouldLog() {
-		p.ins.L.Info(
-			"migration progress",
-			zap.String("migration", p.key),
-			zap.Int("entries", p.count),
-		)
-	}
-}
-
-// shouldLog returns true at logarithmically spaced intervals (1, 10, 100, 1000) then
-// every 1000 entries after that.
-func (p *progressLogger) shouldLog() bool {
-	if p.count >= progressMax {
-		return p.count%progressMax == 0
-	}
-	n := p.count
-	for n >= 10 {
-		if n%10 != 0 {
-			return false
-		}
-		n /= 10
-	}
-	return n == 1
 }

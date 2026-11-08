@@ -14,7 +14,7 @@ package v0
 import (
 	"uuid"
 
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -27,7 +27,7 @@ type APIKey struct {
 	// Key is the unique identifier for this API key.
 	Key Key `json:"key" msgpack:"key"`
 	// Subject is the user or rack the key logs in as.
-	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Hash is the SHA-256 hash of the secret in the key.
 	Hash []byte `json:"hash" msgpack:"hash"`
 	// Name is a label that tells the subject's keys apart.

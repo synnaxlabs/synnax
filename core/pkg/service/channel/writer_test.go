@@ -14,13 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -49,7 +50,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			limitSvc, _ = openService(ctx, testutil.NewNode(ctx), channel.ServiceConfig{
+			limitSvc = openService(ctx, testutil.NewNode(ctx), channel.ServiceConfig{
 				Limit: fixedLimit(2),
 			})
 			limitWriter = limitSvc.NewWriter(nil)
@@ -101,7 +102,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should remove overwritten channels from the external channel set",
 			func(ctx SpecContext) {
-				cleanupSvc, _ := openService(
+				cleanupSvc := openService(
 					ctx,
 					testutil.NewNode(ctx),
 					channel.ServiceConfig{
@@ -190,14 +191,13 @@ var _ = Describe("Writer", func() {
 	Describe("Create", Ordered, func() {
 		var (
 			dist          testutil.Node
-			otg           *ontology.Ontology
 			svc           *channel.Service
 			channelWriter channel.Writer
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
 			dist = testutil.NewNode(ctx)
-			svc, otg = openService(ctx, dist)
+			svc = openService(ctx, dist)
 			channelWriter = svc.NewWriter(nil)
 		})
 		Context("Single channel", func() {
@@ -209,28 +209,6 @@ var _ = Describe("Writer", func() {
 				ch.Leaseholder = 1
 				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 			})
-			It(
-				"Should create the channel without a group relationship",
-				func(ctx SpecContext) {
-					ch.Name = UniqueChannelName()
-					Expect(
-						channelWriter.Create(
-							ctx,
-							&ch,
-							channel.CreateWithoutGroupRelationship(),
-						),
-					).To(Succeed())
-					entries := []ontology.Resource{}
-					Expect(otg.
-						NewRetrieve().
-						WhereIDs(ch.OntologyID()).
-						TraverseTo(ontology.ParentsTraverser).
-						Entries(&entries).
-						Exec(ctx, nil),
-					).To(Succeed())
-					Expect(entries).To(BeEmpty())
-				},
-			)
 			Context("error cases", func() {
 				It(
 					"Should return an error if the name is invalid",
@@ -427,7 +405,7 @@ var _ = Describe("Writer", func() {
 					},
 				)
 				It(
-					"Should delete the overwritten channel's ontology resource",
+					"Should leave the overwritten channel out of its resources",
 					func(ctx SpecContext) {
 						name := UniqueChannelName()
 						ch := channel.Channel{
@@ -438,11 +416,6 @@ var _ = Describe("Writer", func() {
 						}
 						Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 						originalKey := ch.Key()
-						Expect(otg.
-							NewRetrieve().
-							WhereIDs(channel.OntologyID(originalKey)).
-							Exists(ctx, nil),
-						).To(BeTrue())
 
 						newCh := channel.Channel{
 							Virtual:     true,
@@ -459,14 +432,13 @@ var _ = Describe("Writer", func() {
 						).To(Succeed())
 						Expect(newCh.Key()).ToNot(Equal(originalKey))
 
-						Expect(otg.NewRetrieve().
-							WhereIDs(channel.OntologyID(originalKey)).
-							Exists(ctx, nil),
-						).To(BeFalse())
-						Expect(otg.NewRetrieve().
-							WhereIDs(channel.OntologyID(newCh.Key())).
-							Exists(ctx, nil),
-						).To(BeTrue())
+						Expect(svc.Resources().Retrieve(ctx, dist.DB, []resource.ID{
+							channel.ResourceID(originalKey),
+							channel.ResourceID(newCh.Key()),
+						})).To(ConsistOf(resource.Resource{
+							ID:   channel.ResourceID(newCh.Key()),
+							Name: name,
+						}))
 					},
 				)
 			})
@@ -1040,7 +1012,7 @@ var _ = Describe("Writer", func() {
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				svc, _ = openService(
+				svc = openService(
 					ctx,
 					testutil.NewNode(ctx),
 					channel.ServiceConfig{ValidateNames: new(false)},
@@ -1152,7 +1124,7 @@ var _ = Describe("Writer", func() {
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
 			dist = testutil.NewNode(ctx)
-			svc, _ = openService(ctx, dist)
+			svc = openService(ctx, dist)
 			channelWriter = svc.NewWriter(nil)
 		})
 		Context("Single Channel", func() {
@@ -1174,9 +1146,11 @@ var _ = Describe("Writer", func() {
 				"Should not allow deletion of index channel with dependent channels",
 				func(ctx SpecContext) {
 					Expect(channelWriter.Delete(ctx, idxCh.Key(), true)).To(
-						MatchError(
-							ContainSubstring("because it indexes data in channel"),
-						),
+						MatchError(gorp.RestrictError{
+							Target:    gorp.NewTarget("channel", idxCh.Key()),
+							Holder:    gorp.NewTarget("channel", ch.Key()),
+							Reference: "index",
+						}),
 					)
 				},
 			)
@@ -1210,6 +1184,51 @@ var _ = Describe("Writer", func() {
 					).
 						Error().
 						To(MatchError(ts.ErrChannelNotFound))
+				},
+			)
+		})
+		Context("Calculated Channel Index", func() {
+			It(
+				"Should refuse an update that names an index that does not exist",
+				func(ctx SpecContext) {
+					calc := channel.Channel{
+						Name:       UniqueChannelName(),
+						DataType:   telem.Float64T,
+						Expression: "return 1 + 1",
+						Virtual:    true,
+					}
+					Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+					calc.LocalIndex = 99999
+					Expect(channelWriter.Create(ctx, &calc)).To(MatchError(
+						ContainSubstring(fmt.Sprintf(
+							"index: channel %d does not exist",
+							distchannel.NewKey(node.KeyFree, 99999),
+						)),
+					))
+				},
+			)
+			It(
+				"Should clear on open the index of a channel whose index does not exist",
+				func(ctx SpecContext) {
+					fresh := testutil.NewNode(ctx)
+					calc := channel.Channel{
+						Name:        "dangling_calc",
+						Leaseholder: node.KeyFree,
+						LocalKey:    7,
+						LocalIndex:  8,
+						DataType:    telem.Float64T,
+						Expression:  "return 1 + 1",
+						Virtual:     true,
+					}
+					Expect(gorp.WrapWriter[channel.Key, channel.Channel](fresh.DB).
+						Set(ctx, calc)).To(Succeed())
+					freshSvc := openService(ctx, fresh)
+					var stored channel.Channel
+					Expect(freshSvc.NewRetrieve().
+						Where(channel.MatchKeys(calc.Key())).
+						Entry(&stored).
+						Exec(ctx, nil)).To(Succeed())
+					Expect(stored.LocalIndex).To(BeZero())
 				},
 			)
 		})
@@ -1343,7 +1362,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc, _ = openService(ctx, testutil.NewNode(ctx))
+			svc = openService(ctx, testutil.NewNode(ctx))
 			channelWriter = svc.NewWriter(nil)
 		})
 		Context("Single channel", func() {
@@ -1442,7 +1461,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			dist = testutil.NewNode(ctx)
-			limitSvc, _ = openService(
+			limitSvc = openService(
 				ctx,
 				dist,
 				channel.ServiceConfig{Limit: fixedLimit(limit)},
@@ -1645,7 +1664,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc, _ = openService(ctx, testutil.NewNode(ctx))
+			svc = openService(ctx, testutil.NewNode(ctx))
 			channelWriter = svc.NewWriter(nil)
 		})
 		It(

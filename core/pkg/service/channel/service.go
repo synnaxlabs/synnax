@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
@@ -20,9 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
@@ -44,26 +43,18 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// Channel is the distribution-layer channel service the service drives to assign
-	// local keys and create, rename, and delete storage channels across the cluster.
+	// local keys and create, rename, and delete storage channels.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// DB is the cluster-wide metadata database backing the channel table.
+	// DB is the metadata database backing the channel table.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// HostProvider provides this node's key for default leaseholder assignment.
+	// HostKey is the key of the host node, the default leaseholder of new channels.
 	//
 	// [REQUIRED]
-	HostProvider cluster.HostProvider
-	// Ontology integrates channels into the resource ontology.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
-	// Group is the channel group resources are parented under.
-	//
-	// [REQUIRED]
-	Group *group.Service
+	HostKey node.Key
 	// Limit enforces the cap on external (non-internal, non-virtual) channels.
 	//
 	// [OPTIONAL] - Defaults to no cap.
@@ -86,9 +77,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
 	v.NotNil("channel", c.Channel)
 	v.NotNil("db", c.DB)
-	v.NotNil("host_provider", c.HostProvider)
-	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
+	v.NonZero("host_key", c.HostKey)
 	v.NotNil("limit", c.Limit)
 	v.NotNil("status", c.Status)
 	v.NotNil("validate_names", c.ValidateNames)
@@ -100,9 +89,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
+	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
@@ -110,16 +97,16 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 // Service is the top-level channel service. It owns the channel metadata table,
-// retrieval, ontology and search integration, and the create/delete/rename
-// orchestration, driving the distribution-layer allocator for key assignment and
-// storage. It also infers DataTypes for calculated channels on write.
+// retrieval, search integration, and the create/delete/rename orchestration, driving
+// the distribution-layer allocator for key assignment and storage. It also infers
+// DataTypes for calculated channels on write.
 type Service struct {
 	cfg     ServiceConfig
 	db      *gorp.DB
 	closer  io.MultiCloser
-	group   group.Group
 	table   *gorp.Table[Key, Channel]
 	indexes indexes
+	index   *gorp.KeyReference[Key, Channel, Key]
 	mu      struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of external (non-internal, non-virtual)
@@ -137,25 +124,25 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, db: cfg.DB, indexes: newIndexes()}
+	s = &Service{cfg: cfg, db: cfg.DB, indexes: newIndexes(), index: indexReference()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
-		DB:              cfg.DB,
-		Migrations:      versions.Migrations,
+		DB:   cfg.DB,
+		Name: tableName,
+		Migrations: append(
+			slices.Clone(versions.Migrations),
+			gorp.DanglingMigration("v61_dangling_references"),
+		),
 		Indexes:         s.indexes.all(),
+		References:      append(s.indexes.references(), s.index),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx, "Channels", ontology.RootID,
-	); !ok(err, nil) {
-		return nil, err
-	}
 	// Seed the external/non-virtual key set by scanning the table once at startup. This
 	// is the only call site that unavoidably walks the table — there is no index for
-	// (Internal, Virtual) and the cost is bounded by how many channels the cluster has
+	// (Internal, Virtual) and the cost is bounded by how many channels the Core has
 	// accumulated.
 	var externalNonVirtualChannels []Channel
 	if err = s.table.NewRetrieve().
@@ -167,12 +154,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s.mu.externalNonVirtualSet.Insert(KeysFromChannels(externalNonVirtualChannels)...)
-	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
-
-// Group returns the group under which the service's channels are created.
-func (s *Service) Group() group.Group { return s.group }
 
 // newRetrieve returns a Retrieve without the channel limit validator. The create,
 // delete, and rename paths use it because they hold the lock validateChannels blocks
@@ -219,9 +202,9 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 	return nil
 }
 
-// NewArcSymbolResolver returns a resolver that maps cluster channels to Arc symbols by
-// name or numeric key, for analyzing and compiling Arc expressions such as calculated
-// channels. tx scopes channel lookups; nil consults the service DB directly.
+// NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by name or
+// numeric key, for analyzing and compiling Arc expressions such as calculated channels.
+// tx scopes channel lookups; nil consults the service DB directly.
 func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return &symbolResolver{svc: s, tx: tx}
 }
@@ -263,7 +246,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		svc: s,
 		tx:  tx,
-		otg: s.cfg.Ontology.NewWriter(tx),
 		analyzer: NewCalculationAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
 			AllowDashedNames: !s.ShouldValidateNames(),
 		}),

@@ -22,6 +22,7 @@ export interface Lines {
   overlaps:
     ((record: Payload, value: NonNullable<Where["overlaps"]>) => boolean) | null;
   labels: ((record: Payload, value: NonNullable<Where["labels"]>) => boolean) | null;
+  parents: ((record: Payload, value: NonNullable<Where["parents"]>) => boolean) | null;
 }
 
 /**
@@ -46,6 +47,10 @@ export const matches = (lines: Lines, record: Payload, where?: Where): boolean =
     if (lines.labels == null) throw new Error("only the Core can check labels");
     if (!lines.labels(record, where.labels)) return false;
   }
+  if (where.parents != null) {
+    if (lines.parents == null) throw new Error("only the Core can check parents");
+    if (!lines.parents(record, where.parents)) return false;
+  }
   return true;
 };
 
@@ -60,7 +65,8 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     (where.not != null && serverComputed(lines, where.not)) ||
     where.name?.regex != null ||
     (where.overlaps != null && lines.overlaps == null) ||
-    (where.labels != null && lines.labels == null));
+    (where.labels != null && lines.labels == null) ||
+    (where.parents != null && lines.parents == null));
 
 const inputs = {
   /** key selects by key. */
@@ -71,6 +77,8 @@ const inputs = {
   overlaps: telem.timeRangeZ.exactOptional(),
   /** labels matches ranges that have any of the given labels. */
   labels: filter.listInputZ(label.keyZ).exactOptional(),
+  /** parents matches the ranges nested in any of the given ranges. */
+  parents: filter.listInputZ(keyZ).exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -108,7 +116,16 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ...options,
     })
     .transform((input) =>
-      filter.split(input, ["and", "or", "not", "key", "name", "overlaps", "labels"]),
+      filter.split(input, [
+        "and",
+        "or",
+        "not",
+        "key",
+        "name",
+        "overlaps",
+        "labels",
+        "parents",
+      ]),
     );
 
 /**
