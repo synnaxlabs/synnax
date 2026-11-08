@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
 )
@@ -140,6 +141,9 @@ func ownerOf(t gorp.Target) (resource.ID, bool, error) {
 // resourceOf returns the resource of a record. It returns an error when no resource
 // type matches the table of the record.
 func resourceOf(t gorp.Target) (resource.ID, error) {
+	if id, ok := taskconfig.TaskOf(t); ok {
+		return id, nil
+	}
 	id := resource.ID{Type: resource.Type(t.Table), Key: t.Key}
 	if t.Table == types.Name[alias.Alias]() {
 		id.Type = resource.TypeRangeAlias

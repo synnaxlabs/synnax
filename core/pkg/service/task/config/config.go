@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json/v2"
 	"slices"
+	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -207,8 +208,20 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 	return s, nil
 }
 
+// tableSuffix ends the name of each table that stores config records.
+const tableSuffix = "_config"
+
 // TableName returns the name of the table that stores the config records of taskType.
-func TableName(taskType string) string { return taskType + "_config" }
+func TableName(taskType string) string { return taskType + tableSuffix }
+
+// TaskOf returns the ID of the task whose config record target names, and false when
+// the table of target stores no config records.
+func TaskOf(target gorp.Target) (resource.ID, bool) {
+	if !strings.HasSuffix(target.Table, tableSuffix) {
+		return resource.ID{}, false
+	}
+	return resource.ID{Type: resource.TypeTask, Key: target.Key}, true
+}
 
 // newTaskReference returns the reference from a record to the task that shares its key.
 func newTaskReference[E gorp.Entry[uuid.UUID]]() *gorp.KeyReference[uuid.UUID, E, uuid.UUID] {

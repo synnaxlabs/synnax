@@ -93,11 +93,14 @@ describe("schematic", () => {
     });
 
     it("should allow the caller to delete schematics with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [schematic.resourceID("")],
-        actions: ["delete", "retrieve"],
-      });
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [schematic.resourceID("")],
+          actions: ["delete", "retrieve"],
+        },
+        { name: "test", objects: [project.TYPE_RESOURCE_ID], actions: ["update"] },
+      ]);
       const proj = await client.projects.create({
         name: "test",
       });
@@ -108,6 +111,24 @@ describe("schematic", () => {
       await userClient.schematics.delete(randomSchematic.key);
       await expect(userClient.schematics.retrieve(randomSchematic.key)).rejects.toThrow(
         NotFoundError,
+      );
+    });
+
+    it("should deny deleting a schematic from a project the caller cannot update", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [schematic.resourceID("")],
+        actions: ["delete"],
+      });
+      const proj = await client.projects.create({
+        name: "test",
+      });
+      const randomSchematic = await client.schematics.create({
+        project: proj.key,
+        name: "test",
+      });
+      await expect(userClient.schematics.delete(randomSchematic.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
