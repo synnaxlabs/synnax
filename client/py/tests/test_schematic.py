@@ -303,6 +303,15 @@ class TestClient:
         retrieved = client.schematics.retrieve(ranges=[rng.key])
         assert [r.key for r in retrieved] == [c.key]
 
+    def test_retrieve_by_group(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should filter the schematics by group."""
+        made = client.schematics.create(name="Ungrouped", project=project.key)
+        g = client.groups.create("Empty", parent=sy.project.resource_id(project.key))
+        assert client.schematics.retrieve(groups=g.key) == []
+        ungrouped = client.schematics.retrieve(projects=project.key, grouped=False)
+        assert [r.key for r in ungrouped] == [made.key]
+        assert client.schematics.retrieve(projects=project.key, grouped=True) == []
+
     def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should keep the schematics that match the where and the other filters."""
         a = client.schematics.create(name="A", project=project.key)
@@ -459,12 +468,16 @@ class TestSymbolClient:
     def test_retrieve_by_group(
         self, client: sy.Synnax, parent_group: group.Group
     ) -> None:
-        """Should keep the symbols in the given groups."""
-        a, _ = client.schematics.symbols.create(
+        """Should keep the symbols in the given groups, or the symbols in no group."""
+        a, b = client.schematics.symbols.create(
             [_symbol("In group", parent_group), _symbol("No group")]
         )
         res = client.schematics.symbols.retrieve(groups=parent_group.key)
         assert [r.key for r in res] == [a.key]
+        ungrouped = client.schematics.symbols.retrieve(
+            key=[a.key, b.key], grouped=False
+        )
+        assert [r.key for r in ungrouped] == [b.key]
 
     def test_retrieve_with_search_term(
         self, client: sy.Synnax, parent_group: group.Group

@@ -34,7 +34,7 @@ describe("Status", () => {
       await waitForStreamLive(local.connection);
       await local.statuses.retrieve(s.key);
       const { responded, release } = holdResponses(local, "/status/retrieve");
-      const fetching = local.statuses.retrieve({ key: [s.key] });
+      const fetching = local.statuses.retrieve({ key: { eq: s.key } });
       await responded;
       await client.statuses.set({ ...s, message: "after" });
       await expect
