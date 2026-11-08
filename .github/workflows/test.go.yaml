@@ -139,12 +139,29 @@ jobs:
           DIRECTORY: ${{ inputs.directory }}
         run: .github/scripts/go_mod_download.sh "$DIRECTORY"
 
+      # GitHub release downloads can fail, so golangci-lint installs from the Go module
+      # proxy. A failed install runs up to three times, because the proxy drops streams
+      # at times.
+      - name: Install golangci-lint
+        env:
+          PACKAGE: github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+        run: |
+          attempt=1
+          until go install "$PACKAGE"; do
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::go install failed 3 times for $PACKAGE"
+              exit 1
+            fi
+            delay=$((attempt * 15))
+            echo "::warning::go install failed for $PACKAGE, retrying in ${delay}s"
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          done
+
       - name: Build the custom golangci-lint binary
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.15.0
-          # GitHub release downloads can fail, so install from the Go module proxy.
-          install-mode: goinstall
+          install-mode: none
           working-directory: ${{ inputs.directory }}
           install-only: true
           # The matchers register in install(), before install-only returns, so they
