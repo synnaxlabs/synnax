@@ -75,9 +75,6 @@ struct Entry {
     bool is_input = true;
     /// @brief actual hardware data type from the PDO.
     x::telem::DataType data_type = x::telem::UNKNOWN_T;
-
-    /// @brief returns the size of this PDO entry in bytes (rounded up from bits).
-    [[nodiscard]] size_t byte_length() const { return (bit_length + 7) / 8; }
 };
 
 /// @brief information about a single PDO entry discovered during slave enumeration. An
@@ -201,27 +198,5 @@ inline size_t total_bits(const std::vector<Properties> &pdos) {
     for (const auto &pdo: pdos)
         bits += pdo.bit_length;
     return bits;
-}
-
-/// @brief computes byte-granularity offsets for registered PDO entries,
-/// splitting inputs and outputs from separate base offsets.
-inline void compute_offsets(
-    Offsets &offsets,
-    const std::vector<Entry> &entries,
-    const size_t input_base_offset,
-    const size_t output_base_offset
-) {
-    size_t input_byte_offset = input_base_offset;
-    size_t output_byte_offset = output_base_offset;
-    for (const auto &entry: entries) {
-        Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
-        if (entry.is_input) {
-            offsets[key] = {input_byte_offset, 0, entry.bit_length};
-            input_byte_offset += entry.byte_length();
-        } else {
-            offsets[key] = {output_byte_offset, 0, entry.bit_length};
-            output_byte_offset += entry.byte_length();
-        }
-    }
 }
 }

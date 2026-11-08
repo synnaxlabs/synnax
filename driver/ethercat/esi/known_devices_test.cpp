@@ -25,16 +25,6 @@ TEST_F(KnownDevicesTest, LookupUnknownDeviceReturnsFalse) {
     EXPECT_TRUE(slave.output_pdos.empty());
 }
 
-TEST_F(KnownDevicesTest, IsDeviceKnownReturnsFalseForUnknown) {
-    bool known = is_device_known(0xDEADBEEF, 0x12345678);
-    EXPECT_FALSE(known);
-}
-
-TEST_F(KnownDevicesTest, VendorNameReturnsNulloptForUnknown) {
-    auto name = vendor_name(0xDEADBEEF);
-    EXPECT_FALSE(name.has_value());
-}
-
 // Beckhoff vendor tests (vendor ID: 0x00000002)
 class BeckhoffDevicesTest : public ::testing::Test {
 protected:
@@ -42,79 +32,25 @@ protected:
     slave::Properties slave;
 };
 
-TEST_F(BeckhoffDevicesTest, VendorNameReturnsBeckhoff) {
-    auto name = vendor_name(BECKHOFF_VENDOR_ID);
-    ASSERT_TRUE(name.has_value());
-    EXPECT_NE(name.value().find("Beckhoff"), std::string_view::npos);
-}
+constexpr uint32_t DEWESOFT_VENDOR_ID = 0xDEBE50F7;
+constexpr uint32_t IOLITE_6XSTG = 0xFC;
 
-// DEWESoft vendor tests (vendor ID: 0xDEBE50F7)
-class DEWESoftDevicesTest : public ::testing::Test {
-protected:
-    static constexpr uint32_t DEWESOFT_VENDOR_ID = 0xDEBE50F7;
+/// @brief it should fill the six strain inputs of an IOLITE 6xSTG from the registry.
+TEST(DewesoftDevices, LookupFillsTheEntriesOfAnIOLITE6xSTG) {
     slave::Properties slave;
-};
-
-TEST_F(DEWESoftDevicesTest, VendorNameReturnsDEWESoft) {
-    auto name = vendor_name(DEWESOFT_VENDOR_ID);
-    if (!name.has_value()) { GTEST_SKIP() << "DEWESoft not in registry"; }
-    EXPECT_NE(name->find("ewesoft"), std::string_view::npos);
+    ASSERT_TRUE(lookup_device_pdos(DEWESOFT_VENDOR_ID, IOLITE_6XSTG, 0x10001, slave));
+    EXPECT_EQ(slave.input_pdos.size(), 6);
+    EXPECT_TRUE(slave.output_pdos.empty());
 }
 
-TEST_F(DEWESoftDevicesTest, DEWESoftDevicesExist) {
-    if (!vendor_name(DEWESOFT_VENDOR_ID).has_value()) {
-        GTEST_SKIP() << "DEWESoft not in registry";
-    }
-
-    bool any_known = false;
-    for (uint32_t pc = 1; pc <= 500; ++pc) {
-        if (is_device_known(DEWESOFT_VENDOR_ID, pc)) {
-            any_known = true;
-            break;
-        }
-    }
-    EXPECT_TRUE(any_known) << "No DEWESoft devices found in registry";
-}
-
-TEST_F(DEWESoftDevicesTest, LookupPopulatesPDOs) {
-    uint32_t found_product_code = 0;
-    for (uint32_t pc = 1; pc <= 500; ++pc) {
-        if (is_device_known(DEWESOFT_VENDOR_ID, pc)) {
-            found_product_code = pc;
-            break;
-        }
-    }
-    if (found_product_code == 0) GTEST_SKIP() << "No DEWESoft devices in registry";
-
-    bool found = lookup_device_pdos(
-        DEWESOFT_VENDOR_ID,
-        found_product_code,
-        0x00000001,
-        this->slave
+/// @brief it should use a listed revision of the device when the slave's revision is
+/// not listed.
+TEST(DewesoftDevices, LookupFallsBackToAListedRevision) {
+    slave::Properties slave;
+    ASSERT_TRUE(
+        lookup_device_pdos(DEWESOFT_VENDOR_ID, IOLITE_6XSTG, 0xFFFFFFFF, slave)
     );
-    EXPECT_TRUE(found);
-
-    size_t total_pdos = this->slave.input_pdos.size() + this->slave.output_pdos.size();
-    EXPECT_GT(total_pdos, 0);
-}
-
-TEST_F(DEWESoftDevicesTest, RevisionFallbackWorks) {
-    uint32_t found_product_code = 0;
-    for (uint32_t pc = 1; pc <= 500; ++pc) {
-        if (is_device_known(DEWESOFT_VENDOR_ID, pc)) {
-            found_product_code = pc;
-            break;
-        }
-    }
-    if (found_product_code == 0) GTEST_SKIP() << "No DEWESoft devices in registry";
-
-    bool found = lookup_device_pdos(
-        DEWESOFT_VENDOR_ID,
-        found_product_code,
-        0xFFFFFFFF,
-        this->slave
-    );
-    EXPECT_TRUE(found) << "Revision fallback should work";
+    EXPECT_EQ(slave.input_pdos.size(), 6);
 }
 
 /// @brief it should fill the name and data type of a live entry from the registry entry

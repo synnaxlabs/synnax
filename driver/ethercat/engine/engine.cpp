@@ -301,10 +301,8 @@ void Engine::run() {
                     }
             }
         }
-        auto [elapsed, on_time] = timer.wait();
+        timer.wait();
         if (!this->bus.running()) break;
-        if (!on_time && this->config.max_overrun.nanoseconds() > 0)
-            VLOG(1) << "[ethercat] cycle overrun: " << elapsed;
 
         // The slaves latched these inputs when the previous cycle's frame passed.
         auto latched_at = sent_at;
@@ -602,9 +600,6 @@ void Engine::close_output(const std::shared_ptr<Output> &output) {
 
 Engine::Engine(std::shared_ptr<master::Master> master, Config config):
     config(std::move(config)), master(std::move(master)) {}
-
-Engine::Engine(std::shared_ptr<master::Master> master):
-    Engine(std::move(master), Config{}) {}
 
 Engine::~Engine() {
     std::lock_guard lock(this->mu);

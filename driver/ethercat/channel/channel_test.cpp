@@ -201,7 +201,6 @@ TEST(Input, BindsAUniqueEntryWithBitLengthFromTheSlave) {
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_TRUE(ch->enabled);
     ASSERT_TRUE(ch->is_input);
-    ASSERT_EQ(ch->device_key, "dev-001");
     ASSERT_EQ(ch->synnax_key, 42);
     ASSERT_EQ(ch->slave_position, 1);
     ASSERT_EQ(ch->index, 0x6000);
