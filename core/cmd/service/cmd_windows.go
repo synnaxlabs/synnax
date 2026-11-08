@@ -12,11 +12,7 @@
 package service
 
 import (
-	"bufio"
-	"encoding/json/v2"
-	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -24,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	"github.com/synnaxlabs/x/errors"
 )
 
 const (
@@ -32,61 +27,74 @@ const (
 	flagDelayedStart = "delayed-start"
 )
 
-var Cmd = &cobra.Command{
-	Use:   "service",
-	Short: "Manage Synnax as a Windows service",
-	Long: `Manage Synnax as a Windows service.
+// NewCmd returns the command group that manages the Core as a Windows service.
+func NewCmd() *cobra.Command {
+	group := &cobra.Command{
+		Use:   "service",
+		Short: "Manage Synnax as a Windows service",
+		Long: `Manage Synnax as a Windows service.
 
 The service subcommands allow you to install, uninstall, start, and stop Synnax as a Windows service. When running as a service, Synnax will receive proper shutdown signals, enabling graceful shutdown of both the Core and embedded Driver.`,
-	Args: cobra.NoArgs,
-}
-
-var installCmd = &cobra.Command{
-	Use:   "install [flags]",
-	Short: "Install Synnax as a Windows service",
-	Long: `Install Synnax as a Windows service.
+		Args: cobra.NoArgs,
+	}
+	installCmd := &cobra.Command{
+		Use:   "install [flags]",
+		Short: "Install Synnax as a Windows service",
+		Long: `Install Synnax as a Windows service.
 
 Core configuration flags (--listen, --data, --insecure, etc.) will be stored in a YAML config file at C:\ProgramData\Synnax\config.yaml and used when the service starts. You can edit this file to change the configuration without reinstalling the service.`,
-	PreRunE: syncFlagsToViper,
-	RunE:    runInstall,
-	Args:    cobra.NoArgs,
-	Example: "synnax service install --listen localhost:9090 --insecure",
-}
-
-var uninstallCmd = &cobra.Command{
-	Use:   "uninstall",
-	Short: "Uninstall Synnax Windows service",
-	Long: `Uninstall the Synnax Windows service.
+		PreRunE: syncFlagsToViper,
+		RunE:    runInstall,
+		Args:    cobra.NoArgs,
+		Example: "synnax service install --listen localhost:9090 --insecure",
+	}
+	installCmd.Flags().Bool(
+		flagAutoStart,
+		true,
+		"Start the service automatically when Windows starts",
+	)
+	installCmd.Flags().Bool(
+		flagDelayedStart,
+		false,
+		"Delay service start until after Windows startup completes",
+	)
+	cmdstart.AddFlags(installCmd)
+	group.AddCommand(
+		installCmd,
+		&cobra.Command{
+			Use:   "uninstall",
+			Short: "Uninstall Synnax Windows service",
+			Long: `Uninstall the Synnax Windows service.
 
 This will stop the service if it is running and remove it from the system.`,
-	Args: cobra.NoArgs,
-	RunE: runUninstall,
-}
-
-var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Start the Synnax Windows service",
-	Long:  "Start the Synnax Windows service.",
-	Args:  cobra.NoArgs,
-	RunE:  runStart,
-}
-
-var stopCmd = &cobra.Command{
-	Use:   "stop",
-	Short: "Stop the Synnax Windows service",
-	Long:  "Stop the Synnax Windows service.",
-	Args:  cobra.NoArgs,
-	RunE:  runStop,
-}
-
-var statusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show Synnax Windows service status",
-	Long: `Show the current status of the Synnax Windows service.
+			Args: cobra.NoArgs,
+			RunE: runUninstall,
+		},
+		&cobra.Command{
+			Use:   "start",
+			Short: "Start the Synnax Windows service",
+			Long:  "Start the Synnax Windows service.",
+			Args:  cobra.NoArgs,
+			RunE:  runStart,
+		},
+		&cobra.Command{
+			Use:   "stop",
+			Short: "Stop the Synnax Windows service",
+			Long:  "Stop the Synnax Windows service and wait until it stops.",
+			Args:  cobra.NoArgs,
+			RunE:  runStop,
+		},
+		&cobra.Command{
+			Use:   "status",
+			Short: "Show Synnax Windows service status",
+			Long: `Show the current status of the Synnax Windows service.
 
 Displays whether the service is installed and running, along with configuration details like data directory, log file location, and listen address.`,
-	Args: cobra.NoArgs,
-	RunE: runStatus,
+			Args: cobra.NoArgs,
+			RunE: runStatus,
+		},
+	)
+	return group
 }
 
 // syncFlagsToViper syncs changed cobra flags to viper. This is necessary because
@@ -102,21 +110,6 @@ func syncFlagsToViper(cmd *cobra.Command, _ []string) error {
 	)
 	viper.SetDefault(cert.FlagCertsDir, filepath.Join(ConfigDir(), "certs"))
 	return nil
-}
-
-func init() {
-	Cmd.AddCommand(installCmd, uninstallCmd, startCmd, stopCmd, statusCmd)
-	installCmd.Flags().Bool(
-		flagAutoStart,
-		true,
-		"Start the service automatically when Windows starts",
-	)
-	installCmd.Flags().Bool(
-		flagDelayedStart,
-		false,
-		"Delay service start until after Windows startup completes",
-	)
-	cmdstart.AddFlags(installCmd)
 }
 
 func runInstall(c *cobra.Command, _ []string) error {
@@ -141,7 +134,7 @@ func runUninstall(c *cobra.Command, _ []string) error {
 
 func runStart(c *cobra.Command, _ []string) error {
 	c.SilenceUsage = true
-	if err := start(); err != nil {
+	if err := Start(); err != nil {
 		return err
 	}
 	c.Printf("%s started.\n", name)
@@ -150,7 +143,7 @@ func runStart(c *cobra.Command, _ []string) error {
 
 func runStop(c *cobra.Command, _ []string) error {
 	c.SilenceUsage = true
-	if err := stop(); err != nil {
+	if err := Stop(); err != nil {
 		return err
 	}
 	c.Printf("%s stopped.\n", name)
@@ -224,84 +217,4 @@ func FormatStatus(c *cobra.Command, info StatusInfo) {
 			}
 		}
 	}
-}
-
-// logEntry represents a parsed JSON log entry from zap.
-type logEntry struct {
-	Level  string  `json:"level"`
-	TS     float64 `json:"ts"`
-	Logger string  `json:"logger"`
-	Caller string  `json:"caller"`
-	Msg    string  `json:"msg"`
-	Error  string  `json:"error"`
-}
-
-// ANSI color codes for log levels.
-const (
-	colorReset   = "\033[0m"
-	colorYellow  = "\033[33m"
-	colorRed     = "\033[31m"
-	colorBoldRed = "\033[1;31m"
-)
-
-// logLevelInfo contains display information for each log level.
-type logLevelInfo struct {
-	color string
-	label string
-}
-
-// importantLogLevels maps log levels to their display info.
-var importantLogLevels = map[string]logLevelInfo{
-	"warn":   {color: colorYellow, label: "WARN"},
-	"error":  {color: colorRed, label: "ERROR"},
-	"fatal":  {color: colorBoldRed, label: "FATAL"},
-	"panic":  {color: colorBoldRed, label: "PANIC"},
-	"dpanic": {color: colorBoldRed, label: "DPANIC"},
-}
-
-// readRecentLogs reads the log file and returns formatted important log entries.
-func readRecentLogs(filePath string, maxEntries int) (_ []string, err error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = errors.Combine(err, errors.Wrap(f.Close(), "failed to close log file"))
-	}()
-
-	var entries []logEntry
-	scanner := bufio.NewScanner(f)
-	// Increase buffer size for long log lines
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 1024*1024)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		var entry logEntry
-		if jsonErr := json.Unmarshal([]byte(line), &entry); jsonErr != nil {
-			continue // Skip non-JSON lines
-		}
-		if _, ok := importantLogLevels[entry.Level]; ok {
-			entries = append(entries, entry)
-			if len(entries) > maxEntries {
-				entries = entries[1:]
-			}
-		}
-	}
-
-	// Format entries for display
-	var lines []string
-	for _, e := range entries {
-		ts := time.Unix(int64(e.TS), int64((e.TS-float64(int64(e.TS)))*1e9))
-		info := importantLogLevels[e.Level]
-		msg := e.Msg
-		if e.Error != "" {
-			msg += ": " + e.Error
-		}
-		line := ts.Format(
-			"2006-01-02 15:04:05",
-		) + " " + info.color + info.label + colorReset + " " + msg
-		lines = append(lines, line)
-	}
-	return lines, scanner.Err()
 }
