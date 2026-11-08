@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -105,12 +106,21 @@ type (
 	}
 )
 
-// PrepareCreate hashes the password of each new user in req. It returns a validation
-// error when a password is empty.
+// PrepareCreate hashes the password of each new user in req. It returns
+// access.ErrDenied when the subject cannot create users, and a validation error when a
+// password is empty.
 func (s *Service) PrepareCreate(
-	_ context.Context,
+	ctx context.Context,
 	req CreateRequest,
 ) ([]password.Hash, error) {
+	// Each hash is slow, so a subject that cannot create users costs none.
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []resource.ID{{Type: resource.TypeUser}},
+	}); err != nil {
+		return nil, err
+	}
 	hashes := make([]password.Hash, len(req.Users))
 	for i, nu := range req.Users {
 		var err error

@@ -174,8 +174,11 @@ var _ = Describe("Service", func() {
 						Password: "p",
 						Role:     rbacSvc.Builtin.ViewerKey,
 					}},
-				})).Error().
-					To(denied(subject, access.ActionCreate, user.ResourceID(key)))
+				})).Error().To(denied(
+					subject,
+					access.ActionCreate,
+					resource.ID{Type: resource.TypeUser},
+				))
 			},
 		)
 		It(
