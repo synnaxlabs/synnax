@@ -638,8 +638,9 @@ func memberNodeKeys(members ir.Members) set.Set[string] {
 	return owned
 }
 
-// buildVariableNode builds sym's variable node. Its unedged first param holds the
-// initial value; value-variable assignments append edge-fed feeder params.
+// buildVariableNode builds sym's variable node. Its first param holds the initial
+// value, edge-fed for a computed `$=`. Value-variable assignments append edge-fed
+// feeder params.
 func buildVariableNode(
 	sym *symbol.Symbol,
 	kg *keyGenerator,
