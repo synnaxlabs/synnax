@@ -29,6 +29,3 @@ var _ gorp.Entry[string] = Resource{}
 
 // GorpKey implements gorp.Entry.
 func (r Resource) GorpKey() string { return r.ID.String() }
-
-// SetOptions implements gorp.Entry.
-func (Resource) SetOptions() []any { return nil }

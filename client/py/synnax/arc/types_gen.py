@@ -11,15 +11,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax.arc import graph as graph_
-from synnax.arc import program as program_
-from synnax.arc import text as text_
+from synnax.arc import graph as graph_, program as program_, text as text_
 from synnax.resource import ID
 from x import filter
 from x.filter import shorthand

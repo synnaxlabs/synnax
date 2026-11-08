@@ -55,10 +55,10 @@ var _ = Describe("Service", func() {
 			DB: db,
 		}))
 		channelSvc = MustOpen(svcchannel.OpenService(ctx, svcchannel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           db,
-			HostProvider: node.Cluster,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			DB:      db,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
 		}))
 		svc = MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{
 			DB: db,
@@ -349,10 +349,10 @@ var _ = Describe("Service", func() {
 				channelSvc := MustOpen(svcchannel.OpenService(
 					ctx,
 					svcchannel.ServiceConfig{
-						Channel:      stored.Channel,
-						DB:           stored.DB,
-						HostProvider: stored.Cluster,
-						Status:       statusSvc,
+						Channel: stored.Channel,
+						DB:      stored.DB,
+						HostKey: stored.Identity.HostKey,
+						Status:  statusSvc,
 					},
 				))
 				targets := MustOpen(

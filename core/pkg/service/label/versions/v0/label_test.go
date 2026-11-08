@@ -32,11 +32,6 @@ var _ = Describe("Label", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Label{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the label resource identifier", func() {
 			k := uuid.New()

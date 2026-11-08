@@ -30,12 +30,6 @@ var _ = Describe("Table", func() {
 			Expect(v0.Table{Key: k}.GorpKey()).To(Equal(k))
 		})
 	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Table{}.SetOptions()).To(BeNil())
-		})
-	})
 })
 
 var _ = Describe("NormalizeKeys", func() {

@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -24,7 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -32,10 +31,10 @@ import (
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v   svctestutil.Vectors[device.Device, device.Where]
+		v   vectors.Vectors[device.Device, device.Where]
 		svc *device.Service
 	)
-	v = MustSucceed(svctestutil.ReadVectors[device.Device, device.Where]("devices"))
+	v = MustSucceed(vectors.Read[device.Device, device.Where]("devices"))
 	aliases := lo.MapEntries(v.Records, func(
 		alias string,
 		d device.Device,
@@ -59,10 +58,10 @@ var _ = Describe("Where", Ordered, func() {
 			DB: db,
 		}))
 		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			HostProvider: testutil.NewStaticHostProvider(1),
-			Status:       stat,
-			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			DB:         db,
+			HostKey:    1,
+			Status:     stat,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:     db,
@@ -78,7 +77,7 @@ var _ = Describe("Where", Ordered, func() {
 
 	DescribeTable(
 		"Should match the case",
-		func(ctx SpecContext, c svctestutil.Case[device.Where]) {
+		func(ctx SpecContext, c vectors.Case[device.Where]) {
 			f := MustSucceed(device.MatchWhere(c.Where))
 			var res []device.Device
 			Expect(svc.NewRetrieve().
@@ -90,7 +89,7 @@ var _ = Describe("Where", Ordered, func() {
 				return aliases[d.Key]
 			})).To(ConsistOf(c.Expected))
 		},
-		lo.Map(v.Cases, func(c svctestutil.Case[device.Where], _ int) TableEntry {
+		lo.Map(v.Cases, func(c vectors.Case[device.Where], _ int) TableEntry {
 			return Entry(c.Name, c)
 		}),
 	)

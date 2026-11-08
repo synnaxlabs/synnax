@@ -31,8 +31,7 @@ type indexBenchEntry struct {
 	Score    int64
 }
 
-func (e indexBenchEntry) GorpKey() int32    { return e.ID }
-func (e indexBenchEntry) SetOptions() []any { return nil }
+func (e indexBenchEntry) GorpKey() int32 { return e.ID }
 
 // indexBenchCategoryCount caps Category cardinality so each value matches
 // roughly N/16 entries — wide enough that intersect/union do real work but
@@ -206,11 +205,9 @@ func BenchmarkLookupQueryViaScan(b *testing.B) {
 	}
 }
 
-// BenchmarkLookupObserverUpdate measures the per-update cost paid by the
-// observer when an entry is created in a table whose LookupIndex index is
-// already populated with N rows. This is the hot path for every channel
-// rename / user update / etc.
-func BenchmarkLookupObserverUpdate(b *testing.B) {
+// BenchmarkLookupUpdate measures the cost of one create in a table whose LookupIndex
+// holds N entries. Every channel rename and user update takes this path.
+func BenchmarkLookupUpdate(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db := OpenGorpMsgpackDB()
@@ -304,12 +301,10 @@ func BenchmarkSortedSetup(b *testing.B) {
 	}
 }
 
-// BenchmarkSortedObserverUpdate measures the per-update cost paid by the
-// observer when an entry is created in a table whose SortedIndex index is
-// already populated with N rows. The new entries land in the middle of the
-// score range to force the worst-case slice-shift cost in sortedStorage.put,
-// which is the operation a B-tree replacement would speed up.
-func BenchmarkSortedObserverUpdate(b *testing.B) {
+// BenchmarkSortedUpdate measures the cost of one create in a table whose SortedIndex
+// holds N entries. The new entries land in the middle of the score range, which forces
+// the worst-case slice shift in sortedStorage.put.
+func BenchmarkSortedUpdate(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 			db := OpenGorpMsgpackDB()

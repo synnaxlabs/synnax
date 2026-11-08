@@ -548,10 +548,10 @@ type WriterConfig struct {
 	EnableAutoCommit bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
 	// AutoIndex causes the server to generate timestamps for any index channel in the
 	// writer's Keys that is not provided in a given Write frame. The first sample in
-	// each Write call is stamped with the gateway Core's current time, and the
-	// remaining N-1 samples are spaced 1ns apart. A per-writer high-water mark
-	// guarantees the generated timestamps are strictly monotonic across Write calls and
-	// across user-provided timestamps for other index channels in the writer.
+	// each Write call is stamped with the Core's current time, and the remaining N-1
+	// samples are spaced 1ns apart. A per-writer high-water mark guarantees the
+	// generated timestamps are strictly monotonic across Write calls and across
+	// user-provided timestamps for other index channels in the writer.
 	AutoIndex bool `json:"auto_index" msgpack:"auto_index"`
 }
 
@@ -576,12 +576,11 @@ const (
 	writerRequestBufferSize  = 50
 )
 
-// Write exposes a high-level API for writing segmented telemetry to a Synnax cluster.
-// The client is expected to send an initial request containing the keys of the channels
-// to write to. The server will acquire an exclusive lock on these channels. If the
-// channels are already locked, Write will return with an error. After sending the
-// initial request, the client is free to send segments. The server will route the
-// segments to the appropriate nodes in the cluster, persisting them to disk.
+// Write exposes a high-level API for writing segmented telemetry to a Core. The client
+// is expected to send an initial request containing the keys of the channels to write
+// to. The server will acquire an exclusive lock on these channels. If the channels are
+// already locked, Write will return with an error. After sending the initial request,
+// the client is free to send segments. The server will persist the segments to disk.
 //
 // If the client cancels the provided context, the server will immediately abort all
 // pending writes, release the locks, and return errors.Canceled.

@@ -52,10 +52,10 @@ func newFramerConfig(ctx context.Context, n testutil.Node) framer.ServiceConfig 
 		DB: n.DB,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      n.Channel,
-		DB:           n.DB,
-		HostProvider: n.Cluster,
-		Status:       statusSvc,
+		Channel: n.Channel,
+		DB:      n.DB,
+		HostKey: n.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      n.DB,

@@ -57,7 +57,7 @@ var _ = Describe("Driver", func() {
 			Channel:   channelSvc,
 			Status:    statusSvc,
 			Factories: []driver.Factory{factory},
-			Host:      hostProvider,
+			HostKey:   1,
 		}))
 	}
 
@@ -74,7 +74,7 @@ var _ = Describe("Driver", func() {
 			Channel:           channelSvc,
 			Status:            statusSvc,
 			Factories:         []driver.Factory{&mockFactory{name: "test"}},
-			Host:              hostProvider,
+			HostKey:           1,
 			HeartbeatInterval: interval,
 		}))
 	}
@@ -141,7 +141,7 @@ var _ = Describe("Driver", func() {
 						&mockFactory{name: "arc"},
 						&mockFactory{name: "opc"},
 					},
-					Host: hostProvider,
+					HostKey: 1,
 				}))
 				var r rack.Rack
 				Expect(rackService.NewRetrieve().
@@ -173,7 +173,7 @@ var _ = Describe("Driver", func() {
 					Channel:   channelSvc,
 					Status:    statusSvc,
 					Factories: []driver.Factory{&mockFactory{name: "arc"}},
-					Host:      hostProvider,
+					HostKey:   1,
 				})))
 				Expect(d1.Close()).To(Succeed())
 
@@ -189,7 +189,7 @@ var _ = Describe("Driver", func() {
 						&mockFactory{name: "ni"},
 						&mockFactory{name: "opc"},
 					},
-					Host: hostProvider,
+					HostKey: 1,
 				}))
 
 				var r rack.Rack
@@ -236,7 +236,7 @@ var _ = Describe("Driver", func() {
 					Channel:   channelSvc,
 					Status:    statusSvc,
 					Factories: []driver.Factory{&mockFactory{name: "test"}},
-					Host:      hostProvider,
+					HostKey:   1,
 				}
 				Expect(MustSucceed(driver.Open(ctx, cfg)).Close()).To(Succeed())
 				t := newTask(embeddedRackKey(ctx))
@@ -311,7 +311,7 @@ var _ = Describe("Driver", func() {
 					name:         "test",
 					initialTasks: []task.Task{{Name: "Scanner", Type: "unknown_scan"}},
 				}},
-				Host: hostProvider,
+				HostKey: 1,
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(
@@ -1334,7 +1334,7 @@ var _ = Describe("Driver", func() {
 				Channel:   channelSvc,
 				Status:    statusSvc,
 				Factories: []driver.Factory{factory},
-				Host:      hostProvider,
+				HostKey:   1,
 			})))
 			rackKey := embeddedRackKey(ctx)
 
@@ -1368,7 +1368,7 @@ var _ = Describe("Driver", func() {
 				Channel:   channelSvc,
 				Status:    statusSvc,
 				Factories: []driver.Factory{factory},
-				Host:      hostProvider,
+				HostKey:   1,
 			}))
 
 			Expect(embeddedRackKey(ctx)).To(Equal(rackKey))
@@ -1424,7 +1424,7 @@ var _ = Describe("Driver", func() {
 				Channel:   channelSvc,
 				Status:    statusSvc,
 				Factories: []driver.Factory{factory},
-				Host:      hostProvider,
+				HostKey:   1,
 			}))
 			rackKey := embeddedRackKey(ctx)
 			t := newTask(rackKey)
@@ -1439,7 +1439,7 @@ var _ = Describe("Driver", func() {
 				Channel:   channelSvc,
 				Status:    statusSvc,
 				Factories: []driver.Factory{factory},
-				Host:      hostProvider,
+				HostKey:   1,
 			}))
 			Eventually(func() bool {
 				key, ok := factory.cmdKey.Load(t.Key)
@@ -1490,7 +1490,7 @@ var _ = Describe("Driver", func() {
 				Channel:   channelSvc,
 				Status:    statusSvc,
 				Factories: []driver.Factory{factory},
-				Host:      hostProvider,
+				HostKey:   1,
 			})))
 
 			time.Sleep(50 * time.Millisecond)
@@ -1547,7 +1547,7 @@ var _ = Describe("Driver", func() {
 				Channel:   channelSvc,
 				Status:    statusSvc,
 				Factories: []driver.Factory{factory},
-				Host:      hostProvider,
+				HostKey:   1,
 			})))
 			time.Sleep(50 * time.Millisecond)
 
@@ -1617,7 +1617,7 @@ var _ = Describe("Driver", func() {
 				Channel:           channelSvc,
 				Status:            statusSvc,
 				Factories:         []driver.Factory{&mockFactory{name: "test"}},
-				Host:              hostProvider,
+				HostKey:           1,
 				HeartbeatInterval: 50 * time.Millisecond,
 			}))
 
@@ -1642,7 +1642,7 @@ var _ = Describe("Driver", func() {
 				Channel:           channelSvc,
 				Status:            statusSvc,
 				Factories:         []driver.Factory{&mockFactory{name: "test"}},
-				Host:              hostProvider,
+				HostKey:           1,
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
 
@@ -1678,7 +1678,7 @@ var _ = Describe("Driver", func() {
 				Channel:           channelSvc,
 				Status:            statusSvc,
 				Factories:         []driver.Factory{&mockFactory{name: "test"}},
-				Host:              hostProvider,
+				HostKey:           1,
 				HeartbeatInterval: 25 * time.Millisecond,
 			})))
 
@@ -1969,7 +1969,7 @@ var _ = Describe("Driver", func() {
 					Channel:   channelSvc,
 					Status:    statusSvc,
 					Factories: []driver.Factory{&mockFactory{name: "test"}},
-					Host:      hostProvider,
+					HostKey:   1,
 				}))
 				t := newTask(embeddedRackKey(ctx))
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
@@ -2429,7 +2429,7 @@ var _ = Describe("Driver", func() {
 				Channel:     channelSvc,
 				Status:      statusSvc,
 				Factories:   []driver.Factory{factory},
-				Host:        hostProvider,
+				HostKey:     1,
 				TaskTimeout: 50 * time.Millisecond,
 			}))
 			time.Sleep(50 * time.Millisecond)
@@ -2492,7 +2492,7 @@ var _ = Describe("Driver", func() {
 				Channel:     channelSvc,
 				Status:      statusSvc,
 				Factories:   []driver.Factory{factory},
-				Host:        hostProvider,
+				HostKey:     1,
 				TaskTimeout: 50 * time.Millisecond,
 			}))
 			time.Sleep(50 * time.Millisecond)
@@ -2535,7 +2535,7 @@ var _ = Describe("Driver", func() {
 					Channel:   channelSvc,
 					Status:    statusSvc,
 					Factories: []driver.Factory{&mockFactory{name: "noop"}},
-					Host:      hostProvider,
+					HostKey:   1,
 				})))
 				rackKey := embeddedRackKey(ctx)
 				for range numTasks {
@@ -2593,7 +2593,7 @@ var _ = Describe("Driver", func() {
 						Channel:   channelSvc,
 						Status:    statusSvc,
 						Factories: []driver.Factory{factory},
-						Host:      hostProvider,
+						HostKey:   1,
 					}))
 					openDone <- d
 				}()

@@ -23,10 +23,11 @@ import (
 	"github.com/synnaxlabs/x/kv/pebblekv"
 )
 
-// New opens a new in-memory key-value store implementing the kv.DB interface.
-func New() kv.DB {
+// New opens a new in-memory key-value store implementing the kv.DB interface. The
+// options configure the store as they do for pebblekv.Wrap.
+func New(opts ...pebblekv.OpenOption) kv.DB {
 	return pebblekv.Wrap(lo.Must(pebble.Open("", &pebble.Options{
 		FS:     vfs.NewMem(),
 		Logger: pebblekv.NewNoopLogger(),
-	})))
+	})), opts...)
 }

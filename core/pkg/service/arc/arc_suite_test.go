@@ -69,17 +69,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 		DB: db,
 	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
-		HostProvider:        testutil.NewStaticHostProvider(1),
+		HostKey:             1,
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
 		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
