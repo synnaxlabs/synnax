@@ -428,10 +428,12 @@ var _ = Describe("Reader", func() {
 			b := MustSucceed(r.StringBytes())
 			Expect(b).To(Equal([]byte("hello")))
 			Expect(&b[0]).To(BeIdenticalTo(&data[4]))
+			var err error
 			Expect(testing.AllocsPerRun(100, func() {
 				r.ResetBytes(data)
-				_, _ = r.StringBytes()
+				_, err = r.StringBytes()
 			})).To(BeZero())
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Should return ErrUnexpectedEOF on truncated string bytes", func() {
