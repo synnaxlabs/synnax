@@ -19,17 +19,17 @@ import (
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -44,6 +44,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	rbacSvc    *rbac.Service
+	groupSvc   *group.Service
 	projectSvc *project.Service
 	logSvc     *log.Service
 	panelSvc   *panel.Service
@@ -55,16 +56,12 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db := DeferClose(gorp.Wrap(memkv.New()))
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB: db,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
 		Password: passwordSvc,
 	}))
 	MustSucceed2(
@@ -75,32 +72,46 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			auth.Credentials{Username: "suite-root", Password: "p"},
 		),
 	)
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		User:     userSvc,
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB: db,
 	}))
+	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+		DB:     db,
+		User:   userSvc,
+		Status: statusSvc,
+	})).RBAC
 	imexSvc := imex.NewService()
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	logSvc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		ImEx:     imexSvc,
+		DB:   db,
+		ImEx: imexSvc,
 	}))
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
+		DB: db,
+	}))
+	resourceSvc := MustSucceed(resource.NewService(resource.ServiceConfig{
+		DB: db,
+		Providers: map[resource.Type]resource.Provider{
+			resource.TypeGroup:   groupSvc.Resources(),
+			resource.TypeLog:     logSvc.Resources(),
+			resource.TypePanel:   panelSvc.Resources(),
+			resource.TypeProject: projectSvc.Resources(),
+		},
+	}))
+	bundleSvc := MustSucceed(bundle.NewService(bundle.Config{
 		DB:       db,
-		Ontology: otg,
+		Resource: resourceSvc,
+		Project:  projectSvc,
 		Group:    groupSvc,
-		ImEx:     imexSvc,
 		Panel:    panelSvc,
+		ImEx:     imexSvc,
 	}))
 	apiSvc = MustSucceed(apiproject.NewService(apiproject.ServiceConfig{
 		RBAC:    rbacSvc,
 		Project: projectSvc,
+		Bundle:  bundleSvc,
 	}))
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Name: "test",
@@ -123,14 +134,12 @@ func createProject(ctx SpecContext, name string) project.Project {
 
 func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 	GinkgoHelper()
-	l := log.Log{Name: name}
-	Expect(logSvc.NewWriter(nil).Create(ctx, proj, &l)).To(Succeed())
+	l := log.Log{Project: &proj, Name: name}
+	Expect(logSvc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 	return l
 }
 
-// grantOn grants the action on the given objects to the subject through a fresh role.
-// Writes commit directly so the api enforcers, which read committed state with no
-// transaction, observe them.
+// grantOn grants the action on the objects to the subject through a new role.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
@@ -138,21 +147,9 @@ func grantOn(
 	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{
-		Name:        string(action) + "-" + uuid.New().String(),
-		Description: "test",
-	}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    string(action) + "-policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	actions := []access.Action{action}
+	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
 }
 
 func grantRetrieveOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {

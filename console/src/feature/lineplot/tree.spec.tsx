@@ -23,13 +23,14 @@ import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, createPreloadedState, project } from "@/feature/lineplot/testutil";
+import { Project } from "@/feature/project";
 import {
   createBaseProps,
   createResource,
   createSelection,
   createState,
   findTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 
@@ -56,7 +57,7 @@ const CORE = createCore("test");
 const Item = LinePlot.TREE_ITEMS.lineplot;
 
 const createLinePlot = async (): Promise<lineplot.LinePlot> =>
-  await client.lineplots.create(await project(), { name: uniqueName("plot") });
+  await client.lineplots.create({ project: await project(), name: uniqueName("plot") });
 
 interface SetupParams {
   plots: lineplot.LinePlot[];
@@ -99,7 +100,7 @@ const renderMenu = async ({ plots, overrides, withCore = false }: SetupParams) =
   return { store, props, itemID, rerenderWith };
 };
 
-describe("lineplot/ontology", () => {
+describe("lineplot/tree", () => {
   describe("TreeContextMenu", () => {
     it("copies the plot's properties to the clipboard", async () => {
       const writeText = stubClipboardWriteText();
@@ -207,10 +208,10 @@ describe("lineplot/ontology", () => {
   describe("onSelect", () => {
     it("retrieves the plot and opens it as a tab when double-clicked", async () => {
       const plot = await createLinePlot();
-      const { store } = await renderOntologyTree({
+      const { store } = await renderLiveTree({
         client,
         root: clientProject.resourceID(await project()),
-        items: LinePlot.TREE_ITEMS,
+        items: { ...Project.TREE_ITEMS, ...LinePlot.TREE_ITEMS },
       });
       fireEvent.doubleClick(await findTreeRow(plot.name));
       const tab = await resolveFocusedTab(store, client);

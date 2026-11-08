@@ -12,7 +12,6 @@ import {
   AuthError,
   channel,
   framer,
-  project,
   query,
   ranger,
   type resource,
@@ -122,25 +121,22 @@ describe("Access Queries", () => {
 
     it("should re-evaluate the grant when a policy is removed, without a remount", async () => {
       const username = id.create();
-      const u = await client.users.create({
-        username,
-        password: "test",
-        name: "test test",
-      });
-      const p = await client.access.policies.create({
-        name: id.create(),
-        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
-        actions: ["retrieve"],
-      });
       const r = await client.access.roles.create({
         name: id.create(),
         description: "test",
       });
-      await client.ontology.addChildren(
-        access.role.resourceID(r.key),
-        access.policy.resourceID(p.key),
-      );
-      await client.access.roles.assign({ user: u.key, role: r.key });
+      const p = await client.access.policies.create({
+        role: r.key,
+        name: id.create(),
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
+        actions: ["retrieve"],
+      });
+      await client.users.create({
+        username,
+        password: "test",
+        name: "test test",
+        roles: [r.key],
+      });
       const userClient = createTestClient({ username, password: "test" });
       const { result } = renderHook(
         () =>
@@ -162,31 +158,28 @@ describe("Access Queries", () => {
       let rangePolicy: access.policy.Policy;
       beforeEach(async () => {
         username = id.create();
-        const u = await client.users.create({
-          username,
-          password: "test",
-          name: "test test",
+        role = await client.access.roles.create({
+          name: id.create(),
+          description: "test",
         });
-        const base = await client.access.policies.create({
+        await client.access.policies.create({
+          role: role.key,
           name: id.create(),
           objects: baseObjects,
           actions: ["retrieve"],
         });
         rangePolicy = await client.access.policies.create({
+          role: role.key,
           name: id.create(),
           objects: [ranger.TYPE_RESOURCE_ID],
           actions: ["retrieve"],
         });
-        role = await client.access.roles.create({
-          name: id.create(),
-          description: "test",
+        await client.users.create({
+          username,
+          password: "test",
+          name: "test test",
+          roles: [role.key],
         });
-        await client.ontology.addChildren(
-          access.role.resourceID(role.key),
-          access.policy.resourceID(base.key),
-          access.policy.resourceID(rangePolicy.key),
-        );
-        await client.access.roles.assign({ user: u.key, role: role.key });
       });
 
       const renderGranted = (userClient: Synnax) =>
@@ -231,57 +224,16 @@ describe("Access Queries", () => {
         await expect(userClient.connect()).rejects.toThrow(AuthError);
         userClient.reauthenticate({ username, password: "test" });
         await userClient.connect();
-        const granting = await client.access.policies.create({
+        await client.access.policies.create({
+          role: role.key,
           name: id.create(),
           objects: [ranger.TYPE_RESOURCE_ID],
           actions: ["retrieve"],
         });
-        await client.ontology.addChildren(
-          access.role.resourceID(role.key),
-          access.policy.resourceID(granting.key),
-        );
         await waitFor(() => {
           expect(result.current).toBe(true);
         });
       });
-    });
-
-    it("should ignore relationship changes that cannot affect permissions", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: id.create(),
-        objects: [ranger.TYPE_RESOURCE_ID, project.TYPE_RESOURCE_ID, ...baseObjects],
-        actions: ["retrieve", "create"],
-      });
-      let renders = 0;
-      const { result } = renderHook(
-        () => {
-          renders++;
-          return Access.useGranted({
-            objects: ranger.TYPE_RESOURCE_ID,
-            action: "retrieve",
-          });
-        },
-        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
-      );
-      await waitFor(() => {
-        expect(result.current).toBe(true);
-      });
-      const rendersWhenSettled = renders;
-      // A project's group -> project link is not a role link, so the gate must
-      // drop it: no re-evaluation, no re-render.
-      const proj = await userClient.projects.create({
-        name: id.create(),
-      });
-      // Wait until the link reaches the cache (event delivered)...
-      await waitFor(() => {
-        const rels = userClient.ontology.cache.relationships.get(
-          (rel) => rel.to.type === "project" && rel.to.key === proj.key,
-        );
-        expect(rels.length).toBeGreaterThan(0);
-      });
-      // ...then confirm it caused no re-evaluation.
-      expect(renders).toBe(rendersWhenSettled);
-      expect(result.current).toBe(true);
     });
 
     it("should pass an identity-stable query to the client on every render", async () => {
@@ -697,28 +649,6 @@ describe("Access Queries", () => {
       expect(policies.length).toBe(1);
       expect(policies[0].actions).toContain("retrieve");
       expect(policies[0].actions).toContain("create");
-    });
-
-    it("should cache the relationships between roles and policies", async () => {
-      const policyName = id.create();
-      const userClient = await createTestClientWithPolicy(client, {
-        name: policyName,
-        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
-        actions: ["retrieve"],
-      });
-      await renderHookSuspended(() => Access.useEnsurePermissions({}), {
-        wrapper: await createAsyncSynnaxWrapper({ client: userClient }),
-      });
-      const policy = cachedPoliciesOf(userClient).find(
-        ({ name }) => name === policyName,
-      );
-      expect(policy).toBeDefined();
-      const relationships = userClient.ontology.cache.relationships.get(
-        (r) => r.from.type === "role" && r.to.type === "policy",
-      );
-      const roleToPolicy = relationships.find((r) => r.to.key === policy!.key);
-      expect(roleToPolicy).toBeDefined();
-      expect(roleToPolicy!.to).toEqual(access.policy.resourceID(policy!.key));
     });
   });
 });

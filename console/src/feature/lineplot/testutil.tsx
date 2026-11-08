@@ -82,7 +82,8 @@ export const renderLinePlot = async (
   Component: ComponentType,
   { linePlot: overrides, preloadedState, as = client }: RenderLinePlotOptions = {},
 ) => {
-  const created = await client.lineplots.create(await project(), {
+  const created = await client.lineplots.create({
+    project: await project(),
     name: "Test Plot",
     ...overrides,
   });

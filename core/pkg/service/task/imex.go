@@ -25,6 +25,9 @@ import (
 
 var _ imex.Exporter = (*Service)(nil)
 
+// Type implements imex.Exporter.
+func (s *Service) Type() resource.Type { return resource.TypeTask }
+
 // Export retrieves the task identified by id and serializes it as an imex.Envelope. The
 // task's type-specific config is merged flat into the envelope body — the driver reads
 // a task file directly as its config, so the config is not nested under a `config`
@@ -113,7 +116,12 @@ func (s *Service) Import(
 	delete(body, "version")
 	delete(body, "type")
 	delete(body, "name")
-	config, err := store.Normalize(ctx, env.Version, msgpack.EncodedJSON(body))
+	config, err := store.Normalize(
+		ctx,
+		tx,
+		env.Version,
+		msgpack.EncodedJSON(body),
+	)
 	if err != nil {
 		return resource.ID{}, err
 	}

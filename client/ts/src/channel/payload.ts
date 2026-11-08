@@ -17,10 +17,8 @@ import {
   nameZ,
   type Payload,
   payloadZ,
-  resourceID,
   type Where,
 } from "@/channel/types.gen";
-import { idToString } from "@/resource/payload";
 import {
   analyzeParams as baseAnalyzeParams,
   type ParamAnalysisResult,
@@ -65,9 +63,6 @@ export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false)
 /** @returns whether the channel computes its samples from an expression. */
 export const isCalculated = ({ virtual, expression }: Payload): boolean =>
   virtual && expression !== "";
-
-/** @returns the key of the status that reports on the given channel. */
-export const statusKey = (channel: Key): string => idToString(resourceID(channel));
 
 /**
  * Resolves channel params into a normalized array, reporting whether the caller named

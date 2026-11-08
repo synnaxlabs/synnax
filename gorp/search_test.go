@@ -263,7 +263,7 @@ var _ = Describe("SearchIndex", func() {
 				"category", func(e *indexedEntry) string { return e.Category },
 			)
 			DeferClose(openIndexedTable(ctx, failing, categories, failed))
-			Expect(categories.Get(nil, "x")).Error().
+			Expect(categories.Get(ctx, nil, "x")).Error().
 				To(MatchError(gorp.ErrIndexInvalid))
 		})
 

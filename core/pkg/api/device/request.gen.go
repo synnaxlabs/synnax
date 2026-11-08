@@ -15,7 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 
-	service "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	legacydevice "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -23,22 +23,22 @@ import (
 // Apply narrows q to the records that the request selects. A key with no record is a
 // non-match, as for every other line. It returns a validate.PathError for a value that
 // no filter can hold.
-func (r RetrieveRequest) Apply(q service.Retrieve) (service.Retrieve, error) {
+func (r RetrieveRequest) Apply(q legacydevice.Retrieve) (legacydevice.Retrieve, error) {
 	q = q.SkipMissingKeys()
 	if r.Where != nil {
-		f, err := service.MatchWhere(*r.Where)
+		f, err := legacydevice.MatchWhere(*r.Where)
 		if err != nil {
-			return service.Retrieve{}, validate.PathedError(err, "where")
+			return legacydevice.Retrieve{}, validate.PathedError(err, "where")
 		}
 		q = q.Where(f)
 	}
 	if r.SearchTerm != "" {
-		q = q.Where(service.MatchSearch(r.SearchTerm))
+		q = q.Where(legacydevice.MatchSearch(r.SearchTerm))
 	}
 	if r.Limit != nil {
 		// Gorp reads a zero limit as no limit, and an empty key set matches no record.
 		if *r.Limit == 0 {
-			return q.Where(service.MatchKeys()), nil
+			return q.Where(legacydevice.MatchKeys()), nil
 		}
 		q = q.Limit(int(*r.Limit))
 	}

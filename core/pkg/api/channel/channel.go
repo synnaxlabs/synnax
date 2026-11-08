@@ -169,10 +169,32 @@ func (s *Service) Create(
 	for i := range translated {
 		translated[i].Internal = false
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{{Type: resource.TypeChannel}},
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	var stored []channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(lo.Map(
+			translated,
+			func(ch channel.Channel, _ int) channel.Key { return ch.Key() },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return CreateResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.CreateObjects(
+			translated,
+			stored,
+			func(ch channel.Channel) *group.Key { return ch.Group },
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -343,6 +365,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
+			Group:       ch.Group,
 		}
 	}
 	return translated
@@ -366,6 +389,7 @@ func translateChannelsBackward(
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
+			Group:       ch.Group,
 		}
 		if ch.IsIndex {
 			tCh.LocalIndex = tCh.LocalKey
@@ -441,23 +465,38 @@ func (s *Service) Rename(
 	)
 }
 
-type RetrieveGroupRequest struct{}
-
-type RetrieveGroupResponse struct {
-	Group group.Group `json:"group" msgpack:"group"`
+// SetGroupRequest moves channels into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key    `json:"group" msgpack:"group"`
+	Keys  []channel.Key `json:"keys"  msgpack:"keys"`
 }
 
-func (s *Service) RetrieveGroup(
+// SetGroup moves the channels with the given keys into a group.
+func (s *Service) SetGroup(
 	ctx context.Context,
-	_ RetrieveGroupRequest,
-) (RetrieveGroupResponse, error) {
-	g := s.internal.Group()
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{g.ResourceID()},
-	}); err != nil {
-		return RetrieveGroupResponse{}, err
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	var channels []channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(req.Keys...)).
+		Entries(&channels).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
 	}
-	return RetrieveGroupResponse{Group: g}, nil
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(
+			channel.ResourceIDsFromKeys(req.Keys),
+			lo.Map(
+				channels,
+				func(e channel.Channel, _ int) *group.Key { return e.Group },
+			),
+			req.Group,
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

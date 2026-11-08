@@ -13,7 +13,7 @@ import {
   type resource,
   type Synnax,
 } from "@synnaxlabs/client";
-import { createPanelParent } from "@synnaxlabs/client/testutil";
+import { createPanelProject } from "@synnaxlabs/client/testutil";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -46,7 +46,7 @@ export const createServerPanel = async (
     key: uuid.create(),
     name: uniqueName("panel"),
     root,
-    parent: await createPanelParent(client),
+    project: await createPanelProject(client),
   });
 
 export interface ResourceTab {
@@ -69,7 +69,7 @@ export const createResourceTab = async (
       variant: "leaf",
       tabs: [{ variant: "resource", key: tabKey, resource: id }],
     },
-    parent: await createPanelParent(client),
+    project: await createPanelProject(client),
   });
   return { panelKey, tabKey };
 };

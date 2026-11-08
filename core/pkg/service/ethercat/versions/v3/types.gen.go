@@ -16,7 +16,8 @@ import (
 	"encoding/json/v2"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -52,7 +53,7 @@ type EntryReadChannel struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// Scale is the scale applied to raw samples after acquisition. A scaled channel
 	// writes to a float Synnax channel.
-	Scale task.Scale `json:"scale" msgpack:"scale"`
+	Scale taskv2.Scale `json:"scale" msgpack:"scale"`
 }
 
 func (EntryReadChannel) isReadChannelVariant() {}
@@ -60,7 +61,7 @@ func (EntryReadChannel) isReadChannelVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (e *EntryReadChannel) ApplyDefaults() {
 	if e.Scale.Variant == nil {
-		e.Scale.Variant = task.NoneScale{}
+		e.Scale.Variant = taskv2.NoneScale{}
 	}
 	e.Scale.ApplyDefaults()
 }
@@ -198,30 +199,157 @@ func (u *ReadChannel) SetBase(base BaseReadChannel) {
 // BaseWriteChannel carries the fields every EtherCAT write channel shares.
 type BaseWriteChannel = v2.BaseWriteChannel
 
-// WriteChannel is a single EtherCAT write channel (RxPDO, master to slave). The type
-// field selects how the PDO entry is addressed.
-type WriteChannel = v2.WriteChannel
-
-// WriteChannelVariant is implemented by every WriteChannel variant.
-type WriteChannelVariant = v2.WriteChannelVariant
-
 // WriteChannelType is the "type" value that selects a variant of WriteChannel.
-type WriteChannelType = v2.WriteChannelType
+type WriteChannelType string
 
 const (
 	// EntryWriteChannelType addresses a PDO entry by its CoE index and sub-index.
-	EntryWriteChannelType WriteChannelType = v2.EntryWriteChannelType
+	EntryWriteChannelType WriteChannelType = "entry"
 	// UnresolvedWriteChannelType is a channel whose PDO entry name matched no single
 	// entry on its slave. It must be given an entry before the task runs.
-	UnresolvedWriteChannelType WriteChannelType = v2.UnresolvedWriteChannelType
+	UnresolvedWriteChannelType WriteChannelType = "unresolved"
 )
 
+// WriteChannelVariant is implemented by every WriteChannel variant.
+type WriteChannelVariant interface {
+	isWriteChannelVariant()
+}
+
 // EntryWriteChannel addresses a PDO entry by its CoE index and sub-index.
-type EntryWriteChannel = v2.EntryWriteChannel
+type EntryWriteChannel struct {
+	BaseWriteChannel
+	// Index is the CoE object dictionary index of the PDO entry.
+	Index uint16 `json:"index" msgpack:"index"`
+	// SubIndex is the CoE object dictionary sub-index of the PDO entry.
+	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
+	// DataType is the data type of the PDO entry.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// StopValue is the value the entry takes when the task stops. The bus sends it
+	// before the slaves leave OP.
+	StopValue float64 `json:"stop_value" msgpack:"stop_value"`
+}
+
+func (EntryWriteChannel) isWriteChannelVariant() {}
 
 // UnresolvedWriteChannel is a channel whose PDO entry name matched no single entry on
 // its slave. It must be given an entry before the task runs.
-type UnresolvedWriteChannel = v2.UnresolvedWriteChannel
+type UnresolvedWriteChannel struct {
+	BaseWriteChannel
+	// Pdo is the entry name that matched no single entry on the slave.
+	Pdo string `json:"pdo" msgpack:"pdo"`
+}
+
+func (UnresolvedWriteChannel) isWriteChannelVariant() {}
+
+// WriteChannel is a single EtherCAT write channel (RxPDO, master to slave). The type
+// field selects how the PDO entry is addressed.
+type WriteChannel struct {
+	Variant WriteChannelVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case EntryWriteChannel:
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelType `json:"type"`
+			EntryWriteChannel
+		}{Type: EntryWriteChannelType, EntryWriteChannel: v})
+	case UnresolvedWriteChannel:
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelType `json:"type"`
+			UnresolvedWriteChannel
+		}{Type: UnresolvedWriteChannelType, UnresolvedWriteChannel: v})
+	default:
+		return errors.Newf("WriteChannel: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteChannelType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case EntryWriteChannelType:
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			EntryWriteChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.EntryWriteChannel
+	case UnresolvedWriteChannelType:
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			UnresolvedWriteChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.UnresolvedWriteChannel
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case EntryWriteChannel:
+		return EntryWriteChannelType
+	case UnresolvedWriteChannel:
+		return UnresolvedWriteChannelType
+	}
+	return ""
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case EntryWriteChannel:
+		return variant.BaseWriteChannel
+	case UnresolvedWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case EntryWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case UnresolvedWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
+	}
+}
 
 // ReadConfig configures an EtherCAT read task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
@@ -241,7 +369,25 @@ func (r *ReadConfig) ApplyDefaults() {
 
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
-type WriteConfig = v2.WriteConfig
+type WriteConfig struct {
+	task.PersistConfig
+	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
+	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
+	// ExecutionRate is the rate at which commands are applied to the bus, in Hertz.
+	ExecutionRate telem.Rate `json:"execution_rate" msgpack:"execution_rate"`
+	// Channels are the channels the task drives.
+	Channels []WriteChannel `json:"channels" msgpack:"channels"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (w *WriteConfig) ApplyDefaults() {
+	if w.StateRate == 0 {
+		w.StateRate = 25
+	}
+	if w.ExecutionRate == 0 {
+		w.ExecutionRate = 1000
+	}
+}
 
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig = v2.ScanConfig
