@@ -71,7 +71,10 @@ func (w Writer) ChangeName(ctx context.Context, key Key, name string) error {
 	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, User](key)).
 		ChangeErr(func(_ gorp.Context, u User) (User, error) {
 			u.Name = name
-			return u, u.Validate()
+			if err := u.Validate(); err != nil {
+				return User{}, err
+			}
+			return u, nil
 		}).Exec(ctx, w.tx)
 }
 
