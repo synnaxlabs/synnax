@@ -19,6 +19,7 @@ import (
 	goimex "github.com/synnaxlabs/oracle/plugin/go/imex"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
 	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
+	gopatch "github.com/synnaxlabs/oracle/plugin/go/patch"
 	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
 	goquery "github.com/synnaxlabs/oracle/plugin/go/query"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
@@ -52,6 +53,7 @@ func buildPluginRegistry() (*plugin.Registry, error) {
 		gofilter.New(gofilter.DefaultOptions()),
 		gomarshal.New(gomarshal.DefaultOptions()),
 		goactions.New(goactions.DefaultOptions()),
+		gopatch.New(gopatch.DefaultOptions()),
 		goimex.New(goimex.DefaultOptions()),
 		tsactions.New(tsactions.DefaultOptions()),
 		tsfilter.New(tsfilter.DefaultOptions()),

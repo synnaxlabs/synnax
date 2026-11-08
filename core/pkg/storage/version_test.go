@@ -100,9 +100,11 @@ var _ = Describe("Recorded version", func() {
 			Expect(storage.OpenLayer(
 				ctx,
 				storage.LayerConfig{Dirname: dir, Version: current},
-			)).Error().To(MatchError("Data was last opened by Core " + recorded +
-				". Run Core " + recorded + " or newer, or undo the update with " +
-				"`synnax update undo`."))
+			)).Error().To(And(
+				beRefused(),
+				MatchError("Data was last opened by Core "+recorded+". Run Core "+
+					recorded+" or newer, or undo the update with `synnax update undo`."),
+			))
 			Expect(recordedVersion(dir)).To(Equal(recorded))
 			Expect(entries(filepath.Join(dir, "backups"))).To(BeEmpty())
 		},
