@@ -59,6 +59,7 @@ var _ = Describe("Delivery", func() {
 			}
 		}
 		created = func(key int32) gorp.Change {
+			GinkgoHelper()
 			return gorp.Change{
 				Record: gorp.NewTarget("record", key),
 				Kind:   gorp.ChangeCreate,
@@ -78,8 +79,7 @@ var _ = Describe("Delivery", func() {
 		// holdFirstCommit holds the first commit until release closes. The hold is
 		// after the store applies the commit, which is after the release of the write
 		// lock and before delivery. secondApplied closes when the store applies the
-		// second commit,
-		// which has its number by then.
+		// second commit, which has its number by then.
 		holdFirstCommit = func(
 			release <-chan struct{},
 		) (firstApplied, secondApplied chan struct{}) {
@@ -101,6 +101,7 @@ var _ = Describe("Delivery", func() {
 			return firstApplied, secondApplied
 		}
 		open = func(ctx context.Context, store kv.DB) {
+			GinkgoHelper()
 			db = DeferClose(gorp.Wrap(store, gorp.WithCodec(msgpack.Codec)))
 			records = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
 				DB:   db,
