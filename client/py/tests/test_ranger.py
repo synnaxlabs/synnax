@@ -789,6 +789,30 @@ class TestRangeRetrieveFilters:
         assert len(first) == 2
         assert {r.key for r in first} <= {r.key for r in window_ranges}
 
+    def test_order_and_after(
+        self,
+        client: sy.Synnax,
+        window: sy.TimeRange,
+        window_ranges: list[sy.Range],
+    ) -> None:
+        """Should page through the matching ranges in order from a cursor"""
+        order = ranger.Order(field="name")
+        pages: list[list[sy.Range]] = []
+        after: ranger.Cursor | None = None
+        while True:
+            page = client.ranges.retrieve(
+                overlaps=window, order=order, after=after, limit=2
+            )
+            if len(page) == 0:
+                break
+            pages.append(page)
+            after = ranger.Cursor(key=page[-1].key, name=page[-1].name)
+        assert len(pages) == 2
+        # The Core orders text without regard to case.
+        assert [r.name for p in pages for r in p] == sorted(
+            (r.name for r in window_ranges), key=str.lower
+        )
+
     def test_search_term(
         self, client: sy.Synnax, window_ranges: list[sy.Range]
     ) -> None:

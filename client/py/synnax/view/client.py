@@ -15,7 +15,9 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.util import request_where, returns_one, sole
 from synnax.view.types_gen import (
+    Cursor,
     Key,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Type,
@@ -144,6 +146,8 @@ class Client:
         types: list[Type] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[View]: ...
 
@@ -155,6 +159,8 @@ class Client:
         types: list[Type] | None = None,
         search_term: str = "",
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> View | list[View]:
@@ -174,6 +180,9 @@ class Client:
         :param types: Keeps views of one of these types.
         :param search_term: A fuzzy search term matched against view names.
         :param limit: The maximum number of views to retrieve.
+        :param order: The order of the views. Defaults to key order.
+        :param after: Retrieves the views past this position in the order: the key of
+            the last view of the page before, and its value of the order field.
         :param one: Returns one view for any filter.
         :returns: One view for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of views. The list leaves out keys that do not exist.
@@ -191,6 +200,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
         )
         res = self._client.send("/view/retrieve", req, RetrieveResponse)
         return sole("view", req, res.views) if single else res.views

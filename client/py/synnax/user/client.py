@@ -16,7 +16,7 @@ from freighter import Empty, UnaryClient
 from synnax.access import role as role_
 from synnax.exceptions import ValidationError
 from synnax.user.payload import New, User
-from synnax.user.types_gen import Key, RetrieveRequest, Where, WhereInput
+from synnax.user.types_gen import Cursor, Key, Order, RetrieveRequest, Where, WhereInput
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -194,6 +194,8 @@ class Client:
         keys: list[UUID] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[User]: ...
 
@@ -205,6 +207,8 @@ class Client:
         keys: list[UUID] | None = None,
         search_term: str = "",
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> User | list[User]:
@@ -224,6 +228,9 @@ class Client:
         :param keys: Keeps users with one of these keys.
         :param search_term: A fuzzy search term matched against user names.
         :param limit: The maximum number of users to retrieve.
+        :param order: The order of the users. Defaults to key order.
+        :param after: Retrieves the users past this position in the order: the key of
+            the last user of the page before, and its value of the order field.
         :param one: Returns one user for any filter.
         :returns: One user for a plain ``key``, a ``username``, or when ``one`` is
             set, otherwise a list of users. The list leaves out keys that do not
@@ -247,6 +254,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
         )
         res = self.client.send("/user/retrieve", req, _RetrieveResponse)
         return sole("user", req, res.users) if single else res.users

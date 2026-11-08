@@ -17,7 +17,9 @@ from freighter import Empty, UnaryClient
 from synnax.access import role
 from synnax.access.policy.payload import Policy
 from synnax.access.policy.types_gen import (
+    Cursor,
     Key,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Where,
@@ -125,6 +127,8 @@ class Client:
         keys: list[UUID] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Policy]: ...
 
@@ -135,6 +139,8 @@ class Client:
         keys: list[UUID] | None = None,
         search_term: str = "",
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Policy | list[Policy]:
@@ -155,6 +161,9 @@ class Client:
         :param keys: Keeps policies with one of these keys.
         :param search_term: A fuzzy search term matched against policy names.
         :param limit: The maximum number of policies to retrieve.
+        :param order: The order of the policies. Defaults to key order.
+        :param after: Retrieves the policies past this position in the order: the key of
+            the last policy of the page before, and its value of the order field.
         :param one: Returns one policy for any filter.
         :returns: One policy for a plain ``key`` or when ``one`` is set, otherwise a
             list of policies. The list leaves out keys that do not exist.
@@ -169,6 +178,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
         )
         res = self._client.send("/access/policy/retrieve", req, RetrieveResponse)
         return sole("policy", req, res.policies) if single else res.policies

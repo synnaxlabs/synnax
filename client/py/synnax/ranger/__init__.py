@@ -8,13 +8,24 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.ranger.client import Client, Range
-from synnax.ranger.types_gen import Key, KeyRef, Ref, Where, WhereInput, WindowRef
+from synnax.ranger.types_gen import (
+    Cursor,
+    Key,
+    KeyRef,
+    Order,
+    Ref,
+    Where,
+    WhereInput,
+    WindowRef,
+)
 from synnax.ranger.writer import Writer
 
 __all__ = [
     "Client",
+    "Cursor",
     "Key",
     "KeyRef",
+    "Order",
     "Range",
     "Ref",
     "Where",

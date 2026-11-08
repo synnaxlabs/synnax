@@ -31,7 +31,9 @@ from synnax.rack import Rack
 from synnax.resource import ID
 from synnax.task.types_gen import (
     Command,
+    Cursor,
     Key,
+    Order,
     Payload,
     RetrieveRequest,
     RetrieveResponse,
@@ -544,6 +546,8 @@ class Client:
         types: list[str] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Task]: ...
@@ -558,6 +562,8 @@ class Client:
         types: list[str] | None = None,
         search_term: str = "",
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -587,6 +593,9 @@ class Client:
         :param types: Keeps tasks of one of these types.
         :param search_term: A fuzzy search term matched against task names.
         :param limit: The maximum number of tasks to retrieve.
+        :param order: The order of the tasks. Defaults to key order.
+        :param after: Retrieves the tasks past this position in the order: the key of
+            the last task of the page before, and its value of the order field.
         :param include_status: Whether to populate each task's status. Tasks come
             back with a null status when false.
         :param one: Returns one task for any filter.
@@ -609,6 +618,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse)

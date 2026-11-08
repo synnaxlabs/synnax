@@ -24,7 +24,9 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import Retriever, params_where
 from synnax.channel.types_gen import (
+    Cursor,
     Operation,
+    Order,
     Payload,
     RetrieveRequest,
     Status,
@@ -478,6 +480,8 @@ class Client:
         search_term: str = ...,
         range_key: UUID | None = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Channel]: ...
@@ -493,6 +497,8 @@ class Client:
         search_term: str = "",
         range_key: UUID | None = None,
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -528,6 +534,9 @@ class Client:
             whose alias in the range matches come first.
         :param range_key: Sets each channel's alias from this range.
         :param limit: The maximum number of channels to retrieve.
+        :param order: The order of the channels. Defaults to key order.
+        :param after: Retrieves the channels past this position in the order: the key of
+            the last channel of the page before, and its value of the order field.
         :param include_status: Attaches each channel's status. A channel with no
             status gets None.
         :param one: Returns one channel for any filter.
@@ -568,6 +577,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._retriever.filter(req, range_key)

@@ -28,7 +28,9 @@ from synnax.ranger import alias as alias_
 from synnax.ranger import kv
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
+    Cursor,
     Key,
+    Order,
     Payload,
     RetrieveRequest,
     Where,
@@ -735,6 +737,8 @@ class Client:
         has_labels: list[label.Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Range]: ...
 
@@ -749,6 +753,8 @@ class Client:
         has_labels: list[label.Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Range | list[Range]:
@@ -773,6 +779,9 @@ class Client:
         :param has_labels: Keeps ranges that have one of these labels.
         :param search_term: A fuzzy search term matched against range names.
         :param limit: The maximum number of ranges to retrieve.
+        :param order: The order of the ranges. Defaults to key order.
+        :param after: Retrieves the ranges past this position in the order: the key of
+            the last range of the page before, and its value of the order field.
         :param one: Returns one range for any filter.
         :returns: One range for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of ranges. The list leaves out keys that do not exist.
@@ -792,6 +801,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
         )
         ranges = self._sugar(self._retriever.retrieve(req))
         return sole("range", req, ranges) if single else ranges

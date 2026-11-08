@@ -17,8 +17,10 @@ from freighter import Empty, UnaryClient
 from synnax import group as group_
 from synnax import rack as rack_
 from synnax.device.types_gen import (
+    Cursor,
     Device,
     Key,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Where,
@@ -334,6 +336,8 @@ class Client:
         racks: list[int] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Device]: ...
@@ -350,6 +354,8 @@ class Client:
         racks: list[int] | None = None,
         search_term: str = "",
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         ignore_not_found: bool = False,
@@ -384,6 +390,9 @@ class Client:
             group when False.
         :param search_term: A fuzzy search term matched against device names.
         :param limit: The maximum number of devices to retrieve.
+        :param order: The order of the devices. Defaults to key order.
+        :param after: Retrieves the devices past this position in the order: the key of
+            the last device of the page before, and its value of the order field.
         :param include_status: Whether to populate each device's status.
         :param one: Returns one device for any filter.
         :param ignore_not_found: Returns None instead of raising when one device is
@@ -410,6 +419,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._client.send("/device/retrieve", req, RetrieveResponse)

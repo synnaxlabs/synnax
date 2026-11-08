@@ -15,7 +15,15 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import group as group_
 from synnax.exceptions import NotFoundError
-from synnax.rack.types_gen import Key, Rack, RetrieveRequest, Where, WhereInput
+from synnax.rack.types_gen import (
+    Cursor,
+    Key,
+    Order,
+    Rack,
+    RetrieveRequest,
+    Where,
+    WhereInput,
+)
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -199,6 +207,8 @@ class Client:
         integration: str | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Rack]: ...
@@ -213,6 +223,8 @@ class Client:
         integration: str | None = None,
         search_term: str = "",
         limit: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -240,6 +252,9 @@ class Client:
         :param integration: Keeps racks that support this integration.
         :param search_term: A fuzzy search term matched against rack names.
         :param limit: The maximum number of racks to retrieve.
+        :param order: The order of the racks. Defaults to key order.
+        :param after: Retrieves the racks past this position in the order: the key of
+            the last rack of the page before, and its value of the order field.
         :param include_status: Whether to populate each rack's status.
         :param one: Returns one rack for any filter.
         :returns: One rack for a plain ``key`` or ``name`` or when ``one`` is set,
@@ -263,6 +278,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
