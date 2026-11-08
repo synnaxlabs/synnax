@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -82,12 +83,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		DB:       db,
 	}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           db,
 		Ontology:     otg,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:       db,

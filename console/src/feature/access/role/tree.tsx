@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, resource, type Synnax, user } from "@synnaxlabs/client";
+import { access, type Synnax, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, User } from "@synnaxlabs/pluto";
@@ -73,22 +73,20 @@ const TreeItem = Tree.createItem({
   type: "role",
   icon: ({ name }) => ROLE_ICONS[name] ?? <Icon.Role />,
   ContextMenu: TreeContextMenu,
-  // A role lists its users through the ontology.
-  children: ({ client, id }) => [Tree.createOntologySource(client, id, ["user"])],
-  // Moving a user to another role moves its ontology edge.
+  children: ({ client, id }) => [
+    Tree.createSource(client.users, { roles: [id.key] }, Tree.toResource("user")),
+  ],
   drop: async ({ client, destination, items }) => {
-    const bySource = new Map<string, resource.ID[]>();
-    items.forEach(({ id, ancestors: [source] }) => {
-      const key = resource.idToString(source);
-      bySource.set(key, [...(bySource.get(key) ?? []), id]);
-    });
+    const target = destination.id.key;
+    const bySource = Map.groupBy(items, ({ ancestors: [source] }) =>
+      source?.type === access.role.TYPE_RESOURCE_ID.type ? source.key : undefined,
+    );
     await Promise.all(
       [...bySource].map(
-        async ([source, ids]) =>
-          await client.ontology.moveChildren(
-            resource.parseID(source),
-            destination.id,
-            ...ids,
+        async ([source, moved]) =>
+          await client.users.setRoles(
+            moved.map(({ id }) => id.key),
+            { add: [target], remove: source == null ? [] : [source] },
           ),
       ),
     );

@@ -38,6 +38,8 @@ message Rack {
   optional string version = 6;
   // group is the group the rack sits in, if any.
   optional string group = 7;
+  // roles are the roles that grant the rack its permissions.
+  repeated string roles = 8;
 }
 message WhereList {
   repeated Where values = 1;

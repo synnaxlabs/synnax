@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { access, NotFoundError, user } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -117,14 +121,14 @@ describe("user ontology service", () => {
 
 describe("rename", () => {
   it("should rename the user on the Core and keep its username", async () => {
+    const role = await client.access.roles.create({ name: uniqueName("role") });
     const username = uniqueName("user");
     const u = await client.users.create({
       username,
       name: uniqueName("name"),
       password: "pwd12345",
+      roles: [role.key],
     });
-    const role = await client.access.roles.create({ name: uniqueName("role") });
-    await client.access.roles.assign({ user: u.key, role: role.key });
     await renderOntologyTree({
       client,
       root: access.role.resourceID(role.key),
@@ -152,7 +156,34 @@ describe("permission to write the user", () => {
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
-    expect(screen.queryByText("Change Role")).toBeNull();
+    expect(screen.queryByText("Change role")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("should withhold a role change from a subject that cannot update roles", async () => {
+    const u = await createUser();
+    const editor = await createTestClientWithPolicy(client, [
+      {
+        name: uniqueName("policy"),
+        objects: [
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
+        ],
+        actions: ["retrieve"],
+      },
+      {
+        name: uniqueName("policy"),
+        objects: [user.TYPE_RESOURCE_ID],
+        actions: ["update"],
+      },
+    ]);
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: editor,
+      resources: [userResource(u.key, u.name)],
+    });
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(screen.queryByText("Change role")).toBeNull();
   });
 });

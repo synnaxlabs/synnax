@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -54,12 +55,16 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 				Ontology: otg,
 				DB:       db,
 			}))
+			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
 				Ontology:     otg,
 				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
-				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 			}))
 			testRack := &rack.Rack{Name: "Ancient Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())

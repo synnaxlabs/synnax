@@ -211,17 +211,18 @@ export const createUsers = async (
 ): Promise<void> => {
   const client = connect(opts);
   try {
-    const users = await client.users.create(
-      specs.map(({ role: _role, ...s }) => ({ password: "seldon-demo", ...s })),
-    );
     const roles = await client.access.roles.retrieve({});
-    await Promise.all(
-      specs.map(async ({ role }, i) => {
-        if (role == null) return;
-        const match = roles.find((r) => r.name === role);
-        if (match == null) throw new Error(`role ${role} not found`);
-        await client.access.roles.assign({ role: match.key, user: users[i].key });
-      }),
+    const roleKey = (name: string): string => {
+      const match = roles.find((r) => r.name === name);
+      if (match == null) throw new Error(`role ${name} not found`);
+      return match.key;
+    };
+    await client.users.create(
+      specs.map(({ role, ...s }) => ({
+        password: "seldon-demo",
+        ...s,
+        roles: role == null ? [] : [roleKey(role)],
+      })),
     );
   } finally {
     await client.close();

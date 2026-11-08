@@ -49,13 +49,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    g,
 		Password: passwordSvc,
 	}))
-	policySvc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
 	svc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+	}))
+	policySvc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Role:     svc,
 	}))
 })
 

@@ -12,6 +12,7 @@
 import { filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { role } from "@/access/role";
 import { group } from "@/group";
 import { resource } from "@/resource";
 import { status } from "@/status";
@@ -111,10 +112,12 @@ export const payloadZ = z.object({
   version: z.string().optional(),
   /** group is the group the rack sits in, if any. */
   group: group.keyZ.optional(),
+  /** roles are the roles that grant the rack its permissions. */
+  roles: role.keyZ.array().default(() => []),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
-export const newZ = payloadZ.omit({ embedded: true, key: true }).extend({
+export const newZ = payloadZ.omit({ embedded: true, roles: true, key: true }).extend({
   key: keyZ.refine((v) => v !== 0, "key is required").default(0),
 });
 export interface New extends z.input<typeof newZ> {}

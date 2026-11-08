@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import group as group_
 from synnax import status as status_
+from synnax.access import role
 from synnax.resource import ID
 from x import filter
 from x.filter import shorthand
@@ -99,6 +100,7 @@ class Base(BaseModel):
         version: Is the version of the Driver that runs the rack, written at each
             connect. Absent until a Driver reports it.
         group: Is the group the rack sits in, if any.
+        roles: Are the roles that grant the rack its permissions.
     """
 
     key: Key = Field(ge=0, le=4294967295)
@@ -108,6 +110,7 @@ class Base(BaseModel):
     integrations: list[str] = Field(default_factory=list)
     version: str | None = None
     group: group_.Key | None = None
+    roles: list[role.Key] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:
@@ -140,10 +143,12 @@ class Rack(Base):
     Attributes:
         key: Is the composite identifier for this rack.
         embedded: Is true if this rack is embedded within the Synnax server process.
+        roles: Are the roles that grant the rack its permissions.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
     embedded: bool = Field(default=False, exclude=True)
+    roles: list[role.Key] = Field(default_factory=list, exclude=True)
 
     @_override
     def __hash__(self) -> int:

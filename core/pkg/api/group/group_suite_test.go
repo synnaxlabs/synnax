@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -67,14 +67,10 @@ func newUser(ctx SpecContext, policies ...policy.Policy) user.User {
 	u := MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
-	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	for _, p := range policies {
-		Expect(policyWriter.Create(ctx, &p)).To(Succeed())
-		Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
+		MustSucceed(
+			rbactestutil.Grant(ctx, svc.RBAC, svc.User, u.Key, p.Actions, p.Objects...),
+		)
 	}
-	Expect(roleWriter.AssignRole(ctx, u.ResourceID(), r.Key)).To(Succeed())
 	return u
 }

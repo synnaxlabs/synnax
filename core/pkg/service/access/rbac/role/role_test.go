@@ -205,98 +205,6 @@ var _ = Describe("Writer", func() {
 			},
 		)
 	})
-
-	Describe("AssignRole", func() {
-		var (
-			r       *role.Role
-			subject resource.ID
-		)
-		BeforeEach(func(ctx SpecContext) {
-			r = &role.Role{
-				Name:        "test-role",
-				Description: "Test role",
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-			subject = resource.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
-		})
-
-		It("Should assign role to subject", func(ctx SpecContext) {
-			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
-
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(subject).
-				ExcludeFieldData(true).
-				TraverseTo(ontology.ParentsTraverser).
-				ExcludeFieldData(true).
-				WhereTypes(resource.TypeRole).
-				Entries(&parents).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).To(HaveLen(1))
-			Expect(parents[0].ID.Key).To(Equal(r.Key.String()))
-		})
-
-		It("Should be idempotent", func(ctx SpecContext) {
-			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
-			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
-
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(subject).
-				ExcludeFieldData(true).
-				TraverseTo(ontology.ParentsTraverser).
-				ExcludeFieldData(true).
-				WhereTypes(resource.TypeRole).
-				Entries(&parents).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).To(HaveLen(1))
-		})
-	})
-
-	Describe("UnassignRole", func() {
-		var (
-			r       *role.Role
-			subject resource.ID
-		)
-		BeforeEach(func(ctx SpecContext) {
-			r = &role.Role{
-				Name:        "test-role",
-				Description: "Test role",
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-			subject = resource.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
-			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
-		})
-
-		It("Should unassign role from subject", func(ctx SpecContext) {
-			Expect(w.UnassignRole(ctx, subject, r.Key)).To(Succeed())
-
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(subject).
-				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(resource.TypeRole).
-				Entries(&parents).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).To(BeEmpty())
-		})
-
-		It("Should be idempotent", func(ctx SpecContext) {
-			Expect(w.UnassignRole(ctx, subject, r.Key)).To(Succeed())
-			Expect(w.UnassignRole(ctx, subject, r.Key)).To(Succeed())
-
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(subject).
-				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(resource.TypeRole).
-				Entries(&parents).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).To(BeEmpty())
-		})
-	})
 })
 
 var _ = Describe("Retrieve", func() {
@@ -519,6 +427,21 @@ var _ = Describe("Ontology Integration", func() {
 					To(Equal([]resource.ID{r.ResourceID()}))
 			},
 		)
+	})
+
+	Describe("ResourceIDs", func() {
+		It("Should return an empty slice when given no keys", func() {
+			Expect(role.ResourceIDs(nil)).To(BeEmpty())
+			Expect(role.ResourceIDs([]role.Key{})).To(BeEmpty())
+		})
+
+		It("Should map each key to its role resource ID in order", func() {
+			keys := []role.Key{uuid.New(), uuid.New()}
+			Expect(role.ResourceIDs(keys)).To(Equal([]resource.ID{
+				{Type: resource.TypeRole, Key: keys[0].String()},
+				{Type: resource.TypeRole, Key: keys[1].String()},
+			}))
+		})
 	})
 
 	Describe("ResourceIDsFromRoles", func() {

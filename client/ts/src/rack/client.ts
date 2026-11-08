@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, deep, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type role } from "@/access/role";
 import { group } from "@/group";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
@@ -237,7 +238,7 @@ export class Client extends query.Retriever<
     const sugared = array
       .toArray(payloads)
       .map(
-        ({ key, name, status, integrations, embedded, version, group: g }) =>
+        ({ key, name, status, integrations, embedded, version, group: g, roles }) =>
           new Rack(
             key,
             name,
@@ -247,6 +248,7 @@ export class Client extends query.Retriever<
             embedded,
             version,
             g,
+            roles,
           ),
       );
     return isSingle ? sugared[0] : sugared;
@@ -313,6 +315,7 @@ export class Rack {
   embedded: boolean;
   version?: string;
   group?: group.Key;
+  roles: role.Key[];
   private readonly tasks: task.Client;
 
   constructor(
@@ -324,6 +327,7 @@ export class Rack {
     embedded: boolean = false,
     version?: string,
     groupKey?: group.Key,
+    roles: role.Key[] = [],
   ) {
     this.key = key;
     this.name = name;
@@ -333,6 +337,7 @@ export class Rack {
     this.embedded = embedded;
     this.version = version;
     this.group = groupKey;
+    this.roles = roles;
   }
 
   async listTasks(): Promise<task.Task[]> {
@@ -366,6 +371,7 @@ export class Rack {
       embedded: this.embedded,
       version: this.version,
       group: this.group,
+      roles: this.roles,
     };
   }
 }
