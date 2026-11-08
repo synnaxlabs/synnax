@@ -162,10 +162,17 @@ func MatchKeys(keys ...Key) Filter {
 // roles whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(Retrieve) gorp.Filter[Key, Role] {
-		return gorp.Match(func(_ gorp.Context, e *Role) (bool, error) {
-			return slices.Contains(vals, e.Name), nil
-		})
+	return func(r Retrieve) gorp.Filter[Key, Role] {
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Role) (bool, error) {
+				return slices.Contains(vals, e.Name), nil
+			}),
+		)
 	}
 }
 

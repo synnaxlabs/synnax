@@ -183,10 +183,17 @@ func MatchKeys(keys ...Key) Filter {
 // directories whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(Retrieve) gorp.Filter[Key, Directory] {
-		return gorp.Match(func(_ gorp.Context, e *Directory) (bool, error) {
-			return slices.Contains(vals, e.Name), nil
-		})
+	return func(r Retrieve) gorp.Filter[Key, Directory] {
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Directory) (bool, error) {
+				return slices.Contains(vals, e.Name), nil
+			}),
+		)
 	}
 }
 

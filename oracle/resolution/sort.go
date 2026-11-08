@@ -27,16 +27,18 @@ type Sort struct {
 	Path []Field
 	// Type is the type of the value that the order compares.
 	Type TypeRef
-	// Text is true when the value is a string, which orders by its lower case.
-	Text bool
+	// Textual is true when the value is a string, which orders by its lower case.
+	Textual bool
 }
 
 // Leaf returns the field whose value the order compares.
 func (s Sort) Leaf() Field { return s.Path[len(s.Path)-1] }
 
 // Sorts returns the orders that the `@index sorted` marks of fields declare, in field
-// order. It returns an error for a mark that names no sub-field of a struct, or that
-// orders a value that is neither a string nor a number.
+// order. It returns an error for a mark that names no sub-field of a struct, that
+// orders
+// a value that is neither a string nor a number, or that shares its field with
+// `@index lookup`.
 func Sorts(fields []Field, table *Table) ([]Sort, error) {
 	var sorts []Sort
 	for _, field := range fields {
@@ -47,6 +49,12 @@ func Sorts(fields []Field, table *Table) ([]Sort, error) {
 		expr, ok := dom.Expressions.Find("sorted")
 		if !ok {
 			continue
+		}
+		if _, ok := dom.Expressions.Find("lookup"); ok {
+			return nil, errors.Newf(
+				"%s: a sorted index answers exact matches, so drop @index lookup",
+				field.Name,
+			)
 		}
 		sort := Sort{Name: field.Name, Path: []Field{field}, Type: field.Type}
 		if len(expr.Values) > 0 {
@@ -66,7 +74,7 @@ func Sorts(fields []Field, table *Table) ([]Sort, error) {
 		}
 		switch base := PrimitiveBase(sort.Type, table); {
 		case base == "string":
-			sort.Text = true
+			sort.Textual = true
 		case IsNumberPrimitive(base):
 		default:
 			return nil, errors.Newf(

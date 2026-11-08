@@ -192,6 +192,9 @@ type filterInfo struct {
 	// MatchXs routes through r.indexes.<IndexFieldName> instead of a bespoke scan
 	// closure. Empty means no index on this field.
 	IndexFieldName string
+	// IndexTextual is true when that index holds compare.TextKey of the value, so the
+	// filter narrows by the index and then keeps only exact matches.
+	IndexTextual bool
 	// Ref is the reference the field holds, if it carries @ref. The generated filter
 	// then routes through the reference's index.
 	Ref *refInfo
@@ -208,9 +211,9 @@ type indexInfo struct {
 	ValueGoType string // Go type of the field's value, which GoType keys for Text
 	StructField string // camelCase field on the indexes struct (e.g. "createdAt")
 	Kind        string // "lookup" or "sorted"
-	// Text is true for a sorted index on a string, which holds compare.TextKey of the
-	// value.
-	Text bool
+	// Textual is true for a sorted index on a string, which holds compare.TextKey of
+	// the value.
+	Textual bool
 }
 
 // IsSorted reports whether the index is a sorted index. Used by the template
@@ -234,8 +237,8 @@ type retrieveInfo struct {
 	// AnyArgs passes any for each type parameter of an indexes-only generic type, whose
 	// table holds records of every type argument.
 	AnyArgs string
-	// Params declares the type parameters of a generic type, such as [D any], and
-	// Args passes them, such as [D]. Both are empty for a type with none.
+	// Params declares the type parameters of a generic type, such as [D any], and Args
+	// passes them, such as [D]. Both are empty for a type with none.
 	Params, Args string
 	// GoName is the Go type of a record in the table.
 	GoName   string
@@ -287,7 +290,10 @@ func (r retrieveInfo) HasIDRefs() bool {
 // needsSlices reports whether the generated code calls the slices package.
 func (r retrieveInfo) needsSlices() bool {
 	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
-		return f.Ref == nil && (f.IsSlice || (!f.IsScalar && f.IndexFieldName == ""))
+		if f.Ref != nil {
+			return false
+		}
+		return f.IsSlice || (!f.IsScalar && (f.IndexFieldName == "" || f.IndexTextual))
 	}) || lo.SomeBy(r.Refs, func(ref refInfo) bool {
 		return ref.IsSlice && ref.OnDelete == "Detach"
 	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
@@ -370,7 +376,7 @@ func generateRetrieveFile(
 	)
 
 	if lo.SomeBy(infos, func(i retrieveInfo) bool {
-		return lo.SomeBy(i.Indexes, func(idx indexInfo) bool { return idx.Text })
+		return lo.SomeBy(i.Indexes, func(idx indexInfo) bool { return idx.Textual })
 	}) {
 		imps.AddInternal(
 			"compare",
@@ -568,10 +574,12 @@ func extractRetrieveInfo(
 		}
 		goFieldName := naming.GetFieldName(field)
 
-		// indexField names the index that backs the field's filter. A text index holds
-		// the lower case of a string, and a sub-field index holds part of the value, so
-		// neither answers an exact match.
-		var indexField string
+		// indexField names the index that backs the field's filter. A sub-field index
+		// holds part of the value, so it cannot answer a match on the field.
+		var (
+			indexField   string
+			indexTextual bool
+		)
 		if hasIndex {
 			idx := indexInfo{
 				FieldName:   field.Name,
@@ -587,23 +595,24 @@ func extractRetrieveInfo(
 					return nil, errors.Wrapf(err, "%s", typ.QualifiedName)
 				}
 				sort := sorts[0]
-				idx.Kind, idx.Text = "sorted", sort.Text
-				for _, sub := range sort.Path[1:] {
-					idx.FieldName = sort.Name
-					idx.GoName += naming.GetFieldName(sub)
-					idx.Access += "." + naming.GetFieldName(sub)
-					idx.ValueGoType = r.ResolveTypeRef(sub.Type, ctx)
+				idx.Kind, idx.Textual = "sorted", sort.Textual
+				idx.FieldName = sort.Name
+				if len(sort.Path) > 1 {
+					leaf := sort.Leaf()
+					idx.GoName += naming.GetFieldName(leaf)
+					idx.Access += "." + naming.GetFieldName(leaf)
+					idx.ValueGoType = r.ResolveTypeRef(leaf.Type, ctx)
 				}
 				idx.GoType = idx.ValueGoType
-				if idx.Text {
+				if idx.Textual {
 					idx.GoType = "string"
 				}
 			}
 			// camelCase field name on the per-Retrieve indexes struct. Unexported
 			// because the indexes struct itself is unexported.
 			idx.StructField = naming.LowerFirst(idx.GoName)
-			if !idx.Text && idx.Access == access {
-				indexField = idx.StructField
+			if idx.Access == access {
+				indexField, indexTextual = idx.StructField, idx.Textual
 			}
 			indexes = append(indexes, idx)
 		}
@@ -620,6 +629,7 @@ func extractRetrieveInfo(
 				IsBool:         key.ResolvePrimitive(field.Type, table) == "bool",
 				IsSlice:        m.Kind == matcher.Element,
 				IndexFieldName: indexField,
+				IndexTextual:   indexTextual,
 			})
 		}
 	}
@@ -759,7 +769,7 @@ type templateData struct {
 }
 
 var templateFuncs = template.FuncMap{
-	"comment":   func(name, text string) string { return doc.FormatGo(name, text) },
+	"formatDoc": doc.FormatGo,
 	"toPascal":  naming.ToPascalCase,
 	"toLower":   strings.ToLower,
 	"pluralize": matcher.Plural,
@@ -834,7 +844,7 @@ func newIndexes() indexes {
 {{- range $idx := $ret.Indexes}}
 		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
 			"{{$idx.FieldName}}",
-{{- if $idx.Text}}
+{{- if $idx.Textual}}
 			func(e *{{$ret.GoName}}) string { return compare.TextKey(string(e.{{$idx.Access}})) },
 {{- else}}
 			func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$idx.Access}} },
@@ -963,21 +973,21 @@ func (r Retrieve{{$ret.Args}}) OrderBy(o Order{{$ret.Args}}) Retrieve{{$ret.Args
 {{- range $idx := $ret.Indexes}}
 {{- if $idx.IsSorted}}
 
-{{comment (print "OrderBy" $idx.GoName) (print "returns an Order by " $idx.FieldName (or (and $idx.Text " in lower case") "") ", then by key.")}}
+{{formatDoc (print "OrderBy" $idx.GoName) (print "returns an Order by " $idx.FieldName (or (and $idx.Textual " in lower case") "") ", then by key.")}}
 func OrderBy{{$idx.GoName}}(dir gorp.Direction) Order{{$ret.AnyArgs}} {
 	return func(r Retrieve{{$ret.AnyArgs}}) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return r.indexes.{{$idx.StructField}}.Ordered(dir)
 	}
 }
 
-{{comment (print "OrderBy" $idx.GoName "After") (print "returns an Order like OrderBy" $idx.GoName " that starts strictly past the position of value and key.")}}
+{{formatDoc (print "OrderBy" $idx.GoName "After") (print "returns an Order like OrderBy" $idx.GoName " that starts strictly past the position of value and key.")}}
 func OrderBy{{$idx.GoName}}After(
 	dir gorp.Direction,
 	value {{$idx.ValueGoType}},
 	key {{$ret.KeyType}},
 ) Order{{$ret.AnyArgs}} {
 	return func(r Retrieve{{$ret.AnyArgs}}) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}] {
-{{- if $idx.Text}}
+{{- if $idx.Textual}}
 		return r.indexes.{{$idx.StructField}}.Ordered(dir).After(
 			compare.TextKey(string(value)),
 			key,
@@ -1118,7 +1128,14 @@ func {{.Func}}(v {{.ElemGoType}}) Filter {
 // {{.GoName}} matches the provided value.
 func {{.Func}}(v {{.GoType}}) Filter {
 	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-{{- if .IndexFieldName}}
+{{- if .IndexTextual}}
+		return gorp.And(
+			r.indexes.{{.IndexFieldName}}.Filter(compare.TextKey(string(v))),
+			gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
+				return e.{{.Access}} == v, nil
+			}),
+		)
+{{- else if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(v)
 {{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
@@ -1133,7 +1150,18 @@ func {{.Func}}(v {{.GoType}}) Filter {
 // provided values.
 func {{.Func}}(vals ...{{.GoType}}) Filter {
 	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-{{- if .IndexFieldName}}
+{{- if .IndexTextual}}
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		return gorp.And(
+			r.indexes.{{.IndexFieldName}}.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
+				return slices.Contains(vals, e.{{.Access}}), nil
+			}),
+		)
+{{- else if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(vals...)
 {{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
