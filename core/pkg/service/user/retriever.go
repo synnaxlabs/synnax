@@ -17,7 +17,6 @@ import (
 // Retrieve is used to retrieve User records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX   gorp.Tx
 	gorp     gorp.Retrieve[Key, User]
 	indexes  indexes
 	password *password.Service

@@ -90,7 +90,7 @@ func (s *Service) Close() error { return s.table.Close() }
 
 // NewRetrieve opens a query for stored API keys.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB, indexes: s.indexes}
+	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }
 
 // NewWriter opens a [Writer] that runs in tx.

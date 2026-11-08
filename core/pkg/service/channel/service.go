@@ -162,7 +162,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // on, and they check the limit at commit time.
 func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
-		baseTX:  s.db,
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
 	}

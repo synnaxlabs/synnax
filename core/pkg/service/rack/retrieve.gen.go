@@ -260,17 +260,19 @@ func (r Retrieve) SkipMissingKeys() Retrieve {
 	return r
 }
 
-// Exec executes the query against snap, or against the DB when snap is nil.
+// Exec executes the query against snap. It panics when snap is nil.
 func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
-	return r.gorp.Exec(ctx, gorp.OverrideSnapshot(r.baseTX, snap))
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of racks matching the query.
+// Count returns the number of racks in snap that match
+// the query. It panics when snap is nil.
 func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideSnapshot(r.baseTX, snap))
+	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any racks match the query.
+// Exists checks whether any racks in snap match the
+// query. It panics when snap is nil.
 func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideSnapshot(r.baseTX, snap))
+	return r.gorp.Exists(ctx, snap)
 }

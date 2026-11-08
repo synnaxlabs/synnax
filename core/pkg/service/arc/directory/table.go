@@ -59,7 +59,6 @@ func (c TableConfig) Validate() error {
 
 // Table stores Arc directories. Open it before the tables that reference directories.
 type Table struct {
-	db      *gorp.DB
 	table   *gorp.Table[Key, Directory]
 	indexes indexes
 }
@@ -70,7 +69,7 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := &Table{db: cfg.DB, indexes: newIndexes()}
+	t := &Table{indexes: newIndexes()}
 	if t.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Directory]{
 		DB:              cfg.DB,
 		Name:            tableName,
@@ -85,7 +84,7 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 
 // NewRetrieve opens a query for directories.
 func (t *Table) NewRetrieve() Retrieve {
-	return Retrieve{baseTX: t.db, gorp: t.table.NewRetrieve(), indexes: t.indexes}
+	return Retrieve{gorp: t.table.NewRetrieve(), indexes: t.indexes}
 }
 
 // NewWriter opens a writer that runs on tx.

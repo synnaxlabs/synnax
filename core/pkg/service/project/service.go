@@ -114,7 +114,6 @@ func (s *Service) Children(
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes: s.indexes,
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 	}
 }

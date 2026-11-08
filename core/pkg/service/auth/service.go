@@ -338,7 +338,7 @@ func (s *Service) held() []SessionKey {
 
 // NewRetrieve opens a query for sessions.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB, indexes: s.indexes}
+	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }
 
 // NewWriter opens a [Writer] that runs in tx.

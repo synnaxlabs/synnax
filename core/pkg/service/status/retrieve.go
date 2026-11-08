@@ -20,7 +20,6 @@ import (
 
 // Retrieve is used to retrieve statuses from the cluster using a builder pattern.
 type Retrieve[D any] struct {
-	baseTX gorp.Tx
 	gorp   gorp.Retrieve[Key, Status[D]]
 	// indexes are on the table, whose entries hold details of any type.
 	indexes indexes
@@ -154,8 +153,8 @@ func MatchOwners[D any](owners ...resource.ID) Filter[D] {
 	}
 }
 
-// Exec executes the query and fills the results into the provided Status or slice of
-// Statuses.
+// Exec executes the query against snap and fills the results into the provided Status
+// or slice of Statuses. It panics when snap is nil.
 func (r Retrieve[D]) Exec(ctx context.Context, snap gorp.Snapshot) error {
-	return r.gorp.Exec(ctx, gorp.OverrideSnapshot(r.baseTX, snap))
+	return r.gorp.Exec(ctx, snap)
 }
