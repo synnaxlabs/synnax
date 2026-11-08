@@ -44,6 +44,7 @@ const ORDERS: Record<Ranger.Stage, ranger.Order> = {
 };
 
 const PAGE_SIZE = 50;
+const INITIAL_SIZES = Ranger.STAGES.map(() => PAGE_SIZE);
 
 interface Listing {
   /** The time the stages list their ranges at. */
@@ -60,7 +61,8 @@ const useStage = (where: view.View["where"], stage: Ranger.Stage, listing: Listi
       where: where == null ? staged : { and: [where as ranger.Where, staged] },
       order: ORDERS[stage],
     },
-    pageSize: listing.sizes[Ranger.STAGES.indexOf(stage)],
+    pageSize: PAGE_SIZE,
+    initialSize: listing.sizes[Ranger.STAGES.indexOf(stage)],
   });
 };
 
@@ -90,8 +92,10 @@ const Internal = () => {
   const [where, setWhere] = useState(View.useContext().getInitialView().where);
   const [listing, setListing] = useState<Listing>(() => ({
     at: TimeStamp.now(),
-    sizes: Ranger.STAGES.map(() => PAGE_SIZE),
+    sizes: INITIAL_SIZES,
   }));
+  // A new filter or search reads its first page at the usual size.
+  const resetSizes = () => setListing((prev) => ({ ...prev, sizes: INITIAL_SIZES }));
   const toDo = useStage(where, "to_do", listing);
   const inProgress = useStage(where, "in_progress", listing);
   const completed = useStage(where, "completed", listing);
@@ -122,7 +126,14 @@ const Internal = () => {
     const first = stages[incomplete];
     if (first?.answered) first.more();
   };
-  const handleSearch = (term: string) => stages.forEach((s) => s.search(term));
+  const handleSearch = (term: string) => {
+    resetSizes();
+    stages.forEach((s) => s.search(term));
+  };
+  const handleWhereChange = (next: view.View["where"]) => {
+    resetSizes();
+    setWhere(next);
+  };
   const openCreate = Range.useCreateModal();
   const handleCreate = () => openCreate();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
@@ -136,7 +147,7 @@ const Internal = () => {
       answered={stages.every((s) => s.answered)}
       more={handleMore}
       search={handleSearch}
-      onWhereChange={setWhere}
+      onWhereChange={handleWhereChange}
     >
       <View.Toolbar>
         <View.FilterMenu>

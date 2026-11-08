@@ -252,7 +252,7 @@ class Client:
         :raises NotFoundError: If one project is wanted and none matches.
         :raises MultipleFoundError: If one project is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one project is wanted
-            beside a limit.
+            beside a limit or a cursor.
         """
         single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))

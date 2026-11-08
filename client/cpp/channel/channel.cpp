@@ -138,7 +138,8 @@ std::pair<Channel, x::errors::Error> Client::retrieve(
     x::filter::One,
     const RetrieveOptions &options
 ) const {
-    if (options.limit.has_value()) return {Channel{}, errors::paged_one_error()};
+    if (options.limit.has_value() || options.after.has_value())
+        return {Channel{}, errors::paged_one_error()};
     auto [channels, err] = this->retrieve(where, options);
     if (err) return {Channel{}, err};
     if (const auto

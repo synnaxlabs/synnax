@@ -54,7 +54,8 @@ std::pair<Range, x::errors::Error> Client::retrieve(
     x::filter::One,
     const RetrieveOptions &options
 ) const {
-    if (options.limit.has_value()) return {Range(), errors::paged_one_error()};
+    if (options.limit.has_value() || options.after.has_value())
+        return {Range(), errors::paged_one_error()};
     auto [ranges, err] = this->retrieve(where, options);
     if (err) return {Range(), err};
     if (const auto one_err = errors::check_one("range", where.to_json(), ranges.size()))

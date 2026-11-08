@@ -403,7 +403,7 @@ class Client:
         :raises MultipleFoundError: If one device is wanted and more than one matches,
             even when ``ignore_not_found`` is set.
         :raises ValidationError: If a filter field is None, or if one device is wanted
-            beside a limit.
+            beside a limit or a cursor.
         """
         single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(

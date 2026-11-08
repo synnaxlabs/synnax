@@ -283,14 +283,17 @@ describe("Retriever", () => {
       expect(fetchRequest).not.toHaveBeenCalled();
     });
 
-    it("rejects a query that sets one beside a limit", async () => {
+    it.each([
+      ["a limit", { limit: 1 }],
+      ["a cursor", { after: { key: "a" } }],
+    ])("rejects a query that sets one beside %s", async (_, page) => {
       const fetchRequest = vi.fn(async () => []);
       const client = new Client(newCache(), async () => [], fetchRequest);
       await expect(
-        client.retrieve({ minSize: 2, one: true, limit: 1 } as never),
+        client.retrieve({ minSize: 2, one: true, ...page } as never),
       ).rejects.toThrow(
         new ValidationError(
-          "a query for one record takes no limit, since a page could hide a " +
+          "a query for one record takes no limit or cursor, since a page could hide a " +
             "second match",
         ),
       );

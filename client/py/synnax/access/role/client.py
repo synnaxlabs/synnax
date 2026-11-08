@@ -179,7 +179,7 @@ class Client:
         :raises NotFoundError: If one role is wanted and none matches.
         :raises MultipleFoundError: If one role is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one role is wanted
-            beside a limit.
+            beside a limit or a cursor.
         """
         if key is not None:
             fields["key"] = key

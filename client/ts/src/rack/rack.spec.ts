@@ -222,7 +222,7 @@ describe("Rack", () => {
         client.racks.retrieve({ name, limit: 1 }),
       ).rejects.toThrow(
         new ValidationError(
-          "a query for one record takes no limit, since a page could hide a " +
+          "a query for one record takes no limit or cursor, since a page could hide a " +
             "second match",
         ),
       );

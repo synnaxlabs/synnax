@@ -119,6 +119,28 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.data).toEqual([a.key, b.key, c.key]));
   });
 
+  it("should read the initial size first, then a page on each more", async () => {
+    const a = await create("a");
+    const b = await create("b");
+    const c = await create("c");
+    const d = await create("d");
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          pageSize: 1,
+          initialSize: 2,
+        }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key]));
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key, c.key]));
+    expect(result.current.data).not.toContain(d.key);
+  });
+
   it("should list the records that match a search term", async () => {
     const name = randomWord();
     const match = await create(name);

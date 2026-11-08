@@ -59,8 +59,10 @@ export interface UseListParams<Q, E extends record.Keyed<record.Key>, I = E["key
   query?: Q | null;
   /** Hides the records it rejects. */
   filter?: (item: E) => boolean;
-  /** How many records the list reads at first, and on each call to `more`. */
+  /** How many records each call to `more` reads. */
   pageSize?: number;
+  /** How many records the list reads at first. Defaults to `pageSize`. */
+  initialSize?: number;
   /** How long a search term waits before the list reads it. */
   searchDebounce?: CrudeTimeSpan;
   /** Maps a key to the read of a record outside the list. Defaults to the key. */
@@ -118,6 +120,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     query: q = {} as Q,
     filter,
     pageSize = DEFAULT_PAGE_SIZE,
+    initialSize = pageSize,
     searchDebounce = DEFAULT_SEARCH_DEBOUNCE,
     itemQuery = keyItem,
   }: UseListParams<NoInfer<Q>, E, I>,
@@ -139,10 +142,10 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   // Q is left open so it can match each client's overloaded request input.
   const base = q as { order?: unknown } | null;
   let next: Q | null = null;
-  if (base != null && term === "") next = { ...base, limit: pageSize } as Q;
+  if (base != null && term === "") next = { ...base, limit: initialSize } as Q;
   else if (base != null) {
     const { order: _, ...unordered } = base;
-    next = { ...unordered, searchTerm: term, limit: pageSize } as Q;
+    next = { ...unordered, searchTerm: term, limit: initialSize } as Q;
   }
   const listQuery = useMemoDeepEqual(next);
   const retriever = client == null ? null : source(client);

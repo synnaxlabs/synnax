@@ -109,7 +109,7 @@ public:
     /// @param options the options of the retrieve.
     /// @returns the rack, and an error that matches NOT_FOUND when no rack matches,
     /// MULTIPLE_RESULTS when more than one does, or VALIDATION when options set a
-    /// limit.
+    /// limit or a cursor.
     [[nodiscard]]
     std::pair<Rack, x::errors::Error> retrieve(
         const Where &where,

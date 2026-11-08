@@ -2356,6 +2356,14 @@ describe("trim", () => {
     expect(table.trim(0)).toEqual(["b"]);
   });
 
+  it("should keep the unchanged records a fetch ingests since the last trim", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b")]);
+    table.trim(table.size);
+    table.ingest([doc("a"), doc("c")]);
+    expect(table.trim(0)).toEqual(["b"]);
+  });
+
   it("should not let an older fetch restore a dropped entry", () => {
     const table = newTable();
     const since = table.stamp();

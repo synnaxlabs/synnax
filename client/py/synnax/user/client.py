@@ -237,7 +237,7 @@ class Client:
         :raises NotFoundError: If one user is wanted and none matches.
         :raises MultipleFoundError: If one user is wanted and more than one matches.
         :raises ValidationError: If a filter field or ``username`` is None, or if one
-            user is wanted beside a limit.
+            user is wanted beside a limit or a cursor.
         """
         if "username" in fields:
             username = fields.pop("username")
