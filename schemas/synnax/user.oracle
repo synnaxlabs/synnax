@@ -37,6 +37,7 @@ User struct {
     }
     role      role.Key {
         @doc value         "is the role that grants the user its permissions."
+        @ref kind          place
         @ref on_delete     restrict
         @validate required
     }

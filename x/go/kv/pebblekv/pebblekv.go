@@ -19,61 +19,22 @@ package pebblekv
 import (
 	"context"
 	"io"
-	"sync"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
-type db struct {
-	observe.Observer[kv.TxReader]
-	*pebble.DB
-	// notifyMu orders the notifications of an injected observer by commit. It is nil
-	// for the default observer, whose handlers can commit inline.
-	notifyMu *sync.Mutex
-}
+type db struct{ *pebble.DB }
 
 var _ kv.DB = (*db)(nil)
 
-type openOptions struct {
-	observer observe.Observer[kv.TxReader]
-	injected bool
-}
-
-// OpenOption configures behavior when wrapping a pebble.DB.
-type OpenOption func(*openOptions)
-
-// WithObserver sets the observer that delivers each commit to OnChange handlers. The DB
-// holds a lock from each apply through its notify, so handlers see commits in the order
-// they apply, and concurrent commits do not share a sync. A handler that the observer
-// runs inline must not write to the DB. The default observer runs the handlers on the
-// committing goroutine, before Commit returns, and gives no order across goroutines.
-func WithObserver(observer observe.Observer[kv.TxReader]) OpenOption {
-	return func(o *openOptions) {
-		o.observer = observer
-		o.injected = true
-	}
-}
-
-// Wrap wraps a pebble.DB to satisfy the kv.db interface.
-func Wrap(base *pebble.DB, opts ...OpenOption) kv.DB {
-	o := &openOptions{observer: observe.New[kv.TxReader]()}
-	for _, opt := range opts {
-		opt(o)
-	}
-	d := &db{DB: base, Observer: o.observer}
-	if o.injected {
-		d.notifyMu = &sync.Mutex{}
-	}
-	return d
-}
+// Wrap wraps a pebble.DB to satisfy the kv.DB interface.
+func Wrap(base *pebble.DB) kv.DB { return &db{DB: base} }
 
 type logger struct{ alamos.Instrumentation }
 
@@ -109,9 +70,6 @@ func (d db) OpenTx() kv.Tx { return &tx{Batch: d.NewIndexedBatch(), db: d} }
 // Commit implements kv.DB.
 func (d db) Commit(context.Context, ...any) error { return nil }
 
-// NewReader implement kv.DB.
-func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
-
 func (d db) withTx(ctx context.Context, f func(tx kv.Tx) error) (err error) {
 	tx := d.OpenTx()
 	defer func() {
@@ -145,11 +103,7 @@ func (d db) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	return d.NewIter(parseIterOpts(opts))
 }
 
-func (d db) apply(ctx context.Context, txn *tx, opts []any) error {
-	if d.notifyMu != nil {
-		d.notifyMu.Lock()
-		defer d.notifyMu.Unlock()
-	}
+func (d db) apply(txn *tx, opts []any) error {
 	err := d.Apply(txn.Batch, nil)
 	if err != nil {
 		return translateError(err)
@@ -159,8 +113,6 @@ func (d db) apply(ctx context.Context, txn *tx, opts []any) error {
 			applied()
 		}
 	}
-	// A generator gives each subscriber a fresh reader.
-	d.NotifyGenerator(ctx, txn.NewReader)
 	return nil
 }
 
@@ -209,9 +161,9 @@ func (txn *tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 }
 
 // Commit implements kv.Writer.
-func (txn *tx) Commit(ctx context.Context, opts ...any) error {
+func (txn *tx) Commit(_ context.Context, opts ...any) error {
 	txn.committed = true
-	return txn.db.apply(ctx, txn, opts)
+	return txn.db.apply(txn, opts)
 }
 
 func (txn *tx) Close() error {
@@ -224,44 +176,6 @@ func (txn *tx) Close() error {
 	return nil
 }
 
-// NewReader implements kv.Writer. It reads the operations as they are when NewReader is
-// called. Readers that NewReader returns are safe to run on separate goroutines.
-func (txn *tx) NewReader() kv.TxReader {
-	// Batch.Reader sets up an empty batch, so it must not run on reader goroutines.
-	ops := txn.Reader()
-	return func(yield func(kv.Change) bool) {
-		r := ops
-		for {
-			kind, k, v, ok, err := r.Next()
-			if err != nil {
-				zap.S().DPanic("unexpected error reading batch", zap.Error(err))
-				return
-			}
-			if !ok {
-				return
-			}
-			variant, ok := kindToVariant(kind)
-			if !ok {
-				continue
-			}
-			if !yield(kv.Change{Variant: variant, Key: k, Value: v}) {
-				return
-			}
-		}
-	}
-}
-
-func kindToVariant(kind pebble.InternalKeyKind) (change.Variant, bool) {
-	switch kind {
-	case pebble.InternalKeyKindSet:
-		return change.VariantSet, true
-	case pebble.InternalKeyKindDelete:
-		return change.VariantDelete, true
-	default:
-		return 0, false
-	}
-}
-
 func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 	return &pebble.IterOptions{
 		LowerBound: opts.LowerBound,
@@ -271,7 +185,7 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 
 func translateError(err error) error {
 	if errors.Is(err, pebble.ErrNotFound) {
-		return errors.WithStack(query.ErrNotFound)
+		return query.ErrNotFound
 	}
 	return err
 }

@@ -9,8 +9,10 @@
 
 import { describe, expect, it } from "vitest";
 
+import { role } from "@/access/role";
 import { AccessDeniedError, NotFoundError } from "@/index";
 import { rack } from "@/rack";
+import { status } from "@/status";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -46,11 +48,11 @@ describe("rack", () => {
     });
 
     it("should allow the caller to create racks with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [rack.resourceID(0)],
-        actions: ["create"],
-      });
+      const userClient = await createTestClientWithPolicy(client, [
+        { name: "test", objects: [rack.resourceID(0)], actions: ["create", "update"] },
+        { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["create"] },
+        { name: "test", objects: [role.TYPE_RESOURCE_ID], actions: ["retrieve"] },
+      ]);
       await userClient.racks.create({
         name: "test",
       });
@@ -70,11 +72,14 @@ describe("rack", () => {
     });
 
     it("should allow the caller to delete racks with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [rack.resourceID(0)],
-        actions: ["delete", "retrieve"],
-      });
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [rack.resourceID(0)],
+          actions: ["delete", "retrieve", "update"],
+        },
+        { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["delete"] },
+      ]);
       const randomRack = await client.racks.create({
         name: "test",
       });

@@ -15,7 +15,6 @@ import (
 )
 
 type Retrieve struct {
-	baseTX  gorp.Tx
 	indexes indexes
 	gorp    gorp.Retrieve[Key, Rack]
 }

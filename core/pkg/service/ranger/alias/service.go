@@ -11,7 +11,6 @@ package alias
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -33,7 +32,7 @@ type ParentRetriever interface {
 	RetrieveParentKey(
 		ctx context.Context,
 		key ranger.Key,
-		tx gorp.Tx,
+		snap gorp.Snapshot,
 	) (ranger.Key, error)
 }
 
@@ -95,11 +94,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigString(s.table.Observe())
-		signalsCfg.SetName = "sy_range_alias_set"
-		signalsCfg.DeleteName = "sy_range_alias_delete"
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, signalsCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[string, Alias]{
+			Changes:    s.table.Changes,
+			Resource:   resourceID,
+			SetKey:     signals.UnmarshalEntryKey[string, Alias],
+			SetName:    "sy_range_alias_set",
+			DeleteName: "sy_range_alias_delete",
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -112,16 +113,16 @@ func (s *Service) Close() error { return s.closer.Close() }
 // NewWriter opens a new Writer to create and delete aliases.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:      gorp.OverrideTx(s.cfg.DB, tx),
+		tx:      tx,
 		channel: s.cfg.Channel,
 		table:   s.table,
 	}
 }
 
 // NewReader opens a new Reader to retrieve aliases.
-func (s *Service) NewReader(tx gorp.Tx) Reader {
+func (s *Service) NewReader(snap gorp.Snapshot) Reader {
 	return Reader{
-		tx:              gorp.OverrideTx(s.cfg.DB, tx),
+		snap:            snap,
 		parentRetriever: s.cfg.ParentRetriever,
 		table:           s.table,
 	}

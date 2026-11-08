@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	freightertestutil "github.com/synnaxlabs/freighter/testutil"
+	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -26,6 +27,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -41,13 +43,17 @@ var _ = Describe("Framer", func() {
 				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
-			Expect(channelWriter.Create(ctx, &index)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &index)
+			})).To(Succeed())
 			data := channel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				LocalIndex: index.LocalKey,
 			}
-			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &data)
+			})).To(Succeed())
 			keys := channel.Keys{index.Key(), data.Key()}
 			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
 				Start: telem.SecondTS,
@@ -63,7 +69,9 @@ var _ = Describe("Framer", func() {
 				DataType:   telem.Float32T,
 				Expression: fmt.Sprintf("return %s * 2", data.Name),
 			}
-			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
 			client, server := freightertestutil.NewStreams[
 				apiframer.IteratorRequest,
 				apiframer.IteratorResponse,
@@ -103,13 +111,17 @@ var _ = Describe("Framer", func() {
 				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
-			Expect(channelWriter.Create(ctx, &index)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &index)
+			})).To(Succeed())
 			data = channel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				LocalIndex: index.LocalKey,
 			}
-			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &data)
+			})).To(Succeed())
 		})
 
 		It("Should open iterators over the requested channels", func(
@@ -291,6 +303,57 @@ var _ = Describe("Framer", func() {
 		})
 	})
 
+	Describe("Write", func() {
+		newStreams := func(ctx SpecContext) (
+			freighter.ClientStream[apiframer.WriterRequest, apiframer.WriterResponse],
+			apiframer.WriterStream,
+		) {
+			return freightertestutil.NewStreams[
+				apiframer.WriterRequest,
+				apiframer.WriterResponse,
+			](ctx)
+		}
+
+		It("Should refuse a writer on a change channel", func(ctx SpecContext) {
+			var ch channel.Channel
+			Expect(channelSvc.NewRetrieve().
+				Where(channel.MatchNames("sy_range_set")).
+				Entry(&ch).
+				Exec(ctx, db)).To(Succeed())
+			client, server := newStreams(ctx)
+			Expect(client.Send(apiframer.WriterRequest{
+				Config: apiframer.WriterConfig{Keys: channel.Keys{ch.Key()}},
+			})).To(Succeed())
+			Expect(apiSvc.Write(rootCtx(ctx), server)).To(MatchError(fmt.Sprintf(
+				"channel %d holds changes that only the Core writes: validation error",
+				ch.Key(),
+			)))
+		})
+
+		It("Should open a writer on a channel that holds no changes", func(
+			ctx SpecContext,
+		) {
+			c := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &c)
+			})).To(Succeed())
+			client, server := newStreams(ctx)
+			done := make(chan error, 1)
+			go func() { done <- apiSvc.Write(rootCtx(ctx), server) }()
+			Expect(client.Send(apiframer.WriterRequest{
+				Config: apiframer.WriterConfig{Keys: channel.Keys{c.Key()}},
+			})).To(Succeed())
+			Expect(client.Receive()).
+				To(HaveField("Command", svcframer.WriterCommandOpen))
+			Expect(client.CloseSend()).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
+		})
+	})
+
 	Describe("Delete", func() {
 		It("Should delete data by exact name and not read a name as a pattern", func(
 			ctx SpecContext,
@@ -300,13 +363,17 @@ var _ = Describe("Framer", func() {
 				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
-			Expect(channelWriter.Create(ctx, &index)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &index)
+			})).To(Succeed())
 			data := channel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				LocalIndex: index.LocalKey,
 			}
-			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &data)
+			})).To(Succeed())
 			keys := channel.Keys{index.Key(), data.Key()}
 			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
 				Start: telem.SecondTS,
@@ -325,12 +392,12 @@ var _ = Describe("Framer", func() {
 				}))
 				return iter.SeekFirst()
 			}
-			Expect(apiSvc.Delete(rootCtx(ctx), nil, apiframer.DeleteRequest{
+			Expect(apiSvc.Delete(rootCtx(ctx), db, apiframer.DeleteRequest{
 				Names:  []string{index.Name + ".*", data.Name + ".*"},
 				Bounds: telem.TimeRangeMax,
 			})).Error().ToNot(HaveOccurred())
 			Expect(hasData()).To(BeTrue())
-			Expect(apiSvc.Delete(rootCtx(ctx), nil, apiframer.DeleteRequest{
+			Expect(apiSvc.Delete(rootCtx(ctx), db, apiframer.DeleteRequest{
 				Names:  []string{index.Name, data.Name},
 				Bounds: telem.TimeRangeMax,
 			})).Error().ToNot(HaveOccurred())
@@ -380,19 +447,24 @@ var _ = Describe("Framer", func() {
 				DataType: telem.JSONT,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, &records)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &records)
+			})).To(Succeed())
 			other = channel.Channel{
 				Name:     UniqueChannelName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, &other)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
 			keys := channel.Keys{records.Key(), other.Key()}
 			svc := MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
+				DB:      db,
 				Framer:  framerSvc,
 				Channel: channelSvc,
 				RBAC:    rbacSvc,
-				Records: map[channel.Key]apiframer.RecordOf{
+				Records: map[channel.Key]signals.RecordOf{
 					records.Key(): func(sample []byte) (resource.ID, error) {
 						id, err := strconv.Unquote(string(sample))
 						if err != nil {

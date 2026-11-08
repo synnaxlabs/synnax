@@ -37,6 +37,7 @@ const (
 	FlagTaskWorkerCount              = "task-worker-count"
 	FlagDisableChannelNameValidation = "disable-channel-name-validation"
 	FlagStopOnStdinClose             = "stop-on-stdin-close"
+	FlagNoUpdateBackup               = "no-update-backup"
 )
 
 // AddFlags adds the start flags to the given command.
@@ -74,6 +75,12 @@ func AddFlags(cmd *cobra.Command) {
 		"Automatically generate self-signed certificates",
 	)
 	cmd.Flags().Bool(FlagNoDriver, false, "Disable the embedded Driver")
+	cmd.Flags().Bool(
+		FlagNoUpdateBackup,
+		false,
+		"Skip the backup before a new version first opens the data, so a failed "+
+			"update cannot be undone",
+	)
 	cmd.Flags().Bool(
 		FlagStopOnStdinClose,
 		false,

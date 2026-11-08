@@ -314,7 +314,9 @@ var _ = Describe("View", func() {
 					for i, v := range views {
 						keys[i] = v.GorpKey()
 					}
-					Expect(svc.NewWriter(nil).Delete(ctx, keys...)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, keys...)
+					})).To(Succeed())
 				})
 				Expect(
 					svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db),
