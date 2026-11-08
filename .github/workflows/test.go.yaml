@@ -143,6 +143,8 @@ jobs:
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
           version: v2.15.0
+          # GitHub release downloads can fail, so install from the Go module proxy.
+          install-mode: goinstall
           working-directory: ${{ inputs.directory }}
           install-only: true
           # The matchers register in install(), before install-only returns, so they
