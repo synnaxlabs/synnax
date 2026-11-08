@@ -488,26 +488,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.APIKey) {
 		return nil, err
 	}
-	var (
-		root                user.User
-		rootPasswordChanged bool
-	)
-	if !cfg.RootCredentials.IsZero() {
-		if root, rootPasswordChanged, err = user.ProvisionRoot(
-			ctx,
-			l.User,
-			l.Password,
-			cfg.RootCredentials,
-		); !ok(err, nil) {
-			return nil, err
-		}
-		if rootPasswordChanged {
-			cfg.L.Info(
-				"rotated root user password to match the start settings",
-				zap.String("username", cfg.RootCredentials.Username),
-			)
-		}
-	}
 	if l.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
 		Instrumentation: cfg.Child("rack"),
 		DB:              cfg.Distribution.DB,
@@ -531,6 +511,29 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Rack:            l.Rack,
 	}); !ok(err, nil) {
 		return nil, err
+	}
+	// The RBAC migrations give each stored user a role, so the root user is provisioned
+	// after them.
+	var (
+		root                user.User
+		rootPasswordChanged bool
+	)
+	if !cfg.RootCredentials.IsZero() {
+		if root, rootPasswordChanged, err = user.ProvisionRoot(
+			ctx,
+			l.User,
+			l.Password,
+			cfg.RootCredentials,
+			roles.Builtin.OwnerKey,
+		); !ok(err, nil) {
+			return nil, err
+		}
+		if rootPasswordChanged {
+			cfg.L.Info(
+				"rotated root user password to match the start settings",
+				zap.String("username", cfg.RootCredentials.Username),
+			)
+		}
 	}
 	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
 		Instrumentation: cfg.Child("auth"),

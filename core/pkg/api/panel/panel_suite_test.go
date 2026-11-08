@@ -60,14 +60,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
-	MustSucceed2(
-		user.ProvisionRoot(
-			ctx,
-			userSvc,
-			passwordSvc,
-			auth.Credentials{Username: "suite-root", Password: "p"},
-		),
-	)
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
 	}))
@@ -76,6 +68,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:   userSvc,
 		Status: statusSvc,
 	})).RBAC
+	MustSucceed2(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "suite-root", Password: "p"},
+			rbacSvc.Builtin.OwnerKey,
+		),
+	)
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB: db,
 	}))
@@ -84,7 +85,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Panel: panelSvc,
 	}))
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
+		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: db,
@@ -99,12 +100,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // absent.
 func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
 		Name: uuid.New().String(),
 	}))
 }
 
-// grant grants the action on the objects to the subject through a new role.
+// grant grants the action on the objects to the subject.
 func grant(
 	ctx SpecContext,
 	subject resource.ID,

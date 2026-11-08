@@ -36,7 +36,7 @@ interface Sent<V> {
  * useDraft tracks a field that edits and sends a value to a target, such as a command
  * channel. Without an edit or a pending send, the field follows the target.
  *
- * @param target is the value the target reports, or null when none is known.
+ * @param target - is the value the target reports, or null when none is known.
  */
 export const useDraft = <V>(target: V | null): Draft<V> => {
   const [edited, setEdited] = useState<V | null>(null);

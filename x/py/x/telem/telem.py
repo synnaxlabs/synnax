@@ -226,7 +226,7 @@ class TimeStamp(int):
         return int(self) > _stamp_operand(ts)
 
     def after_eq(self, ts: CrudeTimeStamp) -> bool:
-        """:return: True if the TimeStamp is after or equal to the given TimeStamp.
+        """:returns: True if the TimeStamp is after or equal to the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
         return int(self) >= _stamp_operand(ts)
@@ -250,7 +250,7 @@ class TimeStamp(int):
         return TimeRange(self, self + span).make_valid()
 
     def range(self, ts: CrudeTimeStamp) -> TimeRange:
-        """:return: A new TimeRange spanning the TimeStamp and provided TimeStamp. This
+        """:returns: A new TimeRange spanning the TimeStamp and provided TimeStamp. This
         TimeRange is guaranteed to be valid i.e. start before or equal to end.
         :param ts: The second time stamp
         """
@@ -769,7 +769,7 @@ def convert_time_units(
     :param data: the numpy array to convert.
     :param _from: the units of the data
     :param to: the units to convert to
-    :return: the data in the new units
+    :returns: the data in the new units
     """
     if _from == "iso":
         data = np.array([datetime.fromisoformat(v).timestamp() for v in data])
@@ -1339,7 +1339,7 @@ class DataType(str):
     @property
     def np(self) -> np.dtype:
         """Converts a built-in DataType to a numpy type Scalar Type
-        :return: The numpy type
+        :returns: The numpy type
         """
         npt = DataType._TO_NUMPY.get(self, None)
         if not isinstance(npt, np.dtype):
