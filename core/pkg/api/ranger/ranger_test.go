@@ -73,6 +73,7 @@ var _ = Describe("Retrieve", func() {
 	DescribeTable("Should keep a child range only when its parent passes", func(
 		ctx SpecContext,
 		parentGranted bool,
+		expected int,
 	) {
 		u := createUser(ctx)
 		parent := createRange(ctx)
@@ -94,10 +95,10 @@ var _ = Describe("Retrieve", func() {
 				Parents: []ranger.Key{parent.Key},
 			}},
 		))
-		Expect(len(res.Ranges) == 1).To(Equal(parentGranted))
+		Expect(res.Ranges).To(HaveLen(expected))
 	},
-		Entry("with the parent granted", true),
-		Entry("with the parent denied", false),
+		Entry("with the parent granted", true, 1),
+		Entry("with the parent denied", false, 0),
 	)
 
 	It("Should deny a named child range whose parent the subject cannot retrieve", func(
