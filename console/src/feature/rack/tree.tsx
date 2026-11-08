@@ -46,7 +46,7 @@ const useRename = Tree.createUseRename({
 
 const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const { data } = Rack.useResult({ key: Number(resource.id.key) });
+  const status = Rack.useResult({ key: Number(resource.id.key) }).data?.status;
 
   return (
     <PTree.Item {...rest}>
@@ -60,12 +60,7 @@ const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
         grow
         onChange
       />
-      {data?.version != null && (
-        <Text.Text level="small" color={9}>
-          v{data.version}
-        </Text.Text>
-      )}
-      <Rack.StatusIndicator status={data?.status} />
+      <Rack.StatusIndicator status={status} />
     </PTree.Item>
   );
 };

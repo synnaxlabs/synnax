@@ -469,7 +469,9 @@ export const renderTreeContextMenu = async (
 
 export interface RenderToolbarOptions extends Pick<RenderOptions, "onCaughtError"> {
   client: Synnax;
-  /** Real tree items keyed by resource type; other types fall back to Tree.DefaultItem. */
+  /**
+   * Real tree items keyed by resource type; other types fall back to Tree.DefaultItem.
+   */
   items?: Tree.Items;
 }
 
