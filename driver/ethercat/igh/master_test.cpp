@@ -110,6 +110,7 @@ const slave::StartupParameter ASSIGN_INPUTS{
     .value = 0x1A01,
 };
 
+/// @brief it should discover each slave on the bus.
 TEST_F(IGHMasterTest, ScanHappyPath) {
     this->add_default_slave();
     ASSERT_NIL_P(this->master_instance->scan());
@@ -130,17 +131,22 @@ TEST_F(IGHMasterTest, ScanDeviceCheckFails) {
     ASSERT_OCCURRED_AS_P(this->master_instance->scan(), errors::PERMISSION_DENIED);
 }
 
+/// @brief it should fail to scan when the Driver cannot request the master.
 TEST_F(IGHMasterTest, ScanRequestMasterFails) {
     this->mock_api->set_request_master_result(nullptr);
     ASSERT_OCCURRED_AS_P(this->master_instance->scan(), errors::MASTER_INIT_ERROR);
 }
 
+/// @brief it should fail to scan, and release the master, when it cannot read the
+/// master info.
 TEST_F(IGHMasterTest, ScanMasterInfoFails) {
     this->mock_api->set_master_info_result(-1);
     ASSERT_OCCURRED_AS_P(this->master_instance->scan(), errors::MASTER_INIT_ERROR);
     EXPECT_TRUE(this->mock_api->release_master_called());
 }
 
+/// @brief it should fail to scan, and release the master, when it cannot create the
+/// output domain.
 TEST_F(IGHMasterTest, ScanOutputDomainFails) {
     this->add_default_slave();
     this->mock_api->set_create_domain_fails_output(true);
@@ -148,6 +154,8 @@ TEST_F(IGHMasterTest, ScanOutputDomainFails) {
     EXPECT_TRUE(this->mock_api->release_master_called());
 }
 
+/// @brief it should fail to scan, and release the master, when it cannot create the
+/// input domain.
 TEST_F(IGHMasterTest, ScanInputDomainFails) {
     this->add_default_slave();
     this->mock_api->set_create_domain_fails_input(true);
@@ -155,12 +163,14 @@ TEST_F(IGHMasterTest, ScanInputDomainFails) {
     EXPECT_TRUE(this->mock_api->release_master_called());
 }
 
+/// @brief it should scan again without an error.
 TEST_F(IGHMasterTest, ScanIdempotent) {
     this->add_default_slave();
     ASSERT_NIL_P(this->master_instance->scan());
     ASSERT_NIL_P(this->master_instance->scan());
 }
 
+/// @brief it should read the identity and name of each slave.
 TEST_F(IGHMasterTest, ScanPopulatesSlaveInfo) {
     this->mock_api->add_slave(0, 0x1234, 0x5678, 3, 42, "EL2008");
     ASSERT_NIL_P(this->master_instance->scan());
@@ -174,6 +184,7 @@ TEST_F(IGHMasterTest, ScanPopulatesSlaveInfo) {
     EXPECT_EQ(slaves[0].properties.position, 0u);
 }
 
+/// @brief it should discover every slave on a bus of more than one slave.
 TEST_F(IGHMasterTest, ScanMultipleSlaves) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 10, "Slave0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 2, 20, "Slave1");

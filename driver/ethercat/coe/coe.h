@@ -36,9 +36,10 @@ using Read = std::function<
 /// @brief reads the PDOs that a slave assigns to each process data sync manager and the
 /// objects each PDO maps. Returns no sync managers when the slave has no sync manager
 /// type object (0x1C00) or no process data sync manager.
-/// @param max_syncs the most sync managers the master configures on a slave.
-/// @returns errors::PDO_DISCOVERY_ERROR when an object counts more sub-indices than it
-/// can hold, or the error of a failed read.
+/// @param max_syncs the most sync managers the master configures on a slave. The
+/// layout holds no sync manager past it.
+/// @returns errors::PDO_DISCOVERY_ERROR when a PDO assign or mapping object counts more
+/// sub-indices than it can hold, or the error of a failed read.
 std::pair<std::vector<pdo::Sync>, x::errors::Error>
 read_layout(const Read &read, uint32_t max_syncs);
 }
