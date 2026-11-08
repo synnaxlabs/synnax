@@ -59,14 +59,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
-	MustSucceed2(
-		user.ProvisionRoot(
-			ctx,
-			userSvc,
-			passwordSvc,
-			auth.Credentials{Username: "api-user-suite-root", Password: "p"},
-		),
-	)
 	writer = userSvc.NewWriter(nil)
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
@@ -76,6 +68,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:   userSvc,
 		Status: statusSvc,
 	})).RBAC
+	MustSucceed2(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "api-user-suite-root", Password: "p"},
+			rbacSvc.Builtin.OwnerKey,
+		),
+	)
 	apiSvc = MustSucceed(apiuser.NewService(apiuser.ServiceConfig{
 		RBAC:     rbacSvc,
 		User:     userSvc,

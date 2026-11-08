@@ -117,8 +117,7 @@ var _ = Describe("Time", func() {
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("interval_1"),
 			}
-			_, err := factory.Create(cfg)
-			Expect(err).To(Equal(query.ErrNotFound))
+			Expect(factory.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 		It(
 			"Should error at construction when the period input value is invalid",
