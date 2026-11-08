@@ -26,8 +26,8 @@ import (
 type Hook func(commit func() error) error
 
 // DB is a kv.DB whose transaction commits run through a Hook when one intercepts them.
-// The hook of the commit's context goes first, then the first key hook that matched.
-// Writes made without a transaction are never intercepted.
+// A commit runs through one hook at most: the hook of its context, or else a key hook
+// that one of its keys matched. A write outside a transaction is never intercepted.
 type DB struct {
 	kv.DB
 	mu   sync.Mutex
