@@ -690,7 +690,27 @@ describe("Cache", () => {
       const table = cache.createTable<string, Doc>({ name: "docs" });
       await cache.ensureStreaming();
       table.set(docs(11));
+      await sleep.sleep(TimeSpan.milliseconds(1));
+      table.set(docs(12)[11]);
       await expect.poll(() => table.size).toBe(9);
+      await cache.close();
+    });
+
+    it("should return every record of a fetch that passes the cap", async () => {
+      const cache = capped(async () => new MockStreamer());
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      const space = cache.queries<string, Doc[], string, Doc>({
+        name: "docs",
+        table,
+        fetch: async () => {
+          table.set(docs(12));
+          return docs(12).map(({ key }) => key);
+        },
+        compose: (records) => records,
+        matches: () => true,
+      });
+      await cache.ensureStreaming();
+      expect(await space.retrieve("all")).toEqual(docs(12));
       await cache.close();
     });
 
@@ -730,6 +750,8 @@ describe("Cache", () => {
       await cache.ensureStreaming();
       await space.retrieve("some");
       table.set(docs(20).slice(3));
+      await sleep.sleep(TimeSpan.milliseconds(1));
+      table.set(docs(21)[20]);
       await expect.poll(() => table.size).toBe(9);
       expect(space.getCached("some")).toBeUndefined();
       await cache.close();

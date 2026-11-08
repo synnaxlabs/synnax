@@ -233,6 +233,36 @@ describe("createPathHandlers", () => {
   });
 });
 
+describe("changesField", () => {
+  const fields = ["name"];
+
+  it.each<[string, patch.Action | { type: "rename" }, boolean]>([
+    [
+      "a set of a field",
+      { type: "set", set: { path: ["name"], value: "a", guards: [] } },
+      true,
+    ],
+    [
+      "a set inside a field",
+      { type: "set", set: { path: ["name", "x"], value: 1, guards: [] } },
+      true,
+    ],
+    [
+      "a remove of a field",
+      { type: "remove", remove: { path: [], key: "name", guards: [] } },
+      true,
+    ],
+    [
+      "a set of another field",
+      { type: "set", set: { path: ["data"], value: 1, guards: [] } },
+      false,
+    ],
+    ["an action that is not a path action", { type: "rename" }, false],
+  ])("should classify %s", (_, action, expected) => {
+    expect(actions.changesField(action, fields)).toBe(expected);
+  });
+});
+
 describe("NO_OP_RESULT", () => {
   it("Should expose empty inverse and targets", () => {
     expect(actions.NO_OP_RESULT.inverse).toHaveLength(0);

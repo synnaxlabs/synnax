@@ -224,13 +224,16 @@ export class Table<
   private writeSeq = 0;
   private resetSeq = 0;
   private changes = 0;
-  // Holds a stamp only for present and tombstoned entries: applyDelete drops the stamp
-  // of any other key, so the map never outgrows them.
+  // Holds a stamp for present and tombstoned entries, and for the entries that trim
+  // dropped, so a fetch from before a write never restores the older record.
   private readonly writeStamps = new Map<Key, Stamp>();
   private readonly holders = new Set<Holder<Key>>();
   // The last read or write of each entry, which orders the entries that trim drops.
   private readonly touches = new Map<Key, number>();
   private touchSeq = 0;
+  // The touch sequence when the last trim ran. A trim keeps every entry touched since,
+  // since a fetch in flight may not yet hold the records it just wrote.
+  private trimmedAt = 0;
 
   constructor({
     onError,
@@ -326,21 +329,29 @@ export class Table<
 
   /**
    * Drops the least recently read or written entries until at most size remain. Skips
-   * every entry that a holder or a keyed subscriber needs, and tells each holder what
-   * dropped. Drops silently: no event, no tombstone, and no new version, since no
-   * subscriber holds a dropped entry. A read of a dropped key fetches it again.
+   * every entry that a holder or a keyed subscriber needs, and every entry read or
+   * written since the last trim. Tells each holder what dropped. Drops silently: no
+   * event, no tombstone, and no new version, since no subscriber holds a dropped
+   * entry. A read of a dropped key fetches it again.
    * @returns the dropped keys.
    */
   trim(size: number): Key[] {
     const over = this.entries.size - size;
+    const since = this.trimmedAt;
+    this.trimmedAt = this.touchSeq;
     if (over <= 0) return [];
     const held = this.held();
+    const touchOf = (key: Key): number => this.touches.get(key) ?? 0;
     const dropped = Array.from(this.entries.keys())
-      .filter((key) => !held.has(key))
-      .sort((a, b) => (this.touches.get(a) ?? 0) - (this.touches.get(b) ?? 0))
+      .filter((key) => !held.has(key) && touchOf(key) <= since)
+      .sort((a, b) => touchOf(a) - touchOf(b))
       .slice(0, over);
     if (dropped.length === 0) return dropped;
-    dropped.forEach((key) => this.applyDelete(key));
+    dropped.forEach((key) => {
+      const stamp = this.writeStamps.get(key);
+      this.applyDelete(key);
+      if (stamp != null) this.writeStamps.set(key, stamp);
+    });
     const set = new Set(dropped);
     this.holders.forEach((holder) => holder.drop?.(set));
     return dropped;
@@ -743,12 +754,18 @@ export class Table<
     this.fetchBatcher?.close(closedError());
   }
 
-  private refetch(keys: Key[]): void {
+  /**
+   * Fetches the keys again in the background and overwrites their entries. Reports a
+   * failure other than a lost connection or a vanished record to the table's error
+   * sink.
+   */
+  refetch(keys: Key[]): void {
     if (this.fetchBatcher == null || keys.length === 0) return;
     this.retrieve(keys, { refresh: true }).catch((exc: unknown) => {
-      // The reconcile after the next reconnect fetches them.
-      if (isConnectionError(exc)) return;
-      this.onError(new Error("failed to fetch restored entries", { cause: exc }));
+      // The reconcile after the next reconnect fetches them, and a delete tombstones a
+      // vanished one.
+      if (isConnectionError(exc) || NotFoundError.matches(exc)) return;
+      this.onError(new Error("failed to refetch entries", { cause: exc }));
     });
   }
 
@@ -983,10 +1000,11 @@ export const createFetchListener = <
   bind: (table): Listener<Z> => ({
     channel,
     schema,
-    onChange: async (changed) => {
-      const held = changed.flatMap((c) => array.toArray(c)).filter((k) => table.has(k));
-      if (held.length > 0) await table.retrieve(held, { refresh: true });
-    },
+    // A refetch in the background keeps later frames off the network round trip.
+    onChange: (changed) =>
+      table.refetch(
+        changed.flatMap((c) => array.toArray(c)).filter((k) => table.has(k)),
+      ),
   }),
 });
 

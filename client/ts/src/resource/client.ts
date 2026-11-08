@@ -204,15 +204,14 @@ export class Client {
         // The caller may not be able to read a record that the table does not hold,
         // so the searches that cover its type and the answers of its ID refetch
         // instead of reading it.
-        onChange: async (changed) => {
+        onChange: (changed) => {
           const keys = changed.map(({ key }) => toKey(key));
-          const held = keys.filter((k) => table.has(k));
           const unheld = keys.filter((k) => !table.has(k));
           if (unheld.length > 0) {
             this.searches.refetchMatching((q) => q.types?.includes(type) ?? true);
             this.byKey.refetchMatching((k) => unheld.includes(k));
           }
-          if (held.length > 0) await table.retrieve(held, { refresh: true });
+          table.refetch(keys.filter((k) => table.has(k)));
         },
       }),
     };
