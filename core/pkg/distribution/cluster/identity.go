@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/version"
 )
 
@@ -66,7 +67,8 @@ func CheckIdentity(ctx context.Context, db kv.DB) error {
 		return errors.Wrap(err, "failed to decode the identity of the Core")
 	}
 	if r.HostKey != node.KeyBootstrapper || len(r.Nodes) > 1 {
-		return errors.Newf(
+		return errors.Wrapf(
+			validate.ErrValidation,
 			"the data directory belongs to node %d of a cluster, and a Core no longer runs as a cluster",
 			r.HostKey,
 		)
