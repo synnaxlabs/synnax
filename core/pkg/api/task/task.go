@@ -168,7 +168,8 @@ func (s *Service) Dispatch(
 	if err != nil {
 		return DispatchResponse{}, err
 	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	// Committed policies decide, as in bind.Write.
+	if err = s.access.NewEnforcer(s.db).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []resource.ID{task.ResourceID(req.Key)},

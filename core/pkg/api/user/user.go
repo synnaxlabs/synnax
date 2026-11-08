@@ -262,7 +262,7 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.enforceOnUsers(ctx, tx, access.ActionDelete, req.Keys); err != nil {
+	if err := s.enforceOnUsers(ctx, access.ActionDelete, req.Keys); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
@@ -282,7 +282,7 @@ func (s *Service) SetRole(
 	tx gorp.Tx,
 	req SetRoleRequest,
 ) (struct{}, error) {
-	if err := s.enforceOnUsers(ctx, tx, access.ActionUpdate, req.Keys); err != nil {
+	if err := s.enforceOnUsers(ctx, access.ActionUpdate, req.Keys); err != nil {
 		return struct{}{}, err
 	}
 	guard := func(u user.User) error {
@@ -300,14 +300,14 @@ func (s *Service) SetRole(
 }
 
 // enforceOnUsers checks the action on the users with the provided keys before a write
-// reads them, so a subject without access learns nothing from the root-user guard.
+// reads them, so a subject without access learns nothing from the root-user guard. It
+// reads committed policies, so a policy staged in the same transaction grants nothing.
 func (s *Service) enforceOnUsers(
 	ctx context.Context,
-	tx gorp.Tx,
 	action access.Action,
 	keys []user.Key,
 ) error {
-	return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	return s.access.NewEnforcer(s.db).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  action,
 		Objects: user.ResourceIDsFromKeys(keys),
