@@ -544,6 +544,42 @@ var _ = Describe("Service", func() {
 					),
 				))
 			})
+
+			It("Should not match the aliases that the subject cannot retrieve", func(
+				ctx SpecContext,
+			) {
+				reader := MustSucceed(rbactestutil.CreateUser(
+					ctx,
+					db,
+					rbacSvc,
+					userSvc,
+					user.User{Name: "reader-" + uuid.New().String()},
+				))
+				grantOn(
+					ctx,
+					reader.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					resource.ID{Type: resource.TypeChannel},
+				)
+				res := MustSucceed(retrieveChannels(
+					AuthedCtx(ctx, reader),
+					apichannel.AliasedRetrieveRequest{
+						Request: apichannel.RetrieveRequest{
+							Where:      both,
+							SearchTerm: term,
+						},
+						RangeKey: &rng.Key,
+					},
+				))
+				Expect(
+					lo.Map(
+						res.Channels,
+						func(ch apichannel.Channel, _ int) channel.Key {
+							return ch.Key
+						},
+					),
+				).To(Equal([]channel.Key{byName.Key()}))
+			})
 		})
 
 		It("Should treat a missing key as a non-match", func(ctx SpecContext) {

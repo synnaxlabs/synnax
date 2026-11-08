@@ -143,11 +143,13 @@ func (r Reader) listAliases(
 }
 
 // Search returns the channels whose alias on the specified range matches term, closest
-// match first. It does not search the aliases of parent ranges.
+// match first. It searches only the aliases of the channels that visible accepts, and
+// not the aliases of parent ranges.
 func (r Reader) Search(
 	ctx context.Context,
 	rng ranger.Key,
 	term string,
+	visible func(channel.Key) bool,
 ) ([]channel.Key, error) {
 	var aliases []Alias
 	if err := r.table.NewRetrieve().
@@ -158,22 +160,26 @@ func (r Reader) Search(
 	}
 	idx := search.New[channel.Key]()
 	for _, a := range aliases {
-		idx.Set(a.Channel, a.Alias)
+		if visible(a.Channel) {
+			idx.Set(a.Channel, a.Alias)
+		}
 	}
 	return idx.Search(search.Query[channel.Key]{Term: term}).Keys, nil
 }
 
 // SearchChannels returns the channels that q selects and that match term by name or by
 // their alias on rng. Alias matches come first, then name matches, each closest match
-// first. A positive limit and the offset page the merged list.
+// first. It matches only the aliases of the channels that visible accepts. A positive
+// limit and the offset page the merged list.
 func (r Reader) SearchChannels(
 	ctx context.Context,
 	q channel.Retrieve,
 	rng ranger.Key,
 	term string,
+	visible func(channel.Key) bool,
 	limit, offset int,
 ) ([]channel.Channel, error) {
-	keys, err := r.Search(ctx, rng, term)
+	keys, err := r.Search(ctx, rng, term, visible)
 	if err != nil {
 		return nil, err
 	}
