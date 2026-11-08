@@ -15,8 +15,8 @@
 #include <string>
 #include <vector>
 
-#include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/dc/dc.h"
+#include "driver/ethercat/pdo/pdo.h"
 
 /// @brief parsers for the categories of a slave's SII (EEPROM).
 namespace driver::ethercat::soem::sii {
@@ -26,7 +26,7 @@ using Strings = std::function<std::string(uint8_t index)>;
 /// @brief parses a TxPDO or RxPDO category. data holds the category after its length
 /// word. Leaves out a PDO on a sync manager at or above max_syncs, and a PDO that runs
 /// past the end of data.
-std::vector<coe::PDO>
+std::vector<pdo::PDO>
 parse_pdos(std::span<const uint8_t> data, uint8_t max_syncs, const Strings &strings);
 
 /// @brief parses the DC category, the synchronization modes of a slave, in SII order.

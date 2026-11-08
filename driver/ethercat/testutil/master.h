@@ -334,8 +334,6 @@ public:
                 };
             this->activated = true;
             this->cache_pdo_offsets();
-            if (this->input_sz == 0) this->input_sz = this->slave_list.size() * 4;
-            if (this->output_sz == 0) this->output_sz = this->slave_list.size() * 4;
             this->input_iomap.assign(this->input_sz, 0);
             this->output_iomap.assign(this->output_sz, 0);
             this->sent_outputs.assign(this->output_sz, 0);

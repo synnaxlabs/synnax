@@ -17,7 +17,6 @@
 #include <limits>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <set>
 #include <span>
@@ -67,8 +66,6 @@ class Master final : public master::Master {
     std::vector<uint8_t> iomap;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> slave_list;
-    /// @brief protects slave_list and the maps of the session that recovery writes.
-    mutable std::mutex mu;
     /// @brief whether scan() opened the interface and found slaves.
     bool initialized = false;
     /// @brief the frames that came back to the master.
@@ -143,18 +140,19 @@ public:
 
     x::errors::Error send() override;
 
+    /// @brief shares only atomics with receive() and send(), so it takes no lock.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
     std::optional<x::telem::TimeStamp> dc_time() const override;
 
 private:
-    /// @brief returns the entry of the slave at pos in the SOEM slave table. Entry 0
+    /// @brief returns the record of the slave at pos in the SOEM slave table. Record 0
     /// describes the whole bus.
-    [[nodiscard]] ec_slavet &slave(const uint16_t pos) {
+    [[nodiscard]] ec_slavet &record(const uint16_t pos) {
         return this->api->context.slavelist[pos];
     }
 
-    [[nodiscard]] const ec_slavet &slave(const uint16_t pos) const {
+    [[nodiscard]] const ec_slavet &record(const uint16_t pos) const {
         return this->api->context.slavelist[pos];
     }
 

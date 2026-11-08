@@ -24,19 +24,19 @@ uint32_t read(const std::span<const uint8_t> data, const size_t offset, const in
 }
 }
 
-std::vector<coe::PDO> parse_pdos(
+std::vector<pdo::PDO> parse_pdos(
     const std::span<const uint8_t> data,
     const uint8_t max_syncs,
     const Strings &strings
 ) {
-    std::vector<coe::PDO> pdos;
+    std::vector<pdo::PDO> pdos;
     size_t off = 0;
     while (off + PDO_HEADER_SIZE <= data.size()) {
         const auto count = data[off + 2];
         const auto sync_manager = data[off + 3];
         const auto end = off + PDO_HEADER_SIZE + count * PDO_ENTRY_SIZE;
         if (end > data.size()) break;
-        coe::PDO pdo{.index = static_cast<uint16_t>(read(data, off, 2)), .entries = {}};
+        pdo::PDO pdo{.index = static_cast<uint16_t>(read(data, off, 2)), .entries = {}};
         if (auto name = strings(data[off + 5]); !name.empty())
             pdo.name = std::move(name);
         for (size_t e = off + PDO_HEADER_SIZE; e < end; e += PDO_ENTRY_SIZE)
