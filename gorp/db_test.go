@@ -124,6 +124,18 @@ var _ = Describe("DB", func() {
 		)
 	})
 
+	Describe("OverrideSnapshot", func() {
+		It("Should return the override snapshot if it is not nil", func() {
+			tx := db.OpenTx()
+			Expect(gorp.OverrideSnapshot(db, tx)).To(BeIdenticalTo(tx))
+			Expect(tx.Close()).To(Succeed())
+		})
+		It("Should return the base snapshot if the override is nil", func() {
+			var tx gorp.Tx
+			Expect(gorp.OverrideSnapshot(db, tx)).To(BeIdenticalTo(db))
+		})
+	})
+
 	Describe("Lock", func() {
 		var (
 			lockDB *gorp.DB

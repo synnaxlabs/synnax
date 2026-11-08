@@ -213,18 +213,18 @@ func (s *Service) assignOwnerToRoots(ctx context.Context, ownerKey role.Key) err
 	})
 }
 
-// RolesOf returns the keys of the roles that the subjects hold, as seen by tx. A
+// RolesOf returns the keys of the roles that the subjects hold, as seen by snap. A
 // subject is a user or a rack. RolesOf returns a validation error for a subject of any
 // other type, and query.ErrNotFound when a subject does not exist.
 func (s *Service) RolesOf(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	subjects ...resource.ID,
 ) ([]role.Key, error) {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	snap = gorp.OverrideSnapshot(s.cfg.DB, snap)
 	var roles []role.Key
 	for _, subject := range subjects {
-		held, err := s.rolesOf(ctx, tx, subject)
+		held, err := s.rolesOf(ctx, snap, subject)
 		if err != nil {
 			return nil, err
 		}
@@ -235,7 +235,7 @@ func (s *Service) RolesOf(
 
 func (s *Service) rolesOf(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	subject resource.ID,
 ) ([]role.Key, error) {
 	switch subject.Type {
@@ -248,7 +248,7 @@ func (s *Service) rolesOf(
 		if err = s.cfg.User.NewRetrieve().
 			Where(user.MatchKeys(key)).
 			Entry(&u).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, snap); err != nil {
 			return nil, err
 		}
 		return u.Roles, nil
@@ -261,7 +261,7 @@ func (s *Service) rolesOf(
 		if err = s.cfg.Rack.NewRetrieve().
 			Where(rack.MatchKeys(key)).
 			Entry(&r).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, snap); err != nil {
 			return nil, err
 		}
 		return r.Roles, nil
@@ -284,7 +284,7 @@ func (e *Enforcer) retrievePolicies(
 	ctx context.Context,
 	subject resource.ID,
 ) ([]policy.Policy, error) {
-	roles, err := e.svc.RolesOf(ctx, e.tx, subject)
+	roles, err := e.svc.RolesOf(ctx, e.snap, subject)
 	// A subject that does not exist, such as a deleted user, holds no roles.
 	if errors.Is(err, query.ErrNotFound) {
 		return nil, nil
@@ -296,19 +296,19 @@ func (e *Enforcer) retrievePolicies(
 	if err := e.svc.Policy.NewRetrieve().
 		Where(policy.MatchRoles(roles...)).
 		Entries(&policies).
-		Exec(ctx, e.tx); err != nil {
+		Exec(ctx, e.snap); err != nil {
 		return nil, err
 	}
 	return policies, nil
 }
 
 type Enforcer struct {
-	svc *Service
-	tx  gorp.Tx
+	svc  *Service
+	snap gorp.Snapshot
 }
 
-func (s *Service) NewEnforcer(tx gorp.Tx) *Enforcer {
-	return &Enforcer{svc: s, tx: gorp.OverrideTx(s.cfg.DB, tx)}
+func (s *Service) NewEnforcer(snap gorp.Snapshot) *Enforcer {
+	return &Enforcer{svc: s, snap: gorp.OverrideSnapshot(s.cfg.DB, snap)}
 }
 
 // Enforce allows the request when the policies of the subject's roles cover every

@@ -168,6 +168,12 @@ func OverrideTx(
 	return lo.Ternary(override != nil, override, base)
 }
 
+// OverrideSnapshot returns the override snapshot if it is not nil. Otherwise, it
+// returns the base snapshot.
+func OverrideSnapshot(base, override Snapshot) Snapshot {
+	return lo.Ternary(override != nil, override, base)
+}
+
 // Tx extends the kv.Tx interface to provide gorp-required utilities for
 // executing a strongly-typed, atomic transaction against a DB. To open a
 // new transaction, call gorp.OpenTx and pass it to the required queries

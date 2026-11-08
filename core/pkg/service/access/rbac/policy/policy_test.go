@@ -657,7 +657,7 @@ var _ = Describe("ResolveRolesWith", func() {
 		subject = resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
 		rolesOf = func(
 			_ context.Context,
-			_ gorp.Tx,
+			_ gorp.Snapshot,
 			subjects ...resource.ID,
 		) ([]role.Key, error) {
 			if subjects[0] != subject {
@@ -689,7 +689,11 @@ var _ = Describe("ResolveRolesWith", func() {
 	})
 
 	It("Should return any other error of the role lookup", func(ctx SpecContext) {
-		rolesOf = func(context.Context, gorp.Tx, ...resource.ID) ([]role.Key, error) {
+		rolesOf = func(
+			context.Context,
+			gorp.Snapshot,
+			...resource.ID,
+		) ([]role.Key, error) {
 			return nil, errors.New("lookup failed")
 		}
 		Expect(retrieve(ctx, policy.MatchSubjects(subject))).Error().

@@ -32,7 +32,7 @@ type provider struct{ svc *Service }
 // Search implements resource.Provider.
 func (p provider) Search(
 	_ context.Context,
-	_ gorp.Tx,
+	_ gorp.Snapshot,
 	q search.Query[resource.ID],
 ) (search.Result[resource.ID], error) {
 	nodes := p.svc.cfg.Cluster.CopyState().Nodes
@@ -51,7 +51,7 @@ func (p provider) Search(
 // Retrieve implements resource.Provider.
 func (p provider) Retrieve(
 	_ context.Context,
-	_ gorp.Tx,
+	_ gorp.Snapshot,
 	ids []resource.ID,
 ) ([]resource.Resource, error) {
 	nodes := p.svc.cfg.Cluster.CopyState().Nodes
@@ -79,7 +79,7 @@ func (p provider) Retrieve(
 // List implements resource.Provider. It lists the nodes in order of key.
 func (p provider) List(
 	_ context.Context,
-	_ gorp.Tx,
+	_ gorp.Snapshot,
 	limit int,
 	except func(resource.ID) bool,
 ) ([]resource.Resource, error) {

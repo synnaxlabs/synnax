@@ -26,11 +26,11 @@ type Retrieve struct {
 	rolesOf RolesOf
 }
 
-// RolesOf returns the keys of the roles that the subjects hold, as seen by tx. It
+// RolesOf returns the keys of the roles that the subjects hold, as seen by snap. It
 // returns query.ErrNotFound when a subject does not exist.
 type RolesOf func(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	subjects ...resource.ID,
 ) ([]role.Key, error)
 
