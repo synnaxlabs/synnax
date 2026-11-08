@@ -85,7 +85,7 @@ var _ = Describe("Create", func() {
 			Symbols: []symbol.Symbol{inGroup("Inlet", g), inGroup("Outlet", g)},
 		}))
 		Expect(res.Symbols).To(HaveLen(2))
-		Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, g.Key)).To(ConsistOf(
+		Expect(groupSymbols(ctx, g.Key)).To(ConsistOf(
 			symbol.ResourceID(res.Symbols[0].Key),
 			symbol.ResourceID(res.Symbols[1].Key),
 		))
@@ -103,7 +103,7 @@ var _ = Describe("Create", func() {
 			access.ActionCreate,
 			resource.TypeSchematicSymbol,
 		))
-		Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, g.Key)).To(BeEmpty())
+		Expect(groupSymbols(ctx, g.Key)).To(BeEmpty())
 	})
 	It("Should reject the request when update is not granted on the group", func(
 		ctx SpecContext,
@@ -114,7 +114,7 @@ var _ = Describe("Create", func() {
 		Expect(create(AuthedCtx(ctx, u), apisymbol.CreateRequest{
 			Symbols: []symbol.Symbol{inGroup("Inlet", g)},
 		})).Error().To(denied(u.ResourceID(), access.ActionUpdate, g.ResourceID()))
-		Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, g.Key)).To(BeEmpty())
+		Expect(groupSymbols(ctx, g.Key)).To(BeEmpty())
 	})
 	It("Should need update on a stored symbol that it overwrites", func(
 		ctx SpecContext,
@@ -163,7 +163,7 @@ var _ = Describe("SetGroup", func() {
 			)
 			Expect(move(ctx, u, to, sym)).
 				Error().To(denied(u.ResourceID(), access.ActionUpdate, to.ResourceID()))
-			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, from.Key)).To(
+			Expect(groupSymbols(ctx, from.Key)).To(
 				ConsistOf(symbol.ResourceID(sym.Key)),
 			)
 		},
@@ -184,7 +184,7 @@ var _ = Describe("SetGroup", func() {
 			Expect(move(ctx, u, to, sym)).
 				Error().
 				To(denied(u.ResourceID(), access.ActionUpdate, from.ResourceID()))
-			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, from.Key)).To(
+			Expect(groupSymbols(ctx, from.Key)).To(
 				ConsistOf(symbol.ResourceID(sym.Key)),
 			)
 		},
@@ -200,7 +200,7 @@ var _ = Describe("SetGroup", func() {
 			access.ActionUpdate,
 			symbol.ResourceID(sym.Key),
 		))
-		Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, from.Key)).To(
+		Expect(groupSymbols(ctx, from.Key)).To(
 			ConsistOf(symbol.ResourceID(sym.Key)),
 		)
 	})
@@ -219,7 +219,7 @@ var _ = Describe("SetGroup", func() {
 				to.ResourceID(),
 			)
 			MustSucceed(move(ctx, u, to, sym))
-			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, to.Key)).To(
+			Expect(groupSymbols(ctx, to.Key)).To(
 				ConsistOf(symbol.ResourceID(sym.Key)),
 			)
 		},
@@ -516,7 +516,7 @@ var _ = Describe("ImportGroup", func() {
 			grantUpdateOn(ctx, u.ResourceID(), groupType)
 			res := MustSucceed(importGroup(AuthedCtx(ctx, u), newBundle("Valves")))
 			Expect(res.Group.Name).To(Equal("Valves"))
-			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, res.Group.Key)).
+			Expect(groupSymbols(ctx, res.Group.Key)).
 				To(HaveLen(1))
 		},
 	)

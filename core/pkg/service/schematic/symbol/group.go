@@ -15,47 +15,27 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
-
-// RetrieveGroupSymbols returns the resource ID of every symbol in the group identified
-// by key, reading through snap. It returns query.ErrNotFound when no group has key.
-func (s *Service) RetrieveGroupSymbols(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	key group.Key,
-) ([]resource.ID, error) {
-	if err := s.cfg.Group.NewRetrieve().
-		Where(group.MatchKeys(key)).
-		Entry(&group.Group{}).
-		Exec(ctx, snap); err != nil {
-		return nil, err
-	}
-	var symbols []Symbol
-	if err := s.NewRetrieve().
-		Where(MatchGroups(key)).
-		Entries(&symbols).
-		Exec(ctx, snap); err != nil {
-		return nil, err
-	}
-	return lo.Map(symbols, func(sym Symbol, _ int) resource.ID {
-		return sym.ResourceID()
-	}), nil
-}
 
 // DeleteGroup deletes the group identified by key and every symbol in it. It returns
 // query.ErrNotFound when no group has key, and a validation error when the group holds
 // anything other than symbols.
 func (s *Service) DeleteGroup(ctx context.Context, tx gorp.Tx, key group.Key) error {
-	ids, err := s.RetrieveGroupSymbols(ctx, tx, key)
-	if err != nil {
+	if err := s.cfg.Group.NewRetrieve().
+		Where(group.MatchKeys(key)).
+		Entry(&group.Group{}).
+		Exec(ctx, tx); err != nil {
 		return err
 	}
-	keys, err := KeysFromResourceIDs(ids)
-	if err != nil {
+	var symbols []Symbol
+	if err := s.NewRetrieve().
+		Where(MatchGroups(key)).
+		Entries(&symbols).
+		Exec(ctx, tx); err != nil {
 		return err
 	}
-	if err = s.NewWriter(tx).Delete(ctx, keys...); err != nil {
+	keys := lo.Map(symbols, func(sym Symbol, _ int) Key { return sym.Key })
+	if err := s.NewWriter(tx).Delete(ctx, keys...); err != nil {
 		return err
 	}
 	return s.cfg.Group.NewWriter(tx).Delete(ctx, key)
