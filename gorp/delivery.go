@@ -22,9 +22,22 @@ type Commit struct {
 	// Seq is the number of the commit. The first commit of the DB that changes a record
 	// is 1, and each later one is one more. A commit that changes no record has none.
 	Seq uint64
+	// DispatchKey is the key that the caller set with SetDispatchKey, or empty when it
+	// set none. The client that made the change uses it to know its own echo.
+	DispatchKey string
 	// Changes is what the commit changed. The readers of a commit share it, so a reader
 	// must not modify it.
 	Changes Changes
+}
+
+// SetDispatchKey sets the DispatchKey that the Commit of tx carries. Call it before the
+// commit, on the goroutine that writes through tx. It panics when tx is a DB.
+func SetDispatchKey(tx Tx, key string) {
+	state := tx.txIdentity()
+	if state == nil {
+		panic("[gorp] - SetDispatchKey needs a transaction, not a DB")
+	}
+	state.dispatchKey = key
 }
 
 // Observe returns an observable that delivers each Commit of the DB to its readers in
@@ -79,8 +92,9 @@ func (d *delivery) take() ticket {
 	return t
 }
 
-// run delivers changes as the commit of t, after the commit before t delivers.
-func (d *delivery) run(ctx context.Context, t ticket, changes *changeList) {
+// run delivers the transaction of state as the commit of t, after the commit before t
+// delivers.
+func (d *delivery) run(ctx context.Context, t ticket, state *txState) {
 	if t.done == nil {
 		return
 	}
@@ -88,5 +102,9 @@ func (d *delivery) run(ctx context.Context, t ticket, changes *changeList) {
 	if t.prev != nil {
 		<-t.prev
 	}
-	d.observer.Notify(ctx, Commit{Seq: t.seq, Changes: changes.list()})
+	d.observer.Notify(ctx, Commit{
+		Seq:         t.seq,
+		DispatchKey: state.dispatchKey,
+		Changes:     state.changes.list(),
+	})
 }

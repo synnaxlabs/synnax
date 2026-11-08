@@ -264,4 +264,42 @@ var _ = Describe("Delivery", func() {
 		Expect(stopped).To(Equal([]uint64{1}))
 		Expect(*commits).To(HaveLen(2))
 	})
+
+	Describe("SetDispatchKey", func() {
+		keyed := func(ctx context.Context, key string, k int32) func(gorp.Tx) error {
+			return func(tx gorp.Tx) error {
+				gorp.SetDispatchKey(tx, key)
+				return create(ctx, k)(tx)
+			}
+		}
+
+		It("Should carry the key to the delivery of the commit", func(ctx SpecContext) {
+			commits := collect()
+			Expect(db.WithTx(ctx, keyed(ctx, "echo", 1))).To(Succeed())
+			Expect(*commits).To(Equal([]gorp.Commit{
+				{Seq: 1, DispatchKey: "echo", Changes: gorp.Changes{created(1)}},
+			}))
+		})
+
+		It("Should deliver an empty key when none is set", func(ctx SpecContext) {
+			commits := collect()
+			Expect(db.WithTx(ctx, create(ctx, 1))).To(Succeed())
+			Expect(*commits).To(HaveExactElements(HaveField("DispatchKey", "")))
+		})
+
+		It("Should not carry a key into the next transaction", func(ctx SpecContext) {
+			commits := collect()
+			Expect(db.WithTx(ctx, keyed(ctx, "echo", 1))).To(Succeed())
+			Expect(db.WithTx(ctx, create(ctx, 2))).To(Succeed())
+			Expect(*commits).To(HaveExactElements(
+				HaveField("DispatchKey", "echo"),
+				HaveField("DispatchKey", ""),
+			))
+		})
+
+		It("Should panic for a DB", func() {
+			Expect(func() { gorp.SetDispatchKey(db, "echo") }).
+				To(PanicWith("[gorp] - SetDispatchKey needs a transaction, not a DB"))
+		})
+	})
 })

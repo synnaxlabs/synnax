@@ -199,6 +199,9 @@ type txState struct {
 	// changes is what the typed writes through the transaction changed. Only the
 	// goroutine that writes through the transaction touches it.
 	changes changeList
+	// dispatchKey is the key that SetDispatchKey set. Only the goroutine that writes
+	// through the transaction touches it.
+	dispatchKey string
 }
 
 // Committing reports whether a commit attempt is in flight.
@@ -292,7 +295,7 @@ func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	err := t.Tx.Commit(ctx, append(slices.Clip(opts), applied)...)
 	t.end(err == nil)
 	t.state.committing.Store(false)
-	t.db.delivery.run(ctx, t.ticket, &t.state.changes)
+	t.db.delivery.run(ctx, t.ticket, &t.state)
 	if err == nil {
 		t.state.runCommits()
 	}
