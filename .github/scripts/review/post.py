@@ -130,11 +130,16 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
         "output": render.check(review),
     }
     write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
-    if review.findings:
-        # A dismissal that came while this review posted found its check run running.
+    if not review.findings:
+        return
+    # A dismissal that came while this review posted found its check run running. The
+    # review is complete, so a failure here must not mark it failed.
+    try:
         run = f"repos/{t.repo}/check-runs/{t.check_run}"
         key = gh("api", run, "--jq", ".external_id").strip()
         rescore(t, gh, threads(t, gh), key)
+    except subprocess.CalledProcessError as e:
+        print(f"::warning::Could not read dismissals after the review: {e}")
 
 
 def _drop(review: Review, gone: set[tuple[str, str]]) -> Review:

@@ -259,6 +259,19 @@ class TestDismissedFindings:
         assert check["output"]["title"] == "Confidence Score: 5/5"
         assert check["external_id"] == "7:main"
 
+    def test_should_keep_the_review_when_the_late_read_fails(
+        self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        def fail(*args: str, stdin: str | None = None) -> str:
+            if args[1] == f"repos/{REPO}/check-runs/55":
+                raise subprocess.CalledProcessError(1, ["gh", *args])
+            return gh(*args, stdin=stdin)
+
+        post(review(finding()), target=TARGET, gh=fail)
+        [done] = gh.written("PATCH", "check-runs/55")
+        assert done["output"]["title"] == "Confidence Score: 4/5"
+        assert "::warning::Could not read dismissals" in capsys.readouterr().out
+
     def test_should_keep_a_finding_whose_dismissal_is_quoted(self, gh: FakeGH) -> None:
         reply = "> reply `@sedosaur dismiss` and a reason\n\nNo, I disagree."
         gh.threads = [thread("sedosaur", reply)]
