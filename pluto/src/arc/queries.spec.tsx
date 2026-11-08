@@ -516,9 +516,7 @@ describe("Arc queries", () => {
 
       const moved = await client.tasks.retrieve(first.key);
       expect(moved.rack).toBe(rack2.key);
-      const arcTasks = await client.tasks.retrieve({
-        where: { arcs: [created.key] },
-      });
+      const arcTasks = await client.tasks.retrieve({ arcs: [created.key] });
       expect(arcTasks.map((t) => t.key)).toEqual([first.key]);
     });
 

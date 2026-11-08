@@ -134,7 +134,7 @@ describe("Rack", () => {
       await waitForStreamLive(local.connection);
       await local.racks.retrieve(r.key);
       const { responded, release } = holdResponses(local, "/rack/retrieve");
-      const fetching = local.racks.retrieve({ where: { name: { eq: r.name } } });
+      const fetching = local.racks.retrieve({ name: [r.name] });
       await responded;
       const name = `rack-renamed-${id.create()}`;
       await client.racks.rename(r.key, name);
@@ -255,9 +255,7 @@ describe("Rack", () => {
     });
     it("should treat a missing key as a non-match", async () => {
       const r = await client.racks.create({ name: "rack-missing-key" });
-      const results = await client.racks.retrieve({
-        where: { key: { in: [r.key, 4123456789] } },
-      });
+      const results = await client.racks.retrieve({ key: [r.key, 4123456789] });
       expect(results.map(({ key }) => key)).toEqual([r.key]);
     });
     it("should retrieve racks by search term", async () => {
@@ -290,9 +288,7 @@ describe("Rack", () => {
         name: "rack-modbus-only",
         integrations: ["modbus"],
       });
-      const results = await client.racks.retrieve({
-        where: { integrations: { any: ["ni"] } },
-      });
+      const results = await client.racks.retrieve({ integrations: "ni" });
       const keys = results.map((r) => r.key);
       expect(keys).toContain(r1.key);
       expect(keys).not.toContain(r2.key);
@@ -368,7 +364,7 @@ describe("Rack", () => {
       await expect
         .poll(async () => {
           const retrieved = await client.racks.retrieve({
-            where: { key: { in: [r1.key, r2.key] } },
+            key: [r1.key, r2.key],
             includeStatus: true,
           });
           statuses = retrieved.map((r) => r.status);
