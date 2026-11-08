@@ -2043,6 +2043,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
