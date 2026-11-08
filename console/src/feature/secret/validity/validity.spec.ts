@@ -90,6 +90,12 @@ describe("secret/validity", () => {
         text: "/etc/ssl/client.pem",
       });
     });
+    it("shows an unknown expiry for a stored certificate with no details", () => {
+      const { details: _, ...c } = STORED;
+      expect(Validity.describeCertificate(c, NOT_AFTER)).toEqual({
+        text: "Expiry unknown",
+      });
+    });
   });
 
   describe("describeSecret", () => {
