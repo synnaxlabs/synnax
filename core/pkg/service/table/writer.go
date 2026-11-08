@@ -225,22 +225,24 @@ func duplicateKey[T any](items []T, keyOf func(T) string) (string, bool) {
 // Returns a validation error, and stores nothing, if the actions leave the table
 // invalid.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	if err := w.tbl.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
-		ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
-			reduced, err := Reduce(t, acts...)
-			if err != nil {
-				return Table{}, err
-			}
-			if err = reduced.Validate(); err != nil {
-				return Table{}, err
-			}
-			if err = validateUniqueKeys(reduced); err != nil {
-				return Table{}, err
-			}
-			return reduced, nil
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return w.inTx(ctx, func(w Writer) error {
+		if err := w.tbl.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
+			ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
+				reduced, err := Reduce(t, acts...)
+				if err != nil {
+					return Table{}, err
+				}
+				if err = reduced.Validate(); err != nil {
+					return Table{}, err
+				}
+				if err = validateUniqueKeys(reduced); err != nil {
+					return Table{}, err
+				}
+				return reduced, nil
+			}).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.dispatcher.Attach(w.tx, key, acts...)
+		return nil
+	})
 }

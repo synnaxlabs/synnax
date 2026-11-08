@@ -223,19 +223,21 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 // to the transaction of w, so its commit broadcasts them with the dispatch key of w.
 // Returns a validation error, and stores nothing, if the actions leave the log invalid.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Log](key)).
-		ChangeErr(func(_ gorp.Context, l Log) (Log, error) {
-			reduced, err := Reduce(l, acts...)
-			if err != nil {
-				return Log{}, err
-			}
-			if err = validateWrite(reduced); err != nil {
-				return Log{}, err
-			}
-			return reduced, nil
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return w.inTx(ctx, func(w Writer) error {
+		if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Log](key)).
+			ChangeErr(func(_ gorp.Context, l Log) (Log, error) {
+				reduced, err := Reduce(l, acts...)
+				if err != nil {
+					return Log{}, err
+				}
+				if err = validateWrite(reduced); err != nil {
+					return Log{}, err
+				}
+				return reduced, nil
+			}).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.dispatcher.Attach(w.tx, key, acts...)
+		return nil
+	})
 }

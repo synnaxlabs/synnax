@@ -169,11 +169,13 @@ func labelsAction(labels []label.Key) Action {
 // result fails to decode or validate, and an error wrapping query.ErrNotFound when no
 // range has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	if err := w.apply(ctx, key, acts); err != nil {
-		return err
-	}
-	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return w.inTx(ctx, func(w Writer) error {
+		if err := w.apply(ctx, key, acts); err != nil {
+			return err
+		}
+		w.dispatcher.Attach(w.tx, key, acts...)
+		return nil
+	})
 }
 
 // apply applies the actions to the range with the given key and stores the result.

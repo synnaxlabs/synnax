@@ -230,32 +230,34 @@ func (w Writer) Delete(
 // target is a snapshot and any action other than Rename is included. Also returns a
 // validation error, and stores nothing, if the actions leave the schematic invalid.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
-		ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
-			if sch.Snapshot {
-				for _, a := range acts {
-					if a.Type != ActionTypeRename {
-						return sch, errors.Wrapf(
-							validate.ErrValidation,
-							"[Schematic] - cannot dispatch %s on snapshot %s:%s",
-							a.Type,
-							key,
-							sch.Name,
-						)
+	return w.inTx(ctx, func(w Writer) error {
+		if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
+			ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
+				if sch.Snapshot {
+					for _, a := range acts {
+						if a.Type != ActionTypeRename {
+							return sch, errors.Wrapf(
+								validate.ErrValidation,
+								"[Schematic] - cannot dispatch %s on snapshot %s:%s",
+								a.Type,
+								key,
+								sch.Name,
+							)
+						}
 					}
 				}
-			}
-			reduced, err := Reduce(sch, acts...)
-			if err != nil {
-				return Schematic{}, err
-			}
-			if err = reduced.Validate(); err != nil {
-				return Schematic{}, err
-			}
-			return reduced, nil
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+				reduced, err := Reduce(sch, acts...)
+				if err != nil {
+					return Schematic{}, err
+				}
+				if err = reduced.Validate(); err != nil {
+					return Schematic{}, err
+				}
+				return reduced, nil
+			}).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.dispatcher.Attach(w.tx, key, acts...)
+		return nil
+	})
 }

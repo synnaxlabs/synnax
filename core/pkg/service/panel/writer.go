@@ -206,22 +206,24 @@ func (w Writer) Delete(
 // Returns a validation error, and stores nothing, if the actions leave the panel
 // invalid.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
-		ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
-			reduced, err := Reduce(p, acts...)
-			if err != nil {
-				return Panel{}, err
-			}
-			if err = validateTree(reduced.Root); err != nil {
-				return Panel{}, err
-			}
-			if err = reduced.Validate(); err != nil {
-				return Panel{}, err
-			}
-			return reduced, nil
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return w.inTx(ctx, func(w Writer) error {
+		if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
+			ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
+				reduced, err := Reduce(p, acts...)
+				if err != nil {
+					return Panel{}, err
+				}
+				if err = validateTree(reduced.Root); err != nil {
+					return Panel{}, err
+				}
+				if err = reduced.Validate(); err != nil {
+					return Panel{}, err
+				}
+				return reduced, nil
+			}).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.dispatcher.Attach(w.tx, key, acts...)
+		return nil
+	})
 }

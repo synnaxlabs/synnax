@@ -248,11 +248,16 @@ func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 // set of the name targets a snapshot, or the result fails to decode or validate, and an
 // error wrapping query.ErrNotFound when no task has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
-	added, err := w.apply(ctx, key, acts)
-	if err != nil {
+	var added []Action
+	if err := w.inTx(ctx, func(w Writer) (err error) {
+		if added, err = w.apply(ctx, key, acts); err != nil {
+			return err
+		}
+		w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
 	return added, nil
 }
 

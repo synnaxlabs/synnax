@@ -73,11 +73,13 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 // result fails to decode or validate, and an error wrapping query.ErrNotFound when no
 // label has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	if err := w.apply(ctx, key, acts); err != nil {
-		return err
-	}
-	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return w.inTx(ctx, func(w Writer) error {
+		if err := w.apply(ctx, key, acts); err != nil {
+			return err
+		}
+		w.dispatcher.Attach(w.tx, key, acts...)
+		return nil
+	})
 }
 
 // apply applies the actions to the label with the given key and stores the result.
