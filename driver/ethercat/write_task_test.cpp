@@ -373,8 +373,8 @@ TEST_F(EtherCATWriteTest, FactoryStartsAWriteTaskAtItsExecutionRate) {
     ASSERT_NE(write_task, nullptr);
     synnax::task::Command start{.task = task.key, .type = "start"};
     write_task->exec(start);
-    ASSERT_EVENTUALLY_GE(this->ctx->statuses.size(), 1);
-    EXPECT_EQ(this->ctx->statuses[0].message, "Started task");
+    ASSERT_EVENTUALLY_GE(this->ctx->snapshot().size(), 1);
+    EXPECT_EQ(this->ctx->snapshot()[0].message, "Started task");
     EXPECT_EQ(this->mock_master->plan().period, x::telem::MILLISECOND * 4);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     write_task->exec(stop);
