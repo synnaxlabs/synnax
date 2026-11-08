@@ -45,6 +45,9 @@ type Driver struct {
 		instances map[task.Key]instance
 		// failures holds the error of each task that this driver failed to deploy.
 		failures map[task.Key]error
+		// stopping holds a channel for each task whose deleted instance is stopping.
+		// The channel closes when the stop returns. A deploy of the task waits for it.
+		stopping map[task.Key]chan struct{}
 		sync.RWMutex
 	}
 }
@@ -78,6 +81,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	d = &Driver{cfg: cfg}
 	d.mu.instances = make(map[task.Key]instance)
 	d.mu.failures = make(map[task.Key]error)
+	d.mu.stopping = make(map[task.Key]chan struct{})
 	cleanup, ok := service.NewOpener(ctx, &d.closer)
 	defer func() { err = cleanup(err) }()
 
@@ -571,7 +575,15 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 	existing, hadExisting := d.mu.instances[t.Key]
 	delete(d.mu.instances, t.Key)
 	delete(d.mu.failures, t.Key)
+	stopping := d.mu.stopping[t.Key]
 	d.mu.Unlock()
+	if stopping != nil {
+		select {
+		case <-stopping:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 
 	if hadExisting {
 		if err := existing.task.Stop(false); err != nil {
@@ -642,11 +654,17 @@ func (d *Driver) stopDeleted() {
 		if inst.deleted {
 			stops[key] = inst.task
 			delete(d.mu.instances, key)
+			d.mu.stopping[key] = make(chan struct{})
 		}
 	}
 	d.mu.Unlock()
 	for key, t := range stops {
-		if err := t.Stop(false); err != nil {
+		err := t.Stop(false)
+		d.mu.Lock()
+		close(d.mu.stopping[key])
+		delete(d.mu.stopping, key)
+		d.mu.Unlock()
+		if err != nil {
 			d.cfg.L.Error(
 				"failed to stop task",
 				zap.Stringer("task", key),
