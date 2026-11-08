@@ -125,6 +125,24 @@ var _ = Describe("Import", func() {
 		},
 	)
 
+	It(
+		"Should need no access on a parent that the importer does not write",
+		func(ctx SpecContext) {
+			u := MustSucceed(
+				rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+					Name: "parentless-" + uuid.New().String(),
+				}),
+			)
+			fctx := subjectCtx(ctx, u)
+			fctx.Set("params", fmt.Sprintf(
+				`{"file_name":"Metrics Log.json","parent":"project:%s"}`,
+				uuid.New(),
+			))
+			id := MustSucceed(importEnvelope(fctx, testEnvelope("ignored-parent")))
+			Expect(id.Key).To(Equal("ignored-parent"))
+		},
+	)
+
 	It("Should reject a typeless envelope no matcher claims", func(ctx SpecContext) {
 		var env imex.Envelope
 		Expect(json.Unmarshal(

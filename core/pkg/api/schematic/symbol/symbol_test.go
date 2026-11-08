@@ -355,6 +355,15 @@ var _ = Describe("Delete", func() {
 			Expect(exists(ctx, sym.Key)).To(BeTrue())
 		},
 	)
+	It("Should need no access to delete a key that matches no symbol", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		MustSucceed(del(
+			AuthedCtx(ctx, u),
+			apisymbol.DeleteRequest{Keys: []symbol.Key{uuid.New()}},
+		))
+	})
 })
 
 var _ = Describe("ExportGroup", func() {
