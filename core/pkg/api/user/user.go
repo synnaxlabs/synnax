@@ -30,7 +30,7 @@ import (
 
 // ServiceConfig is the configuration for the user API service.
 type ServiceConfig struct {
-	// RBAC checks the access of retrieve requests.
+	// RBAC checks that the subject can create users before it hashes their passwords.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service

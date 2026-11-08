@@ -24,7 +24,7 @@ import (
 
 // ServiceConfig is the configuration for the policy API service.
 type ServiceConfig struct {
-	// RBAC checks the access of retrieve requests.
+	// RBAC stores and retrieves policies.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service

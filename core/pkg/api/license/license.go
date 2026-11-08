@@ -28,7 +28,7 @@ import (
 
 // ServiceConfig is the configuration for the license API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of activate and deactivate requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service

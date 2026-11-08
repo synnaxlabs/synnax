@@ -24,7 +24,7 @@ import (
 
 // ServiceConfig is the configuration for the role API service.
 type ServiceConfig struct {
-	// RBAC checks the access of retrieve requests.
+	// RBAC stores and retrieves roles.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
