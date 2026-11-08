@@ -52,8 +52,8 @@ cc_library(
     srcs = ["sii.cpp"],
     hdrs = ["sii.h"],
     deps = [
-        "//driver/ethercat/pdo",
         "//driver/ethercat/dc",
+        "//driver/ethercat/pdo",
         "//driver/ethercat/telem",
     ],
 )
@@ -121,8 +121,8 @@ cc_library(
     hdrs = ["master.h"],
     visibility = ["//driver/ethercat:__pkg__"],
     deps = [
-        ":soem_api",
         ":sii",
+        ":soem_api",
         ":util",
         "//driver/ethercat/coe",
         "//driver/ethercat/dc",
