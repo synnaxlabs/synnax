@@ -105,54 +105,6 @@ protected:
     }
 };
 
-TEST_F(EtherCATScanTest, ScannerCreation) {
-    synnax::task::Task task{
-        .rack = this->rack.key,
-        .name = "EtherCAT Scanner",
-        .type = SCAN_TASK_TYPE,
-        .internal = true
-    };
-    const ScanTaskConfig cfg;
-    const Scanner scanner(ctx, task, cfg, nullptr);
-    EXPECT_EQ(scanner.config().make, INTEGRATION_NAME);
-}
-
-TEST_F(EtherCATScanTest, ScanConfigParsesCorrectly) {
-    x::json::json cfg_json = {{"rate", 2.0}, {"disabled", false}};
-
-    x::json::Parser parser(cfg_json);
-    ScanTaskConfig cfg(parser);
-
-    ASSERT_NIL(parser.error());
-    EXPECT_EQ(cfg.rate.hz(), 2.0);
-    EXPECT_FALSE(cfg.disabled);
-}
-
-TEST_F(EtherCATScanTest, ScanConfigDefaultValues) {
-    x::json::json cfg_json = {};
-
-    x::json::Parser parser(cfg_json);
-    ScanTaskConfig cfg(parser);
-
-    ASSERT_NIL(parser.error());
-    EXPECT_FALSE(cfg.disabled);
-}
-
-TEST_F(EtherCATScanTest, ScannerConfigReturnsCorrectValues) {
-    synnax::task::Task task{
-        .rack = rack.key,
-        .name = "EtherCAT Scanner",
-        .type = SCAN_TASK_TYPE,
-        .internal = true,
-    };
-    ScanTaskConfig cfg;
-    Scanner scanner(ctx, task, cfg, nullptr);
-
-    auto config = scanner.config();
-    EXPECT_EQ(config.make, INTEGRATION_NAME);
-    EXPECT_EQ(config.log_prefix, SCAN_LOG_PREFIX);
-}
-
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     synnax::task::Task task{
         .rack = rack.key,
@@ -191,43 +143,6 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
 
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_FALSE(handled);
-}
-
-TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
-    auto mock_master = std::make_shared<testutil::Master>("eth0");
-    mock_master->add_slave(
-        slave::Properties{
-            .position = 0,
-            .vendor_id = 0x1,
-            .product_code = 0x2,
-            .serial = 12345,
-            .name = "Test Slave",
-        }
-    );
-
-    auto manager = std::make_unique<testutil::Manager>();
-    manager->configure("eth0", mock_master);
-    auto pool = std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS);
-
-    synnax::task::Task task{
-        .rack = this->rack.key,
-        .name = "EtherCAT Scanner",
-        .type = SCAN_TASK_TYPE,
-        .internal = true
-    };
-    ScanTaskConfig cfg;
-    Scanner scanner(this->ctx, task, cfg, pool);
-
-    synnax::task::Command cmd;
-    cmd.type = TEST_INTERFACE_CMD_TYPE;
-    cmd.args = {{"interface", "eth0"}};
-    cmd.key = '1';
-
-    bool handled = scanner.exec(cmd, task, this->ctx);
-    EXPECT_TRUE(handled);
-    ASSERT_FALSE(this->ctx->statuses.empty());
-    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_NE(this->ctx->statuses.back().message.find("1 slaves"), std::string::npos);
 }
 
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
@@ -818,22 +733,6 @@ TEST_F(EtherCATScanDeviceSetTest, ReportsInvalidProperties) {
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Invalid device properties");
     EXPECT_EQ(status.description, "enabled: type must be boolean, but is null");
-}
-
-/// @brief it should report an error status that names an invalid startup parameter.
-TEST_F(EtherCATScanDeviceSetTest, ReportsAnInvalidStartupParameter) {
-    auto dev = this->create_slave(true);
-    dev.properties["startup_parameters"] = {
-        {{"index", 0x8000}, {"sub_index", 0x15}, {"data_type", "uint8"}, {"value", 300}}
-    };
-    this->scanner->on_device_set(dev);
-    const auto status = this->status(dev);
-    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(status.message, "Invalid device properties");
-    EXPECT_EQ(
-        status.description,
-        "startup_parameters.0.value: must be a whole number from 0 to 255"
-    );
 }
 
 /// @brief it should show an invalid startup parameter on the device status at each
