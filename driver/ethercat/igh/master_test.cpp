@@ -187,13 +187,17 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheDeviceCheckFails) {
 /// @brief it should fail when the kernel module gives no master.
 TEST_F(IGHMasterTest, ScanFailsWhenTheMasterIsMissing) {
     this->api->request_master_fails = true;
-    ASSERT_OCCURRED_AS_P(this->master.scan(), errors::MASTER_INIT_ERROR);
+    const auto err = this->master.scan().second;
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(err.data, "IgH master not available - is kernel module loaded?");
 }
 
 /// @brief it should release the master when it cannot read the master info.
 TEST_F(IGHMasterTest, ScanFailsWhenTheMasterInfoCannotBeRead) {
     this->api->master_info_result = -1;
-    ASSERT_OCCURRED_AS_P(this->master.scan(), errors::MASTER_INIT_ERROR);
+    const auto err = this->master.scan().second;
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(err.data, "failed to get master info");
     EXPECT_TRUE(this->api->released);
 }
 
@@ -201,7 +205,9 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheMasterInfoCannotBeRead) {
 TEST_F(IGHMasterTest, ScanFailsWhenTheOutputDomainFails) {
     this->api->add_slave();
     this->api->output_domain_fails = true;
-    ASSERT_OCCURRED_AS_P(this->master.scan(), errors::MASTER_INIT_ERROR);
+    const auto err = this->master.scan().second;
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(err.data, "failed to create output domain");
     EXPECT_TRUE(this->api->released);
 }
 
@@ -209,7 +215,9 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheOutputDomainFails) {
 TEST_F(IGHMasterTest, ScanFailsWhenTheInputDomainFails) {
     this->api->add_slave();
     this->api->input_domain_fails = true;
-    ASSERT_OCCURRED_AS_P(this->master.scan(), errors::MASTER_INIT_ERROR);
+    const auto err = this->master.scan().second;
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(err.data, "failed to create input domain");
     EXPECT_TRUE(this->api->released);
 }
 
@@ -220,6 +228,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenASlaveCannotBeRead) {
     this->api->add_slave().unreadable = true;
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(err.data, "failed to read slave 2: Input/output error");
     EXPECT_EQ(err.data, "failed to read slave 2: Input/output error");
     EXPECT_TRUE(this->api->released);
 }
@@ -273,7 +282,9 @@ TEST_F(IGHMasterTest, CountSlavesReportsTheSlavesOnTheBus) {
 TEST_F(IGHMasterTest, ActivateFailsWhenTheMasterDoesNotActivate) {
     this->api->add_slave();
     this->api->activate_result = -1;
-    ASSERT_OCCURRED_AS(this->scan_and_activate(), errors::ACTIVATION_ERROR);
+    const auto err = this->scan_and_activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(err.data, "ecrt_master_activate failed");
 }
 
 /// @brief it should configure each enabled slave and skip a disabled one.
@@ -394,20 +405,22 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveStaysBelowOP) {
     EXPECT_TRUE(activation.refusals.empty());
 }
 
-/// @brief it should fail activation on a chosen DC mode, as the IgH master does not run
-/// DC sync.
+/// @brief it should fail activation on a chosen DC mode before it configures any slave,
+/// as the IgH master does not run DC sync.
 TEST_F(IGHMasterTest, ActivateFailsOnAChosenDCMode) {
     this->api->add_slave();
+    this->api->add_slave();
     this->configs = {
-        {1, {.op_mode = dc::Choice{.index = 1, .assign_activate = 0x0700}}}
+        {2, {.op_mode = dc::Choice{.index = 1, .assign_activate = 0x0700}}}
     };
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) cannot use its chosen mode: the IgH master does not run "
+        "slave 2 (TestSlave) cannot use its chosen mode: the IgH master does not run "
         "DC sync"
     );
+    EXPECT_FALSE(this->api->slaves[0].configured);
 }
 
 /// @brief it should fail activation on a chosen cycle for an SM mode, as the SOEM

@@ -84,7 +84,7 @@ x::errors::Error Engine::Reader::read(
             errors::CYCLE_OVERRUN,
             std::format(
                 "no inputs from {} within {}",
-                this->engine.interface_name(),
+                this->engine.iface,
                 timeout.to_string()
             )
         );

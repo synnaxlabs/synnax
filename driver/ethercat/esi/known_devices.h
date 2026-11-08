@@ -10,8 +10,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
-#include <string_view>
 
 #include "driver/ethercat/slave/slave.h"
 

@@ -317,8 +317,8 @@ TEST_F(EngineLockTest, LeavesTheCycleUnlockedWithoutSYNC0) {
     EXPECT_LT(this->share_in_phase(), 0.8);
 }
 
-/// @brief it should lock the cycle to the distributed clock while the slaves move to
-/// OP and the working counter falls short.
+/// @brief it should lock the cycle to the distributed clock while the slaves move to OP
+/// and the working counter falls short.
 TEST_F(EngineLockTest, LocksTheCycleWhileTheSlavesMoveToOP) {
     this->master->set_dc_sync({SYNC0_AT_10MS});
     this->master->set_host_dc(1.005);
@@ -349,6 +349,7 @@ TEST_F(EngineLockTest, ShortFramesAfterTheStartDoNotMoveTheCycle) {
     EXPECT_LT(this->share_in_phase(), 0.8);
 }
 
+/// @brief it should return no samples and no error when the breaker stops.
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -1599,6 +1600,7 @@ TEST_F(EngineTest, DiscoverReturnsTheSlavesOnTheBus) {
     EXPECT_EQ(slaves[1].properties.position, 1);
 }
 
+/// @brief it should create an engine for an interface on the first discovery.
 TEST(PoolTest, DiscoverSlavesCreatesEngine) {
     auto master = std::make_shared<testutil::Master>();
     master->add_slave(io_slave(0));
@@ -1625,6 +1627,7 @@ TEST(PoolTest, DiscoverSlavesTakesNoRTCore) {
     EXPECT_EQ(rt->available_cores(), rt->total_cores());
 }
 
+/// @brief it should return the slaves of a running engine without a new discovery.
 TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
     auto master = std::make_shared<testutil::Master>();
     master->add_slave(io_slave(0));
@@ -1643,6 +1646,7 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
     EXPECT_EQ(slaves[1].properties.position, 1);
 }
 
+/// @brief it should discover again after a failed discovery, not return the failure.
 TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
     auto master = std::make_shared<testutil::Master>();
     master->inject_scan_error(
@@ -1651,10 +1655,9 @@ TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
     Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
-    const auto slaves = ASSERT_OCCURRED_AS_P(
-        pool.discover_slaves("eth0"),
-        errors::MASTER_INIT_ERROR
-    );
-    EXPECT_TRUE(slaves.empty());
+    ASSERT_OCCURRED_AS_P(pool.discover_slaves("eth0"), errors::MASTER_INIT_ERROR);
+    master->clear_injected_errors();
+    master->add_slave(io_slave(0));
+    EXPECT_EQ(ASSERT_NIL_P(pool.discover_slaves("eth0")).size(), 1);
 }
 }

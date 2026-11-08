@@ -117,8 +117,8 @@ class Master final : public master::Master {
         /// @brief whether the cycle holds process data back. A frame then carries only
         /// the reference clock time.
         std::atomic<bool> process_data_held{false};
-        /// @brief what receive returns after a send that held process data back, or
-        /// NIL after a send that did not. Only the cycle uses it.
+        /// @brief what receive returns after a send that held process data back, or NIL
+        /// after a send that did not. Only the cycle uses it.
         x::errors::Error held_err;
     };
     /// @brief the current bus run, or nullopt between deactivate() and activate().
@@ -155,7 +155,11 @@ public:
 private:
     /// @brief returns the entry of the slave at pos in the SOEM slave table. Entry 0
     /// describes the whole bus.
-    [[nodiscard]] ec_slavet &slave(const uint16_t pos) const {
+    [[nodiscard]] ec_slavet &slave(const uint16_t pos) {
+        return this->api->context.slavelist[pos];
+    }
+
+    [[nodiscard]] const ec_slavet &slave(const uint16_t pos) const {
         return this->api->context.slavelist[pos];
     }
 

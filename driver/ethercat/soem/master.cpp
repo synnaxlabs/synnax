@@ -426,7 +426,7 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
     std::vector<slave::Health> health;
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         if (this->slave(i).group != ENABLED_GROUP) continue;
-        this->update_lost(static_cast<uint16_t>(i));
+        this->update_lost(i);
         const uint16_t state = this->slave(i).state;
         auto &h = health.emplace_back(
             slave::Health{
@@ -451,7 +451,7 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
                 h.startup_error = it->second;
             }
         }
-        if (breaker.running()) this->recover(static_cast<uint16_t>(i), breaker);
+        if (breaker.running()) this->recover(i, breaker);
     }
     return health;
 }
@@ -509,7 +509,7 @@ void Master::populate_slaves() {
     this->slave_list.reserve(this->api->context.slavecount);
 
     for (int i = 1; i <= this->api->context.slavecount; ++i)
-        this->slave_list.push_back(this->discover_slave(static_cast<uint16_t>(i)));
+        this->slave_list.push_back(this->discover_slave(i));
 }
 
 slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
@@ -789,7 +789,7 @@ x::errors::Error Master::clear_dc_activation() {
     std::string failed;
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         if (this->slave(i).group != ENABLED_GROUP || !this->slave(i).hasdc) continue;
-        if (const auto err = this->clear_sync(static_cast<uint16_t>(i))) {
+        if (const auto err = this->clear_sync(i)) {
             if (!failed.empty()) failed += "; ";
             failed += err.data;
         }
