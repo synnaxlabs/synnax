@@ -62,7 +62,7 @@ protected:
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        this->master = std::make_shared<testutil::Master>("eth0");
+        this->master = std::make_shared<testutil::Master>();
         this->master->add_slave(
             slave::Properties{
                 .network = "eth0",
@@ -146,7 +146,7 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
 }
 
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
-    auto mock_master = std::make_shared<testutil::Master>("enp3s0");
+    auto mock_master = std::make_shared<testutil::Master>();
     mock_master->add_slave(
         slave::Properties{
             .position = 0,
@@ -203,8 +203,8 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
 /// @brief it should return a permission error from a scan, so the error reaches the
 /// status of the scan task.
 TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
-    auto mock_master = std::make_shared<testutil::Master>("eth0");
-    mock_master->inject_init_error(
+    auto mock_master = std::make_shared<testutil::Master>();
+    mock_master->inject_scan_error(
         x::errors::Error(errors::PERMISSION_DENIED, "permission denied opening eth0")
     );
     auto manager = std::make_unique<testutil::Manager>();
@@ -221,8 +221,8 @@ TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
 }
 
 TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
-    auto mock_master = std::make_shared<testutil::Master>("eth0");
-    mock_master->inject_init_error(
+    auto mock_master = std::make_shared<testutil::Master>();
+    mock_master->inject_scan_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "no interface")
     );
 
@@ -261,7 +261,7 @@ protected:
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        this->master = std::make_shared<testutil::Master>("eth0");
+        this->master = std::make_shared<testutil::Master>();
         auto manager = std::make_unique<testutil::Manager>();
         manager->configure("eth0", this->master);
         this->scanner = std::make_unique<Scanner>(
@@ -282,25 +282,25 @@ protected:
 
 /// @brief it should probe an interface with no slaves only on every sixth scan.
 TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
-    this->master->inject_init_error(
+    this->master->inject_scan_error(
         x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT slaves found on eth0")
     );
     for (int i = 0; i < 7; ++i)
         this->scan();
-    EXPECT_EQ(this->master->init_call_count(), 2);
+    EXPECT_EQ(this->master->scan_call_count(), 2);
 }
 
 /// @brief it should return a partial scan error for an interface it cannot open, then
 /// scan the interface again when it opens.
 TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
-    this->master->inject_init_error(
+    this->master->inject_scan_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "cannot open eth0")
     );
     const auto [devices, err] = this->scanner->scan({});
     ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
     EXPECT_EQ(err.data, "cannot open eth0");
     EXPECT_TRUE(devices.empty());
-    this->master->inject_init_error(x::errors::NIL);
+    this->master->inject_scan_error(x::errors::NIL);
     ASSERT_NIL_P(this->scanner->scan({.count = 1}));
 }
 
@@ -651,7 +651,7 @@ protected:
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        auto master = std::make_shared<testutil::Master>("eth0");
+        auto master = std::make_shared<testutil::Master>();
         master->add_slave(slave::Properties{.position = 0, .name = "EL3102"});
         auto manager = std::make_unique<testutil::Manager>();
         manager->configure("eth0", master);

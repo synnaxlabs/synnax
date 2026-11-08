@@ -33,7 +33,6 @@ namespace driver::ethercat::testutil {
 /// receive(), and outputs become visible to get_output() on the next send(), as they
 /// would on a real bus.
 class Master final : public master::Master {
-    std::string iface_name;
     std::vector<slave::DiscoveryResult> slave_list;
     std::unordered_map<uint16_t, slave::State> slave_states;
     /// @brief the AL status text of each faulted slave.
@@ -45,9 +44,6 @@ class Master final : public master::Master {
     std::map<uint16_t, dc::Choice> chosen_modes;
     /// @brief why each slave that refuse() names refuses its state.
     std::map<uint16_t, slave::Refusal> refusing;
-    std::map<uint16_t, slave::Refusal> left_out;
-    std::map<uint16_t, slave::Refusal> start_refusals;
-    bool start_dc_sync_refused{false};
     std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
         startup_parameters_by_slave;
     std::optional<size_t> bus_slaves;
@@ -65,7 +61,7 @@ class Master final : public master::Master {
     bool activated{false};
     mutable std::mutex mu;
 
-    x::errors::Error inject_init_err;
+    x::errors::Error inject_scan_err;
     x::errors::Error inject_activate_err;
     x::errors::Error inject_state_change_err;
     x::errors::Error inject_receive_err;
@@ -80,7 +76,7 @@ class Master final : public master::Master {
     size_t input_sz{0};
     size_t output_sz{0};
     std::vector<std::string> calls;
-    size_t init_calls{0};
+    size_t scan_calls{0};
     std::optional<x::telem::TimeSpan> period;
     size_t send_calls{0};
     std::condition_variable sent_cv;
@@ -99,11 +95,7 @@ class Master final : public master::Master {
 
 public:
     /// @param clock stamps the host time at which a frame is sent.
-    explicit Master(
-        std::string interface_name = "mock0",
-        x::loop::HostClock clock = {}
-    ):
-        iface_name(std::move(interface_name)), clock(std::move(clock)) {}
+    explicit Master(x::loop::HostClock clock = {}): clock(std::move(clock)) {}
 
     /// @brief records the DC time of each of the next frames that pass the reference
     /// clock, up to frames of them.
@@ -143,10 +135,10 @@ public:
                 slave.status.pdo_discovery_error = error;
     }
 
-    /// @brief injects an error to be returned by initialize().
-    void inject_init_error(const x::errors::Error &err) {
+    /// @brief injects an error to be returned by scan().
+    void inject_scan_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
-        this->inject_init_err = err;
+        this->inject_scan_err = err;
     }
 
     /// @brief injects an error to be returned by activate().
@@ -214,7 +206,7 @@ public:
     void clear_injected_errors() {
         std::lock_guard lock(this->mu);
         this->refusing.clear();
-        this->inject_init_err = x::errors::NIL;
+        this->inject_scan_err = x::errors::NIL;
         this->inject_activate_err = x::errors::NIL;
         this->inject_state_change_err = x::errors::NIL;
         this->inject_receive_err = x::errors::NIL;
@@ -302,13 +294,13 @@ public:
         return std::count(this->calls.begin(), this->calls.end(), method);
     }
 
-    x::errors::Error initialize() override {
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override {
         std::lock_guard lock(this->mu);
-        this->calls.emplace_back("initialize");
-        this->init_calls++;
-        if (this->inject_init_err) return this->inject_init_err;
+        this->calls.emplace_back("scan");
+        this->scan_calls++;
+        if (this->inject_scan_err) return {{}, this->inject_scan_err};
         this->initialized = true;
-        return x::errors::NIL;
+        return {this->slave_list, x::errors::NIL};
     }
 
     std::pair<size_t, x::errors::Error> count_slaves() override {
@@ -322,20 +314,6 @@ public:
     void set_bus_slaves(const std::optional<size_t> count) {
         std::lock_guard lock(this->mu);
         this->bus_slaves = count;
-    }
-
-    void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override {
-        std::lock_guard lock(this->mu);
-        this->disabled_slaves.clear();
-        this->chosen_modes.clear();
-        this->startup_parameters_by_slave.clear();
-        for (auto &[position, config]: configs) {
-            if (!config.enabled) this->disabled_slaves.insert(position);
-            if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
-            this->startup_parameters_by_slave[position] = std::move(
-                config.startup_parameters
-            );
-        }
     }
 
     /// @brief returns the startup parameters set for a slave.
@@ -365,9 +343,9 @@ public:
     /// @brief maps the slaves, then moves them to OP once the cycle sends a frame, as
     /// slaves with outputs need. Logs "op" when the slaves reach OP. Fails with
     /// errors::STATE_CHANGE_REFUSED when a slave that refuse() names is on the bus.
-    x::errors::Error activate(
-        const x::telem::TimeSpan period,
-        const std::function<void()> &start_cycle
+    master::Activation activate(
+        const master::Plan &plan,
+        const std::function<void(const master::Image &)> &start_cycle
     ) override {
         x::telem::TimeSpan duration;
         {
@@ -376,18 +354,20 @@ public:
         }
         this->clock.sleep(duration);
         size_t sent = 0;
+        master::Image image;
         {
             std::lock_guard lock(this->mu);
             this->calls.emplace_back("activate");
-            this->period = period;
-            this->start_refusals.clear();
-            this->start_dc_sync_refused = false;
-            if (this->inject_activate_err) return this->inject_activate_err;
+            this->period = plan.period;
+            this->apply(plan.slaves);
+            if (this->inject_activate_err) return {.err = this->inject_activate_err};
             if (!this->initialized)
-                return x::errors::Error(
-                    errors::ACTIVATION_ERROR,
-                    "master not initialized"
-                );
+                return {
+                    .err = x::errors::Error(
+                        errors::ACTIVATION_ERROR,
+                        "master not initialized"
+                    )
+                };
             this->activated = true;
             this->cache_pdo_offsets();
             if (this->input_sz == 0) this->input_sz = this->slave_list.size() * 4;
@@ -396,39 +376,48 @@ public:
             this->output_iomap.assign(this->output_sz, 0);
             this->sent_outputs.assign(this->output_sz, 0);
             sent = this->send_calls;
+            image = {
+                .inputs = {this->input_iomap.data(), this->input_sz},
+                .outputs = {this->output_iomap.data(), this->output_sz},
+                .offsets = this->pdo_offset_cache,
+                .dc_sync = this->syncs,
+                .slaves = this->slave_list,
+            };
         }
-        start_cycle();
+        start_cycle(image);
         std::unique_lock lock(this->mu);
         if (!this->sent_cv.wait_for(lock, std::chrono::seconds(10), [&] {
                 return this->send_calls >= sent + this->start_frames;
             }))
-            return x::errors::Error(
-                errors::STATE_CHANGE_ERROR,
-                "failed to reach OP: no process data"
-            );
+            return {
+                .err = x::errors::Error(
+                    errors::STATE_CHANGE_ERROR,
+                    "failed to reach OP: no process data"
+                )
+            };
         std::map<uint16_t, slave::Refusal> refused;
-        bool io_left = false;
         for (const auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             if (!this->on_bus(pos)) continue;
             if (const auto it = this->refusing.find(pos); it != this->refusing.end())
                 refused.insert(*it);
-            else
-                io_left |= !slave.properties.input_pdos.empty() ||
-                           !slave.properties.output_pdos.empty();
         }
         if (!refused.empty()) {
-            if (io_left) this->start_refusals = refused;
-            this->start_dc_sync_refused = std::ranges::any_of(
+            const bool dc_sync_refused = std::ranges::any_of(
                 refused | std::views::values,
                 &slave::Refusal::dc_sync_invalid
             );
-            return x::errors::Error(
-                errors::STATE_CHANGE_REFUSED,
-                "failed to reach SAFE-OP: " + refused.begin()->second.reason
-            );
+            return {
+                .err = x::errors::Error(
+                    errors::STATE_CHANGE_REFUSED,
+                    "failed to reach SAFE-OP: " + refused.begin()->second.reason
+                ),
+                .refusals = std::move(refused),
+                .dc_sync_refused = dc_sync_refused,
+            };
         }
-        if (this->inject_state_change_err) return this->inject_state_change_err;
+        if (this->inject_state_change_err)
+            return {.err = this->inject_state_change_err};
         this->calls.emplace_back("op");
         this->short_until_op = false;
         for (auto &slave: this->slave_list) {
@@ -442,7 +431,7 @@ public:
             this->slave_states[pos] = state;
             slave.status.state = state;
         }
-        return x::errors::NIL;
+        return {};
     }
 
     void deactivate() override {
@@ -508,15 +497,10 @@ public:
         this->host_dc_start.reset();
     }
 
-    /// @brief sets the value dc_sync() returns.
+    /// @brief sets the DC registers of the image that the next activate() gives.
     void set_dc_sync(const std::vector<dc::Registers> &syncs) {
         std::lock_guard lock(this->mu);
         this->syncs = syncs;
-    }
-
-    std::vector<dc::Registers> dc_sync() const override {
-        std::lock_guard lock(this->mu);
-        return this->syncs;
     }
 
     /// @brief gives the bus a distributed clock that advances by step at each
@@ -537,54 +521,6 @@ public:
         this->send_calls++;
         this->sent_cv.notify_all();
         return x::errors::NIL;
-    }
-
-    std::span<const uint8_t> input_data() override {
-        if (!this->activated) return {};
-        return {this->input_iomap.data(), this->input_sz};
-    }
-
-    std::span<uint8_t> output_data() override {
-        if (!this->activated) return {};
-        return {this->output_iomap.data(), this->output_sz};
-    }
-
-    std::map<uint16_t, slave::Refusal> refusals() const override {
-        std::lock_guard lock(this->mu);
-        return this->start_refusals;
-    }
-
-    bool dc_sync_refused() const override {
-        std::lock_guard lock(this->mu);
-        return this->start_dc_sync_refused;
-    }
-
-    void leave_out(std::map<uint16_t, slave::Refusal> slaves) override {
-        std::lock_guard lock(this->mu);
-        this->left_out = std::move(slaves);
-    }
-
-    std::pair<pdo::Offset, x::errors::Error>
-    pdo_offset(const pdo::Entry &entry) const override {
-        std::lock_guard lock(this->mu);
-        const auto pos = entry.slave_position;
-        if (const auto it = this->left_out.find(pos); it != this->left_out.end()) {
-            const auto slave = std::ranges::find(
-                this->slave_list,
-                pos,
-                [](const slave::DiscoveryResult &s) { return s.properties.position; }
-            );
-            return {
-                {},
-                master::left_out_error(pos, slave->properties.name, it->second)
-            };
-        }
-        return pdo::find_offset(this->pdo_offset_cache, entry);
-    }
-
-    std::vector<slave::DiscoveryResult> slaves() const override {
-        std::lock_guard lock(this->mu);
-        return this->slave_list;
     }
 
     /// @brief reports each enabled slave, then returns each faulted or non-OP slave to
@@ -616,17 +552,7 @@ public:
             this->slave_states[pos] = slave::State::OP;
             this->faults.erase(pos);
         }
-        for (const auto &[pos, refusal]: this->left_out)
-            health.push_back({.position = pos, .refusal = refusal});
         return health;
-    }
-
-    std::string interface_name() const override { return this->iface_name; }
-
-    /// @brief returns whether the master has been initialized.
-    bool is_initialized() const {
-        std::lock_guard lock(this->mu);
-        return this->initialized;
     }
 
     /// @brief returns whether the master has been activated.
@@ -666,22 +592,16 @@ public:
         return count;
     }
 
-    /// @brief returns the number of times initialize() was called.
-    size_t init_call_count() const {
+    /// @brief returns the number of times scan() was called.
+    size_t scan_call_count() const {
         std::lock_guard lock(this->mu);
-        return this->init_calls;
+        return this->scan_calls;
     }
 
     /// @brief returns the bus period of the latest activate() call.
     std::optional<x::telem::TimeSpan> activated_period() const {
         std::lock_guard lock(this->mu);
         return this->period;
-    }
-
-    /// @brief resets the initialize call counter.
-    void reset_init_call_count() {
-        std::lock_guard lock(this->mu);
-        this->init_calls = 0;
     }
 
     /// @brief sets a value in the input image. The bus delivers it at the next
@@ -705,10 +625,21 @@ public:
     }
 
 private:
-    /// @brief whether the slave at position takes part in the next or current start.
+    /// @brief whether the slave at position takes part in the current start.
     [[nodiscard]] bool on_bus(const uint16_t position) const {
-        return !this->disabled_slaves.contains(position) &&
-               !this->left_out.contains(position);
+        return !this->disabled_slaves.contains(position);
+    }
+
+    /// @brief takes the settings of each slave for the current start.
+    void apply(const std::map<uint16_t, slave::Config> &configs) {
+        this->disabled_slaves.clear();
+        this->chosen_modes.clear();
+        this->startup_parameters_by_slave.clear();
+        for (const auto &[position, config]: configs) {
+            if (!config.enabled) this->disabled_slaves.insert(position);
+            if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+            this->startup_parameters_by_slave[position] = config.startup_parameters;
+        }
     }
 
     void cache_pdo_offsets() {

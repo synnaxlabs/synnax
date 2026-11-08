@@ -171,9 +171,14 @@ Master::~Master() {
     this->deactivate();
 }
 
-x::errors::Error Master::initialize() {
-    if (this->initialized) return x::errors::NIL;
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() {
+    if (!this->initialized)
+        if (auto err = this->initialize()) return {{}, err};
+    std::lock_guard lock(this->mu);
+    return {this->cached_slaves, x::errors::NIL};
+}
 
+x::errors::Error Master::initialize() {
     if (auto err = this->api->check_device(this->master_index)) return err;
     this->ec_master = this->api->request_master(this->master_index);
     if (!this->ec_master)
@@ -208,7 +213,7 @@ x::errors::Error Master::initialize() {
                 )
             );
         slave::DiscoveryResult result{};
-        result.properties.network = this->interface_name();
+        result.properties.network = "igh:" + std::to_string(this->master_index);
         result.properties.position = static_cast<uint16_t>(i);
         result.properties.vendor_id = slave_info.vendor_id;
         result.properties.product_code = slave_info.product_code;
@@ -285,36 +290,37 @@ x::errors::Error Master::add_startup_parameters(
     return x::errors::NIL;
 }
 
-void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
-    std::lock_guard lock(this->mu);
-    this->disabled_slaves.clear();
-    this->chosen_modes.clear();
-    this->startup_parameters.clear();
-    for (auto &[position, config]: configs) {
-        if (!config.enabled) this->disabled_slaves.insert(position);
-        if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
-        this->startup_parameters[position] = std::move(config.startup_parameters);
-    }
-}
-
-x::errors::Error
-Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
+master::Activation Master::activate(
+    const master::Plan &plan,
+    const std::function<void(const master::Image &)> &start_cycle
+) {
     if (!this->initialized)
-        return x::errors::Error(errors::ACTIVATION_ERROR, "not initialized");
-    if (this->activated) {
-        start_cycle();
-        return x::errors::NIL;
-    }
+        return {.err = x::errors::Error(errors::ACTIVATION_ERROR, "not initialized")};
+    if (this->activated)
+        return {.err = x::errors::Error(errors::ACTIVATION_ERROR, "already activated")};
     if (!this->output_domain || !this->input_domain)
-        return x::errors::Error(errors::ACTIVATION_ERROR, "domains not created");
+        return {
+            .err = x::errors::Error(errors::ACTIVATION_ERROR, "domains not created")
+        };
+    {
+        std::lock_guard lock(this->mu);
+        this->disabled_slaves.clear();
+        this->chosen_modes.clear();
+        this->startup_parameters.clear();
+        for (const auto &[position, config]: plan.slaves) {
+            if (!config.enabled) this->disabled_slaves.insert(position);
+            if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+            this->startup_parameters[position] = config.startup_parameters;
+        }
+    }
 
+    master::Image image;
     for (const auto &slave: this->cached_slaves) {
         const auto pos = slave.properties.position;
         std::vector<slave::StartupParameter> params;
         {
             std::lock_guard lock(this->mu);
-            if (this->disabled_slaves.contains(pos) || this->left_out.contains(pos))
-                continue;
+            if (this->disabled_slaves.contains(pos)) continue;
             const auto choice = this->chosen_modes.find(pos);
             if (choice != this->chosen_modes.end()) {
                 const auto err = choice->second.assign_activate != 0
@@ -324,15 +330,17 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
                                      )
                                    : dc::check_cycles({}, choice->second.cycles);
                 if (err)
-                    return x::errors::Error(
-                        errors::SLAVE_CONFIG_ERROR,
-                        std::format(
-                            "slave {} ({}) cannot use its chosen mode: {}",
-                            pos,
-                            slave.properties.name,
-                            err.data
+                    return {
+                        .err = x::errors::Error(
+                            errors::SLAVE_CONFIG_ERROR,
+                            std::format(
+                                "slave {} ({}) cannot use its chosen mode: {}",
+                                pos,
+                                slave.properties.name,
+                                err.data
+                            )
                         )
-                    );
+                    };
             }
             if (const auto it = this->startup_parameters.find(pos);
                 it != this->startup_parameters.end())
@@ -340,16 +348,18 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
         }
         auto *sc = this->get_or_create_slave_config(pos);
         if (sc == nullptr)
-            return x::errors::Error(
-                errors::ACTIVATION_ERROR,
-                "failed to configure slave " + std::to_string(pos) + " (" +
-                    slave.properties.name + ")"
-            );
+            return {
+                .err = x::errors::Error(
+                    errors::ACTIVATION_ERROR,
+                    "failed to configure slave " + std::to_string(pos) + " (" +
+                        slave.properties.name + ")"
+                )
+            };
         if (auto err = this->add_startup_parameters(slave.properties, sc, params))
-            return err;
+            return {.err = err};
         if (!params.empty())
-            if (auto err = this->configure_assigned_pdos(pos, sc)) return err;
-        this->register_pdo_entries(slave.properties, sc);
+            if (auto err = this->configure_assigned_pdos(pos, sc)) return {.err = err};
+        this->register_pdo_entries(slave.properties, sc, image);
     }
 
     this->output_sz = this->api->domain_size(this->output_domain);
@@ -360,27 +370,33 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
             << ", output_sz=" << this->output_sz;
 
     if (this->api->master_activate(this->ec_master) < 0)
-        return x::errors::Error(
-            errors::ACTIVATION_ERROR,
-            "ecrt_master_activate failed"
-        );
+        return {
+            .err = x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                "ecrt_master_activate failed"
+            )
+        };
 
     this->output_domain_data = this->api->domain_data(this->output_domain);
     this->input_domain_data = this->api->domain_data(this->input_domain);
 
     if (!this->output_domain_data && this->output_sz > 0) {
         this->api->master_deactivate(this->ec_master);
-        return x::errors::Error(
-            errors::ACTIVATION_ERROR,
-            "failed to get output domain data pointer"
-        );
+        return {
+            .err = x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                "failed to get output domain data pointer"
+            )
+        };
     }
     if (!this->input_domain_data && this->input_sz > 0) {
         this->api->master_deactivate(this->ec_master);
-        return x::errors::Error(
-            errors::ACTIVATION_ERROR,
-            "failed to get input domain data pointer"
-        );
+        return {
+            .err = x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                "failed to get input domain data pointer"
+            )
+        };
     }
 
     this->activated = true;
@@ -400,14 +416,15 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
                 << slave_state_to_string(slave::from_al_state(state.al_state)) << ")"
                 << ", online=" << state.online << ", operational=" << state.operational;
     }
+    image.inputs = {this->input_domain_data, this->input_sz};
+    image.outputs = {this->output_domain_data, this->output_sz};
+    {
+        std::lock_guard lock(this->mu);
+        image.slaves = this->cached_slaves;
+    }
     // The IgH master moves the slaves to OP on its own while the caller cycles.
-    start_cycle();
-    return x::errors::NIL;
-}
-
-void Master::leave_out(std::map<uint16_t, slave::Refusal> slaves) {
-    std::lock_guard lock(this->mu);
-    this->left_out = std::move(slaves);
+    start_cycle(image);
+    return {};
 }
 
 void Master::deactivate() {
@@ -426,8 +443,6 @@ void Master::deactivate() {
     this->activated = false;
     this->initialized = false;
     this->slave_configs.clear();
-    this->pdo_offsets.clear();
-    this->rejected_entries.clear();
     this->cached_slaves.clear();
     this->input_sz = 0;
     this->output_sz = 0;
@@ -473,53 +488,6 @@ x::errors::Error Master::send() {
     return x::errors::NIL;
 }
 
-std::span<const uint8_t> Master::input_data() {
-    if (!this->activated || !this->input_domain_data) return {};
-    return {this->input_domain_data, this->input_sz};
-}
-
-std::span<uint8_t> Master::output_data() {
-    if (!this->activated || !this->output_domain_data) return {};
-    return {this->output_domain_data, this->output_sz};
-}
-
-std::pair<pdo::Offset, x::errors::Error>
-Master::pdo_offset(const pdo::Entry &entry) const {
-    std::lock_guard lock(this->mu);
-    const auto pos = entry.slave_position;
-    if (const auto it = this->left_out.find(pos); it != this->left_out.end())
-        return {
-            {},
-            master::left_out_error(
-                pos,
-                this->cached_slaves.at(pos).properties.name,
-                it->second
-            )
-        };
-    const pdo::Key key{pos, entry.index, entry.sub_index, entry.is_input};
-    if (const auto it = this->rejected_entries.find(key);
-        it != this->rejected_entries.end())
-        return {
-            {},
-            x::errors::Error(
-                errors::PDO_MAPPING_ERROR,
-                std::format(
-                    "the IgH master rejected PDO {} of slave {} ({}): {}",
-                    telem::format_index_sub_index(entry.index, entry.sub_index),
-                    pos,
-                    this->cached_slaves.at(pos).properties.name,
-                    it->second
-                )
-            )
-        };
-    return pdo::find_offset(this->pdo_offsets, entry);
-}
-
-std::vector<slave::DiscoveryResult> Master::slaves() const {
-    std::lock_guard lock(this->mu);
-    return this->cached_slaves;
-}
-
 std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
     std::vector<std::pair<uint16_t, ec_slave_config_t *>> configs;
     {
@@ -543,14 +511,7 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
             .lost = state.online == 0,
         });
     }
-    std::lock_guard lock(this->mu);
-    for (const auto &[pos, refusal]: this->left_out)
-        health.push_back({.position = pos, .refusal = refusal});
     return health;
-}
-
-std::string Master::interface_name() const {
-    return "igh:" + std::to_string(this->master_index);
 }
 
 ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
@@ -674,9 +635,9 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
 
 void Master::register_pdo_entries(
     const slave::Properties &slave,
-    ec_slave_config_t *sc
+    ec_slave_config_t *sc,
+    master::Image &image
 ) {
-    std::lock_guard lock(this->mu);
     const auto add = [&](const pdo::Properties &pdo, ec_domain_t *domain) {
         if (pdo.is_padding()) return;
         const pdo::Key key{slave.position, pdo.index, pdo.sub_index, pdo.is_input};
@@ -689,10 +650,22 @@ void Master::register_pdo_entries(
             &bit
         );
         if (offset < 0) {
-            this->rejected_entries[key] = std::generic_category().message(-offset);
+            image.errors.emplace(
+                key,
+                x::errors::Error(
+                    errors::PDO_MAPPING_ERROR,
+                    std::format(
+                        "the IgH master rejected PDO {} of slave {} ({}): {}",
+                        telem::format_index_sub_index(pdo.index, pdo.sub_index),
+                        slave.position,
+                        slave.name,
+                        std::generic_category().message(-offset)
+                    )
+                )
+            );
             return;
         }
-        this->pdo_offsets[key] = {
+        image.offsets[key] = {
             static_cast<size_t>(offset),
             static_cast<uint8_t>(bit),
             pdo.bit_length

@@ -150,36 +150,41 @@ Master::~Master() {
     if (this->activated || this->initialized) this->deactivate();
 }
 
-x::errors::Error Master::initialize() {
-    if (this->initialized) return x::errors::NIL;
-
-    if (auto err = this->api->check_socket(this->iface_name.c_str())) return err;
-
-    if (this->api->init(this->iface_name.c_str()) <= 0) {
-        this->api->close();
-        return x::errors::Error(
-            errors::MASTER_INIT_ERROR,
-            "cannot open " + this->iface_name +
-                " for raw Ethernet access. Run the Driver as root (or with "
-                "CAP_NET_RAW on Linux), and install Npcap on Windows."
-        );
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() {
+    if (!this->initialized) {
+        if (auto err = this->api->check_socket(this->iface_name.c_str()))
+            return {{}, err};
+        if (this->api->init(this->iface_name.c_str()) <= 0) {
+            this->api->close();
+            return {
+                {},
+                x::errors::Error(
+                    errors::MASTER_INIT_ERROR,
+                    "cannot open " + this->iface_name +
+                        " for raw Ethernet access. Run the Driver as root (or with "
+                        "CAP_NET_RAW on Linux), and install Npcap on Windows."
+                )
+            };
+        }
+        if (this->api->config_init() <= 0) {
+            this->api->close();
+            return {
+                {},
+                x::errors::Error(
+                    errors::NO_SLAVES_FOUND,
+                    no_slaves_message(*this->api, this->iface_name)
+                )
+            };
+        }
+        // config_init requests PRE-OP without waiting for it, and SOEM sends no mailbox
+        // request to a slave whose last read state is below PRE-OP.
+        this->api->statecheck(0, EC_STATE_PRE_OP, micros(this->cfg.pre_op_timeout));
+        this->api->readstate();
+        this->populate_slaves();
+        this->initialized = true;
     }
-
-    if (this->api->config_init() <= 0) {
-        this->api->close();
-        return x::errors::Error(
-            errors::NO_SLAVES_FOUND,
-            no_slaves_message(*this->api, this->iface_name)
-        );
-    }
-
-    // config_init requests PRE-OP without waiting for it, and SOEM sends no mailbox
-    // request to a slave whose last read state is below PRE-OP.
-    this->api->statecheck(0, EC_STATE_PRE_OP, micros(this->cfg.pre_op_timeout));
-    this->api->readstate();
-    this->populate_slaves();
-    this->initialized = true;
-    return x::errors::NIL;
+    std::lock_guard lock(this->mu);
+    return {this->slave_list, x::errors::NIL};
 }
 
 std::pair<size_t, x::errors::Error> Master::count_slaves() {
@@ -190,18 +195,6 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
         };
     const int count = this->api->count_bus_slaves();
     return {count > 0 ? static_cast<size_t>(count) : 0, x::errors::NIL};
-}
-
-void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
-    std::lock_guard lock(this->mu);
-    this->disabled_slaves.clear();
-    this->chosen_modes.clear();
-    this->startup_parameters.clear();
-    for (auto &[position, config]: configs) {
-        if (!config.enabled) this->disabled_slaves.insert(position);
-        if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
-        this->startup_parameters[position] = std::move(config.startup_parameters);
-    }
 }
 
 bool Master::write_startup_parameters(
@@ -235,9 +228,27 @@ bool Master::write_startup_parameters(
     return failure.empty();
 }
 
-x::errors::Error Master::activate(
-    const x::telem::TimeSpan period,
-    const std::function<void()> &start_cycle
+master::Activation Master::activate(
+    const master::Plan &plan,
+    const std::function<void(const master::Image &)> &start_cycle
+) {
+    {
+        std::lock_guard lock(this->mu);
+        this->start_refusals.clear();
+        this->start_dc_sync_refused = false;
+    }
+    auto err = this->start(plan, start_cycle);
+    std::lock_guard lock(this->mu);
+    return {
+        .err = std::move(err),
+        .refusals = this->start_refusals,
+        .dc_sync_refused = this->start_dc_sync_refused,
+    };
+}
+
+x::errors::Error Master::start(
+    const master::Plan &plan,
+    const std::function<void(const master::Image &)> &start_cycle
 ) {
     if (!this->initialized)
         return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
@@ -245,10 +256,16 @@ x::errors::Error Master::activate(
         return x::errors::Error(errors::ACTIVATION_ERROR, "master already activated");
     {
         std::lock_guard lock(this->mu);
-        this->start_refusals.clear();
-        this->start_dc_sync_refused = false;
+        this->disabled_slaves.clear();
+        this->chosen_modes.clear();
+        this->startup_parameters.clear();
+        for (const auto &[position, config]: plan.slaves) {
+            if (!config.enabled) this->disabled_slaves.insert(position);
+            if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+            this->startup_parameters[position] = config.startup_parameters;
+        }
     }
-    auto [dc_setups, dc_err] = this->resolve_dc(period);
+    auto [dc_setups, dc_err] = this->resolve_dc(plan.period);
     if (dc_err) return dc_err;
     this->dc_setups = std::move(dc_setups);
 
@@ -257,8 +274,7 @@ x::errors::Error Master::activate(
         std::lock_guard lock(this->mu);
         this->startup_failures.clear();
         for (int i = 1; i <= this->api->slave_count(); ++i) {
-            const bool off = this->disabled_slaves.contains(i) ||
-                             this->left_out.contains(i);
+            const bool off = this->disabled_slaves.contains(i);
             this->api->set_slave_group(i, off ? DISABLED_GROUP : ENABLED_GROUP);
             const auto it = this->startup_parameters.find(i);
             if (off || it == this->startup_parameters.end() || it->second.empty()) {
@@ -321,7 +337,7 @@ x::errors::Error Master::activate(
     // A slave can stop its process data task for good when the master reads its inputs
     // while it moves to SAFE-OP.
     this->process_data_held.store(true, std::memory_order_release);
-    start_cycle();
+    start_cycle(this->image());
     if (auto err = this->start_dc()) return err;
 
     const int timeout = micros(this->cfg.state_change_timeout);
@@ -337,24 +353,7 @@ x::errors::Error Master::activate(
             errors::STATE_CHANGE_ERROR,
             "failed to reach OP: no process data passed the slaves in SAFE-OP"
         );
-    if (auto err = this->request_state(EC_STATE_OPERATIONAL, timeout)) return err;
-    this->cache_pdo_offsets();
-    return x::errors::NIL;
-}
-
-std::map<uint16_t, slave::Refusal> Master::refusals() const {
-    std::lock_guard lock(this->mu);
-    return this->start_refusals;
-}
-
-bool Master::dc_sync_refused() const {
-    std::lock_guard lock(this->mu);
-    return this->start_dc_sync_refused;
-}
-
-void Master::leave_out(std::map<uint16_t, slave::Refusal> slaves) {
-    std::lock_guard lock(this->mu);
-    this->left_out = std::move(slaves);
+    return this->request_state(EC_STATE_OPERATIONAL, timeout);
 }
 
 void Master::deactivate() {
@@ -375,8 +374,6 @@ void Master::deactivate() {
         this->has_dc = false;
         this->input_sz = 0;
         this->output_sz = 0;
-        this->pdo_offsets.clear();
-        this->slave_errors.clear();
     }
 
     if (this->initialized) {
@@ -454,38 +451,6 @@ std::optional<x::telem::TimeStamp> Master::dc_time() const {
     return master::DC_EPOCH + x::telem::TimeSpan(this->api->dc_time());
 }
 
-std::vector<dc::Registers> Master::dc_sync() const {
-    std::vector<dc::Registers> syncs;
-    for (const auto &[pos, regs]: this->dc_setups)
-        if (regs.sync0_cycle > 0 && (regs.assign_activate & dc::PDI_SYNC_UNIT) == 0)
-            syncs.push_back(regs);
-    return syncs;
-}
-
-std::span<const uint8_t> Master::input_data() {
-    if (!this->activated) return {};
-    return {this->iomap.data() + this->output_sz, this->input_sz};
-}
-
-std::span<uint8_t> Master::output_data() {
-    if (!this->activated) return {};
-    return {this->iomap.data(), this->output_sz};
-}
-
-std::pair<pdo::Offset, x::errors::Error>
-Master::pdo_offset(const pdo::Entry &entry) const {
-    std::lock_guard lock(this->mu);
-    if (const auto it = this->slave_errors.find(entry.slave_position);
-        it != this->slave_errors.end())
-        return {{}, it->second};
-    return pdo::find_offset(this->pdo_offsets, entry);
-}
-
-std::vector<slave::DiscoveryResult> Master::slaves() const {
-    std::lock_guard lock(this->mu);
-    return this->slave_list;
-}
-
 std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
     this->api->readstate();
     std::vector<slave::Health> health;
@@ -518,9 +483,6 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
         }
         if (breaker.running()) this->recover(static_cast<uint16_t>(i), breaker);
     }
-    std::lock_guard lock(this->mu);
-    for (const auto &[pos, refusal]: this->left_out)
-        health.push_back({.position = pos, .refusal = refusal});
     return health;
 }
 
@@ -581,10 +543,6 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
         this->api->set_slave_lost(pos, false);
 }
 
-std::string Master::interface_name() const {
-    return this->iface_name;
-}
-
 void Master::populate_slaves() {
     this->slave_list.clear();
     this->slave_list.reserve(this->api->slave_count());
@@ -595,7 +553,7 @@ void Master::populate_slaves() {
 
 slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
     slave::DiscoveryResult result{};
-    result.properties.network = this->interface_name();
+    result.properties.network = this->iface_name;
     result.properties.position = pos;
     result.properties.vendor_id = this->api->slave_eep_man(pos);
     result.properties.product_code = this->api->slave_eep_id(pos);
@@ -610,42 +568,35 @@ slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
     return result;
 }
 
-void Master::cache_pdo_offsets() {
+master::Image Master::image() {
+    master::Image image{
+        .inputs = {this->iomap.data() + this->output_sz, this->input_sz},
+        .outputs = {this->iomap.data(), this->output_sz},
+    };
+    for (const auto &[pos, regs]: this->dc_setups)
+        if (regs.sync0_cycle > 0 && (regs.assign_activate & dc::PDI_SYNC_UNIT) == 0)
+            image.dc_sync.push_back(regs);
     std::lock_guard lock(this->mu);
-    this->pdo_offsets.clear();
-    this->slave_errors.clear();
-
+    image.slaves = this->slave_list;
+    const auto *base = this->iomap.data();
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
-        if (props.position == 0 ||
-            props.position > static_cast<uint16_t>(this->api->slave_count()))
-            continue;
-
         if (this->api->slave_group(props.position) != ENABLED_GROUP) continue;
-
-        const auto *iomap_base = this->iomap.data();
-
-        const auto *slave_outputs = this->api->slave_outputs(props.position);
-        const size_t slave_output_offset = slave_outputs != nullptr
-                                             ? static_cast<size_t>(
-                                                   slave_outputs - iomap_base
-                                               )
-                                             : 0;
-
-        const auto *slave_inputs = this->api->slave_inputs(props.position);
-        const size_t slave_input_abs_offset = slave_inputs != nullptr
-                                                ? static_cast<size_t>(
-                                                      slave_inputs - iomap_base
-                                                  )
-                                                : this->output_sz;
-        const size_t slave_input_offset = slave_input_abs_offset - this->output_sz;
-
+        const auto *outputs = this->api->slave_outputs(props.position);
+        const auto *inputs = this->api->slave_inputs(props.position);
+        const size_t output_offset = outputs != nullptr
+                                       ? static_cast<size_t>(outputs - base)
+                                       : 0;
+        const size_t input_offset = inputs != nullptr
+                                      ? static_cast<size_t>(inputs - base) -
+                                            this->output_sz
+                                      : 0;
         const auto input_bits = pdo::total_bits(props.input_pdos);
         const auto output_bits = pdo::total_bits(props.output_pdos);
         const auto mapped_input_bits = this->api->slave_Ibits(props.position);
         const auto mapped_output_bits = this->api->slave_Obits(props.position);
         if (input_bits != mapped_input_bits || output_bits != mapped_output_bits) {
-            auto err = x::errors::Error(
+            const auto err = x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
                 std::format(
                     "slave {} ({}) maps {} input and {} output bits, but its discovered "
@@ -659,35 +610,38 @@ void Master::cache_pdo_offsets() {
                 )
             );
             LOG(WARNING) << err.message();
-            this->slave_errors.emplace(props.position, std::move(err));
+            for (const auto *pdos: {&props.input_pdos, &props.output_pdos})
+                for (const auto &pdo: *pdos)
+                    image.errors.emplace(
+                        pdo::Key{
+                            props.position,
+                            pdo.index,
+                            pdo.sub_index,
+                            pdo.is_input
+                        },
+                        err
+                    );
             continue;
         }
-
-        if (!props.coe_pdo_order_reliable) {
+        if (!props.coe_pdo_order_reliable)
             LOG(WARNING) << "Slave " << props.position
                          << " PDO offsets may be incorrect (fallback discovery used)";
-        }
-
         pdo::compute_offsets(
-            this->pdo_offsets,
+            image.offsets,
             props.position,
             props.input_pdos,
             true,
-            slave_input_offset
+            input_offset
         );
         pdo::compute_offsets(
-            this->pdo_offsets,
+            image.offsets,
             props.position,
             props.output_pdos,
             false,
-            slave_output_offset
+            output_offset
         );
     }
-    for (const auto &[pos, refusal]: this->left_out)
-        this->slave_errors.insert_or_assign(
-            pos,
-            master::left_out_error(pos, this->api->slave_name(pos), refusal)
-        );
+    return image;
 }
 
 constexpr int MAX_SDO_FAILURES = 3;
@@ -1291,9 +1245,7 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
     std::lock_guard lock(this->mu);
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
-        if (this->disabled_slaves.contains(props.position) ||
-            this->left_out.contains(props.position))
-            continue;
+        if (this->disabled_slaves.contains(props.position)) continue;
         std::optional<dc::Choice> choice;
         if (const auto it = this->chosen_modes.find(props.position);
             it != this->chosen_modes.end())
@@ -1616,17 +1568,9 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
         dc_sync_refused |= code == AL_INVALID_DC_SYNC;
         msg += ": " + text;
     }
-    // A slave with no process data, such as a coupler, gives a task nothing to run.
-    bool io_left = false;
-    for (int i = 1; i <= this->api->slave_count(); ++i) {
-        const auto pos = static_cast<uint16_t>(i);
-        io_left |= this->api->slave_group(pos) == ENABLED_GROUP &&
-                   !refusing.contains(pos) &&
-                   (this->api->slave_Ibits(pos) > 0 || this->api->slave_Obits(pos) > 0);
-    }
     {
         std::lock_guard lock(this->mu);
-        if (io_left) this->start_refusals = refusing;
+        this->start_refusals = refusing;
         this->start_dc_sync_refused = dc_sync_refused;
     }
     return x::errors::Error(

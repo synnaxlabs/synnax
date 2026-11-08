@@ -10,7 +10,6 @@
 #pragma once
 
 #include <cstdint>
-#include <format>
 #include <functional>
 #include <map>
 #include <memory>
@@ -18,6 +17,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -44,23 +44,6 @@ inline constexpr std::string_view DC_SYNC_ADVICE =
     "list the mode it expects, change its mode with the configuration tool of its "
     "vendor.";
 
-/// @brief returns the error for an entry on a slave that the bus started without.
-inline x::errors::Error left_out_error(
-    const uint16_t position,
-    const std::string &name,
-    const slave::Refusal &refusal
-) {
-    auto msg = std::format(
-        "Slave {} ({}) is not on the network: it {}. Fix the device, then stop every "
-        "task on the network to try it again.",
-        position,
-        name,
-        refusal.reason
-    );
-    if (refusal.dc_sync_invalid) msg.append(" ").append(DC_SYNC_ADVICE);
-    return x::errors::Error(errors::STATE_CHANGE_REFUSED, msg);
-}
-
 /// @brief information about an available EtherCAT master or network.
 struct Info {
     /// @brief unique identifier for this master (e.g., "igh:0" or "eth0").
@@ -69,50 +52,88 @@ struct Info {
     std::string description;
 };
 
+/// @brief what activate() starts the bus with.
+struct Plan {
+    /// @brief the period of one bus cycle.
+    x::telem::TimeSpan period;
+    /// @brief the settings of each slave, keyed by position. A slave missing from it
+    /// uses the defaults of slave::Config.
+    std::map<uint16_t, slave::Config> slaves;
+};
+
+/// @brief the process data of a bus that activate() starts. The spans stay valid until
+/// deactivate().
+struct Image {
+    /// @brief the inputs (TxPDO, slave to master).
+    std::span<const uint8_t> inputs;
+    /// @brief the outputs (RxPDO, master to slave).
+    std::span<uint8_t> outputs;
+    /// @brief the offset of each mapped entry.
+    pdo::Offsets offsets;
+    /// @brief why the master did not map an entry, keyed by entry.
+    std::unordered_map<pdo::Key, x::errors::Error, pdo::KeyHash> errors;
+    /// @brief the DC registers of each enabled slave whose SYNC0 events the master
+    /// starts.
+    std::vector<dc::Registers> dc_sync;
+    /// @brief the slaves with the layouts that their startup parameters set.
+    std::vector<slave::DiscoveryResult> slaves;
+
+    /// @brief returns the offset of entry.
+    /// @returns errors::PDO_MAPPING_ERROR when the master did not map the entry, or
+    /// mapped it with another bit length.
+    [[nodiscard]] std::pair<pdo::Offset, x::errors::Error>
+    offset(const pdo::Entry &entry) const {
+        const pdo::Key key{
+            entry.slave_position,
+            entry.index,
+            entry.sub_index,
+            entry.is_input
+        };
+        if (const auto it = this->errors.find(key); it != this->errors.end())
+            return {{}, it->second};
+        return pdo::find_offset(this->offsets, entry);
+    }
+};
+
+/// @brief the outcome of activate().
+struct Activation {
+    /// @brief NIL when every enabled slave reached OP.
+    x::errors::Error err;
+    /// @brief why each slave refused a state, keyed by position.
+    std::map<uint16_t, slave::Refusal> refusals;
+    /// @brief whether a slave that kept the bus from starting reports "Invalid DC SYNC
+    /// configuration", so that the error ends with DC_SYNC_ADVICE.
+    bool dc_sync_refused = false;
+};
+
 /// @brief abstract interface for an EtherCAT master.
 class Master {
 public:
     virtual ~Master() = default;
 
-    /// @brief initializes the master and scans the EtherCAT network for slaves.
-    [[nodiscard]] virtual x::errors::Error initialize() = 0;
+    /// @brief opens the master and discovers the slaves on the bus. Returns the slaves
+    /// it found without a new discovery until deactivate().
+    [[nodiscard]]
+    virtual std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() = 0;
 
     /// @brief counts the slaves that answer on the bus now, without changing their
-    /// state. Valid between initialize() and deactivate().
+    /// state. Valid between scan() and deactivate().
     [[nodiscard]] virtual std::pair<size_t, x::errors::Error> count_slaves() = 0;
 
-    /// @brief replaces the settings of every slave. A slave missing from configs goes
-    /// back to the defaults of slave::Config. Takes effect at the next activate().
-    virtual void replace_slave_configs(std::map<uint16_t, slave::Config> configs) = 0;
-
-    /// @brief maps the process data of every enabled slave, calls start_cycle once
-    /// send() and receive() work, starts the DC sync of each slave in a DC mode for a
-    /// bus cycle of period, then moves the enabled slaves to OP while the caller cycles
-    /// the bus. After an error, the caller stops the cycle it started before it calls
-    /// deactivate(). Only the SOEM master starts DC sync.
+    /// @brief maps the process data of every enabled slave, calls start_cycle with the
+    /// image once send() and receive() work, starts the DC sync of each slave in a DC
+    /// mode, then moves the enabled slaves to OP while the caller cycles the bus. After
+    /// an error, the caller stops the cycle it started before it calls deactivate().
+    /// Valid after scan(). Only the SOEM master starts DC sync.
     /// @returns errors::SLAVE_CONFIG_ERROR when the DC mode of a slave gives values its
     /// registers cannot hold at the period, or errors::STATE_CHANGE_REFUSED when a
     /// slave refuses SAFE-OP or OP.
-    [[nodiscard]] virtual x::errors::Error
-    activate(x::telem::TimeSpan period, const std::function<void()> &start_cycle) = 0;
+    [[nodiscard]] virtual Activation activate(
+        const Plan &plan,
+        const std::function<void(const Image &)> &start_cycle
+    ) = 0;
 
-    /// @brief returns why each slave refused a state in the last activate(), keyed by
-    /// position. Empty when no slave refused, or when every enabled slave with process
-    /// data refused, as the bus then has nothing to run.
-    [[nodiscard]] virtual std::map<uint16_t, slave::Refusal> refusals() const = 0;
-
-    /// @brief returns whether a slave that kept the last activate() from finishing
-    /// reports "Invalid DC SYNC configuration", so that the error of a failed start
-    /// ends with DC_SYNC_ADVICE.
-    [[nodiscard]] virtual bool dc_sync_refused() const = 0;
-
-    /// @brief leaves each slave in slaves out of every activate() until the next
-    /// leave_out(), as if it were disabled. Meanwhile, pdo_offset() returns
-    /// left_out_error() for an entry on a left-out slave, and check() reports the slave
-    /// with why the bus starts without it.
-    virtual void leave_out(std::map<uint16_t, slave::Refusal> slaves) = 0;
-
-    /// @brief deactivates the master and stops cyclic communication.
+    /// @brief stops cyclic communication and closes the master.
     virtual void deactivate() = 0;
 
     /// @brief receives and processes input data from the EtherCAT network.
@@ -129,36 +150,13 @@ public:
     /// short frame can miss the reference clock and leave the previous time.
     [[nodiscard]] virtual std::optional<x::telem::TimeStamp> dc_time() const = 0;
 
-    /// @brief returns the DC registers of each enabled slave whose SYNC0 events the
-    /// master starts. Valid from the start_cycle call of activate() until deactivate().
-    [[nodiscard]] virtual std::vector<dc::Registers> dc_sync() const = 0;
-
-    /// @brief returns the input data buffer (TxPDO, slave→master).
-    [[nodiscard]] virtual std::span<const uint8_t> input_data() = 0;
-
-    /// @brief returns the output data buffer (RxPDO, master→slave).
-    [[nodiscard]] virtual std::span<uint8_t> output_data() = 0;
-
-    /// @brief returns the byte and bit offset of a PDO entry in its process image.
-    /// Returns errors::PDO_MAPPING_ERROR when the entry is not mapped or its slave's
-    /// layout is unknown. Valid between activate() and deactivate().
-    [[nodiscard]] virtual std::pair<pdo::Offset, x::errors::Error>
-    pdo_offset(const pdo::Entry &entry) const = 0;
-
-    /// @brief returns information about all slaves discovered during initialization.
-    [[nodiscard]] virtual std::vector<slave::DiscoveryResult> slaves() const = 0;
-
     /// @brief reads the condition of each enabled slave and asks each slave that left
-    /// OP to return to it. Reports each left-out slave with its reason. Takes no
-    /// further recovery step once breaker stops. Safe to call from one thread while
-    /// another runs receive() and send(). Valid between activate() and deactivate().
-    /// @returns the condition of each enabled slave before any recovery step, then each
-    /// left-out slave with its refusal.
+    /// OP to return to it. Takes no further recovery step once breaker stops. Safe to
+    /// call from one thread while another runs receive() and send(). Valid between
+    /// activate() and deactivate().
+    /// @returns the condition of each enabled slave before any recovery step.
     [[nodiscard]] virtual std::vector<slave::Health>
     check(const x::breaker::Breaker &breaker) = 0;
-
-    /// @brief returns the name of the network interface this master is bound to.
-    [[nodiscard]] virtual std::string interface_name() const = 0;
 };
 
 /// @brief abstract interface for discovering and creating EtherCAT masters.

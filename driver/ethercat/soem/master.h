@@ -68,11 +68,6 @@ class Master final : public master::Master {
     size_t input_sz;
     /// @brief output size in bytes (RxPDO, master->slave).
     size_t output_sz;
-    /// @brief cached PDO offsets computed at activation time.
-    pdo::Offsets pdo_offsets;
-    /// @brief why each slave has no offsets, keyed by position: its discovered layout
-    /// disagrees with what SOEM mapped, or the bus started without it.
-    std::unordered_map<uint16_t, x::errors::Error> slave_errors;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> slave_list;
     /// @brief slave positions that are disabled (excluded from cyclic exchange).
@@ -80,9 +75,6 @@ class Master final : public master::Master {
     /// @brief the mode the user chose for each slave that has a choice, keyed by
     /// position.
     std::map<uint16_t, dc::Choice> chosen_modes;
-    /// @brief why the bus starts without each slave that leave_out() names, keyed by
-    /// position.
-    std::map<uint16_t, slave::Refusal> left_out;
     /// @brief why each slave refused a state in the last activate(), keyed by position.
     std::map<uint16_t, slave::Refusal> start_refusals;
     /// @brief whether a slave that failed the last activate() reports "Invalid DC SYNC
@@ -141,22 +133,14 @@ public:
     Master(const Master &) = delete;
     Master &operator=(const Master &) = delete;
 
-    x::errors::Error initialize() override;
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
     std::pair<size_t, x::errors::Error> count_slaves() override;
 
-    void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override;
-
-    x::errors::Error activate(
-        x::telem::TimeSpan period,
-        const std::function<void()> &start_cycle
+    master::Activation activate(
+        const master::Plan &plan,
+        const std::function<void(const master::Image &)> &start_cycle
     ) override;
-
-    [[nodiscard]] std::map<uint16_t, slave::Refusal> refusals() const override;
-
-    [[nodiscard]] bool dc_sync_refused() const override;
-
-    void leave_out(std::map<uint16_t, slave::Refusal> slaves) override;
 
     void deactivate() override;
 
@@ -164,22 +148,9 @@ public:
 
     x::errors::Error send() override;
 
-    std::span<const uint8_t> input_data() override;
-
-    std::span<uint8_t> output_data() override;
-
-    std::pair<pdo::Offset, x::errors::Error>
-    pdo_offset(const pdo::Entry &entry) const override;
-
-    std::vector<slave::DiscoveryResult> slaves() const override;
-
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
     std::optional<x::telem::TimeStamp> dc_time() const override;
-
-    std::vector<dc::Registers> dc_sync() const override;
-
-    std::string interface_name() const override;
 
 private:
     /// @brief writes a slave's startup parameters in order, recording why the slave
@@ -195,8 +166,15 @@ private:
     /// @brief reads the identity and PDO layout of the slave at a position.
     slave::DiscoveryResult discover_slave(uint16_t pos);
 
-    /// @brief computes and caches PDO offsets for all slaves after activation.
-    void cache_pdo_offsets();
+    /// @brief runs activate() and returns its error. The refusals land in
+    /// start_refusals.
+    x::errors::Error start(
+        const master::Plan &plan,
+        const std::function<void(const master::Image &)> &start_cycle
+    );
+
+    /// @brief returns the process data of the mapped enabled slaves.
+    master::Image image();
 
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
     void discover_slave_pdos(slave::DiscoveryResult &slave);
@@ -341,9 +319,9 @@ private:
 
     /// @brief builds the error for enabled slaves that did not reach a state. It is a
     /// refusal when a slave refuses the state with an AL status code that a new start
-    /// cannot clear. Records each such slave for refusals() unless no other enabled
-    /// slave has process data, and records for dc_sync_refused() whether a failed slave
-    /// reports "Invalid DC SYNC configuration".
+    /// cannot clear. Records each such slave in start_refusals, and records in
+    /// start_dc_sync_refused whether a failed slave reports "Invalid DC SYNC
+    /// configuration".
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
 };
 

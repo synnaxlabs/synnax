@@ -68,7 +68,15 @@ struct Config {
 /// last one closes. Opening or closing one never interrupts the others.
 class Engine {
     Config config;
+    /// @brief the network interface of the bus.
+    std::string iface;
     std::shared_ptr<master::Master> master;
+    /// @brief the slaves of the latest discovery, with the layouts of the running bus.
+    std::vector<slave::DiscoveryResult> slaves;
+    /// @brief the process data of the running bus.
+    master::Image image;
+    /// @brief why the running bus started without each slave, keyed by position.
+    std::map<uint16_t, slave::Refusal> left_out;
 
     /// @brief the entries of one reader and the samples the cycle thread hands it.
     struct Input {
@@ -192,6 +200,11 @@ class Engine {
     /// wait is true, and otherwise keeps the last outputs while a writer holds it.
     void write_outputs(bool wait);
     [[nodiscard]] x::errors::Error cycle_error() const;
+    /// @brief returns the offset of each entry in a process image of image_size bytes.
+    /// @returns errors::STATE_CHANGE_REFUSED for an entry on a left-out slave, or
+    /// errors::PDO_MAPPING_ERROR when the image does not hold an entry.
+    [[nodiscard]] std::pair<std::vector<pdo::Offset>, x::errors::Error>
+    offsets_locked(const std::vector<pdo::Entry> &entries, size_t image_size) const;
     void close_input(const std::shared_ptr<Input> &input);
     void close_output(const std::shared_ptr<Output> &output);
 
@@ -270,8 +283,13 @@ public:
         [[nodiscard]] Transaction open_tx() const;
     };
 
-    /// @brief constructs an Engine that runs the bus of master.
-    explicit Engine(std::shared_ptr<master::Master> master, Config config = {});
+    /// @brief constructs an Engine that runs the bus of master on the network interface
+    /// iface.
+    Engine(
+        std::string iface,
+        std::shared_ptr<master::Master> master,
+        Config config = {}
+    );
 
     ~Engine();
 
@@ -310,16 +328,11 @@ public:
     /// @brief returns the rate the bus cycles at, or zero when it is not running.
     [[nodiscard]] x::telem::Rate cycle_rate() const;
 
-    /// @brief initializes the master unless the bus is running. While the bus is
-    /// stopped, rediscovers the slaves when the number that answer has changed.
+    /// @brief returns the slaves on the bus. While the bus is stopped, discovers them
+    /// again when rediscover is true or when the number that answer has changed.
     /// Thread-safe.
-    [[nodiscard]] x::errors::Error ensure_initialized();
-
-    /// @brief discovers the slaves again unless the bus is running. Thread-safe.
-    [[nodiscard]] x::errors::Error rediscover();
-
-    /// @brief returns discovered slaves.
-    [[nodiscard]] std::vector<slave::DiscoveryResult> slaves() const;
+    [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+    discover(bool rediscover = false);
 
     /// @brief returns the latest condition of each enabled slave, then each left-out
     /// slave with its refusal, or an empty list when the bus is not running.

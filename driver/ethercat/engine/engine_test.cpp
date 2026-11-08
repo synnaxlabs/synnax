@@ -132,9 +132,9 @@ protected:
     x::breaker::Breaker brk;
 
     void SetUp() override {
-        this->master = std::make_shared<testutil::Master>("eth0");
+        this->master = std::make_shared<testutil::Master>();
         this->master->add_slave(io_slave(0));
-        this->engine = std::make_shared<Engine>(this->master);
+        this->engine = std::make_shared<Engine>("eth0", this->master);
         this->brk.start();
     }
 
@@ -161,11 +161,11 @@ protected:
     const x::loop::HostClock clock = x::loop::fake_clock();
 
     void SetUp() override {
-        this->master = std::make_shared<testutil::Master>("eth0", this->clock);
+        this->master = std::make_shared<testutil::Master>(this->clock);
         this->master->add_slave(io_slave(0));
         Config cfg;
         cfg.host_clock = this->clock;
-        this->engine = std::make_shared<Engine>(this->master, cfg);
+        this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
         this->brk.start();
     }
 
@@ -194,7 +194,7 @@ TEST_F(EngineTest, HoldsAnRTCoreOnlyWhileTheBusRuns) {
     if (rt->total_cores() == 0) GTEST_SKIP() << "the host has no RT cores";
     Config cfg;
     cfg.rt_manager = rt;
-    const auto engine = std::make_shared<Engine>(this->master, cfg);
+    const auto engine = std::make_shared<Engine>("eth0", this->master, cfg);
     EXPECT_EQ(rt->available_cores(), rt->total_cores());
     auto reader = ASSERT_NIL_P(engine->open_reader({IN_I16}, x::telem::Rate(100), 1));
     ASSERT_EVENTUALLY_EQ(rt->available_cores(), rt->total_cores() - 1);
@@ -688,7 +688,7 @@ TEST_F(EngineTest, RejectedEntryLeavesTheRunningBusUp) {
 /// the process image.
 TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
     this->master->add_slave(io_slave(1));
-    this->engine = std::make_shared<Engine>(this->master, disabling(1));
+    this->engine = std::make_shared<Engine>("eth0", this->master, disabling(1));
     ASSERT_OCCURRED_AS_P(
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
         errors::PDO_MAPPING_ERROR
@@ -705,7 +705,7 @@ TEST_F(EngineTest, ReadsSlaveSettingsAtEachBusStart) {
         if (*disabled) configs[1] = {.enabled = false};
         return std::pair{configs, x::errors::NIL};
     };
-    this->engine = std::make_shared<Engine>(this->master, cfg);
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     {
         const auto reader = ASSERT_NIL_P(
             this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
@@ -729,11 +729,11 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheStart) {
             x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
         };
     };
-    this->engine = std::make_shared<Engine>(this->master, cfg);
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(res.second.data, "invalid settings");
-    EXPECT_EQ(this->master->init_call_count(), 0);
+    EXPECT_EQ(this->master->scan_call_count(), 0);
     EXPECT_FALSE(this->engine->running());
 }
 
@@ -751,7 +751,7 @@ TEST_F(EngineTest, SlaveSettingsErrorLeavesARunningBusOpen) {
             };
         return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
     };
-    this->engine = std::make_shared<Engine>(this->master, cfg);
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto first = ASSERT_NIL_P(
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
     );
@@ -760,7 +760,7 @@ TEST_F(EngineTest, SlaveSettingsErrorLeavesARunningBusOpen) {
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
     );
     EXPECT_TRUE(this->engine->running());
-    EXPECT_EQ(this->master->init_call_count(), 1);
+    EXPECT_EQ(this->master->scan_call_count(), 1);
 }
 
 /// @brief it should read the slave settings again when the bus ran and stopped while an
@@ -777,7 +777,7 @@ TEST_F(EngineTest, ReadsSlaveSettingsAgainWhenTheBusStopsDuringTheRead) {
         if (calls->fetch_add(1) == 0) released.wait();
         return std::pair{configs, x::errors::NIL};
     };
-    this->engine = std::make_shared<Engine>(this->master, cfg);
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> late;
     std::thread opening([&] {
         late = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
@@ -806,7 +806,7 @@ TEST_F(EngineTest, WriterReadsSlaveSettingsAtEachBusStart) {
         if (*disabled) configs[1] = {.enabled = false};
         return std::pair{configs, x::errors::NIL};
     };
-    this->engine = std::make_shared<Engine>(this->master, cfg);
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     {
         const auto writer = ASSERT_NIL_P(
             this->engine->open_writer({{on_slave(OUT_I16, 1), 0}}, x::telem::Rate(100))
@@ -830,11 +830,11 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheWriterStart) {
             x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
         };
     };
-    this->engine = std::make_shared<Engine>(this->master, cfg);
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto res = this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100));
     ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(res.second.data, "invalid settings");
-    EXPECT_EQ(this->master->init_call_count(), 0);
+    EXPECT_EQ(this->master->scan_call_count(), 0);
     EXPECT_FALSE(this->engine->running());
 }
 
@@ -852,7 +852,7 @@ TEST_F(EngineTest, SlaveSettingsErrorLetsAWriterOpenOnARunningBus) {
             };
         return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
     };
-    this->engine = std::make_shared<Engine>(this->master, cfg);
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto first = ASSERT_NIL_P(
         this->engine->open_writer({{on_slave(OUT_I16, 1), 0}}, x::telem::Rate(100))
     );
@@ -861,7 +861,7 @@ TEST_F(EngineTest, SlaveSettingsErrorLetsAWriterOpenOnARunningBus) {
         this->engine->open_writer({{on_slave(OUT_I32, 1), 0}}, x::telem::Rate(100))
     );
     EXPECT_TRUE(this->engine->running());
-    EXPECT_EQ(this->master->init_call_count(), 1);
+    EXPECT_EQ(this->master->scan_call_count(), 1);
 }
 
 /// @brief it should pass the startup parameters in the slave settings to the master
@@ -881,7 +881,7 @@ TEST_F(EngineTest, StartupParametersReachTheMaster) {
             x::errors::NIL
         };
     };
-    this->engine = std::make_shared<Engine>(this->master, cfg);
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
     );
@@ -891,21 +891,21 @@ TEST_F(EngineTest, StartupParametersReachTheMaster) {
 /// @brief it should return the error that kept the master from initializing once the
 /// retries run out.
 TEST_F(EngineTest, InitializeErrorPropagates) {
-    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
-    this->master->inject_init_error(
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
+    this->master->inject_scan_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "init failed")
     );
     const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     ASSERT_OCCURRED_AS(res.second, errors::MASTER_INIT_ERROR);
     EXPECT_EQ(res.second.data, "init failed");
-    EXPECT_EQ(this->master->init_call_count(), 3);
+    EXPECT_EQ(this->master->scan_call_count(), 3);
     EXPECT_FALSE(this->engine->running());
 }
 
 /// @brief it should deactivate the master after each failed activation, and return the
 /// activation error once the retries run out.
 TEST_F(EngineTest, ActivationErrorPropagates) {
-    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
     this->master->inject_activate_error(
         x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
     );
@@ -920,12 +920,12 @@ TEST_F(EngineTest, ActivationErrorPropagates) {
 /// @brief it should discover the slaves again while the bus is stopped, and not while
 /// it runs.
 TEST_F(EngineTest, RediscoverOnlyWhileStopped) {
-    ASSERT_NIL(this->engine->rediscover());
+    ASSERT_NIL(this->engine->discover(true).second);
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
-    ASSERT_NIL(this->engine->rediscover());
+    ASSERT_NIL(this->engine->discover(true).second);
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
 }
 
@@ -940,7 +940,7 @@ TEST_F(EngineTest, ActivatesTheMasterWithTheBusPeriod) {
 /// @brief it should return at once, without a retry, when the config of a slave cannot
 /// run.
 TEST_F(EngineTest, SlaveConfigErrorSkipsRetries) {
-    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
     this->master->inject_activate_error(
         x::errors::Error(errors::SLAVE_CONFIG_ERROR, "SYNC1 cycle is over the limit")
     );
@@ -955,7 +955,7 @@ TEST_F(EngineTest, SlaveConfigErrorSkipsRetries) {
 /// @brief it should return at once, without a retry, when a slave refuses a state
 /// change.
 TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
-    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
     this->master->inject_activate_error(
         x::errors::Error(errors::STATE_CHANGE_REFUSED, "inconsistent settings")
     );
@@ -978,6 +978,16 @@ TEST_F(EngineTest, StartsWithoutASlaveThatRefusesAState) {
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
 }
 
+/// @brief it should fail the start without a retry when every slave with process data
+/// refuses a state, so the bus does not run with only a coupler.
+TEST_F(EngineTest, StartFailsWhenOnlyASlaveWithoutProcessDataIsLeft) {
+    this->master->add_slave({.position = 1, .name = "Coupler"});
+    this->master->refuse(0, REFUSAL);
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+}
+
 /// @brief it should fail a reader on a slave that the bus started without, and stop the
 /// bus that the reader started.
 TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
@@ -997,7 +1007,7 @@ TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
 /// @brief it should give each left-out slave and its reason in the error when the start
 /// then fails.
 TEST_F(EngineTest, FailedStartGivesTheLeftOutSlaves) {
-    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
     this->master->add_slave(io_slave(1));
     this->master->refuse(1, REFUSAL);
     this->master->inject_state_change_error(
@@ -1016,7 +1026,7 @@ TEST_F(EngineTest, FailedStartGivesTheLeftOutSlaves) {
 /// @brief it should end the error of a failed start with the DC sync advice once when a
 /// left-out slave needs it.
 TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOfALeftOutSlave) {
-    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
     this->master->add_slave(io_slave(1));
     this->master->refuse(1, DC_SYNC_REFUSAL);
     this->master->inject_state_change_error(
@@ -1035,7 +1045,7 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOfALeftOutSlave) {
 /// @brief it should give the DC sync advice once, at the end, when two left-out slaves
 /// report "Invalid DC SYNC configuration".
 TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOnce) {
-    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
     this->master->add_slave(io_slave(1));
     this->master->add_slave(io_slave(2));
     this->master->refuse(1, DC_SYNC_REFUSAL);
@@ -1096,7 +1106,7 @@ TEST_F(EngineTest, StartCyclesTheBusBeforeTheSlavesReachOP) {
 /// @brief it should run no slave recovery while the slaves move to OP, and stop the
 /// cycle before it deactivates the master when a slave refuses a state.
 TEST_F(EngineTest, RefusedStartStopsTheCycleBeforeDeactivating) {
-    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
     this->master->inject_state_change_error(
         x::errors::Error(errors::STATE_CHANGE_REFUSED, "invalid DC SYNC configuration")
     );
@@ -1115,7 +1125,7 @@ TEST_F(EngineTest, RefusedStartStopsTheCycleBeforeDeactivating) {
 
 /// @brief it should stop the cycle and retry when the slaves do not reach OP in time.
 TEST_F(EngineTest, StartRetriesAfterTheSlavesMissOP) {
-    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
     this->master->inject_state_change_error(
         x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
     );
@@ -1133,7 +1143,7 @@ TEST_F(EngineTest, StartRetriesAfterTheSlavesMissOP) {
 /// start timeout, and return the error of the last try.
 TEST_F(EngineTest, StartStopsRetryingBeforeTheStartTimeout) {
     const auto clock = x::loop::fake_clock();
-    this->master = std::make_shared<testutil::Master>("eth0", clock);
+    this->master = std::make_shared<testutil::Master>(clock);
     this->master->add_slave(io_slave(0));
     this->master->set_activate_duration(x::telem::SECOND * 25);
     this->master->inject_activate_error(
@@ -1143,7 +1153,7 @@ TEST_F(EngineTest, StartStopsRetryingBeforeTheStartTimeout) {
     cfg.start_retry.max_retries = 10;
     cfg.host_clock = clock;
     cfg.start_timeout = x::telem::MINUTE;
-    this->engine = std::make_shared<Engine>(this->master, cfg);
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
     EXPECT_EQ(res.second.data, "activate failed");
@@ -1412,7 +1422,7 @@ TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsAFastSYNC0) {
 /// slaves.
 TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     this->master->add_slave(io_slave(1));
-    this->engine = std::make_shared<Engine>(this->master, disabling(1));
+    this->engine = std::make_shared<Engine>("eth0", this->master, disabling(1));
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
@@ -1540,66 +1550,57 @@ TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
 }
 
-TEST_F(EngineTest, EnsureInitializedIdempotent) {
-    ASSERT_NIL(this->engine->ensure_initialized());
-    ASSERT_NIL(this->engine->ensure_initialized());
-}
-
 /// @brief it should keep the discovered slaves and not reinitialize the master when the
 /// slave count is unchanged.
-TEST_F(EngineTest, EnsureInitializedKeepsDiscoveryWhenTheBusIsUnchanged) {
-    ASSERT_NIL(this->engine->ensure_initialized());
-    ASSERT_NIL(this->engine->ensure_initialized());
+TEST_F(EngineTest, DiscoverKeepsDiscoveryWhenTheBusIsUnchanged) {
+    ASSERT_NIL(this->engine->discover().second);
+    ASSERT_NIL(this->engine->discover().second);
     const auto calls = this->master->call_log();
     EXPECT_EQ(std::ranges::count(calls, "deactivate"), 0);
 }
 
 /// @brief it should reinitialize the master and discover again when the slave count
 /// changes.
-TEST_F(EngineTest, EnsureInitializedRediscoversWhenASlaveIsPluggedIn) {
-    ASSERT_NIL(this->engine->ensure_initialized());
+TEST_F(EngineTest, DiscoverRediscoversWhenASlaveIsPluggedIn) {
+    ASSERT_NIL(this->engine->discover().second);
     this->master->set_bus_slaves(2);
-    ASSERT_NIL(this->engine->ensure_initialized());
+    ASSERT_NIL(this->engine->discover().second);
     EXPECT_EQ(
         this->master->call_log(),
         (std::vector<std::string>{
-            "initialize",
+            "scan",
             "count_slaves",
-            "initialize",
+            "scan",
             "count_slaves",
             "deactivate",
-            "initialize",
+            "scan",
         })
     );
 }
 
 /// @brief it should not count or discover slaves while the bus runs.
-TEST_F(EngineTest, EnsureInitializedDoesNotRediscoverWhileTheBusRuns) {
+TEST_F(EngineTest, DiscoverDoesNotRediscoverWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
     this->master->set_bus_slaves(2);
     this->master->clear_call_log();
-    ASSERT_NIL(this->engine->ensure_initialized());
+    ASSERT_NIL(this->engine->discover().second);
     const auto calls = this->master->call_log();
     EXPECT_EQ(std::ranges::count(calls, "count_slaves"), 0);
 }
 
-TEST_F(EngineTest, SlavesReturnsDiscoveredSlaves) {
+/// @brief it should return the slaves that the master discovers.
+TEST_F(EngineTest, DiscoverReturnsTheSlavesOnTheBus) {
     this->master->add_slave(io_slave(1));
-    ASSERT_NIL(this->engine->ensure_initialized());
-    const auto slaves = this->engine->slaves();
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
     ASSERT_EQ(slaves.size(), 2);
     EXPECT_EQ(slaves[0].properties.position, 0);
     EXPECT_EQ(slaves[1].properties.position, 1);
 }
 
-TEST_F(EngineTest, InterfaceNameReturnsCorrect) {
-    EXPECT_EQ(this->engine->interface_name(), "eth0");
-}
-
 TEST(PoolTest, DiscoverSlavesCreatesEngine) {
-    auto master = std::make_shared<testutil::Master>("eth0");
+    auto master = std::make_shared<testutil::Master>();
     master->add_slave(io_slave(0));
     master->add_slave(io_slave(1));
     auto manager = std::make_unique<testutil::Manager>();
@@ -1615,7 +1616,7 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
 TEST(PoolTest, DiscoverSlavesTakesNoRTCore) {
     const auto rt = std::make_shared<x::thread::rt::Manager>();
     if (rt->total_cores() == 0) GTEST_SKIP() << "the host has no RT cores";
-    auto master = std::make_shared<testutil::Master>("eth0");
+    auto master = std::make_shared<testutil::Master>();
     master->add_slave(io_slave(0));
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
@@ -1625,7 +1626,7 @@ TEST(PoolTest, DiscoverSlavesTakesNoRTCore) {
 }
 
 TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
-    auto master = std::make_shared<testutil::Master>("eth0");
+    auto master = std::make_shared<testutil::Master>();
     master->add_slave(io_slave(0));
     master->add_slave(io_slave(1));
     auto manager = std::make_unique<testutil::Manager>();
@@ -1643,8 +1644,8 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
 }
 
 TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
-    auto master = std::make_shared<testutil::Master>("eth0");
-    master->inject_init_error(
+    auto master = std::make_shared<testutil::Master>();
+    master->inject_scan_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "no interface")
     );
     auto manager = std::make_unique<testutil::Manager>();

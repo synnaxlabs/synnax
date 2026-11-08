@@ -61,7 +61,7 @@ protected:
               {"data_type", "int32"}}}
         );
 
-        mock_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
+        mock_master = std::make_shared<testutil::Master>();
         mock_master->add_slave(
             slave::Properties{
                 .position = 0,
@@ -87,7 +87,7 @@ protected:
                 },
             }
         );
-        engine = std::make_shared<engine::Engine>(mock_master);
+        engine = std::make_shared<engine::Engine>(NETWORK_INTERFACE, mock_master);
     }
 
     synnax::device::Device create_network_device(const std::string &interface) {
@@ -469,7 +469,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     WriteTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
 
-    auto mismatched_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
+    auto mismatched_master = std::make_shared<testutil::Master>();
     mismatched_master->add_slave(
         slave::Properties{
             .position = 0,
@@ -479,7 +479,10 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
             .name = "Test Slave",
         }
     );
-    auto mismatched_engine = std::make_shared<engine::Engine>(mismatched_master);
+    auto mismatched_engine = std::make_shared<engine::Engine>(
+        NETWORK_INTERFACE,
+        mismatched_master
+    );
 
     auto sink = WriteTaskSink(mismatched_engine, std::move(task_cfg));
     ASSERT_OCCURRED_AS(sink.start(), errors::TOPOLOGY_MISMATCH);

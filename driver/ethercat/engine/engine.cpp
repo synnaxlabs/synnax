@@ -11,6 +11,7 @@
 #include <cmath>
 #include <format>
 #include <numeric>
+#include <tuple>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -142,33 +143,21 @@ x::errors::Error start_error(
     return err;
 }
 
-/// @brief looks up the offset of each entry in a process image of the given size.
-std::pair<std::vector<pdo::Offset>, x::errors::Error> resolve_offsets(
-    const master::Master &master,
-    const std::vector<pdo::Entry> &entries,
-    const size_t image_size
+/// @brief returns the error for an entry on a slave that the bus started without.
+x::errors::Error left_out_error(
+    const uint16_t position,
+    const std::string &name,
+    const slave::Refusal &refusal
 ) {
-    std::vector<pdo::Offset> offsets;
-    offsets.reserve(entries.size());
-    for (const auto &entry: entries) {
-        const auto [offset, err] = master.pdo_offset(entry);
-        if (err) return {{}, err};
-        if (offset.byte + telem::pdo_required_bytes(offset.bit, entry.bit_length) >
-            image_size)
-            return {
-                {},
-                x::errors::Error(
-                    errors::PDO_MAPPING_ERROR,
-                    std::format(
-                        "PDO {} on slave {} lies outside the process image",
-                        telem::format_index_sub_index(entry.index, entry.sub_index),
-                        entry.slave_position
-                    )
-                )
-            };
-        offsets.push_back(offset);
-    }
-    return {offsets, x::errors::NIL};
+    auto msg = std::format(
+        "Slave {} ({}) is not on the network: it {}. Fix the device, then stop every "
+        "task on the network to try it again.",
+        position,
+        name,
+        refusal.reason
+    );
+    if (refusal.dc_sync_invalid) msg.append(" ").append(master::DC_SYNC_ADVICE);
+    return x::errors::Error(errors::STATE_CHANGE_REFUSED, msg);
 }
 }
 
@@ -225,7 +214,7 @@ void Engine::Input::push(const uint8_t *image, const x::telem::TimeStamp time) {
 }
 
 void Engine::run() {
-    const auto iface = this->master->interface_name();
+    const auto &iface = this->iface;
     std::shared_ptr<const Schedule> sched;
     uint64_t version = 0;
     x::loop::Timer timer;
@@ -274,7 +263,7 @@ void Engine::run() {
                 LOG(INFO) << "[ethercat] bus on " << iface << " cycles at "
                           << sched->rate;
                 std::vector<PhaseLock::Sync0> syncs;
-                for (const auto &regs: this->master->dc_sync())
+                for (const auto &regs: this->image.dc_sync)
                     if (regs.marks_data())
                         syncs.push_back({
                             .cycle = x::telem::TimeSpan(regs.sync0_cycle),
@@ -332,7 +321,7 @@ void Engine::run() {
             std::lock_guard lock(this->cycle_err_mu);
             this->cycle_err = err;
         }
-        const uint8_t *image = this->master->input_data().data();
+        const uint8_t *inputs = this->image.inputs.data();
         for (const auto &[input, decimation]: sched->inputs) {
             if (input->countdown > 0) {
                 input->countdown--;
@@ -342,7 +331,7 @@ void Engine::run() {
             if (err)
                 input->failed_samples.fetch_add(1, std::memory_order_relaxed);
             else
-                input->push(image, latched_at);
+                input->push(inputs, latched_at);
         }
 
         this->write_outputs(false);
@@ -361,10 +350,12 @@ void Engine::run() {
 }
 
 void Engine::supervise() {
-    const auto iface = this->master->interface_name();
+    const auto &iface = this->iface;
     std::vector<slave::Health> last;
     while (this->bus.running()) {
         auto health = this->master->check(this->bus);
+        for (const auto &[pos, refusal]: this->left_out)
+            health.push_back({.position = pos, .refusal = refusal});
         for (const auto &h: health) {
             if (h.refusal) continue;
             const auto prev = std::ranges::find(
@@ -394,21 +385,24 @@ void Engine::supervise() {
 
 x::errors::Error
 Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> configs) {
-    this->master->replace_slave_configs(std::move(configs));
-    const auto start_cycle = [this, mhz] {
+    const auto start_cycle = [this, mhz](const master::Image &image) {
+        this->image = image;
         {
             std::lock_guard lock(this->write_mu);
-            const auto size = this->master->output_data().size();
-            this->write_staging.assign(size, 0);
-            this->write_active.assign(size, 0);
+            this->write_staging.assign(image.outputs.size(), 0);
+            this->write_active.assign(image.outputs.size(), 0);
         }
         this->publish_schedule_locked(mhz);
         this->starting.store(true, std::memory_order_release);
         this->bus.start();
         this->cycle_thread = std::thread(&Engine::run, this);
     };
-    const auto iface = this->master->interface_name();
-    std::map<uint16_t, slave::Refusal> left_out;
+    const auto &iface = this->iface;
+    master::Plan plan{
+        .period = x::telem::Rate(static_cast<double>(mhz) / 1000).period(),
+        .slaves = std::move(configs),
+    };
+    this->left_out.clear();
     x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
     const auto &clock = this->config.host_clock;
@@ -416,26 +410,34 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
     x::telem::TimeSpan longest_try(0);
     while (true) {
         const auto try_started = clock.steady();
-        this->master->leave_out(left_out);
-        auto err = this->master->initialize();
+        auto [slaves, err] = this->master->scan();
         bool dc_sync_refused = false;
         if (!err) {
-            err = this->master->activate(
-                x::telem::Rate(static_cast<double>(mhz) / 1000).period(),
-                start_cycle
-            );
+            this->slaves = std::move(slaves);
+            const auto activation = this->master->activate(plan, start_cycle);
+            err = activation.err;
             if (!err) break;
-            const auto refused = this->master->refusals();
-            dc_sync_refused = this->master->dc_sync_refused();
+            dc_sync_refused = activation.dc_sync_refused;
+            const auto &refused = activation.refusals;
+            // A slave with no process data, such as a coupler, gives a task nothing to
+            // run.
+            const bool io_left = std::ranges::any_of(
+                this->image.offsets,
+                [&refused](const auto &offset) {
+                    return !refused.contains(offset.first.slave_position);
+                }
+            );
             if (this->bus.running())
                 this->stop_locked();
             else
                 this->master->deactivate();
-            if (!refused.empty()) {
-                for (const auto &[pos, refusal]: refused)
+            if (!refused.empty() && io_left) {
+                for (const auto &[pos, refusal]: refused) {
                     LOG(WARNING) << "[ethercat] starting " << iface << " without slave "
                                  << pos << ": it " << refusal.reason;
-                left_out.insert(refused.begin(), refused.end());
+                    plan.slaves[pos].enabled = false;
+                }
+                this->left_out.insert(refused.begin(), refused.end());
                 continue;
             }
         }
@@ -449,10 +451,11 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
             err.matches(errors::SLAVE_CONFIG_ERROR) ||
             next_try_end > this->config.start_timeout || !retry.wait(err)) {
             retry.stop();
-            return start_error(err, left_out, dc_sync_refused);
+            return start_error(err, this->left_out, dc_sync_refused);
         }
     }
     retry.stop();
+    this->slaves = this->image.slaves;
     this->starting.store(false, std::memory_order_release);
     this->supervisor_thread = std::thread(&Engine::supervise, this);
     return x::errors::NIL;
@@ -464,6 +467,7 @@ void Engine::stop_locked() {
     this->cycle_thread.join();
     if (this->supervisor_thread.joinable()) this->supervisor_thread.join();
     this->master->deactivate();
+    this->image = {};
     this->cycle_mhz.store(0, std::memory_order_release);
     {
         std::lock_guard lock(this->schedule_mu);
@@ -522,9 +526,9 @@ std::pair<uint64_t, x::errors::Error> Engine::rate_locked(
     const std::vector<x::telem::Rate> &reads,
     const std::vector<x::telem::Rate> &writes
 ) const {
-    const auto iface = this->master->interface_name();
+    const auto &iface = this->iface;
     auto [mhz, err] = bus_rate(reads, writes, iface);
-    if (err || !this->running() || this->master->dc_sync().empty()) return {mhz, err};
+    if (err || !this->running() || this->image.dc_sync.empty()) return {mhz, err};
     // The SYNC0 and SYNC1 cycles came from the bus period at activation.
     const auto fixed = this->cycle_mhz.load(std::memory_order_acquire);
     if (serves(fixed, reads, writes)) return {fixed, x::errors::NIL};
@@ -559,7 +563,7 @@ void Engine::write_outputs(const bool wait) {
     std::unique_lock lock(this->write_mu, std::try_to_lock);
     if (!lock.owns_lock() && wait) lock.lock();
     if (lock.owns_lock()) this->write_active = this->write_staging;
-    const auto outputs = this->master->output_data();
+    const auto outputs = this->image.outputs;
     std::memcpy(
         outputs.data(),
         this->write_active.data(),
@@ -598,8 +602,12 @@ void Engine::close_output(const std::shared_ptr<Output> &output) {
     this->reschedule_locked();
 }
 
-Engine::Engine(std::shared_ptr<master::Master> master, Config config):
-    config(std::move(config)), master(std::move(master)) {}
+Engine::Engine(
+    std::string iface,
+    std::shared_ptr<master::Master> master,
+    Config config
+):
+    config(std::move(config)), iface(std::move(iface)), master(std::move(master)) {}
 
 Engine::~Engine() {
     std::lock_guard lock(this->mu);
@@ -623,11 +631,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
         if (auto err = this->start_locked(mhz, std::move(configs)); err)
             return {nullptr, err};
     }
-    auto [offsets, err] = resolve_offsets(
-        *this->master,
-        entries,
-        this->master->input_data().size()
-    );
+    auto [offsets, err] = this->offsets_locked(entries, this->image.inputs.size());
     if (err) {
         if (started) this->stop_locked();
         return {nullptr, err};
@@ -667,11 +671,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         if (auto err = this->start_locked(mhz, std::move(configs)); err)
             return {nullptr, err};
     }
-    auto [offsets, err] = resolve_offsets(
-        *this->master,
-        pdo_entries,
-        this->master->output_data().size()
-    );
+    auto [offsets, err] = this->offsets_locked(pdo_entries, this->image.outputs.size());
     if (err) {
         if (started) this->stop_locked();
         return {nullptr, err};
@@ -693,31 +693,70 @@ x::telem::Rate Engine::cycle_rate() const {
     );
 }
 
-x::errors::Error Engine::ensure_initialized() {
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Engine::discover(const bool rediscover) {
     std::lock_guard lock(this->mu);
-    if (this->running()) return x::errors::NIL;
-    if (auto err = this->master->initialize()) return err;
-    const auto [count, err] = this->master->count_slaves();
-    if (err) return err;
-    const auto discovered = this->master->slaves().size();
-    if (count == discovered) return x::errors::NIL;
-    LOG(INFO) << "[ethercat] " << count << " slaves answer on "
-              << this->master->interface_name() << " where " << discovered
-              << " were discovered, rediscovering";
-    this->master->deactivate();
-    return this->master->initialize();
+    if (this->running()) return {this->slaves, x::errors::NIL};
+    if (rediscover) this->master->deactivate();
+    auto [slaves, err] = this->master->scan();
+    if (err) return {{}, err};
+    if (!rediscover) {
+        const auto [count, count_err] = this->master->count_slaves();
+        if (count_err) return {{}, count_err};
+        if (count != slaves.size()) {
+            LOG(INFO) << "[ethercat] " << count << " slaves answer on " << this->iface
+                      << " where " << slaves.size()
+                      << " were discovered, rediscovering";
+            this->master->deactivate();
+            std::tie(slaves, err) = this->master->scan();
+            if (err) return {{}, err};
+        }
+    }
+    this->slaves = slaves;
+    return {std::move(slaves), x::errors::NIL};
 }
 
-x::errors::Error Engine::rediscover() {
-    std::lock_guard lock(this->mu);
-    if (this->running()) return x::errors::NIL;
-    this->master->deactivate();
-    return this->master->initialize();
-}
-
-std::vector<slave::DiscoveryResult> Engine::slaves() const {
-    std::lock_guard lock(this->mu);
-    return this->master->slaves();
+std::pair<std::vector<pdo::Offset>, x::errors::Error> Engine::offsets_locked(
+    const std::vector<pdo::Entry> &entries,
+    const size_t image_size
+) const {
+    std::vector<pdo::Offset> offsets;
+    offsets.reserve(entries.size());
+    for (const auto &entry: entries) {
+        const auto pos = entry.slave_position;
+        if (const auto it = this->left_out.find(pos); it != this->left_out.end()) {
+            const auto slave = std::ranges::find(
+                this->slaves,
+                pos,
+                [](const slave::DiscoveryResult &s) { return s.properties.position; }
+            );
+            return {
+                {},
+                left_out_error(
+                    pos,
+                    slave == this->slaves.end() ? "" : slave->properties.name,
+                    it->second
+                )
+            };
+        }
+        const auto [offset, err] = this->image.offset(entry);
+        if (err) return {{}, err};
+        if (offset.byte + telem::pdo_required_bytes(offset.bit, entry.bit_length) >
+            image_size)
+            return {
+                {},
+                x::errors::Error(
+                    errors::PDO_MAPPING_ERROR,
+                    std::format(
+                        "PDO {} on slave {} lies outside the process image",
+                        telem::format_index_sub_index(entry.index, entry.sub_index),
+                        entry.slave_position
+                    )
+                )
+            };
+        offsets.push_back(offset);
+    }
+    return {offsets, x::errors::NIL};
 }
 
 std::vector<slave::Health> Engine::health() const {
@@ -726,6 +765,6 @@ std::vector<slave::Health> Engine::health() const {
 }
 
 std::string Engine::interface_name() const {
-    return this->master->interface_name();
+    return this->iface;
 }
 }
