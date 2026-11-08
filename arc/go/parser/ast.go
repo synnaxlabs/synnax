@@ -321,6 +321,24 @@ func FunctionName(fn IFunctionContext) string {
 	return head + "." + tail
 }
 
+// IdentifierParts returns the head and tail of a flow identifier. A bare
+// identifier returns (name, ""); a qualified one (m.f) returns (head, tail).
+func IdentifierParts(id IIdentifierContext) (head, tail string) {
+	if qid := id.QualifiedIdentifier(); qid != nil {
+		return QualifiedNameParts(qid)
+	}
+	return id.IDENTIFIER().GetText(), ""
+}
+
+// IdentifierName extracts the joined name from a flow identifier.
+func IdentifierName(id IIdentifierContext) string {
+	head, tail := IdentifierParts(id)
+	if tail == "" {
+		return head
+	}
+	return head + "." + tail
+}
+
 // PrimaryNameParts returns the head and tail of a primary expression's
 // identifier. Bare (x) returns (name, ""); qualified (math.avg) returns
 // (head, tail). Returns ("", "") when the primary is not an identifier.

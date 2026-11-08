@@ -15,43 +15,68 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
 	tx    gorp.Tx
-	otg   ontology.Writer
-	group group.Group
 	table *gorp.Table[Key, Project]
 }
 
+// Create creates p, or updates the stored project with p.Key. An existing project keeps
+// its group.
 func (w Writer) Create(
 	ctx context.Context,
 	p *Project,
 ) (err error) {
+	var exists bool
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
+	} else {
+		var stored Project
+		err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Project](p.Key)).
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		if exists = err == nil; exists {
+			p.Group = stored.Group
+		}
+	}
+	if !exists {
+		if err := group.CheckMember(
+			ctx,
+			w.tx,
+			p.Group,
+			resource.TypeProject,
+			nil,
+		); err != nil {
+			return err
+		}
 	}
 	if err = p.Validate(); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	otgID := p.OntologyID()
-	if err := w.otg.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if err := w.otg.DefineRelationships(
+	return w.table.NewCreate().Entry(p).Exec(ctx, w.tx)
+}
+
+// SetGroup moves the projects with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := group.CheckMember(
 		ctx,
-		w.group.OntologyID(),
-		ontology.RelationshipTypeParentOf,
-		otgID,
+		w.tx,
+		g,
+		resource.TypeProject,
+		nil,
 	); err != nil {
 		return err
 	}
-	return err
+	return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
 }
 
 // CreateMany creates the given projects. If projects with the same key already
@@ -91,10 +116,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...Key,
 ) error {
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Project](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otg.DeleteResources(ctx, OntologyIDs(keys)...)
+		Exec(ctx, w.tx)
 }

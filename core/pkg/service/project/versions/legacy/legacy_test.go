@@ -16,10 +16,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions/legacy"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/zip"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -75,7 +75,7 @@ var _ = Describe("Members", func() {
 		Expect(members).To(HaveLen(2))
 		Expect(members[0].LayoutKey).To(Equal("k1"))
 		Expect(members[0].Path).To(Equal("Metrics.json"))
-		Expect(members[0].Env.Type).To(Equal(string(ontology.ResourceTypeLog)))
+		Expect(members[0].Env.Type).To(Equal(string(resource.TypeLog)))
 		Expect(members[1].LayoutKey).To(Equal("k2"))
 	})
 
@@ -123,64 +123,24 @@ var _ = Describe("Members", func() {
 	})
 })
 
-var _ = Describe("HasPanels", func() {
-	members := []legacy.Member{{LayoutKey: "k1"}}
-
-	It("Should report a tiling whose tabs resolve to members", func(ctx SpecContext) {
-		data := layoutFile(logLayouts, map[string]any{
-			"main": map[string]any{"root": leaf("k1")},
-		})
-		Expect(legacy.HasPanels(ctx, data, members)).To(BeTrue())
-	})
-
-	It("Should ignore a tiling with no resolvable tabs", func(ctx SpecContext) {
-		data := layoutFile(logLayouts, map[string]any{
-			"main": map[string]any{"root": leaf("missing")},
-		})
-		Expect(legacy.HasPanels(ctx, data, members)).To(BeFalse())
-	})
-
-	It("Should ignore a tiling that does not parse", func(ctx SpecContext) {
-		data := layoutFile(logLayouts, map[string]any{"main": "garbage"})
-		Expect(legacy.HasPanels(ctx, data, members)).To(BeFalse())
-	})
-})
-
 var _ = Describe("CreatePanels", func() {
 	var (
-		parent ontology.ID
-		refs   map[string]ontology.ID
+		proj project.Key
+		refs map[string]resource.ID
 	)
 	BeforeEach(func(ctx SpecContext) {
-		g := MustSucceed(
-			groupSvc.NewWriter(tx).Create(ctx, "Legacy Parent", ontology.RootID),
-		)
-		parent = g.OntologyID()
-		l := log.Log{Name: "Metrics"}
-		Expect(logSvc.NewWriter(tx).Create(ctx, project.Key{}, &l)).To(Succeed())
-		refs = map[string]ontology.ID{"k1": log.OntologyID(l.Key)}
+		p := project.Project{Name: "Legacy Project"}
+		Expect(projectSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+		proj = p.Key
+		l := log.Log{Name: "Metrics", Project: &proj}
+		Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+		refs = map[string]resource.ID{"k1": log.ResourceID(l.Key)}
 	})
-	panelsUnder := func(ctx SpecContext, parent ontology.ID) []panel.Panel {
+	panelsOf := func(ctx SpecContext, proj project.Key) []panel.Panel {
 		GinkgoHelper()
-		var children []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(parent).
-			TraverseTo(ontology.ChildrenTraverser).
-			Entries(&children).
-			Exec(ctx, tx)).To(Succeed())
-		var ids []ontology.ID
-		for _, c := range children {
-			if c.ID.Type == ontology.ResourceTypePanel {
-				ids = append(ids, c.ID)
-			}
-		}
-		if len(ids) == 0 {
-			return nil
-		}
-		keys := MustSucceed(panel.KeysFromOntologyIDs(ids))
 		var panels []panel.Panel
 		Expect(panelSvc.NewRetrieve().
-			Where(panel.MatchKeys(keys...)).
+			Where(panel.MatchProjects(proj)).
 			Entries(&panels).
 			Exec(ctx, tx)).To(Succeed())
 		return panels
@@ -196,9 +156,9 @@ var _ = Describe("CreatePanels", func() {
 			"main": map[string]any{"root": leaf("k1")},
 		})
 		Expect(legacy.CreatePanels(
-			ctx, tx, panelSvc, parent, data, refs,
+			ctx, tx, panelSvc, proj, data, refs,
 		)).To(Succeed())
-		panels := panelsUnder(ctx, parent)
+		panels := panelsOf(ctx, proj)
 		Expect(panels).To(HaveLen(1))
 		Expect(panels[0].Name).To(Equal("Main"))
 		l, ok := panels[0].Root.Variant.(panel.LeafNode)
@@ -211,9 +171,9 @@ var _ = Describe("CreatePanels", func() {
 	) {
 		data := layoutFile(nil, map[string]any{"main": "garbage"})
 		Expect(legacy.CreatePanels(
-			ctx, tx, panelSvc, parent, data, refs,
+			ctx, tx, panelSvc, proj, data, refs,
 		)).To(Succeed())
-		Expect(panelsUnder(ctx, parent)).To(BeEmpty())
+		Expect(panelsOf(ctx, proj)).To(BeEmpty())
 	})
 
 	It("Should skip windows with no resolvable tabs", func(ctx SpecContext) {
@@ -221,8 +181,8 @@ var _ = Describe("CreatePanels", func() {
 			"w1": map[string]any{"root": leaf("missing")},
 		})
 		Expect(legacy.CreatePanels(
-			ctx, tx, panelSvc, parent, data, refs,
+			ctx, tx, panelSvc, proj, data, refs,
 		)).To(Succeed())
-		Expect(panelsUnder(ctx, parent)).To(BeEmpty())
+		Expect(panelsOf(ctx, proj)).To(BeEmpty())
 	})
 })

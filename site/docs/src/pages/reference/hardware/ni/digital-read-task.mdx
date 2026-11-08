@@ -30,6 +30,12 @@ and line numbers. The device manual lists the ports and lines.
 The Driver reads the lines on the computer clock, at the **Sample rate**. See
 [timing](/reference/hardware/tasks#timing).
 
+The Console gives the digital read tasks of a device one index channel, and only one
+writer can hold an index channel. So only one of these tasks can run on a device at a
+time, even when the tasks use different lines. A second task stops right after it
+starts, with an error that names the running task. Tasks from a client library have this
+limit only when they share an index channel.
+
 <Divider.Divider x />
 
 ## Create an NI digital read task
@@ -154,6 +160,19 @@ Two channels use the same line.
 <Problem.Fix>
 
 Change the port or the line of one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... has no control authority - it is currently held by ..."}>
+<Problem.Cause>
+
+Another running task writes to the same index channel. The error names that task.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Stop the other task, or move its channels into this task.
 
 </Problem.Fix>
 </Problem.Item>

@@ -16,6 +16,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 )
 
 // MigrationsConfig configures the stored-rack migration chain.
@@ -26,6 +27,11 @@ func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 	return slices.Concat(
 		[]gorp.Migration{v0.NormalizeKeys},
 		v0.NewMigrations(cfg),
-		[]gorp.Migration{v1.Migration, v2.Migration},
+		[]gorp.Migration{
+			v1.Migration,
+			v2.Migration,
+			v3.Migration,
+			v3.MembersMigration,
+		},
 	)
 }

@@ -27,7 +27,7 @@ One Type, one Package, zero or one Area.
 
 - **Type:** Bug, Feature, Refactor (no behavior change), Performance, Test (tests,
   flakes, compliance audits), Tooling (CI, builds, linters), Documentation, Release.
-- **Package:** Core, Console, Pluto, Lyra, Driver, Client, Arc, Oracle, Cesium, Aspen,
+- **Package:** Core, Console, Pluto, Lyra, Driver, Client, Arc, Oracle, Cesium,
   Freighter, Drift, Alamos, Media, X, Studio, Site, Integration (`integration/`), Go,
   Python, TypeScript, C++ (a whole language), Cross-cutting (several packages).
 - **Area:** Channels, Calculated channels, Ranges, Labels, Import and export, Analysis,

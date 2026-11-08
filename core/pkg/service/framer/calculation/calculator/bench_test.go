@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -22,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
@@ -30,55 +30,40 @@ import (
 )
 
 type benchEnv struct {
-	ctx           context.Context
-	node          testutil.Node
-	closer        io.MultiCloser
-	channelSvc    *channel.Service
-	channelWriter channel.Writer
+	ctx        context.Context
+	node       testutil.Node
+	closer     io.MultiCloser
+	channelSvc *channel.Service
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
-	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
-	if err != nil {
-		b.Fatalf("failed to open ontology: %v", err)
-	}
-
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open group service: %v", err)
 	}
 
 	labelSvc := MustSucceed(label.OpenService(b.Context(), label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB: node.DB,
 	}))
 	statusSvc := MustSucceed(status.OpenService(b.Context(), status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: node.DB,
 	}))
 	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	return &benchEnv{
-		ctx:           b.Context(),
-		node:          node,
-		channelSvc:    channelSvc,
-		channelWriter: channelSvc.NewWriter(nil),
+		ctx:        b.Context(),
+		node:       node,
+		channelSvc: channelSvc,
 		closer: io.MultiCloser{
-			node, otg, groupSvc, channelSvc, statusSvc, labelSvc,
+			node, groupSvc, channelSvc, statusSvc, labelSvc,
 		},
 	}
 }
@@ -95,7 +80,9 @@ func (e *benchEnv) openCalculator(
 	calc *channel.Channel,
 ) *calculator.Calculator {
 	if len(indexes) > 0 {
-		if err := e.channelWriter.CreateMany(e.ctx, &indexes); err != nil {
+		if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+			return e.channelSvc.NewWriter(tx).CreateMany(e.ctx, &indexes)
+		}); err != nil {
 			b.Fatalf("failed to create index channels: %v", err)
 		}
 	}
@@ -111,14 +98,18 @@ func (e *benchEnv) openCalculator(
 			ch.LocalIndex = indexes[toGet].LocalKey
 			bases[i] = ch
 		}
-		if err := e.channelWriter.CreateMany(e.ctx, &bases); err != nil {
+		if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+			return e.channelSvc.NewWriter(tx).CreateMany(e.ctx, &bases)
+		}); err != nil {
 			b.Fatalf("failed to create base channels: %v", err)
 		}
 	}
-	if err := e.channelWriter.Create(e.ctx, calc); err != nil {
+	if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+		return e.channelSvc.NewWriter(tx).Create(e.ctx, calc)
+	}); err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
-	mod, err := compiler.Compile(e.ctx, compiler.Config{
+	mod, err := compiler.Compile(e.ctx, e.node.DB, compiler.Config{
 		ChannelService: e.channelSvc,
 		Channel:        *calc,
 	})
@@ -168,7 +159,9 @@ func BenchmarkCalculator_SingleInput(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		advanceAlignment(inputFrame)
-		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
+			b.Fatal(err)
+		}
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -209,7 +202,9 @@ func BenchmarkCalculator_TwoInputs_Add(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		advanceAlignment(inputFrame)
-		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
+			b.Fatal(err)
+		}
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -254,7 +249,9 @@ func BenchmarkCalculator_MultipleInputs(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		advanceAlignment(inputFrame)
-		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
+			b.Fatal(err)
+		}
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -341,7 +338,9 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				advanceAlignment(inputFrame)
-				_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+				if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
+					b.Fatal(err)
+				}
 			}
 			b.StopTimer()
 			b.ReportMetric(float64(count*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -384,7 +383,9 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		advanceAlignment(inputFrame)
-		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
+			b.Fatal(err)
+		}
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")

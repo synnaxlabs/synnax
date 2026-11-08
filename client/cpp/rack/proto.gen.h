@@ -83,20 +83,6 @@ string_contains_from_proto(const ::service::rack::pb::StringContains &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::rack::pb::StatusDetails, x::errors::Error>
-StatusDetails::to_proto() const {
-    ::service::rack::pb::StatusDetails pb;
-    pb.set_rack(this->rack);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<StatusDetails, x::errors::Error>
-StatusDetails::from_proto(const ::service::rack::pb::StatusDetails &pb) {
-    StatusDetails cpp;
-    cpp.rack = pb.rack();
-    return {cpp, x::errors::NIL};
-}
-
 inline std::pair<::service::rack::pb::Rack, x::errors::Error> Rack::to_proto() const {
     ::service::rack::pb::Rack pb;
     pb.set_key(this->key);
@@ -109,6 +95,7 @@ inline std::pair<::service::rack::pb::Rack, x::errors::Error> Rack::to_proto() c
     }
     for (const auto &item: this->integrations)
         pb.add_integrations(item);
+    if (this->version.has_value()) pb.set_version(*this->version);
     return {pb, x::errors::NIL};
 }
 
@@ -125,6 +112,7 @@ Rack::from_proto(const ::service::rack::pb::Rack &pb) {
     }
     for (const auto &item: pb.integrations())
         cpp.integrations.push_back(item);
+    if (pb.has_version()) cpp.version = pb.version();
     return {cpp, x::errors::NIL};
 }
 
@@ -171,7 +159,6 @@ inline std::pair<::service::rack::pb::Where, x::errors::Error> Where::to_proto()
         if (err) return {{}, err};
         *pb.mutable_integrations() = v;
     }
-    if (this->host_is_node.has_value()) pb.set_host_is_node(*this->host_is_node);
     return {pb, x::errors::NIL};
 }
 
@@ -213,7 +200,6 @@ Where::from_proto(const ::service::rack::pb::Where &pb) {
         if (err) return {{}, err};
         cpp.integrations = v;
     }
-    if (pb.has_host_is_node()) cpp.host_is_node = pb.host_is_node();
     return {cpp, x::errors::NIL};
 }
 

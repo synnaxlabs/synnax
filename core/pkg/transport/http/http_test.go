@@ -357,6 +357,16 @@ var _ = Describe("HTTP", func() {
 			Expect(refreshed[0].MaxAge).
 				To(Equal(int(auth.DefaultIdleTimeout / time.Second)))
 		})
+		It("Should set no cookie when a request fails", func() {
+			cookie := loginWithCookie("localhost:9090")
+			res := post(
+				"/api/v1/channel/retrieve",
+				withCookie("localhost:9090", cookie),
+				channel.RetrieveRequest{},
+			)
+			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+			Expect(res.Cookies()).To(BeEmpty())
+		})
 		It("Should not set a cookie when a header client renews", func() {
 			cookie := loginWithCookie("localhost:9090")
 			res := post(
@@ -579,7 +589,7 @@ var _ = Describe("HTTP", func() {
 					"/api/v1/auth/key/create",
 					rootToken,
 					apiauth.KeyCreateRequest{
-						Subject: rack.OntologyIDs([]rack.Key{r.Key})[0],
+						Subject: rack.ResourceIDs([]rack.Key{r.Key})[0],
 					},
 					&created,
 				)).To(Equal(http.StatusOK))

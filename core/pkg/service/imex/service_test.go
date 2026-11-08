@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -41,7 +41,7 @@ func sampleResource(name string) testResource {
 	return testResource{Name: name, FieldOne: "value", FieldTwo: 42}
 }
 
-func sampleEnvelope(name string, typ ontology.ResourceType) imex.Envelope {
+func sampleEnvelope(name string, typ resource.Type) imex.Envelope {
 	GinkgoHelper()
 	env := imex.Envelope{Version: testVersion, Type: string(typ)}
 	Expect(env.Encode(sampleResource(name))).To(Succeed())
@@ -53,13 +53,12 @@ type testEntry struct {
 	Name     string `json:"name"      msgpack:"name"`
 	FieldOne string `json:"field_one" msgpack:"field_one"`
 	FieldTwo int    `json:"field_two" msgpack:"field_two"`
+	Parent   string `json:"parent"    msgpack:"parent"`
 }
 
 var _ gorp.Entry[string] = testEntry{}
 
 func (e testEntry) GorpKey() string { return e.Key }
-
-func (testEntry) SetOptions() []any { return nil }
 
 // EncodeOrc implements orc.SelfEncoder so the entry can persist through the
 // production gorp codec, which requires it.
@@ -68,6 +67,7 @@ func (e testEntry) EncodeOrc(w *orc.Writer) error {
 	w.String(e.Name)
 	w.String(e.FieldOne)
 	w.Int64(int64(e.FieldTwo))
+	w.String(e.Parent)
 	return nil
 }
 
@@ -88,7 +88,8 @@ func (e *testEntry) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	e.FieldTwo = int(n)
-	return nil
+	e.Parent, err = r.String()
+	return err
 }
 
 // testService is a minimal in-memory ImportExporter used to exercise the ImEx registry
@@ -108,35 +109,27 @@ func openTestService(ctx context.Context, db *gorp.DB) *testService {
 	return &testService{db: db, table: table}
 }
 
-func (*testService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
+func (*testService) Type() resource.Type { return resource.TypeChannel }
 
 func (s *testService) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
 	opts imex.ImportOptions,
-) (ontology.ID, error) {
+) (resource.ID, error) {
 	r, err := env.Decode[testResource](ctx)
 	if err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
 	key := uuid.New().String()
 	e := testEntry{Key: key, Name: env.Name, FieldOne: r.FieldOne, FieldTwo: r.FieldTwo}
-	if err := s.table.NewCreate().Entry(&e).Exec(ctx, tx); err != nil {
-		return ontology.ID{}, err
-	}
-	id := ontology.ID{Type: ontology.ResourceTypeChannel, Key: key}
-	w := otg.NewWriter(tx)
-	if err := w.DefineResources(ctx, id); err != nil {
-		return ontology.ID{}, err
-	}
 	if !opts.Parent.IsZero() {
-		if err := w.DefineRelationships(
-			ctx, opts.Parent, ontology.RelationshipTypeParentOf, id,
-		); err != nil {
-			return ontology.ID{}, err
-		}
+		e.Parent = opts.Parent.String()
 	}
+	if err := s.table.NewCreate().Entry(&e).Exec(ctx, tx); err != nil {
+		return resource.ID{}, err
+	}
+	id := resource.ID{Type: resource.TypeChannel, Key: key}
 	return id, nil
 }
 
@@ -144,18 +137,19 @@ func (*testService) Match(map[string]any) bool { return false }
 
 func (s *testService) Export(
 	ctx context.Context,
-	id ontology.ID,
+	snap gorp.Snapshot,
+	id resource.ID,
 ) (imex.Envelope, error) {
 	var e testEntry
 	if err := s.table.NewRetrieve().
 		Where(gorp.MatchKeys[string, testEntry](id.Key)).
 		Entry(&e).
-		Exec(ctx, s.db); err != nil {
+		Exec(ctx, snap); err != nil {
 		return imex.Envelope{}, err
 	}
 	env := imex.Envelope{
 		Version: testVersion,
-		Type:    string(ontology.ResourceTypeChannel),
+		Type:    string(resource.TypeChannel),
 	}
 	if err := env.Encode(
 		testResource{Name: e.Name, FieldOne: e.FieldOne, FieldTwo: e.FieldTwo},
@@ -182,30 +176,32 @@ func (s *testService) Close() error { return s.table.Close() }
 
 type errorService struct{}
 
-func (errorService) Type() ontology.ResourceType { return ontology.ResourceTypeDevice }
+func (errorService) Type() resource.Type { return resource.TypeDevice }
 
 func (errorService) Match(map[string]any) bool { return false }
 
 func (errorService) Import(
 	context.Context, gorp.Tx, imex.Envelope, imex.ImportOptions,
-) (ontology.ID, error) {
-	return ontology.ID{}, errors.New("importer error: forced failure")
+) (resource.ID, error) {
+	return resource.ID{}, errors.New("importer error: forced failure")
 }
 
-func (errorService) Export(context.Context, ontology.ID) (imex.Envelope, error) {
+func (errorService) Export(
+	context.Context,
+	gorp.Snapshot,
+	resource.ID,
+) (imex.Envelope, error) {
 	return imex.Envelope{}, errors.New("exporter error: forced failure")
 }
 
-type noopImporter struct{ typ ontology.ResourceType }
-
-func (n noopImporter) Type() ontology.ResourceType { return n.typ }
+type noopImporter struct{ typ resource.Type }
 
 func (noopImporter) Match(map[string]any) bool { return false }
 
 func (n noopImporter) Import(
 	context.Context, gorp.Tx, imex.Envelope, imex.ImportOptions,
-) (ontology.ID, error) {
-	return ontology.ID{Type: n.typ, Key: "noop-key"}, nil
+) (resource.ID, error) {
+	return resource.ID{Type: n.typ, Key: "noop-key"}, nil
 }
 
 // matchImporter is a noopImporter that claims typeless envelopes whose body carries
@@ -220,25 +216,20 @@ func (m matchImporter) Match(body map[string]any) bool {
 	return ok
 }
 
-type noopExporter struct{ typ ontology.ResourceType }
+type noopExporter struct{ typ resource.Type }
 
-func (n noopExporter) Type() ontology.ResourceType { return n.typ }
+func (n noopExporter) Type() resource.Type { return n.typ }
 
-func (n noopExporter) Export(context.Context, ontology.ID) (imex.Envelope, error) {
+func (n noopExporter) Export(
+	context.Context,
+	gorp.Snapshot,
+	resource.ID,
+) (imex.Envelope, error) {
 	env := imex.Envelope{Version: testVersion, Type: string(n.typ)}
 	if err := env.Encode(testResource{Name: "noop"}); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil
-}
-
-// newParent defines a fresh project resource in the ontology and returns its ID so
-// imports satisfy the registry's required-parent check.
-func newParent(ctx context.Context) ontology.ID {
-	GinkgoHelper()
-	id := project.OntologyID(uuid.New())
-	Expect(otg.NewWriter(nil).DefineResources(ctx, id)).To(Succeed())
-	return id
 }
 
 var _ = Describe("Service", func() {
@@ -251,25 +242,6 @@ var _ = Describe("Service", func() {
 		ts = DeferClose(openTestService(ctx, db))
 		Expect(svc.RegisterImportExporter(ts)).To(Succeed())
 		Expect(svc.RegisterImportExporter(errorService{})).To(Succeed())
-	})
-
-	Describe("ImporterType", func() {
-		It("Should return the registered importer's broader Type", func() {
-			Expect(
-				svc.ImporterType(string(ontology.ResourceTypeChannel)),
-			).To(Equal(ontology.ResourceTypeChannel))
-		})
-
-		It(
-			"Should return a validation error scoped to the type field if not registered",
-			func() {
-				Expect(svc.ImporterType("nonexistent")).Error().To(SatisfyAll(
-					MatchError(ContainSubstring("type")),
-					MatchError(ContainSubstring("no importer registered")),
-					MatchError(ContainSubstring("validation error")),
-				))
-			},
-		)
 	})
 
 	Describe("ResolveType", func() {
@@ -291,10 +263,10 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				s := imex.NewService()
 				Expect(s.RegisterImporter("aaa", matchImporter{
-					noopImporter{typ: ontology.ResourceTypeLog}, "channels",
+					noopImporter{typ: resource.TypeLog}, "channels",
 				})).To(Succeed())
 				Expect(s.RegisterImporter("bbb", matchImporter{
-					noopImporter{typ: ontology.ResourceTypeSchematic}, "nodes",
+					noopImporter{typ: resource.TypeSchematic}, "nodes",
 				})).To(Succeed())
 				Expect(s.ResolveType(
 					typelessEnvelope(`{"version":"1.0.0","nodes":[]}`),
@@ -307,10 +279,10 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				s := imex.NewService()
 				Expect(s.RegisterImporter("bbb", matchImporter{
-					noopImporter{typ: ontology.ResourceTypeLog}, "marker",
+					noopImporter{typ: resource.TypeLog}, "marker",
 				})).To(Succeed())
 				Expect(s.RegisterImporter("aaa", matchImporter{
-					noopImporter{typ: ontology.ResourceTypeLog}, "marker",
+					noopImporter{typ: resource.TypeLog}, "marker",
 				})).To(Succeed())
 				Expect(s.ResolveType(
 					typelessEnvelope(`{"marker":true}`),
@@ -337,59 +309,48 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				s := imex.NewService()
 				Expect(s.RegisterImporter("matched", matchImporter{
-					noopImporter{typ: ontology.ResourceTypeLog}, "channels",
+					noopImporter{typ: resource.TypeLog}, "channels",
 				})).To(Succeed())
 				id := MustSucceed(s.Import(
 					ctx, db, typelessEnvelope(`{"version":"1.0.0","channels":[]}`),
-					imex.ImportOptions{FileName: "Legacy.json", Parent: newParent(ctx)},
+					imex.ImportOptions{FileName: "Legacy.json"},
 				))
-				Expect(id).To(Equal(ontology.ID{
-					Type: ontology.ResourceTypeLog, Key: "noop-key",
+				Expect(id).To(Equal(resource.ID{
+					Type: resource.TypeLog, Key: "noop-key",
 				}))
 			},
 		)
 	})
 
 	Describe("RegisterImporter", func() {
-		It("Should register an importer under a narrow type string", func() {
-			s := imex.NewService()
-			Expect(s.RegisterImporter(
-				"narrow",
-				noopImporter{typ: ontology.ResourceTypeChannel},
-			)).To(Succeed())
-			Expect(s.ImporterType("narrow")).To(Equal(ontology.ResourceTypeChannel))
-		})
-
 		It(
-			"Should map the narrow type to the importer's broader Type for access control",
+			"Should route each narrow type string to the importer registered under it",
 			func(ctx SpecContext) {
 				s := imex.NewService()
 				Expect(s.RegisterImporter(
 					"http_read",
-					noopImporter{typ: ontology.ResourceTypeTask},
+					noopImporter{typ: resource.TypeTask},
 				)).To(Succeed())
 				Expect(s.RegisterImporter(
 					"opc_scan",
-					noopImporter{typ: ontology.ResourceTypeTask},
+					noopImporter{typ: resource.TypeTask},
 				)).To(Succeed())
-				Expect(s.ImporterType("http_read")).To(Equal(ontology.ResourceTypeTask))
-				Expect(s.ImporterType("opc_scan")).To(Equal(ontology.ResourceTypeTask))
 				k1 := MustSucceed(s.Import(
 					ctx, db,
 					imex.Envelope{Version: 1, Type: "http_read", Name: "ingest"},
-					imex.ImportOptions{Parent: newParent(ctx)},
+					imex.ImportOptions{},
 				))
 				k2 := MustSucceed(s.Import(
 					ctx, db,
 					imex.Envelope{Version: 1, Type: "opc_scan", Name: "scan"},
-					imex.ImportOptions{Parent: newParent(ctx)},
+					imex.ImportOptions{},
 				))
 				Expect(
 					k1,
-				).To(Equal(ontology.ID{Type: ontology.ResourceTypeTask, Key: "noop-key"}))
+				).To(Equal(resource.ID{Type: resource.TypeTask, Key: "noop-key"}))
 				Expect(
 					k2,
-				).To(Equal(ontology.ID{Type: ontology.ResourceTypeTask, Key: "noop-key"}))
+				).To(Equal(resource.ID{Type: resource.TypeTask, Key: "noop-key"}))
 			},
 		)
 	})
@@ -398,13 +359,13 @@ var _ = Describe("Service", func() {
 		It("Should register an exporter under its own Type", func(ctx SpecContext) {
 			s := imex.NewService()
 			Expect(
-				s.RegisterExporter(noopExporter{typ: ontology.ResourceTypeLog}),
+				s.RegisterExporter(noopExporter{typ: resource.TypeLog}),
 			).To(Succeed())
-			env := MustSucceed(s.Export(ctx, ontology.ID{
-				Type: ontology.ResourceTypeLog,
+			env := MustSucceed(s.Export(ctx, db, resource.ID{
+				Type: resource.TypeLog,
 				Key:  "any",
 			}))
-			Expect(env.Type).To(Equal(string(ontology.ResourceTypeLog)))
+			Expect(env.Type).To(Equal(string(resource.TypeLog)))
 			Expect(env.Name).To(Equal("noop"))
 		})
 	})
@@ -413,41 +374,46 @@ var _ = Describe("Service", func() {
 		It("Should report whether an exporter is registered for a type", func() {
 			s := imex.NewService()
 			Expect(
-				s.RegisterExporter(noopExporter{typ: ontology.ResourceTypeLog}),
+				s.RegisterExporter(noopExporter{typ: resource.TypeLog}),
 			).To(Succeed())
-			Expect(s.ExporterRegistered(ontology.ResourceTypeLog)).To(BeTrue())
-			Expect(s.ExporterRegistered(ontology.ResourceTypeRange)).To(BeFalse())
+			Expect(s.ExporterRegistered(resource.TypeLog)).To(BeTrue())
+			Expect(s.ExporterRegistered(resource.TypeRange)).To(BeFalse())
 		})
 	})
 
 	Describe("Duplicate registration", func() {
-		It("Should reject a second importer for a type", func() {
+		It("Should reject a second importer for a type", func(ctx SpecContext) {
 			s := imex.NewService()
-			first := noopImporter{typ: ontology.ResourceTypeChannel}
+			first := noopImporter{typ: resource.TypeChannel}
 			Expect(s.RegisterImporter("taken", first)).To(Succeed())
 			Expect(s.RegisterImporter(
 				"taken",
-				noopImporter{typ: ontology.ResourceTypeLog},
+				noopImporter{typ: resource.TypeLog},
 			)).To(SatisfyAll(
 				MatchError(imex.ErrTypeTaken),
 				MatchError(ContainSubstring(`importer for type "taken"`)),
 			))
-			Expect(s.ImporterType("taken")).To(Equal(ontology.ResourceTypeChannel))
+			Expect(s.Import(
+				ctx,
+				db,
+				imex.Envelope{Version: 1, Type: "taken", Name: "taken"},
+				imex.ImportOptions{},
+			)).To(HaveField("Type", resource.TypeChannel))
 		})
 
 		It("Should reject a second exporter for a type", func(ctx SpecContext) {
 			s := imex.NewService()
 			Expect(
-				s.RegisterExporter(noopExporter{typ: ontology.ResourceTypeLog}),
+				s.RegisterExporter(noopExporter{typ: resource.TypeLog}),
 			).To(Succeed())
 			Expect(s.RegisterExporter(
-				noopExporter{typ: ontology.ResourceTypeLog},
+				noopExporter{typ: resource.TypeLog},
 			)).To(SatisfyAll(
 				MatchError(imex.ErrTypeTaken),
 				MatchError(ContainSubstring(`exporter for type "log"`)),
 			))
-			env := MustSucceed(s.Export(ctx, ontology.ID{
-				Type: ontology.ResourceTypeLog,
+			env := MustSucceed(s.Export(ctx, db, resource.ID{
+				Type: resource.TypeLog,
 				Key:  "any",
 			}))
 			Expect(env.Name).To(Equal("noop"))
@@ -458,13 +424,13 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				s := imex.NewService()
 				Expect(s.RegisterImporter(
-					string(ontology.ResourceTypeChannel),
-					noopImporter{typ: ontology.ResourceTypeChannel},
+					string(resource.TypeChannel),
+					noopImporter{typ: resource.TypeChannel},
 				)).To(Succeed())
 				ts := DeferClose(openTestService(ctx, db))
 				Expect(s.RegisterImportExporter(ts)).To(MatchError(imex.ErrTypeTaken))
-				Expect(s.Export(ctx, ontology.ID{
-					Type: ontology.ResourceTypeChannel,
+				Expect(s.Export(ctx, db, resource.ID{
+					Type: resource.TypeChannel,
 					Key:  "any",
 				})).Error().To(MatchError(ContainSubstring("no exporter registered")))
 			},
@@ -478,10 +444,10 @@ var _ = Describe("Service", func() {
 				id := MustSucceed(svc.Import(
 					ctx,
 					db,
-					sampleEnvelope("Registry Test", ontology.ResourceTypeChannel),
-					imex.ImportOptions{Parent: newParent(ctx)},
+					sampleEnvelope("Registry Test", resource.TypeChannel),
+					imex.ImportOptions{},
 				))
-				Expect(id.Type).To(Equal(ontology.ResourceTypeChannel))
+				Expect(id.Type).To(Equal(resource.TypeChannel))
 				Expect(id.Key).NotTo(BeEmpty())
 			},
 		)
@@ -493,7 +459,7 @@ var _ = Describe("Service", func() {
 				Name:    "Bad Type",
 			}
 			Expect(
-				svc.Import(ctx, db, env, imex.ImportOptions{Parent: newParent(ctx)}),
+				svc.Import(ctx, db, env, imex.ImportOptions{}),
 			).Error().
 				To(SatisfyAll(
 					MatchError(ContainSubstring("no importer registered")),
@@ -504,8 +470,8 @@ var _ = Describe("Service", func() {
 			"Should pass errors from the importer through verbatim",
 			func(ctx SpecContext) {
 				Expect(svc.Import(
-					ctx, db, sampleEnvelope("Erroring", ontology.ResourceTypeDevice),
-					imex.ImportOptions{Parent: newParent(ctx)},
+					ctx, db, sampleEnvelope("Erroring", resource.TypeDevice),
+					imex.ImportOptions{},
 				)).Error().To(MatchError(ContainSubstring("importer error: forced failure")))
 			},
 		)
@@ -518,12 +484,12 @@ var _ = Describe("Service", func() {
 				// wraps the multi- envelope batch in db.WithTx. This test exercises
 				// that contract: the bad envelope causes the tx callback to return
 				// early, so the good envelope's write is rolled back along with it.
-				err := db.WithTx(ctx, func(tx gorp.Tx) error {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					if _, err := svc.Import(
 						ctx,
 						tx,
-						sampleEnvelope("Good Record", ontology.ResourceTypeChannel),
-						imex.ImportOptions{Parent: newParent(ctx)},
+						sampleEnvelope("Good Record", resource.TypeChannel),
+						imex.ImportOptions{},
 					); err != nil {
 						return err
 					}
@@ -531,10 +497,9 @@ var _ = Describe("Service", func() {
 						Version: testVersion,
 						Type:    "nonexistent",
 						Name:    "Bad Type",
-					}, imex.ImportOptions{Parent: newParent(ctx)})
+					}, imex.ImportOptions{})
 					return err
-				})
-				Expect(err).To(MatchError(ContainSubstring("no importer registered")))
+				})).To(MatchError(ContainSubstring("no importer registered")))
 				Expect(ts.Retrieve(ctx, "Good Record")).Error().To(
 					MatchError(query.ErrNotFound),
 				)
@@ -548,7 +513,7 @@ var _ = Describe("Service", func() {
 			b := fmt.Appendf(
 				nil,
 				`{"version":%d,"type":%q,"field_one":"value","field_two":42}`,
-				testVersion, ontology.ResourceTypeChannel,
+				testVersion, resource.TypeChannel,
 			)
 			var env imex.Envelope
 			Expect(json.Unmarshal(b, &env)).To(Succeed())
@@ -565,7 +530,6 @@ var _ = Describe("Service", func() {
 						namelessEnvelope(),
 						imex.ImportOptions{
 							FileName: "Metrics Log.json",
-							Parent:   newParent(ctx),
 						},
 					))
 					Expect(id.Key).NotTo(BeEmpty())
@@ -580,10 +544,9 @@ var _ = Describe("Service", func() {
 					id := MustSucceed(svc.Import(
 						ctx,
 						db,
-						sampleEnvelope("Body Name", ontology.ResourceTypeChannel),
+						sampleEnvelope("Body Name", resource.TypeChannel),
 						imex.ImportOptions{
 							FileName: "File Name.json",
-							Parent:   newParent(ctx),
 						},
 					))
 					entry := MustSucceed(ts.Retrieve(ctx, "Body Name"))
@@ -597,7 +560,7 @@ var _ = Describe("Service", func() {
 						ctx,
 						db,
 						namelessEnvelope(),
-						imex.ImportOptions{FileName: fileName, Parent: newParent(ctx)},
+						imex.ImportOptions{FileName: fileName},
 					))
 					entry := MustSucceed(ts.Retrieve(ctx, expected))
 					Expect(entry.Key).To(Equal(id.Key))
@@ -615,7 +578,7 @@ var _ = Describe("Service", func() {
 						ctx,
 						db,
 						namelessEnvelope(),
-						imex.ImportOptions{Parent: newParent(ctx)},
+						imex.ImportOptions{},
 					)).Error().To(SatisfyAll(
 						MatchError(ContainSubstring("name must be a non-empty string")),
 						MatchError(ContainSubstring("validation error")),
@@ -632,7 +595,6 @@ var _ = Describe("Service", func() {
 						namelessEnvelope(),
 						imex.ImportOptions{
 							FileName: "symbols/",
-							Parent:   newParent(ctx),
 						},
 					)).Error().To(
 						MatchError(ContainSubstring("name must be a non-empty string")),
@@ -642,59 +604,26 @@ var _ = Describe("Service", func() {
 		})
 
 		Describe("Parent", func() {
-			var projectKey project.Key
-			BeforeEach(func(ctx SpecContext) {
-				projectKey = uuid.New()
-				Expect(otg.NewWriter(nil).DefineResources(
-					ctx, project.OntologyID(projectKey),
-				)).To(Succeed())
-			})
-
-			It("Should reject a zero parent", func(ctx SpecContext) {
-				Expect(svc.Import(
+			It("Should import a resource with no parent", func(ctx SpecContext) {
+				MustSucceed(svc.Import(
 					ctx, db,
-					sampleEnvelope("No Parent", ontology.ResourceTypeChannel),
+					sampleEnvelope("No Parent", resource.TypeChannel),
 					imex.ImportOptions{},
-				)).Error().To(SatisfyAll(
-					MatchError(ContainSubstring("parent")),
-					MatchError(ContainSubstring("required")),
 				))
+				Expect(MustSucceed(ts.Retrieve(ctx, "No Parent")).Parent).To(BeEmpty())
 			})
 
-			It(
-				"Should attach the imported resource under the given parent",
-				func(ctx SpecContext) {
-					id := MustSucceed(svc.Import(
-						ctx,
-						db,
-						sampleEnvelope("Parented", ontology.ResourceTypeChannel),
-						imex.ImportOptions{Parent: project.OntologyID(projectKey)},
-					))
-					Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
-						From: project.OntologyID(projectKey),
-						Type: ontology.RelationshipTypeParentOf,
-						To:   id,
-					})).To(BeTrue())
-				},
-			)
-
-			It(
-				"Should roll back the import when the parent does not exist",
-				func(ctx SpecContext) {
-					err := db.WithTx(ctx, func(tx gorp.Tx) error {
-						_, err := svc.Import(
-							ctx, tx,
-							sampleEnvelope("Orphaned", ontology.ResourceTypeChannel),
-							imex.ImportOptions{Parent: project.OntologyID(uuid.New())},
-						)
-						return err
-					})
-					Expect(err).To(MatchError(query.ErrNotFound))
-					Expect(ts.Retrieve(ctx, "Orphaned")).Error().To(
-						MatchError(query.ErrNotFound),
-					)
-				},
-			)
+			It("Should pass the parent through to the importer", func(ctx SpecContext) {
+				parent := project.ResourceID(uuid.New())
+				MustSucceed(svc.Import(
+					ctx,
+					db,
+					sampleEnvelope("Parented", resource.TypeChannel),
+					imex.ImportOptions{Parent: parent},
+				))
+				Expect(MustSucceed(ts.Retrieve(ctx, "Parented")).Parent).
+					To(Equal(parent.String()))
+			})
 		})
 	})
 
@@ -703,12 +632,12 @@ var _ = Describe("Service", func() {
 			"Should round-trip a registered resource through Import then Export",
 			func(ctx SpecContext) {
 				id := MustSucceed(svc.Import(
-					ctx, db, sampleEnvelope("Round Trip", ontology.ResourceTypeChannel),
-					imex.ImportOptions{Parent: newParent(ctx)},
+					ctx, db, sampleEnvelope("Round Trip", resource.TypeChannel),
+					imex.ImportOptions{},
 				))
-				env := MustSucceed(svc.Export(ctx, id))
+				env := MustSucceed(svc.Export(ctx, db, id))
 				Expect(env.Version).To(Equal(testVersion))
-				Expect(env.Type).To(Equal(string(ontology.ResourceTypeChannel)))
+				Expect(env.Type).To(Equal(string(resource.TypeChannel)))
 				Expect(env.Name).To(Equal("Round Trip"))
 				roundTripped := MustSucceed(
 					WireRoundTrip(env).Decode[testResource](ctx),
@@ -720,15 +649,15 @@ var _ = Describe("Service", func() {
 		It(
 			"Should pass errors from the exporter through verbatim",
 			func(ctx SpecContext) {
-				Expect(svc.Export(ctx, ontology.ID{
-					Type: ontology.ResourceTypeDevice,
+				Expect(svc.Export(ctx, db, resource.ID{
+					Type: resource.TypeDevice,
 					Key:  "any-key",
 				})).Error().To(MatchError(ContainSubstring("exporter error: forced failure")))
 			},
 		)
 
 		It("Should reject an unregistered type", func(ctx SpecContext) {
-			Expect(svc.Export(ctx, ontology.ID{
+			Expect(svc.Export(ctx, db, resource.ID{
 				Type: "nonexistent",
 				Key:  "660e8400-e29b-41d4-a716-446655440000",
 			})).Error().To(SatisfyAll(
@@ -741,7 +670,7 @@ var _ = Describe("Service", func() {
 	Describe("Concurrency", func() {
 		It(
 			"Should be safe to register and look up handlers from multiple goroutines",
-			func() {
+			func(ctx SpecContext) {
 				s := imex.NewService()
 				const N = 64
 				types := make([]string, N)
@@ -755,7 +684,7 @@ var _ = Describe("Service", func() {
 						defer wg.Done()
 						Expect(s.RegisterImporter(
 							t,
-							noopImporter{typ: ontology.ResourceTypeTask},
+							noopImporter{typ: resource.TypeTask},
 						)).To(Succeed())
 					}(t)
 				}
@@ -764,7 +693,12 @@ var _ = Describe("Service", func() {
 				for _, t := range types {
 					go func(t string) {
 						defer wg.Done()
-						Expect(s.ImporterType(t)).To(Equal(ontology.ResourceTypeTask))
+						Expect(s.Import(
+							ctx,
+							db,
+							imex.Envelope{Version: 1, Type: t, Name: t},
+							imex.ImportOptions{},
+						)).To(HaveField("Type", resource.TypeTask))
 					}(t)
 				}
 				wg.Wait()

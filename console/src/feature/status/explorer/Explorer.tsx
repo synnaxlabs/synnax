@@ -30,11 +30,11 @@ export const Explorer: Panel.Content = () => (
 
 const Internal = () => {
   const listProps = Status.useList({
-    initialQuery: { where: View.useContext().getInitialView().where },
+    query: { where: View.useContext().getInitialView().where },
   });
   const openCreate = PlatformStatus.useCreateModal();
   const handleCreate = () => openCreate();
-  const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(status.TYPE_RESOURCE_ID);
   return (
     <View.Form {...listProps}>
       <View.Toolbar>

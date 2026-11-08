@@ -19,6 +19,7 @@
 #include "client/cpp/ranger/proto.gen.h"
 #include "client/cpp/ranger/types.gen.h"
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/telem/telem.h"
 
 #include "core/pkg/api/ranger/pb/ranger.pb.h"
@@ -51,25 +52,54 @@ public:
         set_end_client(std::move(set_end_client)),
         kv(std::move(kv_client)) {}
 
-    /// @brief retrieves the ranges that req selects.
-    [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
-    retrieve(const RetrieveRequest &req) const;
-
     /// @brief retrieves the range with the given key.
+    /// @param key the key of the range.
+    /// @param options the options of the retrieve.
+    /// @returns the range, and an error that matches NOT_FOUND when no range has the
+    /// key.
     [[nodiscard]] std::pair<Range, x::errors::Error>
-    retrieve_by_key(const Key &key) const;
+    retrieve(const Key &key, const RetrieveOptions &options = {}) const;
 
     /// @brief retrieves the range with the given name.
+    /// @param name the name of the range.
+    /// @param options the options of the retrieve.
+    /// @returns the range, and an error that matches NOT_FOUND when no range has the
+    /// name, or MULTIPLE_RESULTS when more than one does.
     [[nodiscard]] std::pair<Range, x::errors::Error>
-    retrieve_by_name(const std::string &name) const;
+    retrieve(const std::string &name, const RetrieveOptions &options = {}) const;
 
     /// @brief retrieves the ranges with the given keys.
+    /// @param keys the keys of the ranges.
+    /// @param options the options of the retrieve.
     [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
-    retrieve_by_key(const std::vector<Key> &keys) const;
+    retrieve(const std::vector<Key> &keys, const RetrieveOptions &options = {}) const;
 
     /// @brief retrieves the ranges with the given names.
+    /// @param names the names of the ranges.
+    /// @param options the options of the retrieve.
+    [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error> retrieve(
+        const std::vector<std::string> &names,
+        const RetrieveOptions &options = {}
+    ) const;
+
+    /// @brief retrieves the ranges that where selects.
+    /// @param where the filter that the ranges match. An empty filter matches all
+    /// ranges.
+    /// @param options the options of the retrieve.
     [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
-    retrieve_by_name(const std::vector<std::string> &names) const;
+    retrieve(const Where &where, const RetrieveOptions &options = {}) const;
+
+    /// @brief retrieves the one range that where selects.
+    /// @param where the filter that the range matches.
+    /// @param options the options of the retrieve.
+    /// @returns the range, and an error that matches NOT_FOUND when no range matches,
+    /// MULTIPLE_RESULTS when more than one does, or VALIDATION when options set a limit
+    /// or an offset.
+    [[nodiscard]] std::pair<Range, x::errors::Error> retrieve(
+        const Where &where,
+        x::filter::One,
+        const RetrieveOptions &options = {}
+    ) const;
 
     /// @brief creates the given ranges.
     [[nodiscard]] x::errors::Error create(std::vector<Range> &ranges) const;

@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import dataclasses
 import random
 import threading
 import time
@@ -233,7 +232,7 @@ class ExecutionClient:
             if len(defs) == 0:
                 continue
             retry_keys.update(str(td) for td in defs)
-            retries.append(dataclasses.replace(seq, tests=defs))
+            retries.append(seq.model_copy(update={"tests": defs}))
 
         if len(retries) == 0:
             return
@@ -490,6 +489,8 @@ class ExecutionClient:
 
             if test_instance is not None and test.status == STATUS.RUNNING:
                 test.status = test_instance._status
+            if test_instance is not None:
+                test.metrics = test_instance.metrics
 
             with self._active_tests_lock:
                 self._active_tests[:] = [

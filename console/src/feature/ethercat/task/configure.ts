@@ -103,7 +103,7 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
 ): Promise<SlaveValidationResult<C>> => {
   const slaveKeys = [...new Set(channels.map((ch) => ch.device))];
   const slaves = await client.devices.retrieve({
-    where: { key: { in: slaveKeys } },
+    key: slaveKeys,
     schemas: SLAVE_SCHEMAS,
   });
 
@@ -147,7 +147,7 @@ export const retrieveByName = async (
   names: string[],
 ): Promise<Map<string, channel.Channel>> => {
   if (names.length === 0) return new Map();
-  const found = await client.channels.retrieve({ where: { name: { in: names } } });
+  const found = await client.channels.retrieve({ name: names });
   return new Map(found.map((c) => [c.name, c]));
 };
 
@@ -174,7 +174,8 @@ const checkIndexFree = async (
     );
   const others = (
     await client.devices.retrieve({
-      where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL } },
+      make: MAKE,
+      model: SLAVE_MODEL,
       schemas: SLAVE_SCHEMAS,
     })
   ).filter(({ key }) => key !== slave.key);
@@ -184,9 +185,10 @@ const checkIndexFree = async (
   const indexes = new Map(
     commands.length === 0
       ? []
-      : (await client.channels.retrieve({ where: { key: { in: commands } } })).map(
-          (ch) => [ch.key, ch.index],
-        ),
+      : (await client.channels.retrieve({ key: commands })).map((ch) => [
+          ch.key,
+          ch.index,
+        ]),
   );
   const owner = others.find(
     ({ properties: { readIndex, writeStateIndex, write } }) =>
@@ -254,13 +256,15 @@ export const checkOrCreateIndex = async (
 
 /**
  * @returns the channels whose mapped Synnax channel is missing.
- * @throws {Error} if a mapped channel holds a different data type than its channel.
+ * @throws {Error} if a mapped channel holds a different data type than getDataType
+ * gives for its channel.
  */
 export const findChannelsToCreate = async <C extends EntryChannel>(
   client: Synnax,
   channels: C[],
   existingChannels: Record<string, number>,
   mapKey: (ch: C) => string = addressKey,
+  getDataType: (ch: C) => string = (ch) => ch.dataType,
 ): Promise<C[]> => {
   const toCreate: C[] = [];
   for (const ch of channels) {
@@ -277,7 +281,7 @@ export const findChannelsToCreate = async <C extends EntryChannel>(
       toCreate.push(ch);
       continue;
     }
-    checkDataType(mapped, ch.dataType);
+    checkDataType(mapped, getDataType(ch));
   }
   return toCreate;
 };
@@ -312,6 +316,8 @@ export interface BindOrphanedChannelsArgs<C extends EntryChannel> {
   /** the device's map of channel keys, which receives each bound channel. */
   map: Record<string, number>;
   mapKey?: (ch: C) => string;
+  /** @returns the data type the Synnax channel of the channel must hold. */
+  getDataType?: (ch: C) => string;
 }
 
 /**
@@ -331,6 +337,7 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
   index,
   map,
   mapKey = addressKey,
+  getDataType = (ch) => ch.dataType,
 }: BindOrphanedChannelsArgs<C>): Promise<C[]> => {
   const existing = await retrieveByName(client, names);
   if (existing.size === 0) return channels;
@@ -338,7 +345,8 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
     slave == null
       ? []
       : await client.devices.retrieve({
-          where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL } },
+          make: MAKE,
+          model: SLAVE_MODEL,
           schemas: SLAVE_SCHEMAS,
         });
   const bound = new Set([
@@ -363,7 +371,7 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
       throw new Error(
         `A channel named ${orphan.name} already exists. Give the channel another name.`,
       );
-    checkDataType(orphan, ch.dataType);
+    checkDataType(orphan, getDataType(ch));
     map[mapKey(ch)] = orphan.key;
     bound.add(orphan.key);
     return false;

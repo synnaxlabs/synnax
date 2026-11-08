@@ -11,6 +11,8 @@
 
 #include <cstdint>
 #include <cstring>
+#include <functional>
+#include <map>
 #include <mutex>
 #include <span>
 #include <string>
@@ -61,6 +63,15 @@ class Master final : public master::Master {
     std::unordered_map<uint16_t, ec_slave_config_t *> slave_configs;
     /// @brief slaves that are disabled (excluded from cyclic exchange).
     std::unordered_set<uint16_t> disabled_slaves;
+    /// @brief the mode the user chose for each slave that has a choice, keyed by
+    /// position.
+    std::map<uint16_t, dc::Choice> chosen_modes;
+    /// @brief why the bus starts without each slave that leave_out() names, keyed by
+    /// position.
+    std::map<uint16_t, slave::Refusal> left_out;
+    /// @brief CoE objects written to each slave before SAFE-OP, keyed by position.
+    std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
+        startup_parameters;
     /// @brief protects slave state queries and configuration.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -85,9 +96,23 @@ public:
 
     std::pair<size_t, x::errors::Error> count_slaves() override;
 
-    void set_slave_enabled(uint16_t position, bool enabled) override;
+    void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override;
 
-    x::errors::Error activate() override;
+    /// @brief does what master::Master::activate does, but ignores period and starts no
+    /// DC sync yet, so a slave that needs DC sync refuses SAFE-OP.
+    x::errors::Error activate(
+        x::telem::TimeSpan period,
+        const std::function<void()> &start_cycle
+    ) override;
+
+    /// @brief returns no refusals, since the IgH master moves the slaves to OP on its
+    /// own after activate() returns.
+    std::map<uint16_t, slave::Refusal> refusals() const override { return {}; }
+
+    /// @brief returns false, since the IgH master reports no refusals.
+    bool dc_sync_refused() const override { return false; }
+
+    void leave_out(std::map<uint16_t, slave::Refusal> slaves) override;
 
     void deactivate() override;
 
@@ -111,18 +136,47 @@ public:
     /// @brief returns nullopt, since this master does not read the distributed clock.
     std::optional<x::telem::TimeStamp> dc_time() const override { return std::nullopt; }
 
+    std::vector<dc::Registers> dc_sync() const override { return {}; }
+
     std::string interface_name() const override;
 
 private:
-    /// @brief returns or creates the configuration of the slave at a position,
-    /// registering every PDO entry the slave maps.
+    /// @brief returns or creates the configuration of the slave at a position.
     ec_slave_config_t *get_or_create_slave_config(uint16_t position);
+
+    /// @brief reads the PDO layout a slave holds after its startup parameters, since a
+    /// parameter can change it, and makes that layout the slave's config and cached
+    /// layout.
+    x::errors::Error configure_assigned_pdos(uint16_t position, ec_slave_config_t *sc);
+
+    /// @brief registers every PDO entry the slave at a position maps, recording the
+    /// offset of each.
+    void register_pdo_entries(uint16_t position, ec_slave_config_t *sc);
+
+    /// @brief writes a slave's startup parameters and adds them to its config, so the
+    /// master writes them again at each move to SAFE-OP.
+    x::errors::Error add_startup_parameters(
+        const slave::Properties &slave,
+        ec_slave_config_t *sc,
+        const std::vector<slave::StartupParameter> &parameters
+    );
 
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
     void discover_slave_pdos(slave::DiscoveryResult &slave);
 
     /// @brief reads the PDO entries the slave's sync managers carry.
     void read_slave_pdos(slave::DiscoveryResult &slave);
+
+    /// @brief appends the PDO entries that IgH scanned for a sync manager of a slave.
+    void append_scanned_pdos(slave::Properties &props, uint8_t sync_index);
+
+    /// @brief appends an entry that a PDO maps to the slave's inputs or outputs.
+    void append_pdo_entry(
+        slave::Properties &props,
+        bool is_input,
+        uint16_t pdo_index,
+        const ec_pdo_entry_info_t &entry_info
+    );
 
     /// @brief reads the name of a PDO entry from the slave's object dictionary.
     std::string

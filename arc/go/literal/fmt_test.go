@@ -321,6 +321,73 @@ var _ = Describe("Parse", func() {
 	)
 })
 
+var _ = Describe("FmtStrSplit", func() {
+	DescribeTable("Should apply escapes before it splits",
+		func(body string, flags literal.StringFlags, expected []literal.FmtStrSegment) {
+			Expect(literal.FmtStrSplit(body, flags)).To(Equal(expected))
+		},
+		Entry("a backslash before a placeholder", `\{x}`, literal.StringFlags{},
+			[]literal.FmtStrSegment{
+				{Text: `\`, Start: 0, End: 1, SpecOffset: -1},
+				{
+					Text:          "x",
+					IsPlaceholder: true,
+					Start:         1,
+					End:           4,
+					SpecOffset:    -1,
+					Offsets:       []int{2, 3},
+				},
+			}),
+		Entry("an escape before a placeholder", `\t{x:d}`, literal.StringFlags{},
+			[]literal.FmtStrSegment{
+				{Text: "\t", Start: 0, End: 2, SpecOffset: -1},
+				{
+					Text:          "x",
+					Spec:          "d",
+					IsPlaceholder: true,
+					Start:         2,
+					End:           7,
+					SpecOffset:    4,
+					Offsets:       []int{3, 4},
+				},
+			}),
+		Entry("an escaped brace", `\u007Bx}`, literal.StringFlags{},
+			[]literal.FmtStrSegment{
+				{
+					Text:          "x",
+					IsPlaceholder: true,
+					Start:         0,
+					End:           8,
+					SpecOffset:    -1,
+					Offsets:       []int{6, 7},
+				},
+			}),
+		Entry("a raw body", `\t{x}`, literal.StringFlags{Raw: true},
+			[]literal.FmtStrSegment{
+				{Text: `\t`, Start: 0, End: 2, SpecOffset: -1},
+				{
+					Text:          "x",
+					IsPlaceholder: true,
+					Start:         2,
+					End:           5,
+					SpecOffset:    -1,
+					Offsets:       []int{3, 4},
+				},
+			}),
+	)
+
+	DescribeTable("Should reject",
+		func(body, message string) {
+			Expect(literal.FmtStrSplit(body, literal.StringFlags{})).Error().
+				To(MatchError(ContainSubstring(message)))
+		},
+		Entry("an invalid escape", `\u00zz{x}`, "invalid \\u escape"),
+		Entry("an unmatched brace", `\u007B`, "unmatched '{'"),
+		Entry("a trailing backslash", `a\`, "trailing backslash"),
+		Entry("an incomplete escape", `\u00`, "incomplete \\u escape"),
+	)
+})
+
 var _ = Describe("StripQuotes", func() {
 	DescribeTable("strips quotes and peels prefix",
 		func(input, expectedBody string, expectedFlags literal.StringFlags) {

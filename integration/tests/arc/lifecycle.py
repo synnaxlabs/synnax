@@ -208,7 +208,7 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.log("signal_ctrl entered yield stage")
 
         # Wait then confirm no spurious re-entry from the stale start signal.
-        sy.sleep(0.501)  #  > 2 * time.wait{250ms}
+        sy.sleep(0.501)  # noqa: TID251 hold, > 2 * time.wait{250ms}
         self.wait_for_eq("signal_stage_log", "yield")
 
         # Confirm a fresh start signal correctly re-enters start.
@@ -232,7 +232,6 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.console.arc.open(self.new_name)
 
         self.log("Re-deploying with new name")
-        assert self.rack is not None
         self.console.arc.select_rack(self.rack.name)
         self.console.arc.deploy()
 
