@@ -221,6 +221,28 @@ var _ = Describe("Fields inheritance and actions", func() {
 		Expect(form.Actions[0].Fields).To(HaveLen(1))
 		Expect(form.Actions[0].Fields[0].Name).To(Equal("name"))
 	})
+
+	It("Should drop omitted fields from the action payloads of a union", func() {
+		unions := &resolution.Table{Types: []resolution.Type{{
+			Name:          "Shape",
+			QualifiedName: "auth.Shape",
+			Form: resolution.UnionForm{
+				Discriminator: "type",
+				Actions: []resolution.Action{{
+					Name: "Apply",
+					Fields: []resolution.Field{
+						{Name: "name"},
+						{Name: "secret", Domains: tsOmit},
+					},
+				}},
+			},
+		}}}
+		shape := omit.Fields(unions, "ts").MustGet("auth.Shape")
+		actions := shape.Actions()
+		Expect(actions[0].Fields).To(HaveLen(1))
+		Expect(actions[0].Fields[0].Name).To(Equal("name"))
+		Expect(unions.MustGet("auth.Shape").Actions()[0].Fields).To(HaveLen(2))
+	})
 })
 
 var _ = Describe("IsAbsent", func() {

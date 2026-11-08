@@ -35,7 +35,7 @@ describe("useOpen", () => {
       wrapper: wrapWithSink(wrapper, analytics),
     });
     act(() => {
-      result.current(createResource(channel.ontologyID(ch.key), ch.name, {}));
+      result.current(createResource(channel.resourceID(ch.key), ch.name, {}));
     });
     await waitFor(() =>
       expect(analytics.capture).toHaveBeenCalledWith("plot_created", {}),

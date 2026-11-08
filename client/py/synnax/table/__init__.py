@@ -9,7 +9,7 @@
 
 from synnax.table.client import Client
 from synnax.table.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     Cell,
     CellConfig,
     Column,
@@ -20,11 +20,12 @@ from synnax.table.types_gen import (
     TextCellConfig,
     ValueCellConfig,
     Where,
-    ontology_id,
+    WhereInput,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Cell",
     "CellConfig",
     "Client",
@@ -36,5 +37,6 @@ __all__ = [
     "TextCellConfig",
     "ValueCellConfig",
     "Where",
-    "ontology_id",
+    "WhereInput",
+    "resource_id",
 ]

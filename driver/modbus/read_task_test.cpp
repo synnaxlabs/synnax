@@ -368,19 +368,17 @@ TEST(ReadTask, testBasicReadTask) {
     task.start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, synnax::task::status_key(tsk));
+    EXPECT_EQ(first_state.owner, synnax::task::resource_id(tsk.key));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first_state.details.task, tsk.key);
     EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 1);
     task.stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, synnax::task::status_key(tsk));
+    EXPECT_EQ(second_state.owner, synnax::task::resource_id(tsk.key));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(second_state.details.task, tsk.key);
     EXPECT_EQ(second_state.message, "Stopped task");
 
     ASSERT_GE(factory->writes->size(), 1);

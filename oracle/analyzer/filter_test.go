@@ -554,6 +554,70 @@ var _ = Describe("Filter definitions", func() {
 			Expect(res.Fields[0].Optional).To(BeFalse())
 		})
 
+		It(
+			"Should derive an include flag from a union variant field",
+			func(ctx SpecContext) {
+				table, diag := Analyze(ctx, `
+				import "schemas/x/filter"
+
+				Base struct {
+					key uuid { @key }
+				}
+				Kind enum {
+					a = "a"
+					b = "b"
+				}
+				Thing union on kind Kind extends Base {
+					a {
+						program string? { @include }
+					}
+					b {}
+				}
+				Where filter Thing {
+					key
+				}
+			`, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				req := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
+				Expect(fieldNames(req)).To(Equal([]string{
+					"where", "limit", "offset", "include_program",
+				}))
+			},
+		)
+
+		It(
+			"Should derive one include flag for a field in many variants",
+			func(ctx SpecContext) {
+				table, diag := Analyze(ctx, `
+				import "schemas/x/filter"
+
+				Base struct {
+					key uuid { @key }
+				}
+				Kind enum {
+					a = "a"
+					b = "b"
+				}
+				Thing union on kind Kind extends Base {
+					a {
+						program string? { @include }
+					}
+					b {
+						program string? { @include }
+					}
+				}
+				Where filter Thing {
+					key
+				}
+			`, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				req := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
+				Expect(fieldNames(req)).To(Equal([]string{
+					"where", "limit", "offset", "include_program",
+				}))
+			},
+		)
+
 		DescribeTable(
 			"Should omit the derived types wherever the filter is omitted",
 			func(
@@ -806,6 +870,31 @@ var _ = Describe("Filter definitions", func() {
 			Entry("without a path", "@go request_output"),
 			Entry("with an identifier", "@go request_output api"),
 			Entry("with two paths", `@go request_output "a" "b"`),
+		)
+
+		DescribeTable("Should reject a line with the name of a retrieve option",
+			func(ctx SpecContext, line, field string) {
+				_, diag := Analyze(ctx, `
+					import "schemas/x/filter"
+
+					Thing struct {
+						key    uuid     { @key }
+						labels string[]? { @include }
+					}
+					Where filter Thing {
+						`+line+`
+					}
+				`, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"filter Where: " + field + " is reserved for retrieve",
+				))
+			},
+			Entry("where", "where bool", `"where"`),
+			Entry("limit", "limit uint32", `"limit"`),
+			Entry("one", "one bool", `"one"`),
+			Entry("an include field", "include_labels bool", `"include_labels"`),
+			Entry("a camelCase include field", "includeLabels bool", `"includeLabels"`),
 		)
 
 		It("Should reject a derived name the schema already declares", func(

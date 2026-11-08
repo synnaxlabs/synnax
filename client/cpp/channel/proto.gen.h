@@ -288,11 +288,6 @@ Where::to_proto() const {
         *pb.mutable_internal() = v;
     }
     if (this->virtual_.has_value()) pb.set_virtual_(*this->virtual_);
-    if (this->name_patterns.has_value()) {
-        auto *wrapper = pb.mutable_name_patterns();
-        for (const auto &item: *this->name_patterns)
-            wrapper->add_values(item);
-    }
     return {pb, x::errors::NIL};
 }
 
@@ -345,11 +340,6 @@ Where::from_proto(const ::service::channel::pb::Where &pb) {
         cpp.internal = v;
     }
     if (pb.has_virtual_()) cpp.virtual_ = pb.virtual_();
-    if (pb.has_name_patterns()) {
-        cpp.name_patterns.emplace();
-        for (const auto &item: pb.name_patterns().values())
-            cpp.name_patterns->push_back(item);
-    }
     return {cpp, x::errors::NIL};
 }
 

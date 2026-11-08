@@ -60,6 +60,7 @@ type Diagnostic struct {
 	Severity protocol.DiagnosticSeverity             `json:"severity"`
 	Range    protocol.Range                          `json:"range"`
 	Notes    []protocol.DiagnosticRelatedInformation `json:"notes"`
+	cause    error
 }
 
 // SetRange sets the Range from an ANTLR parser rule context.
@@ -90,7 +91,11 @@ func (d *Diagnostic) SetRange(ctx antlr.ParserRuleContext) {
 // Error creates an error diagnostic from an existing error. If the error implements
 // HintProvider, the hint is automatically extracted and added as a note.
 func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
-	d := Diagnostic{Severity: protocol.DiagnosticSeverityError, Message: err.Error()}
+	d := Diagnostic{
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  err.Error(),
+		cause:    err,
+	}
 	d.SetRange(ctx)
 	if hp, ok := err.(HintProvider); ok {
 		if hint := hp.GetHint(); hint != "" {
@@ -165,6 +170,18 @@ func (d Diagnostics) Empty() bool { return len(d) == 0 }
 
 // Error implements the error interface.
 func (d Diagnostics) Error() string { return d.String() }
+
+// Unwrap returns the errors that the diagnostics were created from, so that errors.Is
+// matches them.
+func (d Diagnostics) Unwrap() []error {
+	var causes []error
+	for _, diag := range d {
+		if diag.cause != nil {
+			causes = append(causes, diag.cause)
+		}
+	}
+	return causes
+}
 
 func (d *Diagnostics) Add(diag Diagnostic) {
 	for _, idx := range d.AtLocation(diag.Range.Start) {

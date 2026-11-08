@@ -10,6 +10,7 @@
 package lsp_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -36,6 +37,34 @@ var _ = Describe("Server Diagnostics", func() {
 
 	BeforeEach(func() {
 		server, docURI, client = SetupTestServerWithClient()
+	})
+
+	Describe("Module documents", func() {
+		moduleURI := uri.URI("arc://module/test")
+
+		It("Should analyze a module document as a module", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, moduleURI, "export func f() i64 { return 1 }")
+			Expect(client.Diagnostics()).To(BeEmpty())
+		})
+
+		It("Should apply the module rules to a module document", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, moduleURI, "authority 255")
+			Expect(client.Diagnostics()).To(HaveLen(1))
+			Expect(DiagnosticMessage(client.Diagnostics()[0])).To(
+				ContainSubstring("a module cannot have an authority block"),
+			)
+		})
+
+		It(
+			"Should reject export in a document that is not a module",
+			func(ctx SpecContext) {
+				OpenArcDocument(server, ctx, docURI, "export func f() i64 { return 1 }")
+				Expect(client.Diagnostics()).To(HaveLen(1))
+				Expect(DiagnosticMessage(client.Diagnostics()[0])).To(
+					ContainSubstring("export is only valid in a module"),
+				)
+			},
+		)
 	})
 
 	Describe("Diagnostic Range", func() {
@@ -462,6 +491,25 @@ var _ = Describe("External Change Notifications", func() {
 	)
 
 	It(
+		"Should republish diagnostics after the context of the change ends",
+		func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := my_channel\n}")
+			Expect(client.Diagnostics()).To(HaveLen(1))
+			resolver.Add(symbol.Symbol{
+				Name: "my_channel",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+			})
+			changeCtx, cancel := context.WithCancel(ctx)
+			cancel()
+			observer.Notify(changeCtx, struct{}{})
+			Eventually(
+				func() []protocol.Diagnostic { return client.Diagnostics() },
+			).Should(BeEmpty())
+		},
+	)
+
+	It(
 		"Should refresh semantic tokens when external state changes",
 		func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := my_channel\n}")
@@ -539,6 +587,7 @@ var _ = Describe("External Change Notifications", func() {
 			wg.Add(workers)
 			for range workers {
 				go func() {
+					defer GinkgoRecover()
 					defer wg.Done()
 					params := &protocol.PrepareRenameParams{
 						TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -549,9 +598,9 @@ var _ = Describe("External Change Notifications", func() {
 						case <-done:
 							return
 						default:
-							// Errors are irrelevant here; the assertion is the race
-							// detector observing no concurrent access to the IR.
-							_, _ = server.PrepareRename(ctx, params)
+							// The race detector checks that no query reads the IR as it
+							// changes.
+							MustSucceed(server.PrepareRename(ctx, params))
 						}
 					}
 				}()

@@ -26,6 +26,8 @@ import {
   resizeCol,
   resizeRow,
   setCell,
+  setGroup,
+  setProject,
 } from "@/table/actions.gen";
 import {
   type Cell,
@@ -84,6 +86,19 @@ const handlers: Handlers = {
       inverse: [rename({ name: oldName })],
       targets: [state.key],
     };
+  },
+
+  setGroup: (state, payload) => {
+    const oldGroup = state.group;
+    state.group = payload.group;
+    return { inverse: [setGroup({ group: oldGroup })], targets: [] };
+  },
+
+  setProject: (state, payload) => {
+    const oldProject = state.project;
+    state.project = payload.project;
+    const inverse = oldProject == null ? [] : [setProject({ project: oldProject })];
+    return { inverse, targets: [] };
   },
 
   addRow: (state, payload) => {

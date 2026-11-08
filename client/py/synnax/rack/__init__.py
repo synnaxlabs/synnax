@@ -9,22 +9,22 @@
 
 from synnax.rack.client import Client
 from synnax.rack.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     Key,
     Rack,
     Status,
-    StatusDetails,
     Where,
-    ontology_id,
+    WhereInput,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Key",
     "Rack",
     "Status",
-    "StatusDetails",
     "Where",
-    "ontology_id",
+    "WhereInput",
+    "resource_id",
 ]

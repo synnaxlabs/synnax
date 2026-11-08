@@ -58,6 +58,35 @@ describe("button symbol", () => {
     );
   });
 
+  describe("label text", () => {
+    const parseLabel = (label: Partial<schematic.LabelConfig>): schematic.LabelConfig =>
+      schematic.labelConfigZ.parse(label);
+
+    it("should keep newlines in the text", () => {
+      const { container } = render(
+        <Button label={parseLabel({ label: "LAUNCH\nPUMP VC" })} />,
+      );
+      expect(getButton(container).textContent).toBe("LAUNCH\nPUMP VC");
+    });
+
+    it("should align the text", () => {
+      const { container } = render(<Button label={parseLabel({ align: "start" })} />);
+      expect(getButton(container).style.textAlign).toBe("start");
+    });
+
+    it("should cap the button at a chosen wrap width", () => {
+      const { container } = render(
+        <Button label={parseLabel({ maxInlineSize: 80 })} />,
+      );
+      expect(getButton(container).style.maxInlineSize).toBe("80px");
+    });
+
+    it("should leave the button uncapped at the default wrap width", () => {
+      const { container } = render(<Button label={parseLabel({})} />);
+      expect(getButton(container).style.maxInlineSize).toBe("");
+    });
+  });
+
   describe("handler routing", () => {
     it("should actuate fire mode through onClick, not the raw handlers", () => {
       const onClick = vi.fn();
@@ -256,5 +285,16 @@ describe("ButtonForm", () => {
     expect(getByText("Size")).toBeDefined();
     expect(queryByText("Label size")).toBeNull();
     expect(queryByText("Label direction")).toBeNull();
+  });
+
+  it("should render the wrap width and alignment fields", () => {
+    const { getByText } = render(
+      <FormWrapper>
+        <ButtonForm />
+      </FormWrapper>,
+    );
+    fireEvent.click(getByText("Style"));
+    expect(getByText("Wrap width")).toBeDefined();
+    expect(getByText("Alignment")).toBeDefined();
   });
 });

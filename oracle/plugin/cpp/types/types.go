@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/domain/ontology"
+	"github.com/synnaxlabs/oracle/domain/resource"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/internal/defaults"
@@ -247,7 +247,7 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	data.Ontology = p.extractOntology(structs, table, data)
+	data.Resource = p.extractResource(structs, table, data)
 
 	var combinedTypes []resolution.Type
 	combinedTypes = append(combinedTypes, typeDefs...)
@@ -650,6 +650,20 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		data.AddInternal("x/cpp/json/json.h")
 	}
 
+	if entry.Filter != nil {
+		sd.IsFilter = true
+		data.AddSystem("utility")
+	}
+
+	if where, ok := requestFilter(entry, data.table); ok {
+		sd.Where = where.Name
+		sd.OptionsName = strings.TrimSuffix(sd.Name, "Request") + "Options"
+		sd.Options = lo.Filter(sd.Fields, func(f fieldData, _ int) bool {
+			return f.Name != "where"
+		})
+		data.AddSystem("utility")
+	}
+
 	if form.IsGeneric() {
 		data.AddSystem("type_traits")
 	}
@@ -866,6 +880,8 @@ func (p *Plugin) processField(
 	var defaultValue string
 	if !field.Optional {
 		defaultValue = p.zeroValue(field.Type, data)
+	} else if lineType, ok := p.filterLineType(field, entry, data); ok {
+		cppType = lineType
 	} else if Indirect(field, entry, data.table) {
 		data.AddInternal("x/cpp/mem/indirect.h")
 		cppType = fmt.Sprintf("x::mem::indirect<%s>", cppType)
@@ -893,6 +909,47 @@ func (p *Plugin) processField(
 		Doc:          doc.Get(field.Domains),
 		DefaultValue: defaultValue,
 	}
+}
+
+// requestFilter returns the filter that derives entry as its retrieve request.
+func requestFilter(
+	entry resolution.Type,
+	table *resolution.Table,
+) (resolution.Type, bool) {
+	return lo.Find(table.StructTypes(), func(t resolution.Type) bool {
+		return t.Filter != nil && t.Filter.Request == entry.QualifiedName
+	})
+}
+
+// filterLineType returns the C++ type of a line of the filter entry, which takes a
+// plain value or a list in a designated initializer. A bare line holds an operator in
+// an x::filter::Field, and a typed list line is an x::filter::List. It returns false
+// for any other field.
+func (p *Plugin) filterLineType(
+	field resolution.Field,
+	entry resolution.Type,
+	data *templateData,
+) (string, bool) {
+	if entry.Filter == nil {
+		return "", false
+	}
+	line, ok := lo.Find(entry.Filter.Lines, func(l resolution.Field) bool {
+		return l.Name == field.Name
+	})
+	if !ok {
+		return "", false
+	}
+	if !line.HasType() {
+		data.AddInternal("x/cpp/filter/field.h")
+		op := p.typeRefToCpp(field.Type, data)
+		return fmt.Sprintf("::x::filter::Field<%s>", op), true
+	}
+	if field.Type.Name == "Array" && field.Type.ArraySize == nil {
+		data.AddInternal("x/cpp/filter/field.h")
+		elem := p.typeRefToCpp(field.Type.TypeArgs[0], data)
+		return fmt.Sprintf("::x::filter::List<%s>", elem), true
+	}
+	return "", false
 }
 
 func (p *Plugin) defaultRenderer(data *templateData) defaults.Renderer {
@@ -1206,7 +1263,7 @@ func isCppTemplateWithAllDefaults(t resolution.Type) bool {
 }
 
 type templateData struct {
-	Ontology *ontologyData
+	Resource *resourceData
 	*includes.Manager
 	table        *resolution.Table
 	OutputPath   string
@@ -1217,9 +1274,9 @@ type templateData struct {
 	SortedDecls  []sortedDeclData
 }
 
-// ontologyData contains information for generating ontology ID support.
-type ontologyData struct {
-	// TypeName is the ontology type name (e.g., "channel", "device", "task").
+// resourceData contains information for generating resource ID support.
+type resourceData struct {
+	// TypeName is the resource type name (e.g., "channel", "device", "task").
 	TypeName string
 	// KeyType is the C++ type name (e.g., "Key").
 	KeyType string
@@ -1280,6 +1337,14 @@ type structData struct {
 	IsAlias           bool
 	IsGeneric         bool
 	HasExtends        bool
+	// IsFilter is true for the Where of a filter, which combines with &&, ||, and !.
+	IsFilter bool
+	// Where is the filter of a retrieve request, and is empty for any other struct.
+	Where string
+	// OptionsName names the struct that holds Options.
+	OptionsName string
+	// Options are the fields of a retrieve request other than where.
+	Options []fieldData
 }
 
 // inheritedDefaultData assigns a new default to a member declared by a base struct.
@@ -1359,32 +1424,32 @@ func (p *Plugin) resolveExtendsType(
 	return p.buildGenericType(name, extendsRef.TypeArgs, &parent, data)
 }
 
-// extractOntology extracts ontology metadata from the struct or union with an @ontology
+// extractResource extracts resource metadata from the struct or union with a @resource
 // domain, keyed by a struct field with an @key annotation. Returns nil if no suitable
 // type is found.
-func (p *Plugin) extractOntology(
+func (p *Plugin) extractResource(
 	structs []resolution.Type,
 	table *resolution.Table,
 	data *templateData,
-) *ontologyData {
+) *resourceData {
 	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "cpp") }
 	rawKeyFields := key.Collect(structs, table, skip)
 	unions := lo.Filter(table.UnionTypes(), func(typ resolution.Type, _ int) bool {
 		return output.GetPath(typ, "cpp") == data.OutputPath
 	})
-	ontData := ontology.Extract(
+	resData := resource.Extract(
 		slices.Concat(structs, unions),
 		rawKeyFields,
 		skip,
 		table,
 	)
-	if ontData == nil {
+	if resData == nil {
 		return nil
 	}
-	keyType := p.typeRefToCpp(ontData.KeyField.Type, data)
+	keyType := p.typeRefToCpp(resData.KeyField.Type, data)
 
 	// Determine key conversion based on the underlying primitive type
-	primitive := ontData.KeyField.Primitive
+	primitive := resData.KeyField.Primitive
 	var keyConversion string
 	switch primitive {
 	case "string":
@@ -1398,11 +1463,11 @@ func (p *Plugin) extractOntology(
 		keyConversion = "std::to_string(key)"
 	}
 
-	// Add the ontology include
-	data.AddInternal("client/cpp/ontology/id.h")
+	// Add the resource ID include
+	data.AddInternal("client/cpp/resource/id.h")
 
-	return &ontologyData{
-		TypeName:      ontData.TypeName,
+	return &resourceData{
+		TypeName:      resData.TypeName,
 		KeyType:       keyType,
 		KeyConversion: keyConversion,
 	}
@@ -1584,6 +1649,18 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- $s := $d.Struct}}
 {{if or $i (gt (len $.Enums) 0)}}
 {{end}}
+{{- if $s.Options}}
+/// @brief {{$s.OptionsName}} holds every field of a {{$s.Name}} except where.
+struct {{$s.OptionsName}} {
+{{- range $s.Options}}
+{{- if .Doc}}
+    {{formatDoc .Name .Doc 4 | printf "%s"}}
+{{- end}}
+    {{.CppType}} {{.Name}}{{if .DefaultValue}} = {{.DefaultValue}}{{end}};
+{{- end}}
+};
+
+{{end}}
 {{- if $s.Doc}}
 {{formatDoc $s.Name $s.Doc}}
 {{end}}
@@ -1605,6 +1682,47 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- range $s.InheritedDefaults}}
         this->{{.Name}} = {{.Value}};
 {{- end}}
+    }
+{{- end}}
+
+{{- if $s.IsFilter}}
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend {{$s.Name}} operator&&({{$s.Name}} a, {{$s.Name}} b) {
+        {{$s.Name}} w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend {{$s.Name}} operator||({{$s.Name}} a, {{$s.Name}} b) {
+        {{$s.Name}} w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend {{$s.Name}} operator!({{$s.Name}} a) {
+        {{$s.Name}} w;
+        w.not_ = std::move(a);
+        return w;
+    }
+{{- end}}
+{{- if $s.Options}}
+
+    /// @brief returns a request for the records that where selects.
+    static {{$s.Name}}
+    from({{$s.Where}} where, const {{$s.OptionsName}} &options = {}) {
+        return {
+            .where = std::move(where),
+{{- range $s.Options}}
+            .{{.Name}} = options.{{.Name}},
+{{- end}}
+        };
     }
 {{- end}}
 
@@ -1654,12 +1772,12 @@ std::pair<{{$u.Name}}, x::errors::Error> {{$u.SnakeName}}_from_proto(const {{$u.
 inline {{$d.TypeDef.Name}}::{{$d.TypeDef.Name}}() = default;
 {{- end}}
 {{- end}}
-{{- if .Ontology}}
+{{- if .Resource}}
 
-const synnax::ontology::ID ONTOLOGY_TYPE("{{.Ontology.TypeName}}", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("{{.Resource.TypeName}}", "");
 
-inline synnax::ontology::ID ontology_id(const {{.Ontology.KeyType}}& key) {
-    return synnax::ontology::ID("{{.Ontology.TypeName}}", {{.Ontology.KeyConversion}});
+inline synnax::resource::ID resource_id(const {{.Resource.KeyType}}& key) {
+    return synnax::resource::ID("{{.Resource.TypeName}}", {{.Resource.KeyConversion}});
 }
 {{- end}}
 }

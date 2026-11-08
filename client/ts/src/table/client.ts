@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { type ontology } from "@/ontology";
+import { group } from "@/group";
 import { project } from "@/project";
 import { query } from "@/query";
 import { createOf, encode, kindOf, reduceAll } from "@/table/actions";
@@ -27,28 +27,34 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
   type Table,
   tableZ,
 } from "@/table/types.gen";
-import { matches, serverComputed } from "@/table/where.gen";
+import { type Lines, matches, retrieveInputZ, serverComputed } from "@/table/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_table_set";
 export const DELETE_CHANNEL_NAME = "sy_table_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
+
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
+]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const createReqZ = z.object({
-  project: project.keyZ,
   dispatchKey: z.string(),
   tables: tableZ.array(),
 });
@@ -59,12 +65,15 @@ const emptyResZ = z.object({});
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Table> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Table>;
+  /** Builds requests that move tables between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move tables out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Table, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -94,27 +103,25 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (table, req) => matches(table, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (table, req) => matches(LINES, table, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/table/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
+    this.setProjectRequest = project.createMoveRequest(
+      "/table/set-project",
+      (keys, to) => project.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 
+  async create(table: New, opts?: query.WriteOptions<Table[]>): Promise<Table>;
+  async create(tables: New[], opts?: query.WriteOptions<Table[]>): Promise<Table[]>;
   async create(
-    project: project.Key,
-    table: New,
-    opts?: query.WriteOptions<Table[]>,
-  ): Promise<Table>;
-  async create(
-    project: project.Key,
-    tables: New[],
-    opts?: query.WriteOptions<Table[]>,
-  ): Promise<Table[]>;
-  async create(
-    project: project.Key,
     tables: New | New[],
     opts: query.WriteOptions<Table[]> = {},
   ): Promise<Table | Table[]> {
@@ -131,7 +138,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
           async (dispatchKey) =>
             await this.cfg.unary.send(
               "/table/create",
-              { project, dispatchKey, tables: optimistic },
+              { dispatchKey, tables: optimistic },
               createReqZ,
               createResZ,
             ),
@@ -146,10 +153,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
       query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
       return () => {
         query.partialUpdate(this.store, key, { name: prev });
-        resource();
       };
     };
     const rollback = rename();
@@ -220,10 +225,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

@@ -72,7 +72,11 @@ const searchAndClickRack = async (name: string): Promise<void> => {
 describe("TaskControls", () => {
   it("should bind the rack when one is picked", async () => {
     const rck = await createArcRack();
-    const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+    const a = await client.arcs.create({
+      name: uniqueName("arc"),
+      type: "automation",
+      source: { mode: "text" },
+    });
     const { container } = await renderControls(a.key);
     await waitFor(() =>
       expect(getIconButton(container, "play").getAttribute("aria-disabled")).toBe(
@@ -93,7 +97,11 @@ describe("TaskControls", () => {
 
   it("should start the arc from the play button", async () => {
     const rck = await createArcRack();
-    const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+    const a = await client.arcs.create({
+      name: uniqueName("arc"),
+      type: "automation",
+      source: { mode: "text" },
+    });
     const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
     if (tsk == null) throw new Error("expected a deployment task");
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
@@ -114,7 +122,11 @@ describe("TaskControls", () => {
 
   it("should report the automation it deployed", async () => {
     const rck = await createArcRack();
-    const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+    const a = await client.arcs.create({
+      name: uniqueName("arc"),
+      type: "automation",
+      source: { mode: "text" },
+    });
     await client.arcs.updateTask(a.key, { rack: rck.key });
     const analytics = createTestSink();
     const { container } = await renderControls(a.key, client, analytics);
@@ -129,7 +141,11 @@ describe("TaskControls", () => {
 
   it("should offer a start that picks up the synced config when the arc drifts", async () => {
     const rck = await createArcRack();
-    const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+    const a = await client.arcs.create({
+      name: uniqueName("arc"),
+      type: "automation",
+      source: { mode: "text" },
+    });
     const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
     if (tsk == null) throw new Error("expected a deployment task");
     await reportTaskRunning(client, tsk);
@@ -153,9 +169,35 @@ describe("TaskControls", () => {
     });
   });
 
+  it("should show no controls for a module", async () => {
+    const a = await client.arcs.create({
+      name: uniqueName("mod"),
+      type: "module",
+      source: { mode: "text" },
+    });
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { container } = await renderSuspended(
+      <Analytics.Provider sink={Analytics.NOOP}>
+        <Suspense fallback={null}>
+          <Arc.Suspended arcKey={a.key}>
+            <TaskControls />
+            <p>module loaded</p>
+          </Arc.Suspended>
+        </Suspense>
+      </Analytics.Provider>,
+      { wrapper },
+    );
+    await screen.findByText("module loaded");
+    expect(container.querySelector(".console-arc-editor__controls")).toBeNull();
+  });
+
   describe("performance", () => {
     it("should disable the select while no rack is bound", async () => {
-      const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+      const a = await client.arcs.create({
+        name: uniqueName("arc"),
+        type: "automation",
+        source: { mode: "text" },
+      });
       await renderControls(a.key);
       const trigger = await findDialogTriggerByText("Auto");
       expect(trigger.getAttribute("aria-disabled")).toBe("true");
@@ -163,7 +205,11 @@ describe("TaskControls", () => {
 
     it("should show the stored level with its glyph as the trigger icon", async () => {
       const rck = await createArcRack();
-      const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+      const a = await client.arcs.create({
+        name: uniqueName("arc"),
+        type: "automation",
+        source: { mode: "text" },
+      });
       await client.arcs.updateTask(a.key, { rack: rck.key, performance: "medium" });
       await renderControls(a.key);
       const trigger = await findDialogTriggerByText("Medium");
@@ -172,7 +218,11 @@ describe("TaskControls", () => {
 
     it("should list every level with no search", async () => {
       const rck = await createArcRack();
-      const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+      const a = await client.arcs.create({
+        name: uniqueName("arc"),
+        type: "automation",
+        source: { mode: "text" },
+      });
       await client.arcs.updateTask(a.key, { rack: rck.key });
       await renderControls(a.key);
       const trigger = await findDialogTriggerByText("Auto");
@@ -191,7 +241,11 @@ describe("TaskControls", () => {
 
     it("should name the level in the tooltip of a collapsed trigger", async () => {
       const rck = await createArcRack();
-      const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+      const a = await client.arcs.create({
+        name: uniqueName("arc"),
+        type: "automation",
+        source: { mode: "text" },
+      });
       await client.arcs.updateTask(a.key, { rack: rck.key, performance: "medium" });
       await renderControls(a.key);
       const trigger = await findDialogTriggerByText("Medium");
@@ -203,7 +257,11 @@ describe("TaskControls", () => {
 
     it("should set the level of a bound arc", async () => {
       const rck = await createArcRack();
-      const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+      const a = await client.arcs.create({
+        name: uniqueName("arc"),
+        type: "automation",
+        source: { mode: "text" },
+      });
       await client.arcs.updateTask(a.key, { rack: rck.key });
       await renderControls(a.key);
       const trigger = await findDialogTriggerByText("Auto");
@@ -221,7 +279,11 @@ describe("TaskControls", () => {
   describe("without permission to command the task", () => {
     it("should show the status without any action", async () => {
       const rck = await createArcRack();
-      const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+      const a = await client.arcs.create({
+        name: uniqueName("arc"),
+        type: "automation",
+        source: { mode: "text" },
+      });
       await client.arcs.updateTask(a.key, { rack: rck.key });
       const viewer = await createTestClientWithRole(client, "Viewer");
       const { container } = await renderControls(a.key, viewer);

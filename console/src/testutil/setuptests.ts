@@ -12,16 +12,13 @@ import "fake-indexeddb/auto";
 
 import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
+import { shortenKeepAlive } from "@synnaxlabs/x/testutil/keepAlive";
 import { configure } from "@testing-library/react";
-import { Agent, setGlobalDispatcher } from "undici";
 import { afterAll, beforeAll, vi } from "vitest";
 
 import { installTestWebSocket } from "@/testutil/websocket";
 
-// The Core closes an idle socket after 5s. Undici keeps one for 4s on a timer that can
-// run about 1s late, so a request can reuse a socket as it closes. Only timeouts of 1s
-// or less use a precise timer.
-setGlobalDispatcher(new Agent({ keepAliveTimeout: 1000 }));
+shortenKeepAlive();
 
 // Live-core round-trips share the single test Core with the rest of the suite, so allow
 // more than the 1s waitFor default.

@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog, Options
 
@@ -18,7 +19,7 @@ class Microphone(Analog):
     Microphone channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        sound_pressure_units (str): "Pascals", "PSI", etc.
+        sound_pressure_units (str): "Pascals", "PoundsPerSquareInch", etc.
         microphone_sensitivity (float): Microphone sensitivity value
         max_sound_pressure_level (float): Maximum sound pressure level
         current_excitation_source (str): "Internal", "External", "None"
@@ -26,10 +27,10 @@ class Microphone(Analog):
 
     Base kwargs from Analog:
         port (int): Physical port number
-        terminal_config (str): "Default", "Differential", etc.
+        terminal_config (str): "Cfg_Default", "Diff", etc.
         min_val (float): Minimum value
         max_val (float): Maximum value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "linear", "map", "table"
     """
 
     def __init__(
@@ -38,12 +39,10 @@ class Microphone(Analog):
         name: str,
         device: str,
         *,
-        sound_pressure_units: Literal["Pascals"] | None = None,
+        sound_pressure_units: sy.ni.PressureUnits | None = None,
         sensitivity: float | None = None,
         max_sound_pressure_level: float | None = None,
-        current_excitation_source: (
-            Literal["Internal", "External", "None"] | None
-        ) = None,
+        current_excitation_source: sy.ni.ExcitationSource | None = None,
         current_excitation_value: float | None = None,
         **kwargs: Unpack[Options],
     ) -> None:

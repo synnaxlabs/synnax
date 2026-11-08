@@ -15,35 +15,36 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete tables within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter
-// method. If no transaction is provided, the writer will execute operations directly on
-// the database.
+// method.
 type Writer struct {
 	tx         gorp.Tx
-	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
 	tbl        *gorp.Table[Key, Table]
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
-// broadcasts it emits, so the client that sent the create recognizes its own echo.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
 }
 
-// Create creates the given table within the project provided. If the table does not
-// have a key, a new key will be generated.
-func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) error {
+// Create creates the given table, assigning a new key when t.Key is zero. The table
+// must belong to exactly one of a project and a range. An existing table keeps its
+// group, project, and range. A new table in a group belongs to the project that holds
+// the group.
+func (w Writer) Create(ctx context.Context, t *Table) error {
 	var (
 		exists bool
 		err    error
@@ -51,14 +52,29 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
 	} else {
-		exists, err = w.tbl.NewRetrieve().
+		var stored Table
+		err = w.tbl.NewRetrieve().
 			Where(gorp.MatchKeys[Key, Table](t.Key)).
-			Exists(ctx, w.tx)
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		if exists = err == nil; exists {
+			t.Group, t.Project, t.Range = stored.Group, stored.Project, stored.Range
+		}
+	}
+	if !exists && t.Group != nil {
+		proj, err := project.GroupProject(ctx, w.tx, t.Group, resource.TypeTable)
 		if err != nil {
 			return err
 		}
+		t.Project = proj
 	}
 	if err = t.Validate(); err != nil {
+		return err
+	}
+	if err = project.ValidateOwner(t.Project, t.Range); err != nil {
 		return err
 	}
 	if err = validateUniqueKeys(*t); err != nil {
@@ -67,24 +83,7 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 	if err = w.tbl.NewCreate().Entry(t).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if !exists {
-		otgID := t.OntologyID()
-		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-			return err
-		}
-		if projectKey != uuid.Nil() {
-			if err = w.otgWriter.DefineRelationships(
-				ctx,
-				project.OntologyID(projectKey),
-				ontology.RelationshipTypeParentOf,
-				otgID,
-			); err != nil {
-				return err
-			}
-		}
-	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		t.Key,
 		NewCreateAction(CreatePayload{Table: *t}),
@@ -92,15 +91,77 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 	return nil
 }
 
-// CreateMany creates the given tables within the project provided. If tables with the
-// same key already exist, they will be overwritten.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	projectKey project.Key,
-	tables *[]Table,
-) error {
+// SetGroup moves the tables with keys into g, or out of their group when g is nil. A
+// table in a group belongs to the project that holds the group.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	p, err := project.GroupProject(ctx, w.tx, g, resource.TypeTable)
+	if err != nil {
+		return err
+	}
+	if err = setGroup(w.tbl, g, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.attachGroup(g, keys)
+	if p == nil {
+		return nil
+	}
+	return w.setProject(ctx, *p, keys...)
+}
+
+// SetProject moves the tables with keys out of their group and into the project p. It
+// returns a validation error when a table belongs to a range.
+func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
+	if err := setGroup(w.tbl, nil, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.attachGroup(nil, keys)
+	return w.setProject(ctx, p, keys...)
+}
+
+// setProject moves the tables with keys that are not in the project p into p, and
+// attaches a set project action for each one.
+func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) error {
+	var moved []Key
+	if err := w.tbl.NewUpdate().
+		Where(gorp.And(
+			gorp.MatchKeys[Key, Table](keys...),
+			gorp.Match(func(_ gorp.Context, e *Table) (bool, error) {
+				return e.Project == nil || *e.Project != p, nil
+			}),
+		)).
+		ChangeErr(func(_ gorp.Context, e Table) (Table, error) {
+			moved = append(moved, e.Key)
+			e.Project = &p
+			return e, project.ValidateOwner(e.Project, e.Range)
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range moved {
+		w.dispatcher.Attach(
+			w.tx,
+			k,
+			NewSetProjectAction(SetProjectPayload{Project: p}),
+		)
+	}
+	return nil
+}
+
+func (w Writer) attachGroup(g *group.Key, keys []Key) {
+	for _, k := range keys {
+		w.dispatcher.Attach(
+			w.tx,
+			k,
+			NewSetGroupAction(SetGroupPayload{Group: g}),
+		)
+	}
+}
+
+// CreateMany creates the given tables. If tables with the same key already exist, they
+// will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, tables *[]Table) error {
 	for i := range *tables {
-		if err := w.Create(ctx, projectKey, &(*tables)[i]); err != nil {
+		if err := w.Create(ctx, &(*tables)[i]); err != nil {
 			return err
 		}
 	}
@@ -109,11 +170,8 @@ func (w Writer) CreateMany(
 
 // Delete deletes the tables with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.tbl.NewDelete().
-		Where(gorp.MatchKeys[Key, Table](keys...)).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+	return w.tbl.NewDelete().
+		Where(gorp.MatchKeys[Key, Table](keys...)).Exec(ctx, w.tx)
 }
 
 func validateUniqueKeys(t Table) error {
@@ -136,4 +194,29 @@ func duplicateKey[T any](items []T, keyOf func(T) string) (string, bool) {
 		seen.Add(k)
 	}
 	return "", false
+}
+
+// Apply applies a sequence of actions to the table with the given key and attaches them
+// to the transaction of w, so its commit broadcasts them with the dispatch key of w.
+// Returns a validation error, and stores nothing, if the actions leave the table
+// invalid.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.tbl.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
+		ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
+			reduced, err := Reduce(t, acts...)
+			if err != nil {
+				return Table{}, err
+			}
+			if err = reduced.Validate(); err != nil {
+				return Table{}, err
+			}
+			if err = validateUniqueKeys(reduced); err != nil {
+				return Table{}, err
+			}
+			return reduced, nil
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }

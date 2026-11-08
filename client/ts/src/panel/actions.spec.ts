@@ -10,8 +10,8 @@
 import { color, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type ontology } from "@/ontology";
 import { panel } from "@/panel";
+import { type resource } from "@/resource";
 
 const a = uuid.create();
 const b = uuid.create();
@@ -25,12 +25,12 @@ const viewTab = (key: string, type: string = "selector"): panel.Tab => ({
   type,
 });
 
-const resource = (key: string): ontology.ID => ({ type: "lineplot", key });
+const lineplotID = (key: string): resource.ID => ({ type: "lineplot", key });
 
 const resourceTab = (key: string, resourceKey: string = key): panel.Tab => ({
   variant: "resource",
   key,
-  resource: resource(resourceKey),
+  resource: lineplotID(resourceKey),
 });
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
@@ -541,7 +541,7 @@ describe("reduceAll", () => {
   describe("setTabResource", () => {
     it("should swap a view tab to the resource in place", () => {
       const { next } = panel.reduceAll(state(leaf(a, b)), [
-        panel.setTabResource({ key: a, resource: resource(c) }),
+        panel.setTabResource({ key: a, resource: lineplotID(c) }),
       ]);
       expect(next.root.variant).toEqual("leaf");
       expect(tabKeys(next.root)).toEqual([a, b]);
@@ -551,7 +551,7 @@ describe("reduceAll", () => {
     it("should no-op when the resource already backs a different tab", () => {
       const prev = state({ variant: "leaf", tabs: [resourceTab(a), viewTab(b)] });
       const { next } = panel.reduceAll(prev, [
-        panel.setTabResource({ key: b, resource: resource(a) }),
+        panel.setTabResource({ key: b, resource: lineplotID(a) }),
       ]);
       expect(next).toBe(prev);
     });
@@ -559,7 +559,7 @@ describe("reduceAll", () => {
     it("should be a no-op when no tab matches the key", () => {
       const prev = state(leaf(a, b));
       const { next } = panel.reduceAll(prev, [
-        panel.setTabResource({ key: missing, resource: resource(c) }),
+        panel.setTabResource({ key: missing, resource: lineplotID(c) }),
       ]);
       expect(next).toBe(prev);
     });
@@ -615,5 +615,45 @@ describe("reduceAll", () => {
       const { next } = panel.reduceAll(prev, [panel.setColor({})]);
       expect(next.color).toBeUndefined();
     });
+  });
+});
+
+describe("setGroup", () => {
+  const G1 = "11111111-1111-4111-8111-111111111111";
+  it("should move the document into the group", () => {
+    const doc = state(leaf());
+    expect(panel.reduceAll(doc, [panel.setGroup({ group: G1 })]).next.group).toEqual(
+      G1,
+    );
+  });
+  it("should move the document out of its group", () => {
+    const doc = { ...state(leaf()), group: G1 };
+    expect(panel.reduceAll(doc, [panel.setGroup({})]).next.group).toBeUndefined();
+  });
+  it("should restore the previous group through its inverse", () => {
+    const doc = { ...state(leaf()), group: G1 };
+    const { next, inverse } = panel.reduceAll(doc, [panel.setGroup({})]);
+    expect(panel.reduceAll(next, inverse).next.group).toEqual(G1);
+  });
+  it("should target nothing, so it never enters the undo stack", () => {
+    const doc = state(leaf());
+    expect(panel.reduceAll(doc, [panel.setGroup({ group: G1 })]).targets).toEqual([]);
+  });
+});
+
+describe("setProject", () => {
+  const P1 = "11111111-1111-4111-8111-111111111111";
+  const P2 = "22222222-2222-4222-8222-222222222222";
+  it("should move the panel into the project without an undo entry", () => {
+    const { next, targets } = panel.reduceAll(state(leaf("a")), [
+      panel.setProject({ project: P1 }),
+    ]);
+    expect(next.project).toEqual(P1);
+    expect(targets).toEqual([]);
+  });
+  it("should restore the previous project through its inverse", () => {
+    const doc = { ...state(leaf("a")), project: P1 };
+    const { next, inverse } = panel.reduceAll(doc, [panel.setProject({ project: P2 })]);
+    expect(panel.reduceAll(next, inverse).next.project).toEqual(P1);
   });
 });

@@ -88,12 +88,24 @@ var _ = Describe("InFilterRequest", func() {
 })
 
 var _ = Describe("OperatorMembers", func() {
-	DescribeTable("Should return the members of an operator type",
+	DescribeTable(
+		"Should return the members of an operator type",
 		func(op string, members []string) {
 			Expect(MustBeOk(resolution.OperatorMembers(op))).To(Equal(members))
 		},
 		Entry("a set", resolution.OperatorSet, []string{"eq", "in"}),
-		Entry("a string", resolution.OperatorString, []string{"eq", "in", "regex"}),
+		Entry(
+			"a string",
+			resolution.OperatorString,
+			[]string{
+				"eq",
+				"in",
+				"contains",
+				"starts_with",
+				"regex",
+				"case_insensitive",
+			},
+		),
 	)
 
 	It("Should return false for a type that is not an operator", func() {
@@ -565,5 +577,24 @@ var _ = Describe("MergeOverrideField", func() {
 		})
 		Expect(merged.Domains).To(HaveKey("go"))
 		Expect(merged.Domains).ToNot(HaveKey("doc"))
+	})
+})
+
+var _ = Describe("Type.Actions", func() {
+	rename := resolution.Action{Name: "Rename"}
+	It("Should return the actions of a struct", func() {
+		typ := resolution.Type{Form: resolution.StructForm{
+			Actions: []resolution.Action{rename},
+		}}
+		Expect(typ.Actions()).To(Equal([]resolution.Action{rename}))
+	})
+	It("Should return the actions of a union", func() {
+		typ := resolution.Type{Form: resolution.UnionForm{
+			Actions: []resolution.Action{rename},
+		}}
+		Expect(typ.Actions()).To(Equal([]resolution.Action{rename}))
+	})
+	It("Should return no actions for any other form", func() {
+		Expect(resolution.Type{Form: resolution.EnumForm{}}.Actions()).To(BeEmpty())
 	})
 })

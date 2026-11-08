@@ -18,10 +18,11 @@
 #include <vector>
 
 #include "client/cpp/label/types.gen.h"
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/ranger/kv/kv.h"
+#include "client/cpp/resource/id.h"
 #include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
@@ -52,12 +53,11 @@ struct Range {
     /// @brief color is an optional display color for visual identification of the range
     /// in user interfaces.
     std::optional<::x::color::Color> color;
-    /// @brief labels contains optional labels attached to this range for categorization
-    /// and filtering.
-    std::optional<std::vector<::synnax::label::Label>> labels;
-    /// @brief parent is an optional parent range for hierarchical organization. Ranges
-    /// can be nested within other ranges.
-    x::mem::indirect<Range> parent;
+    /// @brief labels are the keys of the labels attached to the range.
+    std::vector<::synnax::label::Key> labels = {};
+    /// @brief parent is the key of the range this range is nested in. Empty for a
+    /// top-level range.
+    std::optional<Key> parent;
 
     static Range parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -79,13 +79,40 @@ struct Where {
     /// @brief not_ matches when the child does not match.
     x::mem::indirect<Where> not_;
     /// @brief key selects by key.
-    std::optional<::x::filter::Set<Key>> key;
+    ::x::filter::Field<::x::filter::Set<Key>> key;
     /// @brief name selects by name.
-    std::optional<::x::filter::String> name;
+    ::x::filter::Field<::x::filter::String> name;
     /// @brief overlaps matches ranges whose time range overlaps the given range.
     std::optional<::x::telem::TimeRange> overlaps;
     /// @brief labels matches ranges that have any of the given labels.
-    std::optional<std::vector<::synnax::label::Key>> labels;
+    ::x::filter::List<::synnax::label::Key> labels;
+    /// @brief parents matches the ranges nested in any of the given ranges.
+    ::x::filter::List<Key> parents;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -112,6 +139,16 @@ struct RetrieveResponse {
     from_proto(const ::api::ranger::pb::RetrieveResponse &pb);
 };
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the ranges that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most ranges to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching ranges to skip.
+    std::uint32_t offset = 0;
+};
+
 /// @brief RetrieveRequest is a request to retrieve ranges.
 struct RetrieveRequest {
     /// @brief where selects the ranges to retrieve. An absent where selects all of
@@ -123,10 +160,16 @@ struct RetrieveRequest {
     std::optional<std::uint32_t> limit;
     /// @brief offset is the number of matching ranges to skip.
     std::uint32_t offset = 0;
-    /// @brief include_labels includes the labels of each record.
-    bool include_labels = false;
-    /// @brief include_parent includes the parent of each record.
-    bool include_parent = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+        };
+    }
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -138,9 +181,9 @@ struct RetrieveRequest {
     from_proto(const ::api::ranger::pb::RetrieveRequest &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("range", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("range", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("range", key.to_string());
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("range", key.to_string());
 }
 }

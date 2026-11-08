@@ -9,3 +9,4 @@
 
 export * from "@/access/role/client";
 export * from "@/access/role/types.gen";
+export { type WhereInput } from "@/access/role/where.gen";

@@ -8,4 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/group/client";
+export * from "@/group/member";
 export * from "@/group/types.gen";
+export { type WhereInput } from "@/group/where.gen";

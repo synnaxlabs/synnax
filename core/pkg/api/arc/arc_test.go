@@ -16,16 +16,23 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
@@ -35,47 +42,202 @@ import (
 // scopedAction is a short local alias for the Arc action envelope.
 type scopedAction = actions.Scoped[arc.Key, arc.Action]
 
-// createArc persists a fresh Arc and returns it with its key populated. Writes
-// commit immediately (nil tx) so access-control reads can observe the new
-// ontology resource.
+// createArc persists a fresh Arc and returns it with its key populated. The write
+// commits at once so access-control reads can observe the new Arc.
 func createArc(ctx context.Context, name string) arc.Arc {
 	GinkgoHelper()
-	a := arc.Arc{Name: name, Mode: arc.ModeGraph}
-	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+	a := arc.Arc{Variant: arc.AutomationArc{
+		Base: arc.Base{Name: name, Source: arc.Source{Variant: arc.GraphSource{}}},
+	}}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return arcSvc.NewWriter(tx).Create(ctx, &a)
+	})).To(Succeed())
 	return a
+}
+
+// deploy binds a to the test rack as the Core, with no access check, and returns the
+// task of a.
+func deploy(ctx context.Context, a arc.Arc) task.Task {
+	GinkgoHelper()
+	var tsk *task.Task
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		tsk, err = arcSvc.NewWriter(tx).UpdateTask(
+			ctx,
+			a.Base().Key,
+			arc.TaskUpdate{Rack: new(testRack.Key)},
+		)
+		return err
+	})).To(Succeed())
+	return *tsk
 }
 
 var _ = Describe("Service", func() {
 	Describe("Retrieve", func() {
+		It("Should leave out the automations that the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			u := MustSucceed(rbactestutil.CreateUser(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				user.User{Name: "leave-out"},
+			))
+			granted := createArc(ctx, "leave-out-granted")
+			createArc(ctx, "leave-out-denied")
+			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, granted.ResourceID())
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiarc.RetrieveRequest{}))
+			Expect(res.Arcs).To(HaveExactElements(WithTransform(
+				func(a arc.Arc) arc.Key { return a.Base().Key },
+				Equal(granted.Base().Key),
+			)))
+		})
+
+		It(
+			"Should compile the graph of a graph-mode automation",
+			func(ctx SpecContext) {
+				a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "compiled_graph",
+					Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
+						Functions: []ir.Function{{
+							Key: "add",
+							Inputs: types.Params{
+								{Name: "a", Type: types.I64()},
+								{Name: "b", Type: types.I64()},
+							},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
+							},
+							Body: ir.Body{Raw: "{ return a + b }"},
+						}},
+					}}},
+				}}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Create(ctx, &a)
+				})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return arcSvc.NewWriter(tx).Delete(ctx, a.Base().Key)
+					})).To(Succeed())
+				})
+				grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
+				res := MustSucceed(
+					retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+						Where: &arc.Where{
+							Key: &filter.Set[arc.Key]{In: []arc.Key{a.Base().Key}},
+						},
+						IncludeProgram: true,
+					}),
+				)
+				Expect(res.Arcs).To(HaveLen(1))
+				automation, ok := res.Arcs[0].Variant.(arc.AutomationArc)
+				Expect(ok).To(BeTrue())
+				Expect(automation.Program).ToNot(BeNil())
+				Expect(automation.Program.Functions).To(HaveLen(1))
+			},
+		)
+
+		It(
+			"Should compile automations and leave modules uncompiled",
+			func(ctx SpecContext) {
+				automation := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "compiled",
+					Source: arc.Source{
+						Variant: arc.TextSource{Text: text.Text{Raw: "func f() {}"}},
+					},
+				}}}
+				module := arc.Arc{Variant: arc.ModuleArc{Base: arc.Base{
+					Name: "not_compiled",
+					Source: arc.Source{
+						Variant: arc.TextSource{
+							Text: text.Text{Raw: "this does not compile"},
+						},
+					},
+				}}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Create(ctx, &automation)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Create(ctx, &module)
+				})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return arcSvc.NewWriter(tx).Delete(
+							ctx, automation.Base().Key, module.Base().Key,
+						)
+					})).To(Succeed())
+				})
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionRetrieve,
+					automation.ResourceID(),
+					module.ResourceID(),
+				)
+				res := MustSucceed(
+					retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+						Where: &arc.Where{
+							Key: &filter.Set[arc.Key]{
+								In: []arc.Key{automation.Base().Key, module.Base().Key},
+							},
+						},
+						IncludeProgram: true,
+					}),
+				)
+				Expect(res.Arcs).To(HaveLen(2))
+				for _, a := range res.Arcs {
+					switch v := a.Variant.(type) {
+					case arc.AutomationArc:
+						Expect(v.Program).ToNot(BeNil())
+					case arc.ModuleArc:
+						Expect(v.Name).To(Equal("not_compiled"))
+					default:
+						Fail("unexpected variant")
+					}
+				}
+			},
+		)
+
 		It(
 			"Should omit missing keys from a multi-key retrieve instead of failing",
 			func(ctx SpecContext) {
 				a := createArc(ctx, "partial-survivor")
+				missing := uuid.New()
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					access.ActionRetrieve,
-					arc.OntologyID(a.Key),
+					arc.ResourceID(a.Base().Key),
+					arc.ResourceID(missing),
 				)
 				res := MustSucceed(
-					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+					retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
 						Where: &arc.Where{
-							Key: &filter.Set[arc.Key]{In: []arc.Key{a.Key, uuid.New()}},
+							Key: &filter.Set[arc.Key]{
+								In: []arc.Key{a.Base().Key, missing},
+							},
 						},
 					}),
 				)
 				Expect(res.Arcs).To(HaveLen(1))
-				Expect(res.Arcs[0].Key).To(Equal(a.Key))
+				Expect(res.Arcs[0].Base().Key).To(Equal(a.Base().Key))
 			},
 		)
 
 		It(
 			"Should return an empty result when every requested key is missing",
 			func(ctx SpecContext) {
+				missing := uuid.New()
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionRetrieve,
+					arc.ResourceID(missing),
+				)
 				res := MustSucceed(
-					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+					retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
 						Where: &arc.Where{
-							Key: &filter.Set[arc.Key]{In: []arc.Key{uuid.New()}},
+							Key: &filter.Set[arc.Key]{In: []arc.Key{missing}},
 						},
 					}),
 				)
@@ -86,11 +248,18 @@ var _ = Describe("Service", func() {
 		It(
 			"Should deny the retrieve before compiling the program",
 			func(ctx SpecContext) {
-				a := arc.Arc{Name: "uncompilable", Mode: arc.ModeText}
-				a.Text.Doc = text.Create("a ->")
-				Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
-				Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
-					Where:          &arc.Where{Key: &filter.Set[arc.Key]{Eq: &a.Key}},
+				a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "uncompilable",
+					Source: arc.Source{Variant: arc.TextSource{
+						Text: text.Text{Doc: text.Create("a ->")},
+					}},
+				}}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Create(ctx, &a)
+				})).To(Succeed())
+				key := a.Base().Key
+				Expect(retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+					Where:          &arc.Where{Key: &filter.Set[arc.Key]{Eq: &key}},
 					IncludeProgram: true,
 				})).Error().To(MatchError(access.ErrDenied))
 			},
@@ -98,48 +267,201 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Create", func() {
+		newArc := func(name string) apiarc.Arc {
+			return apiarc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+				Key:    uuid.New(),
+				Name:   name,
+				Source: arc.Source{Variant: arc.GraphSource{}},
+			}}}
+		}
+		// grantCreate grants what a create of a new Arc needs: create on the Arc and
+		// update on the root directory, which the Arc sits in.
+		grantCreate := func(ctx SpecContext) {
+			GinkgoHelper()
+			grantOn(
+				ctx,
+				author.ResourceID(),
+				access.ActionCreate,
+				resource.ID{Type: resource.TypeArc},
+			)
+			grantUpdateOn(ctx, author.ResourceID(), directory.ResourceID(root))
+		}
+
 		It(
 			"Should materialize the stored document, not echo a client-supplied Raw",
 			func(ctx SpecContext) {
-				grantOn(
-					ctx,
-					author.OntologyID(),
-					access.ActionCreate,
-					ontology.ID{Type: ontology.ResourceTypeArc},
-				)
-				a := apiarc.Arc{Name: "lying-raw", Mode: arc.ModeText}
-				a.Text.Doc = text.Create("a -> b")
-				a.Text.Raw = "a -> c"
+				grantCreate(ctx)
+				a := apiarc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "lying-raw",
+					Source: arc.Source{
+						Variant: arc.TextSource{
+							Text: text.Text{Doc: text.Create("a -> b"), Raw: "a -> c"},
+						},
+					},
+				}}}
 				res := MustSucceed(
-					apiSvc.Create(AuthedCtx(ctx, author), db, apiarc.CreateRequest{
+					create(AuthedCtx(ctx, author), apiarc.CreateRequest{
 						Arcs: []apiarc.Arc{a},
 					}),
 				)
-				Expect(res.Arcs[0].Text.Raw).To(Equal("a -> b"))
+				Expect(textOf(res.Arcs[0].Base()).Raw).To(Equal("a -> b"))
 			},
 		)
 
 		It("Should stamp the dispatch key onto the create broadcast", func(
 			ctx SpecContext,
 		) {
-			grantOn(
-				ctx,
-				author.OntologyID(),
-				access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypeArc},
-			)
+			grantCreate(ctx)
 			rec := &Recorder[arc.Key, arc.Action]{}
 			DeferCleanup(arcSvc.OnAction(rec.Record))
 			res := MustSucceed(
-				apiSvc.Create(AuthedCtx(ctx, author), db, apiarc.CreateRequest{
-					Arcs:        []apiarc.Arc{{Name: "broadcast", Mode: arc.ModeGraph}},
+				create(AuthedCtx(ctx, author), apiarc.CreateRequest{
+					Arcs:        []apiarc.Arc{newArc("broadcast")},
 					DispatchKey: "dk-create",
 				}),
 			)
 			frames := rec.Snapshot()
 			Expect(frames).To(HaveLen(1))
-			Expect(frames[0].Key).To(Equal(res.Arcs[0].Key))
+			Expect(frames[0].Key).To(Equal(res.Arcs[0].Base().Key))
 			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
+		})
+
+		It("Should deny a caller without create access", func(ctx SpecContext) {
+			grantUpdateOn(ctx, author.ResourceID(), directory.ResourceID(root))
+			a := newArc("create-denied")
+			Expect(create(AuthedCtx(ctx, author), apiarc.CreateRequest{
+				Arcs: []apiarc.Arc{a},
+			})).Error().To(denied(author, access.ActionCreate, a.ResourceID()))
+			Expect(arcSvc.NewRetrieve().
+				Where(arc.MatchKeys(a.Base().Key)).
+				Exists(ctx, db)).To(BeFalse())
+		})
+
+		It(
+			"Should deny a caller without update access to the root directory",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionCreate,
+					resource.ID{Type: resource.TypeArc},
+				)
+				a := newArc("create-no-root")
+				Expect(create(AuthedCtx(ctx, author), apiarc.CreateRequest{
+					Arcs: []apiarc.Arc{a},
+				})).Error().To(
+					denied(author, access.ActionUpdate, directory.ResourceID(root)),
+				)
+				Expect(arcSvc.NewRetrieve().
+					Where(arc.MatchKeys(a.Base().Key)).
+					Exists(ctx, db)).To(BeFalse())
+			},
+		)
+	})
+
+	Describe("Delete", func() {
+		It(
+			"Should delete an Arc with delete access and update on its parent",
+			func(ctx SpecContext) {
+				a := createArc(ctx, "delete-ok")
+				grantOn(ctx, author.ResourceID(), access.ActionDelete, a.ResourceID())
+				grantUpdateOn(ctx, author.ResourceID(), directory.ResourceID(root))
+				MustSucceed(del(AuthedCtx(ctx, author), apiarc.DeleteRequest{
+					Keys: []arc.Key{a.Base().Key},
+				}))
+				Expect(arcSvc.NewRetrieve().
+					Where(arc.MatchKeys(a.Base().Key)).
+					Exists(ctx, db)).To(BeFalse())
+			},
+		)
+
+		It("Should deny a caller without delete access", func(ctx SpecContext) {
+			a := createArc(ctx, "delete-denied")
+			grantUpdateOn(ctx, author.ResourceID(), directory.ResourceID(root))
+			Expect(del(AuthedCtx(ctx, author), apiarc.DeleteRequest{
+				Keys: []arc.Key{a.Base().Key},
+			})).Error().To(denied(author, access.ActionDelete, a.ResourceID()))
+			Expect(arcSvc.NewRetrieve().
+				Where(arc.MatchKeys(a.Base().Key)).
+				Exists(ctx, db)).To(BeTrue())
+		})
+
+		It(
+			"Should deny a caller without update access to the directory of the Arc",
+			func(ctx SpecContext) {
+				a := createArc(ctx, "delete-no-root")
+				grantOn(ctx, author.ResourceID(), access.ActionDelete, a.ResourceID())
+				Expect(del(AuthedCtx(ctx, author), apiarc.DeleteRequest{
+					Keys: []arc.Key{a.Base().Key},
+				})).Error().To(
+					denied(author, access.ActionUpdate, directory.ResourceID(root)),
+				)
+				Expect(arcSvc.NewRetrieve().
+					Where(arc.MatchKeys(a.Base().Key)).
+					Exists(ctx, db)).To(BeTrue())
+			},
+		)
+
+		Describe("an Arc with a task", func() {
+			// grantAllButTaskDelete grants what deleting a deployed Arc needs except
+			// delete on its task: delete on the Arc and the task's status, and update
+			// on the directory, the task that holds the status, and the rack.
+			grantAllButTaskDelete := func(ctx SpecContext, a arc.Arc) {
+				GinkgoHelper()
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionDelete,
+					a.ResourceID(),
+					resource.ID{Type: resource.TypeStatus},
+				)
+				grantUpdateOn(
+					ctx,
+					author.ResourceID(),
+					directory.ResourceID(root),
+					resource.ID{Type: resource.TypeTask},
+					testRack.ResourceID(),
+				)
+			}
+
+			It("Should deny a caller without delete access to the task", func(
+				ctx SpecContext,
+			) {
+				a := createArc(ctx, "delete-deployed-denied")
+				tsk := deploy(ctx, a)
+				grantAllButTaskDelete(ctx, a)
+				Expect(del(AuthedCtx(ctx, author), apiarc.DeleteRequest{
+					Keys: []arc.Key{a.Base().Key},
+				})).Error().To(
+					denied(author, access.ActionDelete, task.ResourceID(tsk.Key)),
+				)
+				Expect(taskSvc.NewRetrieve().
+					Where(task.MatchKeys(tsk.Key)).
+					Exists(ctx, db)).To(BeTrue())
+			})
+
+			It("Should delete the Arc and its task with delete access to both", func(
+				ctx SpecContext,
+			) {
+				a := createArc(ctx, "delete-deployed-ok")
+				tsk := deploy(ctx, a)
+				grantAllButTaskDelete(ctx, a)
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionDelete,
+					task.ResourceID(tsk.Key),
+				)
+				MustSucceed(del(AuthedCtx(ctx, author), apiarc.DeleteRequest{
+					Keys: []arc.Key{a.Base().Key},
+				}))
+				Expect(arcSvc.NewRetrieve().
+					Where(arc.MatchKeys(a.Base().Key)).
+					Exists(ctx, db)).To(BeFalse())
+				Expect(taskSvc.NewRetrieve().
+					Where(task.MatchKeys(tsk.Key)).
+					Exists(ctx, db)).To(BeFalse())
+			})
 		})
 	})
 
@@ -149,9 +471,9 @@ var _ = Describe("Service", func() {
 				"Should reject the request with access.ErrDenied when the subject has no policy",
 				func(ctx SpecContext) {
 					a := createArc(ctx, "no-policy")
-					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
-							Key:         a.Key,
+					Expect(dispatch(
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
+							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
 								arc.NewRemoveNodeAction(arc.RemoveNodePayload{
@@ -167,10 +489,10 @@ var _ = Describe("Service", func() {
 				"Should accept the request when the subject's policy permits update on the target Arc",
 				func(ctx SpecContext) {
 					a := createArc(ctx, "with-policy")
-					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
-							Key:         a.Key,
+					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
+					Expect(dispatch(
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
+							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
 								arc.NewSetNodeAction(arc.SetNodePayload{
@@ -184,11 +506,11 @@ var _ = Describe("Service", func() {
 					)).Error().To(Succeed())
 					var res arc.Arc
 					Expect(arcSvc.NewRetrieve().
-						Where(arc.MatchKeys(a.Key)).
-						Entry(&res).Exec(ctx, nil)).To(Succeed())
-					Expect(res.Graph.Nodes).To(HaveLen(1))
+						Where(arc.MatchKeys(a.Base().Key)).
+						Entry(&res).Exec(ctx, db)).To(Succeed())
+					Expect(graphOf(res.Base()).Nodes).To(HaveLen(1))
 					Expect(
-						res.Graph.Nodes[0].Position,
+						graphOf(res.Base()).Nodes[0].Position,
 					).To(Equal(spatial.XY{X: 1, Y: 2}))
 				},
 			)
@@ -198,10 +520,10 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					a := createArc(ctx, "policy-target")
 					b := createArc(ctx, "no-policy-target")
-					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
-							Key:         b.Key,
+					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
+					Expect(dispatch(
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
+							Key:         b.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
 								arc.NewRemoveNodeAction(arc.RemoveNodePayload{
@@ -214,15 +536,15 @@ var _ = Describe("Service", func() {
 			)
 		})
 
-		Describe("delegation to Writer.Dispatch", func() {
+		Describe("delegation to Writer.Apply", func() {
 			It(
 				"Should apply a multi-action sequence to the target Arc",
 				func(ctx SpecContext) {
 					a := createArc(ctx, "multi-action")
-					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
-							Key:         a.Key,
+					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
+					Expect(dispatch(
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
+							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
 								arc.NewSetNodeAction(
@@ -239,10 +561,10 @@ var _ = Describe("Service", func() {
 					)).Error().To(Succeed())
 					var res arc.Arc
 					Expect(arcSvc.NewRetrieve().
-						Where(arc.MatchKeys(a.Key)).
-						Entry(&res).Exec(ctx, nil)).To(Succeed())
-					Expect(res.Graph.Nodes).To(HaveLen(2))
-					Expect(res.Name).To(Equal("renamed-multi"))
+						Where(arc.MatchKeys(a.Base().Key)).
+						Entry(&res).Exec(ctx, db)).To(Succeed())
+					Expect(graphOf(res.Base()).Nodes).To(HaveLen(2))
+					Expect(res.Base().Name).To(Equal("renamed-multi"))
 				},
 			)
 
@@ -250,9 +572,9 @@ var _ = Describe("Service", func() {
 				"Should bubble up query.ErrNotFound when the target Arc does not exist",
 				func(ctx SpecContext) {
 					missing := uuid.New()
-					grantUpdateOn(ctx, author.OntologyID(), arc.OntologyID(missing))
-					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+					grantUpdateOn(ctx, author.ResourceID(), arc.ResourceID(missing))
+					Expect(dispatch(
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         missing,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -271,16 +593,16 @@ var _ = Describe("Service", func() {
 				"Should pass the DispatchKey verbatim into the action observer",
 				func(ctx SpecContext) {
 					a := createArc(ctx, "session-propagation")
-					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					seen := make(chan scopedAction, 1)
 					DeferCleanup(
 						arcSvc.OnAction(func(_ context.Context, sa scopedAction) {
 							seen <- sa
 						}),
 					)
-					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
-							Key:         a.Key,
+					Expect(dispatch(
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
+							Key:         a.Base().Key,
 							DispatchKey: "session-marker-xyz",
 							Actions: []arc.Action{
 								arc.NewSetNodeAction(arc.SetNodePayload{
@@ -291,7 +613,7 @@ var _ = Describe("Service", func() {
 					)).Error().To(Succeed())
 					var got scopedAction
 					Eventually(seen).Should(Receive(&got))
-					Expect(got.Key).To(Equal(a.Key))
+					Expect(got.Key).To(Equal(a.Base().Key))
 					Expect(got.DispatchKey).To(Equal("session-marker-xyz"))
 					Expect(got.Seq).To(BeNumerically(">", uint64(0)))
 					Expect(got.Actions).To(HaveLen(1))
@@ -301,32 +623,37 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("UpdateTask", func() {
-		grantBind := func(ctx SpecContext, a arc.Arc) {
+		// grantTask grants what a bind needs other than retrieve on the arc: create on
+		// the task and its status, and update on the task and the rack, which the
+		// status and the task sit in.
+		grantTask := func(ctx SpecContext) {
 			GinkgoHelper()
-			grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
 			grantOn(
 				ctx,
-				author.OntologyID(),
+				author.ResourceID(),
 				access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypeTask},
+				resource.ID{Type: resource.TypeTask},
+				resource.ID{Type: resource.TypeStatus},
 			)
+			grantUpdateOn(
+				ctx,
+				author.ResourceID(),
+				resource.ID{Type: resource.TypeTask},
+				testRack.ResourceID(),
+			)
+		}
+		bind := func(ctx SpecContext, a arc.Arc) (apiarc.UpdateTaskResponse, error) {
+			return updateTask(AuthedCtx(ctx, author), apiarc.UpdateTaskRequest{
+				Key:  a.Base().Key,
+				Rack: new(testRack.Key),
+			})
 		}
 
 		It(
 			"Should reject the request when the subject has no policy",
 			func(ctx SpecContext) {
 				a := createArc(ctx, "set-rack-no-policy")
-				Expect(
-					apiSvc.UpdateTask(
-						AuthedCtx(ctx, author),
-						db,
-						apiarc.UpdateTaskRequest{
-							Key:  a.Key,
-							Rack: new(testRack.Key),
-						},
-					),
-				).Error().
-					To(MatchError(access.ErrDenied))
+				Expect(bind(ctx, a)).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 
@@ -334,90 +661,114 @@ var _ = Describe("Service", func() {
 			"Should reject when the subject may update the arc but not create tasks",
 			func(ctx SpecContext) {
 				a := createArc(ctx, "set-rack-no-task-policy")
-				grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-				Expect(
-					apiSvc.UpdateTask(
-						AuthedCtx(ctx, author),
-						db,
-						apiarc.UpdateTaskRequest{
-							Key:  a.Key,
-							Rack: new(testRack.Key),
-						},
-					),
-				).Error().
-					To(MatchError(access.ErrDenied))
+				grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
+				Expect(bind(ctx, a)).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+
+		It(
+			"Should reject a bind without retrieve access to the arc",
+			func(ctx SpecContext) {
+				a := createArc(ctx, "set-rack-no-arc-retrieve")
+				grantTask(ctx)
+				Expect(bind(ctx, a)).Error().
+					To(denied(author, access.ActionRetrieve, a.ResourceID()))
+			},
+		)
+
+		It(
+			"Should reject a bind without update access to the rack",
+			func(ctx SpecContext) {
+				a := createArc(ctx, "set-rack-no-rack-update")
+				grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionCreate,
+					resource.ID{Type: resource.TypeTask},
+					resource.ID{Type: resource.TypeStatus},
+				)
+				grantUpdateOn(
+					ctx,
+					author.ResourceID(),
+					resource.ID{Type: resource.TypeTask},
+				)
+				Expect(bind(ctx, a)).Error().
+					To(denied(author, access.ActionUpdate, testRack.ResourceID()))
 			},
 		)
 
 		It("Should bind the rack and return the task", func(ctx SpecContext) {
 			a := createArc(ctx, "set-rack-ok")
-			grantBind(ctx, a)
-			res := MustSucceed(
-				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{
-					Key:  a.Key,
-					Rack: new(testRack.Key),
-				}),
-			)
+			grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
+			grantTask(ctx)
+			res := MustSucceed(bind(ctx, a))
 			Expect(res.Task).ToNot(BeNil())
 			Expect(res.Task.Rack).To(Equal(testRack.Key))
-			Expect(res.Task.Config).To(HaveKeyWithValue("arc_key", a.Key.String()))
+			Expect(
+				res.Task.Config,
+			).To(HaveKeyWithValue("arc_key", a.Base().Key.String()))
 			Expect(res.Task.Config).To(HaveKey("hash"))
 		})
 
 		It("Should clear the rack with task delete permission", func(ctx SpecContext) {
 			a := createArc(ctx, "clear-rack-ok")
-			grantBind(ctx, a)
+			deploy(ctx, a)
 			grantOn(
 				ctx,
-				author.OntologyID(),
+				author.ResourceID(),
 				access.ActionDelete,
-				ontology.ID{Type: ontology.ResourceTypeTask},
+				resource.ID{Type: resource.TypeTask},
+				resource.ID{Type: resource.TypeStatus},
 			)
-			deployed := MustSucceed(
-				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{
-					Key:  a.Key,
-					Rack: new(testRack.Key),
-				}),
+			grantUpdateOn(
+				ctx,
+				author.ResourceID(),
+				resource.ID{Type: resource.TypeTask},
+				testRack.ResourceID(),
 			)
-			Expect(deployed.Task).ToNot(BeNil())
 			res := MustSucceed(
-				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{
-					Key:  a.Key,
+				updateTask(AuthedCtx(ctx, author), apiarc.UpdateTaskRequest{
+					Key:  a.Base().Key,
 					Rack: new(rack.Key(0)),
 				}),
 			)
 			Expect(res.Task).To(BeNil())
 			Expect(arcSvc.NewRetrieve().
-				Where(arc.MatchKeys(a.Key)).
-				Exec(ctx, nil)).To(Succeed())
+				Where(arc.MatchKeys(a.Base().Key)).
+				Exec(ctx, db)).To(Succeed())
 		})
+
+		It(
+			"Should reject a clear without task delete permission",
+			func(ctx SpecContext) {
+				a := createArc(ctx, "clear-rack-no-task-delete")
+				deploy(ctx, a)
+				grantUpdateOn(
+					ctx,
+					author.ResourceID(),
+					resource.ID{Type: resource.TypeTask},
+					testRack.ResourceID(),
+				)
+				Expect(updateTask(AuthedCtx(ctx, author), apiarc.UpdateTaskRequest{
+					Key:  a.Base().Key,
+					Rack: new(rack.Key(0)),
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
 
 		It(
 			"Should reject a performance change without task update permission",
 			func(ctx SpecContext) {
 				a := createArc(ctx, "performance-no-task-policy")
-				grantBind(ctx, a)
-				MustSucceed(
-					apiSvc.UpdateTask(
-						AuthedCtx(ctx, author),
-						db,
-						apiarc.UpdateTaskRequest{
-							Key:  a.Key,
-							Rack: new(testRack.Key),
-						},
-					),
-				)
+				deploy(ctx, a)
+				grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 				Expect(
-					apiSvc.UpdateTask(
-						AuthedCtx(ctx, author),
-						db,
-						apiarc.UpdateTaskRequest{
-							Key:         a.Key,
-							Performance: new(arctask.PerformanceHigh),
-						},
-					),
-				).Error().
-					To(MatchError(access.ErrDenied))
+					updateTask(AuthedCtx(ctx, author), apiarc.UpdateTaskRequest{
+						Key:         a.Base().Key,
+						Performance: new(arctask.PerformanceHigh),
+					}),
+				).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 
@@ -425,32 +776,17 @@ var _ = Describe("Service", func() {
 			"Should set the performance with task update permission",
 			func(ctx SpecContext) {
 				a := createArc(ctx, "performance-ok")
-				grantBind(ctx, a)
-				grantOn(
+				deploy(ctx, a)
+				grantUpdateOn(
 					ctx,
-					author.OntologyID(),
-					access.ActionUpdate,
-					ontology.ID{Type: ontology.ResourceTypeTask},
-				)
-				MustSucceed(
-					apiSvc.UpdateTask(
-						AuthedCtx(ctx, author),
-						db,
-						apiarc.UpdateTaskRequest{
-							Key:  a.Key,
-							Rack: new(testRack.Key),
-						},
-					),
+					author.ResourceID(),
+					resource.ID{Type: resource.TypeTask},
 				)
 				res := MustSucceed(
-					apiSvc.UpdateTask(
-						AuthedCtx(ctx, author),
-						db,
-						apiarc.UpdateTaskRequest{
-							Key:         a.Key,
-							Performance: new(arctask.PerformanceHigh),
-						},
-					),
+					updateTask(AuthedCtx(ctx, author), apiarc.UpdateTaskRequest{
+						Key:         a.Base().Key,
+						Performance: new(arctask.PerformanceHigh),
+					}),
 				)
 				Expect(res.Task.Rack).To(Equal(testRack.Key))
 				Expect(res.Task.Config).To(HaveKeyWithValue("performance", "high"))
@@ -458,21 +794,10 @@ var _ = Describe("Service", func() {
 		)
 
 		It("Should bubble up not found for a nonexistent arc", func(ctx SpecContext) {
-			missing := uuid.New()
-			grantUpdateOn(ctx, author.OntologyID(), arc.OntologyID(missing))
-			grantOn(
-				ctx,
-				author.OntologyID(),
-				access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypeTask},
-			)
-			Expect(
-				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{
-					Key:  missing,
-					Rack: new(testRack.Key),
-				}),
-			).Error().
-				To(MatchError(query.ErrNotFound))
+			Expect(updateTask(AuthedCtx(ctx, author), apiarc.UpdateTaskRequest{
+				Key:  uuid.New(),
+				Rack: new(testRack.Key),
+			})).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 })

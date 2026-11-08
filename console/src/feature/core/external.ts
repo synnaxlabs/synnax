@@ -10,5 +10,4 @@
 export * from "@/feature/core/Badge";
 export * from "@/feature/core/commands";
 export * from "@/feature/core/link";
-export * from "@/feature/core/notifications";
 export * from "@/platform/core/external";

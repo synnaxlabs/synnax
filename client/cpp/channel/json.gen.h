@@ -62,7 +62,10 @@ inline Channel Channel::parse(x::json::Parser parser) {
             "operations",
             std::vector<Operation>{}
         ),
-        .concurrency = parser.field<::x::control::Concurrency>("concurrency"),
+        .concurrency = parser.field<::x::control::Concurrency>(
+            "concurrency",
+            ::x::control::Concurrency::Exclusive
+        ),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
@@ -103,9 +106,6 @@ inline Where Where::parse(x::json::Parser parser) {
         .is_index = parser.field<std::optional<::x::filter::Bool>>("is_index"),
         .internal = parser.field<std::optional<::x::filter::Bool>>("internal"),
         .virtual_ = parser.field<std::optional<bool>>("virtual"),
-        .name_patterns = parser.field<std::optional<std::vector<std::string>>>(
-            "name_patterns"
-        ),
     };
 }
 
@@ -121,7 +121,6 @@ inline x::json::json Where::to_json() const {
     if (this->is_index.has_value()) j["is_index"] = this->is_index->to_json();
     if (this->internal.has_value()) j["internal"] = this->internal->to_json();
     if (this->virtual_.has_value()) j["virtual"] = *this->virtual_;
-    if (this->name_patterns.has_value()) j["name_patterns"] = *this->name_patterns;
     return j;
 }
 

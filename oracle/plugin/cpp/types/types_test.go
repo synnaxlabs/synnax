@@ -99,6 +99,83 @@ var _ = Describe("C++ Types Plugin", func() {
 				ToNotContain("x::mem::indirect<std::vector<Where>>")
 		})
 
+		It("Should type filter lines to take plain values", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			source := `
+				import "schemas/x/filter"
+
+				@cpp output "client/cpp/thing"
+
+				Thing struct {
+					key  uint32
+					name string
+				}
+
+				Where filter Thing {
+					key
+					name
+					tags   string[]
+					active bool
+				}
+			`
+			resp := MustGenerate(ctx, source, "thing", loader, cppPlugin)
+			ExpectContent(resp, "thing/types.gen.h").ToContain(
+				`#include "x/cpp/filter/field.h"`,
+				"::x::filter::Field<::x::filter::Ordered<std::uint32_t>> key;",
+				"::x::filter::Field<::x::filter::String> name;",
+				"::x::filter::List<std::string> tags;",
+				"std::optional<bool> active;",
+			)
+		})
+
+		It("Should combine filters with &&, ||, and !", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, cppPlugin)
+			ExpectContent(resp, "thing/types.gen.h").ToContain(
+				"friend Where operator&&(Where a, Where b) {",
+				"w.and_->push_back(std::move(a));",
+				"friend Where operator||(Where a, Where b) {",
+				"w.or_->push_back(std::move(b));",
+				"friend Where operator!(Where a) {",
+				"w.not_ = std::move(a);",
+			)
+		})
+
+		It("Should give a retrieve request its options", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, cppPlugin)
+			ExpectContent(resp, "thing/types.gen.h").ToContain(
+				"struct RetrieveOptions {\n"+
+					"    /// @brief limit is the most things to return.\n"+
+					"    std::optional<std::uint32_t> limit;\n"+
+					"    /// @brief offset is the number of matching things to skip.\n"+
+					"    std::uint32_t offset = 0;\n"+
+					"};",
+				"static RetrieveRequest\n"+
+					"    from(Where where, const RetrieveOptions &options = {}) {\n"+
+					"        return {\n"+
+					"            .where = std::move(where),\n"+
+					"            .limit = options.limit,\n"+
+					"            .offset = options.offset,\n"+
+					"        };\n"+
+					"    }",
+			)
+		})
+
+		It("Should not combine a struct that is not a filter", func(ctx SpecContext) {
+			source := `
+				@cpp output "out"
+
+				Thing struct {
+					name string?
+				}
+			`
+			resp := MustGenerate(ctx, source, "thing", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain("std::optional<std::string> name;").
+				ToNotContain("operator&&", "x/cpp/filter/field.h")
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
 				source := `
@@ -2233,7 +2310,7 @@ var _ = Describe("C++ Union Generation", func() {
 		},
 	)
 
-	It("Should emit ontology helpers for a union", func(ctx SpecContext) {
+	It("Should emit resource helpers for a union", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
 
@@ -2251,18 +2328,18 @@ var _ = Describe("C++ Union Generation", func() {
 					size int32
 				}
 
-				@ontology type "view"
+				@resource type "view"
 			}
 		`
 		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
 			ToContain(
-				`const synnax::ontology::ID ONTOLOGY_TYPE("view", "");`,
-				`return synnax::ontology::ID("view", key.to_string());`,
+				`const synnax::resource::ID TYPE_RESOURCE_ID("view", "");`,
+				`return synnax::resource::ID("view", key.to_string());`,
 			)
 	})
 
-	It("Should type union ontology helpers by a primitive key", func(ctx SpecContext) {
+	It("Should type union resource helpers by a primitive key", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
 
@@ -2275,12 +2352,12 @@ var _ = Describe("C++ Union Generation", func() {
 					name string
 				}
 
-				@ontology type "view"
+				@resource type "view"
 			}
 		`
 		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
-			ToContain(`ontology_id(const x::uuid::UUID& key)`)
+			ToContain(`resource_id(const x::uuid::UUID& key)`)
 	})
 
 	It(

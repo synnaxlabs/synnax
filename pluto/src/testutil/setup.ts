@@ -12,10 +12,13 @@ import "zod/compile";
 import { ResizeObserver } from "@juggle/resize-observer";
 import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
+import { shortenKeepAlive } from "@synnaxlabs/x/testutil/keepAlive";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
 import { installTestWebSocket } from "@/testutil/websocket";
+
+shortenKeepAlive();
 
 // Live-Core round-trips share the single test Core with the rest of the suite, so allow
 // more than the 1s waitFor default.

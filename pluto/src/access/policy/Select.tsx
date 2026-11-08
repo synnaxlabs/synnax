@@ -43,12 +43,12 @@ export interface SelectMultipleProps
     Flux.UseListParams<ListParams, access.policy.Key, access.policy.Policy> {}
 
 export const SelectMultiple = ({
-  initialQuery,
+  query,
   filter,
   ...rest
 }: SelectMultipleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
-    initialQuery,
+    query,
     filter,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
@@ -80,12 +80,12 @@ export interface SelectSingleProps
     Flux.UseListParams<ListParams, access.policy.Key, access.policy.Policy> {}
 
 export const SelectSingle = ({
-  initialQuery,
+  query,
   filter,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
-    initialQuery,
+    query,
     filter,
   });
   const { fetchMore, search } = List.usePager({ retrieve });

@@ -11,38 +11,40 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-from typing import override as _override
+from typing import Any, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import ontology
-from synnax.access import action
-from synnax.ontology.payload import ID
+from synnax import resource
+from synnax.access import action, role as role_
+from synnax.resource import ID
 from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = UUID
 
 
 class Policy(BaseModel):
     """Is an access control policy that defines which actions are permitted on which
-    resources. Policies are attached to roles, and roles are assigned to users via
-    ontology relationships.
+    resources. Each policy belongs to one role, and a subject holds the policies of each
+    role in its roles.
 
     Attributes:
         key: Is the unique identifier for this policy.
         name: Is a human-readable name for the policy.
-        objects: Is the list of ontology resources this policy applies to.
+        objects: Is the list of resources this policy applies to.
         actions: Is the list of actions this policy permits.
         internal: Is true if this is a built-in system policy that cannot be deleted.
+        role: Is the role that grants this policy to its subjects.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
-    objects: list[ontology.ID] = Field(default_factory=list)
+    objects: list[resource.ID] = Field(default_factory=list)
     actions: list[action.Action] = Field(default_factory=list)
     internal: bool = False
+    role: role_.Key
 
     @_override
     def __hash__(self) -> int:
@@ -59,6 +61,7 @@ class Where(BaseModel):
         key: Selects by key.
         internal: Selects by internal.
         subjects: Matches the policies of the roles that any of the given subjects hold.
+        roles: Matches the policies of any of the given roles.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -68,7 +71,30 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     internal: filter.Bool | None = None
-    subjects: list[ontology.ID] | None = None
+    subjects: list[resource.ID] | None = None
+    roles: list[role_.Key] | None = None
+
+    @field_validator("subjects", "roles", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "internal": filter.BoolInput,
+        "subjects": resource.ID | list[resource.ID],
+        "roles": role_.Key | list[role_.Key],
+    },
+    total=False,
+)
 
 
 class RetrieveResponse(BaseModel):
@@ -102,8 +128,8 @@ class RetrieveRequest(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="policy")
+TYPE_RESOURCE_ID = ID(type="policy")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="policy", key=str(key))

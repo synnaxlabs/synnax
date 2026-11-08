@@ -9,6 +9,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <string>
+
 #include "driver/errors/errors.h"
 
 namespace driver::ethercat::errors {
@@ -35,6 +38,8 @@ const x::errors::Error PDO_MAPPING_ERROR = BASE_ERROR.sub("pdo_mapping");
 const x::errors::Error DOMAIN_ERROR = BASE_ERROR.sub("domain");
 /// @brief error returned when master activation fails.
 const x::errors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
+/// @brief error returned when a slave rejects a startup parameter.
+const x::errors::Error STARTUP_PARAMETER_ERROR = BASE_ERROR.sub("startup_parameter");
 /// @brief error returned when cyclic communication fails.
 const x::errors::Error CYCLIC_ERROR = BASE_ERROR.sub("cyclic");
 /// @brief error returned when a slave enters an unexpected state.
@@ -49,6 +54,10 @@ const x::errors::Error WORKING_COUNTER_ERROR = BASE_ERROR.sub("working_counter")
 const x::errors::Error CYCLE_OVERRUN = BASE_ERROR.sub("cycle_overrun");
 /// @brief error returned when a state machine transition fails.
 const x::errors::Error STATE_CHANGE_ERROR = BASE_ERROR.sub("state_change");
+/// @brief error returned when a slave refuses a state change with an AL status code
+/// that a new start cannot clear. The same configuration gets the same refusal, so
+/// retrying does not help.
+const x::errors::Error STATE_CHANGE_REFUSED = STATE_CHANGE_ERROR.sub("refused");
 /// @brief error returned when the latest bus cycle failed and its inputs were dropped.
 const x::errors::Error CYCLE_FAILED = TEMPORARY_ERROR.sub("cycle_failed");
 /// @brief error returned when PDO discovery fails for a slave.
@@ -59,4 +68,7 @@ const x::errors::Error SDO_READ_ERROR = BASE_ERROR.sub("sdo_read");
 const x::errors::Error RATE_MISMATCH = BASE_ERROR.sub("rate_mismatch");
 /// @brief error returned when bus topology doesn't match configured devices.
 const x::errors::Error TOPOLOGY_MISMATCH = BASE_ERROR.sub("topology_mismatch");
+
+/// @brief returns the CoE meaning of an SDO abort code, or "no response" for 0.
+std::string sdo_abort_reason(uint32_t code);
 }

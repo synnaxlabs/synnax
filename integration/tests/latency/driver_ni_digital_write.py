@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy
+from framework import resources
 from tests.latency.latency import Latency
 from x import get_cpu_cores, get_machine_info, get_memory_info
 
@@ -34,6 +35,10 @@ class DriverNIDigitalWrite(Latency):
     core and loop-back (python) timestamp.
     """
 
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.NI}
+
     def setup(self) -> None:
         if platform.system().lower() != "windows":
             self.skip("Windows DAQmx drivers required")
@@ -48,7 +53,7 @@ class DriverNIDigitalWrite(Latency):
 
         self.log("Searching for NI DO device: SYMod1")
         # Sim device must be set up in NI MAX
-        dev = client.devices.retrieve(location="SYMod1")
+        dev = client.devices.retrieve(location="SYMod1", one=True)
         self.log(f"Found NI DO device: {dev.location}")
 
         self.log("Creating Channels")

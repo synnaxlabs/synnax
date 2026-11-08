@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/cpp/internal/defaults"
 	"github.com/synnaxlabs/oracle/plugin/cpp/internal/includes"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
@@ -594,12 +595,16 @@ func (p *Plugin) parseExprForField(
 				}
 				if field.Optional {
 					wrapperType = fmt.Sprintf("std::optional<%s>", wrapperType)
-				} else if isEmptyDefault(field.Default) {
+				} else if fallback := p.compositeFallback(
+					field,
+					wrapperType,
+					data,
+				); fallback != "" {
 					return fmt.Sprintf(
-						`parser.field<%s>("%s", %s{})`,
+						`parser.field<%s>("%s", %s)`,
 						wrapperType,
 						jsonName,
-						wrapperType,
+						fallback,
 					)
 				}
 				return fmt.Sprintf(`parser.field<%s>("%s")`, wrapperType, jsonName)
@@ -742,6 +747,19 @@ func (p *Plugin) parseExprForField(
 					jsonName,
 				)
 			}
+			if field.Default != nil {
+				if literal := p.defaultRenderer(data).Literal(
+					field.Type,
+					*field.Default,
+				); literal != "" {
+					return fmt.Sprintf(
+						`parser.field<%s>("%s", %s)`,
+						enumType,
+						jsonName,
+						literal,
+					)
+				}
+			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, enumType, jsonName)
 		}
 		if structForm, isStruct := resolved.Form.(resolution.StructForm); isStruct {
@@ -768,12 +786,16 @@ func (p *Plugin) parseExprForField(
 					jsonName,
 				)
 			}
-			if isEmptyDefault(field.Default) {
+			if fallback := p.compositeFallback(
+				field,
+				structType,
+				data,
+			); fallback != "" {
 				return fmt.Sprintf(
-					`parser.field<%s>("%s", %s{})`,
+					`parser.field<%s>("%s", %s)`,
 					structType,
 					jsonName,
-					structType,
+					fallback,
 				)
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
@@ -844,12 +866,16 @@ func (p *Plugin) parseExprForField(
 							jsonName,
 						)
 					}
-					if isEmptyDefault(field.Default) {
+					if fallback := p.compositeFallback(
+						field,
+						aliasType,
+						data,
+					); fallback != "" {
 						return fmt.Sprintf(
-							`parser.field<%s>("%s", %s{})`,
+							`parser.field<%s>("%s", %s)`,
 							aliasType,
 							jsonName,
-							aliasType,
+							fallback,
 						)
 					}
 					return fmt.Sprintf(`parser.field<%s>("%s")`, aliasType, jsonName)
@@ -912,30 +938,43 @@ func (p *Plugin) parseExprForField(
 				defaultVal,
 			)
 		}
-		if isEmptyDefault(field.Default) {
+		if fallback := p.compositeFallback(field, cppType, data); fallback != "" {
 			return fmt.Sprintf(
-				`parser.field<%s>("%s", %s{})`,
+				`parser.field<%s>("%s", %s)`,
 				cppType,
 				jsonName,
-				cppType,
+				fallback,
 			)
 		}
 	}
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 }
 
-// isEmptyDefault reports whether val is the empty composite default {} or [].
-func isEmptyDefault(val *resolution.ExpressionValue) bool {
-	if val == nil {
-		return false
+// compositeFallback renders a struct or array default as a value of cppType. It returns
+// "" when the field has no such default.
+func (p *Plugin) compositeFallback(
+	field resolution.Field,
+	cppType string,
+	data *templateData,
+) string {
+	if field.Default == nil {
+		return ""
 	}
-	switch val.Kind {
-	case resolution.ValueKindStruct:
-		return len(val.Fields) == 0
-	case resolution.ValueKindArray:
-		return len(val.Elements) == 0
+	switch field.Default.Kind {
+	case resolution.ValueKindStruct, resolution.ValueKindArray:
+		return cppType + p.defaultRenderer(data).Literal(field.Type, *field.Default)
 	}
-	return false
+	return ""
+}
+
+func (p *Plugin) defaultRenderer(data *templateData) defaults.Renderer {
+	return defaults.Renderer{
+		Table:     data.table,
+		Namespace: data.rawNs,
+		TypeName: func(typeRef resolution.TypeRef) string {
+			return p.typeRefToCpp(typeRef, data)
+		},
+	}
 }
 
 func (p *Plugin) toJSONExprForField(
@@ -1240,7 +1279,7 @@ func dealiasUnion(
 // hasRenderableDefault reports whether the field declares a default the parse
 // expression can honor. Struct and array defaults count (their branches render them);
 // identifier defaults count only when they resolve to an enum variant, a boolean
-// literal, or the create sentinel on a UUID or string field.
+// literal, the create sentinel on a UUID or string field, or now on a timestamp.
 func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool {
 	if field.Default == nil {
 		return false
@@ -1328,8 +1367,10 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 		); ok {
 			return "{}"
 		}
-		// Other unresolvable idents (magic defaults like now) have no C++ rendering;
-		// the field stays required.
+		if v.IdentValue == "now" && telem.IsTimeStamp(field.Type, table, "cpp") {
+			return "x::telem::TimeStamp::now()"
+		}
+		// Other unresolvable idents have no C++ rendering; the field stays required.
 		return ""
 	}
 	return ""

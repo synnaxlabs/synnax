@@ -64,8 +64,14 @@ inline StickyXY StickyXY::parse(x::json::Parser parser) {
     return StickyXY{
         .x = parser.field<double>("x"),
         .y = parser.field<double>("y"),
-        .root = parser.field<CornerLocation>("root"),
-        .units = parser.field<StickyUnits>("units"),
+        .root = parser.field<CornerLocation>(
+            "root",
+            CornerLocation{.x = X_LOCATION_LEFT, .y = Y_LOCATION_TOP}
+        ),
+        .units = parser.field<StickyUnits>(
+            "units",
+            StickyUnits{.x = STICKY_UNIT_PX, .y = STICKY_UNIT_PX}
+        ),
     };
 }
 

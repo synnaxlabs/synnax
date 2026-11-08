@@ -11,17 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
-from typing import override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax.arc import graph as graph_
-from synnax.arc import program as program_
-from synnax.arc import text as text_
-from synnax.ontology.payload import ID
+from synnax.arc import graph as graph_, program as program_, text as text_
+from synnax.resource import ID
 from x import filter
+from x.filter import shorthand
 
 MODE_TEXT: Literal["text"] = "text"
 
@@ -30,37 +28,39 @@ MODE_GRAPH: Literal["graph"] = "graph"
 
 Mode = Literal["text", "graph"]
 
+TYPE_AUTOMATION: Literal["automation"] = "automation"
+
+TYPE_MODULE: Literal["module"] = "module"
+
+
+Type = Literal["automation", "module"]
+
 Key: TypeAlias = UUID
 
 
-class Payload(BaseModel):
-    """Is an Arc module combining visual graph representation and text-based source code
-    for reactive control systems. Compiles to WebAssembly for sandboxed execution.
+class TextSource(BaseModel):
+    """Is Arc source code written as text."""
 
-    Attributes:
-        key: Is the unique identifier for this module.
-        name: Is a human-readable name for the module.
-        mode: Specifies the representation mode for this module. Either "text" for
-            text-based Arc code or "graph" for visual dataflow.
-        graph: Is the visual dataflow graph representation of the module.
-        text: Is the text-based Arc source code.
-        program: Is the compiled module output including IR and WebAssembly bytecode.
-    """
-
-    key: Key = Field(default_factory=uuid4)
-    name: str
-    mode: Mode
-    graph: graph_.Graph = Field(default_factory=lambda: graph_.Graph())
+    mode: Literal["text"] = "text"
     text: text_.Text = Field(default_factory=lambda: text_.Text())
-    program: program_.Program | None = None
 
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
+
+class GraphSource(BaseModel):
+    """Is Arc source code drawn as a visual dataflow graph."""
+
+    mode: Literal["graph"] = "graph"
+    graph: graph_.Graph = Field(default_factory=lambda: graph_.Graph())
+
+
+# Is the source code of an Arc. The mode selects text or a graph.
+Source = Annotated[
+    TextSource | GraphSource,
+    Field(discriminator="mode"),
+]
 
 
 class Where(BaseModel):
-    """Is a filter that selects Arc modules.
+    """Is a filter that selects Arcs.
 
     Attributes:
         and_: Matches when every child matches.
@@ -68,6 +68,7 @@ class Where(BaseModel):
         not_: Matches when the child does not match.
         key: Selects by key.
         name: Selects by name.
+        directories: Matches the Arcs in any of the given directories.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -77,16 +78,48 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
+    directories: list[UUID] | None = None
+
+    @field_validator("directories", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
-class RetrieveResponse(BaseModel):
-    """Holds the arcs a RetrieveRequest selects.
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "directories": UUID | list[UUID],
+    },
+    total=False,
+)
+
+
+class Base(BaseModel):
+    """Carries the fields that every Arc shares.
 
     Attributes:
-        arcs: Are the arcs the request selects.
+        key: Is the unique identifier for this module.
+        name: Is a human-readable name for the module.
+        source: Is the Arc's source code, written as text or drawn as a graph.
+        directory: Is the key of the directory that holds the Arc.
     """
 
-    arcs: list[Payload] = Field(default_factory=list)
+    key: Key = Field(default_factory=uuid4)
+    name: str
+    source: Source = Field(default_factory=lambda: TextSource(mode="text"))
+    directory: UUID | None = None
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class RetrieveRequest(BaseModel):
@@ -109,11 +142,43 @@ class RetrieveRequest(BaseModel):
     include_program: bool = False
 
 
+class AutomationPayload(Base):
+    """Is an Arc that runs on a rack as a task."""
+
+    type: Literal["automation"] = "automation"
+    program: program_.Program | None = None
+
+
+class ModulePayload(Base):
+    """Is an Arc that holds code for other Arcs to import."""
+
+    type: Literal["module"] = "module"
+
+
+# Is an Arc module combining visual graph representation and text-based source
+# code for reactive control systems. Compiles to WebAssembly for sandboxed
+# execution.
+Payload = Annotated[
+    AutomationPayload | ModulePayload,
+    Field(discriminator="type"),
+]
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the arcs a RetrieveRequest selects.
+
+    Attributes:
+        arcs: Are the arcs the request selects.
+    """
+
+    arcs: list[Payload] = Field(default_factory=list)
+
+
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="arc")
+TYPE_RESOURCE_ID = ID(type="arc")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="arc", key=str(key))

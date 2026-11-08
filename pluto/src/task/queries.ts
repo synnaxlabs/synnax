@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, query, rack, type Synnax, task } from "@synnaxlabs/client";
+import { query, rack, type ranger, type Synnax, task } from "@synnaxlabs/client";
 import { array, type optional, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -83,6 +83,8 @@ export interface KeyParams {
 }
 
 export const useName = createSelector(({ name }) => name);
+
+export const useRange = createSelector(({ range }) => range);
 
 export type ListQuery = task.RetrieveMultipleParams;
 
@@ -188,21 +190,22 @@ export interface SnapshotPair extends Pick<task.Payload, "key" | "name"> {}
 
 export interface SnapshotParams {
   tasks: SnapshotPair | SnapshotPair[];
-  parentID: ontology.ID;
+  /** The range the snapshots sit in. */
+  range: ranger.Key;
 }
 
 export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams>({
   name: RESOURCE_NAME,
   verbs: verbs.SNAPSHOT,
   update: async ({ client, data }) => {
-    const { tasks: taskPairs, parentID } = data;
-    const tasks = await Promise.all(
+    const { tasks, range } = data;
+    await Promise.all(
       array
-        .toArray(taskPairs)
-        .map(({ key, name }) => client.tasks.copy(key, `${name} (Snapshot)`, true)),
+        .toArray(tasks)
+        .map(({ key, name }) =>
+          client.tasks.copy(key, `${name} (Snapshot)`, true, range),
+        ),
     );
-    const otgIDs = tasks.map(({ ontologyID }) => ontologyID);
-    await client.ontology.addChildren(parentID, ...otgIDs);
     return data;
   },
 });
@@ -249,7 +252,7 @@ export const { useUpdate: useCommand } = Flux.createUpdate<CommandParams>({
     const commands = array.toArray(data);
     const keys = commands.map(({ task }) => task);
     // Warm the cache so command listeners can update the tasks' statuses.
-    await client.tasks.retrieve({ where: { key: { in: keys } }, includeStatus: true });
+    await client.tasks.retrieve({ key: keys, includeStatus: true });
     await client.tasks.executeCommand({ commands });
     return data;
   },

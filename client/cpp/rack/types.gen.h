@@ -15,12 +15,14 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
@@ -30,10 +32,9 @@
 
 namespace synnax::rack {
 
-struct StatusDetails;
 struct Where;
-struct RetrieveRequest;
 struct Rack;
+struct RetrieveRequest;
 struct RetrieveResponse;
 
 /// @brief Key is a composite identifier for a rack. The high 16 bits contain the Core
@@ -41,20 +42,7 @@ struct RetrieveResponse;
 /// Core named in its high bits, so writes route to the Core running its Driver.
 using Key = std::uint32_t;
 
-/// @brief StatusDetails contains rack-specific status details.
-struct StatusDetails {
-    /// @brief rack is the key of the rack this status pertains to.
-    Key rack = 0;
-
-    static StatusDetails parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::rack::pb::StatusDetails;
-    [[nodiscard]] std::pair<::service::rack::pb::StatusDetails, x::errors::Error>
-    to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const ::service::rack::pb::StatusDetails &pb);
-};
+using Status = ::synnax::status::Status<std::monostate>;
 
 /// @brief Where is a filter that selects racks.
 struct Where {
@@ -65,16 +53,38 @@ struct Where {
     /// @brief not_ matches when the child does not match.
     x::mem::indirect<Where> not_;
     /// @brief key selects by key.
-    std::optional<::x::filter::Set<Key>> key;
+    ::x::filter::Field<::x::filter::Set<Key>> key;
     /// @brief name selects by name.
-    std::optional<::x::filter::String> name;
+    ::x::filter::Field<::x::filter::String> name;
     /// @brief embedded selects by embedded.
-    std::optional<::x::filter::Bool> embedded;
+    ::x::filter::Field<::x::filter::Bool> embedded;
     /// @brief integrations selects by integrations.
-    std::optional<::x::filter::Contains<std::string>> integrations;
-    /// @brief host_is_node matches racks on the Core that serves the request, or racks
-    /// on other Cores when false.
-    std::optional<bool> host_is_node;
+    ::x::filter::Field<::x::filter::Contains<std::string>> integrations;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -84,31 +94,6 @@ struct Where {
     to_proto() const;
     static std::pair<Where, x::errors::Error>
     from_proto(const ::service::rack::pb::Where &pb);
-};
-
-using Status = ::synnax::status::Status<StatusDetails>;
-
-/// @brief RetrieveRequest is a request to retrieve racks.
-struct RetrieveRequest {
-    /// @brief where selects the racks to retrieve. An absent where selects all of them.
-    std::optional<Where> where;
-    /// @brief search_term keeps the racks that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most racks to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching racks to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-
-    static RetrieveRequest parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::api::rack::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::api::rack::pb::RetrieveRequest, x::errors::Error>
-    to_proto() const;
-    static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::api::rack::pb::RetrieveRequest &pb);
 };
 
 /// @brief Rack is a collection container for hardware devices and tasks running on a
@@ -128,6 +113,9 @@ struct Rack {
     /// (e.g., "ni", "opc", "labjack"). An empty or nil list means the rack supports no
     /// integrations.
     std::vector<std::string> integrations = {};
+    /// @brief version is the version of the Driver that runs the rack, written at each
+    /// connect. Absent until a Driver reports it.
+    std::optional<std::string> version;
 
     static Rack parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -138,6 +126,52 @@ struct Rack {
     static std::pair<Rack, x::errors::Error>
     from_proto(const ::service::rack::pb::Rack &pb);
     task::Client tasks;
+};
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the racks that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most racks to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching racks to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve racks.
+struct RetrieveRequest {
+    /// @brief where selects the racks to retrieve. An absent where selects all of them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the racks that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most racks to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching racks to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::rack::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::rack::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::rack::pb::RetrieveRequest &pb);
 };
 
 /// @brief RetrieveResponse holds the racks a RetrieveRequest selects.
@@ -155,9 +189,9 @@ struct RetrieveResponse {
     from_proto(const ::api::rack::pb::RetrieveResponse &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("rack", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("rack", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("rack", std::to_string(key));
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("rack", std::to_string(key));
 }
 }

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Channel } from "@/feature/channel";
-import { Core } from "@/feature/core";
 import { Device } from "@/feature/device";
 import { Rack } from "@/feature/rack";
 import { Task } from "@/feature/task";
@@ -16,7 +15,6 @@ import { Notifications } from "@/platform/notifications";
 import { Version } from "@/platform/version";
 
 const NOTIFICATIONS: Notifications.Notification[] = [
-  ...(DESKTOP ? [] : Core.NOTIFICATIONS),
   ...Device.NOTIFICATIONS,
   ...Version.NOTIFICATIONS,
 ];

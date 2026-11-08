@@ -12,27 +12,49 @@
 package table
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/union"
 )
 
 const (
-	ActionTypeCreate     = "create"
-	ActionTypeRename     = "rename"
-	ActionTypeAddRow     = "add_row"
-	ActionTypeRemoveRow  = "remove_row"
-	ActionTypeAddCol     = "add_col"
-	ActionTypeRemoveCol  = "remove_col"
-	ActionTypeResizeRow  = "resize_row"
-	ActionTypeResizeCol  = "resize_col"
-	ActionTypeMoveRow    = "move_row"
-	ActionTypeMoveCol    = "move_col"
-	ActionTypeSetCell    = "set_cell"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeSetGroup is the Type of an Action that carries SetGroupPayload.
+	ActionTypeSetGroup = "set_group"
+	// ActionTypeSetProject is the Type of an Action that carries SetProjectPayload.
+	ActionTypeSetProject = "set_project"
+	// ActionTypeAddRow is the Type of an Action that carries AddRowPayload.
+	ActionTypeAddRow = "add_row"
+	// ActionTypeRemoveRow is the Type of an Action that carries RemoveRowPayload.
+	ActionTypeRemoveRow = "remove_row"
+	// ActionTypeAddCol is the Type of an Action that carries AddColPayload.
+	ActionTypeAddCol = "add_col"
+	// ActionTypeRemoveCol is the Type of an Action that carries RemoveColPayload.
+	ActionTypeRemoveCol = "remove_col"
+	// ActionTypeResizeRow is the Type of an Action that carries ResizeRowPayload.
+	ActionTypeResizeRow = "resize_row"
+	// ActionTypeResizeCol is the Type of an Action that carries ResizeColPayload.
+	ActionTypeResizeCol = "resize_col"
+	// ActionTypeMoveRow is the Type of an Action that carries MoveRowPayload.
+	ActionTypeMoveRow = "move_row"
+	// ActionTypeMoveCol is the Type of an Action that carries MoveColPayload.
+	ActionTypeMoveCol = "move_col"
+	// ActionTypeSetCell is the Type of an Action that carries SetCellPayload.
+	ActionTypeSetCell = "set_cell"
+	// ActionTypeEraseCells is the Type of an Action that carries EraseCellsPayload.
 	ActionTypeEraseCells = "erase_cells"
-	ActionTypeSet        = "set"
-	ActionTypeRemove     = "remove"
-	ActionTypeInsert     = "insert"
-	ActionTypeMove       = "move"
+	// ActionTypeSet is the Type of an Action that carries SetPayload.
+	ActionTypeSet = "set"
+	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
+	ActionTypeRemove = "remove"
+	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
+	ActionTypeInsert = "insert"
+	// ActionTypeMove is the Type of an Action that carries MovePayload.
+	ActionTypeMove = "move"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -44,6 +66,18 @@ type CreatePayload struct {
 // RenamePayload renames the table.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
+}
+
+// SetGroupPayload moves the table into a group, or out of its group when group is
+// empty. Emitted by the Core when it moves the table; clients never dispatch it.
+type SetGroupPayload struct {
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+}
+
+// SetProjectPayload moves the table into a project. Emitted by the Core when it moves
+// the table; clients never dispatch it.
+type SetProjectPayload struct {
+	Project project.Key `json:"project" msgpack:"project"`
 }
 
 // AddRowPayload inserts a row with the given key at the given index. Three flows:
@@ -183,6 +217,8 @@ type Action struct {
 	Type       string             `json:"type" msgpack:"type"`
 	Create     *CreatePayload     `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename     *RenamePayload     `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetGroup   *SetGroupPayload   `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
+	SetProject *SetProjectPayload `json:"set_project,omitzero" msgpack:"set_project,omitempty"`
 	AddRow     *AddRowPayload     `json:"add_row,omitzero" msgpack:"add_row,omitempty"`
 	RemoveRow  *RemoveRowPayload  `json:"remove_row,omitzero" msgpack:"remove_row,omitempty"`
 	AddCol     *AddColPayload     `json:"add_col,omitzero" msgpack:"add_col,omitempty"`
@@ -217,6 +253,16 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
+		case ActionTypeSetGroup:
+			if a.SetGroup == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetGroup.Handle(state)
+		case ActionTypeSetProject:
+			if a.SetProject == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetProject.Handle(state)
 		case ActionTypeAddRow:
 			if a.AddRow == nil {
 				return state, union.MissingPayload(a.Type)
@@ -305,6 +351,16 @@ func NewCreateAction(p CreatePayload) Action {
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
+}
+
+// NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
+func NewSetGroupAction(p SetGroupPayload) Action {
+	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
+}
+
+// NewSetProjectAction wraps a SetProjectPayload in an Action envelope.
+func NewSetProjectAction(p SetProjectPayload) Action {
+	return Action{Type: ActionTypeSetProject, SetProject: &p}
 }
 
 // NewAddRowAction wraps a AddRowPayload in an Action envelope.

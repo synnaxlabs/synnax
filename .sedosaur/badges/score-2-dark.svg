@@ -12,15 +12,15 @@
   <path
         transform="translate(11 12)"
         d="M0 -8C4.5 -8 7 -1.5 7 2.5C7 6.8 3.8 9 0 9C-3.8 9 -7 6.8 -7 2.5C-7 -1.5 -4.5 -8 0 -8Z"
-        fill="#2fd3a8"
-        stroke="#18a884"
+        fill="#fb8f44"
+        stroke="#d4661c"
         stroke-width="1.6"
     />
   <path
         transform="translate(33 12)"
         d="M0 -8C4.5 -8 7 -1.5 7 2.5C7 6.8 3.8 9 0 9C-3.8 9 -7 6.8 -7 2.5C-7 -1.5 -4.5 -8 0 -8Z"
-        fill="#2fd3a8"
-        stroke="#18a884"
+        fill="#fb8f44"
+        stroke="#d4661c"
         stroke-width="1.6"
     />
   <path

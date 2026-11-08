@@ -651,8 +651,9 @@ to_variant(const x::telem::Series &s, const UA_DataType *target) {
                                                        : &UA_TYPES[kind];
     const auto &dt = s.data_type();
     if (dt == x::telem::UUID_T || dt == x::telem::BYTES_T) {
-        if (builtin->typeKind != (dt == x::telem::UUID_T ? UA_DATATYPEKIND_GUID
-                                                         : UA_DATATYPEKIND_BYTESTRING))
+        const UA_UInt32 expected = dt == x::telem::UUID_T ? UA_DATATYPEKIND_GUID
+                                                          : UA_DATATYPEKIND_BYTESTRING;
+        if (builtin->typeKind != expected)
             return {
                 UA_Variant{},
                 x::errors::Error(
