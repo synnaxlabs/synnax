@@ -27,7 +27,8 @@ Format with `scripts/clang_format.sh <path>`, check with
 version via `scripts/install_clang_format.sh`, never a plain package-manager install.
 Include order: system `<...>`, then vendor, then internal `"..."`. Naming: `PascalCase`
 types, `camelCase`/`snake_case` functions (consistent within a component), `snake_case`
-variables, `UPPER_CASE`/`kPascalCase` constants, lowercase namespaces.
+variables, `snake_case` members with no `_` or `m_` prefix and no `_` suffix,
+`UPPER_CASE`/`kPascalCase` constants, lowercase namespaces.
 
 🚨 **NO NAMESPACE TERMINATION COMMENTS.** Never `} // namespace foo` — bare closing
 brace only. Claude sessions add these constantly. Delete on sight when editing a file
@@ -67,8 +68,9 @@ optional with `.value()`: the lint cannot see that `ASSERT_TRUE(opt.has_value())
 `*opt` safe.
 
 Repo-specific rules live under `CustomChecks` in `.clang-tidy` as clang-query AST
-matchers, and run as `custom-<Name>`. Match on types and AST shape, not on names. Test a
-new matcher with `clang-query` on one file before adding it.
+matchers, and run as `custom-<Name>`. Match on types and AST shape, not on names, unless
+the check is about the name itself. Test a new matcher with `clang-query` on one file
+before adding it.
 
 ## Memory
 

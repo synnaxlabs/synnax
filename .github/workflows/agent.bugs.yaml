@@ -61,7 +61,7 @@ jobs:
           - area: go-core-service-m-z
             paths: the core/pkg/service packages named m to z
           - area: go-storage
-            paths: cesium, aspen, gorp
+            paths: cesium, gorp
           - area: go-arc
             paths: arc/go
           - area: go-oracle

@@ -10,11 +10,20 @@
 
 from synnax.access.role.client import Client
 from synnax.access.role.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
+    Key,
     Role,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 
-__all__ = ["ONTOLOGY_TYPE", "Client", "Role", "Where", "WhereInput", "ontology_id"]
+__all__ = [
+    "TYPE_RESOURCE_ID",
+    "Client",
+    "Key",
+    "Role",
+    "Where",
+    "WhereInput",
+    "resource_id",
+]

@@ -11,15 +11,13 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, TypedDict
-from typing import override as _override
+from typing import TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import ontology
-from x import color as color_
-from x import filter
+from synnax.resource import ID
+from x import color as color_, filter
 
 Key: TypeAlias = UUID
 
@@ -52,7 +50,6 @@ class Where(BaseModel):
         not_: Matches when the child does not match.
         key: Selects by key.
         name: Selects by name.
-        for_: Matches the labels attached to the given resource.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -62,7 +59,6 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
-    for_: ontology.ID | None = Field(default=None, alias="for")
 
 
 # WhereInput is a Where written as a partial record.
@@ -75,7 +71,6 @@ WhereInput = TypedDict(
         "not": "WhereInput",
         "key": filter.SetInput[Key],
         "name": filter.StringInput,
-        "for": ontology.ID,
     },
     total=False,
 )
@@ -110,3 +105,10 @@ class RetrieveRequest(BaseModel):
 
 
 Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="label")
+
+
+def resource_id(key: Key) -> ID:
+    return ID(type="label", key=str(key))

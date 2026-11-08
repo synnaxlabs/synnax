@@ -47,7 +47,7 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 					return
 				}
 				if flags.Format {
-					segs, err := literal.FmtStrParse(body)
+					segs, err := literal.FmtStrSplit(body, flags)
 					if err != nil {
 						ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 						return
@@ -167,23 +167,10 @@ func LiftFmtStrVarReads[T antlr.ParserRuleContext](
 	if strTerm == nil {
 		return
 	}
-	body, flags, ok := literal.StripQuotes(strTerm.GetText())
-	if !ok || !flags.Format {
-		return
-	}
-	segments, err := literal.FmtStrParse(body)
-	if err != nil {
-		return
-	}
-	for _, seg := range segments {
-		if !seg.IsPlaceholder || seg.Text == "" {
-			continue
+	for _, seg := range ctx.FmtStrings[strTerm] {
+		if seg.Expr != nil {
+			LiftVarReads(ctx, fn, seg.Expr)
 		}
-		phExpr, diags := parser.ParseExpression(seg.Text, ctx.Config)
-		if diags != nil && !diags.Ok() {
-			continue
-		}
-		LiftVarReads(ctx, fn, phExpr)
 	}
 }
 

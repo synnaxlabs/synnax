@@ -438,6 +438,16 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) {
 		baseType := types.InferPostfix(ctx.Child(ctx.AST.PostfixExpression())).
 			Unwrap()
 		expType := types.InferFromUnaryExpression(ctx.Child(exponent)).Unwrap()
+		for _, t := range []basetypes.Type{baseType, expType} {
+			if t.IsValid() && !t.IsNumeric() {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.AST,
+					"cannot use %s in ^ operation",
+					t,
+				))
+				return
+			}
+		}
 
 		if baseType.Unit != nil || expType.Unit != nil {
 			_, isLiteral := getSignedIntegerLiteral(exponent)
@@ -661,7 +671,11 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 							"comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01"))
 					return
 				}
-				targetType, _ := types.InferFromTypeContext(typeCtx)
+				targetType, err := types.InferFromTypeContext(typeCtx)
+				if err != nil {
+					ctx.Diagnostics.Add(diagnostics.Error(err, typeCtx))
+					return
+				}
 				if !isValidCast(sourceType, targetType) {
 					ctx.Diagnostics.Add(
 						diagnostics.Errorf(

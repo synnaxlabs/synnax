@@ -14,12 +14,14 @@
 #include <atomic>
 #include <chrono>
 #include <cstring>
+#include <deque>
 #include <functional>
 #include <map>
 #include <optional>
 #include <set>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "x/cpp/binary/binary.h"
@@ -125,7 +127,8 @@ public:
     std::optional<uint8_t> sm_cleared_group;
     /// @brief whether config_map_group came after clear_process_data_sms for its group.
     bool sms_cleared_at_map = false;
-    /// @brief CoE objects returned by SDOread, keyed by index and sub-index.
+    /// @brief CoE objects keyed by index and sub-index. SDOread returns them, and a
+    /// successful SDOwrite replaces them.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
     /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
     /// and sub-index.
@@ -133,6 +136,9 @@ public:
     /// @brief object names returned by readODdescription, keyed by index.
     std::map<uint16_t, std::string> od_names;
     int readstate_count = 0;
+    /// @brief the number of next readstate calls that get no reply. As in SOEM, each
+    /// one sets every slave to EC_STATE_NONE.
+    int dropped_state_reads = 0;
     /// @brief the state reconfig_slave returns and leaves the slave in.
     int reconfig_return = EC_STATE_SAFE_OP;
     std::vector<uint16_t> reconfigured_slaves;
@@ -141,6 +147,25 @@ public:
     std::vector<uint16_t> recovered_slaves;
     /// @brief slaves passed to writestate, in call order.
     std::vector<uint16_t> written_slaves;
+    /// @brief one SDO write: slave, index, sub-index, and bytes.
+    struct SDOWrite {
+        uint16_t slave;
+        uint16_t index;
+        uint8_t sub_index;
+        std::vector<uint8_t> data;
+
+        bool operator==(const SDOWrite &) const = default;
+    };
+    /// @brief SDO writes in call order.
+    std::vector<SDOWrite> sdo_writes;
+    /// @brief abort codes for objects that reject SDO writes, keyed by index and
+    /// sub-index. A code of 0 makes the write time out.
+    std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_write_aborts;
+    /// @brief the SOEM error list, oldest first.
+    std::deque<ec_errort> errors;
+    /// @brief PO2SOconfig hooks keyed by slave. config_map_group and reconfig_slave
+    /// run them.
+    std::map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
     /// @brief the value count_bus_slaves returns, or nullopt for the slave count.
     std::optional<int> bus_slaves;
     /// @brief the groups whose process data frames read the reference clock time,
@@ -180,11 +205,16 @@ public:
     int64_t latched_at = 0;
     /// @brief the value latch_receive_times returns.
     int latch_return = 1;
-    /// @brief PO2SOconfig hooks keyed by slave. reconfig_slave runs them.
-    std::map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
 
 private:
     uint8_t *iomap_ptr = nullptr;
+
+    /// @brief runs the slave's PO2SOconfig hook, like SOEM does in PRE-OP.
+    void run_PO2SOconfig(const uint16_t slave) {
+        if (const auto it = this->po2so_configs.find(slave);
+            it != this->po2so_configs.end())
+            it->second(slave);
+    }
 
     /// @brief returns the clock time in nanoseconds.
     [[nodiscard]] int64_t now() const {
@@ -224,6 +254,9 @@ public:
         this->iomap_ptr = static_cast<uint8_t *>(iomap);
         this->sms_cleared_at_map = this->sm_cleared_group == group;
         this->mapped_group = group;
+        for (size_t i = 0; i < this->slave_infos.size(); ++i)
+            if (this->slave_infos[i].group == group)
+                this->run_PO2SOconfig(static_cast<uint16_t>(i + 1));
         this->manual_at_map = this->manual_state_change;
         return this->config_map_return;
     }
@@ -253,6 +286,13 @@ public:
 
     int readstate() override {
         this->readstate_count++;
+        if (this->dropped_state_reads > 0) {
+            this->dropped_state_reads--;
+            for (auto &info: this->slave_infos)
+                info.state = EC_STATE_NONE;
+            this->read_state.store(EC_STATE_NONE);
+            return EC_STATE_NONE;
+        }
         uint16_t lowest = 0xFF;
         for (size_t i = 0; i < this->slave_infos.size(); ++i) {
             auto &info = this->slave_infos[i];
@@ -349,9 +389,7 @@ public:
     /// leaves the slave in the state it returns.
     int reconfig_slave(uint16_t slave, int) override {
         this->reconfigured_slaves.push_back(slave);
-        if (const auto it = this->po2so_configs.find(slave);
-            it != this->po2so_configs.end())
-            it->second(slave);
+        this->run_PO2SOconfig(slave);
         if (slave > 0 && slave <= this->slave_infos.size())
             this->slave_infos[slave - 1].state = static_cast<uint16_t>(
                 this->reconfig_return
@@ -407,6 +445,49 @@ public:
         if (it == this->sdo_objects.end()) return 0;
         std::memcpy(p, &it->second, *psize);
         return 1;
+    }
+
+    int SDOwrite(
+        uint16_t slave,
+        uint16_t index,
+        uint8_t sub_index,
+        bool,
+        int psize,
+        const void *p,
+        int
+    ) override {
+        const auto *bytes = static_cast<const uint8_t *>(p);
+        this->sdo_writes.push_back(
+            {slave, index, sub_index, std::vector(bytes, bytes + psize)}
+        );
+        const auto it = this->sdo_write_aborts.find({index, sub_index});
+        if (it == this->sdo_write_aborts.end()) {
+            uint32_t value = 0;
+            std::memcpy(&value, p, std::min(psize, 4));
+            this->sdo_objects[{index, sub_index}] = value;
+            return 1;
+        }
+        if (it->second != 0) this->push_sdo_abort(slave, index, sub_index, it->second);
+        return 0;
+    }
+
+    /// @brief appends an SDO abort for the object to the SOEM error list.
+    void
+    push_sdo_abort(uint16_t slave, uint16_t index, uint8_t sub_index, uint32_t code) {
+        ec_errort err{};
+        err.Etype = EC_ERR_TYPE_SDO_ERROR;
+        err.Slave = slave;
+        err.Index = index;
+        err.SubIdx = sub_index;
+        err.AbortCode = static_cast<int32>(code);
+        this->errors.push_back(err);
+    }
+
+    bool poperror(ec_errort &err) override {
+        if (this->errors.empty()) return false;
+        err = this->errors.front();
+        this->errors.pop_front();
+        return true;
     }
 
     int16_t siifind(uint16_t, uint16_t category) override {

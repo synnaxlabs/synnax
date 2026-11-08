@@ -12,6 +12,8 @@ import { describe, expect, it } from "vitest";
 
 import { device } from "@/device";
 import { AccessDeniedError, NotFoundError } from "@/index";
+import { rack } from "@/rack";
+import { status } from "@/status";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -44,7 +46,7 @@ describe("device", () => {
     it("should allow the caller to retrieve devices with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [device.ontologyID("")],
+        objects: [device.resourceID("")],
         actions: ["retrieve"],
       });
       const rack = await client.racks.create({
@@ -65,17 +67,21 @@ describe("device", () => {
     });
 
     it("should allow the caller to create devices with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [device.ontologyID("")],
-        actions: ["create"],
-      });
-      const rack = await client.racks.create({
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [device.resourceID("")],
+          actions: ["create", "update"],
+        },
+        { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["create"] },
+        { name: "test", objects: [rack.TYPE_RESOURCE_ID], actions: ["update"] },
+      ]);
+      const rck = await client.racks.create({
         name: "test",
       });
       await userClient.devices.create({
         key: id.create(),
-        rack: rack.key,
+        rack: rck.key,
         location: "Dev1",
         name: "test",
         make: "ni",
@@ -87,7 +93,7 @@ describe("device", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [device.ontologyID("")],
+        objects: [device.resourceID("")],
         actions: [],
       });
       const rack = await client.racks.create({
@@ -107,17 +113,21 @@ describe("device", () => {
     });
 
     it("should allow the caller to delete devices with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [device.ontologyID("")],
-        actions: ["delete", "retrieve"],
-      });
-      const rack = await client.racks.create({
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [device.resourceID("")],
+          actions: ["delete", "retrieve", "update"],
+        },
+        { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["delete"] },
+        { name: "test", objects: [rack.TYPE_RESOURCE_ID], actions: ["update"] },
+      ]);
+      const rck = await client.racks.create({
         name: "test",
       });
       const randomDevice = await client.devices.create({
         key: id.create(),
-        rack: rack.key,
+        rack: rck.key,
         location: "Dev1",
         name: "test",
         make: "ni",
@@ -133,7 +143,7 @@ describe("device", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [device.ontologyID("")],
+        objects: [device.resourceID("")],
         actions: [],
       });
       const rack = await client.racks.create({
