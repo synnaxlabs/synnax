@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -327,6 +329,28 @@ func createRackGroup(ctx SpecContext, name string) group.Group {
 }
 
 var _ = Describe("SetGroup", func() {
+	// denied matches an error that denies the subject the action on object.
+	denied := func(
+		subject resource.ID,
+		action access.Action,
+		object resource.ID,
+	) types.GomegaMatcher {
+		return SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring("%s cannot %s %s", subject, action, object)),
+		)
+	}
+	move := func(
+		ctx SpecContext,
+		u user.User,
+		g group.Group,
+		d device.Device,
+	) (struct{}, error) {
+		return setGroup(
+			AuthedCtx(ctx, u),
+			apidevice.SetGroupRequest{Group: &g.Key, Keys: []device.Key{d.Key}},
+		)
+	}
 	It(
 		"Should refuse the move without update on the destination group",
 		func(ctx SpecContext) {
@@ -334,31 +358,61 @@ var _ = Describe("SetGroup", func() {
 			d := createDevice(ctx, "set-group-denied")
 			g := createRackGroup(ctx, "Set group denied")
 			grant(ctx, access.ActionUpdate, u.ResourceID(), d.ResourceID())
-			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), nil,
-				apidevice.SetGroupRequest{Group: &g.Key, Keys: []device.Key{d.Key}},
-			)).Error().To(MatchError(access.ErrDenied))
+			Expect(move(ctx, u, g, d)).
+				Error().To(denied(u.ResourceID(), access.ActionUpdate, g.ResourceID()))
 			Expect(retrieveDevice(ctx, d.Key).Group).To(BeNil())
 		},
 	)
 	It(
-		"Should move the device with update on the destination group",
+		"Should refuse the move without update on the source group",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			d := createDevice(ctx, "set-group-granted")
-			g := createRackGroup(ctx, "Set group granted")
+			d := createDevice(ctx, "set-group-source-denied")
+			from := createRackGroup(ctx, "Set group source denied")
+			Expect(svc.Device.NewWriter(nil).SetGroup(ctx, &from.Key, d.Key)).
+				To(Succeed())
+			to := createRackGroup(ctx, "Set group destination granted")
 			grant(
 				ctx,
 				access.ActionUpdate,
 				u.ResourceID(),
 				d.ResourceID(),
-				g.ResourceID(),
+				to.ResourceID(),
 			)
-			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), nil,
-				apidevice.SetGroupRequest{Group: &g.Key, Keys: []device.Key{d.Key}},
-			)).Error().ToNot(HaveOccurred())
-			Expect(retrieveDevice(ctx, d.Key).Group).To(Equal(&g.Key))
+			Expect(move(ctx, u, to, d)).
+				Error().
+				To(denied(u.ResourceID(), access.ActionUpdate, from.ResourceID()))
+			Expect(retrieveDevice(ctx, d.Key).Group).To(Equal(&from.Key))
+		},
+	)
+	It("Should refuse the move without update on the device", func(ctx SpecContext) {
+		u := createUser(ctx)
+		d := createDevice(ctx, "set-group-device-denied")
+		g := createRackGroup(ctx, "Set group device denied")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+		Expect(move(ctx, u, g, d)).
+			Error().To(denied(u.ResourceID(), access.ActionUpdate, d.ResourceID()))
+		Expect(retrieveDevice(ctx, d.Key).Group).To(BeNil())
+	})
+	It(
+		"Should move the device with update on the device and both groups",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			d := createDevice(ctx, "set-group-granted")
+			from := createRackGroup(ctx, "Set group source granted")
+			Expect(svc.Device.NewWriter(nil).SetGroup(ctx, &from.Key, d.Key)).
+				To(Succeed())
+			to := createRackGroup(ctx, "Set group granted")
+			grant(
+				ctx,
+				access.ActionUpdate,
+				u.ResourceID(),
+				d.ResourceID(),
+				from.ResourceID(),
+				to.ResourceID(),
+			)
+			MustSucceed(move(ctx, u, to, d))
+			Expect(retrieveDevice(ctx, d.Key).Group).To(Equal(&to.Key))
 		},
 	)
 })

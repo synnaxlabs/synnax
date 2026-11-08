@@ -12,7 +12,6 @@ package lineplot
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -21,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -33,7 +31,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	LinePlot *lineplot.Service
-	// RBAC checks the access of retrieve, set group, and set project requests.
+	// RBAC checks the access of retrieve requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -159,53 +157,12 @@ type SetGroupRequest struct {
 }
 
 // SetGroup moves the line plots with the given keys into a group. A move into a group
-// under another project also requires update access on the stored owner and on that
-// project.
+// under another project moves the line plots into that project.
 func (s *Service) SetGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
-	var plots []lineplot.LinePlot
-	if err := s.internal.NewRetrieve().
-		Where(lineplot.MatchKeys(req.Keys...)).
-		Entries(&plots).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			lineplot.ResourceIDs(req.Keys),
-			lo.Map(
-				plots,
-				func(e lineplot.LinePlot, _ int) *group.Key { return e.Group },
-			),
-			req.Group,
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
-	projects, err := project.SetGroupObjects(
-		ctx,
-		tx,
-		req.Group,
-		resource.TypeLineplot,
-		lo.Map(plots, func(e lineplot.LinePlot, _ int) *resource.ID {
-			return project.OwnerID(e.Project, e.Range)
-		}),
-	)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: projects,
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }
 
@@ -216,38 +173,12 @@ type SetProjectRequest struct {
 }
 
 // SetProject moves the line plots with the given keys out of their group and into a
-// project. It requires update access on the line plots, their groups, their owners, and
-// the project.
+// project.
 func (s *Service) SetProject(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetProjectRequest,
 ) (struct{}, error) {
-	var stored []lineplot.LinePlot
-	if err := s.internal.NewRetrieve().
-		Where(lineplot.MatchKeys(req.Keys...)).
-		Entries(&stored).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			project.MoveObjects(
-				lineplot.ResourceIDs(req.Keys),
-				lo.Map(stored, func(e lineplot.LinePlot, _ int) *resource.ID {
-					return project.OwnerID(e.Project, e.Range)
-				}),
-				new(project.ResourceID(req.Project)),
-			),
-			lo.Map(stored, func(e lineplot.LinePlot, _ int) *group.Key {
-				return e.Group
-			}),
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).
 		SetProject(ctx, req.Project, req.Keys...)
 }

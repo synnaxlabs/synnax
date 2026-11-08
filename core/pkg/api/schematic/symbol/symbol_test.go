@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
@@ -79,6 +81,28 @@ var _ = Describe("Create", func() {
 })
 
 var _ = Describe("SetGroup", func() {
+	// denied matches an error that denies the subject the action on object.
+	denied := func(
+		subject resource.ID,
+		action access.Action,
+		object resource.ID,
+	) types.GomegaMatcher {
+		return SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring("%s cannot %s %s", subject, action, object)),
+		)
+	}
+	move := func(
+		ctx SpecContext,
+		u user.User,
+		g group.Group,
+		sym symbol.Symbol,
+	) (struct{}, error) {
+		return setGroup(AuthedCtx(ctx, u), apisymbol.SetGroupRequest{
+			Group: &g.Key,
+			Keys:  []symbol.Key{sym.Key},
+		})
+	}
 	It(
 		"Should refuse the move without update on the destination group",
 		func(ctx SpecContext) {
@@ -92,17 +116,51 @@ var _ = Describe("SetGroup", func() {
 				symbol.ResourceID(sym.Key),
 				from.ResourceID(),
 			)
-			Expect(apiSvc.SetGroup(AuthedCtx(ctx, u), nil, apisymbol.SetGroupRequest{
-				Group: &to.Key,
-				Keys:  []symbol.Key{sym.Key},
-			})).Error().To(MatchError(access.ErrDenied))
+			Expect(move(ctx, u, to, sym)).
+				Error().To(denied(u.ResourceID(), access.ActionUpdate, to.ResourceID()))
 			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, from.Key)).To(
 				ConsistOf(symbol.ResourceID(sym.Key)),
 			)
 		},
 	)
 	It(
-		"Should move the symbol with update on the destination group",
+		"Should refuse the move without update on the source group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			from := createGroup(ctx, "set-group-source-denied-from")
+			to := createGroup(ctx, "set-group-source-denied-to")
+			sym := createSymbol(ctx, from, "Inlet")
+			grantUpdateOn(
+				ctx,
+				u.ResourceID(),
+				symbol.ResourceID(sym.Key),
+				to.ResourceID(),
+			)
+			Expect(move(ctx, u, to, sym)).
+				Error().
+				To(denied(u.ResourceID(), access.ActionUpdate, from.ResourceID()))
+			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, from.Key)).To(
+				ConsistOf(symbol.ResourceID(sym.Key)),
+			)
+		},
+	)
+	It("Should refuse the move without update on the symbol", func(ctx SpecContext) {
+		u := createUser(ctx)
+		from := createGroup(ctx, "set-group-symbol-denied-from")
+		to := createGroup(ctx, "set-group-symbol-denied-to")
+		sym := createSymbol(ctx, from, "Inlet")
+		grantUpdateOn(ctx, u.ResourceID(), from.ResourceID(), to.ResourceID())
+		Expect(move(ctx, u, to, sym)).Error().To(denied(
+			u.ResourceID(),
+			access.ActionUpdate,
+			symbol.ResourceID(sym.Key),
+		))
+		Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, from.Key)).To(
+			ConsistOf(symbol.ResourceID(sym.Key)),
+		)
+	})
+	It(
+		"Should move the symbol with update on the symbol and both groups",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
 			from := createGroup(ctx, "set-group-granted-from")
@@ -115,10 +173,7 @@ var _ = Describe("SetGroup", func() {
 				from.ResourceID(),
 				to.ResourceID(),
 			)
-			Expect(apiSvc.SetGroup(AuthedCtx(ctx, u), nil, apisymbol.SetGroupRequest{
-				Group: &to.Key,
-				Keys:  []symbol.Key{sym.Key},
-			})).Error().ToNot(HaveOccurred())
+			MustSucceed(move(ctx, u, to, sym))
 			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, to.Key)).To(
 				ConsistOf(symbol.ResourceID(sym.Key)),
 			)

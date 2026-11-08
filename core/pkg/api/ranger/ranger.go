@@ -12,13 +12,11 @@ package ranger
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -46,17 +44,9 @@ func rangeAccessResourceIDs(ranges []Range) []resource.ID {
 	return ids
 }
 
-func labelAccessResourceIDs(ranges []Range) []resource.ID {
-	var ids []resource.ID
-	for _, r := range ranges {
-		ids = append(ids, label.ResourceIDs(r.Labels)...)
-	}
-	return ids
-}
-
 // ServiceConfig is the configuration for the range API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of retrieve requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -115,21 +105,13 @@ type (
 	}
 )
 
+// Create creates the ranges. A range whose key exists is updated and keeps its stored
+// labels.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: append(
-			rangeAccessResourceIDs(req.Ranges),
-			labelAccessResourceIDs(req.Ranges)...,
-		),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, &req.Ranges); err != nil {
@@ -144,44 +126,12 @@ func (s *Service) Create(
 type DispatchRequest = actions.DispatchRequest[ranger.Key, ranger.Action]
 
 // Dispatch applies the action sequence to the target range atomically. Subscribers to
-// the range action signals receive the sequence after the transaction commits. A change
-// of parent also needs update on the old and the new parent.
+// the range action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	enforcer := s.access.NewEnforcer(nil)
-	request := access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{ranger.ResourceID(req.Key)},
-	}
-	if err := enforcer.Enforce(ctx, request); err != nil {
-		return struct{}{}, err
-	}
-	var stored ranger.Range
-	if err := s.internal.NewRetrieve().
-		Where(ranger.MatchKeys(req.Key)).
-		Entry(&stored).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	next, err := ranger.Reduce(stored, req.Actions...)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if lo.FromPtr(next.Parent) != lo.FromPtr(stored.Parent) {
-		request.Objects = nil
-		for _, p := range []*ranger.Key{stored.Parent, next.Parent} {
-			if p != nil {
-				request.Objects = append(request.Objects, ranger.ResourceID(*p))
-			}
-		}
-		if err := enforcer.Enforce(ctx, request); err != nil {
-			return struct{}{}, err
-		}
-	}
 	return struct{}{}, s.internal.Dispatch(
 		ctx,
 		tx,
@@ -219,18 +169,12 @@ type RenameRequest struct {
 	Key  ranger.Key `json:"key"  msgpack:"key"`
 }
 
+// Rename renames the range with the given key.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{ranger.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.Dispatch(ctx, tx, req.Key, "", []ranger.Action{
 		ranger.NewSetAction(ranger.SetPayload{Path: []string{"name"}, Value: req.Name}),
 	})
@@ -241,18 +185,12 @@ type SetEndRequest struct {
 	End telem.TimeStamp `json:"end" msgpack:"end"`
 }
 
+// SetEnd sets the end of the time range of the range with the given key.
 func (s *Service) SetEnd(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetEndRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{ranger.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.Dispatch(ctx, tx, req.Key, "", []ranger.Action{
 		ranger.NewSetAction(ranger.SetPayload{
 			Path:  []string{"time_range", "end"},
@@ -265,17 +203,12 @@ type DeleteRequest struct {
 	Keys []ranger.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the ranges with the given keys, the ranges nested in them, and the
+// records they own. A key that matches no range is ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: ranger.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

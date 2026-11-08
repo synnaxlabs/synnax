@@ -15,6 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -36,6 +38,8 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	svc    *service.Layer
 	apiSvc *apidevice.Service
+	// setGroup runs the SetGroup route as the API layer binds it.
+	setGroup freighter.UnaryHandler[apidevice.SetGroupRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -47,6 +51,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status: svc.Status,
 		RBAC:   svc.RBAC,
 	}))
+	binder := MustSucceed(
+		bind.NewService(bind.ServiceConfig{DB: node.DB, RBAC: svc.RBAC}),
+	)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
 })
 
 // createUser creates a user that can do nothing.

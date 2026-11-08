@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -460,40 +462,96 @@ func createDeviceGroup(ctx SpecContext, name string) group.Group {
 }
 
 var _ = Describe("SetGroup", func() {
+	// denied matches an error that denies the subject the action on object.
+	denied := func(
+		subject resource.ID,
+		action access.Action,
+		object resource.ID,
+	) types.GomegaMatcher {
+		return SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring("%s cannot %s %s", subject, action, object)),
+		)
+	}
+	move := func(
+		ctx SpecContext,
+		u user.User,
+		g group.Group,
+		r rack.Rack,
+	) (struct{}, error) {
+		return setGroup(
+			AuthedCtx(ctx, u),
+			apirack.SetGroupRequest{Group: &g.Key, Keys: []rack.Key{r.Key}},
+		)
+	}
+	createRack := func(ctx SpecContext, name string) rack.Rack {
+		GinkgoHelper()
+		r := rack.Rack{Name: name}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		return r
+	}
 	It(
 		"Should refuse the move without update on the destination group",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			r := rack.Rack{Name: "Set group denied"}
-			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			r := createRack(ctx, "Set group denied")
 			g := createDeviceGroup(ctx, "Set group denied")
 			grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
-			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), nil,
-				apirack.SetGroupRequest{Group: &g.Key, Keys: []rack.Key{r.Key}},
-			)).Error().To(MatchError(access.ErrDenied))
+			Expect(move(ctx, u, g, r)).
+				Error().To(denied(u.ResourceID(), access.ActionUpdate, g.ResourceID()))
 			Expect(retrieveRack(ctx, r.Key).Group).To(BeNil())
 		},
 	)
 	It(
-		"Should move the rack with update on the destination group",
+		"Should refuse the move without update on the source group",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			r := rack.Rack{Name: "Set group granted"}
-			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-			g := createDeviceGroup(ctx, "Set group granted")
+			r := createRack(ctx, "Set group source denied")
+			from := createDeviceGroup(ctx, "Set group source denied")
+			Expect(svc.Rack.NewWriter(nil).SetGroup(ctx, &from.Key, r.Key)).
+				To(Succeed())
+			to := createDeviceGroup(ctx, "Set group destination granted")
 			grant(
 				ctx,
 				access.ActionUpdate,
 				u.ResourceID(),
 				r.ResourceID(),
-				g.ResourceID(),
+				to.ResourceID(),
 			)
-			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), nil,
-				apirack.SetGroupRequest{Group: &g.Key, Keys: []rack.Key{r.Key}},
-			)).Error().ToNot(HaveOccurred())
-			Expect(retrieveRack(ctx, r.Key).Group).To(Equal(&g.Key))
+			Expect(move(ctx, u, to, r)).
+				Error().
+				To(denied(u.ResourceID(), access.ActionUpdate, from.ResourceID()))
+			Expect(retrieveRack(ctx, r.Key).Group).To(Equal(&from.Key))
+		},
+	)
+	It("Should refuse the move without update on the rack", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRack(ctx, "Set group rack denied")
+		g := createDeviceGroup(ctx, "Set group rack denied")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+		Expect(move(ctx, u, g, r)).
+			Error().To(denied(u.ResourceID(), access.ActionUpdate, r.ResourceID()))
+		Expect(retrieveRack(ctx, r.Key).Group).To(BeNil())
+	})
+	It(
+		"Should move the rack with update on the rack and both groups",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			r := createRack(ctx, "Set group granted")
+			from := createDeviceGroup(ctx, "Set group source granted")
+			Expect(svc.Rack.NewWriter(nil).SetGroup(ctx, &from.Key, r.Key)).
+				To(Succeed())
+			to := createDeviceGroup(ctx, "Set group granted")
+			grant(
+				ctx,
+				access.ActionUpdate,
+				u.ResourceID(),
+				r.ResourceID(),
+				from.ResourceID(),
+				to.ResourceID(),
+			)
+			MustSucceed(move(ctx, u, to, r))
+			Expect(retrieveRack(ctx, r.Key).Group).To(Equal(&to.Key))
 		},
 	)
 })

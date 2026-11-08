@@ -11,9 +11,7 @@ package log
 
 import (
 	"context"
-	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -22,11 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,7 +31,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Log *log.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of retrieve requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -91,57 +86,12 @@ type (
 	}
 )
 
+// Create creates the logs, and overwrites each one whose key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeLog}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	var stored []log.Log
-	if err := s.internal.NewRetrieve().
-		Where(log.MatchKeys(lo.Map(
-			req.Logs,
-			func(e log.Log, _ int) log.Key { return e.Key },
-		)...)).
-		Entries(&stored).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return CreateResponse{}, err
-	}
-	owners, err := project.CreateObjects(
-		ctx,
-		tx,
-		resource.TypeLog,
-		req.Logs,
-		stored,
-		func(e log.Log) *group.Key { return e.Group },
-		func(e log.Log) *resource.ID {
-			return project.OwnerID(e.Project, e.Range)
-		},
-	)
-	if err != nil {
-		return CreateResponse{}, err
-	}
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: slices.Concat(
-			group.CreateObjects(
-				req.Logs,
-				stored,
-				func(e log.Log) *group.Key { return e.Group },
-			),
-			owners,
-		),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, &req.Logs); err != nil {
@@ -155,20 +105,13 @@ func (s *Service) Create(
 // against the local optimistic update.
 type DispatchRequest = actions.DispatchRequest[log.Key, log.Action]
 
-// Dispatch applies the action sequence to the target log atomically. Subscribers to the
+// Dispatch applies the action sequence to the target log in tx. Subscribers to the
 // log action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{log.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.
 		Dispatch(ctx, tx, req.Key, req.DispatchKey, req.Actions)
 }
@@ -199,18 +142,13 @@ type DeleteRequest struct {
 	Keys []log.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the logs with the given keys. A key that matches no log is
+// ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: log.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -221,49 +159,12 @@ type SetGroupRequest struct {
 }
 
 // SetGroup moves the logs with the given keys into a group. A move into a group under
-// another project also requires update access on the stored owner and on that project.
+// another project moves the logs into that project.
 func (s *Service) SetGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
-	var logs []log.Log
-	if err := s.internal.NewRetrieve().
-		Where(log.MatchKeys(req.Keys...)).
-		Entries(&logs).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			log.ResourceIDs(req.Keys),
-			lo.Map(logs, func(e log.Log, _ int) *group.Key { return e.Group }),
-			req.Group,
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
-	projects, err := project.SetGroupObjects(
-		ctx,
-		tx,
-		req.Group,
-		resource.TypeLog,
-		lo.Map(logs, func(e log.Log, _ int) *resource.ID {
-			return project.OwnerID(e.Project, e.Range)
-		}),
-	)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: projects,
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }
 
@@ -273,36 +174,13 @@ type SetProjectRequest struct {
 	Keys    []log.Key   `json:"keys"    msgpack:"keys"`
 }
 
-// SetProject moves the logs with the given keys out of their group and into a project.
-// It requires update access on the logs, their groups, their owners, and the project.
+// SetProject moves the logs with the given keys out of their group and into a
+// project.
 func (s *Service) SetProject(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetProjectRequest,
 ) (struct{}, error) {
-	var stored []log.Log
-	if err := s.internal.NewRetrieve().
-		Where(log.MatchKeys(req.Keys...)).
-		Entries(&stored).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			project.MoveObjects(
-				log.ResourceIDs(req.Keys),
-				lo.Map(stored, func(e log.Log, _ int) *resource.ID {
-					return project.OwnerID(e.Project, e.Range)
-				}),
-				new(project.ResourceID(req.Project)),
-			),
-			lo.Map(stored, func(e log.Log, _ int) *group.Key { return e.Group }),
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).
 		SetProject(ctx, req.Project, req.Keys...)
 }

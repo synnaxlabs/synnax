@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -31,6 +32,19 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
+}
 
 // scopedAction is a short local alias for the schematic's action envelope so
 // the test files don't have to spell out the generic parameters at every use.
@@ -60,9 +74,8 @@ var _ = Describe("Service", func() {
 			grantUpdateOn(ctx, author.ResourceID(), project.ResourceID(proj.Key))
 			rec := &Recorder[schematic.Key, schematic.Action]{}
 			DeferCleanup(schematicSvc.OnAction(rec.Record))
-			res := MustSucceed(apiSvc.Create(
+			res := MustSucceed(create(
 				AuthedCtx(ctx, author),
-				db,
 				apischematic.CreateRequest{
 					Schematics: []schematic.Schematic{
 						{Name: "broadcast", Project: &proj.Key},
@@ -127,9 +140,8 @@ var _ = Describe("Service", func() {
 			"Should reject the request when the subject has no update policy",
 			func(ctx SpecContext) {
 				s := createSchematic(ctx, "move-denied")
-				Expect(apiSvc.SetProject(
+				Expect(setProject(
 					AuthedCtx(ctx, author),
-					nil,
 					apischematic.SetProjectRequest{
 						Project: proj.Key,
 						Keys:    []schematic.Key{s.Key},
@@ -150,9 +162,8 @@ var _ = Describe("Service", func() {
 					s.ResourceID(),
 					project.ResourceID(proj.Key),
 				)
-				Expect(apiSvc.SetProject(
+				Expect(setProject(
 					AuthedCtx(ctx, author),
-					nil,
 					apischematic.SetProjectRequest{
 						Project: dest.Key,
 						Keys:    []schematic.Key{s.Key},
@@ -173,9 +184,8 @@ var _ = Describe("Service", func() {
 				project.ResourceID(proj.Key),
 				project.ResourceID(dest.Key),
 			)
-			Expect(apiSvc.SetProject(
+			Expect(setProject(
 				AuthedCtx(ctx, author),
-				nil,
 				apischematic.SetProjectRequest{
 					Project: dest.Key,
 					Keys:    []schematic.Key{s.Key},
@@ -201,9 +211,8 @@ var _ = Describe("Service", func() {
 					s.ResourceID(),
 					project.ResourceID(proj.Key),
 				)
-				Expect(apiSvc.SetProject(
+				Expect(setProject(
 					AuthedCtx(ctx, author),
-					nil,
 					apischematic.SetProjectRequest{
 						Project: proj.Key,
 						Keys:    []schematic.Key{s.Key},
@@ -476,9 +485,8 @@ var _ = Describe("SetGroup", func() {
 			s := createSchematic(ctx, "Set group denied")
 			g := createGroup(ctx, "Set group denied")
 			grantUpdateOn(ctx, author.ResourceID(), schematic.ResourceID(s.Key))
-			Expect(apiSvc.SetGroup(
+			Expect(setGroup(
 				AuthedCtx(ctx, author),
-				db,
 				apischematic.SetGroupRequest{
 					Group: &g.Key,
 					Keys:  []schematic.Key{s.Key},
@@ -498,9 +506,8 @@ var _ = Describe("SetGroup", func() {
 				schematic.ResourceID(s.Key),
 				g.ResourceID(),
 			)
-			Expect(apiSvc.SetGroup(
+			Expect(setGroup(
 				AuthedCtx(ctx, author),
-				db,
 				apischematic.SetGroupRequest{
 					Group: &g.Key,
 					Keys:  []schematic.Key{s.Key},
@@ -525,9 +532,8 @@ var _ = Describe("SetGroup", func() {
 			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 		})
 		move := func(ctx SpecContext) (struct{}, error) {
-			return apiSvc.SetGroup(
+			return setGroup(
 				AuthedCtx(ctx, u),
-				db,
 				apischematic.SetGroupRequest{
 					Group: &g.Key,
 					Keys:  []schematic.Key{x.Key},
@@ -585,8 +591,8 @@ var _ = Describe("Create in a group", func() {
 		"Should refuse the create without update on the group",
 		func(ctx SpecContext) {
 			g := createGroup(ctx, "Create denied")
-			Expect(apiSvc.Create(
-				AuthedCtx(ctx, author), db,
+			Expect(create(
+				AuthedCtx(ctx, author),
 				apischematic.CreateRequest{
 					Schematics: []schematic.Schematic{
 						{Project: &proj.Key, Name: "Denied", Group: &g.Key},
@@ -603,8 +609,9 @@ var _ = Describe("Create in a group", func() {
 			Expect(schematicSvc.NewWriter(nil).Create(ctx, &sc)).To(Succeed())
 			ignored := createGroup(ctx, "Create ignores group")
 			sc.Name, sc.Group = "Renamed", &ignored.Key
-			Expect(apiSvc.Create(
-				AuthedCtx(ctx, author), db,
+			grantUpdateOn(ctx, author.ResourceID(), sc.ResourceID())
+			Expect(create(
+				AuthedCtx(ctx, author),
 				apischematic.CreateRequest{
 					Schematics: []schematic.Schematic{sc},
 				},
@@ -622,8 +629,8 @@ var _ = Describe("Create in a group", func() {
 			g.ResourceID(),
 			project.ResourceID(proj.Key),
 		)
-		res := MustSucceed(apiSvc.Create(
-			AuthedCtx(ctx, author), db,
+		res := MustSucceed(create(
+			AuthedCtx(ctx, author),
 			apischematic.CreateRequest{
 				Schematics: []schematic.Schematic{
 					{Project: &proj.Key, Name: "Granted", Group: &g.Key},
@@ -653,7 +660,7 @@ var _ = Describe("Create in a group", func() {
 			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 		})
 		create := func(ctx SpecContext, carried *project.Key) (apischematic.CreateResponse, error) {
-			return apiSvc.Create(AuthedCtx(ctx, u), db, apischematic.CreateRequest{
+			return create(AuthedCtx(ctx, u), apischematic.CreateRequest{
 				Schematics: []schematic.Schematic{
 					{Project: carried, Name: "Elsewhere", Group: &g.Key},
 				},
@@ -693,12 +700,46 @@ var _ = Describe("Owner access", func() {
 			access.ActionCreate,
 			resource.ID{Type: resource.TypeSchematic},
 		)
-		Expect(apiSvc.Create(
-			AuthedCtx(ctx, u), db,
+		Expect(create(
+			AuthedCtx(ctx, u),
 			apischematic.CreateRequest{
 				Schematics: []schematic.Schematic{{Project: &proj.Key, Name: "Denied"}},
 			},
 		)).Error().To(MatchError(access.ErrDenied))
+	})
+
+	It("Should refuse a create without create on the schematic", func(
+		ctx SpecContext,
+	) {
+		u := newUser(ctx)
+		grantUpdateOn(ctx, u.ResourceID(), project.ResourceID(proj.Key))
+		sc := schematic.Schematic{Key: uuid.New(), Project: &proj.Key, Name: "Denied"}
+		Expect(create(AuthedCtx(ctx, u), apischematic.CreateRequest{
+			Schematics: []schematic.Schematic{sc},
+		})).Error().To(denied(u, access.ActionCreate, sc.ResourceID()))
+		Expect(schematicSvc.NewRetrieve().
+			Where(schematic.MatchKeys(sc.Key)).
+			Entry(&schematic.Schematic{}).
+			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+	})
+
+	It("Should refuse to overwrite a schematic without update on it", func(
+		ctx SpecContext,
+	) {
+		u := newUser(ctx)
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			access.ActionCreate,
+			resource.ID{Type: resource.TypeSchematic},
+		)
+		stored := createSchematic(ctx, "Stored")
+		Expect(create(AuthedCtx(ctx, u), apischematic.CreateRequest{
+			Schematics: []schematic.Schematic{
+				{Key: stored.Key, Name: "Overwritten", Project: &proj.Key},
+			},
+		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		Expect(retrieveSchematic(ctx, stored.Key).Name).To(Equal("Stored"))
 	})
 
 	Describe("Copy", func() {
@@ -709,7 +750,6 @@ var _ = Describe("Owner access", func() {
 		BeforeEach(func(ctx SpecContext) {
 			u = newUser(ctx)
 			src = createSchematic(ctx, "Copy source")
-			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, src.ResourceID())
 			grantOn(
 				ctx,
 				u.ResourceID(),
@@ -717,25 +757,96 @@ var _ = Describe("Owner access", func() {
 				resource.ID{Type: resource.TypeSchematic},
 			)
 		})
-		copySchematic := func(ctx SpecContext) error {
-			GinkgoHelper()
-			tx := db.OpenTx()
-			defer func() { Expect(tx.Close()).To(Succeed()) }()
-			_, err := apiSvc.Copy(AuthedCtx(ctx, u), tx, apischematic.CopyRequest{
+		copyAs := func(ctx SpecContext) (apischematic.CopyResponse, error) {
+			return copySchematic(AuthedCtx(ctx, u), apischematic.CopyRequest{
 				Key:  src.Key,
 				Name: "Copy",
 			})
-			if err == nil {
-				Expect(tx.Commit(ctx)).To(Succeed())
-			}
-			return err
 		}
 		It("Should refuse a copy without update on its owner", func(ctx SpecContext) {
-			Expect(copySchematic(ctx)).To(MatchError(access.ErrDenied))
+			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, src.ResourceID())
+			Expect(copyAs(ctx)).Error().
+				To(denied(u, access.ActionUpdate, project.ResourceID(proj.Key)))
 		})
+		It(
+			"Should refuse a copy without retrieve on the source",
+			func(ctx SpecContext) {
+				grantUpdateOn(ctx, u.ResourceID(), project.ResourceID(proj.Key))
+				Expect(copyAs(ctx)).Error().
+					To(denied(u, access.ActionRetrieve, src.ResourceID()))
+			},
+		)
 		It("Should copy with update on its owner", func(ctx SpecContext) {
+			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, src.ResourceID())
 			grantUpdateOn(ctx, u.ResourceID(), project.ResourceID(proj.Key))
-			Expect(copySchematic(ctx)).To(Succeed())
+			res := MustSucceed(copyAs(ctx))
+			Expect(retrieveSchematic(ctx, res.Schematic.Key).Name).To(Equal("Copy"))
 		})
 	})
+})
+
+var _ = Describe("CopyRequest", func() {
+	It("Should name the schematic it copies as its source", func() {
+		key := uuid.New()
+		Expect(apischematic.CopyRequest{Key: key}.Sources()).
+			To(Equal([]resource.ID{schematic.ResourceID(key)}))
+	})
+})
+
+var _ = Describe("Delete", func() {
+	var (
+		u  user.User
+		sc schematic.Schematic
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = newUser(ctx)
+		sc = createSchematic(ctx, "Deleted")
+	})
+	deleteAs := func(ctx SpecContext) (struct{}, error) {
+		return del(AuthedCtx(ctx, u), apischematic.DeleteRequest{
+			Keys: []schematic.Key{sc.Key},
+		})
+	}
+	schematicID := func() resource.ID { return sc.ResourceID() }
+	projectID := func() resource.ID { return project.ResourceID(proj.Key) }
+	DescribeTable(
+		"Should refuse the delete and keep the schematic",
+		func(
+			ctx SpecContext,
+			granted access.Action,
+			grantedOn func() resource.ID,
+			refused access.Action,
+			refusedOn func() resource.ID,
+		) {
+			grantOn(ctx, u.ResourceID(), granted, grantedOn())
+			Expect(deleteAs(ctx)).Error().To(denied(u, refused, refusedOn()))
+			Expect(retrieveSchematic(ctx, sc.Key).Key).To(Equal(sc.Key))
+		},
+		Entry(
+			"without delete on the schematic",
+			access.ActionUpdate,
+			projectID,
+			access.ActionDelete,
+			schematicID,
+		),
+		Entry(
+			"without update on its project",
+			access.ActionDelete,
+			schematicID,
+			access.ActionUpdate,
+			projectID,
+		),
+	)
+	It(
+		"Should delete the schematic with delete on it and update on its project",
+		func(ctx SpecContext) {
+			grantOn(ctx, u.ResourceID(), access.ActionDelete, schematicID())
+			grantUpdateOn(ctx, u.ResourceID(), projectID())
+			MustSucceed(deleteAs(ctx))
+			Expect(schematicSvc.NewRetrieve().
+				Where(schematic.MatchKeys(sc.Key)).
+				Entry(&schematic.Schematic{}).
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		},
+	)
 })

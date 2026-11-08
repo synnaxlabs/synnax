@@ -217,3 +217,21 @@ var _ = Describe("KV", Ordered, func() {
 		}))
 	})
 })
+
+var _ = Describe("RangeOf", func() {
+	It("Should return the range of a pair key", func() {
+		rng := uuid.New()
+		key := kv.Pair{Range: rng, Key: "k<--->v"}.GorpKey()
+		Expect(kv.RangeOf(key)).To(Equal(rng))
+	})
+
+	It("Should return a validation error for a key whose range is not a UUID", func() {
+		Expect(kv.RangeOf("range<--->k")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"%q is not the key of a range key-value pair",
+				"range<--->k",
+			)),
+		))
+	})
+})

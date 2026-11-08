@@ -15,6 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -38,6 +40,8 @@ var (
 	svc       *service.Layer
 	apiSvc    *apirack.Service
 	statusAPI *apistatus.Service
+	// setGroup runs the SetGroup route as the API layer binds it.
+	setGroup freighter.UnaryHandler[apirack.SetGroupRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -51,6 +55,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:   svc.RBAC,
 		Auth:   svc.Auth,
 	}))
+	binder := MustSucceed(
+		bind.NewService(bind.ServiceConfig{DB: node.DB, RBAC: svc.RBAC}),
+	)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	statusAPI = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
 		Status: svc.Status,
 		RBAC:   svc.RBAC,

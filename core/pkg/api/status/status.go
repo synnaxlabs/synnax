@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -35,7 +34,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of every request except set.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -128,27 +127,18 @@ type SetResponse struct {
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
-// Set creates or updates the statuses in order, and checks each one against the state
-// that its write sees. It returns a validation error if a status carries details that
-// its resolved owner cannot decode. On error, tx keeps the writes of earlier statuses.
+// Set creates or updates the statuses in order. It returns a validation error if a
+// status carries details that its resolved owner cannot decode. On error, tx keeps the
+// writes of earlier statuses.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
 ) (SetResponse, error) {
 	w := s.internal.NewWriter(tx)
-	enforcer := s.access.NewEnforcer(tx)
 	for i := range req.Statuses {
 		st := &req.Statuses[i]
-		labelIDs := label.ResourceIDs(st.Labels)
 		if err := w.Resolve(ctx, st); err != nil {
-			return SetResponse{}, err
-		}
-		if err := enforcer.Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: append([]resource.ID{st.ResourceID()}, labelIDs...),
-		}); err != nil {
 			return SetResponse{}, err
 		}
 		if err := validateDetails(*st); err != nil {

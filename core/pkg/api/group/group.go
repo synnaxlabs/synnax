@@ -11,7 +11,6 @@ package group
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -26,7 +25,7 @@ import (
 
 // ServiceConfig is the configuration for the group API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of retrieve requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -85,28 +84,13 @@ type (
 	}
 )
 
+// Create creates a group. An existing group with the key keeps its stored parent and
+// scope.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeGroup}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	if req.Parent != nil {
-		if err := enforcer.Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []resource.ID{*req.Parent},
-		}); err != nil {
-			return CreateResponse{}, err
-		}
-	}
 	g := group.Group{Key: req.Key, Name: req.Name, Scope: req.Scope, Parent: req.Parent}
 	if err := s.internal.NewWriter(tx).Create(ctx, &g); err != nil {
 		return CreateResponse{}, err
@@ -176,18 +160,13 @@ type DeleteRequest struct {
 	Keys []group.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the groups with the given keys. It returns a validation error when a
+// group holds a member or a group that the request does not name.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: group.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -196,18 +175,12 @@ type RenameRequest struct {
 	Key  group.Key `json:"key"  msgpack:"key"`
 }
 
+// Rename renames the group with the given key.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{group.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
@@ -217,44 +190,12 @@ type SetParentRequest struct {
 	Keys   []group.Key  `json:"keys"   msgpack:"keys"`
 }
 
-// SetParent moves the groups. It requires update access on the groups, on the parents
-// they leave, and on the parent they join. A move to a new top parent also requires
-// update access on the top parents that the groups leave and join.
+// SetParent moves the groups under a parent. A move under a new top parent moves the
+// visualizations in the groups to the project of that top parent.
 func (s *Service) SetParent(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetParentRequest,
 ) (struct{}, error) {
-	var groups []group.Group
-	if err := s.internal.NewRetrieve().
-		Where(group.MatchKeys(req.Keys...)).
-		Entries(&groups).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	objects := group.ResourceIDs(req.Keys)
-	for _, g := range append(groups, group.Group{Parent: req.Parent}) {
-		if g.Parent != nil && !slices.Contains(objects, *g.Parent) {
-			objects = append(objects, *g.Parent)
-		}
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: objects,
-	}); err != nil {
-		return struct{}{}, err
-	}
-	tops, err := group.SetParentObjects(ctx, tx, groups, req.Parent)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: tops,
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).SetParent(ctx, req.Parent, req.Keys...)
 }

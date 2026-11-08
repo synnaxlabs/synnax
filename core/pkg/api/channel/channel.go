@@ -40,7 +40,7 @@ type Key = channel.Key
 
 // ServiceConfig is the configuration for the channel API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of every request except set group.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -477,26 +477,5 @@ func (s *Service) SetGroup(
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
-	var channels []channel.Channel
-	if err := s.internal.NewRetrieve().
-		Where(channel.MatchKeys(req.Keys...)).
-		Entries(&channels).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			channel.ResourceIDsFromKeys(req.Keys),
-			lo.Map(
-				channels,
-				func(e channel.Channel, _ int) *group.Key { return e.Group },
-			),
-			req.Group,
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

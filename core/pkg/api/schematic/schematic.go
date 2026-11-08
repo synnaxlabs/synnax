@@ -11,11 +11,10 @@ package schematic
 
 import (
 	"context"
-	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -25,15 +24,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // ServiceConfig is the configuration for the schematic API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of retrieve requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -89,57 +86,12 @@ type (
 	}
 )
 
+// Create creates the schematics, and overwrites each one whose key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeSchematic}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	var stored []schematic.Schematic
-	if err := s.internal.NewRetrieve().
-		Where(schematic.MatchKeys(lo.Map(
-			req.Schematics,
-			func(e schematic.Schematic, _ int) schematic.Key { return e.Key },
-		)...)).
-		Entries(&stored).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return CreateResponse{}, err
-	}
-	owners, err := project.CreateObjects(
-		ctx,
-		tx,
-		resource.TypeSchematic,
-		req.Schematics,
-		stored,
-		func(e schematic.Schematic) *group.Key { return e.Group },
-		func(e schematic.Schematic) *resource.ID {
-			return project.OwnerID(e.Project, e.Range)
-		},
-	)
-	if err != nil {
-		return CreateResponse{}, err
-	}
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: slices.Concat(
-			group.CreateObjects(
-				req.Schematics,
-				stored,
-				func(e schematic.Schematic) *group.Key { return e.Group },
-			),
-			owners,
-		),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, &req.Schematics); err != nil {
@@ -161,13 +113,6 @@ func (s *Service) Dispatch(
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{schematic.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.
 		Dispatch(ctx, tx, req.Key, req.DispatchKey, req.Actions)
 }
@@ -198,18 +143,13 @@ type DeleteRequest struct {
 	Keys []schematic.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the schematics with the given keys. A key that matches no schematic
+// is ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: schematic.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -227,38 +167,22 @@ type (
 	}
 )
 
+var _ bind.Copy = CopyRequest{}
+
+// Sources implements bind.Copy.
+func (r CopyRequest) Sources() []resource.ID {
+	return []resource.ID{schematic.ResourceID(r.Key)}
+}
+
+// Copy copies the schematic with the given key. The copy sits in no group.
 func (s *Service) Copy(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CopyRequest,
 ) (CopyResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{schematic.ResourceID(req.Key)},
-	}); err != nil {
-		return CopyResponse{}, err
-	}
 	var res CopyResponse
 	if err := s.internal.NewWriter(tx).
 		Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range, &res.Schematic); err != nil {
-		return CopyResponse{}, err
-	}
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{schematic.ResourceID(res.Schematic.Key)},
-	}); err != nil {
-		return CopyResponse{}, err
-	}
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{
-			*project.OwnerID(res.Schematic.Project, res.Schematic.Range),
-		},
-	}); err != nil {
 		return CopyResponse{}, err
 	}
 	return res, nil
@@ -271,53 +195,12 @@ type SetGroupRequest struct {
 }
 
 // SetGroup moves the schematics with the given keys into a group. A move into a group
-// under another project also requires update access on the stored owner and on that
-// project.
+// under another project moves the schematics into that project.
 func (s *Service) SetGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetGroupRequest,
 ) (struct{}, error) {
-	var schematics []schematic.Schematic
-	if err := s.internal.NewRetrieve().
-		Where(schematic.MatchKeys(req.Keys...)).
-		Entries(&schematics).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			schematic.ResourceIDs(req.Keys),
-			lo.Map(
-				schematics,
-				func(e schematic.Schematic, _ int) *group.Key { return e.Group },
-			),
-			req.Group,
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
-	projects, err := project.SetGroupObjects(
-		ctx,
-		tx,
-		req.Group,
-		resource.TypeSchematic,
-		lo.Map(schematics, func(e schematic.Schematic, _ int) *resource.ID {
-			return project.OwnerID(e.Project, e.Range)
-		}),
-	)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: projects,
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }
 
@@ -328,38 +211,12 @@ type SetProjectRequest struct {
 }
 
 // SetProject moves the schematics with the given keys out of their group and into a
-// project. It requires update access on the schematics, their groups, their owners, and
-// the project.
+// project.
 func (s *Service) SetProject(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetProjectRequest,
 ) (struct{}, error) {
-	var stored []schematic.Schematic
-	if err := s.internal.NewRetrieve().
-		Where(schematic.MatchKeys(req.Keys...)).
-		Entries(&stored).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.MoveObjects(
-			project.MoveObjects(
-				schematic.ResourceIDs(req.Keys),
-				lo.Map(stored, func(e schematic.Schematic, _ int) *resource.ID {
-					return project.OwnerID(e.Project, e.Range)
-				}),
-				new(project.ResourceID(req.Project)),
-			),
-			lo.Map(stored, func(e schematic.Schematic, _ int) *group.Key {
-				return e.Group
-			}),
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).
 		SetProject(ctx, req.Project, req.Keys...)
 }

@@ -754,3 +754,16 @@ var _ = Describe("With a detach reference", func() {
 		)
 	})
 })
+
+var _ = Describe("TaskOf", func() {
+	It("Should return the task whose config record a target names", func() {
+		key := uuid.New()
+		id := MustBeOk(config.TaskOf(gorp.NewTarget(config.TableName(testType), key)))
+		Expect(id).To(Equal(task.ResourceID(key)))
+	})
+
+	It("Should return false for a table that stores no config records", func() {
+		_, ok := config.TaskOf(gorp.NewTarget("task", uuid.New()))
+		Expect(ok).To(BeFalse())
+	})
+})

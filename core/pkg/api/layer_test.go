@@ -16,7 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -53,7 +52,7 @@ func newUser(ctx context.Context, types ...resource.Type) user.User {
 	return u
 }
 
-// execBatch decodes body as a batch and runs it as u in one transaction.
+// execBatch decodes body as a batch and runs it as u.
 func execBatch(
 	ctx context.Context,
 	u user.User,
@@ -62,15 +61,7 @@ func execBatch(
 	GinkgoHelper()
 	var req batch.ExecRequest
 	Expect(json.Codec.Decode(ctx, []byte(body), &req)).To(Succeed())
-	var res batch.ExecResponse
-	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
-		var err error
-		res, err = apiLayer.Batch.Exec(AuthedCtx(ctx, u), tx, req)
-		return err
-	}); err != nil {
-		return batch.ExecResponse{}, err
-	}
-	return res, nil
+	return exec(AuthedCtx(ctx, u), req)
 }
 
 var _ = Describe("Layer", func() {
@@ -110,6 +101,37 @@ var _ = Describe("Layer", func() {
 				Entry(&stored).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(stored.Group).To(Equal(&key))
+		},
+	)
+
+	It(
+		"Should commit nothing when the subject cannot make every change",
+		func(ctx SpecContext) {
+			u := newUser(ctx, resource.TypeGroup)
+			proj := project.Project{Name: "denied"}
+			Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+			key := uuid.New()
+			Expect(execBatch(ctx, u, fmt.Sprintf(`{"requests": [
+				{
+					"endpoint": "/group/create",
+					"payload": {"key": %[1]q, "name": "Denied", "scope": "project"}
+				},
+				{
+					"endpoint": "/project/set-group",
+					"payload": {"keys": [%[2]q], "group": %[1]q}
+				}
+			]}`, key, proj.Key))).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"%s cannot update %s",
+					u.ResourceID(),
+					proj.ResourceID(),
+				)),
+			))
+			Expect(svc.Group.NewRetrieve().
+				Where(group.MatchKeys(key)).
+				Entry(&group.Group{}).
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		},
 	)
 

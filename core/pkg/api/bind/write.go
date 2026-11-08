@@ -11,15 +11,27 @@ package bind
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/types"
 )
+
+// Copy is a request that reads records and copies them into what it writes.
+type Copy interface {
+	// Sources returns the records that the request copies.
+	Sources() []resource.ID
+}
 
 // Write returns a handler that runs apply in one write transaction, checks access on
 // what the transaction changed, and commits. A denial or an error from apply rolls back
@@ -27,8 +39,10 @@ import (
 //
 //   - create on a new record, update on a changed record, and delete on a deleted
 //     record, cascades and detaches included;
+//   - update on the range of each range key-value pair that changes;
 //   - update on the target of each place link added or removed;
-//   - retrieve on the target of each use link added.
+//   - retrieve on the target of each use link added;
+//   - retrieve on each source of a request that implements Copy.
 //
 // Policies are read from committed state, so a policy or role that apply stages grants
 // nothing. A denial wraps access.ErrDenied and names the record.
@@ -37,12 +51,18 @@ func Write[RQ, RS freighter.Payload](
 	apply func(context.Context, gorp.Tx, RQ) (RS, error),
 ) freighter.UnaryHandler[RQ, RS] {
 	return func(ctx context.Context, req RQ) (RS, error) {
-		var res, zero RS
+		var (
+			res, zero RS
+			sources   []resource.ID
+		)
+		if c, ok := any(req).(Copy); ok {
+			sources = c.Sources()
+		}
 		if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
 			if res, err = apply(ctx, tx, req); err != nil {
 				return err
 			}
-			return s.check(ctx, tx)
+			return s.check(ctx, tx, sources)
 		}); err != nil {
 			return zero, err
 		}
@@ -51,9 +71,10 @@ func Write[RQ, RS freighter.Payload](
 }
 
 // check returns an error wrapping access.ErrDenied when the subject of ctx cannot make
-// the changes of tx.
-func (s *Service) check(ctx context.Context, tx gorp.Tx) error {
+// the changes of tx or read sources.
+func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) error {
 	needs := make(map[access.Action][]resource.ID, len(access.AllActions))
+	needs[access.ActionRetrieve] = slices.Clone(sources)
 	need := func(action access.Action, target gorp.Target) error {
 		id, err := resourceOf(target)
 		if err != nil {
@@ -63,7 +84,13 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx) error {
 		return nil
 	}
 	for _, c := range gorp.ChangesOf(tx) {
-		if err := need(actionOf(c.Kind), c.Record); err != nil {
+		owner, owned, err := ownerOf(c.Record)
+		if err != nil {
+			return err
+		}
+		if owned {
+			needs[access.ActionUpdate] = append(needs[access.ActionUpdate], owner)
+		} else if err = need(actionOf(c.Kind), c.Record); err != nil {
 			return err
 		}
 		for _, l := range c.Added {
@@ -98,10 +125,29 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx) error {
 	return nil
 }
 
+// ownerOf returns the resource that owns a record whose table has no resource type. It
+// reports false when the table of the record has a resource type.
+func ownerOf(t gorp.Target) (resource.ID, bool, error) {
+	if t.Table != types.Name[kv.Pair]() {
+		return resource.ID{}, false, nil
+	}
+	rng, err := kv.RangeOf(t.Key)
+	if err != nil {
+		return resource.ID{}, false, err
+	}
+	return ranger.ResourceID(rng), true, nil
+}
+
 // resourceOf returns the resource of a record. It returns an error when no resource
 // type matches the table of the record.
 func resourceOf(t gorp.Target) (resource.ID, error) {
+	if id, ok := taskconfig.TaskOf(t); ok {
+		return id, nil
+	}
 	id := resource.ID{Type: resource.Type(t.Table), Key: t.Key}
+	if t.Table == types.Name[alias.Alias]() {
+		id.Type = resource.TypeRangeAlias
+	}
 	if !id.Type.IsValid() {
 		return resource.ID{}, errors.Newf(
 			"[bind] - table %s has no resource type",
