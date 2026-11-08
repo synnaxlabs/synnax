@@ -919,6 +919,12 @@ var _ = Describe("Read task", func() {
 			Expect(dt.Exec(ctx, task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",
 			})).To(MatchError(errCommit))
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:              channel.Keys{index.Key(), data.Key()},
+				Start:             telem.Now(),
+				ErrOnUnauthorized: new(true),
+			}))
+			Expect(w.Close()).To(Succeed())
 		},
 	)
 
