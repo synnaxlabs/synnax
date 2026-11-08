@@ -61,9 +61,9 @@ You deliver the work yourself, as your GitHub App.
    reply with the commit that fixed it and leave it open.
 3. Reply to every other thread that needs action with `addPullRequestReviewThreadReply`.
    Open each reply with `*Agent reply.*` Keep it to a few sentences, with no em dashes.
-4. When you pushed, or when the `Review gate` says the Sedosaur review of the head
-   ended without a score, comment `@sedosaur review` on the pull request. A reply alone
-   gets no new review of the head.
+4. When you pushed, or when the `Review gate` says the Sedosaur review of the head ended
+   without a score, comment `@sedosaur review` on the pull request. A reply alone gets
+   no new review of the head.
 5. Comment on the pull request with `gh pr comment`. Start the comment with the line
    `<!-- agent:outside-diff -->`, since it answers the findings outside the diff: name
    each one with its fix or the reason you left it. Keep it short: what you merged,
