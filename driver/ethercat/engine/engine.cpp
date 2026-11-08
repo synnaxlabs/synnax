@@ -214,7 +214,6 @@ void Engine::Input::push(const uint8_t *image, const x::telem::TimeStamp time) {
 }
 
 void Engine::run() {
-    const auto &iface = this->iface;
     std::shared_ptr<const Schedule> sched;
     uint64_t version = 0;
     x::loop::Timer timer;
@@ -234,10 +233,10 @@ void Engine::run() {
         sent_at = this->config.host_clock.now();
         if (auto err = this->master->send(); err) {
             if (send_failures++ == 0)
-                LOG(WARNING) << "[ethercat] send failed on " << iface << ": "
+                LOG(WARNING) << "[ethercat] send failed on " << this->iface << ": "
                              << err.message();
         } else if (send_failures > 0) {
-            LOG(INFO) << "[ethercat] send recovered on " << iface << " after "
+            LOG(INFO) << "[ethercat] send recovered on " << this->iface << " after "
                       << send_failures << " failures";
             send_failures = 0;
         }
@@ -260,7 +259,7 @@ void Engine::run() {
                 version = this->schedule_version.load(std::memory_order_relaxed);
             }
             if (sched->rate != prev) {
-                LOG(INFO) << "[ethercat] bus on " << iface << " cycles at "
+                LOG(INFO) << "[ethercat] bus on " << this->iface << " cycles at "
                           << sched->rate;
                 std::vector<PhaseLock::Sync0> syncs;
                 for (const auto &regs: this->image.dc_sync)
@@ -304,19 +303,19 @@ void Engine::run() {
         if (dc && phase) {
             timer.shift(phase->update(*dc));
             if (!starting && phase->lost() && late_frames++ == 0)
-                LOG(WARNING) << "[ethercat] cycles on " << iface
+                LOG(WARNING) << "[ethercat] cycles on " << this->iface
                              << " run late: a frame passed the reference clock near "
                                 "a SYNC0 event";
         }
         if (!err) {
             if (dc) latched_at = clock.map(*dc, sent_at);
             if (receive_failures > 0) {
-                LOG(INFO) << "[ethercat] cycles recovered on " << iface << " after "
-                          << receive_failures << " failures";
+                LOG(INFO) << "[ethercat] cycles recovered on " << this->iface
+                          << " after " << receive_failures << " failures";
                 receive_failures = 0;
             }
         } else if (!shortfall(err) && receive_failures++ == 0) {
-            LOG(WARNING) << "[ethercat] cycle failed on " << iface << ": "
+            LOG(WARNING) << "[ethercat] cycle failed on " << this->iface << ": "
                          << err.message();
             std::lock_guard lock(this->cycle_err_mu);
             this->cycle_err = err;
@@ -341,16 +340,15 @@ void Engine::run() {
     this->write_outputs(true);
     send();
     if (const auto err = this->master->receive(); err && !shortfall(err))
-        LOG(WARNING) << "[ethercat] last cycle failed on " << iface << ": "
+        LOG(WARNING) << "[ethercat] last cycle failed on " << this->iface << ": "
                      << err.message();
     if (late_frames > 0)
-        LOG(WARNING) << "[ethercat] " << late_frames << " frames on " << iface
+        LOG(WARNING) << "[ethercat] " << late_frames << " frames on " << this->iface
                      << " passed the reference clock near a SYNC0 event";
-    LOG(INFO) << "[ethercat] bus stopped on " << iface;
+    LOG(INFO) << "[ethercat] bus stopped on " << this->iface;
 }
 
 void Engine::supervise() {
-    const auto &iface = this->iface;
     std::vector<slave::Health> last;
     while (this->bus.running()) {
         auto health = this->master->check(this->bus);
@@ -365,14 +363,14 @@ void Engine::supervise() {
             );
             const bool was_operational = prev == last.end() || prev->operational();
             if (was_operational && !h.operational())
-                LOG(WARNING) << "[ethercat] slave " << h.position << " on " << iface
-                             << " left OP: " << h.to_string();
+                LOG(WARNING) << "[ethercat] slave " << h.position << " on "
+                             << this->iface << " left OP: " << h.to_string();
             else if (!was_operational && h.operational())
-                LOG(INFO) << "[ethercat] slave " << h.position << " on " << iface
+                LOG(INFO) << "[ethercat] slave " << h.position << " on " << this->iface
                           << " returned to OP";
             else if (!h.operational() && *prev != h)
-                LOG(WARNING) << "[ethercat] slave " << h.position << " on " << iface
-                             << ": " << h.to_string();
+                LOG(WARNING) << "[ethercat] slave " << h.position << " on "
+                             << this->iface << ": " << h.to_string();
         }
         {
             std::lock_guard health_lock(this->health_mu);
@@ -397,7 +395,6 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         this->bus.start();
         this->cycle_thread = std::thread(&Engine::run, this);
     };
-    const auto &iface = this->iface;
     master::Plan plan{
         .period = x::telem::Rate(static_cast<double>(mhz) / 1000).period(),
         .slaves = std::move(configs),
@@ -433,8 +430,9 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
                 this->master->deactivate();
             if (!refused.empty() && io_left) {
                 for (const auto &[pos, refusal]: refused) {
-                    LOG(WARNING) << "[ethercat] starting " << iface << " without slave "
-                                 << pos << ": it " << refusal.reason;
+                    LOG(WARNING)
+                        << "[ethercat] starting " << this->iface << " without slave "
+                        << pos << ": it " << refusal.reason;
                     plan.slaves[pos].enabled = false;
                 }
                 this->left_out.insert(refused.begin(), refused.end());
@@ -526,8 +524,7 @@ std::pair<uint64_t, x::errors::Error> Engine::rate_locked(
     const std::vector<x::telem::Rate> &reads,
     const std::vector<x::telem::Rate> &writes
 ) const {
-    const auto &iface = this->iface;
-    auto [mhz, err] = bus_rate(reads, writes, iface);
+    auto [mhz, err] = bus_rate(reads, writes, this->iface);
     if (err || !this->running() || this->image.dc_sync.empty()) return {mhz, err};
     // The SYNC0 and SYNC1 cycles came from the bus period at activation.
     const auto fixed = this->cycle_mhz.load(std::memory_order_acquire);
@@ -541,7 +538,7 @@ std::pair<uint64_t, x::errors::Error> Engine::rate_locked(
                 "rate cannot change until every task on the port stops. Use a sample "
                 "rate that {1} Hz is a multiple of, or an execution rate of at most "
                 "{1} Hz.",
-                iface,
+                this->iface,
                 static_cast<double>(fixed) / 1000
             )
         )
@@ -564,11 +561,7 @@ void Engine::write_outputs(const bool wait) {
     if (!lock.owns_lock() && wait) lock.lock();
     if (lock.owns_lock()) this->write_active = this->write_staging;
     const auto outputs = this->image.outputs;
-    std::memcpy(
-        outputs.data(),
-        this->write_active.data(),
-        std::min(outputs.size(), this->write_active.size())
-    );
+    std::memcpy(outputs.data(), this->write_active.data(), this->write_active.size());
 }
 
 x::errors::Error Engine::cycle_error() const {
@@ -762,9 +755,5 @@ std::pair<std::vector<pdo::Offset>, x::errors::Error> Engine::offsets_locked(
 std::vector<slave::Health> Engine::health() const {
     std::lock_guard lock(this->health_mu);
     return this->slave_health;
-}
-
-std::string Engine::interface_name() const {
-    return this->iface;
 }
 }

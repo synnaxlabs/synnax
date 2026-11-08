@@ -73,9 +73,12 @@ class Engine {
     std::shared_ptr<master::Master> master;
     /// @brief the slaves of the latest discovery, with the layouts of the running bus.
     std::vector<slave::DiscoveryResult> slaves;
-    /// @brief the process data of the running bus.
+    /// @brief the process data of the running bus. Written only while the bus is
+    /// stopped, so the cycle thread reads it without a lock.
     master::Image image;
     /// @brief why the running bus started without each slave, keyed by position.
+    /// Written only while the bus is stopped, so the supervisor reads it without a
+    /// lock.
     std::map<uint16_t, slave::Refusal> left_out;
 
     /// @brief the entries of one reader and the samples the cycle thread hands it.
@@ -337,8 +340,5 @@ public:
     /// @brief returns the latest condition of each enabled slave, then each left-out
     /// slave with its refusal, or an empty list when the bus is not running.
     [[nodiscard]] std::vector<slave::Health> health() const;
-
-    /// @brief returns the interface name.
-    [[nodiscard]] std::string interface_name() const;
 };
 }
