@@ -125,6 +125,13 @@ var _ = Describe("Service", func() {
 			write(ctx, func(w channel.Writer) error { return w.Create(ctx, &calc) })
 			Expect(inputs(ctx, calc)).To(ConsistOf(base.Key(), reset.Key()))
 		})
+		It("Should return a given channel that another given calculation reads", func(
+			ctx SpecContext,
+		) {
+			base := create(ctx, "")
+			calc := create(ctx, "return "+base.Name+" * 2")
+			Expect(inputs(ctx, calc, base)).To(ConsistOf(base.Key()))
+		})
 		It("Should return the inputs of a calculation that is not stored", func(
 			ctx SpecContext,
 		) {
@@ -215,11 +222,22 @@ var _ = Describe("Service", func() {
 			) []channel.Channel {
 				return []channel.Channel{create(ctx, "")}
 			}),
-			Entry("for an input among the given channels", func(
+			Entry("for a given channel that is not stored", func(
 				ctx SpecContext,
 			) []channel.Channel {
-				base := create(ctx, "")
-				return []channel.Channel{create(ctx, "return "+base.Name+" * 2"), base}
+				base := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return 1",
+				}
+				calc := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return " + base.Name + " * 2",
+				}
+				return []channel.Channel{base, calc}
 			}),
 			Entry("for a calculation that fails analysis", func(
 				ctx SpecContext,

@@ -218,9 +218,9 @@ func (s *Service) NewArcSymbolResolver(snap gorp.Snapshot) arc.SymbolResolver {
 	return &symbolResolver{svc: s, snap: snap}
 }
 
-// CalculationInputs returns the channels that the calculated channels among channels
-// read, directly or through other calculated channels, including the channels that
-// reset their operations. The channels need not be stored yet. A calculation whose
+// CalculationInputs returns the stored channels that the calculated channels among
+// channels read, directly or through other calculated channels, including the channels
+// that reset their operations. The channels need not be stored yet. A calculation whose
 // expression fails analysis adds nothing, since it cannot run. A failed read returns
 // its error. CalculationInputs reads through snap.
 func (s *Service) CalculationInputs(
@@ -255,9 +255,13 @@ func (s *Service) CalculationInputs(
 				}
 			}
 			for _, k := range reads {
+				// A channel among channels that is not stored yet has no local key.
+				if k.LocalKey() == 0 {
+					continue
+				}
+				inputs = append(inputs, k)
 				if !visited.Contains(k) {
 					visited.Add(k)
-					inputs = append(inputs, k)
 					next = append(next, k)
 				}
 			}
@@ -271,7 +275,7 @@ func (s *Service) CalculationInputs(
 			return nil, err
 		}
 	}
-	return inputs, nil
+	return inputs.Unique(), nil
 }
 
 // freeIndexResolver adapts the Service to the distribution framer writer's

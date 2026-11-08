@@ -84,21 +84,21 @@ var _ = Describe("Service", func() {
 			u              user.User
 			public, secret channel.Channel
 		)
-		calculate := func(input channel.Channel) apichannel.Channel {
+		calculate := func(input string) apichannel.Channel {
 			return apichannel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				Virtual:    true,
-				Expression: fmt.Sprintf("return %s * 2", input.Name),
+				Expression: fmt.Sprintf("return %s * 2", input),
 			}
 		}
 		create := func(
 			ctx SpecContext,
-			ch apichannel.Channel,
+			channels ...apichannel.Channel,
 		) (apichannel.CreateResponse, error) {
 			return fgorp.CreateWriteUnaryHandler(db, apiSvc.Create)(
 				AuthedCtx(ctx, u),
-				apichannel.CreateRequest{Channels: []apichannel.Channel{ch}},
+				apichannel.CreateRequest{Channels: channels},
 			)
 		}
 		BeforeEach(func(ctx SpecContext) {
@@ -127,14 +127,22 @@ var _ = Describe("Service", func() {
 		It(
 			"Should refuse a calculation that reads a channel the subject cannot read",
 			func(ctx SpecContext) {
-				Expect(create(ctx, calculate(secret))).
+				Expect(create(ctx, calculate(secret.Name))).
+					Error().To(MatchError(access.ErrDenied))
+			},
+		)
+		It(
+			"Should refuse a calculation reading an unreadable channel listed with it",
+			func(ctx SpecContext) {
+				listed := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
+				Expect(create(ctx, listed, calculate(listed.Name))).
 					Error().To(MatchError(access.ErrDenied))
 			},
 		)
 		It(
 			"Should refuse an edit that makes a calculation read an unreadable channel",
 			func(ctx SpecContext) {
-				calc := MustSucceed(create(ctx, calculate(public))).Channels[0]
+				calc := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
 				calc.Expression = fmt.Sprintf("return %s * 2", secret.Name)
 				Expect(create(ctx, calc)).Error().To(MatchError(access.ErrDenied))
 				Expect(retrieveChannel(ctx, calc.Key).Expression).
