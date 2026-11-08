@@ -519,9 +519,9 @@ func unsupportedDescription(cmdType string) string {
 	return fmt.Sprintf("The task does not accept the '%s' command.", cmdType)
 }
 
-// deleteTasks stops the instance of each task whose latest change is a delete. Sets
-// need nothing: configs deploy on start, and a rack move leaves the old instance
-// running until the task deploys again.
+// deleteTasks stops the instance of each task whose latest change is a delete. A create
+// or an update needs nothing: configs deploy on start, and a rack move leaves the old
+// instance running until the task deploys again.
 func (d *Driver) deleteTasks(_ context.Context, latest map[task.Key]gorp.ChangeKind) {
 	for key, kind := range latest {
 		if kind == gorp.ChangeDelete {
