@@ -91,8 +91,9 @@ linters:
       teardown:
         type: "module"
         description: >
-          Forbids Close calls in AfterEach, JustAfterEach, AfterAll, and AfterSuite.
-          MustOpen or DeferClose registers the cleanup next to the open.
+          Forbids Close calls in AfterEach, JustAfterEach, AfterAll, AfterSuite, and
+          SynchronizedAfterSuite. MustOpen or DeferClose registers the cleanup next to
+          the open.
 formatters:
   enable:
     - gci
