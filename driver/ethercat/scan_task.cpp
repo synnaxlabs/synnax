@@ -249,7 +249,16 @@ synnax::device::Device Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (!pdo_discovery_failed(slave)) {
+    else if (
+        pdo_discovery_failed(slave) && props.input_pdos.empty() &&
+        props.output_pdos.empty()
+    ) {
+        status.message = "Failed to discover PDOs";
+        status.description = pdo_error_description(
+            sts.pdo_discovery_error.empty() ? "no PDOs found" : sts.pdo_discovery_error
+        );
+        status.variant = synnax::status::VARIANT_WARNING;
+    } else {
         const auto objects = [](const std::vector<pdo::Properties> &pdos) {
             return std::to_string(std::ranges::count_if(pdos, [](const auto &p) {
                 return !p.is_padding();
@@ -258,12 +267,11 @@ synnax::device::Device Scanner::create_slave_device(
         status.message = "Discovered (" + objects(props.input_pdos) + " inputs, " +
                          objects(props.output_pdos) + " outputs)";
         status.variant = synnax::status::VARIANT_SUCCESS;
-    } else {
-        status.message = "Failed to discover PDOs";
-        status.description = pdo_error_description(
-            sts.pdo_discovery_error.empty() ? "no PDOs found" : sts.pdo_discovery_error
-        );
-        status.variant = synnax::status::VARIANT_WARNING;
+        // A fallback, such as the SII after a failed CoE read, gives PDOs and an error.
+        if (!sts.pdo_discovery_error.empty()) {
+            status.description = pdo_error_description(sts.pdo_discovery_error);
+            status.variant = synnax::status::VARIANT_WARNING;
+        }
     }
     dev.status = std::move(status);
     return dev;

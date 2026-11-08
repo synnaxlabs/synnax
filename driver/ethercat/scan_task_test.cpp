@@ -355,6 +355,23 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
     );
 }
 
+/// @brief it should show the PDOs of a fallback discovery with its error as a warning.
+TEST_F(EtherCATScanStatusTest, FallbackPDODiscoveryShowsItsPDOsAsAWarning) {
+    this->master->fall_back_pdo_discovery(
+        0,
+        "failed to read the PDO layout: no answer, so the Driver uses the PDOs in its "
+        "SII"
+    );
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
+    EXPECT_EQ(
+        status.description,
+        "Failed to read the PDO layout: no answer, so the Driver uses the PDOs in its "
+        "SII. PDO order may be unreliable. Verify data correctness after configuration."
+    );
+}
+
 /// @brief it should discover the slaves again every sixth scan while a slave has a
 /// failed PDO discovery.
 TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryRediscoversEverySixthScan) {
