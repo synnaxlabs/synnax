@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -32,9 +33,11 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -205,6 +208,10 @@ func OpenService(
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
+	for _, t := range cfg.Configs.Types() {
+		store, _ := cfg.Configs.Store(t)
+		ok(nil, xio.NoFailCloserFunc(store.ObserveDetaches().OnChange(s.syncConfig)))
+	}
 	if cfg.Signals != nil {
 		pubCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		pubCfg.MarshalSet = func(t Task) ([]byte, error) {
@@ -278,6 +285,22 @@ func (s *Service) Dispatch(
 	return added, nil
 }
 
+// syncConfig stores the hash of a config that a delete detached and broadcasts the
+// config, so open clients and the Driver see the change.
+func (s *Service) syncConfig(ctx context.Context, key Key) {
+	err := s.state.Dispatch(ctx, key, "", nil, func(tx gorp.Tx) ([]Action, error) {
+		return s.NewWriter(tx).syncConfig(ctx, key)
+	})
+	// The delete that detached the config can delete its task too.
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		s.cfg.L.Error(
+			"failed to sync a detached task config",
+			zap.Stringer("task", key),
+			zap.Error(err),
+		)
+	}
+}
+
 func (s *Service) CommandChannelKey() channel.Key {
 	return s.commandChannelKey
 }
@@ -289,6 +312,17 @@ func (s *Service) ActionChannelKey() channel.Key {
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
+
+// ConfigTask returns the ID of the task whose config record target names, and false
+// when target names no config record.
+func (s *Service) ConfigTask(target gorp.Target) (resource.ID, bool) {
+	for _, typ := range s.cfg.Configs.Types() {
+		if config.TableName(typ) == target.Table {
+			return resource.ID{Type: resource.TypeTask, Key: target.Key}, true
+		}
+	}
+	return resource.ID{}, false
+}
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)

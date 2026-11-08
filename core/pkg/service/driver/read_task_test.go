@@ -284,6 +284,19 @@ var _ = Describe("ReadTask", func() {
 					Entry(&t).
 					Exec(ctx, local.DB)).To(Succeed())
 				Expect(w.Create(ctx, &peerIdx)).To(Succeed())
+				// Channels leased by the peer reach the local Core by gossip, and the
+				// local Core checks that the index of a data channel exists.
+				gossiped := func(keys ...channel.Key) {
+					Eventually(func(g Gomega) {
+						var res []channel.Channel
+						g.Expect(svc.Channel.NewRetrieve().
+							Where(channel.MatchKeys(keys...)).
+							Entries(&res).
+							Exec(ctx, nil)).To(Succeed())
+						g.Expect(res).To(HaveLen(len(keys)))
+					}).Should(Succeed())
+				}
+				gossiped(peerIdx.Key())
 				peerData := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Float32T,
@@ -292,15 +305,7 @@ var _ = Describe("ReadTask", func() {
 				}
 				Expect(w.Create(ctx, &peerData)).To(Succeed())
 				keys := channel.Keys{peerIdx.Key(), peerData.Key()}
-				// Channels leased by the peer reach the local Core by gossip.
-				Eventually(func(g Gomega) {
-					var res []channel.Channel
-					g.Expect(svc.Channel.NewRetrieve().
-						Where(channel.MatchKeys(keys...)).
-						Entries(&res).
-						Exec(ctx, nil)).To(Succeed())
-					g.Expect(res).To(HaveLen(len(keys)))
-				}).Should(Succeed())
+				gossiped(keys...)
 				rt := MustSucceed(driver.NewReadTask(driver.ReadTaskConfig{
 					Source:   src,
 					DB:       local.DB,

@@ -372,6 +372,62 @@ describe("Channel", () => {
         async () => await client.channels.retrieve(channel.key),
       ).rejects.toThrow(NotFoundError);
     });
+    test("refuse a channel that a task config names", async () => {
+      const channel = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        virtual: true,
+        dataType: DataType.FLOAT32,
+      });
+      const rack = await client.racks.create({ name: "test" });
+      const device = await client.devices.create({
+        key: id.create(),
+        rack: rack.key,
+        location: "127.0.0.1:502",
+        name: "plc",
+        make: "modbus",
+        model: "modbus",
+        properties: {},
+      });
+      const task = await rack.createTask({
+        name: "read",
+        type: "modbus_read",
+        config: {
+          device: device.key,
+          channels: [{ type: "coil", key: "coil", channel: channel.key }],
+        },
+      });
+      await expect(client.channels.delete(channel.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete channel ${channel.name} because task ${task.name} uses it: ` +
+            "validation error",
+        ),
+      );
+      await client.tasks.delete(task.key);
+      await client.channels.delete(channel.key);
+    });
+    test("refuse an index that a data channel uses", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        index: index.key,
+        dataType: DataType.FLOAT32,
+      });
+      await expect(client.channels.delete(index.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete channel ${index.name} because channel ${data.name} uses ` +
+            "it as its index: validation error",
+        ),
+      );
+      await client.channels.delete(data.key);
+      await client.channels.delete(index.key);
+    });
   });
   describe("rename", async () => {
     test("single rename", async () => {

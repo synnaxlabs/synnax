@@ -38,10 +38,9 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name       *gorp.LookupIndex[Key, Channel, Name]
-	localIndex *gorp.LookupIndex[Key, Channel, LocalKey]
-	group      *gorp.KeyReference[Key, Channel, group.Key]
-	search     *gorp.SearchIndex[Key, Channel]
+	name   *gorp.LookupIndex[Key, Channel, Name]
+	group  *gorp.KeyReference[Key, Channel, group.Key]
+	search *gorp.SearchIndex[Key, Channel]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -52,10 +51,6 @@ func newIndexes() indexes {
 		name: gorp.NewLookupIndex[Key, Channel, Name](
 			"name",
 			func(e *Channel) Name { return e.Name },
-		),
-		localIndex: gorp.NewLookupIndex[Key, Channel, LocalKey](
-			"local_index",
-			func(e *Channel) LocalKey { return e.LocalIndex },
 		),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Channel, group.Key]{
 			Name:     "group",
@@ -83,7 +78,6 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Channel] {
 	return []gorp.Index[Key, Channel]{
 		i.name,
-		i.localIndex,
 		i.search,
 	}
 }

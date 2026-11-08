@@ -31,8 +31,10 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
     afterOptimistic: ({ data: { key } }) => {
       maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Log.create({ key }));
-      openTab({ variant: "resource", resource: log.resourceID(key), key: tabKey });
     },
+    // A refused create must not leave a tab for a log that does not exist.
+    afterSuccess: ({ data: { key } }) =>
+      openTab({ variant: "resource", resource: log.resourceID(key), key: tabKey }),
   });
   return (params = {}) =>
     update({ name: "Log", ...params, project: project ?? getActiveProject() });

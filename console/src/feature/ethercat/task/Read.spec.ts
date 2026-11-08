@@ -1119,7 +1119,17 @@ describe("Read", () => {
         key: slave.key,
         schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
-      return { slave: updated, channel: deployed.config.channels[0].channel };
+      return {
+        slave: updated,
+        channel: deployed.config.channels[0].channel,
+        task: deployed.key,
+      };
+    };
+
+    // The Core refuses to delete a slave that a task uses.
+    const deleteSlave = async (slave: string, task: string) => {
+      await client.tasks.delete(task);
+      await client.devices.delete(slave);
     };
 
     const renderSlave = async (
@@ -1146,7 +1156,7 @@ describe("Read", () => {
     it("should reuse the index and data channels of the deleted slave", async () => {
       const identifier = createIdentifier();
       const first = await deploySlave(identifier);
-      await client.devices.delete(first.slave.key);
+      await deleteSlave(first.slave.key, first.task);
       const second = await deploySlave(identifier);
       expect(second.channel).toBe(first.channel);
       expect(second.slave.properties.readIndex).toBe(first.slave.properties.readIndex);
@@ -1174,14 +1184,14 @@ describe("Read", () => {
         return { slave, ...rendered };
       };
       const first = await render([STATUS_ENTRY]);
-      await deployAndAwaitTask(
+      const deployed = await deployAndAwaitTask(
         client,
         first.container,
         first.draft.key,
         EtherCAT.Task.READ_SCHEMAS,
       );
       first.unmount();
-      await client.devices.delete(first.slave.key);
+      await deleteSlave(first.slave.key, deployed.key);
       const { container, statuses } = await render([STATUS_ENTRY, second]);
       await clickDeploy(container);
       await awaitStatus(
@@ -1230,7 +1240,7 @@ describe("Read", () => {
     it("should reject a data type that differs from the deleted slave's channel", async () => {
       const identifier = createIdentifier();
       const first = await deploySlave(identifier, "uint16");
-      await client.devices.delete(first.slave.key);
+      await deleteSlave(first.slave.key, first.task);
       const { container, statuses } = await renderSlave(identifier, "int16");
       await clickDeploy(container);
       await awaitStatus(statuses, /holds uint16 data, not int16/);
@@ -1289,30 +1299,6 @@ describe("Read", () => {
     await clickDeploy(container);
     await awaitStatus(statuses, /Failed to/);
     await awaitStatus(statuses, /is not configured/);
-  });
-
-  it("should surface an error when a slave no longer exists", async () => {
-    const createSlave = async () =>
-      await createSlaveDevice(client, testRack.key, {
-        identifier: createIdentifier(),
-        network: "eth0",
-        pdos: createPDOs(),
-      });
-    const slave = await createSlave();
-    const deleted = await createSlave();
-    await client.devices.delete(deleted.key);
-    const { container, statuses } = await renderRead({
-      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [
-        EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
-        EtherCAT.Task.createEntryReadChannel(deleted.key, STATUS_ENTRY),
-      ],
-    });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      new RegExp(`^Found no device with key ${deleted.key}$`),
-    );
   });
 
   it("should create the task with one channel", async () => {

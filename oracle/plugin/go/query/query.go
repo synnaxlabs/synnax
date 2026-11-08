@@ -68,6 +68,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	type entry struct {
 		path    string
 		structs []resolution.Type
+		// roots are the @retrieve references types, which several can share.
+		roots []resolution.Type
 	}
 	entries := make(map[string]*entry)
 	searched := make(set.Set[fieldDecl])
@@ -91,12 +93,28 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if outputPath == "" {
 			continue
 		}
-		addDeclared(typ, req.Resolutions, "search", searched)
-		addDeclared(typ, req.Resolutions, "ref", referenced)
 		e, ok := entries[outputPath]
 		if !ok {
 			e = &entry{path: outputPath}
 			entries[outputPath] = e
+		}
+		if plugindomain.HasExprFromType(typ, "retrieve", "references") {
+			w := newRefWalker(req.Resolutions)
+			if _, err := w.walk(typ); err != nil {
+				return nil, err
+			}
+			referenced.Add(w.declared.Slice()...)
+			e.roots = append(e.roots, typ)
+			continue
+		}
+		addDeclared(typ, req.Resolutions, "search", searched)
+		addDeclared(typ, req.Resolutions, "ref", referenced)
+		if _, ok := typ.Form.(resolution.StructForm); ok {
+			w := newRefWalker(req.Resolutions)
+			if _, err := w.walk(typ); err != nil {
+				return nil, err
+			}
+			referenced.Add(w.declared.Slice()...)
 		}
 		e.structs = append(e.structs, typ)
 	}
@@ -142,6 +160,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		content, err := generateRetrieveFile(
 			e.path,
 			e.structs,
+			e.roots,
 			req.Resolutions,
 			rt,
 			req.RepoRoot,
@@ -225,7 +244,9 @@ type retrieveInfo struct {
 	Filters  []filterInfo
 	Indexes  []indexInfo
 	Refs     []refInfo
-	Search   []searchInfo
+	// NestedRefs are the references the type holds below its top-level fields.
+	NestedRefs []nestedRef
+	Search     []searchInfo
 }
 
 // HasSearch reports whether the retrieve declared any @search fields.
@@ -234,8 +255,12 @@ func (r retrieveInfo) HasSearch() bool { return len(r.Search) > 0 }
 // HasIndexes reports whether the retrieve declared any @index, @ref, or @search fields.
 // Used by the template to gate the indexes struct.
 func (r retrieveInfo) HasIndexes() bool {
-	return len(r.Indexes) > 0 || len(r.Refs) > 0 || r.HasSearch()
+	return len(r.Indexes) > 0 || len(r.Refs) > 0 || len(r.NestedRefs) > 0 ||
+		r.HasSearch()
 }
+
+// HasRefs reports whether the type holds any reference.
+func (r retrieveInfo) HasRefs() bool { return len(r.Refs) > 0 || len(r.NestedRefs) > 0 }
 
 // IDGoType returns the Go type of a resource ID, as the first @ref field that holds
 // resource IDs resolves it.
@@ -259,7 +284,7 @@ func (r retrieveInfo) needsSlices() bool {
 		return f.Ref == nil && (f.IsSlice || (!f.IsScalar && f.IndexFieldName == ""))
 	}) || lo.SomeBy(r.Refs, func(ref refInfo) bool {
 		return ref.IsSlice && ref.OnDelete == "Detach"
-	})
+	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
 }
 
 // HasSortedIndex reports whether the retrieve declared any @index sorted fields. Used
@@ -277,6 +302,7 @@ func (r retrieveInfo) HasSortedIndex() bool {
 func generateRetrieveFile(
 	outputPath string,
 	structs []resolution.Type,
+	roots []resolution.Type,
 	table *resolution.Table,
 	rt resourceTypes,
 	repoRoot string,
@@ -284,7 +310,7 @@ func generateRetrieveFile(
 	pkg := naming.DerivePackageName(outputPath)
 	imps := imports.NewManager()
 
-	namespace := structs[0].Namespace
+	namespace := slices.Concat(structs, roots)[0].Namespace
 
 	ctx := &resolver.Context{
 		Table:                         table,
@@ -316,7 +342,16 @@ func generateRetrieveFile(
 		}
 	}
 
-	if len(infos) == 0 {
+	var refRoots []referencesInfo
+	for _, typ := range roots {
+		info, err := extractReferencesInfo(typ, table, rt, r, ctx)
+		if err != nil {
+			return nil, err
+		}
+		refRoots = append(refRoots, info)
+	}
+
+	if len(infos) == 0 && len(refRoots) == 0 {
 		return nil, nil
 	}
 
@@ -328,14 +363,16 @@ func generateRetrieveFile(
 		gomod.ResolveImportPath("gorp", repoRoot, gomod.DefaultModulePrefix),
 	)
 
-	if lo.SomeBy(infos, retrieveInfo.needsSlices) {
+	if lo.SomeBy(infos, retrieveInfo.needsSlices) ||
+		lo.SomeBy(refRoots, referencesInfo.needsSlices) {
 		imps.AddExternal("slices")
 	}
 
 	data := &templateData{
-		Package:   pkg,
-		Retrieves: infos,
-		Manager:   imps,
+		Package:    pkg,
+		Retrieves:  infos,
+		References: refRoots,
+		Manager:    imps,
 	}
 
 	var buf bytes.Buffer
@@ -481,7 +518,7 @@ func extractRetrieveInfo(
 					field.Name,
 				)
 			}
-			info, err := extractRef(typ, field, ownTable, rt, table, r, ctx)
+			info, err := extractRef(typ, field, ownTable, false, rt, table, r, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -566,6 +603,22 @@ func extractRetrieveInfo(
 		}
 	}
 
+	var nested []nestedRef
+	if _, ok := typ.Form.(resolution.StructForm); ok {
+		walked, err := newRefWalker(table).walk(typ)
+		if err != nil {
+			return nil, err
+		}
+		walked = lo.Filter(walked, func(ref *walkedRef, _ int) bool {
+			return strings.Contains(ref.path, ".")
+		})
+		if nested, err = renderNestedRefs(
+			typ, walked, ownTable, keyType, name+anyArgs, rt, table, r, ctx,
+		); err != nil {
+			return nil, err
+		}
+	}
+
 	info := &retrieveInfo{
 		TableName:   ownTable,
 		Name:        name,
@@ -578,6 +631,7 @@ func extractRetrieveInfo(
 		Filters:     filters,
 		Indexes:     indexes,
 		Refs:        refs,
+		NestedRefs:  nested,
 		Search:      search,
 	}
 	if indexesOnly && !info.HasIndexes() {
@@ -649,8 +703,9 @@ func addDeclared(
 
 type templateData struct {
 	*imports.Manager
-	Package   string
-	Retrieves []retrieveInfo
+	Package    string
+	Retrieves  []retrieveInfo
+	References []referencesInfo
 }
 
 var templateFuncs = template.FuncMap{
@@ -710,6 +765,9 @@ type indexes struct {
 	{{$idx.StructField}} *gorp.{{if $idx.IsSorted}}SortedIndex{{else}}LookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}]
 {{- end}}
 {{- range $ref := $ret.Refs}}
+	{{$ref.StructField}} *{{$ref.GorpType $ret.KeyType $ret.GoName}}
+{{- end}}
+{{- range $ref := $ret.NestedRefs}}
 	{{$ref.StructField}} *{{$ref.GorpType $ret.KeyType $ret.GoName}}
 {{- end}}
 {{- if $ret.HasSearch}}
@@ -777,6 +835,9 @@ func newIndexes() indexes {
 {{- end}}
 		}),
 {{- end}}
+{{- range $ref := $ret.NestedRefs}}
+		{{$ref.StructField}}: {{template "nestedReference" $ref}},
+{{- end}}
 {{- if $ret.HasSearch}}
 		search: gorp.NewSearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}](
 			"search",
@@ -802,13 +863,16 @@ func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- end}}
 	}
 }
-{{- if $ret.Refs}}
+{{- if $ret.HasRefs}}
 
 // references returns the references packaged for registration via
 // gorp.TableConfig.References when opening the underlying table.
 func (i indexes) references() []gorp.Reference[{{$ret.KeyType}}, {{$ret.GoName}}] {
 	return []gorp.Reference[{{$ret.KeyType}}, {{$ret.GoName}}]{
 {{- range $ref := $ret.Refs}}
+		i.{{$ref.StructField}},
+{{- end}}
+{{- range $ref := $ret.NestedRefs}}
 		i.{{$ref.StructField}},
 {{- end}}
 	}
@@ -1078,5 +1142,34 @@ func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 {{- end}}
-{{end}}`),
+{{end}}
+{{- range $root := .References}}
+// {{$root.FuncName}} returns the references of {{$root.GoName}}.
+func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] {
+	return []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}]{
+{{- range $ref := $root.Refs}}
+		{{template "nestedReference" $ref}},
+{{- end}}
+	}
+}
+{{end}}
+{{- define "nestedReference"}}{{.Constructor .KeyType .EntryType}}{
+			Name:     "{{.FieldName}}",
+			{{.TablesField}}
+			OnDelete: gorp.{{.OnDelete}},
+{{- if .Unique}}
+			Unique:   true,
+{{- end}}
+{{- if .Acyclic}}
+			Acyclic:  true,
+{{- end}}
+			Targets: func(e *{{.EntryType}}) []{{.TargetType}} {
+				{{.TargetsBody}}
+			},
+{{- if .DetachBody}}
+			Detach: func(e *{{.EntryType}}, t {{.TargetType}}) {
+				{{.DetachBody -}}
+			},
+{{- end}}
+		}){{end}}`),
 )

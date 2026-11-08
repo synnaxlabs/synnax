@@ -24,11 +24,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for opening a line plot service.
@@ -105,15 +108,24 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, LinePlot]{
-		DB:              cfg.DB,
-		Name:            tableName,
-		Indexes:         s.indexes.all(),
-		References:      s.indexes.references(),
-		Migrations:      migrations,
+		DB:      cfg.DB,
+		Name:    tableName,
+		Indexes: s.indexes.all(),
+		References: append(
+			s.indexes.references(),
+			channelsReference(),
+		),
+		Migrations:      newMigrations(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
+	// A delete that detaches a target rewrites the line plot outside the writer. The
+	// service publishes the stored line plot as a create, in order with the dispatches
+	// on it.
+	ok(nil, io.NoFailCloserFunc(s.table.ObserveDetaches().OnChange(
+		func(ctx context.Context, p LinePlot) { s.publishDetached(ctx, p.Key) },
+	)))
 	cfg.Ontology.RegisterService(s)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
@@ -141,6 +153,27 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the line plot service and releases any resources that it may
 // have acquired.
 func (s *Service) Close() error { return s.closer.Close() }
+
+func (s *Service) publishDetached(ctx context.Context, key Key) {
+	err := s.state.Dispatch(ctx, key, "", nil, func(tx gorp.Tx) ([]Action, error) {
+		var p LinePlot
+		if err := s.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, LinePlot](key)).
+			Entry(&p).
+			Exec(ctx, tx); err != nil {
+			return nil, err
+		}
+		return []Action{NewCreateAction(CreatePayload{LinePlot: p})}, nil
+	})
+	// A later delete can remove the line plot before the broadcast.
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		s.cfg.L.Error(
+			"failed to publish a detached line plot",
+			zap.Stringer("line_plot", key),
+			zap.Error(err),
+		)
+	}
+}
 
 // OnAction subscribes the given handler to the action stream emitted by Dispatch. The
 // handler runs synchronously inside Dispatch after the underlying transaction commits.

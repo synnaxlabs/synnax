@@ -128,7 +128,7 @@ func (e *benchEnv) owners(b *testing.B, key channel.Key) []channel.Channel {
 	var owners []channel.Channel
 	if err := e.svc.NewRetrieve().
 		Where(channel.MatchCalculated()).
-		Where(channel.MatchIndexes(key)).
+		Where(e.svc.MatchIndexes(key)).
 		Entries(&owners).
 		Exec(b.Context(), nil); err != nil {
 		b.Fatalf("failed to resolve owner: %v", err)

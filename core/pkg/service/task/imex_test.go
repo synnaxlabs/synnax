@@ -43,10 +43,11 @@ import (
 // stack is a task service over an in-memory database, holding the PagerDuty config
 // store and its own ImEx registry, plus a rack to create tasks on.
 type stack struct {
-	db   *gorp.DB
-	task *task.Service
-	imex *imex.Service
-	rack *rack.Rack
+	db     *gorp.DB
+	task   *task.Service
+	imex   *imex.Service
+	status *status.Service
+	rack   *rack.Rack
 }
 
 // openStack opens a stack whose task service excludes excluded from import and export.
@@ -92,19 +93,20 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	}))
 	r := &rack.Rack{Name: rackName}
 	Expect(rackSvc.NewWriter(nil).Create(ctx, r)).To(Succeed())
-	return stack{db: db, task: taskSvc, imex: imexSvc, rack: r}
+	return stack{db: db, task: taskSvc, imex: imexSvc, status: statusSvc, rack: r}
 }
 
 var _ = Describe("ImEx", Ordered, func() {
 	var (
-		svc      *task.Service
-		testRack *rack.Rack
-		imexSvc  *imex.Service
+		svc       *task.Service
+		testRack  *rack.Rack
+		imexSvc   *imex.Service
+		statusSvc *status.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		s := openStack(ctx, "Test Rack")
-		svc, imexSvc, testRack = s.task, s.imex, s.rack
+		svc, imexSvc, statusSvc, testRack = s.task, s.imex, s.status, s.rack
 	})
 
 	Describe("Export", func() {
@@ -176,7 +178,6 @@ var _ = Describe("ImEx", Ordered, func() {
 						"auto_start":  true,
 						"alerts": []any{map[string]any{
 							"key":      "a1",
-							"status":   "critical",
 							"disabled": true,
 						}},
 					},
@@ -224,6 +225,12 @@ var _ = Describe("ImEx", Ordered, func() {
 		It(
 			"Should import a file stamped at the current version without rewriting",
 			func(ctx SpecContext) {
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+					Key:     "stamped_status_channel",
+					Name:    "Stamped",
+					Variant: status.VariantInfo,
+					Time:    telem.Now(),
+				})).To(Succeed())
 				raw := MustSucceed(os.ReadFile(
 					filepath.Join("testdata", "import_typed_stamped.json"),
 				))
@@ -239,6 +246,23 @@ var _ = Describe("ImEx", Ordered, func() {
 				for k, v := range body {
 					Expect(config[k]).To(BeComparableTo(v), "field %q changed", k)
 				}
+			},
+		)
+
+		It(
+			"Should drop a status that does not exist from an imported config",
+			func(ctx SpecContext) {
+				imported := reimport(ctx, []byte(`{
+					"version": 1,
+					"type": "pagerduty_alert",
+					"name": "Foreign Task",
+					"routing_key": "rk-foreign",
+					"alerts": [{"key": "a1", "status": "foreign", "component": "c"}]
+				}`))
+				Expect(imported.Config["alerts"]).To(HaveExactElements(SatisfyAll(
+					HaveKeyWithValue("status", ""),
+					HaveKeyWithValue("component", "c"),
+				)))
 			},
 		)
 

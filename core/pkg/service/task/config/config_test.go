@@ -410,22 +410,27 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should reject a version above the ladder's latest", func(ctx SpecContext) {
-			Expect(versioned.Normalize(
-				ctx, arcversions.Latest+1, msgpack.EncodedJSON{},
-			)).Error().To(MatchError(ContainSubstring(fmt.Sprintf(
-				"version: versioned_test version %d is newer than this Core supports "+
-					"(latest: %d): validation error",
-				arcversions.Latest+1,
-				arcversions.Latest,
-			))))
+			Expect(
+				versioned.Normalize(
+					ctx,
+					nil,
+					arcversions.Latest+1,
+					msgpack.EncodedJSON{},
+				),
+			).Error().
+				To(MatchError(ContainSubstring(fmt.Sprintf(
+					"version: versioned_test version %d is newer than this Core supports "+
+						"(latest: %d): validation error",
+					arcversions.Latest+1,
+					arcversions.Latest,
+				))))
 		})
 
 		It("Should decode current-version data into the current shape", func(
 			ctx SpecContext,
 		) {
 			arcKey := uuid.New()
-			out := MustSucceed(versioned.Normalize(
-				ctx,
+			out := MustSucceed(versioned.Normalize(ctx, nil,
 				arcversions.Latest,
 				msgpack.EncodedJSON{"arc_key": arcKey.String(), "unknown": 1},
 			))
@@ -438,7 +443,7 @@ var _ = Describe("Service", func() {
 				"ladder's first version",
 			func(ctx SpecContext) {
 				arcKey := uuid.New()
-				out := MustSucceed(versioned.Normalize(ctx, 0, msgpack.EncodedJSON{
+				out := MustSucceed(versioned.Normalize(ctx, nil, 0, msgpack.EncodedJSON{
 					"module":     arcKey.String(),
 					"dataSaving": true,
 				}))
@@ -461,7 +466,7 @@ var _ = Describe("Service", func() {
 				},
 			))
 			arcKey := uuid.New()
-			out := MustSucceed(eraOnly.Normalize(ctx, 0, msgpack.EncodedJSON{
+			out := MustSucceed(eraOnly.Normalize(ctx, nil, 0, msgpack.EncodedJSON{
 				"arcKey":     arcKey.String(),
 				"dataSaving": false,
 			}))
@@ -472,8 +477,7 @@ var _ = Describe("Service", func() {
 		It("Should apply the store's defaults to the normalized config", func(
 			ctx SpecContext,
 		) {
-			out := MustSucceed(svc.Normalize(
-				ctx,
+			out := MustSucceed(svc.Normalize(ctx, nil,
 				arcversions.Latest,
 				msgpack.EncodedJSON{"arc_key": uuid.New().String()},
 			))
@@ -484,8 +488,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			arcKey := uuid.New()
-			out := MustSucceed(versioned.Normalize(
-				ctx,
+			out := MustSucceed(versioned.Normalize(ctx, nil,
 				arcversions.ConfigLadder.First-1,
 				msgpack.EncodedJSON{"module": arcKey.String()},
 			))
@@ -495,12 +498,18 @@ var _ = Describe("Service", func() {
 		It("Should reject data that does not decode at its version", func(
 			ctx SpecContext,
 		) {
-			Expect(versioned.Normalize(
-				ctx, arcversions.Latest, msgpack.EncodedJSON{"arc_key": 12},
-			)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("decoding versioned_test config")),
-			))
+			Expect(
+				versioned.Normalize(
+					ctx,
+					nil,
+					arcversions.Latest,
+					msgpack.EncodedJSON{"arc_key": 12},
+				),
+			).Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("decoding versioned_test config")),
+				))
 		})
 	})
 
@@ -551,5 +560,149 @@ var _ = Describe("Registry", func() {
 		It("Should report true for a never-constructed registry", func() {
 			Expect(config.Registry{}.IsZero()).To(BeTrue())
 		})
+	})
+})
+
+// target is a record that the detach reference of the "With a detach reference" specs
+// points at.
+type target struct{ Key uuid.UUID }
+
+func (t target) GorpKey() uuid.UUID { return t.Key }
+
+func (target) SetOptions() []any { return nil }
+
+const targetTable = "config_target"
+
+var _ = Describe("TableName", func() {
+	It("Should name the table after the task type", func() {
+		Expect(config.TableName("modbus_read")).To(Equal("modbus_read_config"))
+	})
+})
+
+var _ = Describe("With a detach reference", func() {
+	var (
+		ldb     *gorp.DB
+		targets *gorp.Table[uuid.UUID, target]
+	)
+	reference := func() gorp.Reference[uuid.UUID, arctask.Config] {
+		return gorp.NewKeyReference(
+			gorp.KeyReferenceConfig[uuid.UUID, arctask.Config, uuid.UUID]{
+				Name:     "arc_key",
+				Table:    targetTable,
+				OnDelete: gorp.Detach,
+				Targets: func(c *arctask.Config) []uuid.UUID {
+					if c.ArcKey == uuid.Nil() {
+						return nil
+					}
+					return []uuid.UUID{c.ArcKey}
+				},
+				Detach: func(c *arctask.Config, _ uuid.UUID) { c.ArcKey = uuid.Nil() },
+			},
+		)
+	}
+	openService := func(ctx SpecContext) *config.Service[arctask.Config] {
+		GinkgoHelper()
+		return MustOpen(config.OpenService(
+			ctx,
+			config.ServiceConfig[arctask.Config]{
+				DB:                 ldb,
+				Type:               testType,
+				Ladder:             arcversions.ConfigLadder,
+				SetEntryKey:        (*arctask.Config).SetKey,
+				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
+				References: []gorp.Reference[uuid.UUID, arctask.Config]{
+					reference(),
+				},
+			},
+		))
+	}
+	createTarget := func(ctx SpecContext) target {
+		GinkgoHelper()
+		t := target{Key: uuid.New()}
+		Expect(targets.NewCreate().Entry(&t).Exec(ctx, ldb)).To(Succeed())
+		return t
+	}
+	BeforeEach(func(ctx SpecContext) {
+		ldb = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		targets = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, target]{
+			DB:   ldb,
+			Name: targetTable,
+		}))
+	})
+
+	Describe("Normalize", func() {
+		normalize := func(ctx SpecContext, arcKey uuid.UUID) msgpack.EncodedJSON {
+			GinkgoHelper()
+			return MustSucceed(openService(ctx).Normalize(
+				ctx,
+				ldb,
+				arcversions.Latest,
+				msgpack.EncodedJSON{"arc_key": arcKey.String()},
+			))
+		}
+
+		It(
+			"Should zero a reference whose target does not exist",
+			func(ctx SpecContext) {
+				Expect(
+					normalize(ctx, uuid.New())["arc_key"],
+				).To(Equal(uuid.Nil().String()))
+			},
+		)
+
+		It("Should keep a reference whose target exists", func(ctx SpecContext) {
+			t := createTarget(ctx)
+			Expect(normalize(ctx, t.Key)["arc_key"]).To(Equal(t.Key.String()))
+		})
+	})
+
+	Describe("ObserveDetaches", func() {
+		It(
+			"Should notify the key of a record whose target a delete detached",
+			func(ctx SpecContext) {
+				svc := openService(ctx)
+				tasks := MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+					DB:     ldb,
+					Stores: []config.Store{svc},
+				}))
+				t := createTarget(ctx)
+				key := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
+					"arc_key": t.Key.String(),
+				}))
+				var detached []uuid.UUID
+				DeferCleanup(svc.ObserveDetaches().OnChange(
+					func(_ context.Context, k uuid.UUID) {
+						detached = append(detached, k)
+					},
+				))
+				Expect(targets.NewDelete().
+					Where(gorp.MatchKeys[uuid.UUID, target](t.Key)).
+					Exec(ctx, ldb)).To(Succeed())
+				Expect(detached).To(Equal([]uuid.UUID{key}))
+				Expect(MustSucceed(svc.Read(ctx, ldb, key))["arc_key"]).
+					To(Equal(uuid.Nil().String()))
+			},
+		)
+	})
+
+	Describe("OpenService", func() {
+		It(
+			"Should drop missing targets from stored records when it opens",
+			func(ctx SpecContext) {
+				raw := MustOpen(
+					gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, arctask.Config]{
+						DB:   ldb,
+						Name: config.TableName(testType),
+					}),
+				)
+				stored := arctask.Config{ArcKey: uuid.New()}
+				stored.SetKey(uuid.New())
+				Expect(raw.NewCreate().Entry(&stored).Exec(ctx, ldb)).To(Succeed())
+				Expect(raw.Close()).To(Succeed())
+				svc := openService(ctx)
+				Expect(MustSucceed(svc.Read(ctx, ldb, stored.GorpKey()))["arc_key"]).
+					To(Equal(uuid.Nil().String()))
+			},
+		)
 	})
 })

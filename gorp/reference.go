@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/samber/lo"
@@ -75,6 +76,8 @@ type Reference[K Key, E Entry[K]] interface {
 	// detachTarget removes target from e. It reports false when the reference has no
 	// Detach.
 	detachTarget(e *E, target Target) bool
+	// canDetach reports whether the reference has a Detach.
+	canDetach() bool
 	// check validates the targets that e holds against tx, for a write of e to t.
 	check(ctx context.Context, tx Tx, t *Table[K, E], e *E) error
 	registeredReference
@@ -127,6 +130,8 @@ func (s *referenceSpec) validate(table string, targets bool) error {
 	return v.Error()
 }
 
+func (s *referenceSpec) canDetach() bool { return s.detachable }
+
 // fieldErr returns a validation error on the reference's field.
 func (s *referenceSpec) fieldErr(format string, args ...any) error {
 	return validate.PathedError(
@@ -134,6 +139,32 @@ func (s *referenceSpec) fieldErr(format string, args ...any) error {
 		s.name,
 	)
 }
+
+// RestrictError is the validation error of a delete that a Restrict reference refuses.
+type RestrictError struct {
+	// Target is the entry the delete would remove.
+	Target Target
+	// Holder is the entry that holds Target and that the delete would keep.
+	Holder Target
+	// Reference is the name of the reference through which Holder holds Target.
+	Reference string
+}
+
+// Error implements error.
+func (e RestrictError) Error() string {
+	return fmt.Sprintf(
+		"cannot delete %s %s because %s %s references it through %s: %s",
+		e.Target.Table,
+		e.Target.Key,
+		e.Holder.Table,
+		e.Holder.Key,
+		e.Reference,
+		validate.ErrValidation,
+	)
+}
+
+// Unwrap returns validate.ErrValidation.
+func (RestrictError) Unwrap() error { return validate.ErrValidation }
 
 // KeyReferenceConfig configures a KeyReference.
 type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
@@ -153,7 +184,8 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	//
 	// [REQUIRED]
 	OnDelete OnDelete
-	// Detach removes the target with key target from e.
+	// Detach removes the target with key target from e. DropDangling calls it whatever
+	// OnDelete is.
 	//
 	// [REQUIRED] when OnDelete is Detach.
 	Detach func(e *E, target T)
@@ -217,7 +249,7 @@ type TargetReferenceConfig[K Key, E Entry[K]] struct {
 	//
 	// [REQUIRED]
 	OnDelete OnDelete
-	// Detach removes target from e.
+	// Detach removes target from e. DropDangling calls it whatever OnDelete is.
 	//
 	// [REQUIRED] when OnDelete is Detach.
 	Detach func(e *E, target Target)

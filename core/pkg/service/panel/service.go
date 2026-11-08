@@ -24,11 +24,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -91,6 +94,12 @@ func OpenService(
 	}); !ok(err, s.table) {
 		return nil, err
 	}
+	// A delete that detaches a target rewrites the panel outside the writer. The
+	// service publishes the stored panel as a create, in order with the dispatches on
+	// it.
+	ok(nil, xio.NoFailCloserFunc(s.table.ObserveDetaches().OnChange(
+		func(ctx context.Context, p Panel) { s.publishDetached(ctx, p.Key) },
+	)))
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
@@ -119,6 +128,27 @@ func (s *Service) Close() error { return s.closer.Close() }
 // data. Run them once every service table is open.
 func (s *Service) CompositionMigrations() []gorp.Migration {
 	return versions.CompositionMigrations(s.table)
+}
+
+func (s *Service) publishDetached(ctx context.Context, key Key) {
+	err := s.state.Dispatch(ctx, key, "", nil, func(tx gorp.Tx) ([]Action, error) {
+		var p Panel
+		if err := s.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Panel](key)).
+			Entry(&p).
+			Exec(ctx, tx); err != nil {
+			return nil, err
+		}
+		return []Action{NewCreateAction(CreatePayload{Panel: p})}, nil
+	})
+	// A later delete can remove the panel before the broadcast.
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		s.cfg.L.Error(
+			"failed to publish a detached panel",
+			zap.Stringer("panel", key),
+			zap.Error(err),
+		)
+	}
 }
 
 // OnAction subscribes the given handler to the action stream emitted by Dispatch. The

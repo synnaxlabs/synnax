@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
@@ -112,6 +113,7 @@ type Service struct {
 	closer  io.MultiCloser
 	table   *gorp.Table[Key, Channel]
 	indexes indexes
+	index   *gorp.KeyReference[Key, Channel, Key]
 	mu      struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of external (non-internal, non-virtual)
@@ -129,15 +131,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, db: cfg.DB, indexes: newIndexes()}
+	s = &Service{cfg: cfg, db: cfg.DB, indexes: newIndexes(), index: indexReference()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
-		DB:              cfg.DB,
-		Name:            tableName,
-		Migrations:      versions.Migrations,
+		DB:   cfg.DB,
+		Name: tableName,
+		Migrations: append(
+			slices.Clone(versions.Migrations),
+			gorp.DanglingMigration("v61_dangling_references"),
+		),
 		Indexes:         s.indexes.all(),
-		References:      s.indexes.references(),
+		References:      append(s.indexes.references(), s.index),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
