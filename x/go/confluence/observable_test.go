@@ -19,7 +19,6 @@ import (
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Observable", func() {
@@ -97,10 +96,7 @@ var _ = Describe("Observable", func() {
 		It(
 			"Should not deadlock when publisher shuts down with a full outlet buffer",
 			func() {
-				obsCtx, obsCancel := signal.Isolated()
-				defer obsCancel()
-				obs := observe.NewAsync[int](obsCtx, signal.WithRetryOnPanic(100))
-
+				obs := observe.New[int]()
 				outlet := NewStream[int](1)
 				pub := &ObservableTransformPublisher[int, int]{
 					Observable: obs,
@@ -117,8 +113,7 @@ var _ = Describe("Observable", func() {
 				Eventually(outlet.Outlet()).Should(Receive(Equal(1)))
 
 				obs.Notify(context.Background(), 2)
-				time.Sleep(50 * time.Millisecond)
-				obs.Notify(context.Background(), 3)
+				obs.GoNotify(context.Background(), 3)
 
 				pubCancel()
 				Eventually(
@@ -127,37 +122,6 @@ var _ = Describe("Observable", func() {
 				).Should(MatchError(context.Canceled))
 			},
 		)
-
-		It("Should not leak goroutines when used with an async observer", func() {
-			sCtx, cancel := signal.Isolated()
-			defer cancel()
-			obs := observe.NewAsync[int](sCtx, signal.WithRetryOnPanic(100))
-
-			outlet := NewStream[int](10)
-			pub := &ObservableTransformPublisher[int, int]{
-				Observable: obs,
-				Transform: func(_ context.Context, v int) (int, bool, error) {
-					return v, true, nil
-				},
-			}
-			pub.OutTo(outlet)
-
-			pubCtx, pubCancel := signal.Isolated()
-			// Mid-test baseline: assert pub.Flow's goroutines are cleaned up by
-			// pubCancel below, ignoring obs's goroutines under sCtx.
-			ShouldNotLeakGoroutines()
-			pub.Flow(pubCtx, CloseOutputInletsOnExit())
-
-			obs.Notify(context.Background(), 42)
-			Eventually(outlet.Outlet()).Should(Receive(Equal(42)))
-
-			pubCancel()
-			Expect(pubCtx.Wait()).To(MatchError(context.Canceled))
-			Eventually(outlet.Outlet()).Should(BeClosed())
-
-			Expect(sCtx.Wait()).To(Succeed())
-			cancel()
-		})
 	})
 
 	Describe("ObservableSubscriber", func() {

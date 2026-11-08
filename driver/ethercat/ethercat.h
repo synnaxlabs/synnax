@@ -57,13 +57,25 @@ class Factory final : public task::Factory {
     );
 
 public:
-    /// @brief constructs a Factory with default manager.
-    explicit Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr);
+    /// @brief constructs a Factory with the default manager. Each bus start reads the
+    /// settings of the slave devices saved on rack through client, and stops retrying
+    /// after op_timeout, the timeout of a task operation.
+    Factory(
+        std::shared_ptr<synnax::Synnax> client,
+        synnax::rack::Key rack,
+        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr,
+        x::telem::TimeSpan op_timeout = task::ManagerConfig().op_timeout
+    );
 
-    /// @brief constructs a Factory with custom manager.
-    explicit Factory(
+    /// @brief constructs a Factory with a custom manager. Each bus start reads the
+    /// settings of the slave devices saved on rack through client, and stops retrying
+    /// after op_timeout, the timeout of a task operation.
+    Factory(
         std::unique_ptr<master::Manager> manager,
-        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
+        std::shared_ptr<synnax::Synnax> client,
+        synnax::rack::Key rack,
+        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr,
+        x::telem::TimeSpan op_timeout = task::ManagerConfig().op_timeout
     );
 
     ~Factory() override = default;

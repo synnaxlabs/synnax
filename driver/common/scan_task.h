@@ -150,25 +150,17 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     retrieve_devices(const synnax::rack::Key &rack, const std::string &make) override {
-        return this->client->devices.retrieve({
-            .where =
-                synnax::device::Where{
-                    .make = x::filter::String{.eq = make},
-                    .rack = x::filter::Set<synnax::rack::Key>{.eq = rack},
-                },
-            .include_status = true,
-            .include_parent = true,
-        });
+        return this->client->devices.retrieve(
+            synnax::device::Where{.make = make, .rack = rack},
+            {.include_status = true}
+        );
     }
 
     std::pair<synnax::device::Device, x::errors::Error>
     retrieve_device(const std::string &key) override {
         return this->client->devices.retrieve(
             key,
-            synnax::device::RetrieveOptions{
-                .include_status = true,
-                .include_parent = true,
-            }
+            synnax::device::RetrieveOptions{.include_status = true}
         );
     }
 
@@ -373,9 +365,8 @@ public:
         if (this->log_prefix.empty())
             throw std::invalid_argument("log_prefix must be provided in ScannerConfig");
         this->key = task.key;
-        this->status.key = synnax::task::status_key(task);
         this->status.name = task.name;
-        this->status.details.task = task.key;
+        this->status.owner = synnax::task::resource_id(task.key);
         this->status.details.config_hash = task.config_hash;
         this->status.variant = synnax::status::VARIANT_SUCCESS;
     }
@@ -561,12 +552,13 @@ public:
                     needs_update = true;
                 }
 
-                // The Core keeps the parent of a device written without one.
-                if (dev.parent.has_value() && dev.parent != remote_dev.parent) {
+                // The Core writes the parent as sent, so a device scanned with no
+                // parent keeps its stored one.
+                if (!dev.parent.has_value()) dev.parent = remote_dev.parent;
+                if (dev.parent != remote_dev.parent) {
                     VLOG(1) << this->log_prefix << "device parent changed for "
-                            << dev.key << " from '"
-                            << (remote_dev.parent ? remote_dev.parent->string() : "")
-                            << "' to '" << dev.parent->string() << "'";
+                            << dev.key << " from '" << remote_dev.parent.value_or("")
+                            << "' to '" << *dev.parent << "'";
                     needs_update = true;
                 }
 
@@ -594,8 +586,8 @@ public:
                 if (present.contains(key)) continue;
                 if (!dev.status.has_value())
                     dev.status = synnax::device::Status{
-                        .key = synnax::device::status_key(dev),
                         .name = dev.name,
+                        .owner = synnax::device::resource_id(dev.key),
                     };
                 dev.status->variant = synnax::status::VARIANT_WARNING;
                 dev.status->message = "Device disconnected";

@@ -514,9 +514,10 @@ describe("MQTT Write form", () => {
       let statuses: Status.NotificationSpec[] = [];
       await renderWrite([], { onStatuses: (s) => (statuses = s) });
       const dialog = await openAddTargets();
-      await dialog.findByText(/not found/i);
+      const missing = /Found no task where rack = \d+ and type = "mqtt_scan"/;
+      await dialog.findByText(missing);
       fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
-      await waitFor(() => expect(dialog.getAllByText(/not found/i)).toHaveLength(2));
+      await waitFor(() => expect(dialog.getAllByText(missing)).toHaveLength(2));
       expect(statuses).toHaveLength(0);
     });
 

@@ -16,18 +16,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Create assigns local keys to the provided new channels (those with a zero LocalKey)
-// by routing to each channel's leaseholder to draw from that node's key counter, and
-// creates the corresponding storage channels there. The returned channels carry their
-// assigned keys, in the same order as the input. Free channels draw their keys from
-// the bootstrapper and are never registered in storage. A channel with an unspecified
-// (zero) leaseholder defaults to the host node.
+// and creates their storage channels. The returned channels carry their assigned keys,
+// in the same order as the input. Free channels draw their keys from a separate counter
+// and are never registered in storage. A channel with an unspecified (zero) leaseholder
+// defaults to the host node. Create returns a query.ErrNotFound error for a leaseholder
+// that is neither the host node nor node.KeyFree.
 func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, error) {
 	out := make([]Channel, len(channels))
 	copy(out, channels)
-	host := s.cfg.HostResolver.HostKey()
+	host := s.cfg.HostKey
 	for i := range out {
 		if out[i].Leaseholder == 0 {
 			out[i].Leaseholder = host
@@ -42,13 +43,11 @@ func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, er
 		var err error
 		switch {
 		case target == host:
-			err = s.allocateGateway(ctx, chs)
-		case target.IsFree() && host.IsBootstrapper():
+			err = s.allocateLeased(ctx, chs)
+		case target.Free():
 			err = s.allocateFree(ctx, chs)
-		case target.IsFree():
-			err = s.allocateRemote(ctx, node.KeyBootstrapper, chs)
 		default:
-			err = s.allocateRemote(ctx, target, chs)
+			err = errors.Wrapf(query.ErrNotFound, "node %d", target)
 		}
 		if err != nil {
 			return nil, err
@@ -58,17 +57,6 @@ func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, er
 		}
 	}
 	return out, nil
-}
-
-func (s *Service) createHandler(
-	ctx context.Context,
-	msg CreateMessage,
-) (CreateMessage, error) {
-	allocated, err := s.Create(ctx, msg.Channels)
-	if err != nil {
-		return CreateMessage{}, err
-	}
-	return CreateMessage{Channels: allocated}, nil
 }
 
 // assignKeys draws len(channels with a zero LocalKey) values from the provided counter
@@ -98,7 +86,7 @@ func assignKeys(ctx context.Context, c *counter, channels []Channel) error {
 	return nil
 }
 
-func (s *Service) allocateGateway(ctx context.Context, channels []Channel) error {
+func (s *Service) allocateLeased(ctx context.Context, channels []Channel) error {
 	if err := assignKeys(ctx, s.leasedCounter, channels); err != nil {
 		return err
 	}
@@ -110,33 +98,9 @@ func (s *Service) allocateGateway(ctx context.Context, channels []Channel) error
 	)
 }
 
-// allocateFree assigns keys to free channels from the bootstrapper's counter. Free
-// channels have no storage registration; their writes flow through the distribution
-// relay rather than the storage engine.
+// allocateFree assigns keys to free channels. Free channels have no storage
+// registration; their writes flow through the distribution relay rather than the
+// storage engine.
 func (s *Service) allocateFree(ctx context.Context, channels []Channel) error {
 	return assignKeys(ctx, s.freeCounter, channels)
-}
-
-func (s *Service) allocateRemote(
-	ctx context.Context,
-	target node.Key,
-	channels []Channel,
-) error {
-	addr, err := s.cfg.HostResolver.Resolve(target)
-	if err != nil {
-		return err
-	}
-	res, err := s.cfg.Transport.CreateClient().
-		Send(ctx, addr, CreateMessage{Channels: channels})
-	if err != nil {
-		return err
-	}
-	if len(res.Channels) != len(channels) {
-		return errors.Newf(
-			"allocator received %d channels from %v, expected %d",
-			len(res.Channels), target, len(channels),
-		)
-	}
-	copy(channels, res.Channels)
-	return nil
 }

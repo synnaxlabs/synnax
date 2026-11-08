@@ -37,11 +37,11 @@ describe("log/Selectable", () => {
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
     });
     const Selectable = Log.SELECTABLES[0];
-    expect(Selectable.type).toBe(log.TYPE_ONTOLOGY_ID.type);
+    expect(Selectable.type).toBe(log.TYPE_RESOURCE_ID.type);
     select(Selectable, wrapper);
     const tab = await resolveFocusedTab(store, client, (t) => t.variant === "resource");
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(log.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(log.TYPE_RESOURCE_ID.type);
     const key = tab.resource.key;
     const created = await client.logs.retrieve(key);
     expect(created.name).toBe("Log");
@@ -54,7 +54,7 @@ describe("log/Selectable", () => {
 describe("log/Selectable permissions", () => {
   const findSelectable = () => {
     const Selectable = Log.SELECTABLES.find(
-      (s) => s.type === log.TYPE_ONTOLOGY_ID.type,
+      (s) => s.type === log.TYPE_RESOURCE_ID.type,
     );
     assertDefined(Selectable, "no selectable registered for log");
     return Selectable;
@@ -64,7 +64,7 @@ describe("log/Selectable permissions", () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Engineer"),
     });
-    const { result } = renderVisible(findSelectable(), log.TYPE_ONTOLOGY_ID, wrapper);
+    const { result } = renderVisible(findSelectable(), log.TYPE_RESOURCE_ID, wrapper);
     await waitFor(() => expect(result.current.visible).toBe(true));
   });
 
@@ -72,7 +72,7 @@ describe("log/Selectable permissions", () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Viewer"),
     });
-    const { result } = renderVisible(findSelectable(), log.TYPE_ONTOLOGY_ID, wrapper);
+    const { result } = renderVisible(findSelectable(), log.TYPE_RESOURCE_ID, wrapper);
     await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(result.current.visible).toBe(false);
   });

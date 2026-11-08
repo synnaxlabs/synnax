@@ -10,7 +10,6 @@
 package signals_test
 
 import (
-	"io"
 	"time"
 	"uuid"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
@@ -34,21 +32,19 @@ const (
 
 var _ = Describe("Publisher", Serial, func() {
 	var (
-		obs           observe.Observer[[]change.Change[[]byte, struct{}]]
-		cfg           signals.ObservablePublisherConfig
-		closer        io.Closer
-		streamer      framer.Streamer
-		requests      confluence.Inlet[framer.StreamerRequest]
-		responses     confluence.Outlet[framer.StreamerResponse]
-		closeStreamer io.Closer
+		obs       observe.Observer[[]signals.Change]
+		cfg       signals.ObservablePublisherConfig
+		streamer  framer.Streamer
+		requests  confluence.Inlet[framer.StreamerRequest]
+		responses confluence.Outlet[framer.StreamerResponse]
 	)
 	BeforeEach(func(ctx SpecContext) {
 		sigs := MustSucceed(signals.New(signals.Config{
 			DB:      db,
 			Channel: channelSvc,
-			Framer:  framerSvc,
+			Framer:  nodeFramer,
 		}))
-		obs = observe.New[[]change.Change[[]byte, struct{}]]()
+		obs = observe.New[[]signals.Change]()
 		cfg = signals.ObservablePublisherConfig{
 			SetChannel: channel.Channel{
 				Name:     publisherSetChannelName,
@@ -60,23 +56,23 @@ var _ = Describe("Publisher", Serial, func() {
 			},
 			Observable: obs,
 		}
-		closer = MustSucceed(sigs.PublishFromObservable(ctx, cfg))
+		MustOpen(sigs.PublishFromObservable(ctx, cfg))
 		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(publisherSetChannelName)).
 			Entry(&cfg.SetChannel).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		).To(Succeed())
 		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(publisherDeleteChannelName)).
 			Entry(&cfg.DeleteChannel).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		).To(Succeed())
 		streamer = MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{cfg.SetChannel.Key(), cfg.DeleteChannel.Key()},
 		}))
 		requests, responses = confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()
-		closeStreamer = signal.NewHardShutdown(sCtx, cancel)
+		DeferClose(signal.NewHardShutdown(sCtx, cancel))
 		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		// Adding this slight delay guarantees that the streamer has started up
 		// and is ready to receive requests.
@@ -85,15 +81,10 @@ var _ = Describe("Publisher", Serial, func() {
 	AfterEach(func() {
 		requests.Close()
 		confluence.Drain(responses)
-		Expect(closeStreamer.Close()).To(Succeed())
-		Expect(closer.Close()).To(Succeed())
 	})
 	It("Should correctly propagate a change", func(ctx SpecContext) {
 		uid := uuid.New()
-		obs.Notify(ctx, []change.Change[[]byte, struct{}]{{
-			Variant: change.VariantSet,
-			Key:     uid[:],
-		}})
+		obs.Notify(ctx, []signals.Change{{Sample: uid[:]}})
 		var streamRes framer.StreamerResponse
 		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&streamRes))
 		Expect(streamRes.Frame.KeysSlice()).To(ConsistOf(cfg.SetChannel.Key()))
@@ -101,9 +92,20 @@ var _ = Describe("Publisher", Serial, func() {
 		Expect(streamRes.Frame.SeriesAt(0).Data).To(Equal(uid[:]))
 	})
 	It(
+		"Should propagate a deleted change to the delete channel",
+		func(ctx SpecContext) {
+			uid := uuid.New()
+			obs.Notify(ctx, []signals.Change{{Sample: uid[:], Deleted: true}})
+			var streamRes framer.StreamerResponse
+			Eventually(responses.Outlet(), time.Second*5).Should(Receive(&streamRes))
+			Expect(streamRes.Frame.KeysSlice()).To(ConsistOf(cfg.DeleteChannel.Key()))
+			Expect(streamRes.Frame.SeriesAt(0).Data).To(Equal(uid[:]))
+		},
+	)
+	It(
 		"Should not send an empty frame if an empty list of changes is provided",
 		func(ctx SpecContext) {
-			obs.Notify(ctx, []change.Change[[]byte, struct{}]{})
+			obs.Notify(ctx, []signals.Change{})
 			Expect(responses.Outlet()).ToNot(Receive())
 		},
 	)

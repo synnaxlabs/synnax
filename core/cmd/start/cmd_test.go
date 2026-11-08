@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
@@ -77,24 +78,7 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 	)
 
 	It(
-		"Should reject a Tailscale advertised listener when peers are configured",
-		func() {
-			viper.Set(listener.FlagListen, []any{
-				map[string]any{
-					"address": "node01.example-tailnet.ts.net:9090",
-					"cert":    map[string]any{"source": "tailscale"},
-				},
-			})
-			viper.Set(start.FlagPeers, []string{"core02:9090"})
-			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
-			Expect(cfg.Validate()).To(MatchError(
-				ContainSubstring("advertised listener cannot use the Tailscale source"),
-			))
-		},
-	)
-
-	It(
-		"Should reject a Tailscale advertised listener when no peers are configured",
+		"Should reject a Tailscale advertised listener when the Driver is on",
 		func() {
 			viper.Set(listener.FlagListen, []any{
 				map[string]any{
@@ -197,5 +181,16 @@ var _ = Describe("DriverTrustAnchors", func() {
 		Expect(start.DriverTrustAnchors(false, cert.LoaderConfig{FS: xfs.NewMem()})).
 			Error().
 			To(MatchError(validate.ErrValidation))
+	})
+})
+
+var _ = Describe("AddDataFlag", func() {
+	It("Should add the data flag with its shorthand and default", func() {
+		cmd := &cobra.Command{}
+		start.AddDataFlag(cmd)
+		flag := cmd.Flags().Lookup(start.FlagData)
+		Expect(flag).ToNot(BeNil())
+		Expect(flag.Shorthand).To(Equal("d"))
+		Expect(flag.DefValue).To(Equal("synnax-data"))
 	})
 })

@@ -147,7 +147,7 @@ var _ = Describe("Literal Compilation", func() {
 	)
 
 	DescribeTable("should compile string literals (no placeholders)",
-		expectExpression,
+		expectAnalyzedExpression,
 
 		Entry(
 			"format string, simple body",

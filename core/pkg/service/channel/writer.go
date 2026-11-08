@@ -12,6 +12,7 @@ package channel
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/samber/lo"
@@ -19,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -38,14 +39,12 @@ const calculatedIndexNameSuffix = "_time"
 type Writer struct {
 	svc      *Service
 	tx       gorp.Tx
-	otg      ontology.Writer
 	analyzer *CalculationAnalyzer
 }
 
 type createOptions struct {
 	retrieveIfNameExists                        bool
 	overwriteIfNameExistsAndDifferentProperties bool
-	createWithoutGroupRelationship              bool
 }
 
 // CreateOption configures the behavior of a Create or CreateMany call.
@@ -67,10 +66,12 @@ func OverwriteIfNameExistsAndDifferentProperties() CreateOption {
 	}
 }
 
-// CreateWithoutGroupRelationship returns a CreateOption that skips creating the
-// ontology relationship between the channel and its group.
-func CreateWithoutGroupRelationship() CreateOption {
-	return func(o *createOptions) { o.createWithoutGroupRelationship = true }
+// SetGroup moves the channels with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeChannel, nil); err != nil {
+		return err
+	}
+	return setGroup(w.svc.table, g, keys...).Exec(ctx, w.tx)
 }
 
 // Create creates a single channel, inferring the DataType if it is calculated.
@@ -138,29 +139,27 @@ func (w Writer) ChangeDataType(
 		Exec(ctx, w.tx)
 }
 
-// Delete deletes the channel with the given key, along with its storage and ontology
-// resources. Unless allowInternal is true, deleting an internal channel returns an
-// error.
+// Delete deletes the channel with the given key, along with its storage. Unless
+// allowInternal is true, deleting an internal channel returns an error.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	return w.DeleteMany(ctx, []Key{key}, allowInternal)
 }
 
-// DeleteMany deletes the channels with the given keys, along with their storage and
-// ontology resources. Unless allowInternal is true, deleting any internal channel
-// returns an error and no channels are deleted.
+// DeleteMany deletes the channels with the given keys, along with their storage. Unless
+// allowInternal is true, deleting any internal channel returns an error and no channels
+// are deleted.
 func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
 	return w.delete(ctx, keys, allowInternal)
 }
 
-// DeleteManyByNamePatterns deletes the channels whose names match any of the given
-// patterns, as MatchNamePatterns matches them. Unless allowInternal is true, deleting
-// any internal channel returns an error and no channels are deleted.
-func (w Writer) DeleteManyByNamePatterns(
-	ctx context.Context, patterns []string, allowInternal bool,
+// DeleteManyByNames deletes the channels with the given names. Unless allowInternal is
+// true, deleting any internal channel returns an error and no channels are deleted.
+func (w Writer) DeleteManyByNames(
+	ctx context.Context, names []string, allowInternal bool,
 ) error {
 	var res []Channel
 	if err := w.svc.newRetrieve().
-		Where(MatchNamePatterns(patterns...)).
+		Where(MatchNames(names...)).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -187,16 +186,24 @@ func (w Writer) RenameMany(
 
 // create orchestrates channel creation: it validates names, preprocesses calculated
 // channels, resolves existing channels, allocates keys and storage through the
-// distribution allocator, writes the rich channel records to the table, and registers
-// ontology resources.
+// distribution allocator, and writes the rich channel records to the table.
 func (w Writer) create(
 	ctx context.Context,
 	_channels *[]Channel,
 	opts createOptions,
 ) error {
 	channels := *_channels
-	for i := range channels {
-		if err := channels[i].Validate(); err != nil {
+	for i, ch := range channels {
+		if err := ch.Validate(); err != nil {
+			return validate.PathedError(err, strconv.Itoa(i))
+		}
+		if err := group.CheckMember(
+			ctx,
+			w.tx,
+			ch.Group,
+			resource.TypeChannel,
+			nil,
+		); err != nil {
 			return validate.PathedError(err, strconv.Itoa(i))
 		}
 	}
@@ -214,7 +221,7 @@ func (w Writer) create(
 	}
 	for i, ch := range channels {
 		if ch.Leaseholder == 0 {
-			channels[i].Leaseholder = w.svc.cfg.HostProvider.HostKey()
+			channels[i].Leaseholder = w.svc.cfg.HostKey
 		}
 		if ch.IsCalculated() {
 			if ch.LocalIndex != 0 && ch.LocalKey == 0 {
@@ -444,24 +451,7 @@ func (w Writer) create(
 	}
 
 	*_channels = channels
-
-	// Register ontology resources and the group parent relationship for the created
-	// channels.
-	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
-		return OntologyID(ch.Key()), !ch.Internal
-	})
-	if err := w.otg.DefineResources(ctx, externalIDs...); err != nil {
-		return err
-	}
-	if opts.createWithoutGroupRelationship {
-		return nil
-	}
-	return w.otg.DefineRelationships(
-		ctx,
-		group.OntologyID(w.svc.group.Key),
-		ontology.RelationshipTypeParentOf,
-		externalIDs...,
-	)
+	return nil
 }
 
 // allocateAndWrite enforces the channel limit, then allocates keys and storage for the
@@ -529,6 +519,17 @@ func (w Writer) allocateAndWrite(
 			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
 		}
 	}
+	// A data channel's index must exist before the data channel is written.
+	slices.SortStableFunc(toCreate, func(a, b Channel) int {
+		switch {
+		case a.IsIndex == b.IsIndex:
+			return 0
+		case a.IsIndex:
+			return -1
+		default:
+			return 1
+		}
+	})
 	if err := w.svc.table.NewCreate().Entries(&toCreate).Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -624,9 +625,6 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 			return nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	if err := w.otg.DeleteResources(ctx, OntologyIDsFromKeys(keys)...); err != nil {
 		return err
 	}
 	// Storage deletion goes last, as it is the only operation that can fail without an

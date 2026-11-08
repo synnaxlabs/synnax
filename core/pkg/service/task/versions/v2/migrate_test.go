@@ -10,6 +10,7 @@
 package v2_test
 
 import (
+	"context"
 	"slices"
 	"strconv"
 	"uuid"
@@ -18,19 +19,26 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
@@ -40,38 +48,39 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
+func resourceExists(ctx context.Context, db *gorp.DB, id resource.ID) (bool, error) {
+	return gorp.NewRetrieve[string, ontology.Resource]().
+		Where(gorp.MatchKeys[string, ontology.Resource](id.String())).
+		Exists(ctx, db)
+}
+
 var _ = Describe("Migrations", func() {
 	It(
 		"Should migrate a legacy uint64-keyed task and its status to a UUID key",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
+			MustOpen(label.OpenService(ctx, label.ServiceConfig{
+				DB: db,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
-				Group:    g,
-				Label:    labelSvc,
+				DB: db,
+			}))
+			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:           db,
-				Ontology:     otg,
-				Group:        g,
-				HostProvider: testutil.NewStaticHostProvider(1),
-				Status:       stat,
-				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+				DB:      db,
+				HostKey: 1,
+				Status:  stat,
+				DriverRole: MustSucceed(
+					racktestutil.CreateDriverRole(ctx, db, roleSvc),
+				),
 			}))
 
 			testRack := &rack.Rack{Name: "Migration Test Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, testRack)
+			})).To(Succeed())
 
 			legacyKey := v1.Key(uint64(testRack.Key)<<32 | 99)
 			legacyTask := v1.Task{
@@ -86,16 +95,19 @@ var _ = Describe("Migrations", func() {
 			Expect(gorp.NewCreate[v1.Key, v1.Task]().
 				Entry(&legacyTask).
 				Exec(ctx, db)).To(Succeed())
-			legacyID := ontology.ID{
-				Type: ontology.ResourceTypeTask,
+			legacyID := resource.ID{
+				Type: resource.TypeTask,
 				Key:  strconv.FormatUint(uint64(legacyKey), 10),
 			}
-			Expect(otg.NewWriter(nil).DefineResources(ctx, legacyID)).To(Succeed())
+			Expect(ontology.DefineResources(ctx, db, legacyID)).To(Succeed())
 
 			// Legacy data stored the task key as a msgpack float64; the v0 backfill
-			// must read it through the flex decoder before the re-key runs.
+			// must read it through the flex decoder before the re-key runs. The status
+			// migration already gave the status its owner and key.
+			legacyStatusKey, _ := statusv2.MigrateKey(legacyID.String())
 			legacyStatus := status.Status[any]{
-				Key:     "task:" + strconv.FormatUint(uint64(legacyKey), 10),
+				Key:     legacyStatusKey,
+				Owner:   new(legacyID),
 				Name:    "Legacy Task",
 				Variant: status.VariantSuccess,
 				Message: "Started",
@@ -107,26 +119,24 @@ var _ = Describe("Migrations", func() {
 				},
 			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return stat.NewWriter(tx).Set(ctx, &legacyStatus)
+				return stat.NewMigrationWriter(tx).Set(ctx, legacyStatus)
 			})).To(Succeed())
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Rack:     rackSvc,
-				Status:   stat,
-				ImEx:     imex.NewService(),
-				Configs:  configs,
+				DB:      db,
+				Rack:    rackSvc,
+				Status:  stat,
+				ImEx:    imex.NewService(),
+				Configs: configs,
 			}))
 
 			var migrated task.Task
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Legacy Task")).
 				Entry(&migrated).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migrated.Key).ToNot(Equal(uuid.Nil()))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
 			Expect(migrated.Config).To(HaveKeyWithValue("routing_key", "rk-legacy"))
@@ -136,17 +146,15 @@ var _ = Describe("Migrations", func() {
 
 			var restoredStatus task.Status
 			Expect(stat.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(migrated.Key).String())).
+				Where(status.MatchOwners[task.StatusDetails](task.ResourceID(migrated.Key))).
 				Entry(&restoredStatus).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(restoredStatus.Details.Task).To(Equal(migrated.Key))
+				Exec(ctx, db)).To(Succeed())
+			Expect(restoredStatus.Key).To(Equal(legacyStatusKey))
 			Expect(restoredStatus.Details.Running).To(BeTrue())
 			Expect(restoredStatus.Details.Cmd).To(Equal("start"))
 
-			Expect(otg.NewRetrieve().
-				WhereIDs(task.OntologyID(migrated.Key)).
-				Exists(ctx, nil)).To(BeTrue())
-			Expect(otg.NewRetrieve().WhereIDs(legacyID).Exists(ctx, nil)).To(BeFalse())
+			Expect(resourceExists(ctx, db, task.ResourceID(migrated.Key))).To(BeTrue())
+			Expect(resourceExists(ctx, db, legacyID)).To(BeFalse())
 
 			staged, closer := MustSucceed2(db.Get(ctx, v2.LegacyKeyKVKey(legacyKey)))
 			Expect(string(staged)).To(Equal(migrated.Key.String()))
@@ -158,39 +166,66 @@ var _ = Describe("Migrations", func() {
 		"Should decompose stored configs, rename types, and quarantine unknowns",
 		func(ctx SpecContext) {
 			// Legacy rows from released builds are msgpack-encoded, while the opened
-			// services run the production Orc codec. Seed through an msgpack view of
+			// services run the production Orc codec. Stage through an msgpack view of
 			// the same KV so the fixtures land in their real on-disk form.
-			kvDB := memkv.New()
-			seedDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
-			db := DeferClose(gorp.Wrap(kvDB))
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
+			node := testutil.NewNode(ctx)
+			db := node.DB
+			stageDB := gorp.Wrap(db.DB, gorp.WithCodec(msgpack.Codec))
+			MustOpen(label.OpenService(ctx, label.ServiceConfig{
+				DB: db,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
-				Group:    g,
-				Label:    labelSvc,
+				DB: db,
+			}))
+			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:           db,
-				Ontology:     otg,
-				Group:        g,
-				HostProvider: testutil.NewStaticHostProvider(1),
-				Status:       stat,
-				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+				DB:      db,
+				HostKey: 1,
+				Status:  stat,
+				DriverRole: MustSucceed(
+					racktestutil.CreateDriverRole(ctx, db, roleSvc),
+				),
 			}))
 			testRack := &rack.Rack{Name: "Decompose Test Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, testRack)
+			})).To(Succeed())
+			targets := tasktestutil.NewTargets(tasktestutil.TargetsConfig{
+				DB: db,
+				Device: MustOpen(device.OpenService(ctx, device.ServiceConfig{
+					DB:     db,
+					Status: stat,
+					Rack:   rackSvc,
+				})),
+				Status: stat,
+				Rack:   testRack.Key,
+			})
+			Expect(targets.CreateDevice(ctx, "dev-ni")).To(Succeed())
+			Expect(targets.CreateDevice(ctx, "dev-lj")).To(Succeed())
+			channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+				Channel: node.Channel,
+				DB:      db,
+				HostKey: node.Identity.HostKey,
+				Status:  stat,
+			}))
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 4))
+			cmdKey, stateKey, tcKey, freqKey := keys[0], keys[1], keys[2], keys[3]
 
-			arcModuleKey := uuid.New().String()
+			MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
+			arcModule := arc.Arc{
+				Variant: arc.AutomationArc{
+					Base: arc.Base{
+						Key:    uuid.New(),
+						Name:   "Stored Arc",
+						Source: arc.Source{Variant: arc.TextSource{}},
+					},
+				},
+			}
+			Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entry(&arcModule).Exec(ctx, db)).
+				To(Succeed())
+			arcModuleKey := arcModule.Base().Key.String()
 			pdTask := v1.Task{
 				Key:  v1.Key(uint64(testRack.Key)<<32 | 1),
 				Name: "Stored PD Task",
@@ -257,7 +292,7 @@ var _ = Describe("Migrations", func() {
 					"channels": []any{
 						map[string]any{
 							"key":        "ch-ni-tc",
-							"channel":    float64(101),
+							"channel":    float64(tcKey),
 							"port":       float64(1),
 							"type":       "ai_thermocouple",
 							"units":      "DegC",
@@ -269,7 +304,7 @@ var _ = Describe("Migrations", func() {
 						},
 						map[string]any{
 							"key":          "ch-ni-freq",
-							"channel":      float64(102),
+							"channel":      float64(freqKey),
 							"port":         float64(2),
 							"type":         "ai_frequency_voltage",
 							"units":        "Hz",
@@ -294,8 +329,8 @@ var _ = Describe("Migrations", func() {
 						"type":      "DO",
 						"key":       "ch-do",
 						"port":      "DIO4",
-						"cmd_key":   float64(7),
-						"state_key": float64(8),
+						"cmd_key":   float64(cmdKey),
+						"state_key": float64(stateKey),
 						"enabled":   true,
 					}},
 				},
@@ -304,10 +339,10 @@ var _ = Describe("Migrations", func() {
 				Entries(&[]v1.Task{
 					pdTask, arcTask, bogusTask, ljTask, ljScanTask, niTask,
 				}).
-				Exec(ctx, seedDB)).To(Succeed())
+				Exec(ctx, stageDB)).To(Succeed())
 			Expect(gorp.NewCreate[v1.Key, v1.Task]().
 				Entries(&retiredTasks).
-				Exec(ctx, seedDB)).To(Succeed())
+				Exec(ctx, stageDB)).To(Succeed())
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 			at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
@@ -317,20 +352,18 @@ var _ = Describe("Migrations", func() {
 				pd.Stores(), at.Stores(), lj.Stores(), niSvc.Stores(),
 			)...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Rack:     rackSvc,
-				Status:   stat,
-				ImEx:     imex.NewService(),
-				Configs:  configs,
+				DB:      db,
+				Rack:    rackSvc,
+				Status:  stat,
+				ImEx:    imex.NewService(),
+				Configs: configs,
 			}))
 
 			var migratedPD task.Task
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored PD Task")).
 				Entry(&migratedPD).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedPD.Config).To(
 				HaveKeyWithValue("routing_key", "rk-stored"),
 			)
@@ -342,7 +375,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored Arc Task")).
 				Entry(&migratedArc).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedArc.Type).To(Equal("arc"))
 			Expect(migratedArc.Config).To(
 				HaveKeyWithValue("arc_key", arcModuleKey),
@@ -357,7 +390,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored LabJack Scan Task")).
 				Entry(&migratedScan).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedScan.Config).To(
 				HaveKeyWithValue("rate", BeEquivalentTo(0.2)),
 			)
@@ -366,7 +399,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored LabJack Write Task")).
 				Entry(&migratedLJ).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedLJ.Config).To(HaveKeyWithValue("device", "dev-lj"))
 			Expect(migratedLJ.Config).To(
 				HaveKeyWithValue("data_saving_disabled", false),
@@ -376,8 +409,8 @@ var _ = Describe("Migrations", func() {
 			Expect(ljChannels).To(HaveLen(1))
 			ljCh, ok := ljChannels[0].(map[string]any)
 			Expect(ok).To(BeTrue())
-			Expect(ljCh).To(HaveKeyWithValue("cmd_channel", BeEquivalentTo(7)))
-			Expect(ljCh).To(HaveKeyWithValue("state_channel", BeEquivalentTo(8)))
+			Expect(ljCh).To(HaveKeyWithValue("cmd_channel", BeEquivalentTo(cmdKey)))
+			Expect(ljCh).To(HaveKeyWithValue("state_channel", BeEquivalentTo(stateKey)))
 			Expect(ljCh).To(HaveKeyWithValue("disabled", false))
 			Expect(ljCh).ToNot(HaveKey("cmd_key"))
 			Expect(ljCh).ToNot(HaveKey("state_key"))
@@ -386,7 +419,7 @@ var _ = Describe("Migrations", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Stored NI Analog Read Task")).
 				Entry(&migratedNI).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migratedNI.Config).ToNot(HaveKey("device"))
 			Expect(migratedNI.Config).To(
 				HaveKeyWithValue("data_saving_disabled", false),
@@ -411,7 +444,7 @@ var _ = Describe("Migrations", func() {
 
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Bogus Task")).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 			rekeyed, rekeyCloser := MustSucceed2(
 				db.Get(ctx, v2.LegacyKeyKVKey(bogusTask.Key)),
 			)
@@ -426,7 +459,7 @@ var _ = Describe("Migrations", func() {
 			for _, retired := range retiredTasks {
 				Expect(svc.NewRetrieve().
 					Where(task.MatchNames(retired.Name)).
-					Exists(ctx, nil)).To(BeFalse())
+					Exists(ctx, db)).To(BeFalse())
 				rekeyed, rekeyCloser := MustSucceed2(
 					db.Get(ctx, v2.LegacyKeyKVKey(retired.Key)),
 				)
