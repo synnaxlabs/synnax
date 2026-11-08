@@ -69,8 +69,7 @@ class Client:
     def __init__(self, transport: UnaryClient) -> None:
         """Initialize the status client.
 
-        Args:
-            transport: The unary transport client to use for communication.
+        :param transport: The unary transport client to use for communication.
         """
         self.client = transport
 
@@ -251,8 +250,7 @@ class Client:
         This operation is idempotent - deleting a non-existent status will not
         raise an error.
 
-        Args:
-            keys: A single key or list of keys to delete.
+        :param keys: A single key or list of keys to delete.
 
         Examples:
             Delete a single status:

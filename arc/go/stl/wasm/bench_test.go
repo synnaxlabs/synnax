@@ -141,17 +141,23 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to create stateful module: %v", err)
 	}
-	_, _ = series.NewHost(ctx, wasmRT, seriesState)
+	if _, err := series.NewHost(ctx, wasmRT, seriesState); err != nil {
+		b.Fatal(err)
+	}
 	stringsMod, err := stlstrings.NewHost(ctx, wasmRT, stringsState, nil)
 	if err != nil {
 		b.Fatalf("Failed to create strings module: %v", err)
 	}
-	_, _ = stlmath.NewHost(ctx, wasmRT)
+	if _, err := stlmath.NewHost(ctx, wasmRT); err != nil {
+		b.Fatal(err)
+	}
 	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)
 	if err != nil {
 		b.Fatalf("Failed to create errors module: %v", err)
 	}
-	_, _ = stltime.NewHost(ctx, wasmRT)
+	if _, err := stltime.NewHost(ctx, wasmRT); err != nil {
+		b.Fatal(err)
+	}
 
 	guest, err := wasmRT.Instantiate(ctx, mod.WASM)
 	if err != nil {
@@ -306,17 +312,23 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to create stateful module: %v", err)
 	}
-	_, _ = series.NewHost(ctx, wasmRT, seriesState)
+	if _, err := series.NewHost(ctx, wasmRT, seriesState); err != nil {
+		b.Fatal(err)
+	}
 	stringsMod, err := stlstrings.NewHost(ctx, wasmRT, stringsState, nil)
 	if err != nil {
 		b.Fatalf("Failed to create strings module: %v", err)
 	}
-	_, _ = stlmath.NewHost(ctx, wasmRT)
+	if _, err := stlmath.NewHost(ctx, wasmRT); err != nil {
+		b.Fatal(err)
+	}
 	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)
 	if err != nil {
 		b.Fatalf("Failed to create errors module: %v", err)
 	}
-	_, _ = stltime.NewHost(ctx, wasmRT)
+	if _, err := stltime.NewHost(ctx, wasmRT); err != nil {
+		b.Fatal(err)
+	}
 
 	guest, err := wasmRT.Instantiate(ctx, mod.WASM)
 	if err != nil {
