@@ -42,7 +42,7 @@ describe("Credential queries", () => {
       username: `credential-${id.create()}`,
       password: "p",
     });
-    const subject = user.ontologyID(u.key);
+    const subject = user.resourceID(u.key);
     const create = renderHook(() => Credential.useCreateKey(), { wrapper });
     await act(async () => {
       await create.result.current.updateAsync({ subject, name: "ci" });

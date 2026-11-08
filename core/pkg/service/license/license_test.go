@@ -488,7 +488,7 @@ var _ = Describe("License", func() {
 				svc = open(ctx, clocked)
 				keys := announcements(svc)
 				clock.Store(now.Add(time.Hour).UnixNano())
-				Eventually(keys).Should(Receive(Equal(license.OntologyKey)))
+				Eventually(keys).Should(Receive(Equal(license.ResourceKey)))
 			},
 		)
 		It("should never move the recorded time back", func(ctx SpecContext) {
@@ -761,7 +761,7 @@ var _ = Describe("License", func() {
 		It("should announce an activated license", func(ctx SpecContext) {
 			keys := announcements(svc)
 			MustSucceed(svc.Activate(ctx, sign(newLicense())))
-			Expect(keys).To(Receive(Equal(license.OntologyKey)))
+			Expect(keys).To(Receive(Equal(license.ResourceKey)))
 		})
 		It("should not announce a refused license key", func(ctx SpecContext) {
 			keys := announcements(svc)
@@ -841,7 +841,7 @@ var _ = Describe("License", func() {
 			MustSucceed(svc.Activate(ctx, sign(lic)))
 			keys := announcements(svc)
 			MustSucceed(svc.Deactivate(ctx, lic.Jti))
-			Expect(keys).To(Receive(Equal(license.OntologyKey)))
+			Expect(keys).To(Receive(Equal(license.ResourceKey)))
 		})
 	})
 })

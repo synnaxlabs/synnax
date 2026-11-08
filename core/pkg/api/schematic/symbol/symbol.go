@@ -12,17 +12,20 @@ package symbol
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/zip"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -79,12 +82,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 type (
-	// CreateRequest carries the symbols to create and the resource to create them
-	// under. A zero Parent leaves the symbols unattached.
+	// CreateRequest carries the symbols to create.
 	CreateRequest struct {
-		// Parent is the resource to attach the symbols to. A zero value leaves them
-		// unattached.
-		Parent ontology.ID `json:"parent" msgpack:"parent"`
 		// Symbols are the symbols to create. The Core mints a key for each.
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
@@ -96,7 +95,7 @@ type (
 )
 
 // Create persists the symbols in req. It requires create access on the symbol type,
-// and update access on req.Parent when one is given.
+// and update access on each group a symbol sits in.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -106,24 +105,36 @@ func (s *Service) Create(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeSchematicSymbol}},
+		Objects: []resource.ID{{Type: resource.TypeSchematicSymbol}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if !req.Parent.IsZero() {
-		if err := enforcer.Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{req.Parent},
-		}); err != nil {
-			return CreateResponse{}, err
-		}
-	}
-	writer := s.internal.NewWriter(tx)
-	if err := writer.CreateMany(ctx, &req.Symbols, req.Parent); err != nil {
+	var stored []symbol.Symbol
+	if err := s.internal.NewRetrieve().
+		Where(symbol.MatchKeys(lo.Map(
+			req.Symbols,
+			func(sym symbol.Symbol, _ int) symbol.Key { return sym.Key },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse{Symbols: req.Symbols}, nil
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.CreateObjects(
+			req.Symbols,
+			stored,
+			func(sym symbol.Symbol) *group.Key { return sym.Group },
+		),
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	writer := s.internal.NewWriter(tx)
+	if err := writer.CreateMany(ctx, &req.Symbols); err != nil {
+		return CreateResponse{}, err
+	}
+	return CreateResponse(req), nil
 }
 
 // Retrieve returns the symbols that the request selects. It requires retrieve access
@@ -143,7 +154,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: symbol.OntologyIDsFromSymbols(res.Symbols),
+		Objects: symbol.ResourceIDsFromSymbols(res.Symbols),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -167,7 +178,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{symbol.OntologyID(req.Key)},
+		Objects: []resource.ID{symbol.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -189,36 +200,11 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: symbol.OntologyIDs(req.Keys),
+		Objects: symbol.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-}
-
-// RetrieveGroupRequest is empty. The permanent symbol group is a singleton.
-type RetrieveGroupRequest struct{}
-
-// RetrieveGroupResponse carries the permanent group that holds every symbol group.
-type RetrieveGroupResponse struct {
-	// Group is the permanent group that holds every symbol group.
-	Group group.Group `json:"group" msgpack:"group"`
-}
-
-// RetrieveGroup returns the permanent symbol group. It requires retrieve access on it.
-func (s *Service) RetrieveGroup(
-	ctx context.Context,
-	_ RetrieveGroupRequest,
-) (RetrieveGroupResponse, error) {
-	g := s.internal.Group()
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{g.OntologyID()},
-	}); err != nil {
-		return RetrieveGroupResponse{}, err
-	}
-	return RetrieveGroupResponse{Group: g}, nil
 }
 
 type (
@@ -253,7 +239,7 @@ func (s *Service) ExportGroup(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
+		Objects: []resource.ID{group.ResourceID(req.Key)},
 	}); err != nil {
 		return nil, err
 	}
@@ -283,8 +269,7 @@ type (
 )
 
 // ImportGroup imports a symbol group bundle in a single transaction. It requires
-// create access on the group and symbol types, and update access on the permanent
-// symbol group, all enforced before any file decodes.
+// create access on the group and symbol types, enforced before any file decodes.
 func (s *Service) ImportGroup(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -297,17 +282,10 @@ func (s *Service) ImportGroup(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{
-			{Type: ontology.ResourceTypeGroup},
-			{Type: ontology.ResourceTypeSchematicSymbol},
+		Objects: []resource.ID{
+			{Type: resource.TypeGroup},
+			{Type: resource.TypeSchematicSymbol},
 		},
-	}); err != nil {
-		return ImportGroupResponse{}, err
-	}
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{s.internal.Group().OntologyID()},
 	}); err != nil {
 		return ImportGroupResponse{}, err
 	}
@@ -339,7 +317,7 @@ func (s *Service) DeleteGroup(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionDelete,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
+		Objects: []resource.ID{group.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -357,4 +335,37 @@ func (s *Service) DeleteGroup(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.DeleteGroup(ctx, tx, req.Key, symbols)
+}
+
+// SetGroupRequest moves symbols into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key   `json:"group" msgpack:"group"`
+	Keys  []symbol.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the symbols with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	var symbols []symbol.Symbol
+	if err := s.internal.NewRetrieve().
+		Where(symbol.MatchKeys(req.Keys...)).
+		Entries(&symbols).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(
+			symbol.ResourceIDs(req.Keys),
+			lo.Map(symbols, func(e symbol.Symbol, _ int) *group.Key { return e.Group }),
+			req.Group,
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

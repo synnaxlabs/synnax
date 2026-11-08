@@ -12,6 +12,8 @@
 package v3
 
 import (
+	role "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -20,9 +22,6 @@ import (
 // the low 16 bits contain the local sequential key. A rack is leased to the Core named
 // in its high bits, so writes route to the Core running its Driver.
 type Key = v2.Key
-
-// StatusDetails contains rack-specific status details.
-type StatusDetails = v2.StatusDetails
 
 // Status is rack-specific status information including operational state.
 type Status = v2.Status
@@ -45,6 +44,10 @@ type Rack struct {
 	// Version is the version of the Driver that runs the rack, written at each connect.
 	// Absent until a Driver reports it.
 	Version *string `json:"version,omitzero" msgpack:"version,omitempty"`
+	// Group is the group the rack sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Roles are the roles that grant the rack its permissions.
+	Roles []role.Key `json:"roles" msgpack:"roles"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

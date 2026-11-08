@@ -13,8 +13,6 @@
 
 #include <utility>
 
-#include "client/cpp/label/json.gen.h"
-#include "client/cpp/label/proto.gen.h"
 #include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
 #include "x/cpp/color/json.gen.h"
@@ -82,19 +80,10 @@ Range::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_color() = v;
     }
-    if (this->labels.has_value()) {
-        auto *wrapper = pb.mutable_labels();
-        for (const auto &item: *this->labels) {
-            auto [v, err] = item.to_proto();
-            if (err) return {{}, err};
-            *wrapper->add_values() = v;
-        }
+    for (const auto &item: this->labels) {
+        pb.add_labels(item.to_string());
     }
-    if (this->parent.has_value()) {
-        auto [v, err] = this->parent->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_parent() = v;
-    }
+    if (this->parent.has_value()) pb.set_parent(this->parent->to_string());
     return {pb, x::errors::NIL};
 }
 
@@ -117,16 +106,13 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.color = v;
     }
-    if (pb.has_labels()) {
-        cpp.labels.emplace();
-        if (auto err = x::pb::from_proto_repeated<::synnax::label::Label>(
-                *cpp.labels,
-                pb.labels().values()
-            ))
-            return {{}, err};
+    for (const auto &item: pb.labels()) {
+        auto [v, err] = x::uuid::UUID::parse(item);
+        if (err) return {{}, err};
+        cpp.labels.push_back(v);
     }
-    if (pb.has_parent()) {
-        auto [v, err] = Range::from_proto(pb.parent());
+    if (!pb.parent().empty()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.parent());
         if (err) return {{}, err};
         cpp.parent = v;
     }
@@ -178,6 +164,12 @@ Where::to_proto() const {
             wrapper->add_values(item.to_string());
         }
     }
+    if (this->parents.has_value()) {
+        auto *wrapper = pb.mutable_parents();
+        for (const auto &item: *this->parents) {
+            wrapper->add_values(item.to_string());
+        }
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -222,6 +214,14 @@ Where::from_proto(const ::service::ranger::pb::Where &pb) {
             cpp.labels->push_back(v);
         }
     }
+    if (pb.has_parents()) {
+        cpp.parents.emplace();
+        for (const auto &item: pb.parents().values()) {
+            auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            cpp.parents->push_back(v);
+        }
+    }
     return {cpp, x::errors::NIL};
 }
 
@@ -236,8 +236,6 @@ RetrieveRequest::to_proto() const {
     pb.set_search_term(this->search_term);
     if (this->limit.has_value()) pb.set_limit(*this->limit);
     pb.set_offset(this->offset);
-    pb.set_include_labels(this->include_labels);
-    pb.set_include_parent(this->include_parent);
     return {pb, x::errors::NIL};
 }
 
@@ -252,8 +250,6 @@ RetrieveRequest::from_proto(const ::api::ranger::pb::RetrieveRequest &pb) {
     cpp.search_term = pb.search_term();
     if (pb.has_limit()) cpp.limit = pb.limit();
     cpp.offset = pb.offset();
-    cpp.include_labels = pb.include_labels();
-    cpp.include_parent = pb.include_parent();
     return {cpp, x::errors::NIL};
 }
 

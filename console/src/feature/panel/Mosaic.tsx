@@ -9,7 +9,7 @@
 
 import "@/feature/panel/Mosaic.css";
 
-import { NotFoundError, ontology, panel } from "@synnaxlabs/client";
+import { NotFoundError, panel, resource } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -222,7 +222,7 @@ const tabName = Component.renderProp(TabName);
 const contextMenu = Component.renderProp(TabMenuItems);
 
 const resolveDroppedTab = (raw: string): panel.NewTab | undefined => {
-  const parsed = ontology.idZ.safeParse(raw);
+  const parsed = resource.idZ.safeParse(raw);
   if (!parsed.success) return undefined;
   return { variant: "resource", resource: parsed.data };
 };
@@ -291,7 +291,7 @@ interface EmptyContentProps extends Pick<MosaicProps, "onFileDrop"> {}
 // same framed L0 surface instead of collapsing to bare window background.
 const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
   const createPanel = useCreate();
-  const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(panel.TYPE_RESOURCE_ID);
   const [over, setOver] = useState(false);
   const acceptsFiles = onFileDrop != null;
   const canDrop: Haul.CanDrop = ({ items }) =>

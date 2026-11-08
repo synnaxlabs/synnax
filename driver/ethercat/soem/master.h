@@ -88,6 +88,11 @@ class Master final : public master::Master {
     /// @brief whether a slave that failed the last activate() reports "Invalid DC SYNC
     /// configuration".
     bool start_dc_sync_refused = false;
+    /// @brief CoE objects written to each slave before SAFE-OP, keyed by position.
+    std::map<uint16_t, std::vector<slave::StartupParameter>> startup_parameters;
+    /// @brief why each slave rejected a startup parameter at its latest move to
+    /// SAFE-OP, keyed by position.
+    std::map<uint16_t, std::string> startup_failures;
     /// @brief protects slave state queries.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -177,8 +182,18 @@ public:
     std::string interface_name() const override;
 
 private:
+    /// @brief writes a slave's startup parameters in order, recording why the slave
+    /// rejected the first one that fails. Returns true when the slave took them all.
+    bool write_startup_parameters(
+        uint16_t pos,
+        const std::vector<slave::StartupParameter> &parameters
+    );
+
     /// @brief populates the cached slave list from SOEM's slavelist.
     void populate_slaves();
+
+    /// @brief reads the identity and PDO layout of the slave at a position.
+    slave::DiscoveryResult discover_slave(uint16_t pos);
 
     /// @brief computes and caches PDO offsets for all slaves after activation.
     void cache_pdo_offsets();
@@ -314,8 +329,9 @@ private:
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
     /// slave that lost power. A slave in SAFE-OP whose clock restore failed goes back
-    /// to PRE-OP, not to OP. A wait for the clock of a DC slave ends once breaker
-    /// stops.
+    /// to PRE-OP, not to OP. Takes no step for a slave that rejected a startup
+    /// parameter, so it stays in PRE-OP until the next activation. A wait for the
+    /// clock of a DC slave ends once breaker stops.
     void recover(uint16_t pos, const x::breaker::Breaker &breaker);
 
     /// @brief builds the error for enabled slaves that did not reach a state. It is a

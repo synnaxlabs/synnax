@@ -9,7 +9,7 @@
 
 # Wakes Agent - Shepherd. A review event runs this file from the pull request branch, so
 # it can only dispatch, and only for a branch of this repository. It skips reviews from
-# bots other than Greptile, so an agent's own replies never wake it.
+# bots other than Sedosaur, so an agent's own replies never wake it.
 
 name: Agent - Review submitted
 run-name: ${{ github.event.pull_request.number }}
@@ -27,7 +27,7 @@ jobs:
     if:
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.review.state != 'approved' && (github.event.review.user.type != 'Bot'
-      || github.event.review.user.login == 'greptile-apps[bot]')
+      || github.event.review.user.login == 'sedosaur[bot]')
     runs-on: ubuntu-latest
     permissions:
       actions: write

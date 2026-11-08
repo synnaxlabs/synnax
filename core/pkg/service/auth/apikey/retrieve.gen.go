@@ -15,7 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Retrieve is used to retrieve APIKey records from the database using a
@@ -31,7 +31,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	subject *gorp.LookupIndex[Key, APIKey, ontology.ID]
+	subject *gorp.LookupIndex[Key, APIKey, resource.ID]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -39,9 +39,9 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		subject: gorp.NewLookupIndex[Key, APIKey, ontology.ID](
+		subject: gorp.NewLookupIndex[Key, APIKey, resource.ID](
 			"subject",
-			func(e *APIKey) ontology.ID { return e.Subject },
+			func(e *APIKey) resource.ID { return e.Subject },
 		),
 	}
 }
@@ -100,7 +100,7 @@ func MatchKeys(keys ...Key) Filter {
 // MatchSubjects returns a filter for
 // apikeys whose Subject matches any of the
 // provided values.
-func MatchSubjects(vals ...ontology.ID) Filter {
+func MatchSubjects(vals ...resource.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, APIKey] {
 		return r.indexes.subject.Filter(vals...)
 	}

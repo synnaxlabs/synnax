@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/channel/pb"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	grpcchannel "github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
@@ -114,6 +115,8 @@ var _ = Describe("Retrieve", func() {
 				Variant: status.VariantSuccess,
 				Message: "Calculation running",
 				Time:    telem.TimeStamp(1),
+				// The protobuf encoding has no nil list, so it decodes an empty one.
+				Labels: []label.Key{},
 			},
 		}
 		response = channel.RetrieveResponse{Channels: []channel.Channel{ch}}

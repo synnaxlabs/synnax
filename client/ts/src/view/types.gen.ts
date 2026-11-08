@@ -12,8 +12,8 @@
 import { filter, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 export const TYPES = ["range", "status"] as const;
@@ -113,5 +113,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("view");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("view");
+export const TYPE_RESOURCE_ID = resourceID("");

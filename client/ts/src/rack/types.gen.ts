@@ -12,18 +12,13 @@
 import { filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { role } from "@/access/role";
+import { group } from "@/group";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 export const keyZ = z.uint32();
 export type Key = z.infer<typeof keyZ>;
-
-/** StatusDetails contains rack-specific status details. */
-export const statusDetailsZ = z.object({
-  /** rack is the key of the rack this status pertains to. */
-  rack: keyZ,
-});
-export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
 /** Where is a filter that selects racks. */
 export type Where = {
@@ -35,6 +30,8 @@ export type Where = {
   embedded?: filter.Bool;
   integrations?: filter.Contains<z.ZodString>;
   hostIsNode?: boolean;
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -62,9 +59,13 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
    * Cores when false.
    */
   hostIsNode: z.boolean().optional(),
+  /** groups matches the racks in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the racks in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
 });
 
-export const statusZ = status.statusZ({ details: statusDetailsZ });
+export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
 
 /** RetrieveRequest is a request to retrieve racks. */
@@ -109,10 +110,14 @@ export const payloadZ = z.object({
    * Absent until a Driver reports it.
    */
   version: z.string().optional(),
+  /** group is the group the rack sits in, if any. */
+  group: group.keyZ.optional(),
+  /** roles are the roles that grant the rack its permissions. */
+  roles: role.keyZ.array().default(() => []),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
-export const newZ = payloadZ.omit({ embedded: true, key: true }).extend({
+export const newZ = payloadZ.omit({ embedded: true, roles: true, key: true }).extend({
   key: keyZ.refine((v) => v !== 0, "key is required").default(0),
 });
 export interface New extends z.input<typeof newZ> {}
@@ -124,5 +129,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("rack");
-export const TYPE_ONTOLOGY_ID = ontologyID(0);
+export const resourceID = resource.createIDFactory<Key>("rack");
+export const TYPE_RESOURCE_ID = resourceID(0);
