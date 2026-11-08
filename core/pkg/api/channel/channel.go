@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -208,6 +209,17 @@ func (s *Service) Create(
 			stored,
 			func(ch channel.Channel) *group.Key { return ch.Group },
 		),
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	inputs, err := s.internal.CalculationInputs(ctx, tx, translated)
+	if err != nil {
+		return CreateResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: framer.ResourceIDs(inputs),
 	}); err != nil {
 		return CreateResponse{}, err
 	}

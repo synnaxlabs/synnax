@@ -36,7 +36,66 @@ import (
 )
 
 var _ = Describe("Framer", func() {
+	createVirtual := func(ctx SpecContext) channel.Channel {
+		GinkgoHelper()
+		ch := channel.Channel{
+			Name:     UniqueChannelName(),
+			DataType: telem.Float32T,
+			Virtual:  true,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		return ch
+	}
+	createCalculated := func(ctx SpecContext, input channel.Channel) channel.Channel {
+		GinkgoHelper()
+		ch := channel.Channel{
+			Name:       UniqueChannelName(),
+			DataType:   telem.Float32T,
+			Expression: fmt.Sprintf("return %s * 2", input.Name),
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		return ch
+	}
+	// readerCtx returns a context whose subject may retrieve only the given channels.
+	readerCtx := func(
+		ctx SpecContext,
+		readable ...channel.Channel,
+	) freighter.Context {
+		GinkgoHelper()
+		keys := channel.KeysFromChannels(readable)
+		u := createUserGranted(
+			ctx,
+			access.ActionRetrieve,
+			svcframer.ResourceIDs(keys)...,
+		)
+		return subjectCtx(ctx, u.ResourceID())
+	}
+
 	Describe("Iterate", func() {
+		It(
+			"Should deny a calculated channel whose input the subject cannot read",
+			func(ctx SpecContext) {
+				calc := createCalculated(ctx, createVirtual(ctx))
+				client, server := freightertestutil.NewStreams[
+					apiframer.IteratorRequest,
+					apiframer.IteratorResponse,
+				](ctx)
+				DeferCleanup(client.CloseSend)
+				done := make(chan error, 1)
+				go func() { done <- apiSvc.Iterate(readerCtx(ctx, calc), server) }()
+				Expect(client.Send(apiframer.IteratorRequest{
+					Keys:   channel.Keys{calc.Key()},
+					Bounds: telem.TimeRangeMax,
+				})).To(Succeed())
+				Eventually(done).WithTimeout(5 * time.Second).
+					Should(Receive(MatchError(access.ErrDenied)))
+			},
+		)
+
 		It("Should return the error of an iterator that fails", func(ctx SpecContext) {
 			index := channel.Channel{
 				Name:     UniqueChannelName(),
@@ -300,6 +359,17 @@ var _ = Describe("Framer", func() {
 				))
 				Expect(res.Indexes).To(HaveLen(1))
 			})
+
+			It(
+				"Should deny a calculated channel whose input the subject cannot read",
+				func(ctx SpecContext) {
+					calc := createCalculated(ctx, data)
+					Expect(apiSvc.Read(readerCtx(ctx, calc), apiframer.ReadRequest{
+						Keys:   channel.Keys{calc.Key()},
+						Bounds: telem.TimeRangeMax,
+					})).Error().To(MatchError(access.ErrDenied))
+				},
+			)
 		})
 	})
 
@@ -545,5 +615,93 @@ var _ = Describe("Framer", func() {
 				Expect(res.Frame.Get(other.Key()).Series).To(HaveLen(1))
 			},
 		)
+
+		Describe("Access control", func() {
+			type streamClient = freighter.ClientStream[
+				apiframer.StreamerRequest,
+				apiframer.StreamerResponse,
+			]
+			// stream opens a stream on keys, and returns its client and a channel that
+			// receives the error Stream returns.
+			stream := func(
+				ctx freighter.Context,
+				keys channel.Keys,
+			) (streamClient, <-chan error) {
+				GinkgoHelper()
+				client, server := freightertestutil.NewStreams[
+					apiframer.StreamerRequest,
+					apiframer.StreamerResponse,
+				](ctx)
+				done := make(chan error, 1)
+				stopped := make(chan struct{})
+				go func() {
+					defer close(stopped)
+					done <- apiSvc.Stream(ctx, server)
+				}()
+				DeferCleanup(func() {
+					Expect(client.CloseSend()).To(Succeed())
+					Eventually(stopped).WithTimeout(5 * time.Second).Should(BeClosed())
+				})
+				Expect(client.Send(apiframer.StreamerRequest{Keys: keys})).To(Succeed())
+				return client, done
+			}
+
+			It(
+				"Should deny a calculated channel whose input the subject cannot read",
+				func(ctx SpecContext) {
+					calc := createCalculated(ctx, createVirtual(ctx))
+					_, done := stream(readerCtx(ctx, calc), channel.Keys{calc.Key()})
+					Eventually(done).WithTimeout(5 * time.Second).
+						Should(Receive(MatchError(access.ErrDenied)))
+				},
+			)
+
+			It(
+				"Should end the stream on a later request for an unreadable channel",
+				func(ctx SpecContext) {
+					readable, secret := createVirtual(ctx), createVirtual(ctx)
+					streamer, done := stream(
+						readerCtx(ctx, readable),
+						channel.Keys{readable.Key()},
+					)
+					Expect(
+						MustSucceed(streamer.Receive()).Frame.Empty(),
+					).To(BeTrue())
+					Expect(streamer.Send(apiframer.StreamerRequest{
+						Keys: channel.Keys{readable.Key(), secret.Key()},
+					})).To(Succeed())
+					Eventually(done).WithTimeout(5 * time.Second).
+						Should(Receive(MatchError(access.ErrDenied)))
+				},
+			)
+
+			It(
+				"Should apply a later request that adds a channel the subject can read",
+				func(ctx SpecContext) {
+					first, second := createVirtual(ctx), createVirtual(ctx)
+					streamer, _ := stream(
+						readerCtx(ctx, first, second),
+						channel.Keys{first.Key()},
+					)
+					Expect(
+						MustSucceed(streamer.Receive()).Frame.Empty(),
+					).To(BeTrue())
+					Expect(streamer.Send(apiframer.StreamerRequest{
+						Keys:         channel.Keys{first.Key(), second.Key()},
+						AckRequested: true,
+					})).To(Succeed())
+					Expect(MustSucceed(streamer.Receive()).Ack).To(BeTrue())
+					w := MustOpen(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+						Start: telem.SecondTS,
+						Keys:  channel.Keys{second.Key()},
+					}))
+					Expect(w.Write(frame.NewUnary(
+						second.Key(), telem.NewSeriesV[float32](1),
+					))).To(BeTrue())
+					res := MustSucceed(streamer.Receive())
+					Expect(res.Frame.Get(second.Key()).Series).To(HaveLen(1))
+				},
+			)
+		})
 	})
 })
