@@ -226,7 +226,8 @@ type txState struct {
 // BeforeCommit registers work to run when tx commits, before its writes reach the
 // store. Work runs once, in registration order, and never when tx closes without a
 // commit. An error from work stops the commit: Commit runs no later work, rolls tx
-// back, and returns the error. Work runs under the write lock, so it must not open a
+// back, and returns the error. Nothing undoes work that already ran when later work or
+// the store commit fails. Work runs under the write lock, so it must not open a
 // transaction or write through the DB. Call BeforeCommit on the goroutine that writes
 // through tx. It panics when tx is a DB.
 func BeforeCommit(tx Tx, work func(ctx context.Context) error) {
