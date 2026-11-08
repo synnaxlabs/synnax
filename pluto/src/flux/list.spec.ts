@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type label, type ranger } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, holdResponses } from "@synnaxlabs/client/testutil";
 import { color, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -131,6 +131,28 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.data).toEqual([match.key]));
     act(() => result.current.search(""));
     await waitFor(() => expect(result.current.data).toHaveLength(2));
+  });
+
+  it("should keep the listed records until a search answers", async () => {
+    const name = randomWord();
+    const match = await create(name);
+    await create("other");
+    await waitForIndex(name);
+    const local = createTestClient();
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, { name: "ranges", query: byName(), searchDebounce: 0 }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    const { responded, release } = holdResponses(local, "/range/retrieve");
+    act(() => result.current.search(name));
+    await responded;
+    expect(result.current.data).toHaveLength(2);
+    expect(result.current.answered).toBe(true);
+    release();
+    await waitFor(() => expect(result.current.data).toEqual([match.key]));
   });
 
   it("should hide the records the filter rejects", async () => {

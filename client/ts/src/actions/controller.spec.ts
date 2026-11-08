@@ -18,6 +18,7 @@ import {
   type Reducer,
   type SendDispatch,
 } from "@/actions/controller";
+import { AccessDeniedError } from "@/errors";
 import { Table } from "@/query/table";
 
 interface Doc {
@@ -1230,6 +1231,17 @@ describe("actions.Controller", () => {
       it("ignores a doc deleted before its fetch", async () => {
         const { controller, errors } = setupStore({ fetch: async () => [], listed });
         controller.applyRemote("gone", 1, "f-1", [set("name", 1)]);
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        expect(errors).toEqual([]);
+      });
+
+      it("ignores a doc that the client cannot read", async () => {
+        const fetch = vi.fn(async () => {
+          throw new AccessDeniedError("cannot retrieve the doc");
+        });
+        const { controller, errors } = setupStore({ fetch, listed });
+        controller.applyRemote("denied", 1, "f-1", [set("name", 1)]);
+        await expect.poll(() => fetch.mock.calls.length).toBe(1);
         await new Promise((resolve) => setTimeout(resolve, 30));
         expect(errors).toEqual([]);
       });

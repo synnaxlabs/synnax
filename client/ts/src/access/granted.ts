@@ -99,9 +99,9 @@ export class Granted {
   }
 
   /**
-   * Returns the cached verdict, or undefined when the policies of the grantee's role are
-   * not cached. Repeat calls with the same query object skip the policy evaluation until
-   * the cached policies change.
+   * Returns the cached verdict, or undefined when the policies of the grantee's role
+   * are not cached. Repeat calls with the same query object skip the policy evaluation
+   * until the cached policies change.
    */
   getCached(grantee: Grantee, q: GrantedQuery): boolean | undefined {
     const { role } = grantee;
