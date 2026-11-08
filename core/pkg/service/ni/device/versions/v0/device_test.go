@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -28,9 +28,8 @@ var _ = Describe("Device", func() {
 		key := uuid.MustParse("22222222-2222-4222-8222-222222222222")
 		d := v0.Device{Key: key}
 		Expect(d.GorpKey()).To(Equal(key))
-		Expect(d.SetOptions()).To(BeNil())
-		Expect(d.OntologyID()).To(Equal(ontology.ID{
-			Type: ontology.ResourceTypeNiDevice,
+		Expect(d.ResourceID()).To(Equal(resource.ID{
+			Type: resource.TypeNiDevice,
 			Key:  key.String(),
 		}))
 	})

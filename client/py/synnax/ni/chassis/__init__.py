@@ -8,19 +8,19 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.ni.chassis.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     Chassis,
     Key,
     Status,
     StatusDetails,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Chassis",
     "Key",
     "Status",
     "StatusDetails",
-    "ontology_id",
+    "resource_id",
 ]

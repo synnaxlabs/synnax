@@ -909,13 +909,13 @@ class TestNIResources:
         assert device.analog_input == sy.ni.device.InputPorts()
         assert device.analog_output == sy.ni.device.OutputPorts()
 
-    def test_device_ontology_id(self) -> None:
-        assert sy.ni.device.ontology_id(self.KEY).type == "ni_device"
-        assert sy.ni.device.ontology_id(self.KEY).key == str(self.KEY)
+    def test_device_resource_id(self) -> None:
+        assert sy.ni.device.resource_id(self.KEY).type == "ni_device"
+        assert sy.ni.device.resource_id(self.KEY).key == str(self.KEY)
 
-    def test_chassis_ontology_id(self) -> None:
-        assert sy.ni.chassis.ontology_id(self.KEY).type == "ni_chassis"
-        assert sy.ni.chassis.ontology_id(self.KEY).key == str(self.KEY)
+    def test_chassis_resource_id(self) -> None:
+        assert sy.ni.chassis.resource_id(self.KEY).type == "ni_chassis"
+        assert sy.ni.chassis.resource_id(self.KEY).key == str(self.KEY)
 
     def test_chassis_requires_a_resource_name(self) -> None:
         with pytest.raises(ValidationError):

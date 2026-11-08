@@ -85,7 +85,7 @@ Device struct {
     @doc value     "is an NI module in a chassis, or a standalone USB or PCIe device."
     @go marshal
     @go migrate
-    @ontology type "ni_device"
+    @resource type "ni_device"
     @retrieve
 }
 

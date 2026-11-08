@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.ni.device.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     CommandStatePair,
     Device,
     InputPorts,
@@ -16,11 +16,11 @@ from synnax.ni.device.types_gen import (
     OutputPorts,
     Status,
     StatusDetails,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "CommandStatePair",
     "Device",
     "InputPorts",
@@ -28,5 +28,5 @@ __all__ = [
     "OutputPorts",
     "Status",
     "StatusDetails",
-    "ontology_id",
+    "resource_id",
 ]

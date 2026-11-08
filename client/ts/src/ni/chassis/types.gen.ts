@@ -12,8 +12,8 @@
 import { uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
 import { rack } from "@/rack";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 export const keyZ = z.uuid();
@@ -54,5 +54,5 @@ export const chassisZ = z.object({
 export interface Chassis extends z.infer<typeof chassisZ> {}
 export interface New extends z.input<typeof chassisZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("ni_chassis");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("ni_chassis");
+export const TYPE_RESOURCE_ID = resourceID("");

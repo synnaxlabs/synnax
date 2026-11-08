@@ -11,17 +11,14 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-from typing import override as _override
+from typing import TypeAlias, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel
-from synnax import rack as rack_
-from synnax import status as status_
+from synnax import channel, rack as rack_, status as status_
 from synnax.ni import chassis as chassis_
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 
 Key: TypeAlias = UUID
 
@@ -121,8 +118,8 @@ class Device(BaseModel):
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="ni_device")
+TYPE_RESOURCE_ID = ID(type="ni_device")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="ni_device", key=str(key))

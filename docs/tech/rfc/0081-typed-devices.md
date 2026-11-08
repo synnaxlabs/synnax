@@ -157,7 +157,7 @@ Each resource is a struct in its own `.oracle` file with its own package, such a
 `ni_device.oracle` and `core/pkg/service/ni/device`, because Oracle allows one
 `@retrieve` per output. Each file has `@go`, `@ts`, `@py`, and `@cpp` outputs. Every
 struct carries `@create`, `@retrieve`, `@go marshal`, `@go migrate`, and
-`@ontology type`, and declares `key uuid = create` with `@key`, `rack rack.Key` with
+`@resource type`, and declares `key uuid = create` with `@key`, `rack rack.Key` with
 `@filter`, `name string` with `@filter` and `@search`, and a `status` of its own
 `Status` type with `@go marshal omit`. A base struct would carry nothing else, so the
 three fields repeat.

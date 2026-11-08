@@ -59,7 +59,7 @@ Chassis struct {
     @doc value     "is an NI chassis that holds device modules."
     @go marshal
     @go migrate
-    @ontology type "ni_chassis"
+    @resource type "ni_chassis"
     @retrieve
 }
 

@@ -14,8 +14,8 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { niChassis } from "@/ni/chassis";
-import { ontology } from "@/ontology";
 import { rack } from "@/rack";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 /** InputPorts holds the channels that a device reads into. */
@@ -102,5 +102,5 @@ export const deviceZ = z.object({
 export interface Device extends z.infer<typeof deviceZ> {}
 export interface New extends z.input<typeof deviceZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("ni_device");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("ni_device");
+export const TYPE_RESOURCE_ID = resourceID("");
