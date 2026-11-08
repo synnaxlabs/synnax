@@ -685,8 +685,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("Dispatch", func() {
 		// Each dispatch commits in a transaction of its own, so its tasks commit too
-		// and
-		// are deleted after each spec.
+		// and are deleted after each spec.
 		createCommitted := func(ctx context.Context, t *task.Task) {
 			GinkgoHelper()
 			Expect(svc.NewWriter(db).Create(ctx, t)).To(Succeed())

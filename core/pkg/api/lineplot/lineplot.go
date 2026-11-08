@@ -33,7 +33,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	LinePlot *lineplot.Service
-	// RBAC checks the access of retrieve, dispatch, and move requests.
+	// RBAC checks the access of retrieve, set group, and set project requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
