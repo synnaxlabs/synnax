@@ -188,7 +188,7 @@ var _ = Describe("Factory", func() {
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
 					Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 					Expect(stat.Details.Running).To(BeFalse())
@@ -211,7 +211,7 @@ var _ = Describe("Factory", func() {
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-						Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+						Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 					Expect(tsk.Stop(true)).To(Succeed())
 				},
 				Entry("driven by a start command", "cmd-1"),
@@ -233,7 +233,7 @@ var _ = Describe("Factory", func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
 				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
@@ -255,7 +255,7 @@ var _ = Describe("Factory", func() {
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-						Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+						Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 				},
 			)
 
@@ -275,7 +275,7 @@ var _ = Describe("Factory", func() {
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
 					Expect(stat.Message).To(Equal("Failed to configure task"))
 					Expect(stat.Description).To(ContainSubstring("routing_key"))
@@ -298,7 +298,7 @@ var _ = Describe("Factory", func() {
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("success"))
 					Expect(stat.Message).To(Equal("Started task"))
 					Expect(stat.Details.Running).To(BeTrue())

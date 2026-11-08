@@ -104,16 +104,19 @@ class CRIOCase(HardwareCase):
 
         :raises TimeoutError: If no rack reaches the variant within 60 seconds.
         """
-        timer = sy.Timer()
-        while True:
+
+        def reached() -> sy.Rack | None:
             for rack in self.client.racks.retrieve(
                 names=[RACK_NAME], include_status=True
             ):
                 if rack.status is not None and rack.status.variant == variant:
                     return rack
-            if timer.elapsed() > _STATUS_TIMEOUT:
-                raise TimeoutError(f"Rack {RACK_NAME} did not reach {variant}")
-            sy.sleep(0.5)
+            return None
+
+        rack = sy.poll(reached, timeout=_STATUS_TIMEOUT, interval=0.5)
+        if rack is None:
+            raise TimeoutError(f"Rack {RACK_NAME} did not reach {variant}")
+        return rack
 
     def ssh(self, command: str) -> str:
         """Runs a shell command on the cRIO and returns its output.

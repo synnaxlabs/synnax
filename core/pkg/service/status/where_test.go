@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -31,7 +31,7 @@ var _ = Describe("Where", Ordered, func() {
 		tx       gorp.Tx
 	)
 	v := MustSucceed(
-		testutil.ReadVectors[status.Status[any], status.Where]("statuses"),
+		vectors.Read[status.Status[any], status.Where]("statuses"),
 	)
 	keys := lo.MapEntries(v.Records, func(
 		alias string,
@@ -79,7 +79,7 @@ var _ = Describe("Where", Ordered, func() {
 				return keys[s.Key]
 			})).To(ConsistOf(expected))
 		},
-		lo.Map(v.Cases, func(c testutil.Case[status.Where], _ int) TableEntry {
+		lo.Map(v.Cases, func(c vectors.Case[status.Where], _ int) TableEntry {
 			return Entry(c.Name, c.Where, c.Expected)
 		}),
 	)

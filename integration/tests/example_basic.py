@@ -37,7 +37,7 @@ class CheckConnectionBasic(TestCase):
         # Stuff goes here
         wait_time = param(self.params, "wait_time", 0.0)
         self.log(f"Waiting for {wait_time} seconds")
-        sy.sleep(wait_time)
+        sy.sleep(wait_time)  # noqa: TID251 the wait this example shows
 
         # Or induce a failure
         if param(self.params, "fail_test", False):

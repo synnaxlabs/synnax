@@ -9,10 +9,7 @@
 
 package label
 
-import (
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/resource"
 
 // Resources returns the resource.Provider of labels.
 func (s *Service) Resources() *resource.TableProvider[Key, Label] {
@@ -28,10 +25,4 @@ func (s *Service) Resources() *resource.TableProvider[Key, Label] {
 // ResourceID constructs a unique resource.ID for the label with the given key.
 func ResourceID(k Key) resource.ID {
 	return resource.ID{Type: resource.TypeLabel, Key: k.String()}
-}
-
-// ResourceIDs constructs a slice of unique resource.IDs for the labels with the given
-// keys.
-func ResourceIDs(keys []Key) []resource.ID {
-	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }

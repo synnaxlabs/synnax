@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -32,9 +33,13 @@ var _ = Describe("Resources", func() {
 			Virtual:  true,
 			Internal: internal,
 		}
-		Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(channelWriter.Delete(ctx, ch.Key(), true)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, ch.Key(), true)
+			})).To(Succeed())
 		})
 		return ch
 	}
@@ -66,9 +71,13 @@ var _ = Describe("Resources", func() {
 			DataType: telem.TimestampT,
 			IsIndex:  true,
 		}
-		Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(channelWriter.Delete(ctx, ch.Key(), false)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, ch.Key(), false)
+			})).To(Succeed())
 		})
 		id := channel.ResourceID(ch.Key())
 		Expect(svc.Resources().Retrieve(ctx, db, []resource.ID{id})).
@@ -78,7 +87,7 @@ var _ = Describe("Resources", func() {
 	It("Should return a validation error for a malformed key", func(ctx SpecContext) {
 		Expect(svc.Resources().Retrieve(
 			ctx,
-			nil,
+			db,
 			[]resource.ID{{Type: resource.TypeChannel, Key: "pump"}},
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
@@ -168,7 +177,9 @@ var _ = Describe("Resource", Ordered, func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				Expect(ch.ResourceID()).To(Equal(channel.ResourceID(ch.Key())))
 			},
 		)
@@ -201,8 +212,12 @@ var _ = Describe("Resource", Ordered, func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &inlet)).To(Succeed())
-				Expect(channelWriter.Create(ctx, &outlet)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &inlet)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &outlet)
+				})).To(Succeed())
 				q := search.Query[resource.ID]{Term: "turbopump inlet", Limit: 10}
 				Expect(
 					MustSucceed(svc.Resources().Search(ctx, db, q)).Keys,

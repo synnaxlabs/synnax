@@ -30,6 +30,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -275,7 +276,9 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 	newIndex := func(name string) channel.Channel {
 		GinkgoHelper()
 		ch := channel.Channel{Name: name, DataType: telem.TimestampT, IsIndex: true}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		return ch
 	}
 	newData := func(name string, idx channel.Channel) channel.Channel {
@@ -285,7 +288,9 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 			DataType:   telem.Float64T,
 			LocalIndex: idx.LocalKey,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		return ch
 	}
 	if sc.shape == wide {
@@ -299,7 +304,9 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 				LocalIndex: idx.LocalKey,
 			}
 		}
-		Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &data)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).CreateMany(ctx, &data)
+		})).To(Succeed())
 		g.data = data
 		return []benchGroup{g}
 	}

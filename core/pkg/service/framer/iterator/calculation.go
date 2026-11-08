@@ -26,29 +26,22 @@ import (
 )
 
 // calculationTransform runs calculations on each data response as it arrives, so a
-// read's memory stays bounded by the size of one response. A buffered transform instead
-// calculates the data of each request once the request's ack arrives.
+// read's memory stays bounded by the size of one response.
 type calculationTransform struct {
 	confluence.UnarySink[Response]
 	confluence.AbstractUnarySource[Response]
 	keepKeys         set.Set[channel.Key]
 	calculators      []*calculator.Calculator
 	accumulatedError error
-	// buffered is true when the calculations read channels on more than one Core. Each
-	// Core sends its own chunks of a request, so one chunk holds only some inputs.
-	buffered bool
-	pending  []framer.Frame
 }
 
 func newCalculationTransform(
 	keepKeys channel.Keys,
 	calculators []*calculator.Calculator,
-	buffered bool,
 ) *calculationTransform {
 	return &calculationTransform{
 		calculators: calculators,
 		keepKeys:    set.New(keepKeys...),
-		buffered:    buffered,
 	}
 }
 
@@ -87,29 +80,12 @@ func (t *calculationTransform) processResponse(
 	switch {
 	case res.Command == CommandError:
 		res.Error = errors.Combine(res.Error, t.accumulatedError)
-	case res.Variant == ResponseVariantData && t.buffered:
-		t.pending = append(t.pending, res.Frame)
-		return nil
 	case res.Variant == ResponseVariantData:
 		res.Frame = t.calculate(ctx, res.Frame)
 		if res.Frame.Count() == 0 {
 			return nil
 		}
 	case res.Variant == ResponseVariantAck:
-		if len(t.pending) > 0 {
-			fr := t.calculate(ctx, frame.Merge(t.pending))
-			t.pending = nil
-			if fr.Count() > 0 {
-				if err := signal.SendUnderContext(ctx, t.Out.Inlet(), Response{
-					Variant: ResponseVariantData,
-					Command: res.Command,
-					SeqNum:  res.SeqNum,
-					Frame:   fr,
-				}); err != nil {
-					return err
-				}
-			}
-		}
 		if t.accumulatedError != nil {
 			res.Ack = false
 		}

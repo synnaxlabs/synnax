@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/log"
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/restart"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -75,6 +76,8 @@ type Config struct {
 	alamos.Instrumentation
 	// Keys creates and checks the API key the Driver logs in with as its rack.
 	Keys *apikey.Service `json:"-"`
+	// DB is the database that Keys stores the API key in.
+	DB *gorp.DB `json:"-"`
 	// TrustAnchorsPEM holds the PEM certificates the Driver verifies the Core against.
 	// Not required if the Core serves a certificate the system trust store already
 	// recognizes. When set, they replace the system trust store for the Driver.
@@ -192,6 +195,7 @@ func (c Config) Override(other Config) Config {
 	c.Address = override.String(c.Address, other.Address)
 	c.RackKey = override.Numeric(c.RackKey, other.RackKey)
 	c.Keys = override.Nil(c.Keys, other.Keys)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.KeyDirname = override.String(c.KeyDirname, other.KeyDirname)
 	c.Integrations = override.Slice(c.Integrations, other.Integrations)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
@@ -233,6 +237,7 @@ func (c Config) Validate() error {
 	}
 	v.NotEmptyString("address", c.Address)
 	v.NotNil("keys", c.Keys)
+	v.NotNil("db", c.DB)
 	v.NonZero("rack_key", c.RackKey)
 	v.NotNil("debug", c.Debug)
 	v.NotEmptyString("parent_dirname", c.ParentDirname)
@@ -495,12 +500,18 @@ func (d *Driver) resolveKey(ctx context.Context) (string, error) {
 			return "", err
 		}
 	}
-	created, token, err := d.cfg.Keys.NewWriter(nil).Create(
-		ctx,
-		d.cfg.RackKey.ResourceID(),
-		apiKeyName,
+	var (
+		created apikey.APIKey
+		token   string
 	)
-	if err != nil {
+	if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		created, token, err = d.cfg.Keys.NewWriter(tx).Create(
+			ctx,
+			d.cfg.RackKey.ResourceID(),
+			apiKeyName,
+		)
+		return err
+	}); err != nil {
 		return "", err
 	}
 	if d.cfg.KeyDirname == "" {
@@ -510,7 +521,9 @@ func (d *Driver) resolveKey(ctx context.Context) (string, error) {
 	if err = writeFileAtomic(d.keyPath(), []byte(token)); err != nil {
 		return "", errors.Combine(
 			err,
-			d.cfg.Keys.NewWriter(nil).Delete(ctx, created.Key),
+			d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return d.cfg.Keys.NewWriter(tx).Delete(ctx, created.Key)
+			}),
 		)
 	}
 	return token, nil

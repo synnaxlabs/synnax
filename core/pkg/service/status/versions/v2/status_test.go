@@ -133,11 +133,6 @@ var _ = Describe("Status", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v2.Status[any]{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the status resource identifier", func() {
 			Expect(v2.Status[any]{Key: "st-1"}.ResourceID()).To(Equal(resource.ID{

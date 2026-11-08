@@ -124,6 +124,7 @@ ReadField struct {
     }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax channel the extracted value is written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     pointer     string = "" {
@@ -204,6 +205,7 @@ ReadEntry union on type extends BaseReadEntry {
         }
         channel   channel.Key = 0 {
             @doc value     "is the Synnax channel the tag value is written to."
+            @ref kind      use
             @ref on_delete restrict
         }
         name      string = "" {
@@ -227,6 +229,7 @@ ReadEntry union on type extends BaseReadEntry {
 ReadConfig struct extends task.PersistConfig {
     device  device.Key = "" {
         @doc value     "is the key of the broker device to read from."
+        @ref kind      use
         @ref on_delete restrict
     }
     entries ReadEntry[] {
@@ -281,6 +284,7 @@ ChannelField struct {
     }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax command channel that triggers the publish."
+        @ref kind      use
         @ref on_delete restrict
     }
     name        string = "" {
@@ -404,6 +408,7 @@ WriteTarget union on type extends BaseWriteTarget {
             @doc value     """
                 is the Synnax command channel whose writes trigger the command.
             """
+            @ref kind      use
             @ref on_delete restrict
         }
         name      string = "" {
@@ -423,6 +428,7 @@ WriteTarget union on type extends BaseWriteTarget {
 WriteConfig struct extends task.StartConfig {
     device  device.Key = "" {
         @doc value     "is the key of the broker device to write to."
+        @ref kind      use
         @ref on_delete restrict
     }
     targets WriteTarget[] {
@@ -459,6 +465,7 @@ EdgeTag struct {
     }
     channel              channel.Key = 0 {
         @doc value     "is the Synnax channel whose value the tag publishes."
+        @ref kind      use
         @ref on_delete restrict
     }
     tag_type             SparkplugDataType = double {
@@ -469,6 +476,7 @@ EdgeTag struct {
             is the Synnax channel that takes values written to the tag. Zero when the
             tag rejects writes.
         """
+        @ref kind      use
         @ref on_delete restrict
     }
     command_channel_name string?           {
@@ -485,6 +493,7 @@ EdgeTag struct {
 EdgeConfig struct extends task.StartConfig {
     device    device.Key = "" {
         @doc value     "is the key of the broker device to publish to."
+        @ref kind      use
         @ref on_delete restrict
     }
     group     string = "" {

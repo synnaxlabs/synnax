@@ -24,6 +24,7 @@ import (
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
@@ -939,6 +940,7 @@ func wait(ctx context.Context, token paho.Token) error {
 // pool holds the shared connection of each broker device. Safe for concurrent use.
 type pool struct {
 	ins     alamos.Instrumentation
+	db      *gorp.DB
 	devices *device.Service
 	conns   map[device.Key]*connection
 	// rebirthInterval is the shortest time between two Sparkplug B rebirth requests to
@@ -950,12 +952,14 @@ type pool struct {
 
 func newPool(
 	ins alamos.Instrumentation,
+	db *gorp.DB,
 	devices *device.Service,
 	rebirthInterval time.Duration,
 	newClient clientFactory,
 ) *pool {
 	return &pool{
 		ins:             ins,
+		db:              db,
 		devices:         devices,
 		conns:           make(map[device.Key]*connection),
 		rebirthInterval: rebirthInterval,
@@ -1075,10 +1079,12 @@ func (p *pool) refresh(
 		conn.mu.Unlock()
 	}()
 	var dev device.Device
-	if err = p.devices.NewRetrieve().
-		Where(device.MatchKeys(key)).
-		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+	if err = p.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return p.devices.NewRetrieve().
+			Where(device.MatchKeys(key)).
+			Entry(&dev).
+			Exec(ctx, snap)
+	}); err != nil {
 		return err
 	}
 	props, err := parseProperties(dev)
