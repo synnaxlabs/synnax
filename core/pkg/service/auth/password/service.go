@@ -231,7 +231,7 @@ func (s *Service) Hash(plaintext string) (Hash, error) {
 
 // HashProven checks proof against the stored passwords, then hashes plaintext. A write
 // of the hash returns auth.ErrInvalidCredentials when the proven password changes
-// first. HashProven returns the errors of Verify and Hash.
+// first. HashProven returns the errors of Authenticate and Hash.
 func (s *Service) HashProven(
 	ctx context.Context,
 	proof auth.PasswordProof,
