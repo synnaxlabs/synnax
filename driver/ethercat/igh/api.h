@@ -182,7 +182,7 @@ public:
     }
 
     /// @brief deactivates the master.
-    virtual int master_deactivate(ec_master_t *master) const {
+    [[nodiscard]] virtual int master_deactivate(ec_master_t *master) const {
         return this->func_ptrs.master_deactivate(master);
     }
 
@@ -202,28 +202,28 @@ public:
     }
 
     /// @brief processes received datagrams.
-    virtual int domain_process(ec_domain_t *domain) const {
+    [[nodiscard]] virtual int domain_process(ec_domain_t *domain) const {
         return this->func_ptrs.domain_process(domain);
     }
 
     /// @brief queues domain datagrams for sending.
-    virtual int domain_queue(ec_domain_t *domain) const {
+    [[nodiscard]] virtual int domain_queue(ec_domain_t *domain) const {
         return this->func_ptrs.domain_queue(domain);
     }
 
     /// @brief returns the current domain state.
-    virtual int
+    [[nodiscard]] virtual int
     domain_state(const ec_domain_t *domain, ec_domain_state_t *state) const {
         return this->func_ptrs.domain_state(domain, state);
     }
 
     /// @brief sends all queued datagrams.
-    virtual int master_send(ec_master_t *master) const {
+    [[nodiscard]] virtual int master_send(ec_master_t *master) const {
         return this->func_ptrs.master_send(master);
     }
 
     /// @brief fetches received frames from the hardware.
-    virtual int master_receive(ec_master_t *master) const {
+    [[nodiscard]] virtual int master_receive(ec_master_t *master) const {
         return this->func_ptrs.master_receive(master);
     }
 
@@ -255,7 +255,7 @@ public:
     }
 
     /// @brief returns the state of a slave configuration.
-    virtual int slave_config_state(
+    [[nodiscard]] virtual int slave_config_state(
         const ec_slave_config_t *sc,
         ec_slave_config_state_t *state
     ) const {
