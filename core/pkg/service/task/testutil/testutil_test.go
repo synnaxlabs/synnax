@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
@@ -48,10 +47,10 @@ func openTargets(ctx SpecContext) (
 		DB: db,
 	}))
 	racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           db,
-		HostProvider: testutil.NewStaticHostProvider(1),
-		Status:       statuses,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roles)),
+		DB:         db,
+		HostKey:    1,
+		Status:     statuses,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roles)),
 	}))
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     db,

@@ -39,8 +39,6 @@ class Where(BaseModel):
         name: Selects by name.
         embedded: Selects by embedded.
         integrations: Selects by integrations.
-        host_is_node: Matches racks on the Core that serves the request, or racks on
-            other Cores when false.
         groups: Matches the racks in any of the given groups.
         grouped: Matches the racks in a group, or in no group when false.
     """
@@ -54,7 +52,6 @@ class Where(BaseModel):
     name: filter.String | None = None
     embedded: filter.Bool | None = None
     integrations: filter.Contains[str] | None = None
-    host_is_node: bool | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
 
@@ -76,7 +73,6 @@ WhereInput = TypedDict(
         "name": filter.StringInput,
         "embedded": filter.BoolInput,
         "integrations": filter.ContainsInput[str],
-        "host_is_node": bool,
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
     },

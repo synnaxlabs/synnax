@@ -58,10 +58,10 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 	svc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)

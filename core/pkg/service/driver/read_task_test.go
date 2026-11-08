@@ -18,9 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -28,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	servicetestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -264,67 +261,6 @@ var _ = Describe("ReadTask", func() {
 				Eventually(src.results).Should(BeEmpty())
 				Expect(rt.Stop(false)).To(Succeed())
 				Expect(written(ctx, framerSvc, dataCh)).
-					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
-			},
-		)
-
-		It("Should write a frame that another node leads during a stop",
-			func(ctx SpecContext) {
-				cluster := disttestutil.NewCluster(ctx, 0)
-				local, peer := cluster.Provision(ctx), cluster.Provision(ctx)
-				svc := MustOpen(servicetestutil.OpenLayer(ctx, local))
-				w := svc.Channel.NewWriter(nil)
-				peerIdx := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.TimestampT,
-					IsIndex:     true,
-					Leaseholder: peer.Cluster.HostKey(),
-				}
-				Expect(gorp.NewCreate[task.Key, task.Task]().
-					Entry(&t).
-					Exec(ctx, local.DB)).To(Succeed())
-				Expect(w.Create(ctx, &peerIdx)).To(Succeed())
-				// Channels leased by the peer reach the local Core by gossip, and the
-				// local Core checks that the index of a data channel exists.
-				gossiped := func(keys ...channel.Key) {
-					Eventually(func(g Gomega) {
-						var res []channel.Channel
-						g.Expect(svc.Channel.NewRetrieve().
-							Where(channel.MatchKeys(keys...)).
-							Entries(&res).
-							Exec(ctx, nil)).To(Succeed())
-						g.Expect(res).To(HaveLen(len(keys)))
-					}).Should(Succeed())
-				}
-				gossiped(peerIdx.Key())
-				peerData := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Float32T,
-					LocalIndex:  peerIdx.LocalKey,
-					Leaseholder: peer.Cluster.HostKey(),
-				}
-				Expect(w.Create(ctx, &peerData)).To(Succeed())
-				keys := channel.Keys{peerIdx.Key(), peerData.Key()}
-				gossiped(keys...)
-				rt := MustSucceed(driver.NewReadTask(driver.ReadTaskConfig{
-					Source:   src,
-					DB:       local.DB,
-					Status:   svc.Status,
-					Framer:   svc.Framer,
-					Channels: keys,
-					Task:     t,
-				}))
-				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
-				src.results <- readResult{
-					frame: frame.NewMulti(keys, []telem.Series{
-						telem.NewSeriesSecondsTSV(1, 2),
-						telem.NewSeriesV[float32](1, 2),
-					}),
-					heldUntilStop: true,
-				}
-				Eventually(src.results).Should(BeEmpty())
-				Expect(rt.Stop(false)).To(Succeed())
-				Expect(written(ctx, svc.Framer, peerData)).
 					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
 			},
 		)

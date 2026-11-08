@@ -27,8 +27,7 @@ type benchEntry struct {
 	Data string
 }
 
-func (e benchEntry) GorpKey() int32    { return e.ID }
-func (e benchEntry) SetOptions() []any { return nil }
+func (e benchEntry) GorpKey() int32 { return e.ID }
 
 // benchStringEntry uses a string key, exercising direct concatenation encoding.
 type benchStringEntry struct {
@@ -36,8 +35,7 @@ type benchStringEntry struct {
 	Data string
 }
 
-func (e benchStringEntry) GorpKey() string   { return e.ID }
-func (e benchStringEntry) SetOptions() []any { return nil }
+func (e benchStringEntry) GorpKey() string { return e.ID }
 
 // benchLargeEntry has a realistically-sized value body (~1KB) to make
 // serialization cost visible relative to key encoding overhead.
@@ -49,8 +47,7 @@ type benchLargeEntry struct {
 	Value       float64
 }
 
-func (e benchLargeEntry) GorpKey() int32    { return e.ID }
-func (e benchLargeEntry) SetOptions() []any { return nil }
+func (e benchLargeEntry) GorpKey() int32 { return e.ID }
 
 func setupBenchDB(b *testing.B) *gorp.DB {
 	b.Helper()

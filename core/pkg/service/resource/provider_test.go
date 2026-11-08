@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -32,15 +31,11 @@ type channelEntry struct{ Key, Name string }
 
 func (e channelEntry) GorpKey() string { return e.Key }
 
-func (channelEntry) SetOptions() []any { return nil }
-
 func (e channelEntry) name() string { return e.Name }
 
 type rackEntry struct{ Key, Name string }
 
 func (e rackEntry) GorpKey() string { return e.Key }
-
-func (rackEntry) SetOptions() []any { return nil }
 
 func (e rackEntry) name() string { return e.Name }
 
@@ -49,8 +44,9 @@ type entry interface {
 	name() string
 }
 
-// laggingKV ignores the OnApplied option, as Aspen does, and calls applied after each
-// commit, before Gorp applies the index changes of the commit.
+// laggingKV ignores the OnApplied option, as a DB that notifies observers on another
+// goroutine may, and calls applied after each commit, before Gorp applies the index
+// changes of the commit.
 type laggingKV struct {
 	kv.DB
 	applied func()
@@ -325,7 +321,6 @@ var _ = Describe("TableProvider", func() {
 						}
 					}},
 					gorp.WithCodec(msgpack.Codec),
-					gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
 				))
 				f := openFixture[channelEntry](ctx, lagging, resource.TypeChannel)
 				cfg := f.config(resource.TypeChannel)

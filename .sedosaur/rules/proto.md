@@ -13,5 +13,6 @@ needs a new version and a migration. It does not cover the Sparkplug B protocol 
 `core/pkg/service/mqtt/sparkplug/`, which other programs read, or the messages that a
 client of another version reads to find and report the mismatch: the session messages in
 `core/pkg/transport/grpc/auth/auth.proto`, `CheckResponse` in
-`core/pkg/transport/grpc/connectivity/connectivity.proto`, rack retrieve, and status
-set.
+`core/pkg/transport/grpc/connectivity/connectivity.proto`, status set, and each
+`RetrieveRequest` in `core/pkg/transport/grpc/` whose old fields are `reserved` so that
+the Core rejects a request from an older client.

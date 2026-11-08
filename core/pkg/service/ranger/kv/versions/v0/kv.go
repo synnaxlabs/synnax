@@ -18,8 +18,5 @@ var _ gorp.Entry[string] = Pair{}
 // GorpKey implements gorp.Entry.
 func (p Pair) GorpKey() string { return p.Range.String() + keySeparator + p.Key }
 
-// SetOptions implements gorp.Entry.
-func (Pair) SetOptions() []any { return nil }
-
 // CustomTypeName supplies a custom type name for the Pair type.
 func (Pair) CustomTypeName() string { return "KVPair" }

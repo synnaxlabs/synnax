@@ -143,6 +143,15 @@ var _ = Describe("AsyncObserver", func() {
 			Eventually(received.Load).Should(Equal(int64(7)))
 		})
 
+		It("Should not pass the notifier's cancellation to handlers", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			errs := make(chan error, 1)
+			obs.OnChange(func(ctx context.Context, _ int) { errs <- ctx.Err() })
+			obs.Notify(ctx, 1)
+			Eventually(errs).Should(Receive(BeNil()))
+		})
+
 		It("Should deliver values to multiple handlers", func() {
 			var a, b atomic.Int64
 			obs.OnChange(func(_ context.Context, v int) { a.Add(int64(v)) })
@@ -213,6 +222,15 @@ var _ = Describe("AsyncObserver", func() {
 	})
 
 	Describe("NotifyGenerator", func() {
+		It("Should not pass the notifier's cancellation to handlers", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			errs := make(chan error, 1)
+			obs.OnChange(func(ctx context.Context, _ int) { errs <- ctx.Err() })
+			obs.NotifyGenerator(ctx, func() int { return 1 })
+			Eventually(errs).Should(Receive(BeNil()))
+		})
+
 		It("Should call the generator once per handler", func() {
 			var callCount atomic.Int64
 			generator := func() int {

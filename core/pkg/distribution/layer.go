@@ -13,12 +13,12 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -31,35 +31,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Transport bundles the node-to-node transports the distribution layer requires.
-type Transport interface {
-	// Channel returns the transport for channel create, rename, and delete RPCs.
-	Channel() channel.Transport
-	// Framer returns the transport for frame write, iterate, relay, and delete
-	// operations.
-	Framer() framer.Transport
-	// Control returns the transport for control state retrieve and subscribe RPCs.
-	Control() control.Transport
-}
-
 // LayerConfig is the configuration for opening the distribution layer.
 type LayerConfig struct {
-	// Transport bundles the network transports used for channel and framer node-to-node
-	// RPCs.
-	//
-	// [REQUIRED]
-	Transport Transport
-	// GorpCodec sets the codec used to encode/decode data structures within the cluster
+	// GorpCodec sets the codec used to encode/decode data structures within the
 	// metadata DB.
 	//
 	// [OPTIONAL] - Defaults to encoding.NewDecodeFallbackCodec(orc.Codec,
 	// msgpack.Codec)
 	GorpCodec encoding.Codec
-	// AspenTransport is the network transport used for key-value gossip and cluster
-	// topology information.
-	//
-	// [REQUIRED]
-	AspenTransport aspen.Transport
 	// Storage is the storage layer that the distribution layer will use for persisting
 	// data across its various services.
 	//
@@ -69,22 +48,10 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// AdvertiseAddress sets the network address that the distribution layer will
-	// publish to other nodes in the cluster.
+	// AdvertiseAddress is the address at which the host node is reached.
 	//
 	// [REQUIRED]
 	AdvertiseAddress address.Address
-	// AspenOptions are additional options to pass when opening the Aspen key-value
-	// store.
-	//
-	// [OPTIONAL] - Defaults to []
-	AspenOptions []aspen.Option
-	// PeerAddresses sets the list of peer nodes in the cluster that the distribution
-	// layer will reach out to join the cluster. If this slice is empty, the
-	// distribution layer will bootstrap a new single node cluster.
-	//
-	// [OPTIONAL] - Defaults to []
-	PeerAddresses []address.Address
 }
 
 var _ config.Config[LayerConfig] = LayerConfig{}
@@ -94,10 +61,6 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.AdvertiseAddress = override.String(c.AdvertiseAddress, other.AdvertiseAddress)
-	c.PeerAddresses = override.Slice(c.PeerAddresses, other.PeerAddresses)
-	c.Transport = override.Nil(c.Transport, other.Transport)
-	c.AspenTransport = override.Nil(c.AspenTransport, other.AspenTransport)
-	c.AspenOptions = override.Slice(c.AspenOptions, other.AspenOptions)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
 	return c
 }
@@ -107,8 +70,6 @@ func (c LayerConfig) Validate() error {
 	v := validate.New("distribution")
 	v.NotNil("storage", c.Storage)
 	v.NotEmptyString("advertise_address", c.AdvertiseAddress)
-	v.NotNil("transport", c.Transport)
-	v.NotNil("aspen_transport", c.AspenTransport)
 	v.NotNil("gorp_codec", c.GorpCodec)
 	return v.Error()
 }
@@ -121,19 +82,18 @@ func (c LayerConfig) Validate() error {
 // the public fields in this struct, or to access these fields after Close has been
 // called.
 type Layer struct {
-	// DB is the database for storing cluster wide metadata.
+	// DB stores the metadata of the Core.
 	DB *gorp.DB
-	// Cluster provides information about the cluster topology. Nodes, keys, addresses,
-	// states, etc.
-	Cluster cluster.Cluster
+	// Identity names the Core: its cluster key and host key.
+	Identity cluster.Identity
+	// Host is the host node of the Core.
+	Host node.Node
 	// Channel is the distribution-layer channel allocator: it assigns local keys and
-	// creates, renames, and deletes storage channels across the cluster.
+	// creates, renames, and deletes storage channels.
 	Channel *channel.Service
-	// Framer is for reading, writing, and streaming frames of telemetry across the
-	// cluster.
+	// Framer is for reading, writing, and streaming frames of telemetry.
 	Framer *framer.Service
-	// Control is for reading and observing the control state of channels across the
-	// cluster.
+	// Control is for reading and observing the control state of channels.
 	Control *control.Service
 	closer  io.MultiCloser
 }
@@ -157,37 +117,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() { err = cleanup(err) }()
 
-	aspenOptions := append([]aspen.Option{
-		aspen.WithEngine(cfg.Storage.KV),
-		aspen.WithTransport(cfg.AspenTransport),
-		aspen.WithInstrumentation(cfg.Child("aspen")),
-	}, cfg.AspenOptions...)
-
-	// Since we're using our own key-value engine, the value we use for 'dirname'
-	// doesn't matter.
-	var aspenDB *aspen.DB
-	if aspenDB, err = aspen.Open(
+	if l.Identity, err = cluster.OpenIdentity(
 		ctx,
-		"",
+		cfg.Storage.KV,
 		cfg.AdvertiseAddress,
-		cfg.PeerAddresses,
-		aspenOptions...,
-	); !ok(err, aspenDB) {
+	); !ok(err, nil) {
 		return nil, err
 	}
-	l.Cluster = aspenDB.Cluster
-	l.DB = gorp.Wrap(
-		aspenDB,
-		gorp.WithCodec(cfg.GorpCodec),
-		gorp.WithIndexObservable(aspenDB.NewObservable(aspen.IgnoreHostLeaseholder)),
-	)
+	l.Host = node.Node{Key: l.Identity.HostKey, Address: cfg.AdvertiseAddress}
+	l.DB = gorp.Wrap(cfg.Storage.KV, gorp.WithCodec(cfg.GorpCodec))
 
 	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
-		HostResolver:    l.Cluster,
-		KV:              aspenDB,
+		HostKey:         l.Identity.HostKey,
+		KV:              cfg.Storage.KV,
 		TS:              cfg.Storage.TS,
-		Transport:       cfg.Transport.Channel(),
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -195,17 +139,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Framer, err = framer.OpenService(ctx, framer.ServiceConfig{
 		Instrumentation: cfg.Child("framer"),
 		TS:              cfg.Storage.TS,
-		Transport:       cfg.Transport.Framer(),
-		HostResolver:    l.Cluster,
 	}); !ok(err, l.Framer) {
 		return nil, err
 	}
 
 	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
 		Instrumentation: cfg.Child("control"),
-		Cluster:         l.Cluster,
 		TS:              cfg.Storage.TS,
-		Transport:       cfg.Transport.Control(),
 	}); !ok(err, l.Control) {
 		return nil, err
 	}
