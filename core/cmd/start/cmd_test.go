@@ -35,6 +35,24 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		viper.SetDefault(listener.FlagListen, "localhost:9090")
 	})
 
+	DescribeTable("Should reject a set peers key",
+		func(set func()) {
+			viper.Set(start.FlagInsecure, true)
+			set()
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
+				Error().
+				To(MatchError(ContainSubstring("a Core no longer joins other Cores")))
+		},
+		Entry("in the config file", func() {
+			viper.Set("peers", []string{"localhost:9092"})
+		}),
+		Entry("in the environment", func() {
+			GinkgoT().Setenv("SYNNAX_PEERS", "localhost:9092")
+			viper.SetEnvPrefix("synnax")
+			viper.AutomaticEnv()
+		}),
+	)
+
 	It("Should build a config from a scalar listen address", func() {
 		viper.Set(listener.FlagListen, "localhost:9091")
 		viper.Set(start.FlagInsecure, true)
