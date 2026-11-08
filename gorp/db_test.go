@@ -10,10 +10,21 @@
 package gorp_test
 
 import (
+	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("DB", func() {
@@ -110,6 +121,113 @@ var _ = Describe("DB", func() {
 				Expect(gorp.OverrideTx(db, nil)).To(Equal(db))
 			},
 		)
+	})
+
+	Describe("Write lock", func() {
+		var (
+			lockDB *gorp.DB
+			logs   *observer.ObservedLogs
+		)
+		BeforeEach(func() {
+			var core zapcore.Core
+			core, logs = observer.New(zap.WarnLevel)
+			ins := alamos.New("gorp", alamos.WithLogger(MustSucceed(
+				alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zap.New(core)}),
+			)))
+			lockDB = DeferClose(gorp.Wrap(
+				memkv.New(),
+				gorp.WithCodec(msgpack.Codec),
+				gorp.WithInstrumentation(ins),
+			))
+		})
+		openAsync := func() <-chan gorp.Tx {
+			opened := make(chan gorp.Tx, 1)
+			go func() { opened <- lockDB.OpenTx() }()
+			return opened
+		}
+
+		It(
+			"Should give a waiting transaction the lock after the first one commits",
+			func(ctx SpecContext) {
+				first := lockDB.OpenTx()
+				Expect(gorp.NewCreate[int32, entry]().
+					Entry(&entry{ID: 1, Data: "One"}).
+					Exec(ctx, first)).To(Succeed())
+				opened := openAsync()
+				Consistently(opened, 50*time.Millisecond).ShouldNot(Receive())
+				Expect(first.Commit(ctx)).To(Succeed())
+				var second gorp.Tx
+				Eventually(opened).Should(Receive(&second))
+				Expect(first.Close()).To(Succeed())
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](1)).
+					Exists(ctx, second)).To(BeTrue())
+				Expect(second.Close()).To(Succeed())
+			},
+		)
+
+		It(
+			"Should give a waiting transaction the lock after the first one closes",
+			func() {
+				first := lockDB.OpenTx()
+				opened := openAsync()
+				Consistently(opened, 50*time.Millisecond).ShouldNot(Receive())
+				Expect(first.Close()).To(Succeed())
+				var second gorp.Tx
+				Eventually(opened).Should(Receive(&second))
+				Expect(second.Close()).To(Succeed())
+			},
+		)
+
+		It(
+			"Should make a write through the DB wait for an open transaction",
+			func(ctx SpecContext) {
+				first := lockDB.OpenTx()
+				written := make(chan error, 1)
+				go func() {
+					written <- gorp.NewCreate[int32, entry]().
+						Entry(&entry{ID: 1, Data: "One"}).
+						Exec(ctx, lockDB)
+				}()
+				Consistently(written, 50*time.Millisecond).ShouldNot(Receive())
+				Expect(first.Close()).To(Succeed())
+				Eventually(written).Should(Receive(Succeed()))
+			},
+		)
+
+		It(
+			"Should release the lock before observers run",
+			func(ctx SpecContext) {
+				observed := make(chan error, 1)
+				disconnect := lockDB.OnChange(func(ctx context.Context, _ kv.TxReader) {
+					tx := lockDB.OpenTx()
+					observed <- tx.Close()
+				})
+				defer disconnect()
+				Expect(gorp.NewCreate[int32, entry]().
+					Entry(&entry{ID: 1, Data: "One"}).
+					Exec(ctx, lockDB)).To(Succeed())
+				Eventually(observed).Should(Receive(Succeed()))
+			},
+		)
+
+		It("Should warn when a transaction waits long for the lock", func() {
+			first := lockDB.OpenTx()
+			opened := openAsync()
+			Consistently(opened, 600*time.Millisecond).ShouldNot(Receive())
+			Expect(first.Close()).To(Succeed())
+			var second gorp.Tx
+			Eventually(opened).Should(Receive(&second))
+			Expect(second.Close()).To(Succeed())
+			Expect(logs.FilterMessage(
+				"gorp transaction waited long for the write lock",
+			).Len()).To(Equal(1))
+		})
+
+		It("Should not warn when a transaction gets the lock at once", func() {
+			Expect(lockDB.OpenTx().Close()).To(Succeed())
+			Expect(logs.Len()).To(BeZero())
+		})
 	})
 
 	Describe("KV", func() {

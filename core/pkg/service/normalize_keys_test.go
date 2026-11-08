@@ -10,6 +10,8 @@
 package service_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -23,7 +25,7 @@ import (
 	deviceversions "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
 	lineplotversions "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	logversions "github.com/synnaxlabs/synnax/pkg/service/log/versions"
-	ontologyversions "github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	projectversions "github.com/synnaxlabs/synnax/pkg/service/project/versions"
 	rackversions "github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 	aliasversions "github.com/synnaxlabs/synnax/pkg/service/ranger/alias/versions"
@@ -47,7 +49,7 @@ var _ = DescribeTable("Pre-v0.54 key normalization",
 		Expect(chain[0].Key()).To(Equal("normalize_keys"))
 	},
 	Entry("alias", aliasversions.Migrations),
-	Entry("arc", arcversions.NewMigrations(arcversions.MigrationsConfig{})),
+	Entry("arc", arcversions.NewMigrations(uuid.Nil())),
 	Entry("auth", authversions.Migrations),
 	Entry("channel", channelversions.Migrations),
 	Entry("device", deviceversions.NewMigrations(deviceversions.MigrationsConfig{})),
@@ -56,12 +58,12 @@ var _ = DescribeTable("Pre-v0.54 key normalization",
 	Entry("lineplot", lineplotversions.Migrations),
 	Entry("log", logversions.Migrations),
 	Entry("policy", policyversions.Migrations),
-	Entry("project", projectversions.NewMigrations(projectversions.MigrationsConfig{})),
+	Entry("project", projectversions.Migrations),
 	Entry("rack", rackversions.NewMigrations(rackversions.MigrationsConfig{})),
 	Entry("ranger", rangerversions.NewMigrations(rangerversions.MigrationsConfig{})),
 	Entry("ranger kv", kvversions.Migrations),
-	Entry("relationship", ontologyversions.RelationshipMigrations),
-	Entry("resource", ontologyversions.ResourceMigrations),
+	Entry("relationship", ontologyv0.RelationshipMigrations),
+	Entry("resource", ontologyv0.ResourceMigrations),
 	Entry("role", roleversions.Migrations),
 	Entry("schematic", schematicversions.Migrations),
 	Entry("status", statusversions.Migrations),
@@ -69,5 +71,5 @@ var _ = DescribeTable("Pre-v0.54 key normalization",
 	Entry("table", tableversions.Migrations),
 	Entry("task", taskversions.NewMigrations(taskversions.MigrationsConfig{})),
 	Entry("user", userversions.Migrations),
-	Entry("view", viewversions.NewMigrations(nil)),
+	Entry("view", viewversions.Migrations),
 )

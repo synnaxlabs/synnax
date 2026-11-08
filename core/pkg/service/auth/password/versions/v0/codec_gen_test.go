@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password/versions/v0"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -38,14 +38,14 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v0.Password{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Subject:  ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+				Subject:  resource.ID{Type: resource.Type("arc"), Key: "test_4"},
 				Username: "test_5",
 				Hash:     []byte{6, 7, 8},
 				Created:  telem.TimeStamp(8),
 			}),
 			Entry("zero values", v0.Password{
 				Key:      uuid.Nil(),
-				Subject:  ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+				Subject:  resource.ID{Type: resource.Type(""), Key: ""},
 				Username: "",
 				Hash:     nil,
 				Created:  telem.TimeStamp(0),
@@ -57,7 +57,7 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncodeDecodePassword(b *testing.B) {
 	seed := v0.Password{
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Subject:  ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+		Subject:  resource.ID{Type: resource.Type("arc"), Key: "test_4"},
 		Username: "test_5",
 		Hash:     []byte{6, 7, 8},
 		Created:  telem.TimeStamp(8),
@@ -81,7 +81,7 @@ func FuzzDecodePassword(f *testing.F) {
 	{
 		seed := v0.Password{
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Subject:  ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+			Subject:  resource.ID{Type: resource.Type("arc"), Key: "test_4"},
 			Username: "test_5",
 			Hash:     []byte{6, 7, 8},
 			Created:  telem.TimeStamp(8),
@@ -95,7 +95,7 @@ func FuzzDecodePassword(f *testing.F) {
 	{
 		seed := v0.Password{
 			Key:      uuid.Nil(),
-			Subject:  ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+			Subject:  resource.ID{Type: resource.Type(""), Key: ""},
 			Username: "",
 			Hash:     nil,
 			Created:  telem.TimeStamp(0),

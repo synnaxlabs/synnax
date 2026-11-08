@@ -22,19 +22,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
 	db            *gorp.DB
-	otg           *ontology.Ontology
 	statusSvc     *status.Service
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
@@ -43,29 +40,17 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-	}))
 	db = node.DB
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: node.DB,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       node.DB,
-		Group:    groupSvc,
-		Ontology: otg,
-		Label:    labelSvc,
+		DB: node.DB,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	channelWriter = channelSvc.NewWriter(nil)
@@ -83,7 +68,7 @@ func openGraph(ctx context.Context) *graph.Graph {
 func fetchStatus(ctx context.Context, key channel.Key) (calculation.Status, bool) {
 	var statuses []calculation.Status
 	err := statusSvc.NewRetrieve[struct{}]().
-		Where(status.MatchKeys[struct{}](channel.OntologyID(key).String())).
+		Where(status.MatchOwners[struct{}](channel.ResourceID(key))).
 		Entries(&statuses).
 		Exec(ctx, nil)
 	if err != nil || len(statuses) == 0 {
@@ -1084,7 +1069,7 @@ var _ = Describe("Graph", func() {
 				Expect(s.Variant).To(Equal(status.VariantError))
 				Expect(s.Message).To(Equal("Failed to compile calculation"))
 				Expect(s.Description).ToNot(BeEmpty())
-				Expect(s.Key).To(Equal(channel.OntologyID(calc.Key()).String()))
+				Expect(s.Owner).To(HaveValue(Equal(channel.ResourceID(calc.Key()))))
 				Expect(s.Name).To(Equal("st_detail"))
 			},
 		)
@@ -1103,30 +1088,19 @@ var _ = Describe("Graph", func() {
 		)
 
 		It(
-			"Should pair a status entry with an ontology resource through set and clear",
+			"Should leave a cleared status out of the status resources",
 			func(ctx SpecContext) {
 				openGraph(ctx)
 				calc := createBrokenCalc(ctx, "st_resource", "st_resource_dep")
-				expectStatus(ctx, calc.Key())
-				id := status.OntologyID(calculation.StatusKey(calc.Key()))
-
-				By("The set defines the status resource")
-				var res []ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(id).
-					Entries(&res).
-					Exec(ctx, nil)).To(Succeed())
-				Expect(res).To(HaveLen(1))
+				id := status.ResourceID(expectStatus(ctx, calc.Key()).Key)
+				Expect(statusSvc.Resources().Retrieve(ctx, db, []resource.ID{id})).
+					To(HaveLen(1))
 
 				By("Restoring the dependency so the graph clears the status")
 				createDep(ctx, "st_resource_dep")
 				eventuallyExpectNoStatus(ctx, calc.Key())
-
-				By("The clear removes the status resource with the entry")
-				Expect(otg.NewRetrieve().
-					WhereIDs(id).
-					Entries(&[]ontology.Resource{}).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Expect(statusSvc.Resources().Retrieve(ctx, db, []resource.ID{id})).
+					To(BeEmpty())
 			},
 		)
 
@@ -1141,14 +1115,6 @@ var _ = Describe("Graph", func() {
 				Expect(channelWriter.Delete(ctx, calc.Key(), false)).To(Succeed())
 
 				eventuallyExpectNoStatus(ctx, calc.Key())
-				id := status.OntologyID(calculation.StatusKey(calc.Key()))
-				Eventually(func() error {
-					return otg.NewRetrieve().
-						WhereIDs(id).
-						Entries(&[]ontology.Resource{}).
-						Exec(ctx, nil)
-				}, 2*time.Second, 10*time.Millisecond).
-					Should(MatchError(query.ErrNotFound))
 			},
 		)
 

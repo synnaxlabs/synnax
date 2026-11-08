@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, type ontology, panel, project, user } from "@synnaxlabs/client";
+import { access, panel, project, type resource, user } from "@synnaxlabs/client";
 import {
-  createPanelParent,
+  createPanelProject,
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
@@ -38,15 +38,15 @@ const client = createTestClient();
 // must pick up through the action channel.
 const writer = createTestClient();
 
-// Panel creation requires a parent; every panel here shares one throwaway project.
-let defaultParent: ontology.ID;
+// Every panel here shares one throwaway project.
+let defaultProject: project.Key;
 beforeAll(async () => {
-  defaultParent = await createPanelParent(client);
+  defaultProject = await createPanelProject(client);
 });
 
 const ROUND_TRIP = { timeout: 5000 };
 
-const resourceID = (): ontology.ID => ({ type: "lineplot", key: uuid.create() });
+const resourceID = (): resource.ID => ({ type: "lineplot", key: uuid.create() });
 
 const resourceTab = (): panel.Tab => ({
   variant: "resource",
@@ -66,10 +66,21 @@ const selectorTab = (): panel.Tab => ({
   type: "selector",
 });
 
+const createPlots = async (tabs: panel.Tab[]): Promise<void> => {
+  for (const tab of tabs)
+    if (tab.variant === "resource")
+      await client.lineplots.create({
+        key: tab.resource.key,
+        name: `mosaic-${tab.resource.key}`,
+        project: defaultProject,
+      });
+};
+
 const createPanel = async (...tabs: panel.Tab[]): Promise<panel.Panel> => {
+  await createPlots(tabs);
   const created = await client.panels.create({
     name: `mosaic-${uuid.create()}`,
-    parent: defaultParent,
+    project: defaultProject,
   });
   if (tabs.length > 0)
     await client.panels.dispatch(
@@ -91,14 +102,14 @@ const contentText = (tab: panel.Tab): string => {
 
 interface Recorded {
   type: string;
-  resource: ontology.ID | null;
+  resource: resource.ID | null;
 }
 
 // records captures what each tab's content probe resolved from the tab scope, so specs
 // can assert content for tabs rendered into detached portals (not in the document).
 const records = new Map<string, Recorded>();
 
-// ResourceContentProbe reads a resource tab's ontology ID from the surrounding tab
+// ResourceContentProbe reads a resource tab's resource ID from the surrounding tab
 // scope, records it, and renders the visible content text.
 const ResourceContentProbe = (): ReactElement => {
   const tabKey = Panel.useTabKey();
@@ -811,6 +822,11 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(tab))).toBeTruthy());
 
       const resource = { type: "lineplot", key: uuid.create() } as const;
+      await client.lineplots.create({
+        key: resource.key,
+        name: `mosaic-${resource.key}`,
+        project: defaultProject,
+      });
       await writer.panels.retrieve(p.key);
       await writer.panels.dispatch(p.key, [
         panel.setTabResource({ key: tab.key, resource }),
@@ -1064,11 +1080,11 @@ describe("Panel.Mosaic", () => {
       const viewer = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
-          panel.TYPE_ONTOLOGY_ID,
-          project.TYPE_ONTOLOGY_ID,
-          user.TYPE_ONTOLOGY_ID,
-          access.role.TYPE_ONTOLOGY_ID,
-          access.policy.TYPE_ONTOLOGY_ID,
+          panel.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
         ],
         actions: ["retrieve"],
       });

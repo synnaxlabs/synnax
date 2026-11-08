@@ -11,7 +11,12 @@
 
 package view
 
-import serviceview "github.com/synnaxlabs/synnax/pkg/service/view"
+import (
+	"strconv"
+
+	serviceview "github.com/synnaxlabs/synnax/pkg/service/view"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // RetrieveRequest is a request to retrieve views.
 type RetrieveRequest struct {
@@ -29,4 +34,14 @@ type RetrieveRequest struct {
 type RetrieveResponse struct {
 	// Views are the views the request selects.
 	Views []serviceview.View `json:"views" msgpack:"views"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Views {
+		v.Exec(func() error { return validate.PathedError(r.Views[i].Validate(), "views", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

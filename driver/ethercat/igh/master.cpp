@@ -112,13 +112,57 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
     return {info.slave_count, x::errors::NIL};
 }
 
+x::errors::Error Master::add_startup_parameters(
+    const slave::Properties &slave,
+    ec_slave_config_t *sc,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    const auto slave_name = "slave " + std::to_string(slave.position) + " (" +
+                            slave.name + ")";
+    for (const auto &param: parameters) {
+        const auto data = param.bytes();
+        // IgH reports a rejected config SDO only as a slave stuck in PRE-OP, so a
+        // direct write first gets the abort code.
+        uint32_t abort_code = 0;
+        if (this->api->master_sdo_download(
+                this->ec_master,
+                slave.position,
+                param.index,
+                param.sub_index,
+                data.data(),
+                data.size(),
+                &abort_code
+            ) < 0)
+            return x::errors::Error(
+                errors::STARTUP_PARAMETER_ERROR,
+                slave_name + " rejected startup parameter " + param.to_string() + ": " +
+                    errors::sdo_abort_reason(abort_code)
+            );
+        if (this->api->slave_config_sdo(
+                sc,
+                param.index,
+                param.sub_index,
+                data.data(),
+                data.size()
+            ) < 0)
+            return x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                "failed to add startup parameter " + param.to_string() + " to " +
+                    slave_name
+            );
+    }
+    return x::errors::NIL;
+}
+
 void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
     std::lock_guard lock(this->mu);
     this->disabled_slaves.clear();
     this->chosen_modes.clear();
+    this->startup_parameters.clear();
     for (auto &[position, config]: configs) {
         if (!config.enabled) this->disabled_slaves.insert(position);
         if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+        this->startup_parameters[position] = std::move(config.startup_parameters);
     }
 }
 
@@ -135,6 +179,7 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
 
     for (const auto &slave: this->cached_slaves) {
         const auto pos = slave.properties.position;
+        std::vector<slave::StartupParameter> params;
         {
             std::lock_guard lock(this->mu);
             if (this->disabled_slaves.contains(pos) || this->left_out.contains(pos))
@@ -158,13 +203,19 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
                         )
                     );
             }
+            if (const auto it = this->startup_parameters.find(pos);
+                it != this->startup_parameters.end())
+                params = it->second;
         }
-        if (this->get_or_create_slave_config(pos) == nullptr)
+        auto *sc = this->get_or_create_slave_config(pos);
+        if (sc == nullptr)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 "failed to configure slave " + std::to_string(pos) + " (" +
                     slave.properties.name + ")"
             );
+        if (auto err = this->add_startup_parameters(slave.properties, sc, params))
+            return err;
     }
 
     const size_t output_domain_size = this->api->domain_size(this->output_domain);

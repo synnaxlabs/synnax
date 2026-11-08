@@ -16,13 +16,13 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
 )
 
 // Export retrieves the Symbol identified by id and serializes it, stamping
 // versions.Latest. It returns query.ErrNotFound if no Symbol has id.Key.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
+func (s *Service) Export(ctx context.Context, id resource.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return imex.Envelope{}, err
@@ -37,7 +37,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	env := imex.Envelope{
 		Version: versions.Latest, Type: string(s.Type()), Name: v.Name,
 	}
-	if err = env.Encode(v); err != nil {
+	if err = env.Encode(v, "group"); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil

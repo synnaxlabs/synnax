@@ -19,6 +19,7 @@
 #include "client/cpp/arc/types.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/json.gen.h"
 #include "arc/cpp/program/json.gen.h"
@@ -32,6 +33,7 @@ inline Base Base::parse(x::json::Parser parser) {
         .name = parser.field<std::string>("name"),
         .source = parser.has("source") ? parse_source(parser.child("source"))
                                        : Source{TextSource{}},
+        .directory = parser.field<std::optional<x::uuid::UUID>>("directory"),
     };
 }
 
@@ -40,6 +42,7 @@ inline x::json::json Base::to_json() const {
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["source"] = ::synnax::arc::to_json(this->source);
+    if (this->directory.has_value()) j["directory"] = this->directory->to_json();
     return j;
 }
 
@@ -50,6 +53,9 @@ inline Where Where::parse(x::json::Parser parser) {
         .not_ = parser.field<x::mem::indirect<Where>>("not"),
         .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
         .name = parser.field<std::optional<::x::filter::String>>("name"),
+        .directories = parser.field<std::optional<std::vector<x::uuid::UUID>>>(
+            "directories"
+        ),
     };
 }
 
@@ -60,6 +66,12 @@ inline x::json::json Where::to_json() const {
     if (this->not_.has_value()) j["not"] = this->not_->to_json();
     if (this->key.has_value()) j["key"] = this->key->to_json();
     if (this->name.has_value()) j["name"] = this->name->to_json();
+    if (this->directories.has_value()) {
+        auto arr = x::json::json::array();
+        for (const auto &item: *this->directories)
+            arr.push_back(item.to_json());
+        j["directories"] = arr;
+    }
     return j;
 }
 

@@ -17,4 +17,4 @@ import { Access } from "@synnaxlabs/pluto";
  * the schematic.
  */
 export const useCanCommand = (): boolean =>
-  Access.useCreateGranted(framer.TYPE_ONTOLOGY_ID);
+  Access.useCreateGranted(framer.TYPE_RESOURCE_ID);
