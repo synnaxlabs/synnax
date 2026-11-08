@@ -2403,6 +2403,40 @@ describe("trim", () => {
     expect(table.get("a")).toEqual({ key: "a", name: "old" });
   });
 
+  it("should forget a dropped entry's stamp once a failed fetch settles", async () => {
+    const table = newTable();
+    let stale = 0;
+    await expect(
+      table.track(async (since) => {
+        stale = since;
+        table.set({ key: "a", name: "new" });
+        table.trim(table.size);
+        table.trim(0);
+        throw new Error("fetch failed");
+      }),
+    ).rejects.toThrow("fetch failed");
+    table.trim(0);
+    table.ingest([{ key: "a", name: "old" }], { since: stale });
+    expect(table.get("a")).toEqual({ key: "a", name: "old" });
+  });
+
+  it("should keep a dropped entry's stamp while an older fetch runs", async () => {
+    const table = newTable();
+    let finishOlder = () => {};
+    const older = table.track(async (since) => {
+      await new Promise<void>((resolve) => (finishOlder = resolve));
+      table.ingest([{ key: "a", name: "old" }], { since });
+    });
+    table.set({ key: "a", name: "new" });
+    table.trim(table.size);
+    table.trim(0);
+    await table.track(async () => {});
+    table.trim(0);
+    finishOlder();
+    await older;
+    expect(table.get("a")).toBeUndefined();
+  });
+
   it("should drop nothing at or under the size", () => {
     const table = newTable();
     table.set([doc("a")]);
