@@ -375,6 +375,42 @@ class TestChannel:
         results = client.channels.retrieve(names)
         assert len(results) == 0
 
+    def test_delete_refused_by_task_config(
+        self, client: sy.Synnax, virtual_channel: sy.Channel
+    ) -> None:
+        """Should refuse deleting a channel that a task config names"""
+        rack = client.racks.create(name=channel_name())
+        device = client.devices.create(
+            sy.Device(
+                key=channel_name(),
+                name="plc",
+                rack=rack.key,
+                location="127.0.0.1:502",
+                make="modbus",
+                model="modbus",
+            )
+        )
+        task = client.tasks.create(
+            name="read",
+            type="modbus_read",
+            config={
+                "device": device.key,
+                "channels": [
+                    {"type": "coil", "key": "coil", "channel": virtual_channel.key}
+                ],
+            },
+        )
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                f"cannot delete channel {virtual_channel.name} because task "
+                f"{task.name} uses it"
+            ),
+        ):
+            client.channels.delete(virtual_channel.key)
+        client.tasks.delete(task.key)
+        client.channels.delete(virtual_channel.key)
+
     def test_delete_and_recreate_with_same_name(self, client: sy.Synnax) -> None:
         """Should be able to delete, recreate, and then query a channel with the same
         name."""
@@ -614,12 +650,6 @@ class TestChannel:
         assert len(retrieved.operations) == 1
         assert retrieved.operations[0].type == "avg"
         assert retrieved.operations[0].duration == sy.TimeSpan.SECOND * 15
-
-    def test_retrieve_group(self, client: sy.Synnax) -> None:
-        """Should retrieve the group that holds every channel by default"""
-        g = client.channels.retrieve_group()
-        assert g.name == "Channels"
-        assert client.channels.retrieve_group().key == g.key
 
 
 @pytest.mark.channel
@@ -904,10 +934,10 @@ class TestChannelRetrieveFilters:
         virt = create_channels[2]
         client.statuses.set(
             sy.Status(
-                key=str(virt.ontology_id),
                 name=virt.name,
                 variant=sy.status.VARIANT_SUCCESS,
                 message="ok",
+                owner=virt.resource_id,
             )
         )
         res = client.channels.retrieve(virt.key, include_status=True)
@@ -981,3 +1011,30 @@ class TestChannelWriteRead:
             start + (len(d) - 1) * sy.TimeSpan.SECOND + sy.TimeSpan.NANOSECOND
         )
         assert np.array_equal(data, d)
+
+
+@pytest.mark.channel
+class TestChannelGroup:
+    def test_create_in_group(self, client: sy.Synnax) -> None:
+        """Should create a channel in a group and retrieve it by that group."""
+        g = client.groups.create(channel_name(), scope="channel")
+        ch = client.channels.create(
+            name=channel_name(),
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+            group=g.key,
+        )
+        assert ch.group == g.key
+        assert [c.key for c in client.channels.retrieve(groups=[g.key])] == [ch.key]
+
+    def test_set_group(self, client: sy.Synnax) -> None:
+        """Should move a channel into a group and back out of it."""
+        g = client.groups.create(channel_name(), scope="channel")
+        ch = client.channels.create(
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        assert ch.group is None
+        client.channels.set_group(ch.key, g.key)
+        assert client.channels.retrieve(ch.key).group == g.key
+        client.channels.set_group(ch.key)
+        assert client.channels.retrieve(ch.key).group is None

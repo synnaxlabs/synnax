@@ -36,11 +36,11 @@ class TestLog:
                 {"channel": 1, "color": "#00ff00", "precision": 18}
             )
 
-    def test_ontology_id(self) -> None:
-        """Should build the ontology ID of a log."""
+    def test_resource_id(self) -> None:
+        """Should build the resource ID of a log."""
         key = uuid4()
-        assert log.ontology_id(key).type == log.ONTOLOGY_TYPE.type
-        assert log.ontology_id(key).key == str(key)
+        assert log.resource_id(key).type == log.TYPE_RESOURCE_ID.type
+        assert log.resource_id(key).key == str(key)
         lg = log.Log(name="Events")
         assert hash(lg) == hash(lg.key)
 
@@ -54,8 +54,9 @@ def project(client: sy.Synnax) -> sy.Project:
 class TestClient:
     def test_create(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create a single log with default display configuration."""
-        log = client.logs.create(project.key, sy.Log(name="Test Log"))
+        log = client.logs.create(sy.Log(name="Test Log", project=project.key))
         assert log.name == "Test Log"
+        assert log.project == project.key
         assert log.channels == []
         assert log.timestamp_precision == 0
         assert not log.channel_names_hidden
@@ -63,14 +64,17 @@ class TestClient:
 
     def test_create_from_name(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create an empty log from a name."""
-        log = client.logs.create(project.key, name="Named")
+        log = client.logs.create(name="Named", project=project.key)
         assert log.name == "Named"
         assert log.channels == []
 
     def test_create_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create multiple logs."""
         logs = client.logs.create(
-            project.key, [sy.Log(name="Log 1"), sy.Log(name="Log 2")]
+            [
+                sy.Log(name="Log 1", project=project.key),
+                sy.Log(name="Log 2", project=project.key),
+            ]
         )
         assert [log.name for log in logs] == ["Log 1", "Log 2"]
 
@@ -88,8 +92,12 @@ class TestClient:
             timestamp=sy.log.TimestampConfig(format="ISO", tz="UTC"),
         )
         log = client.logs.create(
-            project.key,
-            sy.Log(name="Channels", channels=[entry], timestamp_precision=2),
+            sy.Log(
+                name="Channels",
+                channels=[entry],
+                timestamp_precision=2,
+                project=project.key,
+            ),
         )
         retrieved = client.logs.retrieve(key=log.key)
         assert retrieved.channels == [entry]
@@ -103,27 +111,57 @@ class TestClient:
     ) -> None:
         """Should store the default timestamp configuration of a channel entry."""
         entry = sy.log.ChannelEntry(channel=virtual_channel.key, color=sy.Color())
-        log = client.logs.create(project.key, sy.Log(name="Default", channels=[entry]))
+        log = client.logs.create(
+            sy.Log(name="Default", channels=[entry], project=project.key)
+        )
         timestamp = client.logs.retrieve(key=log.key).channels[0].timestamp
         assert timestamp == sy.log.TimestampConfig(format="preciseDate", tz="local")
 
     def test_retrieve_by_key(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should retrieve a log by key."""
-        created = client.logs.create(project.key, sy.Log(name="Retrieve Me"))
+        created = client.logs.create(sy.Log(name="Retrieve Me", project=project.key))
         retrieved = client.logs.retrieve(key=created.key)
         assert retrieved == created
 
     def test_retrieve_by_keys(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should retrieve multiple logs by key."""
         created = client.logs.create(
-            project.key, [sy.Log(name="Log A"), sy.Log(name="Log B")]
+            [
+                sy.Log(name="Log A", project=project.key),
+                sy.Log(name="Log B", project=project.key),
+            ]
         )
         retrieved = client.logs.retrieve(keys=[log.key for log in created])
         assert {log.key for log in retrieved} == {log.key for log in created}
 
+    def test_retrieve_by_project(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve only the logs the project owns."""
+        a = client.logs.create(name="Child A", project=project.key)
+        b = client.logs.create(name="Child B", project=project.key)
+        other = client.projects.create(name="Other Project")
+        client.logs.create(name="Other", project=other.key)
+        retrieved = client.logs.retrieve(projects=[project.key])
+        assert {r.key for r in retrieved} == {a.key, b.key}
+
+    def test_retrieve_by_range_without_logs(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should return no logs when the range owns none."""
+        client.logs.create(name="Project Owned", project=project.key)
+        rng = client.ranges.create(
+            name="Empty Range",
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        assert client.logs.retrieve(ranges=[rng.key]) == []
+
     def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should keep the logs that match the where and the other filters."""
-        a, b = client.logs.create(project.key, [sy.Log(name="A"), sy.Log(name="B")])
+        a, b = client.logs.create(
+            [
+                sy.Log(name="A", project=project.key),
+                sy.Log(name="B", project=project.key),
+            ]
+        )
         where = log.Where(not_=log.Where(key=sy.filter.Set[log.Key](eq=a.key)))
         res = client.logs.retrieve(where=where, keys=[a.key, b.key, uuid4()])
         assert [r.key for r in res] == [b.key]
@@ -135,7 +173,7 @@ class TestClient:
 
     def test_retrieve_key_list(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should return a list for a list of keys, even with one key."""
-        a = client.logs.create(project.key, sy.Log(name="A"))
+        a = client.logs.create(sy.Log(name="A", project=project.key))
         res = client.logs.retrieve(key=[a.key])
         assert [r.key for r in res] == [a.key]
 
@@ -143,27 +181,27 @@ class TestClient:
         self, client: sy.Synnax, project: sy.Project
     ) -> None:
         """Should return one log for a plain key beside other fields."""
-        a = client.logs.create(project.key, sy.Log(name="A"))
+        a = client.logs.create(sy.Log(name="A", project=project.key))
         assert client.logs.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
         with pytest.raises(NotFoundError, match=r"Found no log where .+"):
             client.logs.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should retrieve the logs that match any filter in or_."""
-        a = client.logs.create(project.key, sy.Log(name="A"))
-        b = client.logs.create(project.key, sy.Log(name="B"))
+        a = client.logs.create(sy.Log(name="A", project=project.key))
+        b = client.logs.create(sy.Log(name="B", project=project.key))
         res = client.logs.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
         assert {r.key for r in res} == {a.key, b.key}
 
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a log."""
-        log = client.logs.create(project.key, sy.Log(name="Before"))
+        log = client.logs.create(sy.Log(name="Before", project=project.key))
         client.logs.rename(log.key, "After")
         assert client.logs.retrieve(key=log.key).name == "After"
 
     def test_delete(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should delete a log."""
-        log = client.logs.create(project.key, sy.Log(name="To Delete"))
+        log = client.logs.create(sy.Log(name="To Delete", project=project.key))
         client.logs.delete(log.key)
         with pytest.raises(NotFoundError):
             client.logs.retrieve(key=log.key)
@@ -171,7 +209,10 @@ class TestClient:
     def test_delete_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should delete multiple logs."""
         logs = client.logs.create(
-            project.key, [sy.Log(name="Delete 1"), sy.Log(name="Delete 2")]
+            [
+                sy.Log(name="Delete 1", project=project.key),
+                sy.Log(name="Delete 2", project=project.key),
+            ]
         )
         client.logs.delete([log.key for log in logs])
         assert client.logs.retrieve(keys=[log.key for log in logs]) == []

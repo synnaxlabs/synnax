@@ -12,6 +12,7 @@ import { filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { label } from "@/label";
+import { resource } from "@/resource";
 import { keyZ, type Status, variantZ, type Where } from "@/status/types.gen";
 
 /**
@@ -20,6 +21,7 @@ import { keyZ, type Status, variantZ, type Where } from "@/status/types.gen";
  */
 export interface Lines {
   labels: ((record: Status, value: NonNullable<Where["labels"]>) => boolean) | null;
+  owners: ((record: Status, value: NonNullable<Where["owners"]>) => boolean) | null;
 }
 
 /**
@@ -40,6 +42,10 @@ export const matches = (lines: Lines, record: Status, where?: Where): boolean =>
     if (lines.labels == null) throw new Error("only the Core can check labels");
     if (!lines.labels(record, where.labels)) return false;
   }
+  if (where.owners != null) {
+    if (lines.owners == null) throw new Error("only the Core can check owners");
+    if (!lines.owners(record, where.owners)) return false;
+  }
   return true;
 };
 
@@ -52,7 +58,8 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
   (where.and?.some((w) => serverComputed(lines, w)) === true ||
     where.or?.some((w) => serverComputed(lines, w)) === true ||
     (where.not != null && serverComputed(lines, where.not)) ||
-    (where.labels != null && lines.labels == null));
+    (where.labels != null && lines.labels == null) ||
+    (where.owners != null && lines.owners == null));
 
 const inputs = {
   /** key selects by key. */
@@ -61,6 +68,8 @@ const inputs = {
   variant: filter.setInputZ(variantZ).exactOptional(),
   /** labels matches statuses that have any of the given labels. */
   labels: filter.listInputZ(label.keyZ).exactOptional(),
+  /** owners matches the statuses that the given resources own. */
+  owners: filter.listInputZ(resource.idZ).exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -98,5 +107,5 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ...options,
     })
     .transform((input) =>
-      filter.split(input, ["and", "or", "not", "key", "variant", "labels"]),
+      filter.split(input, ["and", "or", "not", "key", "variant", "labels", "owners"]),
     );

@@ -11,16 +11,21 @@ package status_test
 
 import (
 	"encoding/json/v2"
+	"math/rand/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -28,10 +33,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// statusTypeOnly is the type-level ontology ID for granting access across all
+// statusTypeOnly is the type-level resource ID for granting access across all
 // statuses. Row-level grants must match the input key exactly; type-level grants
-// cover any input via the ontology.ID IsType matching rule.
-var statusTypeOnly = ontology.ID{Type: ontology.ResourceTypeStatus}
+// cover any input via the resource.ID IsType matching rule.
+var statusTypeOnly = resource.ID{Type: resource.TypeStatus}
 
 var _ = Describe("Service.Set", func() {
 	set := func(
@@ -39,86 +44,152 @@ var _ = Describe("Service.Set", func() {
 		statuses ...status.Status[any],
 	) (apistatus.SetResponse, error) {
 		GinkgoHelper()
-		return apiSvc.Set(
-			AuthedCtx(ctx, author), db, apistatus.SetRequest{Statuses: statuses},
+		return fgorp.CreateWriteUnaryHandler(db, apiSvc.Set)(
+			AuthedCtx(ctx, author), apistatus.SetRequest{Statuses: statuses},
 		)
 	}
-	newStatus := func(key status.Key, details any) status.Status[any] {
+	newStatus := func(owner *resource.ID, details any) status.Status[any] {
 		return status.Status[any]{
-			Key:     key,
+			Key:     uuid.New().String(),
+			Owner:   owner,
 			Time:    telem.Now(),
 			Variant: status.VariantInfo,
 			Details: details,
 		}
 	}
 	BeforeEach(func(ctx SpecContext) {
-		grantOn(ctx, author.OntologyID(),
+		grantOn(ctx, author.ResourceID(),
 			[]access.Action{access.ActionCreate},
 			statusTypeOnly)
 	})
 
 	DescribeTable(
-		"Should reject details the resource cannot decode",
-		func(ctx SpecContext, resource string, details any) {
-			key := resource + ":" + uuid.New().String()
-			Expect(set(ctx, newStatus(key, details))).Error().To(MatchError(
+		"Should reject details the owner cannot decode",
+		func(ctx SpecContext, owner resource.ID, details any) {
+			s := newStatus(&owner, details)
+			Expect(set(ctx, s)).Error().To(MatchError(
 				And(
 					ContainSubstring("statuses.0.details"),
 					HaveSuffix("validation error"),
 				),
 			))
 			Expect(statusSvc.NewRetrieve[any]().
-				Where(status.MatchKeys[any](key)).
+				Where(status.MatchKeys[any](s.Key)).
 				Entry(&status.Status[any]{}).
 				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		},
-		Entry("rack string", "rack", "not an object"),
-		Entry("rack array", "rack", []any{"not", "an", "object"}),
-		Entry("rack field type", "rack", map[string]any{"rack": "not a key"}),
-		Entry("device string", "device", "not an object"),
-		Entry("device field type", "device", map[string]any{"rack": "not a key"}),
-		Entry("task number", "task", 12),
-		Entry("task field type", "task", map[string]any{"running": "yes"}),
-		Entry("task data array", "task", map[string]any{"data": []any{1, 2}}),
-		Entry("channel string", "channel", "not an object"),
+		Entry("rack string", rackOwner, "not an object"),
+		Entry("rack array", rackOwner, []any{"not", "an", "object"}),
+		Entry("device string", deviceOwner, "not an object"),
+		Entry("device field type", deviceOwner, map[string]any{"rack": "not a key"}),
+		Entry("task number", taskOwner, 12),
+		Entry("task field type", taskOwner, map[string]any{"running": "yes"}),
+		Entry("task data array", taskOwner, map[string]any{"data": []any{1, 2}}),
+		Entry("channel string", channelOwner, "not an object"),
 	)
 
 	DescribeTable(
-		"Should accept details the resource can decode",
-		func(ctx SpecContext, resource string, details any) {
-			key := resource + ":" + uuid.New().String()
-			Expect(MustSucceed(set(ctx, newStatus(key, details))).Statuses).
+		"Should accept details the owner can decode",
+		func(ctx SpecContext, create func(SpecContext) resource.ID, details any) {
+			owner := create(ctx)
+			Expect(MustSucceed(set(ctx, newStatus(&owner, details))).Statuses).
 				To(HaveLen(1))
 		},
-		Entry("rack", "rack", map[string]any{"rack": 65537}),
-		Entry("rack with no details", "rack", nil),
-		Entry("device", "device", map[string]any{
-			"rack": 65537, "device": "dev", "data": map[string]any{"any": "thing"},
+		Entry("rack", createRack, map[string]any{}),
+		Entry("rack with no details", createRack, nil),
+		Entry("rack with extra fields", createRack, map[string]any{"rack": 65537}),
+		Entry("device", createDevice, map[string]any{
+			"rack": 65537, "data": map[string]any{"any": "thing"},
 		}),
-		Entry("task", "task", map[string]any{
-			"task": uuid.New().
-				String(),
+		Entry("task", createTask, map[string]any{
 			"running": true,
 			"data":    map[string]any{"a": 1},
 		}),
-		Entry("channel with extra fields", "channel", map[string]any{"channel": 12}),
-		Entry("a resource with no status details", "schematic", "free form"),
 	)
 
 	It(
-		"Should accept free-form details under a non-resource key",
+		"Should accept free-form details on a status with no owner",
 		func(ctx SpecContext) {
 			Expect(MustSucceed(
-				set(ctx, newStatus(uuid.New().String(), "free form")),
+				set(ctx, newStatus(nil, "free form")),
 			).Statuses).To(HaveLen(1))
+		},
+	)
+
+	It(
+		"Should check details against the stored owner on an update with no owner",
+		func(ctx SpecContext) {
+			owner := createTask(ctx)
+			valid := map[string]any{"running": true}
+			stored := MustSucceed(set(ctx, newStatus(&owner, valid))).Statuses[0]
+			update := newStatus(nil, "not an object")
+			update.Key = stored.Key
+			Expect(set(ctx, update)).Error().To(MatchError(
+				And(
+					ContainSubstring("statuses.0.details"),
+					HaveSuffix("validation error"),
+				),
+			))
+			var res status.Status[any]
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](stored.Key)).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			Expect(res.Details).To(HaveKeyWithValue("running", true))
+		},
+	)
+
+	It(
+		"Should refuse a write to the status an owner holds without access on its key",
+		func(ctx SpecContext) {
+			owner := createTask(ctx)
+			held := newStatus(&owner, nil)
+			held.Message = "Running"
+			held = MustSucceed(set(ctx, held)).Statuses[0]
+			u := freshUser(ctx)
+			req := newStatus(&owner, nil)
+			req.Message = "Overwritten"
+			grantOn(ctx, u.ResourceID(),
+				[]access.Action{access.ActionCreate},
+				status.ResourceID(req.Key))
+			Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Set)(
+				AuthedCtx(ctx, u),
+				apistatus.SetRequest{Statuses: []status.Status[any]{req}},
+			)).Error().To(MatchError(access.ErrDenied))
+			var res status.Status[any]
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](held.Key)).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			Expect(res.Message).To(Equal("Running"))
+		},
+	)
+
+	It(
+		"Should check details against an owner from an earlier status in the batch",
+		func(ctx SpecContext) {
+			owner := createTask(ctx)
+			owned := newStatus(&owner, map[string]any{"running": true})
+			update := newStatus(nil, "not an object")
+			update.Key = owned.Key
+			Expect(set(ctx, owned, update)).Error().To(MatchError(
+				And(
+					ContainSubstring("statuses.1.details"),
+					HaveSuffix("validation error"),
+				),
+			))
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](owned.Key)).
+				Entry(&status.Status[any]{}).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		},
 	)
 
 	It(
 		"Should write nothing when one status in a batch is invalid",
 		func(ctx SpecContext) {
-			valid := newStatus(uuid.New().String(), nil)
-			invalid := newStatus("rack:"+uuid.New().String(), "not an object")
+			valid := newStatus(nil, nil)
+			invalid := newStatus(&rackOwner, "not an object")
 			Expect(set(ctx, valid, invalid)).Error().To(MatchError(
 				ContainSubstring("statuses.1.details"),
 			))
@@ -130,13 +201,41 @@ var _ = Describe("Service.Set", func() {
 	)
 })
 
+func createRack(ctx SpecContext) resource.ID {
+	GinkgoHelper()
+	r := rack.Rack{Key: rack.Key(65536 + rand.Uint32N(1<<16)), Name: "rack"}
+	Expect(rackSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	return r.ResourceID()
+}
+
+func createDevice(ctx SpecContext) resource.ID {
+	GinkgoHelper()
+	d := device.Device{Key: uuid.New().String(), Name: "device"}
+	Expect(devices.NewCreate().Entry(&d).Exec(ctx, db)).To(Succeed())
+	return d.ResourceID()
+}
+
+func createTask(ctx SpecContext) resource.ID {
+	GinkgoHelper()
+	t := task.Task{Key: uuid.New(), Name: "task"}
+	Expect(tasks.NewCreate().Entry(&t).Exec(ctx, db)).To(Succeed())
+	return t.ResourceID()
+}
+
+var (
+	rackOwner    = resource.ID{Type: resource.TypeRack, Key: "65537"}
+	deviceOwner  = resource.ID{Type: resource.TypeDevice, Key: "dev"}
+	taskOwner    = resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
+	channelOwner = resource.ID{Type: resource.TypeChannel, Key: "12"}
+)
+
 var _ = Describe("Service.SetByKeyOrName", func() {
 	Describe("authorized requests", func() {
 		It(
 			"Should create a UUID-keyed row named after the input when nothing matches",
 			func(ctx SpecContext) {
 				name := "api_set_fresh_" + uuid.New().String()
-				grantOn(ctx, author.OntologyID(),
+				grantOn(ctx, author.ResourceID(),
 					[]access.Action{access.ActionCreate},
 					statusTypeOnly)
 
@@ -178,9 +277,9 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 						Key: key, Name: "api_uuid",
 					})
 				})).To(Succeed())
-				grantOn(ctx, author.OntologyID(),
+				grantOn(ctx, author.ResourceID(),
 					[]access.Action{access.ActionUpdate},
-					status.OntologyID(key))
+					status.ResourceID(key))
 
 				res := MustSucceed(
 					apiSvc.SetByKeyOrName(
@@ -214,7 +313,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 						Key: uuid.New().String(), Name: name,
 					})
 				})).To(Succeed())
-				grantOn(ctx, author.OntologyID(),
+				grantOn(ctx, author.ResourceID(),
 					[]access.Action{access.ActionUpdate},
 					statusTypeOnly)
 
@@ -239,7 +338,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 			"Should propagate a validation error for an unknown variant",
 			func(ctx SpecContext) {
 				name := "api_iv_" + uuid.New().String()
-				grantOn(ctx, author.OntologyID(),
+				grantOn(ctx, author.ResourceID(),
 					[]access.Action{access.ActionCreate},
 					statusTypeOnly)
 
@@ -257,7 +356,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 		It(
 			"Should propagate a validation error for empty input",
 			func(ctx SpecContext) {
-				grantOn(ctx, author.OntologyID(),
+				grantOn(ctx, author.ResourceID(),
 					[]access.Action{access.ActionCreate},
 					statusTypeOnly)
 
@@ -302,9 +401,9 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 			func(ctx SpecContext) {
 				name := "api_rowlevel_" + uuid.New().String()
 				anon := freshUser(ctx)
-				grantOn(ctx, anon.OntologyID(),
+				grantOn(ctx, anon.ResourceID(),
 					[]access.Action{access.ActionCreate},
-					status.OntologyID(uuid.New().String()))
+					status.ResourceID(uuid.New().String()))
 
 				Expect(
 					apiSvc.SetByKeyOrName(
@@ -324,7 +423,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 })
 
 // createStatus persists a fresh status and returns it. Writes commit immediately (nil
-// tx) so access-control reads can observe the new ontology resource.
+// tx) so access-control reads can observe the new status.
 func createStatus(ctx SpecContext, name string) status.Status[any] {
 	GinkgoHelper()
 	s := status.Status[any]{
@@ -342,7 +441,7 @@ func createStatus(ctx SpecContext, name string) status.Status[any] {
 
 var _ = Describe("Service.Retrieve", func() {
 	BeforeEach(func(ctx SpecContext) {
-		grantOn(ctx, author.OntologyID(),
+		grantOn(ctx, author.ResourceID(),
 			[]access.Action{access.ActionRetrieve},
 			statusTypeOnly)
 	})
@@ -425,9 +524,9 @@ var _ = Describe("Service.Rename", func() {
 	It("Should rename the status when update is granted", func(ctx SpecContext) {
 		u := freshUser(ctx)
 		s := createStatus(ctx)
-		grantOn(ctx, u.OntologyID(),
+		grantOn(ctx, u.ResourceID(),
 			[]access.Action{access.ActionUpdate},
-			status.OntologyID(s.Key))
+			status.ResourceID(s.Key))
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apistatus.RenameRequest{Key: s.Key, Name: "After"},
@@ -441,9 +540,9 @@ var _ = Describe("Service.Rename", func() {
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := freshUser(ctx)
 		s := createStatus(ctx)
-		grantOn(ctx, u.OntologyID(),
+		grantOn(ctx, u.ResourceID(),
 			[]access.Action{access.ActionUpdate},
-			status.OntologyID(s.Key))
+			status.ResourceID(s.Key))
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apistatus.RenameRequest{Key: s.Key, Name: ""},
@@ -454,9 +553,9 @@ var _ = Describe("Service.Rename", func() {
 	It("Should return a not found error for a missing status", func(ctx SpecContext) {
 		u := freshUser(ctx)
 		key := uuid.New().String()
-		grantOn(ctx, u.OntologyID(),
+		grantOn(ctx, u.ResourceID(),
 			[]access.Action{access.ActionUpdate},
-			status.OntologyID(key))
+			status.ResourceID(key))
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apistatus.RenameRequest{Key: key, Name: "After"},

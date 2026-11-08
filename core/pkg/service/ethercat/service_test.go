@@ -19,15 +19,17 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -35,39 +37,32 @@ import (
 
 // openDevices opens a device service on db and creates three slaves on its embedded
 // rack: "slave" with a unique input and output name, "el1008" with eight inputs named
-// "Input", and "malformed" with PDOs that do not decode.
-func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
+// "Input", and "malformed" with PDOs that do not decode. It also returns the config
+// that opens Tasks on the services it opens.
+func openDevices(
+	ctx SpecContext,
+	db *gorp.DB,
+) (*device.Service, tasktestutil.TasksConfig) {
 	GinkgoHelper()
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: db,
+	}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB: db,
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           db,
-		Ontology:     otg,
-		Group:        groupSvc,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 	}))
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Status:   statusSvc,
-		Rack:     rackSvc,
+		DB:     db,
+		Status: statusSvc,
+		Rack:   rackSvc,
 	}))
 	entry := func(name string, index int) map[string]any {
 		return map[string]any{
@@ -115,21 +110,37 @@ func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
 		},
 	}
 	Expect(devices.NewWriter(nil).CreateMany(ctx, &slaves)).To(Succeed())
-	return devices
+	return devices, tasktestutil.TasksConfig{
+		DB:     db,
+		Status: statusSvc,
+		Rack:   rackSvc,
+		Device: devices,
+	}
 }
 
 var _ = Describe("Service", func() {
 	var (
-		svc     *ethercat.Service
-		devices *device.Service
+		svc        *ethercat.Service
+		devices    *device.Service
+		channelSvc *channel.Service
+		tasks      *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		devices = openDevices(ctx, db)
+		node := testutil.NewNode(ctx)
+		var tasksCfg tasktestutil.TasksConfig
+		devices, tasksCfg = openDevices(ctx, node.DB)
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostProvider: node.Cluster,
+			Status:       tasksCfg.Status,
+		}))
 		svc = MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
-			DB:     db,
+			DB:     node.DB,
 			Device: devices,
 		}))
+		tasksCfg.Stores = svc.Stores()
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasksCfg))
 	})
 
 	Describe("OpenService", func() {
@@ -151,7 +162,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			devices := openDevices(ctx, db)
+			devices, _ := openDevices(ctx, db)
 			var read v1.ReadConfig
 			read.Key = uuid.New()
 			read.Channels = []v1.ReadChannel{
@@ -190,6 +201,7 @@ var _ = Describe("Service", func() {
 					"index":     float64(0x6000),
 					"sub_index": float64(1),
 					"data_type": "int16",
+					"scale":     map[string]any{"type": "none"},
 				},
 				map[string]any{
 					"type":     "unresolved",
@@ -205,6 +217,7 @@ var _ = Describe("Service", func() {
 			channels := writeData["channels"].([]any)
 			Expect(channels[0]).To(HaveKeyWithValue("type", "entry"))
 			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x7000)))
+			Expect(channels[0]).To(HaveKeyWithValue("stop_value", float64(0)))
 		})
 
 		It("Should address the channels on a slave a released Python client made", func(
@@ -258,7 +271,7 @@ var _ = Describe("Service", func() {
 			}
 			Expect(gorp.NewCreate[device.Key, device.Device]().
 				Entry(&slave).Exec(ctx, db)).To(Succeed())
-			devices := openDevices(ctx, db)
+			devices, _ := openDevices(ctx, db)
 			var read v1.ReadConfig
 			read.Key = uuid.New()
 			read.Channels = []v1.ReadChannel{{Variant: v1.AutomaticReadChannel{
@@ -295,8 +308,7 @@ var _ = Describe("Service", func() {
 	Describe("Write", func() {
 		readChannels := func(ctx SpecContext, channels ...any) []any {
 			GinkgoHelper()
-			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"channels": channels,
 			}))
 			return MustSucceed(svc.Read.Read(ctx, nil, key))["channels"].([]any)
@@ -305,14 +317,14 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
 					"type":      "entry",
 					"key":       "chan-1",
 					"device":    "slave",
-					"channel":   42,
+					"channel":   ch,
 					"index":     0x6000,
 					"sub_index": 1,
 					"data_type": "int16",
@@ -337,25 +349,36 @@ var _ = Describe("Service", func() {
 			Expect(channels[0]).To(HaveKeyWithValue("data_type", "int16"))
 		})
 
-		DescribeTable("Should leave a read channel unresolved",
-			func(ctx SpecContext, device, pdo string) {
-				channels := readChannels(ctx, map[string]any{
+		It("Should leave a read channel unresolved on a name the slave repeats", func(
+			ctx SpecContext,
+		) {
+			channels := readChannels(ctx, map[string]any{
+				"type":   "unresolved",
+				"key":    "a",
+				"device": "el1008",
+				"pdo":    "Input",
+			})
+			Expect(channels[0]).To(HaveKeyWithValue("type", "unresolved"))
+			Expect(channels[0]).To(HaveKeyWithValue("pdo", "Input"))
+		})
+
+		It("Should refuse a read channel on a missing device", func(ctx SpecContext) {
+			Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
 					"type":   "unresolved",
 					"key":    "a",
-					"device": device,
-					"pdo":    pdo,
-				})
-				Expect(channels[0]).To(HaveKeyWithValue("type", "unresolved"))
-				Expect(channels[0]).To(HaveKeyWithValue("pdo", pdo))
-			},
-			Entry("on a name the slave repeats", "el1008", "Input"),
-			Entry("on a missing device", "gone", "Value"),
-		)
+					"device": "gone",
+					"pdo":    "Value",
+				}},
+			})).Error().To(MatchError(
+				ContainSubstring("channels.device: device gone does not exist"),
+			))
+		})
 
 		It("Should reject an unresolved channel on a slave with malformed PDOs", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":   "unresolved",
 					"key":    "a",
@@ -371,8 +394,7 @@ var _ = Describe("Service", func() {
 		It("Should address an unresolved write channel by its slave's output", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":   "unresolved",
 					"key":    "c",
@@ -388,8 +410,7 @@ var _ = Describe("Service", func() {
 		It("Should apply read config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
@@ -398,8 +419,7 @@ var _ = Describe("Service", func() {
 		It("Should apply write config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["state_rate"]).To(BeNumerically("==", 25))
 			Expect(data["execution_rate"]).To(BeNumerically("==", 1000))
@@ -408,8 +428,7 @@ var _ = Describe("Service", func() {
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})

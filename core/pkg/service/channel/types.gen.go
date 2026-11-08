@@ -13,6 +13,7 @@ package channel
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
@@ -82,4 +83,8 @@ type Where struct {
 	// Virtual matches virtual channels that are not calculated, or every other channel
 	// when false.
 	Virtual *bool `json:"virtual,omitzero" msgpack:"virtual,omitempty"`
+	// Groups matches the channels in any of the given groups.
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	// Grouped matches the channels in a group, or in no group when false.
+	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
 }

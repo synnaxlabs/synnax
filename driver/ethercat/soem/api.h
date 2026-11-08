@@ -149,6 +149,22 @@ public:
         int timeout
     ) = 0;
 
+    /// @brief writes to a slave object dictionary via SDO, returning a positive working
+    /// counter on success.
+    virtual int SDOwrite(
+        uint16_t slave,
+        uint16_t index,
+        uint8_t subindex,
+        bool ca,
+        int psize,
+        const void *p,
+        int timeout
+    ) = 0;
+
+    /// @brief moves the oldest entry of the SOEM error list into err, returning false
+    /// when the list is empty.
+    virtual bool poperror(ec_errort &err) = 0;
+
     /// @brief finds SII category offset.
     virtual int16_t siifind(uint16_t slave, uint16_t cat) = 0;
 
@@ -434,6 +450,31 @@ public:
             p,
             timeout
         );
+    }
+
+    int SDOwrite(
+        uint16_t slave,
+        uint16_t index,
+        uint8_t subindex,
+        bool ca,
+        int psize,
+        const void *p,
+        int timeout
+    ) override {
+        return ecx_SDOwrite(
+            &this->context,
+            slave,
+            index,
+            subindex,
+            ca,
+            psize,
+            p,
+            timeout
+        );
+    }
+
+    bool poperror(ec_errort &err) override {
+        return ecx_poperror(&this->context, &err) != 0;
     }
 
     int16_t siifind(uint16_t slave, uint16_t cat) override {

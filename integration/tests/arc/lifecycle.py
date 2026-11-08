@@ -232,7 +232,6 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.console.arc.open(self.new_name)
 
         self.log("Re-deploying with new name")
-        assert self.rack is not None
         self.console.arc.select_rack(self.rack.name)
         self.console.arc.deploy()
 

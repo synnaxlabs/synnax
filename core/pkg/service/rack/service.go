@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -20,8 +21,6 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -46,15 +45,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between racks and other resources
-	// in the Synnax cluster.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
-	// Group is used to create rack related groups of ontology resources.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Status is used to define and process statuses for racks.
 	//
 	// [REQUIRED]
@@ -91,8 +81,6 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.DriverRole = override.UUID(c.DriverRole, other.DriverRole)
@@ -108,8 +96,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("rack")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	v.NotNil("host", c.HostProvider)
 	v.NotNil("status", c.Status)
 	v.Ternary("driver_role", c.DriverRole == uuid.Nil(), "must be set")
@@ -120,7 +106,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	closer          xio.MultiCloser
 	localKeyCounter *kv.AtomicInt64Counter
-	group           group.Group
 	monitor         *monitor
 	table           *gorp.Table[Key, Rack]
 	indexes         indexes
@@ -140,8 +125,10 @@ func OpenService(
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
-		DB:      cfg.DB,
-		Indexes: s.indexes.all(),
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			HostProvider: cfg.HostProvider,
 			Status:       cfg.Status,
@@ -158,24 +145,20 @@ func OpenService(
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
+	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
+	if s.localKeyCounter, err = kv.NewCounter(
 		ctx,
-		"Devices",
-		ontology.RootID,
+		cfg.DB.KV(),
+		counterKey,
 	); !ok(
 		err,
 		nil,
 	) {
 		return nil, err
 	}
-	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
-	if s.localKeyCounter, err = kv.NewCounter(ctx, cfg.DB, counterKey); !ok(err, nil) {
-		return nil, err
-	}
 	if err = s.loadEmbeddedRack(ctx); !ok(err, nil) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if s.monitor, err = openMonitor(ctx, s.Child("monitor"), s); !ok(err, s.monitor) {
 		return nil, err
 	}
@@ -261,11 +244,11 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
+		svc:        s,
 		tx:         tx,
-		otg:        s.Ontology.NewWriter(tx),
 		newKey:     s.newKey,
-		group:      s.group,
 		status:     s.Status.NewWriter(tx),
+		statuses:   s.Status,
 		table:      s.table,
 		driverRole: s.DriverRole,
 	}
@@ -291,22 +274,15 @@ func newDriverRoleMigration(s *Service) gorp.Migration {
 	return migrate.New(
 		"v0.driver_role",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			var racks []Rack
-			if err := s.NewRetrieve().Entries(&racks).Exec(ctx, tx); err != nil {
-				return err
-			}
-			w := s.Ontology.NewWriter(tx)
-			for _, r := range racks {
-				if err := w.DefineRelationships(
-					ctx,
-					role.OntologyID(s.DriverRole),
-					ontology.RelationshipTypeParentOf,
-					r.OntologyID(),
-				); err != nil {
-					return err
-				}
-			}
-			return nil
+			return s.table.NewUpdate().
+				Where(gorp.Match(func(_ gorp.Context, r *Rack) (bool, error) {
+					return !slices.Contains(r.Roles, s.DriverRole), nil
+				})).
+				Change(func(_ gorp.Context, r Rack) Rack {
+					r.Roles = append(slices.Clone(r.Roles), s.DriverRole)
+					return r
+				}).
+				Exec(ctx, tx)
 		},
 	)
 }

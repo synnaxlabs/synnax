@@ -82,12 +82,12 @@ class HTTPLegacyDevice(SimulatorCase, ConsoleCase):
     def test_driver_connects(self) -> None:
         """The Driver health checks the legacy device and reports it connected."""
         self.log("Testing: Driver connects the legacy device")
-        status_key = str(sy.ontology.ID(type="device", key=self.legacy.key))
+        owner = sy.device.resource_id(self.legacy.key)
         last = "[]"
 
         def connected() -> bool | None:
             nonlocal last
-            statuses = self.client.statuses.retrieve(keys=[status_key])
+            statuses = self.client.statuses.retrieve(owners=[owner])
             last = str(statuses)
             return True if statuses and statuses[0].variant == "success" else None
 

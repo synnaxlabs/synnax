@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 )
 
@@ -29,14 +28,6 @@ var _ = Describe("Range", func() {
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
 			Expect(v1.Range{}.SetOptions()).To(BeNil())
-		})
-	})
-	Describe("OntologyID", func() {
-		It("Should return the range ontology identifier", func() {
-			k := uuid.New()
-			Expect(v1.Range{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeRange, Key: k.String(),
-			}))
 		})
 	})
 })

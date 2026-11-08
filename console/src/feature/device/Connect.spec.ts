@@ -135,7 +135,7 @@ describe("Device.useConnectModal", () => {
           variant: "error",
           message: "Failed to start scan task",
           description: "LJM library not found",
-          details: { task: scanner.key, rack: rack.key },
+          details: { rack: rack.key },
         }),
       });
       await open({ integration: "labjack", rack: rack.key });
