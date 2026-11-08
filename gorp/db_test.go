@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"go.uber.org/zap"
@@ -244,18 +245,26 @@ var _ = Describe("DB", func() {
 
 		Describe("WithSnapshot", func() {
 			var (
-				table   *gorp.Table[int32, indexedEntry]
-				nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
+				table    *gorp.Table[int32, indexedEntry]
+				nameIdx  *gorp.LookupIndex[int32, indexedEntry, string]
+				scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
+				textIdx  *gorp.SearchIndex[int32, indexedEntry]
 			)
 			BeforeEach(func(ctx SpecContext) {
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				table = DeferClose(openIndexedTable(ctx, lockDB, nameIdx))
+				scoreIdx = gorp.NewSortedIndex(
+					"score", func(e *indexedEntry) int64 { return e.Score },
+				)
+				textIdx = newTextIndex()
+				table = DeferClose(
+					openIndexedTable(ctx, lockDB, nameIdx, scoreIdx, textIdx),
+				)
 				Expect(table.NewCreate().
 					Entries(&[]indexedEntry{
-						{ID: 1, Name: "alpha"},
-						{ID: 2, Name: "beta"},
+						{ID: 1, Name: "alpha", Score: 10},
+						{ID: 2, Name: "beta", Score: 20},
 					}).
 					Exec(ctx, lockDB)).To(Succeed())
 			})
@@ -323,6 +332,70 @@ var _ = Describe("DB", func() {
 						},
 					)
 				}),
+			)
+
+			DescribeTable(
+				"Should find keys through a snapshot",
+				func(
+					ctx SpecContext,
+					find func(context.Context, gorp.Snapshot) ([]int32, error),
+				) {
+					var keys []int32
+					Expect(
+						lockDB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+							keys, err = find(ctx, snap)
+							return err
+						}),
+					).To(Succeed())
+					Expect(keys).To(Equal([]int32{2}))
+				},
+				Entry(
+					"with a lookup index",
+					func(ctx context.Context, snap gorp.Snapshot) ([]int32, error) {
+						return nameIdx.Get(ctx, snap, "beta")
+					},
+				),
+				Entry(
+					"with a sorted index",
+					func(ctx context.Context, snap gorp.Snapshot) ([]int32, error) {
+						return scoreIdx.Get(ctx, snap, 20)
+					},
+				),
+				Entry(
+					"with a search index",
+					func(ctx context.Context, snap gorp.Snapshot) ([]int32, error) {
+						res, err := textIdx.Search(
+							ctx,
+							snap,
+							search.Query[int32]{Term: "beta"},
+						)
+						return res.Keys, err
+					},
+				),
+			)
+
+			It(
+				"Should count and check entries through a snapshot",
+				func(ctx SpecContext) {
+					var (
+						count  int
+						exists bool
+					)
+					Expect(
+						lockDB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+							if count, err = table.NewRetrieve().
+								Count(ctx, snap); err != nil {
+								return err
+							}
+							exists, err = table.NewRetrieve().
+								Where(gorp.MatchKeys[int32, indexedEntry](2)).
+								Exists(ctx, snap)
+							return err
+						}),
+					).To(Succeed())
+					Expect(count).To(Equal(2))
+					Expect(exists).To(BeTrue())
+				},
 			)
 
 			It("Should return the error of the callback", func(ctx SpecContext) {
