@@ -26,11 +26,6 @@ var _ = Describe("Table", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v1.Table{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the table resource identifier", func() {
 			k := uuid.New()

@@ -228,7 +228,7 @@ func (w Writer) create(
 	}
 	for i, ch := range channels {
 		if ch.Leaseholder == 0 {
-			channels[i].Leaseholder = w.svc.cfg.HostProvider.HostKey()
+			channels[i].Leaseholder = w.svc.cfg.HostKey
 		}
 		if ch.IsCalculated() {
 			if ch.LocalIndex != 0 && ch.LocalKey == 0 {
