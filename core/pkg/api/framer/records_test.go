@@ -357,6 +357,44 @@ var _ = Describe("Change channels", func() {
 		Expect(received()).To(Equal([]resource.ID{own.ResourceID()}))
 	}, SpecTimeout(10*time.Second))
 
+	It("Should send the delete of a policy that a role held at an earlier check", func(
+		ctx SpecContext,
+	) {
+		find(ctx, "sy_policy_delete")
+		u := newUser(ctx)
+		other := role.Role{Name: "change-channel"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Role.NewWriter(tx, false).Create(ctx, &other)
+		})).To(Succeed())
+		held := policy.Policy{
+			Role:    u.Role,
+			Name:    "change-channel",
+			Objects: []resource.ID{{Type: resource.TypeLabel}},
+			Actions: []access.Action{access.ActionUpdate},
+		}
+		unrelated := held
+		unrelated.Role = other.Key
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := rbacSvc.Policy.NewWriter(tx, false)
+			if err := w.Create(ctx, &held); err != nil {
+				return err
+			}
+			return w.Create(ctx, &unrelated)
+		})).To(Succeed())
+		open(ctx, u)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return userSvc.NewWriter(tx).SetRole(ctx, other.Key, nil, u.Key)
+		})).To(Succeed())
+		// The check of this delete no longer finds held among the policies of u.
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Policy.NewWriter(tx, false).Delete(ctx, unrelated.Key)
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Policy.NewWriter(tx, false).Delete(ctx, held.Key)
+		})).To(Succeed())
+		Expect(received()).To(Equal([]resource.ID{held.ResourceID()}))
+	}, SpecTimeout(10*time.Second))
+
 	It("Should stop sending a record once a policy no longer allows it", func(
 		ctx SpecContext,
 	) {
