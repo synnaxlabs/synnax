@@ -117,8 +117,21 @@ public:
         this->slave_list.push_back(std::move(result));
     }
 
-    /// @brief makes the PDO discovery of the slave at position fail with error.
+    /// @brief makes the PDO discovery of the slave at position fail with error and find
+    /// no PDOs.
     void fail_pdo_discovery(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position) {
+                slave.status.pdo_discovery_error = error;
+                slave.properties.input_pdos.clear();
+                slave.properties.output_pdos.clear();
+            }
+    }
+
+    /// @brief gives the slave at position error and keeps its PDOs, as a master does
+    /// when it falls back to the PDOs in the SII.
+    void fall_back_pdo_discovery(const uint16_t position, const std::string &error) {
         std::lock_guard lock(this->mu);
         for (auto &slave: this->slave_list)
             if (slave.properties.position == position)
