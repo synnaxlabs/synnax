@@ -1391,7 +1391,10 @@ TEST(HTTPWriteTask, NaNReportsWarningAndKeepsRunning) {
     EXPECT_NE(warning->description.find("valve_cmd"), std::string::npos);
     EXPECT_NE(warning->description.find("NaN"), std::string::npos);
     ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
-        [&] { return ctx->snapshot().back().message; },
+        [&] {
+            const auto statuses = ctx->snapshot();
+            return statuses.empty() ? "" : statuses.back().message;
+        },
         std::string("Task running"),
         std::chrono::seconds(5),
         std::chrono::milliseconds(10)
