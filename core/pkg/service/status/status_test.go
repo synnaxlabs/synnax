@@ -644,6 +644,21 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
+		Describe("After", func() {
+			It("Should resume strictly past the key", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any]("retrieve-c", "retrieve-a", "retrieve-b")).
+					After("retrieve-a").
+					Entries(&statuses).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveExactElements(
+					HaveField("Key", "retrieve-b"),
+					HaveField("Key", "retrieve-c"),
+				))
+			})
+		})
+
 		Describe("Limit", func() {
 			It("Should limit results", func(ctx SpecContext) {
 				var statuses []status.Status[any]
