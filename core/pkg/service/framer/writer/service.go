@@ -141,7 +141,8 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 
 // Open opens a buffered Writer for the channels in cfg starting at cfg.Start. The
 // caller must Close the returned Writer to release its control over the written region.
-// It returns an error if cfg is invalid or any channel in cfg.Keys cannot be resolved.
+// It returns an error if cfg is invalid, any channel in cfg.Keys cannot be resolved, or
+// any channel in cfg.Keys is reserved.
 func (s *Service) Open(ctx context.Context, cfg Config) (*Writer, error) {
 	resolved, err := config.New(writer.DefaultConfig(), cfg)
 	if err != nil {

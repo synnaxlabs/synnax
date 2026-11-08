@@ -138,6 +138,25 @@ var _ = Describe("Records", func() {
 		Expect(recordOf(sample)).To(Equal(testResource(key)))
 	})
 
+	It("Should publish the channels of a table and not of a JSON publisher", func(
+		ctx SpecContext,
+	) {
+		setName, deleteName, jsonName := nextName(), nextName(), nextName()
+		Expect(sigs.PublishTable(ctx, signals.TableConfig[uuid.UUID, testUUIDEntry]{
+			Changes:    uuidTable.Changes,
+			Resource:   testResource[uuid.UUID],
+			SetName:    setName,
+			DeleteName: deleteName,
+		})).To(Succeed())
+		MustOpen(sigs.PublishJSON(ctx, signals.JSONPublisherConfig[string]{
+			Observable: observe.New[string](),
+			SetName:    jsonName,
+		}))
+		Expect(sigs.Publishes(retrieveChannel(ctx, setName).Key())).To(BeTrue())
+		Expect(sigs.Publishes(retrieveChannel(ctx, deleteName).Key())).To(BeTrue())
+		Expect(sigs.Publishes(retrieveChannel(ctx, jsonName).Key())).To(BeFalse())
+	})
+
 	It("Should hold no channel of a JSON publisher", func(ctx SpecContext) {
 		MustOpen(sigs.PublishJSON(ctx, signals.JSONPublisherConfig[string]{
 			Observable: observe.New[string](),
