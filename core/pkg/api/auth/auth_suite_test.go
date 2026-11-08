@@ -14,7 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
@@ -43,8 +45,20 @@ var (
 	userSvc     *user.Service
 	rackSvc     *rack.Service
 	apiSvc      *apiauth.Service
-	root        user.User
-	creds       = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
+	// These handlers run their routes as the API layer binds them.
+	changePassword freighter.UnaryHandler[apiauth.ChangePasswordRequest, struct{}]
+	setPassword    freighter.UnaryHandler[
+		apiauth.PasswordSetRequest,
+		apiauth.PasswordSetResponse,
+	]
+	createKey freighter.UnaryHandler[
+		apiauth.KeyCreateRequest,
+		apiauth.KeyCreateResponse,
+	]
+	deleteKeys     freighter.UnaryHandler[apiauth.KeyDeleteRequest, struct{}]
+	deleteSessions freighter.UnaryHandler[apiauth.SessionDeleteRequest, struct{}]
+	root           user.User
+	creds          = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -84,8 +98,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Password: passwordSvc,
 		APIKey:   apiKeySvc,
 		User:     userSvc,
-		Rack:     rackSvc,
 		RBAC:     rbacSvc,
 		Identity: node.Identity,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	changePassword = bind.WritePrepared(
+		binder,
+		apiSvc.PrepareChangePassword,
+		apiSvc.ChangePassword,
+	)
+	setPassword = bind.WritePrepared(
+		binder,
+		apiSvc.PrepareSetPassword,
+		apiSvc.SetPassword,
+	)
+	createKey = bind.Write(binder, apiSvc.CreateKey)
+	deleteKeys = bind.Write(binder, apiSvc.DeleteKeys)
+	deleteSessions = bind.Write(binder, apiSvc.DeleteSessions)
 })

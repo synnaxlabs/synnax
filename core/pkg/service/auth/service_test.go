@@ -24,15 +24,10 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 	xtime "github.com/synnaxlabs/x/time"
 	timetestutil "github.com/synnaxlabs/x/time/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
-
-func subject() resource.ID {
-	return resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
-}
 
 func proof(username, pwd string) auth.Proof {
 	return auth.Proof{Variant: auth.PasswordProof{
@@ -130,34 +125,34 @@ var _ = Describe("ServiceConfig", func() {
 var _ = Describe("Service", func() {
 	const idle = time.Hour
 	var (
-		db       *gorp.DB
-		svc      *auth.Service
-		pw       *password.Service
-		clock    *timetestutil.Clock
-		alice    resource.ID
-		username string
+		svc            *auth.Service
+		authenticators map[auth.Method]auth.Authenticator
+		pw             *password.Service
+		clock          *timetestutil.Clock
+		alice          resource.ID
+		username       string
 	)
 	login := func(ctx SpecContext) (auth.Session, string) {
 		GinkgoHelper()
 		return MustSucceed2(svc.Login(ctx, proof(username, "secret")))
 	}
 	BeforeEach(func(ctx SpecContext) {
-		// Every spec gets its own db so sweeps and clocks never cross.
-		db = DeferClose(gorp.Wrap(memkv.New()))
 		pw = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		clock = timetestutil.NewClock(time.Unix(1_700_000_000, 0))
+		authenticators = map[auth.Method]auth.Authenticator{auth.MethodPassword: pw}
+		alice = subject()
+		username = uuid.New().String()
+		Expect(
+			pw.NewWriter(nil).Set(ctx, alice, username, hash(pw, "secret")),
+		).To(Succeed())
+	})
+	JustBeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 			DB:             db,
-			Authenticators: map[auth.Method]auth.Authenticator{auth.MethodPassword: pw},
+			Authenticators: authenticators,
 			IdleTimeout:    idle,
 			Clock:          clock,
 		}))
-		alice = subject()
-		username = uuid.New().String()
-		Expect(pw.NewWriter(nil).Set(ctx, alice, auth.Credentials{
-			Username: username,
-			Password: "secret",
-		})).To(Succeed())
 	})
 	Describe("OpenService", func() {
 		It("Should return an error when the config is invalid", func(ctx SpecContext) {
@@ -203,18 +198,17 @@ var _ = Describe("Service", func() {
 			Expect(svc.Login(ctx, auth.Proof{})).Error().
 				To(MatchError(validate.ErrValidation))
 		})
-		It("Should reject a method with no authenticator", func(ctx SpecContext) {
-			lonely := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-				DB:             db,
-				Authenticators: map[auth.Method]auth.Authenticator{"other": pw},
-			}))
-			Expect(
-				lonely.Login(ctx, proof(username, "secret")),
-			).Error().
-				To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("not accepted")),
-				))
+		Describe("With no authenticator for the method", func() {
+			BeforeEach(func() {
+				authenticators = map[auth.Method]auth.Authenticator{"other": pw}
+			})
+			It("Should reject the proof", func(ctx SpecContext) {
+				Expect(svc.Login(ctx, proof(username, "secret"))).Error().
+					To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("not accepted")),
+					))
+			})
 		})
 	})
 	Describe("Authenticate", func() {
@@ -247,49 +241,46 @@ var _ = Describe("Service", func() {
 				return string(b)
 			}),
 		)
-		It(
-			"Should reject a session whose password changed during its login",
-			func(ctx SpecContext) {
-				var racing *auth.Service
-				changing := changingPassword{
-					Service: pw,
-					change: func(ctx context.Context) {
-						GinkgoHelper()
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							var p password.Password
-							if err := pw.NewRetrieve().
-								Where(password.MatchSubjects(alice)).
-								Entry(&p).
-								Exec(ctx, tx); err != nil {
-								return err
-							}
-							if err := pw.NewWriter(tx).
-								ChangePassword(ctx, alice, "changed"); err != nil {
-								return err
-							}
-							return racing.NewWriter(tx).RevokeCredential(ctx, p.Key)
-						})).To(Succeed())
+		Describe("With a password that changes during its login", func() {
+			BeforeEach(func() {
+				authenticators = map[auth.Method]auth.Authenticator{
+					auth.MethodPassword: changingPassword{
+						Service: pw,
+						change: func(ctx context.Context) {
+							GinkgoHelper()
+							changed := hash(pw, "changed")
+							Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+								var p password.Password
+								if err := pw.NewRetrieve().
+									Where(password.MatchSubjects(alice)).
+									Entry(&p).
+									Exec(ctx, tx); err != nil {
+									return err
+								}
+								if err := pw.NewWriter(tx).
+									ChangePassword(ctx, alice, changed); err != nil {
+									return err
+								}
+								return svc.NewWriter(tx).RevokeCredential(ctx, p.Key)
+							})).To(Succeed())
+						},
 					},
 				}
-				racing = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-					DB: db,
-					Authenticators: map[auth.Method]auth.Authenticator{
-						auth.MethodPassword: changing,
-					},
-					Clock: clock,
-				}))
-				_, token := MustSucceed2(racing.Login(ctx, proof(username, "secret")))
-				Expect(racing.Authenticate(ctx, token)).Error().
+			})
+			It("Should reject the session", func(ctx SpecContext) {
+				_, token := login(ctx)
+				Expect(svc.Authenticate(ctx, token)).Error().
 					To(MatchError(auth.ErrInvalidToken))
-			},
-		)
+			})
+		})
 		It(
 			"Should reject a session written back after its password changed",
 			func(ctx SpecContext) {
 				session, token := login(ctx)
+				changed := hash(pw, "changed")
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					if err := pw.NewWriter(tx).
-						ChangePassword(ctx, alice, "changed"); err != nil {
+						ChangePassword(ctx, alice, changed); err != nil {
 						return err
 					}
 					return svc.NewWriter(tx).RevokeCredential(ctx, session.Credential)
@@ -406,7 +397,9 @@ var _ = Describe("Service", func() {
 				session, _ := login(ctx)
 				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
 				defer release()
-				Expect(pw.NewWriter(nil).ChangePassword(ctx, alice, "changed")).
+				Expect(
+					pw.NewWriter(nil).ChangePassword(ctx, alice, hash(pw, "changed")),
+				).
 					To(Succeed())
 				Expect(svc.CheckHolds(ctx)).To(Succeed())
 				Eventually(ended).Should(BeClosed())
@@ -450,7 +443,7 @@ var _ = Describe("Service", func() {
 				session, _ := login(ctx)
 				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
 				defer release()
-				Expect(svc.NewWriter(nil).DeleteFor(ctx, alice)).To(Succeed())
+				deleteSubject(ctx, alice)
 				Eventually(ended).Should(BeClosed())
 			},
 		)
@@ -581,19 +574,18 @@ var _ = Describe("Service", func() {
 		})
 	})
 	Describe("Writer", func() {
-		Describe("DeleteFor", func() {
+		Describe("Subject", func() {
 			It(
-				"Should remove the subject's credentials and sessions",
+				"Should delete the credentials and sessions of a deleted subject",
 				func(ctx SpecContext) {
 					session, token := login(ctx)
 					bob := subject()
 					bobName := uuid.New().String()
-					Expect(pw.NewWriter(nil).Set(ctx, bob, auth.Credentials{
-						Username: bobName,
-						Password: "p",
-					})).To(Succeed())
+					Expect(
+						pw.NewWriter(nil).Set(ctx, bob, bobName, hash(pw, "p")),
+					).To(Succeed())
 					_, bobToken := MustSucceed2(svc.Login(ctx, proof(bobName, "p")))
-					Expect(svc.NewWriter(nil).DeleteFor(ctx, alice)).To(Succeed())
+					deleteSubject(ctx, alice)
 					Expect(svc.Authenticate(ctx, token)).Error().
 						To(MatchError(auth.ErrInvalidToken))
 					Expect(svc.NewRetrieve().Where(auth.MatchSubjects(session.Subject)).
@@ -603,20 +595,6 @@ var _ = Describe("Service", func() {
 					MustSucceed(svc.Authenticate(ctx, bobToken))
 				},
 			)
-			It("Should run in the caller's transaction", func(ctx SpecContext) {
-				session, token := login(ctx)
-				tx := db.OpenTx()
-				Expect(svc.NewWriter(tx).DeleteFor(ctx, alice)).To(Succeed())
-				Expect(svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).
-					Exists(ctx, tx)).To(BeFalse())
-				Expect(pw.NewRetrieve().Where(password.MatchSubjects(alice)).
-					Exists(ctx, tx)).To(BeFalse())
-				MustSucceed(svc.Authenticate(ctx, token))
-				Expect(tx.Close()).To(Succeed())
-				MustSucceed(svc.Authenticate(ctx, token))
-				Expect(pw.NewRetrieve().Where(password.MatchSubjects(alice)).
-					Exists(ctx, nil)).To(BeTrue())
-			})
 		})
 		Describe("RevokeCredential", func() {
 			It("Should end every session of the credential", func(ctx SpecContext) {
@@ -632,10 +610,9 @@ var _ = Describe("Service", func() {
 			It("Should end the sessions of several credentials", func(ctx SpecContext) {
 				a, aToken := login(ctx)
 				bobName := uuid.New().String()
-				Expect(pw.NewWriter(nil).Set(ctx, subject(), auth.Credentials{
-					Username: bobName,
-					Password: "secret",
-				})).To(Succeed())
+				Expect(
+					pw.NewWriter(nil).Set(ctx, subject(), bobName, hash(pw, "secret")),
+				).To(Succeed())
 				b, bToken := MustSucceed2(
 					svc.Login(ctx, proof(bobName, "secret")),
 				)
@@ -665,9 +642,10 @@ var _ = Describe("Service", func() {
 						session auth.Session
 						token   string
 					)
+					changed := hash(pw, "changed")
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						if err := pw.NewWriter(tx).
-							ChangePassword(ctx, alice, "changed"); err != nil {
+							ChangePassword(ctx, alice, changed); err != nil {
 							return err
 						}
 						w := svc.NewWriter(tx)

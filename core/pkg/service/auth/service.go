@@ -134,6 +134,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[SessionKey, Session]{
 		DB:              cfg.DB,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Migrations:      []gorp.Migration{v3.NewMigration(s.version)},
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
@@ -437,9 +438,7 @@ func (s *Service) forget(keep set.Set[SessionKey], keys ...SessionKey) {
 // Logout ends the sessions with the given keys. Unknown keys are ignored.
 func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error {
 	s.forget(nil, keys...)
-	return s.table.NewDelete().
-		Where(gorp.MatchKeys[SessionKey, Session](keys...)).
-		Exec(ctx, s.cfg.DB)
+	return s.NewWriter(nil).Delete(ctx, keys...)
 }
 
 // Sweep writes the activity of every held session, then ends every other session whose
@@ -522,16 +521,10 @@ type Writer struct {
 	tx  gorp.Tx
 }
 
-// DeleteFor removes every credential of the given subjects through each authenticator,
-// then ends their sessions.
-func (w Writer) DeleteFor(ctx context.Context, subjects ...resource.ID) error {
-	for _, a := range w.svc.cfg.Authenticators {
-		if err := a.DeleteFor(ctx, w.tx, subjects...); err != nil {
-			return err
-		}
-	}
+// Delete ends the sessions with the given keys. Unknown keys are ignored.
+func (w Writer) Delete(ctx context.Context, keys ...SessionKey) error {
 	return w.svc.table.NewDelete().
-		Where(MatchSubjects(subjects...)(w.svc.NewRetrieve())).
+		Where(gorp.MatchKeys[SessionKey, Session](keys...)).
 		Exec(ctx, w.tx)
 }
 

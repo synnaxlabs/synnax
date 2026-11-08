@@ -31,8 +31,8 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	subject  *gorp.LookupIndex[Key, Password, resource.ID]
 	username *gorp.LookupIndex[Key, Password, string]
+	subject  *gorp.TargetReference[Key, Password]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -40,14 +40,19 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		subject: gorp.NewLookupIndex[Key, Password, resource.ID](
-			"subject",
-			func(e *Password) resource.ID { return e.Subject },
-		),
 		username: gorp.NewLookupIndex[Key, Password, string](
 			"username",
 			func(e *Password) string { return e.Username },
 		),
+		subject: gorp.NewTargetReference(gorp.TargetReferenceConfig[Key, Password]{
+			Name:     "subject",
+			Tables:   []string{"user"},
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
+			Targets: func(e *Password) []gorp.Target {
+				return []gorp.Target{resourceTarget(e.Subject)}
+			},
+		}),
 	}
 }
 
@@ -55,9 +60,21 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Password] {
 	return []gorp.Index[Key, Password]{
-		i.subject,
 		i.username,
 	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Password] {
+	return []gorp.Reference[Key, Password]{
+		i.subject,
+	}
+}
+
+// resourceTarget returns the gorp.Target of the resource that id identifies.
+func resourceTarget(id resource.ID) gorp.Target {
+	return gorp.Target{Table: string(id.Type), Key: id.Key}
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -103,12 +120,16 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
-// MatchSubjects returns a filter for
-// passwords whose Subject matches any of the
-// provided values.
+// MatchSubjects returns a filter for passwords
+// whose Subject matches any of the provided
+// values.
 func MatchSubjects(vals ...resource.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Password] {
-		return r.indexes.subject.Filter(vals...)
+		targets := make([]gorp.Target, len(vals))
+		for i, v := range vals {
+			targets[i] = resourceTarget(v)
+		}
+		return r.indexes.subject.Filter(targets...)
 	}
 }
 

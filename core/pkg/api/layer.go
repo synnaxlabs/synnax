@@ -541,17 +541,23 @@ func (l *Layer) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
-	t.AuthChangePassword.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
-	)
+	t.AuthChangePassword.BindHandler(bind.WritePrepared(
+		l.binder,
+		l.Auth.PrepareChangePassword,
+		l.Auth.ChangePassword,
+	))
 	t.AuthSessionCreate.BindHandler(l.Auth.CreateSession)
 	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
 	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
-	t.AuthSessionDelete.BindHandler(l.Auth.DeleteSessions)
-	t.AuthKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateKey))
+	t.AuthSessionDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteSessions))
+	t.AuthKeyCreate.BindHandler(bind.Write(l.binder, l.Auth.CreateKey))
 	t.AuthKeyRetrieve.BindHandler(l.Auth.RetrieveKeys)
-	t.AuthKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteKeys))
-	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.SetPassword))
+	t.AuthKeyDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteKeys))
+	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
+		l.binder,
+		l.Auth.PrepareSetPassword,
+		l.Auth.SetPassword,
+	))
 
 	// LICENSE
 	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
@@ -560,11 +566,11 @@ func (l *Layer) BindTo(t Transport) {
 
 	// USER
 	t.UserRename.BindHandler(bind.Write(l.binder, l.User.Rename))
-	t.UserChangeUsername.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.User.ChangeUsername),
+	t.UserChangeUsername.BindHandler(bind.Write(l.binder, l.User.ChangeUsername))
+	t.UserCreate.BindHandler(
+		bind.WritePrepared(l.binder, l.User.PrepareCreate, l.User.Create),
 	)
-	t.UserCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Create))
-	t.UserDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Delete))
+	t.UserDelete.BindHandler(bind.Write(l.binder, l.User.Delete))
 	t.UserRetrieve.BindHandler(l.User.Retrieve)
 	t.UserSetRole.BindHandler(bind.Write(l.binder, l.User.SetRole))
 
@@ -708,7 +714,7 @@ func (l *Layer) BindTo(t Transport) {
 	// RACK
 	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
 	t.RackRetrieve.BindHandler(l.Rack.Retrieve)
-	t.RackDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Delete))
+	t.RackDelete.BindHandler(bind.Write(l.binder, l.Rack.Delete))
 	t.RackRename.BindHandler(bind.Write(l.binder, l.Rack.Rename))
 
 	// TASK
@@ -789,7 +795,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Password: cfg.Service.Password,
 		APIKey:   cfg.Service.APIKey,
 		User:     cfg.Service.User,
-		Rack:     cfg.Service.Rack,
 		RBAC:     cfg.Service.RBAC,
 		Identity: cfg.Distribution.Identity,
 	}); err != nil {
@@ -799,7 +804,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		RBAC:     cfg.Service.RBAC,
 		User:     cfg.Service.User,
 		Password: cfg.Service.Password,
-		Auth:     cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}
@@ -922,7 +926,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Task:   cfg.Service.Task,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
-		Auth:   cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}

@@ -12,7 +12,6 @@ package user
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -20,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -30,8 +28,7 @@ import (
 
 // ServiceConfig is the configuration for the user API service.
 type ServiceConfig struct {
-	// RBAC checks the access of create, change username, retrieve, and delete
-	// requests.
+	// RBAC checks the access of retrieve requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -43,10 +40,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Password *password.Service
-	// Auth logs subjects in and checks their session tokens.
-	//
-	// [REQUIRED]
-	Auth *svcauth.Service
 }
 
 var (
@@ -60,7 +53,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.User = override.Nil(c.User, other.User)
 	c.Password = override.Nil(c.Password, other.Password)
-	c.Auth = override.Nil(c.Auth, other.Auth)
 	return c
 }
 
@@ -70,7 +62,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("user", c.User)
 	v.NotNil("password", c.Password)
-	v.NotNil("auth", c.Auth)
 	return v.Error()
 }
 
@@ -79,7 +70,6 @@ type Service struct {
 	access   *rbac.Service
 	internal *user.Service
 	password *password.Service
-	auth     *svcauth.Service
 }
 
 // NewService creates a new Service that allows for registering, updating, and removing
@@ -93,7 +83,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		access:   cfg.RBAC,
 		internal: cfg.User,
 		password: cfg.Password,
-		auth:     cfg.Auth,
 	}, nil
 }
 
@@ -116,37 +105,30 @@ type (
 	}
 )
 
-// Create registers the new users with the provided credentials and roles. If
-// successful, Create returns a slice of the new users. Creating a user also requires
-// update on users and on its role.
+// PrepareCreate hashes the password of each new user in req. It returns a validation
+// error when a password is empty.
+func (s *Service) PrepareCreate(
+	_ context.Context,
+	req CreateRequest,
+) ([]password.Hash, error) {
+	hashes := make([]password.Hash, len(req.Users))
+	for i, nu := range req.Users {
+		var err error
+		if hashes[i], err = s.password.Hash(nu.Password); err != nil {
+			return nil, err
+		}
+	}
+	return hashes, nil
+}
+
+// Create creates the new users with the roles in req and the passwords that
+// PrepareCreate hashed, and returns them.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
+	hashes []password.Hash,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	subject := auth.GetSubject(ctx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeUser}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	if len(req.Users) > 0 {
-		if err := enforcer.Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionUpdate,
-			Objects: append(
-				[]resource.ID{{Type: resource.TypeUser}},
-				role.ResourceIDs(lo.Map(req.Users, func(u NewUser, _ int) role.Key {
-					return u.Role
-				}))...,
-			),
-		}); err != nil {
-			return CreateResponse{}, err
-		}
-	}
 	passwordW := s.password.NewWriter(tx)
 	userW := s.internal.NewWriter(tx)
 	newUsers := make([]user.User, len(req.Users))
@@ -159,7 +141,12 @@ func (s *Service) Create(
 		if err != nil {
 			return CreateResponse{}, err
 		}
-		if err := passwordW.Set(ctx, u.ResourceID(), nu.Credentials); err != nil {
+		if err = passwordW.Set(
+			ctx,
+			u.ResourceID(),
+			nu.Username,
+			hashes[i],
+		); err != nil {
 			return CreateResponse{}, err
 		}
 		newUsers[i] = u
@@ -194,13 +181,6 @@ func (s *Service) ChangeUsername(
 	}
 	if p.Username == req.Username {
 		return struct{}{}, nil
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{user.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
 	}
 	return struct{}{}, s.password.NewWriter(tx).
 		Rename(ctx, user.ResourceID(req.Key), req.Username)
@@ -248,24 +228,14 @@ type DeleteRequest struct {
 	Keys []user.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete removes the users with the provided keys from the Synnax cluster.
+// Delete deletes the users with the provided keys, with their passwords, API keys, and
+// sessions.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: user.ResourceIDsFromKeys(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.auth.NewWriter(tx).
-		DeleteFor(ctx, user.ResourceIDsFromKeys(req.Keys)...)
+	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 // SetRoleRequest gives Role to the users with Keys.
