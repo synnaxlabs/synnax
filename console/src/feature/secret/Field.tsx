@@ -9,7 +9,7 @@
 
 import "@/feature/secret/Field.css";
 
-import { secret } from "@synnaxlabs/client";
+import { NotFoundError, secret } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -19,7 +19,8 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Secret } from "@synnaxlabs/pluto";
+import { Access, Flux, Secret } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { useCreateModal } from "@/feature/secret/useCreateModal";
@@ -52,8 +53,22 @@ interface TriggerProps {
   preview?: boolean;
 }
 
+// The text of a trigger with no secret to name. It is empty while the secret loads.
+const placeholderOf = (
+  result: Flux.Result<secret.Secret>,
+  preview?: boolean,
+): string => {
+  if (result.variant === "disabled")
+    return preview === true ? "None" : "Select a secret";
+  if (result.variant !== "error") return "";
+  const { error } = result.status.details;
+  return Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause)
+    ? "Secret not found"
+    : "Unavailable secret";
+};
+
 const Trigger = ({ value, preview }: TriggerProps): ReactElement => {
-  const s = List.useItem<secret.Key, secret.Secret>(value);
+  const result = Secret.useResult(primitive.isZero(value) ? null : { key: value });
   const itemStatus = Input.useItemStatus({});
   return (
     <Dialog.Trigger
@@ -65,9 +80,9 @@ const Trigger = ({ value, preview }: TriggerProps): ReactElement => {
       {...itemStatus}
     >
       <Icon.Secret className={CSS.BE("secret-field", "icon")} />
-      {s == null ? (
+      {result.variant !== "success" ? (
         <Text.Text el="span" color={8} className={CSS.BE("secret-field", "text")}>
-          {preview === true ? "None" : "Select a secret"}
+          {placeholderOf(result, preview)}
         </Text.Text>
       ) : (
         <>
@@ -77,7 +92,7 @@ const Trigger = ({ value, preview }: TriggerProps): ReactElement => {
             weight={450}
             className={CSS.BE("secret-field", "text")}
           >
-            {s.name}
+            {result.data.name}
           </Text.Text>
           <Text.Text
             el="span"
@@ -85,7 +100,7 @@ const Trigger = ({ value, preview }: TriggerProps): ReactElement => {
             color={9}
             className={CSS.BE("secret-field", "date")}
           >
-            {Validity.describeSecret(s)}
+            {Validity.describeSecret(result.data)}
           </Text.Text>
         </>
       )}

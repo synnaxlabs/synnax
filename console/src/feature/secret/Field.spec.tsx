@@ -10,7 +10,7 @@
 import { secret, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
-import { deep } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import {
   act,
   cleanup,
@@ -135,6 +135,20 @@ describe("Secret.Field", () => {
     await renderField("", client, "preview");
     await screen.findByText("None");
     expect(screen.queryByText("Select a secret")).toBeNull();
+  });
+
+  it("shows that the secret is not found after it is deleted", async () => {
+    const s = await createSecret(client, created);
+    await renderField(s.key);
+    await findDialogTriggerByText(s.name);
+    await client.secrets.delete(s.key);
+    await findDialogTriggerByText("Secret not found");
+    expect(screen.queryByText("Select a secret")).toBeNull();
+  });
+
+  it("shows that the secret is not found for a key that names none", async () => {
+    await renderField(uuid.create());
+    await findDialogTriggerByText("Secret not found");
   });
 
   it("sets the value to the key of the picked secret", async () => {
