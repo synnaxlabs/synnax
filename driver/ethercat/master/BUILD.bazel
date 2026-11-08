@@ -32,6 +32,7 @@ cc_library(
     deps = [
         ":master",
         "//driver/ethercat/errors",
+        "//driver/ethercat/telem",
         "//x/cpp/breaker",
         "//x/cpp/testutil",
         "@googletest//:gtest",

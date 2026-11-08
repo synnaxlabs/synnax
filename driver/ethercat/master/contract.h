@@ -24,6 +24,7 @@
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
+#include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::master::contract {
 /// @brief returns the entry that each contract slave maps: 0x6000:01, a 16-bit input.
@@ -126,6 +127,23 @@ TYPED_TEST_P(Contract, ActivateRunsEachEnabledSlave) {
     EXPECT_EQ(health[0].state, slave::State::OP);
 }
 
+/// @brief it should map every entry inside the process image.
+TYPED_TEST_P(Contract, ActivateMapsEachEntryInsideTheImage) {
+    this->bus.add_slave();
+    this->bus.add_slave();
+    ASSERT_NIL(this->bus.master().scan().second);
+    ASSERT_NIL(this->activate().err);
+    ASSERT_FALSE(this->image.offsets.empty());
+    for (const auto &[key, offset]: this->image.offsets) {
+        const auto size = key.is_input ? this->image.inputs.size()
+                                       : this->image.outputs.size();
+        EXPECT_LE(
+            offset.byte + telem::pdo_required_bytes(offset.bit, offset.bit_length),
+            size
+        );
+    }
+}
+
 /// @brief it should fail a second activation.
 TYPED_TEST_P(Contract, ActivateFailsTwice) {
     this->bus.add_slave();
@@ -175,6 +193,7 @@ REGISTER_TYPED_TEST_SUITE_P(
     ActivateFailsBeforeScan,
     ReceiveAndSendFailBeforeActivation,
     ActivateRunsEachEnabledSlave,
+    ActivateMapsEachEntryInsideTheImage,
     ActivateFailsTwice,
     ActivateReturnsTheRefusalOfASlave,
     ScanAndActivateAgainAfterDeactivate
