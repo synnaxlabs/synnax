@@ -1,7 +1,7 @@
 # Synnax architecture
 
-Synnax is a horizontally-scalable observability and control platform for hardware
-telemetry, optimized for real-time performance and distributed reliability.
+Synnax is an observability and control platform for hardware telemetry, optimized for
+real-time performance.
 
 ## Components
 
@@ -11,10 +11,9 @@ telemetry, optimized for real-time performance and distributed reliability.
     Pebble KV for metadata. No cluster awareness.
   - **Distribution** — turns storage into the data plane: the Core's identity, channels
     with node-aware keys, and the framer (reads, writes, and streams).
-  - **Service** — business logic on distributed primitives: resource search and names
-    across types, groups, auth, access control, users, ranges, hardware
-    (task/rack/device), arc automations, workspace items (schematic, lineplot, log,
-    table).
+  - **Service** — business logic: resource search and names across types, groups, auth,
+    access control, users, ranges, hardware (task/rack/device), arc automations,
+    workspace items (schematic, lineplot, log, table).
   - **API** — transport-agnostic client interface: request/response types, validation,
     freighter-compatible service definitions.
   - Alongside the stack: **transport** (concrete gRPC/HTTP bindings), **server**
@@ -22,9 +21,6 @@ telemetry, optimized for real-time performance and distributed reliability.
 - **Cesium** (`/cesium/`, Go) — embedded time-series DB: columnar storage, domain-based
   indexing, transactional writers with conflict detection, streaming iterators. Built
   for >1kHz sensor data at microsecond precision.
-- **Aspen** (`/aspen/`, Go) — distributed KV + cluster management: SI gossip
-  (membership/failure detection), SIR gossip (eventually consistent metadata),
-  read-optimized.
 - **Freighter** (`/freighter/`, multi-language) — protocol-agnostic transport: unary +
   streaming over gRPC/HTTP/WebSockets, middleware, consistent across Go/TS/Python/C++.
 - **Lyra** (`/lyra/`, TS/React) — Synnax-blind UI primitives (buttons, inputs, forms,
@@ -50,8 +46,8 @@ Every language stacks the same way, low to high: `x` (utilities) → `alamos`
 lower, never the reverse.
 
 - **Go**: `x` and `alamos` are mutually dependent modules (packages stay acyclic) →
-  `freighter` → `aspen`, `arc` → `core`. `cesium` uses only `x` + `alamos` (no
-  transport). `oracle` uses only `x` + `alamos`.
+  `freighter` → `arc` → `core`. `cesium` uses only `x` + `alamos` (no transport).
+  `oracle` uses only `x` + `alamos`.
 - **TS**: `x` → `alamos` → `freighter` → `client` → `pluto` → `console`. `lyra` depends
   only on `x` and feeds `pluto`, `console`, and `site/docs`. `drift` depends only on
   `x`; `arc` is consumed by `pluto` and `console`.
@@ -68,7 +64,6 @@ Put code in the lowest package that can hold it without gaining a forbidden depe
 - `freighter/*` — transport abstraction: unary/stream interfaces, middleware. No
   business logic.
 - `cesium` — single-node time-series storage. No networking, no cluster awareness.
-- `aspen` — cluster membership + distributed KV. No time-series data.
 - `arc` — the Arc language toolchain: parser, analyzer, compiler, LSP, runtime.
 - `oracle` — schema codegen CLI. Generators only, no runtime code.
 - `core` — the server: composes cesium + gorp under the 4-layer architecture (see

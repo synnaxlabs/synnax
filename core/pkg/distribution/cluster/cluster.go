@@ -14,10 +14,10 @@ package cluster
 import (
 	"uuid"
 
-	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Identity names a Core: the cluster it belongs to and its own node in that cluster.
@@ -28,17 +28,23 @@ type Identity struct {
 	HostKey node.Key
 }
 
-type (
-	// Resolver maps a node key to the network address at which that node can be
-	// reached.
-	Resolver = aspen.Resolver
-	// HostResolver is a Resolver that also exposes information about the host node it
-	// is running on (its key and full node record).
-	HostResolver = aspen.HostResolver
-)
+// Resolver maps a node key to the address at which the node is reached.
+type Resolver interface {
+	// Resolve returns the address of the node with the given key, or ErrNodeNotFound.
+	Resolve(key node.Key) (address.Address, error)
+}
+
+// HostResolver is a Resolver that also names the host node.
+type HostResolver interface {
+	Resolver
+	// Host returns the host node.
+	Host() node.Node
+	// HostKey returns the key of the host node.
+	HostKey() node.Key
+}
 
 // ErrNodeNotFound is returned when a key names no node.
-var ErrNodeNotFound = aspen.ErrNodeNotFound
+var ErrNodeNotFound = errors.Wrap(query.ErrNotFound, "node not found")
 
 // Host is the host node of a Core, the only node it resolves.
 type Host struct{ Node node.Node }

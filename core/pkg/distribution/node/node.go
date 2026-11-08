@@ -12,20 +12,39 @@
 // pkg/service/node.
 package node
 
-import "github.com/synnaxlabs/aspen"
+import (
+	"strconv"
 
-type (
-	// Key is a 12-bit unsigned integer that identifies a node. Channel keys embed the
-	// key of the node that leases them.
-	Key = aspen.NodeKey
-	// Node is a node of a Core, reached at its address.
-	Node = aspen.Node
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/math"
+	"github.com/synnaxlabs/x/types"
 )
+
+// Key is a 12-bit unsigned integer that identifies a node. Channel keys embed the key
+// of the node that leases them.
+type Key types.Uint12
 
 const (
 	// KeyBootstrapper is the key of the host node of a Core.
-	KeyBootstrapper = aspen.NodeKeyBootstrapper
+	KeyBootstrapper Key = 1
 	// KeyFree is the key of no node. Resources that no node leases, such as free
 	// virtual channels, carry it.
-	KeyFree = aspen.NodeKeyFree
+	KeyFree = Key(math.MaxUint12)
 )
+
+// Free returns true if the key is KeyFree.
+func (k Key) Free() bool { return k == KeyFree }
+
+// IsBootstrapper returns true if the key is KeyBootstrapper.
+func (k Key) IsBootstrapper() bool { return k == KeyBootstrapper }
+
+// String implements fmt.Stringer.
+func (k Key) String() string { return strconv.Itoa(int(k)) }
+
+// Node is a node of a Core, reached at Address.
+type Node struct {
+	// Address is the network address of the node.
+	Address address.Address
+	// Key identifies the node.
+	Key Key
+}

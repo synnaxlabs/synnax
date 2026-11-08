@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package gossip_test
+package node_test
 
 import (
 	"testing"
@@ -17,13 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestGossip(t *testing.T) {
+func TestNode(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster Gossip Suite", SuiteConfig())
+	RunSpecs(t, "Distribution Node Suite", SuiteConfig())
 }
-
-var _ = BeforeSuite(func() {
-	ShouldNotLeakGoroutines()
-})
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

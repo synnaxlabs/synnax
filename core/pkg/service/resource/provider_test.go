@@ -48,8 +48,9 @@ type entry interface {
 	name() string
 }
 
-// laggingKV ignores the OnApplied option, as Aspen does, and calls applied after each
-// commit, before Gorp applies the index changes of the commit.
+// laggingKV ignores the OnApplied option, as a DB that notifies observers on another
+// goroutine may, and calls applied after each commit, before Gorp applies the index
+// changes of the commit.
 type laggingKV struct {
 	kv.DB
 	applied func()
