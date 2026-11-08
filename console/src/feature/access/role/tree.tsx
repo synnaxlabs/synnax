@@ -76,21 +76,11 @@ const TreeItem = Tree.createItem({
   children: ({ client, id }) => [
     Tree.createSource(client.users, { roles: [id.key] }, Tree.toResource("user")),
   ],
-  drop: async ({ client, destination, items }) => {
-    const target = destination.id.key;
-    const bySource = Map.groupBy(items, ({ ancestors: [source] }) =>
-      source?.type === access.role.TYPE_RESOURCE_ID.type ? source.key : undefined,
-    );
-    await Promise.all(
-      [...bySource].map(
-        async ([source, moved]) =>
-          await client.users.setRoles(
-            moved.map(({ id }) => id.key),
-            { add: [target], remove: source == null ? [] : [source] },
-          ),
-      ),
-    );
-  },
+  drop: async ({ client, destination, items }) =>
+    await client.users.setRole(
+      items.map(({ id }) => id.key),
+      destination.id.key,
+    ),
   canDrop: ({ items, moved }) =>
     moved.every(({ id }) => id.type === user.TYPE_RESOURCE_ID.type) &&
     User.filterHaulItems(items).every(({ data }) => !data.rootUser),

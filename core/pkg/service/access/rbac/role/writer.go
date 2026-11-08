@@ -49,8 +49,8 @@ func (w Writer) CreateMany(ctx context.Context, roles *[]Role) error {
 	return nil
 }
 
-// Delete removes a role and its policies from the database, and removes the role from
-// each user and rack that holds it. It returns a validation error for a built-in role.
+// Delete removes a role and its policies from the database. It returns a validation
+// error for a built-in role, or for a role that a user or rack holds.
 func (w Writer) Delete(ctx context.Context, key Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Role](key)).
