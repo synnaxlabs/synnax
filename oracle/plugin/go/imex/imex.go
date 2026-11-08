@@ -320,6 +320,11 @@ func (p *Plugin) generatePackage(
 		Versions: gomod.ResolveImportPath(
 			outputPath+"/versions", req.RepoRoot, gomod.DefaultModulePrefix,
 		),
+		Gorp: gomod.ResolveImportPath(
+			"gorp",
+			req.RepoRoot,
+			gomod.DefaultModulePrefix,
+		),
 		Runtime:    p.options.RuntimeImportPath,
 		Resource:   p.options.ResourceImportPath,
 		References: targets[0].references,
@@ -387,6 +392,7 @@ type exportData struct {
 	// Name is the selector that reads the exported entry's name.
 	Name       string
 	Versions   string
+	Gorp       string
 	Runtime    string
 	Resource   string
 	References []string
@@ -401,14 +407,19 @@ import (
 	"context"
 	"uuid"
 
+	"{{.Gorp}}"
 	"{{.Runtime}}"
 	"{{.Resource}}"
 	"{{.Versions}}"
 )
 
-// Export retrieves the {{.Type}} identified by id and serializes it, stamping
+// Export retrieves the {{.Type}} identified by id from snap and serializes it, stamping
 // versions.Latest. It returns query.ErrNotFound if no {{.Type}} has id.Key.
-func (s *Service) Export(ctx context.Context, id resource.ID) (imex.Envelope, error) {
+func (s *Service) Export(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	id resource.ID,
+) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return imex.Envelope{}, err
@@ -417,7 +428,7 @@ func (s *Service) Export(ctx context.Context, id resource.ID) (imex.Envelope, er
 	if err = s.NewRetrieve().
 		Where(MatchKeys(key)).
 		Entry(&v).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, snap); err != nil {
 		return imex.Envelope{}, err
 	}
 	env := imex.Envelope{

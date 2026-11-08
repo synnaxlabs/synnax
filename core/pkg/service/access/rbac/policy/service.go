@@ -11,7 +11,6 @@ package policy
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -84,11 +83,13 @@ func OpenService(
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(
+		if err = cfg.Signals.PublishTable(
 			ctx,
-			signals.GorpPublisherConfigUUID(s.table.Observe()),
-		); !ok(err, sig) {
+			signals.TableConfig[Key, Policy]{
+				Changes:  s.table.Changes,
+				Resource: ResourceID,
+			},
+		); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -98,9 +99,7 @@ func OpenService(
 func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		svc:           s,
 		tx:            tx,
 		allowInternal: allowInternal,
 		table:         s.table,
@@ -110,7 +109,6 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
 	}

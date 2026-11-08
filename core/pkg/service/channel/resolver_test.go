@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -30,10 +31,12 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			Virtual:  true,
 			DataType: telem.Float32T,
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, ch)
+		})).To(Succeed())
 
 		sym := MustSucceed(
-			svc.NewArcSymbolResolver(nil).Resolve(ctx, "resolver_test_ch"),
+			svc.NewArcSymbolResolver(db).Resolve(ctx, "resolver_test_ch"),
 		)
 		Expect(sym.Name).To(Equal("resolver_test_ch"))
 		Expect(sym.Kind).To(Equal(symbol.KindChannel))
@@ -49,10 +52,12 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			Internal: true,
 			DataType: telem.Float32T,
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, ch)
+		})).To(Succeed())
 
 		sym := MustSucceed(
-			svc.NewArcSymbolResolver(nil).Resolve(ctx, "resolver_internal_ch"),
+			svc.NewArcSymbolResolver(db).Resolve(ctx, "resolver_internal_ch"),
 		)
 		Expect(sym.Renameable).To(BeFalse())
 	})
@@ -63,10 +68,12 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			Virtual:  true,
 			DataType: telem.Int64T,
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, ch)
+		})).To(Succeed())
 
 		sym := MustSucceed(
-			svc.NewArcSymbolResolver(nil).Resolve(ctx, strconv.Itoa(int(ch.Key()))),
+			svc.NewArcSymbolResolver(db).Resolve(ctx, strconv.Itoa(int(ch.Key()))),
 		)
 		Expect(sym.Name).To(Equal("resolver_key_test_ch"))
 		Expect(sym.Kind).To(Equal(symbol.KindChannel))
@@ -74,7 +81,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 	})
 
 	It("Should return an error for a nonexistent symbol", func(ctx SpecContext) {
-		Expect(svc.NewArcSymbolResolver(nil).Resolve(ctx, "does_not_exist_anywhere")).
+		Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, "does_not_exist_anywhere")).
 			Error().To(MatchError(query.ErrNotFound))
 	})
 })
@@ -87,21 +94,27 @@ var _ = Describe("NewConsistentResolver", func() {
 			Virtual:  true,
 			DataType: telem.Float32T,
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, ch)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, ch.Key(), false)
+			})).To(Succeed())
 		})
 	})
 
 	It(
 		"Should resolve a renamed channel by the name it first had",
 		func(ctx SpecContext) {
-			r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(nil))
+			r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(db))
 			Expect(r.Resolve(ctx, "consistent_resolver_ch")).
 				To(HaveField("ID", int(ch.Key())))
-			Expect(svc.NewWriter(nil).Rename(
-				ctx, ch.Key(), "consistent_resolver_ch_renamed", false,
-			)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Rename(
+					ctx, ch.Key(), "consistent_resolver_ch_renamed", false,
+				)
+			})).To(Succeed())
 			Expect(r.Resolve(ctx, "consistent_resolver_ch")).
 				To(HaveField("ID", int(ch.Key())))
 		},
@@ -110,7 +123,7 @@ var _ = Describe("NewConsistentResolver", func() {
 	It(
 		"Should keep reporting a missing name after it is created",
 		func(ctx SpecContext) {
-			r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(nil))
+			r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(db))
 			Expect(r.Resolve(ctx, "consistent_resolver_later")).Error().
 				To(MatchError(query.ErrNotFound))
 			later := &channel.Channel{
@@ -118,20 +131,24 @@ var _ = Describe("NewConsistentResolver", func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, later)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, later)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, later.Key(), false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, later.Key(), false)
+				})).To(Succeed())
 			})
 			Expect(r.Resolve(ctx, "consistent_resolver_later")).Error().
 				To(MatchError(query.ErrNotFound))
-			Expect(channel.NewConsistentResolver(svc.NewArcSymbolResolver(nil)).
+			Expect(channel.NewConsistentResolver(svc.NewArcSymbolResolver(db)).
 				Resolve(ctx, "consistent_resolver_later")).
 				To(HaveField("ID", int(later.Key())))
 		},
 	)
 
 	It("Should return a separate symbol for each lookup", func(ctx SpecContext) {
-		r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(nil))
+		r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(db))
 		first := MustSucceed(r.Resolve(ctx, "consistent_resolver_ch"))
 		first.Name = "changed"
 		Expect(r.Resolve(ctx, "consistent_resolver_ch")).
@@ -139,7 +156,7 @@ var _ = Describe("NewConsistentResolver", func() {
 	})
 
 	It("Should resolve the same name from many goroutines", func(ctx SpecContext) {
-		r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(nil))
+		r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(db))
 		var wg sync.WaitGroup
 		for range 8 {
 			wg.Go(func() {
@@ -154,7 +171,7 @@ var _ = Describe("NewConsistentResolver", func() {
 	})
 
 	It("Should search through the wrapped resolver", func(ctx SpecContext) {
-		r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(nil))
+		r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(db))
 		Eventually(func(g Gomega) {
 			g.Expect(r.Search(ctx, "consistent_resolver")).
 				To(ContainElement(HaveField("ID", int(ch.Key()))))

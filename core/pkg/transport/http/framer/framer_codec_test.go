@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/http"
+	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -101,7 +102,9 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &channels)
+			})).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 			cdec := codec.NewDynamic(apiChannelSvc)
 			v := framer.Codec{
@@ -192,7 +195,9 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &channels)
+			})).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 			cdec := codec.NewDynamic(apiChannelSvc)
 			v := framer.Codec{
@@ -234,7 +239,9 @@ var _ = Describe("FramerCodec", func() {
 						Virtual:  true,
 					},
 				}
-				Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &channels)
+				})).To(Succeed())
 				keys := channel.KeysFromChannels(channels)
 				cdec := codec.NewDynamic(apiChannelSvc)
 				Expect(cdec.Update(ctx, keys)).To(Succeed())
@@ -388,7 +395,9 @@ var _ = Describe("FramerCodec", func() {
 						Virtual:  true,
 					},
 				}
-				Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &channels)
+				})).To(Succeed())
 				keys := channel.KeysFromChannels(channels)
 				cdec := codec.NewDynamic(apiChannelSvc)
 				v := framer.Codec{
@@ -652,7 +661,9 @@ var _ = Describe("FramerCodec", func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}}
-				Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &channels)
+				})).To(Succeed())
 				keys := channel.KeysFromChannels(channels)
 				cdec := codec.NewDynamic(apiChannelSvc)
 				v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}

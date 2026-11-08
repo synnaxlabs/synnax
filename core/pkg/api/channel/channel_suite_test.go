@@ -14,6 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -38,6 +41,7 @@ func TestAPIChannel(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db         *gorp.DB
 	channelSvc *channel.Service
 	groupSvc   *group.Service
 	statusSvc  *status.Service
@@ -46,22 +50,36 @@ var (
 	aliasSvc   *alias.Service
 	userSvc    *user.Service
 	apiSvc     *apichannel.Service
-	author     user.User
+	// setGroup and retrieveChannels run their routes as the API layer binds them.
+	setGroup         freighter.UnaryHandler[apichannel.SetGroupRequest, struct{}]
+	retrieveChannels freighter.UnaryHandler[
+		apichannel.AliasedRetrieveRequest,
+		apichannel.RetrieveResponse,
+	]
+	author user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	svc := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
 	channelSvc, groupSvc, statusSvc, rbacSvc = svc.Channel, svc.Group, svc.Status, svc.RBAC
 	rangeSvc, aliasSvc, userSvc = svc.Ranger, svc.Alias, svc.User
 	apiSvc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
+		DB:      db,
 		RBAC:    rbacSvc,
 		Channel: channelSvc,
 		Status:  statusSvc,
 		Alias:   aliasSvc,
 	}))
+	binder := MustSucceed(
+		bind.NewService(bind.ServiceConfig{DB: node.DB, RBAC: rbacSvc}),
+	)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	retrieveChannels = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
-		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
+		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
 })
 
@@ -74,5 +92,5 @@ func grantOn(
 ) {
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }

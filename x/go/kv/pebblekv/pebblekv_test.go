@@ -10,22 +10,16 @@
 package pebblekv_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
-	"slices"
-	"time"
 
 	"github.com/cockroachdb/pebble/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -130,35 +124,6 @@ var _ = Describe("PebbleKV", func() {
 			Expect(i).To(Equal(len(expected)))
 		})
 
-		It("Should read transaction changes correctly", func(ctx SpecContext) {
-			tx := db.OpenTx()
-
-			Expect(tx.Set(ctx, []byte("k1"), []byte("v1"))).To(Succeed())
-			Expect(tx.Set(ctx, []byte("k2"), []byte("v2"))).To(Succeed())
-			Expect(tx.Delete(ctx, []byte("k1"))).To(Succeed())
-
-			reader := tx.NewReader()
-
-			changes := make([]kv.Change, 0, 3)
-			for change := range reader {
-				changes = append(changes, change)
-			}
-
-			Expect(changes).To(HaveLen(3))
-			Expect(changes[0].Variant).To(Equal(change.VariantSet))
-			Expect(changes[0].Key).To(Equal([]byte("k1")))
-			Expect(changes[0].Value).To(Equal([]byte("v1")))
-
-			Expect(changes[1].Variant).To(Equal(change.VariantSet))
-			Expect(changes[1].Key).To(Equal([]byte("k2")))
-			Expect(changes[1].Value).To(Equal([]byte("v2")))
-
-			Expect(changes[2].Variant).To(Equal(change.VariantDelete))
-			Expect(changes[2].Key).To(Equal([]byte("k1")))
-
-			Expect(tx.Close()).To(Succeed())
-		})
-
 		It("Should handle iterator bounds correctly", func(ctx SpecContext) {
 			for i := range byte(5) {
 				key := []byte{i}
@@ -217,255 +182,26 @@ var _ = Describe("PebbleKV", func() {
 		It("Should handle db.Commit as no-op", func(ctx SpecContext) {
 			Expect(db.Commit(ctx)).To(Succeed())
 		})
-
-		It(
-			"Should immediately return false when opening a reader directly on the DB",
-			func(ctx SpecContext) {
-				Expect(
-					db.Set(ctx, []byte("reader-key"), []byte("reader-value")),
-				).To(Succeed())
-				reader := db.NewReader()
-				Expect(reader).ToNot(BeNil())
-				for range reader {
-					Fail("reader should be empty")
-				}
-			},
-		)
 	})
 
-	Describe("Observer", func() {
-		var db kv.DB
-
-		open := func() {
-			GinkgoHelper()
-			path := GinkgoT().TempDir()
-			pdb := MustSucceed(pebble.Open(path, &pebble.Options{
-				Logger: pebblekv.NewNoopLogger(),
-			}))
-			db = DeferClose(pebblekv.Wrap(pdb))
-		}
-
-		Context("With observation enabled (default)", Ordered, func() {
-			BeforeAll(func() {
-				ShouldNotLeakGoroutines()
-				open()
-			})
-
-			It("Should notify observers when using Set", func(ctx SpecContext) {
-				notified := false
-				var receivedChanges []kv.Change
-
-				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
-					notified = true
-					for change := range reader {
-						receivedChanges = append(receivedChanges, change)
-					}
-				})
-
-				key := []byte("observed-key")
-				value := []byte("observed-value")
-				Expect(db.Set(ctx, key, value)).To(Succeed())
-
-				Eventually(func() bool { return notified }).Should(BeTrue())
-				Expect(receivedChanges).To(HaveLen(1))
-				Expect(receivedChanges[0].Variant).To(Equal(change.VariantSet))
-				Expect(receivedChanges[0].Key).To(Equal(key))
-				Expect(receivedChanges[0].Value).To(Equal(value))
-			})
-
-			It(
-				"Should notify observers when committing a transaction",
-				func(ctx SpecContext) {
-					notified := false
-					var receivedChanges []kv.Change
-
-					db.OnChange(func(ctx context.Context, reader kv.TxReader) {
-						notified = true
-						for change := range reader {
-							receivedChanges = append(receivedChanges, change)
-						}
-					})
-
-					tx := db.OpenTx()
-					key1 := []byte("tx-key-1")
-					value1 := []byte("tx-value-1")
-					key2 := []byte("tx-key-2")
-					value2 := []byte("tx-value-2")
-
-					Expect(tx.Set(ctx, key1, value1)).To(Succeed())
-					Expect(tx.Set(ctx, key2, value2)).To(Succeed())
-					Expect(tx.Commit(ctx)).To(Succeed())
-					Expect(tx.Close()).To(Succeed())
-
-					Eventually(func() bool { return notified }).Should(BeTrue())
-					Expect(receivedChanges).To(HaveLen(2))
-					Expect(receivedChanges[0].Key).To(Equal(key1))
-					Expect(receivedChanges[0].Value).To(Equal(value1))
-					Expect(receivedChanges[1].Key).To(Equal(key2))
-					Expect(receivedChanges[1].Value).To(Equal(value2))
-				},
-			)
-
-			It(
-				"Should call OnApplied after the commit applies and before observers",
-				func(ctx SpecContext) {
-					var calls []string
-					disconnect := db.OnChange(func(context.Context, kv.TxReader) {
-						calls = append(calls, "observer")
-					})
-					defer disconnect()
-					key := []byte("applied-key")
-					tx := db.OpenTx()
-					Expect(tx.Set(ctx, key, []byte("applied-value"))).To(Succeed())
-					Expect(tx.Commit(ctx, kv.OnApplied(func() {
-						v, closer := MustSucceed2(db.Get(ctx, key))
-						Expect(v).To(Equal([]byte("applied-value")))
-						Expect(closer.Close()).To(Succeed())
-						calls = append(calls, "applied")
-					}))).To(Succeed())
-					Expect(tx.Close()).To(Succeed())
-					Expect(calls).To(Equal([]string{"applied", "observer"}))
-				},
-			)
-
-			It("Should notify observers on Delete operations", func(ctx SpecContext) {
-				notified := false
-				var receivedChanges []kv.Change
-
-				key := []byte("delete-key")
-				value := []byte("delete-value")
-				Expect(db.Set(ctx, key, value)).To(Succeed())
-
-				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
-					notified = true
-					for change := range reader {
-						receivedChanges = append(receivedChanges, change)
-					}
-				})
-
-				Expect(db.Delete(ctx, key)).To(Succeed())
-
-				Eventually(func() bool { return notified }).Should(BeTrue())
-				Expect(receivedChanges).To(HaveLen(1))
-				Expect(receivedChanges[0].Variant).To(Equal(change.VariantDelete))
-				Expect(receivedChanges[0].Key).To(Equal(key))
-			})
-
-			It(
-				"Should provide fresh readers to each subscriber",
-				func(ctx SpecContext) {
-					subscriber1Called := false
-					subscriber2Called := false
-
-					db.OnChange(func(ctx context.Context, reader kv.TxReader) {
-						subscriber1Called = true
-						Expect(slices.Collect(reader)).ToNot(BeEmpty())
-					})
-
-					db.OnChange(func(ctx context.Context, reader kv.TxReader) {
-						subscriber2Called = true
-						Expect(slices.Collect(reader)).ToNot(BeEmpty())
-					})
-
-					key := []byte("multi-subscriber-key")
-					value := []byte("multi-subscriber-value")
-					Expect(db.Set(ctx, key, value)).To(Succeed())
-
-					Eventually(
-						func() bool { return subscriber1Called && subscriber2Called },
-					).Should(BeTrue())
-				},
-			)
-		})
-
-		It("Should deliver commits through the given observer", func(ctx SpecContext) {
+	Describe("OnApplied", func() {
+		It("Should call OnApplied after the commit applies", func(ctx SpecContext) {
 			pdb := MustSucceed(pebble.Open(GinkgoT().TempDir(), &pebble.Options{
 				Logger: pebblekv.NewNoopLogger(),
 			}))
-			observer := observe.New[kv.TxReader]()
-			db := DeferClose(pebblekv.Wrap(pdb, pebblekv.WithObserver(observer)))
-			var keys [][]byte
-			disconnect := observer.OnChange(func(_ context.Context, r kv.TxReader) {
-				for ch := range r {
-					keys = append(keys, ch.Key)
-				}
-			})
-			defer disconnect()
-			Expect(db.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
-			Expect(keys).To(Equal([][]byte{[]byte("key")}))
-		})
-
-		It("Should notify the given observer in commit order", func(ctx SpecContext) {
-			pdb := MustSucceed(pebble.Open(GinkgoT().TempDir(), &pebble.Options{
-				Logger: pebblekv.NewNoopLogger(),
-			}))
-			sCtx, cancel := signal.Isolated()
-			defer func() {
-				cancel()
-				Expect(sCtx.Wait()).To(Succeed())
-			}()
-			observer := observe.NewAsync[kv.TxReader](sCtx)
-			db := DeferClose(pebblekv.Wrap(pdb, pebblekv.WithObserver(observer)))
-			values := make(chan string, 2)
-			disconnect := observer.OnChange(func(_ context.Context, r kv.TxReader) {
-				for ch := range r {
-					values <- string(ch.Value)
-				}
-			})
-			defer disconnect()
-			var (
-				firstApplied = make(chan struct{})
-				secondDone   = make(chan struct{})
-			)
-			go func() {
-				defer GinkgoRecover()
-				defer close(secondDone)
-				<-firstApplied
-				Expect(db.Set(ctx, []byte("key"), []byte("second"))).To(Succeed())
-			}()
+			db := DeferClose(pebblekv.Wrap(pdb))
+			key := []byte("applied-key")
 			tx := db.OpenTx()
-			Expect(tx.Set(ctx, []byte("key"), []byte("first"))).To(Succeed())
-			// The second commit can apply before the first one notifies only when no
-			// lock orders them.
+			Expect(tx.Set(ctx, key, []byte("applied-value"))).To(Succeed())
+			applied := false
 			Expect(tx.Commit(ctx, kv.OnApplied(func() {
-				close(firstApplied)
-				select {
-				case <-secondDone:
-				case <-time.After(100 * time.Millisecond):
-				}
+				v, closer := MustSucceed2(db.Get(ctx, key))
+				Expect(v).To(Equal([]byte("applied-value")))
+				Expect(closer.Close()).To(Succeed())
+				applied = true
 			}))).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
-			Eventually(secondDone).Should(BeClosed())
-			Eventually(values).Should(Receive(Equal("first")))
-			Eventually(values).Should(Receive(Equal("second")))
-		})
-
-		It("Should let async handlers read an empty commit", func(ctx SpecContext) {
-			pdb := MustSucceed(pebble.Open(GinkgoT().TempDir(), &pebble.Options{
-				Logger: pebblekv.NewNoopLogger(),
-			}))
-			sCtx, cancel := signal.Isolated()
-			defer func() {
-				cancel()
-				Expect(sCtx.Wait()).To(Succeed())
-			}()
-			observer := observe.NewAsync[kv.TxReader](sCtx)
-			db := DeferClose(pebblekv.Wrap(pdb, pebblekv.WithObserver(observer)))
-			read := make(chan int, 2)
-			for range 2 {
-				defer observer.OnChange(func(_ context.Context, r kv.TxReader) {
-					n := 0
-					for range r {
-						n++
-					}
-					read <- n
-				})()
-			}
-			tx := db.OpenTx()
-			Expect(tx.Commit(ctx)).To(Succeed())
-			Expect(tx.Close()).To(Succeed())
-			Eventually(read).Should(Receive(BeZero()))
-			Eventually(read).Should(Receive(BeZero()))
+			Expect(applied).To(BeTrue())
 		})
 	})
 })
