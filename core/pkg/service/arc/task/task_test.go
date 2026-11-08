@@ -147,6 +147,8 @@ var _ = Describe("Task", Ordered, func() {
 			HostKey:    node.Identity.HostKey,
 			Status:     statusSvc,
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			// No Driver reports for the rack, so a check would overwrite task statuses.
+			HealthCheckInterval: telem.Hour,
 		}))
 		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 			DB: node.DB,
