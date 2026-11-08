@@ -246,7 +246,9 @@ var _ = Describe("Service", func() {
 					},
 				}))
 				Expect(func() {
-					_, _ = svc.Search(ctx, nil, resource.SearchQuery{Term: "pump"})
+					MustSucceed(
+						svc.Search(ctx, nil, resource.SearchQuery{Term: "pump"}),
+					)
 				}).To(PanicWith(ContainSubstring("no provider for type user")))
 			},
 		)
