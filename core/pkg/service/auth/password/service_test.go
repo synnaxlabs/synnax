@@ -21,13 +21,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/crypto/bcrypt"
 )
-
-func subject() resource.ID {
-	return resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
-}
 
 func proof(username, pwd string) auth.Proof {
 	return auth.Proof{Variant: auth.PasswordProof{
@@ -120,10 +117,7 @@ var _ = Describe("Service", func() {
 		alice = subject()
 		username = uuid.New().String()
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).Set(ctx, alice, auth.Credentials{
-				Username: username,
-				Password: "secret",
-			})
+			return svc.NewWriter(tx).Set(ctx, alice, username, hash(svc, "secret"))
 		})).To(Succeed())
 	})
 	Describe("Authenticate", func() {
@@ -193,6 +187,23 @@ var _ = Describe("Service", func() {
 			Entry("bcrypt with a bad body", "$2a$garbage"),
 		)
 	})
+	It(
+		"Should check and replace a PBKDF2 hash from a Core with FIPS",
+		func(ctx SpecContext) {
+			bob := subject()
+			name := uuid.New().String()
+			fips := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+				DB:   DeferClose(gorp.Wrap(memkv.New())),
+				FIPS: new(true),
+			}))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, bob, name, hash(fips, "p"))
+			})).To(Succeed())
+			Expect(storedHash(ctx, svc, bob)).To(HavePrefix("$pbkdf2-sha256$"))
+			MustSucceed(svc.Authenticate(ctx, proof(name, "p")))
+			Expect(storedHash(ctx, svc, bob)).To(HavePrefix("$argon2id$"))
+		},
+	)
 	Describe("Verify", func() {
 		It(
 			"Should check a bcrypt hash in a transaction and keep it",
@@ -221,15 +232,47 @@ var _ = Describe("Service", func() {
 			})).Error().To(MatchError(auth.ErrInvalidCredentials))
 		})
 	})
+	Describe("Hash", func() {
+		It("Should return a hash that no proof came before", func() {
+			_, proven := MustSucceed(svc.Hash("p")).Proven()
+			Expect(proven).To(BeFalse())
+		})
+		It("Should return a validation error for an empty password", func() {
+			Expect(svc.Hash("")).Error().To(MatchError(validate.ErrValidation))
+		})
+	})
+	Describe("HashProven", func() {
+		credentials := func(password string) auth.PasswordProof {
+			return auth.PasswordProof{
+				Credentials: auth.Credentials{Username: username, Password: password},
+			}
+		}
+		It("Should return a hash with the identity the proof matched", func(
+			ctx SpecContext,
+		) {
+			h := MustSucceed(svc.HashProven(ctx, credentials("secret"), "new"))
+			identity, proven := h.Proven()
+			Expect(proven).To(BeTrue())
+			Expect(identity.Subject).To(Equal(alice))
+		})
+		It("Should reject a wrong proof", func(ctx SpecContext) {
+			Expect(svc.HashProven(ctx, credentials("wrong"), "new")).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+		})
+		It("Should return a zero hash for an empty new password", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.HashProven(ctx, credentials("secret"), "")).Error().
+				To(MatchError(validate.ErrValidation))
+		})
+	})
 	Describe("NewRetrieve", func() {
 		var bob resource.ID
 		BeforeEach(func(ctx SpecContext) {
 			bob = subject()
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Set(ctx, bob, auth.Credentials{
-					Username: uuid.New().String(),
-					Password: "secret",
-				})
+				return svc.NewWriter(tx).
+					Set(ctx, bob, uuid.New().String(), hash(svc, "secret"))
 			})).To(Succeed())
 		})
 		It("Should find a password by key", func(ctx SpecContext) {
@@ -277,15 +320,13 @@ var _ = Describe("Service", func() {
 		It("Should move each time the password is set", func(ctx SpecContext) {
 			identity := MustSucceed(svc.Authenticate(ctx, proof(username, "secret")))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).ChangePassword(ctx, alice, "changed")
+				return svc.NewWriter(tx).
+					ChangePassword(ctx, alice, hash(svc, "changed"))
 			})).To(Succeed())
 			changed := MustSucceed(svc.Version(ctx, nil, identity.Credential))
 			Expect(changed).To(BeNumerically(">", identity.Version))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Set(ctx, alice, auth.Credentials{
-					Username: username,
-					Password: "again",
-				})
+				return svc.NewWriter(tx).Set(ctx, alice, username, hash(svc, "again"))
 			})).To(Succeed())
 			Expect(svc.Version(ctx, nil, identity.Credential)).
 				To(BeNumerically(">", changed))
@@ -298,11 +339,11 @@ var _ = Describe("Service", func() {
 			},
 		)
 	})
-	Describe("DeleteFor", func() {
-		It("Should remove the subject's password", func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.DeleteFor(ctx, tx, alice)
-			})).To(Succeed())
+	Describe("Subject", func() {
+		It("Should delete the password when the subject is deleted", func(
+			ctx SpecContext,
+		) {
+			deleteSubject(ctx, alice)
 			Expect(svc.Authenticate(ctx, proof(username, "secret"))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		})
@@ -321,10 +362,7 @@ var _ = Describe("Service with FIPS", func() {
 		alice := subject()
 		name := uuid.New().String()
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).Set(ctx, alice, auth.Credentials{
-				Username: name,
-				Password: "secret",
-			})
+			return svc.NewWriter(tx).Set(ctx, alice, name, hash(svc, "secret"))
 		})).To(Succeed())
 		Expect(storedHash(ctx, svc, alice)).To(HavePrefix("$pbkdf2-sha256$"))
 		Expect(MustSucceed(svc.Authenticate(ctx, proof(name, "secret"))).Subject).
@@ -344,32 +382,15 @@ var _ = Describe("Service with FIPS", func() {
 	It("Should refuse an Argon2id hash", func(ctx SpecContext) {
 		alice := subject()
 		name := uuid.New().String()
-		plain := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
+		plain := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+			DB: DeferClose(gorp.Wrap(memkv.New())),
+		}))
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return plain.NewWriter(tx).Set(ctx, alice, auth.Credentials{
-				Username: name,
-				Password: "p",
-			})
+			return svc.NewWriter(tx).Set(ctx, alice, name, hash(plain, "p"))
 		})).To(Succeed())
 		Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().To(SatisfyAll(
 			MatchError(auth.ErrInvalidCredentials),
 			MatchError(ContainSubstring("does not accept")),
 		))
 	})
-	It(
-		"Should let a Core without FIPS check and replace a PBKDF2 hash",
-		func(ctx SpecContext) {
-			alice := subject()
-			name := uuid.New().String()
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Set(ctx, alice, auth.Credentials{
-					Username: name,
-					Password: "p",
-				})
-			})).To(Succeed())
-			plain := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-			MustSucceed(plain.Authenticate(ctx, proof(name, "p")))
-			Expect(storedHash(ctx, plain, alice)).To(HavePrefix("$argon2id$"))
-		},
-	)
 })

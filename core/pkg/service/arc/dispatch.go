@@ -28,9 +28,8 @@ import (
 // attaches that sweep as a second batch with an empty dispatch key, so every editor
 // (including the originator, which skips its own echo) applies it.
 //
-// Apply also schedules a debounced rewrite of the Arc's task config, so a burst of
-// edits produces one rewrite instead of one per edit. The rewrite opens its own
-// transaction, so it reads the Arc after the transaction of w commits or rolls back.
+// When the transaction of w commits, the Arc's task config gets a debounced rewrite, so
+// a burst of edits produces one rewrite instead of one per edit.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	var sweep []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
@@ -61,6 +60,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 					return a, err
 				}
 			}
+			// A rolled back edit stays recorded. That only delays a sweep, and the next
+			// dispatch must not sweep before the edit that this one commits.
 			if containsTextEdit(acts) {
 				w.sweeper.recordEdit(key)
 			}
@@ -72,8 +73,21 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if len(sweep) > 0 {
 		w.dispatcher.WithDispatchKey("").Attach(w.tx, key, sweep...)
 	}
-	w.taskSync.Trigger(key)
+	w.resyncs.Add(w.tx, key)
 	return nil
+}
+
+// followCommit schedules a task resync for each Arc that c dispatched to, then drops
+// the edit time and pending resync of each Arc that c deleted. It runs only for a
+// commit, so a denied or failed write changes neither.
+func (s *Service) followCommit(_ context.Context, c gorp.Commit) {
+	for _, key := range s.resyncs.Of(c) {
+		s.taskSync.Trigger(key)
+	}
+	for _, key := range s.deletes.Of(c) {
+		s.sweeper.forget(key)
+		s.taskSync.Forget(key)
+	}
 }
 
 // resyncTask rewrites the Arc's task config from its current content. It runs on the

@@ -147,20 +147,6 @@ func (s *Service) OnAction(
 	return s.state.OnChange(handler)
 }
 
-// Apply applies the actions to the range with the given key and attaches them to the
-// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
-// returns an error wrapping validate.ErrValidation when an action is a create or the
-// result fails to decode or validate, and an error wrapping query.ErrNotFound when no
-// range has the key.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	return w.dispatcher.Dispatch(
-		w.tx,
-		key,
-		acts,
-		func(gorp.Tx) ([]Action, error) { return nil, w.apply(ctx, key, acts) },
-	)
-}
-
 // Close closes the service and releases any resources that it may have acquired. Close
 // is not safe to call concurrently with any other Service methods (including Writer(s)
 // and Retrieve(s)).

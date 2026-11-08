@@ -33,8 +33,7 @@ var _ = Describe("Writer", func() {
 		alice = subject()
 		name = uuid.New().String()
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).
-				Set(ctx, alice, auth.Credentials{Username: name, Password: "p"})
+			return svc.NewWriter(tx).Set(ctx, alice, name, hash(svc, "p"))
 		})).
 			To(Succeed())
 	})
@@ -58,11 +57,7 @@ var _ = Describe("Writer", func() {
 				before := retrieve(ctx, alice)
 				renamed := uuid.New().String()
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Set(
-						ctx,
-						alice,
-						auth.Credentials{Username: renamed, Password: "q"},
-					)
+					return svc.NewWriter(tx).Set(ctx, alice, renamed, hash(svc, "q"))
 				})).
 					To(Succeed())
 				after := retrieve(ctx, alice)
@@ -77,25 +72,39 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It("Should reject a username another subject holds", func(ctx SpecContext) {
+			other := subject()
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).
-					Set(ctx, subject(), auth.Credentials{Username: name, Password: "p"})
+				return svc.NewWriter(tx).Set(ctx, other, name, hash(svc, "p"))
 			})).
 				To(MatchError(auth.ErrRepeatedUsername))
 		})
-		It("Should reject empty credentials", func(ctx SpecContext) {
+		It("Should reject an empty username", func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).
-					Set(ctx, alice, auth.Credentials{Username: name})
+				return svc.NewWriter(tx).Set(ctx, alice, "", hash(svc, "p"))
 			})).
-				To(MatchError(ContainSubstring("password: required")))
+				To(MatchError(ContainSubstring("username: required")))
+		})
+		It("Should refuse a hash proven against a password that changed", func(
+			ctx SpecContext,
+		) {
+			stale := MustSucceed(svc.HashProven(ctx, auth.PasswordProof{
+				Credentials: auth.Credentials{Username: name, Password: "p"},
+			}, "stale"))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).ChangePassword(ctx, alice, hash(svc, "q"))
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, alice, name, stale)
+			})).
+				To(MatchError(auth.ErrInvalidCredentials))
+			MustSucceed(svc.Authenticate(ctx, proof(name, "q")))
 		})
 	})
 	Describe("ChangePassword", func() {
 		It("Should replace the hash and keep the username", func(ctx SpecContext) {
 			before := retrieve(ctx, alice)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).ChangePassword(ctx, alice, "q")
+				return svc.NewWriter(tx).ChangePassword(ctx, alice, hash(svc, "q"))
 			})).To(Succeed())
 			after := retrieve(ctx, alice)
 			Expect(after.Key).To(Equal(before.Key))
@@ -105,17 +114,27 @@ var _ = Describe("Writer", func() {
 			Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		})
-		It("Should reject an empty password", func(ctx SpecContext) {
+		It("Should refuse a hash proven against a password that changed", func(
+			ctx SpecContext,
+		) {
+			stale := MustSucceed(svc.HashProven(ctx, auth.PasswordProof{
+				Credentials: auth.Credentials{Username: name, Password: "p"},
+			}, "stale"))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).ChangePassword(ctx, alice, "")
+				return svc.NewWriter(tx).ChangePassword(ctx, alice, hash(svc, "q"))
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).ChangePassword(ctx, alice, stale)
 			})).
-				To(MatchError(ContainSubstring("password: required")))
+				To(MatchError(auth.ErrInvalidCredentials))
+			MustSucceed(svc.Authenticate(ctx, proof(name, "q")))
 		})
 		It(
 			"Should return not found for a subject without a password",
 			func(ctx SpecContext) {
+				other := subject()
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).ChangePassword(ctx, subject(), "q")
+					return svc.NewWriter(tx).ChangePassword(ctx, other, hash(svc, "q"))
 				})).To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -134,8 +153,7 @@ var _ = Describe("Writer", func() {
 			bob := subject()
 			taken := uuid.New().String()
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).
-					Set(ctx, bob, auth.Credentials{Username: taken, Password: "p"})
+				return svc.NewWriter(tx).Set(ctx, bob, taken, hash(svc, "p"))
 			})).
 				To(Succeed())
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -145,32 +163,27 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return not found for a subject without a password",
 			func(ctx SpecContext) {
+				other := subject()
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Rename(ctx, subject(), uuid.New().String())
+					return svc.NewWriter(tx).Rename(ctx, other, uuid.New().String())
 				})).
 					To(MatchError(query.ErrNotFound))
 			},
 		)
 	})
-	Describe("DeleteFor", func() {
-		It("Should remove the passwords of the given subjects", func(ctx SpecContext) {
-			bob := subject()
+	Describe("Set", func() {
+		It("Should refuse a subject that does not exist", func(ctx SpecContext) {
+			missing := resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Set(ctx, bob, auth.Credentials{
-					Username: uuid.New().String(),
-					Password: "p",
-				})
-			})).To(Succeed())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).DeleteFor(ctx, alice, bob)
-			})).To(Succeed())
-			Expect(svc.NewRetrieve().Where(password.MatchSubjects(alice, bob)).
-				Exists(ctx, nil)).To(BeFalse())
-		})
-		It("Should succeed for a subject without a password", func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).DeleteFor(ctx, subject())
-			})).To(Succeed())
+				return svc.NewWriter(tx).
+					Set(ctx, missing, uuid.New().String(), hash(svc, "p"))
+			})).To(
+				MatchError(
+					ContainSubstring(
+						"subject: user " + missing.Key + " does not exist",
+					),
+				),
+			)
 		})
 	})
 })

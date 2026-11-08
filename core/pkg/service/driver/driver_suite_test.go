@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -33,14 +34,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 )
 
 var (
-	node        testutil.Node
+	node testutil.Node
+	// hookedKV stores the node, so a spec can intercept the commits of db.
+	hookedKV    *hookkv.DB
 	db          *gorp.DB
 	rackService *rack.Service
 	deviceSvc   *device.Service
@@ -59,7 +65,11 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = testutil.NewNode(ctx)
+	st := DeferClose(storagetestutil.OpenLayer(ctx))
+	hookedKV = hookkv.Wrap(st.KV)
+	node = testutil.NewNode(ctx, distribution.LayerConfig{
+		Storage: &storage.Layer{KV: hookedKV, TS: st.TS},
+	})
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: node.DB,

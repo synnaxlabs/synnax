@@ -55,6 +55,7 @@ var (
 	rbacSvc *rbac.Service
 	userSvc *user.Service
 	arcSvc  *arc.Service
+	taskSvc *task.Service
 	apiSvc  *apiarc.Service
 	// The write routes, bound as the API layer binds them.
 	create     freighter.UnaryHandler[apiarc.CreateRequest, apiarc.CreateResponse]
@@ -120,7 +121,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:           db,
 		Rack:         rackSvc,
 		Status:       statusSvc,

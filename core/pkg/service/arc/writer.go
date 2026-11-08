@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -46,7 +45,8 @@ type Writer struct {
 	table       *gorp.Table[Key, Arc]
 	dispatcher  actions.Dispatcher[Key, Action]
 	sweeper     textSweeper
-	taskSync    *debounce.Keyed[Key]
+	resyncs     *gorp.Attachment[Key]
+	deletes     *gorp.Attachment[Key]
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -166,10 +166,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, key := range keys {
-		w.sweeper.forget(key)
-		w.taskSync.Forget(key)
-	}
+	w.deletes.Add(w.tx, keys...)
 	return nil
 }
 

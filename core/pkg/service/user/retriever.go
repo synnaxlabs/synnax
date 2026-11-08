@@ -12,7 +12,6 @@ package user
 import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Retrieve is used to retrieve User records from the database using a
@@ -38,9 +37,6 @@ func MatchUsernames(usernames ...string) Filter {
 			}
 			keys := make([]Key, 0, len(passwords))
 			for _, p := range passwords {
-				if p.Subject.Type != resource.TypeUser {
-					continue
-				}
 				key, err := KeyFromResourceID(p.Subject)
 				if err != nil {
 					return nil, err

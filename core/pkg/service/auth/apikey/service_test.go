@@ -26,10 +26,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-func subject() resource.ID {
-	return resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
-}
-
 func create(
 	ctx context.Context,
 	svc *apikey.Service,
@@ -172,15 +168,15 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 		})
 	})
-	Describe("DeleteFor", func() {
-		It("Should remove every key of the given subjects", func(ctx SpecContext) {
+	Describe("Subject", func() {
+		It("Should delete every key of a subject when the subject is deleted", func(
+			ctx SpecContext,
+		) {
 			gone, kept := subject(), subject()
 			create(ctx, svc, gone, "a")
 			create(ctx, svc, gone, "b")
 			create(ctx, svc, kept, "c")
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.DeleteFor(ctx, tx, gone)
-			})).To(Succeed())
+			deleteSubject(ctx, gone)
 			var keys []apikey.APIKey
 			Expect(svc.NewRetrieve().Where(apikey.MatchSubjects(gone, kept)).
 				Entries(&keys).Exec(ctx, nil)).To(Succeed())

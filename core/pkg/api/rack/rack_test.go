@@ -476,13 +476,31 @@ var _ = Describe("RetrieveRequest", func() {
 })
 
 var _ = Describe("Delete", func() {
-	It("Should end the sessions of the deleted rack", func(ctx SpecContext) {
+	// deleteNeeds returns what a delete of r needs: delete on r and its status, and
+	// update on r, which its status, API keys, sessions, and tasks leave.
+	deleteNeeds := func(ctx SpecContext, r rack.Rack) []need {
+		GinkgoHelper()
+		return []need{
+			{access.ActionDelete, r.ResourceID()},
+			{access.ActionDelete, statusOf(ctx, r)},
+			{access.ActionUpdate, r.ResourceID()},
+		}
+	}
+	// deleterOf returns a context for a new user allowed to delete r.
+	deleterOf := func(ctx SpecContext, r rack.Rack, extra ...need) context.Context {
+		GinkgoHelper()
 		u := createUser(ctx)
+		grantAll(ctx, u, append(deleteNeeds(ctx, r), extra...)...)
+		return AuthedCtx(ctx, u)
+	}
+	// createLoggedIn creates a rack with an API key and returns the rack and the token
+	// of a session that the key opened.
+	createLoggedIn := func(ctx SpecContext) (rack.Rack, string) {
+		GinkgoHelper()
 		r := rack.Rack{Name: "Doomed"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Rack.NewWriter(tx).Create(ctx, &r)
 		})).To(Succeed())
-		grant(ctx, access.ActionDelete, u.ResourceID(), r.ResourceID())
 		var key string
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 			_, key, err = svc.APIKey.NewWriter(tx).Create(ctx, r.ResourceID(), "driver")
@@ -493,21 +511,34 @@ var _ = Describe("Delete", func() {
 				APIKeyCredentials: auth.APIKeyCredentials{Key: key},
 			},
 		}))
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Delete)(
-			AuthedCtx(ctx, u),
+		return r, token
+	}
+	It("Should end the sessions of the deleted rack", func(ctx SpecContext) {
+		r, token := createLoggedIn(ctx)
+		Expect(del(
+			deleterOf(ctx, r),
 			apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
 		)).Error().ToNot(HaveOccurred())
 		Expect(svc.Auth.Authenticate(ctx, token)).Error().
 			To(MatchError(auth.ErrInvalidToken))
 	})
-
-	// deleterOf returns a context for a new user allowed to delete the rack with key.
-	deleterOf := func(ctx SpecContext, key rack.Key) context.Context {
-		GinkgoHelper()
-		u := createUser(ctx)
-		grant(ctx, access.ActionDelete, u.ResourceID(), key.ResourceID())
-		return AuthedCtx(ctx, u)
-	}
+	DescribeTable(
+		"Should refuse the delete and keep the rack and its sessions",
+		func(ctx SpecContext, refused int) {
+			u := createUser(ctx)
+			r, token := createLoggedIn(ctx)
+			needs := deleteNeeds(ctx, r)
+			grantAll(ctx, u, slices.Delete(slices.Clone(needs), refused, refused+1)...)
+			Expect(del(
+				AuthedCtx(ctx, u),
+				apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
+			)).Error().To(denied(u, needs[refused].action, needs[refused].object))
+			MustSucceed(svc.Auth.Authenticate(ctx, token))
+		},
+		Entry("without delete on the rack", 0),
+		Entry("without delete on its status", 1),
+		Entry("without update on the rack, which its sessions leave", 2),
+	)
 	exists := func(ctx SpecContext, key rack.Key) bool {
 		GinkgoHelper()
 		return MustSucceed(svc.Rack.NewRetrieve().
@@ -531,8 +562,8 @@ var _ = Describe("Delete", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Device.NewWriter(tx).Create(ctx, &d)
 		})).To(Succeed())
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Delete)(
-			deleterOf(ctx, r.Key),
+		Expect(del(
+			deleterOf(ctx, r),
 			apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
 		)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
@@ -560,8 +591,8 @@ var _ = Describe("Delete", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.Task.NewWriter(tx).Create(ctx, &t)
 			})).To(Succeed())
-			Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Delete)(
-				deleterOf(ctx, r.Key),
+			Expect(del(
+				deleterOf(ctx, r),
 				apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
 			)).Error().To(MatchError(ContainSubstring(
 				"cannot delete rack With Task because it still holds tasks",
@@ -584,8 +615,19 @@ var _ = Describe("Delete", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Task.NewWriter(tx).Create(ctx, &t)
 		})).To(Succeed())
-		MustSucceed(fgorp.CreateWriteUnaryHandler(db, apiSvc.Delete)(
-			deleterOf(ctx, r.Key),
+		var st status.Status[struct{}]
+		Expect(svc.Status.NewRetrieve[struct{}]().
+			Where(status.MatchOwners[struct{}](t.ResourceID())).
+			Entry(&st).
+			Exec(ctx, nil)).To(Succeed())
+		MustSucceed(del(
+			deleterOf(
+				ctx,
+				r,
+				need{access.ActionDelete, t.ResourceID()},
+				need{access.ActionDelete, st.ResourceID()},
+				need{access.ActionUpdate, t.ResourceID()},
+			),
 			apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
 		))
 		Expect(exists(ctx, r.Key)).To(BeFalse())

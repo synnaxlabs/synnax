@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
-	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -337,10 +336,9 @@ var _ = Describe("Factory", func() {
 				caPEM   string
 			)
 			BeforeEach(func() {
-				certs := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-					FS:      xfs.NewMem(),
-					KeySize: testutil.SmallKeySize,
-				}))
+				certs := MustSucceed(
+					cert.NewFactory(cert.FactoryConfig{FS: xfs.NewMem()}),
+				)
 				Expect(certs.CreateCAPair()).To(Succeed())
 				ca := MustSucceed(certs.Loader.LoadCAs())[0]
 				caPEM = string(

@@ -14,12 +14,11 @@
 // change channels. This package hosts the pieces of that shape that are independent of
 // the per-service action variant set: the Scoped envelope that a commit delivers, the
 // DispatchRequest wire body accepted by the API layer, the State that owns the
-// attachment, and the Dispatcher that runs dispatches and attaches each batch.
+// attachment, and the Dispatcher that attaches each batch.
 package actions
 
 import (
 	"context"
-	"slices"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/gorp"
@@ -129,24 +128,6 @@ type Dispatcher[K comparable, A any] struct {
 func (d Dispatcher[K, A]) WithDispatchKey(dispatchKey string) Dispatcher[K, A] {
 	d.dispatchKey = dispatchKey
 	return d
-}
-
-// Dispatch runs stage in tx, then attaches acts and the actions that stage returns,
-// such as a set of a field that only the Core computes, as one batch. When stage fails,
-// Dispatch attaches nothing. The commit of tx delivers the batch, and a rollback of tx
-// drops it. It panics when tx is a DB.
-func (d Dispatcher[K, A]) Dispatch(
-	tx gorp.Tx,
-	key K,
-	acts []A,
-	stage func(gorp.Tx) ([]A, error),
-) error {
-	added, err := stage(tx)
-	if err != nil {
-		return err
-	}
-	d.Attach(tx, key, slices.Concat(acts, added)...)
-	return nil
 }
 
 // Attach attaches actions on the entry with key to tx as one batch with the next

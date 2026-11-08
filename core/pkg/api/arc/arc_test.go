@@ -30,6 +30,7 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
@@ -50,6 +51,22 @@ func createArc(ctx context.Context, name string) arc.Arc {
 		return arcSvc.NewWriter(tx).Create(ctx, &a)
 	})).To(Succeed())
 	return a
+}
+
+// deploy binds a to the test rack as the Core, with no access check, and returns the
+// task of a.
+func deploy(ctx context.Context, a arc.Arc) task.Task {
+	GinkgoHelper()
+	var tsk *task.Task
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		tsk, err = arcSvc.NewWriter(tx).UpdateTask(
+			ctx,
+			a.Base().Key,
+			arc.TaskUpdate{Rack: new(testRack.Key)},
+		)
+		return err
+	})).To(Succeed())
+	return *tsk
 }
 
 var _ = Describe("Service", func() {
@@ -353,6 +370,68 @@ var _ = Describe("Service", func() {
 					Exists(ctx, nil)).To(BeTrue())
 			},
 		)
+
+		Describe("an Arc with a task", func() {
+			// grantAllButTaskDelete grants what deleting a deployed Arc needs except
+			// delete on its task: delete on the Arc and the task's status, and update
+			// on the directory, the task that holds the status, and the rack.
+			grantAllButTaskDelete := func(ctx SpecContext, a arc.Arc) {
+				GinkgoHelper()
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionDelete,
+					a.ResourceID(),
+					resource.ID{Type: resource.TypeStatus},
+				)
+				grantUpdateOn(
+					ctx,
+					author.ResourceID(),
+					directory.ResourceID(root),
+					resource.ID{Type: resource.TypeTask},
+					testRack.ResourceID(),
+				)
+			}
+
+			It("Should deny a caller without delete access to the task", func(
+				ctx SpecContext,
+			) {
+				a := createArc(ctx, "delete-deployed-denied")
+				tsk := deploy(ctx, a)
+				grantAllButTaskDelete(ctx, a)
+				Expect(del(AuthedCtx(ctx, author), apiarc.DeleteRequest{
+					Keys: []arc.Key{a.Base().Key},
+				})).Error().To(
+					denied(author, access.ActionDelete, task.ResourceID(tsk.Key)),
+				)
+				Expect(taskSvc.NewRetrieve().
+					Where(task.MatchKeys(tsk.Key)).
+					Exists(ctx, nil)).To(BeTrue())
+			})
+
+			It("Should delete the Arc and its task with delete access to both", func(
+				ctx SpecContext,
+			) {
+				a := createArc(ctx, "delete-deployed-ok")
+				tsk := deploy(ctx, a)
+				grantAllButTaskDelete(ctx, a)
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionDelete,
+					task.ResourceID(tsk.Key),
+				)
+				MustSucceed(del(AuthedCtx(ctx, author), apiarc.DeleteRequest{
+					Keys: []arc.Key{a.Base().Key},
+				}))
+				Expect(arcSvc.NewRetrieve().
+					Where(arc.MatchKeys(a.Base().Key)).
+					Exists(ctx, nil)).To(BeFalse())
+				Expect(taskSvc.NewRetrieve().
+					Where(task.MatchKeys(tsk.Key)).
+					Exists(ctx, nil)).To(BeFalse())
+			})
+		})
 	})
 
 	Describe("Dispatch", func() {
@@ -537,18 +616,6 @@ var _ = Describe("Service", func() {
 				Key:  a.Base().Key,
 				Rack: new(testRack.Key),
 			})
-		}
-		// deploy binds a to the test rack as the Core, with no access check.
-		deploy := func(ctx SpecContext, a arc.Arc) {
-			GinkgoHelper()
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				_, err := arcSvc.NewWriter(tx).UpdateTask(
-					ctx,
-					a.Base().Key,
-					arc.TaskUpdate{Rack: new(testRack.Key)},
-				)
-				return err
-			})).To(Succeed())
 		}
 
 		It(

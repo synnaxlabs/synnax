@@ -150,30 +150,6 @@ func (s *Service) OnAction(
 	return s.state.OnChange(handler)
 }
 
-// Apply applies a sequence of actions to the log with the given key and attaches them
-// to the transaction of w, so its commit broadcasts them with the dispatch key of w.
-// Returns a validation error, and stores nothing, if the actions leave the log invalid.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	return w.dispatcher.Dispatch(
-		w.tx,
-		key,
-		acts,
-		func(tx gorp.Tx) ([]Action, error) {
-			return nil, w.table.NewUpdate().Where(gorp.MatchKeys[Key, Log](key)).
-				ChangeErr(func(_ gorp.Context, l Log) (Log, error) {
-					reduced, err := Reduce(l, acts...)
-					if err != nil {
-						return Log{}, err
-					}
-					if err = validateWrite(reduced); err != nil {
-						return Log{}, err
-					}
-					return reduced, nil
-				}).Exec(ctx, tx)
-		},
-	)
-}
-
 // NewWriter opens a new writer for creating, updating, and deleting logs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
