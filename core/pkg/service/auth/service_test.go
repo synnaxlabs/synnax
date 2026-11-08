@@ -596,6 +596,19 @@ var _ = Describe("Service", func() {
 				},
 			)
 		})
+		Describe("Delete", func() {
+			It("Should end the given sessions and keep the others", func(
+				ctx SpecContext,
+			) {
+				ended, endedToken := login(ctx)
+				_, keptToken := login(ctx)
+				Expect(svc.NewWriter(nil).Delete(ctx, ended.Key, uuid.New())).
+					To(Succeed())
+				Expect(svc.Authenticate(ctx, endedToken)).Error().
+					To(MatchError(auth.ErrInvalidToken))
+				MustSucceed(svc.Authenticate(ctx, keptToken))
+			})
+		})
 		Describe("RevokeCredential", func() {
 			It("Should end every session of the credential", func(ctx SpecContext) {
 				first, firstToken := login(ctx)

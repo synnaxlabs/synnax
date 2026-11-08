@@ -230,8 +230,11 @@ func (s *Service) HashProven(
 		return Hash{}, err
 	}
 	h, err := s.Hash(plaintext)
+	if err != nil {
+		return Hash{}, err
+	}
 	h.proven = &identity
-	return h, err
+	return h, nil
 }
 
 func identityOf(p Password) auth.Identity {

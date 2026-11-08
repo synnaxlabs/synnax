@@ -232,6 +232,41 @@ var _ = Describe("Service", func() {
 			})).Error().To(MatchError(auth.ErrInvalidCredentials))
 		})
 	})
+	Describe("Hash", func() {
+		It("Should return a hash that no proof came before", func() {
+			_, proven := MustSucceed(svc.Hash("p")).Proven()
+			Expect(proven).To(BeFalse())
+		})
+		It("Should return a validation error for an empty password", func() {
+			Expect(svc.Hash("")).Error().To(MatchError(validate.ErrValidation))
+		})
+	})
+	Describe("HashProven", func() {
+		credentials := func(password string) auth.PasswordProof {
+			return auth.PasswordProof{
+				Credentials: auth.Credentials{Username: username, Password: password},
+			}
+		}
+		It("Should return a hash with the identity the proof matched", func(
+			ctx SpecContext,
+		) {
+			h := MustSucceed(svc.HashProven(ctx, credentials("secret"), "new"))
+			identity, proven := h.Proven()
+			Expect(proven).To(BeTrue())
+			Expect(identity.Subject).To(Equal(alice))
+		})
+		It("Should reject a wrong proof", func(ctx SpecContext) {
+			Expect(svc.HashProven(ctx, credentials("wrong"), "new")).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+		})
+		It("Should return a zero hash for an empty new password", func(
+			ctx SpecContext,
+		) {
+			h, err := svc.HashProven(ctx, credentials("secret"), "")
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(h).To(Equal(password.Hash{}))
+		})
+	})
 	Describe("NewRetrieve", func() {
 		var bob resource.ID
 		BeforeEach(func(ctx SpecContext) {

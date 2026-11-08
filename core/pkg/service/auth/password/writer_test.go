@@ -80,6 +80,17 @@ var _ = Describe("Writer", func() {
 			Expect(w.Set(ctx, alice, "", hash(svc, "p"))).
 				To(MatchError(ContainSubstring("username: required")))
 		})
+		It("Should refuse a hash proven against a password that changed", func(
+			ctx SpecContext,
+		) {
+			stale := MustSucceed(svc.HashProven(ctx, auth.PasswordProof{
+				Credentials: auth.Credentials{Username: name, Password: "p"},
+			}, "stale"))
+			Expect(w.ChangePassword(ctx, alice, hash(svc, "q"))).To(Succeed())
+			Expect(w.Set(ctx, alice, name, stale)).
+				To(MatchError(auth.ErrInvalidCredentials))
+			MustSucceed(svc.Authenticate(ctx, proof(name, "q")))
+		})
 	})
 	Describe("ChangePassword", func() {
 		It("Should replace the hash and keep the username", func(ctx SpecContext) {
