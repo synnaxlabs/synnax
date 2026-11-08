@@ -173,7 +173,7 @@ describe("schematic reducer", () => {
     it("should be a no-op when the key does not match any node", () => {
       const state = empty({
         nodes: [node("n1", 0, 0)],
-        configs: { n1: tank("Pump") },
+        configs: { n1: tank("Pump"), ghost: tank("Orphan") },
       });
       const out = apply(state, schematic.removeNode({ key: "ghost" }));
       expect(out.nodes).toEqual(state.nodes);
@@ -489,9 +489,12 @@ describe("schematic reducer", () => {
       expect(out.configs).toEqual({ e2: cfg({ variant: "electric" }) });
     });
     it("should be a no-op when the key does not match any edge", () => {
-      const state = empty({ edges: [edge("e1", "a", "o", "b", "i")] });
+      const state = empty({
+        edges: [edge("e1", "a", "o", "b", "i")],
+        configs: { ghost: cfg({ variant: "pipe" }) },
+      });
       const out = apply(state, schematic.removeEdge({ key: "ghost" }));
-      expect(out.edges).toEqual(state.edges);
+      expect(out).toBe(state);
     });
   });
 
@@ -588,14 +591,32 @@ describe("schematic reducer", () => {
       expect(out.configs).toEqual({});
     });
 
+    // An orphan config can exist in a schematic stored before the reducers removed
+    // configs with their elements.
     it.each([
-      ["a field", ["configs", "ghost", "label", "label"], "Tank"],
-      ["a whole config", ["configs", "ghost"], { variant: "tank" }],
+      ["a set of a field", set(["configs", "ghost", "label", "label"], "Tank")],
+      ["a set of the whole config", set(["configs", "ghost"], { variant: "tank" })],
+      [
+        "a remove of a field",
+        schematic.remove({ path: ["configs", "ghost", "label"], key: "label" }),
+      ],
+      [
+        "a remove of the whole config",
+        schematic.remove({ path: ["configs"], key: "ghost" }),
+      ],
+      [
+        "an insert",
+        schematic.insert({ path: ["configs", "ghost", "tags"], value: { key: "a" } }),
+      ],
+      ["a move", schematic.move({ path: ["configs", "ghost", "tags"], key: "a" })],
     ])(
-      "should do nothing to %s of a node or edge that does not exist",
-      (_, path, value) => {
-        const state = empty({ nodes: [node("n1", 0, 0)] });
-        const { next, inverse } = schematic.reduceAll(state, [set(path, value)]);
+      "should do nothing for %s of a node or edge that does not exist",
+      (_, action) => {
+        const state = empty({
+          nodes: [node("n1", 0, 0)],
+          configs: { ghost: tank("Orphan") },
+        });
+        const { next, inverse } = schematic.reduceAll(state, [action]);
         expect(next).toBe(state);
         expect(inverse).toEqual([]);
       },

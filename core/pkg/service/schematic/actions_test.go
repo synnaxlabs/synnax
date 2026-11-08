@@ -270,8 +270,11 @@ var _ = Describe("Reducer", func() {
 		)
 		It("Should be a no-op when the key does not match any node", func() {
 			state := schematic.Schematic{
-				Nodes:   []schematic.Node{node("n1", 0, 0)},
-				Configs: map[string]schematic.ElementConfig{"n1": tankCfg("Pump", "")},
+				Nodes: []schematic.Node{node("n1", 0, 0)},
+				Configs: map[string]schematic.ElementConfig{
+					"n1":    tankCfg("Pump", ""),
+					"ghost": tankCfg("Orphan", ""),
+				},
 			}
 			out := MustSucceed(
 				schematic.Reduce(
@@ -281,8 +284,11 @@ var _ = Describe("Reducer", func() {
 					}),
 				),
 			)
-			Expect(out.Nodes).To(Equal(state.Nodes))
-			Expect(out.Configs).To(Equal(state.Configs))
+			Expect(out.Nodes).To(Equal([]schematic.Node{node("n1", 0, 0)}))
+			Expect(out.Configs).To(Equal(map[string]schematic.ElementConfig{
+				"n1":    tankCfg("Pump", ""),
+				"ghost": tankCfg("Orphan", ""),
+			}))
 		})
 	})
 
@@ -578,8 +584,11 @@ var _ = Describe("Reducer", func() {
 		)
 		It("Should be a no-op when the key does not match any edge", func() {
 			state := schematic.Schematic{
-				Edges:   []schematic.Edge{edge("e1", "a", "o", "b", "i")},
-				Configs: map[string]schematic.ElementConfig{"e1": pipeCfg("#ffffff")},
+				Edges: []schematic.Edge{edge("e1", "a", "o", "b", "i")},
+				Configs: map[string]schematic.ElementConfig{
+					"e1":    pipeCfg("#ffffff"),
+					"ghost": pipeCfg("#000000"),
+				},
 			}
 			out := MustSucceed(
 				schematic.Reduce(
@@ -589,8 +598,13 @@ var _ = Describe("Reducer", func() {
 					}),
 				),
 			)
-			Expect(out.Edges).To(Equal(state.Edges))
-			Expect(out.Configs).To(Equal(state.Configs))
+			Expect(
+				out.Edges,
+			).To(Equal([]schematic.Edge{edge("e1", "a", "o", "b", "i")}))
+			Expect(out.Configs).To(Equal(map[string]schematic.ElementConfig{
+				"e1":    pipeCfg("#ffffff"),
+				"ghost": pipeCfg("#000000"),
+			}))
 		})
 	})
 
@@ -1069,20 +1083,6 @@ var _ = Describe("Path actions", func() {
 				MatchError(ContainSubstring(`config for "n2" names no variant`)),
 			))
 		})
-
-		DescribeTable(
-			"Should do nothing to the config of a node or edge that does not exist",
-			func(path []string, value any) {
-				next := MustSucceed(schematic.Reduce(state, set(path, value)))
-				Expect(next).To(Equal(state))
-			},
-			Entry("a field", []string{"configs", "ghost", "label", "label"}, "T2"),
-			Entry(
-				"a whole config",
-				[]string{"configs", "ghost"},
-				map[string]any{"variant": "tank"},
-			),
-		)
 	})
 
 	Describe("RemovePayload", func() {
@@ -1107,6 +1107,54 @@ var _ = Describe("Path actions", func() {
 			))
 		})
 	})
+
+	// An orphan config can exist in a schematic stored before the reducers removed
+	// configs with their elements.
+	DescribeTable(
+		"Should do nothing to the config of a node or edge that does not exist",
+		func(a schematic.Action) {
+			state.Configs["ghost"] = tankCfg("Orphan", "")
+			next := MustSucceed(schematic.Reduce(state, a))
+			Expect(next.Configs).To(HaveLen(2))
+			Expect(next.Configs["ghost"]).To(Equal(tankCfg("Orphan", "")))
+		},
+		Entry(
+			"a set of a field",
+			set([]string{"configs", "ghost", "label", "label"}, "T2"),
+		),
+		Entry(
+			"a set of the whole config",
+			set([]string{"configs", "ghost"}, map[string]any{"variant": "tank"}),
+		),
+		Entry(
+			"a remove of a field",
+			schematic.NewRemoveAction(schematic.RemovePayload{
+				Path: []string{"configs", "ghost", "label"},
+				Key:  "label",
+			}),
+		),
+		Entry(
+			"a remove of the whole config",
+			schematic.NewRemoveAction(schematic.RemovePayload{
+				Path: []string{"configs"},
+				Key:  "ghost",
+			}),
+		),
+		Entry(
+			"an insert",
+			schematic.NewInsertAction(schematic.InsertPayload{
+				Path:  []string{"configs", "ghost", "tags"},
+				Value: map[string]any{"key": "a"},
+			}),
+		),
+		Entry(
+			"a move",
+			schematic.NewMoveAction(schematic.MovePayload{
+				Path: []string{"configs", "ghost", "tags"},
+				Key:  "a",
+			}),
+		),
+	)
 
 	Describe("MovePayload", func() {
 		It("Should leave the schematic unchanged when the list is missing", func() {
