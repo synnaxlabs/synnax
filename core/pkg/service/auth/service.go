@@ -356,11 +356,13 @@ func (s *Service) Login(
 		session Session
 		token   string
 	)
-	err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+	if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
 		session, token, err = s.NewWriter(tx).open(ctx, identity)
 		return err
-	})
-	return session, token, err
+	}); err != nil {
+		return Session{}, "", err
+	}
+	return session, token, nil
 }
 
 // Authenticate returns the session a token belongs to and counts the request as

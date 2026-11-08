@@ -134,7 +134,10 @@ func Grant(
 		}
 		return rbacSvc.Policy.NewWriter(tx, false).Create(ctx, &p)
 	})
-	return p, err
+	if err != nil {
+		return policy.Policy{}, err
+	}
+	return p, nil
 }
 
 func ownRoleName(key user.Key) string { return "grant-" + key.String() }
