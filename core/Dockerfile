@@ -99,7 +99,7 @@ ARG BUILD_DATE=unknown
 
 # OCI standard labels for image metadata
 LABEL org.opencontainers.image.title="Synnax"
-LABEL org.opencontainers.image.description="Horizontally-scalable observability and control platform for hardware telemetry systems"
+LABEL org.opencontainers.image.description="Observability and control platform for hardware telemetry systems"
 LABEL org.opencontainers.image.vendor="Synnax Labs, Inc."
 LABEL org.opencontainers.image.source="https://github.com/synnaxlabs/synnax"
 LABEL org.opencontainers.image.documentation="https://docs.synnaxlabs.com"
