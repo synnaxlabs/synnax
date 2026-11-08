@@ -96,15 +96,15 @@ class _StatusWaitDiag:
 
     frames_received: int = 0
     frames_with_status: int = 0
-    all_keys: list[str] = field(default_factory=list)
+    owners: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
-        unique = sorted(set(self.all_keys))
+        unique = sorted(set(self.owners))
         return (
             f"frames={self.frames_received}, "
             f"frames_with_status={self.frames_with_status}, "
-            f"total_statuses={len(self.all_keys)}, "
-            f"unique_keys={unique}"
+            f"total_statuses={len(self.owners)}, "
+            f"unique_owners={unique}"
         )
 
 
@@ -139,7 +139,7 @@ def _wait_for_device_status(
         diag.frames_with_status += 1
         for raw in frame["sy_status_set"]:
             s = sy.status.Status.model_validate(raw)
-            diag.all_keys.append(s.key)
+            diag.owners.append(str(s.owner))
             if s.owner is None or s.owner.type != "device":
                 continue
             if device_key and s.owner != sy.device.resource_id(device_key):
