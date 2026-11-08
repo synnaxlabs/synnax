@@ -146,7 +146,6 @@ func (s *Service) OnAction(
 // NewWriter opens a new writer for creating, updating, and deleting tables in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:        s,
 		tx:         tx,
 		tbl:        s.table,
 		dispatcher: s.state.Dispatcher(),

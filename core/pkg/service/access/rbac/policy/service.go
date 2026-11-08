@@ -100,7 +100,6 @@ func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 	return Writer{
-		svc:           s,
 		tx:            tx,
 		allowInternal: allowInternal,
 		table:         s.table,

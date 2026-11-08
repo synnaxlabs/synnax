@@ -28,7 +28,6 @@ import (
 // executes all operations within the transaction provided to the Service.NewWriter
 // method.
 type Writer struct {
-	svc        *Service
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Schematic]
 	dispatcher actions.Dispatcher[Key, Action]

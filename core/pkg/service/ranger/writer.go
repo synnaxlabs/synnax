@@ -25,7 +25,6 @@ import (
 
 // Writer is used to create ranges within the DB.
 type Writer struct {
-	svc        *Service
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Range]
 	dispatcher actions.Dispatcher[Key, Action]

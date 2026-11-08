@@ -22,7 +22,6 @@ import (
 )
 
 type Writer struct {
-	svc   *Service
 	tx    gorp.Tx
 	table *gorp.Table[Key, Project]
 }

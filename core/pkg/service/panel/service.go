@@ -127,7 +127,6 @@ func (s *Service) OnAction(
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:        s,
 		tx:         tx,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),

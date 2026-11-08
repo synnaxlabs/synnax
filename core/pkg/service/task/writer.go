@@ -29,7 +29,6 @@ import (
 )
 
 type Writer struct {
-	svc        *Service
 	tx         gorp.Tx
 	status     status.Writer
 	statuses   *status.Service

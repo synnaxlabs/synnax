@@ -132,7 +132,6 @@ func (s *Service) Close() error { return s.closer.Close() }
 // NewWriter opens a new Writer to create, update, and delete devices in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:      s,
 		tx:       tx,
 		status:   s.cfg.Status.NewWriter(tx),
 		statuses: s.cfg.Status,
