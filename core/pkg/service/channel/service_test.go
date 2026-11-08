@@ -113,6 +113,27 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Changes", func() {
+		It("Should return the channel that a commit creates", func(ctx SpecContext) {
+			var names []string
+			DeferCleanup(
+				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+					for ch := range svc.Changes(ctx, c) {
+						names = append(names, ch.Value.Name)
+					}
+				}),
+			)
+			ch := channel.Channel{
+				Name:        UniqueChannelName(),
+				DataType:    telem.TimestampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+			Expect(names).To(Equal([]string{ch.Name}))
+		})
+	})
+
 	Describe("NewWriter", func() {
 		It(
 			"Should create a writer that infers types for calculated channels",

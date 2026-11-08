@@ -1168,6 +1168,22 @@ var _ = Describe("Status", Ordered, func() {
 		})
 	})
 
+	Describe("Changes", func() {
+		It("Should return the status that a commit sets", func(ctx SpecContext) {
+			var keys []status.Key
+			DeferCleanup(
+				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+					for ch := range svc.Changes(ctx, c) {
+						keys = append(keys, ch.Key)
+					}
+				}),
+			)
+			s := newStatus("changes-test")
+			Expect(svc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+			Expect(keys).To(Equal([]status.Key{"changes-test"}))
+		})
+	})
+
 	Describe("Search", func() {
 		create := func(ctx SpecContext, key, name string) resource.ID {
 			GinkgoHelper()
