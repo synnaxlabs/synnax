@@ -12,7 +12,6 @@ package kv
 
 import (
 	"context"
-	"strings"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -92,13 +91,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the service and releases any resources.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// keySeparator splits the range from the key in the Gorp key of a Pair.
-const keySeparator = "<--->"
-
 // rangeOf returns the range that owns the pair with the given Gorp key.
 func rangeOf(key string) resource.ID {
-	rng, _, _ := strings.Cut(key, keySeparator)
-	return resource.ID{Type: resource.TypeRange, Key: rng}
+	return resource.ID{Type: resource.TypeRange, Key: Pair{}.GorpKeyRange(key)}
 }
 
 // NewWriter opens a new Writer to create and delete key-value pairs.

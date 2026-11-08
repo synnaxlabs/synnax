@@ -292,6 +292,56 @@ var _ = Describe("Framer", func() {
 		})
 	})
 
+	Describe("Write", func() {
+		newStreams := func(ctx SpecContext) (
+			freighter.ClientStream[apiframer.WriterRequest, apiframer.WriterResponse],
+			apiframer.WriterStream,
+		) {
+			return freightertestutil.NewStreams[
+				apiframer.WriterRequest,
+				apiframer.WriterResponse,
+			](ctx)
+		}
+
+		It("Should refuse a writer on a change channel", func(ctx SpecContext) {
+			var ch channel.Channel
+			Expect(channelSvc.NewRetrieve().
+				Where(channel.MatchNames("sy_range_set")).
+				Entry(&ch).
+				Exec(ctx, nil)).To(Succeed())
+			client, server := newStreams(ctx)
+			Expect(client.Send(apiframer.WriterRequest{
+				Config: apiframer.WriterConfig{Keys: channel.Keys{ch.Key()}},
+			})).To(Succeed())
+			Expect(apiSvc.Write(rootCtx(ctx), server)).To(MatchError(fmt.Sprintf(
+				"channel %d holds changes of the Core, so a client cannot write it: "+
+					"validation error",
+				ch.Key(),
+			)))
+		})
+
+		It("Should open a writer on a channel that holds no changes", func(
+			ctx SpecContext,
+		) {
+			c := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(channelWriter.Create(ctx, &c)).To(Succeed())
+			client, server := newStreams(ctx)
+			done := make(chan error, 1)
+			go func() { done <- apiSvc.Write(rootCtx(ctx), server) }()
+			Expect(client.Send(apiframer.WriterRequest{
+				Config: apiframer.WriterConfig{Keys: channel.Keys{c.Key()}},
+			})).To(Succeed())
+			Expect(client.Receive()).
+				To(HaveField("Command", svcframer.WriterCommandOpen))
+			Expect(client.CloseSend()).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
+		})
+	})
+
 	Describe("Delete", func() {
 		It("Should delete data by exact name and not read a name as a pattern", func(
 			ctx SpecContext,
