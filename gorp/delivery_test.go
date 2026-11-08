@@ -19,6 +19,9 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/pebblekv"
+	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -287,6 +290,31 @@ var _ = Describe("Delivery", func() {
 		Eventually(delivered).Should(Receive(Equal(uint64(1))))
 		Eventually(delivered).Should(Receive(Equal(uint64(2))))
 	})
+
+	It(
+		"Should deliver a commit that an observer on its own goroutine makes",
+		func(ctx SpecContext) {
+			sCtx, cancel := signal.Isolated()
+			DeferCleanup(cancel)
+			open(ctx, memkv.New(
+				pebblekv.WithObserver(observe.NewAsync[kv.TxReader](sCtx)),
+			))
+			commits := collect()
+			nested := make(chan error, 1)
+			var notified atomic.Int32
+			DeferCleanup(db.OnChange(func(ctx context.Context, _ kv.TxReader) {
+				if notified.Add(1) == 1 {
+					nested <- db.WithTx(ctx, create(ctx, 2))
+				}
+			}))
+			Expect(db.WithTx(ctx, create(ctx, 1))).To(Succeed())
+			Eventually(nested).Should(Receive(Succeed()))
+			Expect(*commits).To(Equal([]gorp.Commit{
+				{Seq: 1, Changes: gorp.Changes{created(1)}},
+				{Seq: 2, Changes: gorp.Changes{created(2)}},
+			}))
+		},
+	)
 
 	It("Should stop delivering to a reader once it disconnects", func(ctx SpecContext) {
 		var stopped []uint64
