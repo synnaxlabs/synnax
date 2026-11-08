@@ -279,7 +279,7 @@ func (e *Enforcer) retrievePolicies(
 }
 
 // Enforcer decides access from the policies of a subject's roles. A subject can always
-// retrieve the policies of its roles.
+// retrieve its own record and the policies of its roles.
 type Enforcer struct {
 	svc  *Service
 	snap gorp.Snapshot
@@ -316,14 +316,16 @@ func (e *Enforcer) Allowed(
 	if err != nil {
 		return nil, err
 	}
-	return func(obj resource.ID) bool { return covers(policies, action, obj) }, nil
+	return func(obj resource.ID) bool {
+		return covers(subject, policies, action, obj)
+	}, nil
 }
 
 // firstDenied returns the first object in the request that no policy covers, and
 // whether there was one. A request is allowed only when every object is covered.
 func firstDenied(req access.Request, policies []policy.Policy) (resource.ID, bool) {
 	for _, obj := range req.Objects {
-		if !covers(policies, req.Action, obj) {
+		if !covers(req.Subject, policies, req.Action, obj) {
 			return obj, true
 		}
 	}
@@ -331,8 +333,16 @@ func firstDenied(req access.Request, policies []policy.Policy) (resource.ID, boo
 }
 
 // covers returns whether a policy allows the action on obj, by its ID or by its type,
-// or whether obj is one of the policies to retrieve.
-func covers(policies []policy.Policy, action access.Action, obj resource.ID) bool {
+// or whether the subject retrieves itself or one of its policies.
+func covers(
+	subject resource.ID,
+	policies []policy.Policy,
+	action access.Action,
+	obj resource.ID,
+) bool {
+	if action == access.ActionRetrieve && obj == subject {
+		return true
+	}
 	for _, p := range policies {
 		if action == access.ActionRetrieve && obj == p.ResourceID() {
 			return true
