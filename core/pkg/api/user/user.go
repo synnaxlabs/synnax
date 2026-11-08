@@ -301,8 +301,7 @@ func (s *Service) SetRole(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	// The guard reads each user as the write stores it, so a role change that commits
-	// after the check above cannot slip past it.
+	// The guard checks the role each user holds when the write reads it.
 	guard := func(u user.User) error {
 		if u.RootUser {
 			return errors.Wrapf(
