@@ -40,7 +40,7 @@ var (
 	svc    *service.Layer
 	apiSvc *apilineplot.Service
 	proj   project.Project
-	// author has no role assignments.
+	// author can do nothing until a spec grants it access.
 	author user.User
 )
 
@@ -55,7 +55,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	proj = project.Project{Name: "test-project"}
 	Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
-	author = MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	author = MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
 		Name: "author",
 	}))
 })
@@ -63,7 +63,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // newUser creates a user with no policies.
 func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
@@ -82,7 +82,7 @@ func newCreator(ctx SpecContext) user.User {
 	return u
 }
 
-// grant grants the action on the objects to the subject through a new role.
+// grant grants the action on the objects to the subject.
 func grant(
 	ctx SpecContext,
 	action access.Action,

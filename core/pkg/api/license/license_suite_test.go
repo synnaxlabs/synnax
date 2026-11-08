@@ -72,16 +72,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 })
 
-// freshUser creates a user with no role assignments.
+// freshUser creates a user that can do nothing.
 func freshUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(
-		userSvc.NewWriter(nil).
-			Create(ctx, user.User{Name: "anon-" + uuid.New().String()}),
+		rbactestutil.CreateUser(
+			ctx,
+			rbacSvc,
+			userSvc,
+			user.User{Name: "anon-" + uuid.New().String()},
+		),
 	)
 }
 
-// grantOn grants the actions on the objects to the subject through a new role.
+// grantOn grants the actions on the objects to the subject.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
