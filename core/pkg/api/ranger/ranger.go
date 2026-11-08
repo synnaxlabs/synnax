@@ -11,6 +11,7 @@ package ranger
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
@@ -126,7 +127,9 @@ func (r RetrieveRequest) Named() []resource.ID {
 	return bind.Keys(r.Where.Key, ranger.ResourceID)
 }
 
-// Retrieve returns the ranges that req selects and that the subject can retrieve.
+// Retrieve returns the ranges that req selects and that the subject can retrieve. A
+// child range passes only when the subject can also retrieve its parent, and a named
+// child with a denied parent fails the request with an access error.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -137,14 +140,26 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	// A child range passes only when the subject can also retrieve its parent.
+	named := req.Named()
 	if err = q.Where(ranger.Match(func(
 		_ gorp.Context,
 		_ ranger.Retrieve,
 		r *ranger.Range,
 	) (bool, error) {
-		return snap.Allowed(r.ResourceID()) &&
-			(r.Parent == nil || snap.Allowed(ranger.ResourceID(*r.Parent))), nil
+		if !snap.Allowed(r.ResourceID()) {
+			return false, nil
+		}
+		if r.Parent == nil {
+			return true, nil
+		}
+		parent := ranger.ResourceID(*r.Parent)
+		if snap.Allowed(parent) {
+			return true, nil
+		}
+		if slices.Contains(named, r.ResourceID()) {
+			return false, snap.Enforce(parent)
+		}
+		return false, nil
 	})).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
