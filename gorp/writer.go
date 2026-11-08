@@ -31,6 +31,8 @@ type Writer[K Key, E Entry[K]] struct {
 	table *Table[K, E]
 	// tableName names the table of each record in the change list of tx.
 	tableName string
+	// derived is true when the writes of the Writer are cascades or detaches.
+	derived bool
 }
 
 // WrapWriter wraps the given Tx to provide a strongly typed Writer that checks no
@@ -152,7 +154,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err = w.tx.Set(ctx, encoded, data, entry.SetOptions()...); err != nil {
 		return err
 	}
-	changes.set(s, data)
+	changes.set(s, data, w.derived)
 	for _, idx := range w.indexes {
 		idx.stageSet(w.tx, entry)
 	}
@@ -169,7 +171,7 @@ func (w *Writer[K, E]) delete(ctx context.Context, k K) error {
 	if err = w.tx.Delete(ctx, encoded); err != nil {
 		return err
 	}
-	changes.delete(s)
+	changes.delete(s, w.derived)
 	for _, idx := range w.indexes {
 		idx.stageDelete(w.tx, k)
 	}

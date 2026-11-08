@@ -35,6 +35,9 @@ type Change struct {
 	Record Target
 	// Kind is what the transaction did to the record.
 	Kind ChangeKind
+	// Derived is true when Gorp made every write to the record by a cascade or a
+	// detach.
+	Derived bool
 	// Value is a copy of the encoded record at the last set. It is nil for a delete.
 	Value []byte
 }
@@ -66,6 +69,8 @@ type changeEntry struct {
 	existed bool
 	// present is true when the last write to the record was a set.
 	present bool
+	// derived is true when every write to the record was a cascade or a detach.
+	derived bool
 	value   []byte
 }
 
@@ -92,36 +97,44 @@ func (l *changeList) find(
 	return slot{at: -1, record: record, existed: existed}, err
 }
 
-// set merges a set of the record of s to value.
-func (l *changeList) set(s slot, value []byte) {
-	e := l.entry(s)
+// set merges a set of the record of s to value. derived is true when the set is a
+// cascade or a detach.
+func (l *changeList) set(s slot, value []byte, derived bool) {
+	e := l.entry(s, derived)
 	e.present = true
 	e.value = slices.Clone(value)
 }
 
-// delete merges a delete of the record of s.
-func (l *changeList) delete(s slot) {
-	e := l.entry(s)
+// delete merges a delete of the record of s. derived is true when the delete is a
+// cascade.
+func (l *changeList) delete(s slot, derived bool) {
+	e := l.entry(s, derived)
 	e.present = false
 	e.value = nil
 }
 
-func (l *changeList) entry(s slot) *changeEntry {
+func (l *changeList) entry(s slot, derived bool) *changeEntry {
 	if s.at < 0 {
 		if l.at == nil {
 			l.at = make(map[Target]int)
 		}
 		s.at = len(l.entries)
 		l.at[s.record] = s.at
-		l.entries = append(l.entries, changeEntry{record: s.record, existed: s.existed})
+		l.entries = append(l.entries, changeEntry{
+			record:  s.record,
+			existed: s.existed,
+			derived: true,
+		})
 	}
-	return &l.entries[s.at]
+	e := &l.entries[s.at]
+	e.derived = e.derived && derived
+	return e
 }
 
 func (l *changeList) list() Changes {
 	var out Changes
 	for _, e := range l.entries {
-		c := Change{Record: e.record, Value: e.value}
+		c := Change{Record: e.record, Derived: e.derived, Value: e.value}
 		switch {
 		case e.present && e.existed:
 			c.Kind = ChangeUpdate

@@ -90,6 +90,7 @@ func (t *Table[K, E]) deleteKeys(ctx context.Context, tx Tx, keys []string) erro
 		return err
 	}
 	w := t.writer(tx, false)
+	w.derived = true
 	return w.Delete(ctx, pks...)
 }
 
@@ -115,6 +116,7 @@ func (t *Table[K, E]) detach(
 		t.references[op.ref].detachTarget(&e, op.target)
 	}
 	w := t.writer(tx, false)
+	w.derived = true
 	if err = w.Set(ctx, e); err != nil {
 		return err
 	}
@@ -125,19 +127,21 @@ func (t *Table[K, E]) detach(
 // delete deletes the entries with keys and applies the OnDelete of every reference
 // that points at them.
 func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
-	if !t.registered {
-		w := t.writer(tx, false)
-		return w.Delete(ctx, keys...)
+	if t.registered {
+		formatted := make([]string, len(keys))
+		for i, k := range keys {
+			formatted[i] = FormatKey(k)
+		}
+		plan, err := t.db.registry.plan(ctx, tx, t.name, formatted, t.db.MaxDeleteSize)
+		if err != nil {
+			return err
+		}
+		if err = t.db.registry.apply(ctx, tx, plan); err != nil {
+			return err
+		}
 	}
-	formatted := make([]string, len(keys))
-	for i, k := range keys {
-		formatted[i] = FormatKey(k)
-	}
-	plan, err := t.db.registry.plan(ctx, tx, t.name, formatted, t.db.MaxDeleteSize)
-	if err != nil {
-		return err
-	}
-	return t.db.registry.apply(ctx, tx, plan)
+	w := t.writer(tx, false)
+	return w.Delete(ctx, keys...)
 }
 
 // Dependents returns the entries of every open table that hold a reference to the entry

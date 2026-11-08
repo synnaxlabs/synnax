@@ -187,7 +187,7 @@ var _ = Describe("Changes", func() {
 				Exec(ctx, db)).To(Succeed())
 		})
 
-		It("Should record a cascaded delete as a delete", func(ctx SpecContext) {
+		It("Should mark a cascaded delete as derived", func(ctx SpecContext) {
 			Expect(devices.NewCreate().Entries(&[]refDevice{
 				{Key: "a", Rack: 1},
 				{Key: "b", Rack: 1, Parent: "a"},
@@ -202,13 +202,35 @@ var _ = Describe("Changes", func() {
 					Kind:   gorp.ChangeDelete,
 				},
 				gorp.Change{
-					Record: gorp.NewTarget("device", "b"),
-					Kind:   gorp.ChangeDelete,
+					Record:  gorp.NewTarget("device", "b"),
+					Kind:    gorp.ChangeDelete,
+					Derived: true,
 				},
 			))
 		})
 
-		It("Should record a detach as an update", func(ctx SpecContext) {
+		It(
+			"Should not mark a record that the caller also writes as derived",
+			func(ctx SpecContext) {
+				Expect(devices.NewCreate().Entries(&[]refDevice{
+					{Key: "a", Rack: 1},
+					{Key: "b", Rack: 1, Parent: "a"},
+				}).Exec(ctx, db)).To(Succeed())
+				tx := DeferClose(db.OpenTx())
+				Expect(devices.NewCreate().
+					Entry(&refDevice{Key: "b", Rack: 1, Parent: "a"}).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(devices.NewDelete().
+					Where(gorp.MatchKeys[string, refDevice]("a")).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.ChangesOf(tx)).To(ContainElement(gorp.Change{
+					Record: gorp.NewTarget("device", "b"),
+					Kind:   gorp.ChangeDelete,
+				}))
+			},
+		)
+
+		It("Should mark a detach as derived", func(ctx SpecContext) {
 			Expect(devices.NewCreate().
 				Entry(&refDevice{Key: "d", Rack: 1, Labels: []string{"l1", "l2"}}).
 				Exec(ctx, db)).To(Succeed())
@@ -223,9 +245,10 @@ var _ = Describe("Changes", func() {
 					Kind:   gorp.ChangeDelete,
 				},
 				gorp.Change{
-					Record: gorp.NewTarget("device", "d"),
-					Kind:   gorp.ChangeUpdate,
-					Value:  MustSucceed(msgpack.Codec.Encode(ctx, detached)),
+					Record:  gorp.NewTarget("device", "d"),
+					Kind:    gorp.ChangeUpdate,
+					Derived: true,
+					Value:   MustSucceed(msgpack.Codec.Encode(ctx, detached)),
 				},
 			))
 		})
