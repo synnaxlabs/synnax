@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -46,15 +47,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 )
 
 // graphNodeSpec describes a graph node along with its function type and configuration
@@ -87,34 +90,6 @@ func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.AutomationArc, err
 
 var errCommit = errors.New("commit failed")
 
-// uncommittableDB is a kv.DB whose transactions fail to commit.
-type uncommittableDB struct{ kv.DB }
-
-func (d uncommittableDB) OpenTx() kv.Tx { return uncommittableTx{Tx: d.DB.OpenTx()} }
-
-type uncommittableTx struct{ kv.Tx }
-
-func (uncommittableTx) Commit(context.Context, ...any) error { return errCommit }
-
-// cancelingDB is a kv.DB whose transactions call cancel once they commit.
-type cancelingDB struct {
-	kv.DB
-	cancel context.CancelFunc
-}
-
-func (d cancelingDB) OpenTx() kv.Tx { return cancelingTx{Tx: d.DB.OpenTx(), db: d} }
-
-type cancelingTx struct {
-	kv.Tx
-	db cancelingDB
-}
-
-func (t cancelingTx) Commit(ctx context.Context, opts ...any) error {
-	err := t.Tx.Commit(ctx, opts...)
-	t.db.cancel()
-	return err
-}
-
 var _ = Describe("Task", Ordered, func() {
 	var (
 		db            *gorp.DB
@@ -128,7 +103,10 @@ var _ = Describe("Task", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node := testutil.NewNode(ctx)
+		st := DeferClose(storagetestutil.OpenLayer(ctx))
+		node := testutil.NewNode(ctx, distribution.LayerConfig{
+			Storage: &storage.Layer{KV: hookkv.Wrap(st.KV), TS: st.TS},
+		})
 		db = node.DB
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: node.DB,
@@ -1074,12 +1052,13 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should return the error from Exec for a start it could not answer",
 			func(ctx SpecContext) {
 				ch := createVirtualCh(ctx, "start_unanswered", telem.Float32T)
-				t := newTask(ctx, newGraphFactory(
-					simpleGraph(ch.Key()),
-					arctask.FactoryConfig{DB: gorp.Wrap(uncommittableDB{DB: db.KV()})},
-				))
+				t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 				DeferCleanup(func() { Expect(t.Stop(false)).To(Succeed()) })
-				Expect(t.Exec(ctx, task.Command{Type: "start", Key: "cmd-start"})).
+				cmdCtx := hookkv.WithHook(
+					ctx,
+					func(func() error) error { return errCommit },
+				)
+				Expect(t.Exec(cmdCtx, task.Command{Type: "start", Key: "cmd-start"})).
 					To(MatchError(errCommit))
 			},
 		)
@@ -1098,12 +1077,13 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				createTask(ctx, svcTask)
 				cmdCtx, cancel := context.WithCancel(ctx)
-				t := MustSucceed(newGraphFactory(
-					simpleGraph(ch.Key()),
-					arctask.FactoryConfig{
-						DB: gorp.Wrap(cancelingDB{DB: db.KV(), cancel: cancel}),
-					},
-				).ConfigureTask(ctx, svcTask, "cmd-1"))
+				cmdCtx = hookkv.WithHook(cmdCtx, func(commit func() error) error {
+					err := commit()
+					cancel()
+					return err
+				})
+				t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
+					ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t.Exec(cmdCtx, task.Command{Type: "start", Key: "cmd-start"})).
 					To(Succeed())
 				Expect(cmdCtx.Err()).To(MatchError(context.Canceled))
