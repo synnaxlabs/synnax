@@ -119,8 +119,8 @@ class CDAQAnalogReadRate(CDAQAnalogRead):
         return problems
 
     def _read_until_stopped(self, statuses: sy.Streamer) -> list[str]:
-        """Reads statuses until the task reports that it stopped, so that no status
-        from this run reaches the next. Returns the warnings and errors of the task."""
+        """Reads statuses until the task reports that it stopped. Returns the warnings
+        and errors of the task."""
         assert self.tsk is not None
         problems: list[str] = []
         stopped = False
