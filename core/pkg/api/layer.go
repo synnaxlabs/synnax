@@ -114,6 +114,8 @@ type Transport struct {
 	KVGet    freighter.UnaryServer[kv.GetRequest, kv.GetResponse]
 	KVSet    freighter.UnaryServer[kv.SetRequest, struct{}]
 	KVDelete freighter.UnaryServer[kv.DeleteRequest, struct{}]
+	// KVDispatch applies path actions to a range key-value pair.
+	KVDispatch freighter.UnaryServer[kv.DispatchRequest, struct{}]
 	// ALIAS
 	AliasSet      freighter.UnaryServer[alias.SetRequest, struct{}]
 	AliasResolve  freighter.UnaryServer[alias.ResolveRequest, alias.ResolveResponse]
@@ -402,6 +404,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.KVGet,
 		t.KVSet,
 		t.KVDelete,
+		t.KVDispatch,
 
 		// ALIAS
 		t.AliasSet,
@@ -667,6 +670,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.KVGet.BindHandler(bind.Read(l.binder, l.KV.Get))
 	t.KVSet.BindHandler(bind.Write(l.binder, l.KV.Set))
 	t.KVDelete.BindHandler(bind.Write(l.binder, l.KV.Delete))
+	t.KVDispatch.BindHandler(bind.Write(l.binder, l.KV.Dispatch))
 
 	// ALIAS
 	t.AliasSet.BindHandler(bind.Write(l.binder, l.Alias.Set))

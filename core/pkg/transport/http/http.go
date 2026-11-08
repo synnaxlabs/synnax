@@ -332,6 +332,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		KVGet:    unary[kv.GetRequest, kv.GetResponse](router, "/api/v1/range/kv/get"),
 		KVSet:    unary[kv.SetRequest, struct{}](router, "/api/v1/range/kv/set"),
 		KVDelete: unary[kv.DeleteRequest, struct{}](router, "/api/v1/range/kv/delete"),
+		KVDispatch: unary[kv.DispatchRequest, struct{}](
+			router,
+			"/api/v1/range/kv/dispatch",
+		),
 
 		// ALIAS
 		AliasSet: unary[alias.SetRequest, struct{}](
