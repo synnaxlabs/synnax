@@ -283,7 +283,8 @@ type SetRoleRequest struct {
 // SetRole gives a role to the users with the provided keys in one transaction. It
 // returns access.ErrDenied unless the subject can update the users, the role, and the
 // roles the users hold, a validation error when a user is a root user, and
-// query.ErrNotFound when a user does not exist.
+// query.ErrNotFound when a user does not exist. A role that another request gives a
+// user while SetRole runs is replaced with no access check on it.
 func (s *Service) SetRole(
 	ctx context.Context,
 	tx gorp.Tx,
