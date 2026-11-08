@@ -173,6 +173,14 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
 	return s.table.Observe()
 }
 
+// Changes returns the changes that c made to channels.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Channel] {
+	return s.table.Changes(ctx, c)
+}
+
 // NewRetrieve opens a retrieve query that fails when a retrieved external channel is
 // past the channel limit.
 func (s *Service) NewRetrieve() Retrieve {

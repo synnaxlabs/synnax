@@ -32,9 +32,8 @@ type Commit struct {
 
 // Observe returns an observable that delivers each Commit of the DB to its readers in
 // commit order, and drops none. The committing goroutine runs the readers after it
-// releases the write lock and the store notifies its observers, and before the OnCommit
-// hooks run and Commit returns. Each later commit waits for the readers before it
-// delivers.
+// releases the write lock and the store notifies its observers, and before Commit
+// returns. Each later commit waits for the readers before it delivers.
 //
 // A reader must not commit a change to the DB on its own goroutine: that commit waits
 // for the delivery that runs the reader. The same is true for a key-value observer that

@@ -30,6 +30,14 @@ func (w Writer) Move(
 	from, to directory.Key,
 	ids ...resource.ID,
 ) error {
+	return w.inTx(ctx, func(w Writer) error { return w.move(ctx, from, to, ids) })
+}
+
+func (w Writer) move(
+	ctx context.Context,
+	from, to directory.Key,
+	ids []resource.ID,
+) error {
 	var arcKeys, dirKeys []uuid.UUID
 	for _, id := range ids {
 		switch {
@@ -84,22 +92,26 @@ func (w Writer) Move(
 	if len(arcKeys) == 0 {
 		return nil
 	}
+	var moved []Arc
 	if err = w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Arc](arcKeys...)).
 		Change(func(_ gorp.Context, a Arc) Arc {
 			b := a.Base()
 			b.Directory = &to
 			a.SetBase(b)
+			moved = append(moved, a)
 			return a
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	gorp.OnCommit(w.tx, func() {
-		for _, k := range arcKeys {
-			w.publish(ctx, k)
-		}
-	})
+	for _, a := range moved {
+		w.dispatcher.Attach(
+			w.tx,
+			a.Base().Key,
+			NewCreateAction(CreatePayload{Arc: a}),
+		)
+	}
 	return nil
 }
 

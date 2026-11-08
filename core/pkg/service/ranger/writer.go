@@ -90,8 +90,7 @@ func (w Writer) create(ctx context.Context, r *Range) error {
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		r.Key,
 		NewCreateAction(CreatePayload{Range: *r}),
@@ -141,20 +140,22 @@ func (w Writer) editLabels(
 	key Key,
 	edit func([]label.Key) []label.Key,
 ) error {
-	var labels []label.Key
-	if err := w.table.
-		NewUpdate().
-		Where(gorp.MatchKeys[Key, Range](key)).
-		Change(func(_ gorp.Context, r Range) Range {
-			labels = edit(r.Labels)
-			r.Labels = labels
-			return r
-		}).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.NotifyOnCommit(ctx, w.tx, key, labelsAction(labels))
-	return nil
+	return w.inTx(ctx, func(w Writer) error {
+		var labels []label.Key
+		if err := w.table.
+			NewUpdate().
+			Where(gorp.MatchKeys[Key, Range](key)).
+			Change(func(_ gorp.Context, r Range) Range {
+				labels = edit(r.Labels)
+				r.Labels = labels
+				return r
+			}).
+			Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.dispatcher.Attach(w.tx, key, labelsAction(labels))
+		return nil
+	})
 }
 
 // labelsAction returns the action that sets the labels of a range to labels.

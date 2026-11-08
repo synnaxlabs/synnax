@@ -11,7 +11,6 @@ package role
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -77,11 +76,10 @@ func OpenService(
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(
+		if err = cfg.Signals.PublishTable(
 			ctx,
-			signals.GorpPublisherConfigUUID(s.table.Observe()),
-		); !ok(err, sig) {
+			signals.TableConfig[Key, Role]{Changes: s.table.Changes},
+		); !ok(err, nil) {
 			return nil, err
 		}
 	}

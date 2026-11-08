@@ -164,9 +164,9 @@ func OpenService(
 	return s, nil
 }
 
-// Observe returns an observable that notifies callers of changes to rack entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Rack]] {
-	return s.table.Observe()
+// Changes returns the changes that c made to racks.
+func (s *Service) Changes(ctx context.Context, c gorp.Commit) gorp.TxReader[Key, Rack] {
+	return s.table.Changes(ctx, c)
 }
 
 // OnSuspect calls handler with the outage of each rack that stops reporting, once for

@@ -786,26 +786,27 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(writer.Rename(ctx, rack.NewKey(1, 60000), "renamed")).
 				To(MatchError(query.ErrNotFound))
 		})
-		It("Should notify observers of the rename", func(ctx SpecContext) {
-			r := &rack.Rack{Name: "observed-rack"}
-			Expect(noTxWriter.Create(ctx, r)).To(Succeed())
-			renameTx := db.OpenTx()
-			defer func() { Expect(renameTx.Close()).To(Succeed()) }()
-			Expect(svc.NewWriter(renameTx).Rename(ctx, r.Key, "renamed")).
-				To(Succeed())
-			var names []string
-			disconnect := svc.Observe().OnChange(func(
-				_ context.Context,
-				reader gorp.TxReader[rack.Key, rack.Rack],
-			) {
-				for c := range reader {
-					names = append(names, c.Value.Name)
-				}
-			})
-			defer disconnect()
-			Expect(renameTx.Commit(ctx)).To(Succeed())
-			Expect(names).To(Equal([]string{"renamed"}))
-		})
+		It(
+			"Should return the rename in the changes of its commit",
+			func(ctx SpecContext) {
+				r := &rack.Rack{Name: "observed-rack"}
+				Expect(noTxWriter.Create(ctx, r)).To(Succeed())
+				renameTx := db.OpenTx()
+				defer func() { Expect(renameTx.Close()).To(Succeed()) }()
+				Expect(svc.NewWriter(renameTx).Rename(ctx, r.Key, "renamed")).
+					To(Succeed())
+				var names []string
+				disconnect := db.Observe().
+					OnChange(func(ctx context.Context, c gorp.Commit) {
+						for ch := range svc.Changes(ctx, c) {
+							names = append(names, ch.Value.Name)
+						}
+					})
+				defer disconnect()
+				Expect(renameTx.Commit(ctx)).To(Succeed())
+				Expect(names).To(Equal([]string{"renamed"}))
+			},
+		)
 	})
 	Describe("Delete", func() {
 		BeforeEach(openTx)

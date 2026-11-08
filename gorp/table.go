@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
@@ -42,6 +41,10 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// References are the fields of E that hold the keys of other entries. See
 	// NewKeyReference and NewTargetReference.
 	References []Reference[K, E]
+	// OnDetach runs in the transaction of each delete that detaches a target from an
+	// entry of the table, after Gorp writes the entry. It gets the entry as written.
+	// An error fails the delete.
+	OnDetach func(ctx context.Context, tx Tx, e E) error
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
 }
@@ -64,8 +67,8 @@ type Table[K Key, E Entry[K]] struct {
 	// populateShutdown cancels the populate context and waits for the populate routine
 	// to exit. Nil when the table has no indexes.
 	populateShutdown io.Closer
-	// detaches notifies each entry that a delete of a target detached.
-	detaches observe.Observer[E]
+	// onDetach is TableConfig.OnDetach.
+	onDetach func(ctx context.Context, tx Tx, e E) error
 }
 
 // Close cancels any running populate goroutine, waits for it to exit, and releases
@@ -106,7 +109,7 @@ func OpenTable[K Key, E Entry[K]](
 		indexes:    slices.Clone(cfg.Indexes),
 		name:       cfg.Name,
 		references: cfg.References,
-		detaches:   observe.New[E](),
+		onDetach:   cfg.OnDetach,
 	}
 	if t.name == "" {
 		t.name = types.Name[E]()

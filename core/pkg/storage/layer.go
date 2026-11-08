@@ -29,7 +29,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/cockroachdb/pebble/v2/bloom"
@@ -45,10 +44,8 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -255,19 +252,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	observerCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Child("kv")))
-	observerShutdown := signal.NewHardShutdown(observerCtx, cancel)
-	observer := observe.NewAsync[kv.TxReader](
-		observerCtx,
-		signal.WithRetryOnPanic(100),
-		signal.WithBaseRetryInterval(500*time.Millisecond),
-		signal.WithRetryScale(1.1),
-	)
-	if l.KV, err = openKV(cfg, kvFS, cache, observer); !ok(err, l.KV) {
-		return nil, errors.Combine(err, observerShutdown.Close())
-	}
-	// Closers run in reverse, so the handlers stop before the key-value engine closes.
-	if !ok(nil, observerShutdown) {
+	if l.KV, err = openKV(cfg, kvFS, cache); !ok(err, l.KV) {
 		return nil, err
 	}
 
@@ -400,12 +385,7 @@ func openPebbleCache(cfg LayerConfig) (*pebble.Cache, io.Closer, error) {
 	}), nil
 }
 
-func openKV(
-	cfg LayerConfig,
-	fs vfs.FS,
-	cache *pebble.Cache,
-	observer observe.Observer[kv.TxReader],
-) (kv.DB, error) {
+func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	if cfg.KVEngine != KVEnginePebble {
 		return nil, errors.Newf(
 			"[storage] - unsupported key-value engine: %s",
@@ -478,7 +458,7 @@ func openKV(
 		err = errors.Wrap(err, "failed to delete the Aspen digest and version keys")
 		return nil, errors.Combine(err, db.Close())
 	}
-	return pebblekv.Wrap(db, pebblekv.WithObserver(observer)), nil
+	return pebblekv.Wrap(db), nil
 }
 
 func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {

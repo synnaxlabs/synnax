@@ -31,9 +31,22 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// inTx calls f with w, or with a copy of w on a transaction of its own when w has no
+// transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		w.tx = tx
+		return f(w)
+	})
+}
+
 // Create creates a new label, assigning it a unique key if one is not provided. If
-// a label with the same key already exists, it will be overwritten. After the
-// transaction commits, Create broadcasts a create action that carries the stored label.
+// a label with the same key already exists, it will be overwritten. The commit
+// carries a create action that holds the stored label.
 func (w Writer) Create(ctx context.Context, l *Label) error {
 	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
@@ -41,16 +54,17 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 	if err := l.Validate(); err != nil {
 		return err
 	}
-	if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
-		w.tx,
-		l.Key,
-		NewCreateAction(CreatePayload{Label: *l}),
-	)
-	return nil
+	return w.inTx(ctx, func(w Writer) error {
+		if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.dispatcher.Attach(
+			w.tx,
+			l.Key,
+			NewCreateAction(CreatePayload{Label: *l}),
+		)
+		return nil
+	})
 }
 
 // apply applies the actions to the label with the given key and stores the result.

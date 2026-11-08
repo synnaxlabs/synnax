@@ -134,11 +134,10 @@ func (t *Table[K, E]) detach(
 	}
 	w := t.writer(tx, false)
 	w.derived = true
-	if err = w.Set(ctx, e); err != nil {
+	if err = w.Set(ctx, e); err != nil || t.onDetach == nil {
 		return err
 	}
-	OnCommit(tx, func() { t.detaches.Notify(ctx, e) })
-	return nil
+	return t.onDetach(ctx, tx, e)
 }
 
 // delete deletes the entries with keys and applies the OnDelete of every reference

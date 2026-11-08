@@ -19,15 +19,14 @@ import (
 	"go.uber.org/zap"
 )
 
-// Dispatch applies a sequence of actions atomically to the Arc with the given key.
-// Dispatches for the same Arc run one at a time, each in its own transaction committed
-// before the actions are notified, so two concurrent dispatches can never overwrite
-// each other's edits. dispatchKey is a client-generated identifier carried verbatim
-// onto the broadcast so the originating client can recognize its own echo.
+// Dispatch applies a sequence of actions atomically to the Arc with the given key, in
+// a transaction of its own that carries the actions to the change channels.
+// dispatchKey is a client-generated identifier carried verbatim onto the actions so
+// the originating client can recognize its own echo.
 //
 // When the Arc's text has gone quiet, Dispatch also reclaims the space held by
 // tombstoned characters: it forgets the characters that were already dead before this
-// dispatch and broadcasts that sweep as a separate frame with an empty dispatchKey, so
+// dispatch and attaches that sweep as a second batch with an empty dispatchKey, so
 // every editor (including the originator, which skips its own echo) applies it.
 //
 // Dispatch also schedules a debounced rewrite of the Arc's task config, so a burst of
@@ -40,9 +39,9 @@ func (s *Service) Dispatch(
 ) error {
 	dispatcher := s.state.Dispatcher()
 	return s.locks.Do(key, func() error {
-		var sweep []Action
 		if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
+			var sweep []Action
+			if err := s.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
 				ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
 					sweep = nil
 					var dead []crdt.ID
@@ -74,41 +73,20 @@ func (s *Service) Dispatch(
 						s.sweeper.recordEdit(key)
 					}
 					return a, nil
-				}).Exec(ctx, tx)
+				}).Exec(ctx, tx); err != nil {
+				return err
+			}
+			dispatcher.WithDispatchKey(dispatchKey).Attach(tx, key, acts...)
+			if len(sweep) > 0 {
+				dispatcher.Attach(tx, key, sweep...)
+			}
+			return nil
 		}); err != nil {
 			return err
-		}
-		dispatcher.WithDispatchKey(dispatchKey).Notify(ctx, key, acts...)
-		if len(sweep) > 0 {
-			dispatcher.Notify(ctx, key, sweep...)
 		}
 		s.taskSync.Trigger(key)
 		return nil
 	})
-}
-
-// publish broadcasts the stored Arc with key as a create, in order with the dispatches
-// on it.
-func (s *Service) publish(ctx context.Context, key Key) {
-	err := s.locks.Do(key, func() error {
-		var a Arc
-		if err := s.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Arc](key)).
-			Entry(&a).
-			Exec(ctx, s.cfg.DB); err != nil {
-			return err
-		}
-		s.state.Dispatcher().Notify(ctx, key, NewCreateAction(CreatePayload{Arc: a}))
-		return nil
-	})
-	// A later delete can remove the Arc before the broadcast.
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		s.cfg.L.Error(
-			"failed to publish a moved arc",
-			zap.Error(err),
-			zap.Stringer("key", key),
-		)
-	}
 }
 
 // resyncTask rewrites the Arc's task config from its current content. It runs on the

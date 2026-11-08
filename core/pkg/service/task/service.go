@@ -12,7 +12,6 @@ package task
 import (
 	"context"
 	"fmt"
-	"io"
 	"slices"
 	"uuid"
 
@@ -32,11 +31,9 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -198,29 +195,30 @@ func OpenService(
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
+	// A detach changes a config, so the task stores the new hash of the config in the
+	// transaction of the detach.
 	for _, t := range cfg.Configs.Types() {
 		store, _ := cfg.Configs.Store(t)
-		ok(nil, xio.NoFailCloserFunc(store.ObserveDetaches().OnChange(s.syncConfig)))
+		store.OnDetach(func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error {
+			return s.NewWriter(tx).syncConfig(ctx, key)
+		})
 	}
 	if cfg.Signals != nil {
-		pubCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-		pubCfg.MarshalSet = func(t Task) ([]byte, error) {
-			t.Config, t.Status = nil, nil
-			return signals.MarshalJSON(t)
-		}
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, pubCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Task]{
+			Changes: s.table.Changes,
+			MarshalSet: func(t Task) ([]byte, error) {
+				t.Config, t.Status = nil, nil
+				return signals.MarshalJSON(t)
+			},
+		}); !ok(err, nil) {
 			return nil, err
 		}
 		// The Driver reads sy_task_set as task metadata, so actions take their own
 		// channel.
-		if sig, err = cfg.Signals.PublishActions(
-			ctx,
-			signals.ActionPublisherConfig[Key, Action]{
-				Observable: s.state,
-				Name:       "task_action",
-			},
-		); !ok(err, sig) {
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:    "sy_task_action_set",
+			Actions: s.state,
+		}); !ok(err, nil) {
 			return nil, err
 		}
 		var actionCh channel.Channel
@@ -235,9 +233,9 @@ func OpenService(
 	return s, nil
 }
 
-// OnAction subscribes the given handler to the actions that Dispatch and Writer emit.
-// The handler runs synchronously after the transaction that applied the actions
-// commits. The returned Disconnect removes the handler.
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
@@ -273,22 +271,6 @@ func (s *Service) Dispatch(
 		return nil, err
 	}
 	return added, nil
-}
-
-// syncConfig stores the hash of a config that a delete detached and broadcasts the
-// config, so open clients and the Driver see the change.
-func (s *Service) syncConfig(ctx context.Context, key Key) {
-	err := s.state.Dispatch(ctx, key, "", nil, func(tx gorp.Tx) ([]Action, error) {
-		return s.NewWriter(tx).syncConfig(ctx, key)
-	})
-	// The delete that detached the config can delete its task too.
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		s.cfg.L.Error(
-			"failed to sync a detached task config",
-			zap.Stringer("task", key),
-			zap.Error(err),
-		)
-	}
 }
 
 func (s *Service) CommandChannelKey() channel.Key {

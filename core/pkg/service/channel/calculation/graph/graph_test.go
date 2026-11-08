@@ -1514,11 +1514,17 @@ var _ = Describe("Graph", func() {
 				// The graph can write the status once per batch, and each write can
 				// carry a different "did you mean" note. Waiting for the last batch
 				// leaves no write to race the clear.
-				depDeleted := make(chan struct{})
+				// The Graph reads each changed channel again, so it can report the
+				// delete
+				// of dep for the batch of its create too.
+				var (
+					depDeleted = make(chan struct{})
+					once       sync.Once
+				)
 				g.Observe().OnChange(func(_ context.Context, r graph.Changes) {
 					for c := range r {
 						if c.Variant == change.VariantDelete && c.Key == dep.Key() {
-							close(depDeleted)
+							once.Do(func() { close(depDeleted) })
 						}
 					}
 				})

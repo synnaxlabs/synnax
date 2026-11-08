@@ -11,6 +11,7 @@ package gorp_test
 
 import (
 	"context"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -147,4 +148,66 @@ var _ = Describe("Observe", func() {
 			Expect(deleteChanges[0].Key).To(Equal(int32(42)))
 		},
 	)
+})
+
+var _ = Describe("Changes", func() {
+	var (
+		db         *gorp.DB
+		entryTable *gorp.Table[int32, entry]
+		commits    []gorp.Commit
+	)
+	BeforeEach(func(ctx SpecContext) {
+		db = DeferClose(OpenGorpMsgpackDB())
+		entryTable = MustOpen(
+			gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
+		)
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, grape]{DB: db}))
+		commits = nil
+		DeferCleanup(db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
+			commits = append(commits, c)
+		}))
+	})
+
+	It(
+		"Should decode the sets and deletes of the table in the order of the commit",
+		func(ctx SpecContext) {
+			Expect(entryTable.NewCreate().
+				Entry(&entry{ID: 1, Data: "one"}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := entryTable.NewCreate().
+					Entry(&entry{ID: 2, Data: "two"}).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				if err := gorp.NewCreate[int32, grape]().
+					Entry(&grape{ID: 3, Data: "three"}).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				return entryTable.NewDelete().
+					Where(gorp.MatchKeys[int32, entry](1)).
+					Exec(ctx, tx)
+			})).To(Succeed())
+			Expect(commits).To(HaveLen(2))
+			Expect(slices.Collect(entryTable.Changes(ctx, commits[1]))).To(Equal(
+				[]change.Change[int32, entry]{
+					{
+						Key:     2,
+						Value:   entry{ID: 2, Data: "two"},
+						Variant: change.VariantSet,
+					},
+					{Key: 1, Variant: change.VariantDelete},
+				},
+			))
+		},
+	)
+
+	It("Should return no changes for a commit to another table", func(ctx SpecContext) {
+		Expect(gorp.NewCreate[int32, grape]().
+			Entry(&grape{ID: 3, Data: "three"}).
+			Exec(ctx, db)).To(Succeed())
+		Expect(commits).To(HaveLen(1))
+		Expect(slices.Collect(entryTable.Changes(ctx, commits[0]))).To(BeEmpty())
+	})
 })

@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -872,6 +873,64 @@ var _ = Describe("Driver", func() {
 			Expect(taskWriter.Delete(ctx, t.Key, false)).To(Succeed())
 			Eventually(func() bool { return stopped.Load() }).Should(BeTrue())
 		})
+
+		It(
+			"should stop each task that a commit deletes while a stop blocks",
+			func(ctx SpecContext) {
+				var (
+					mu         sync.Mutex
+					stopped    = make(set.Set[task.Key])
+					configured atomic.Int32
+					blocked    atomic.Value
+					released   = make(chan struct{})
+					release    = sync.OnceFunc(func() { close(released) })
+				)
+				DeferCleanup(release)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						configured.Add(1)
+						return &mockTask{
+							key: t.Key,
+							stopFunc: func(bool) error {
+								if t.Key == blocked.Load() {
+									<-released
+								}
+								mu.Lock()
+								defer mu.Unlock()
+								stopped.Add(t.Key)
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				tasks := make([]task.Task, 3)
+				for i := range tasks {
+					tasks[i] = newTask(embeddedRackKey(ctx))
+					Expect(taskWriter.Create(ctx, &tasks[i])).To(Succeed())
+					writeCommand(ctx, task.Command{
+						Task: tasks[i].Key,
+						Type: "start",
+						Key:  fmt.Sprintf("cmd-%d", i),
+					})
+				}
+				Eventually(configured.Load).Should(BeNumerically(">=", 3))
+				blocked.Store(tasks[0].Key)
+				for _, t := range tasks {
+					Expect(taskWriter.Delete(ctx, t.Key, false)).To(Succeed())
+				}
+				release()
+				Eventually(func() set.Set[task.Key] {
+					mu.Lock()
+					defer mu.Unlock()
+					return stopped.Copy()
+				}).Should(Equal(set.New(tasks[0].Key, tasks[1].Key, tasks[2].Key)))
+			},
+		)
 
 		It(
 			"should not resurrect the status of a deleted task",

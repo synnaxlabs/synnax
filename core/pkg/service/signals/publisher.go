@@ -32,7 +32,7 @@ import (
 
 // ObservablePublisherConfig is the configuration for opening a Signals pipeline that
 // subscribes to the provided observable and writes changes to the provided channels.
-// Higher level Signals pipeline should be preferred, such as the PublishFromGorp.
+// Prefer PublishTable for the changes of a Gorp table.
 type ObservablePublisherConfig struct {
 	// Observable is the observable used to subscribe to changes. This observable should
 	// return byte slice keys that are properly encoded for the channel's data type.

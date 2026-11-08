@@ -78,7 +78,7 @@ var _ = Describe("Dispatch", func() {
 		return res
 	}
 
-	It("Should apply the staged change and notify it", func(ctx SpecContext) {
+	It("Should apply the staged change and attach its actions", func(ctx SpecContext) {
 		acts := []testAction{{Type: "inc"}}
 		Expect(st.Dispatch(ctx, "c", "dk", acts, increment(ctx, nil))).To(Succeed())
 		Expect(fetch(ctx).Value).To(Equal(1))
@@ -90,7 +90,7 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It(
-		"Should notify the actions that the stage returns after the dispatched ones",
+		"Should attach the actions that the stage returns after the dispatched ones",
 		func(ctx SpecContext) {
 			Expect(st.Dispatch(
 				ctx,
@@ -131,7 +131,7 @@ var _ = Describe("Dispatch", func() {
 		},
 	)
 
-	It("Should notify only after the commit", func(ctx SpecContext) {
+	It("Should deliver the actions only after the commit", func(ctx SpecContext) {
 		observed := -1
 		DeferCleanup(st.OnChange(
 			func(_ context.Context, _ actions.Scoped[string, testAction]) {
@@ -145,7 +145,7 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It(
-		"Should return the stage error and emit no notification",
+		"Should return the stage error and deliver no actions",
 		func(ctx SpecContext) {
 			stageErr := errors.New("stage failed")
 			Expect(st.Dispatch(
@@ -156,50 +156,4 @@ var _ = Describe("Dispatch", func() {
 			Expect(rec.Snapshot()).To(BeEmpty())
 		},
 	)
-})
-
-var _ = Describe("NotifyOnCommit", func() {
-	var (
-		db  *gorp.DB
-		d   actions.Dispatcher[string, testAction]
-		rec *Recorder[string, testAction]
-	)
-
-	BeforeEach(func() {
-		db = DeferClose(gorptestutil.OpenGorpMsgpackDB())
-		st := actions.NewState[string, testAction](db)
-		d = st.Dispatcher().WithDispatchKey("dk")
-		rec = &Recorder[string, testAction]{}
-		DeferCleanup(st.OnChange(rec.Record))
-	})
-
-	It("Should notify the actions only once the transaction commits",
-		func(ctx SpecContext) {
-			acts := []testAction{{Type: "a"}, {Type: "b"}}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				d.NotifyOnCommit(ctx, tx, "c", acts...)
-				Expect(rec.Snapshot()).To(BeEmpty())
-				return nil
-			})).To(Succeed())
-			seen := rec.Snapshot()
-			Expect(seen).To(HaveLen(1))
-			Expect(seen[0].Key).To(Equal("c"))
-			Expect(seen[0].DispatchKey).To(Equal("dk"))
-			Expect(seen[0].Actions).To(Equal(acts))
-		},
-	)
-
-	It("Should notify nothing when the transaction aborts", func(ctx SpecContext) {
-		txErr := errors.New("abort")
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			d.NotifyOnCommit(ctx, tx, "c", testAction{Type: "a"})
-			return txErr
-		})).To(MatchError(txErr))
-		Expect(rec.Snapshot()).To(BeEmpty())
-	})
-
-	It("Should notify at once outside a transaction", func(ctx SpecContext) {
-		d.NotifyOnCommit(ctx, db, "c", testAction{Type: "a"})
-		Expect(rec.Snapshot()).To(HaveLen(1))
-	})
 })
