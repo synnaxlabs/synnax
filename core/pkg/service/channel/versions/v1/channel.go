@@ -40,8 +40,8 @@ func (c Channel) Index() Key {
 // GorpKey implements the gorp.Entry interface.
 func (c Channel) GorpKey() Key { return c.Key() }
 
-// SetOptions implements the gorp.Entry interface. Returns a set of options that tell an
-// aspen.DB to properly lease the Channel to the node it will be recording data from.
+// SetOptions implements the gorp.Entry interface. It returns the key of the node that
+// leases the Channel, or node 1 for a free Channel.
 func (c Channel) SetOptions() []any {
 	if c.Free() {
 		return []any{node.KeyBootstrapper}

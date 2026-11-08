@@ -28,11 +28,19 @@ type Node struct {
 	*distribution.Layer
 	// Storage is the storage layer of the node.
 	Storage *storage.Layer
+	// storageOwned is true when the Node opened Storage.
+	storageOwned bool
 }
 
-// Close closes the distribution layer and then the storage layer. It shadows the
-// embedded Layer.Close.
-func (n Node) Close() error { return errors.Join(n.Layer.Close(), n.Storage.Close()) }
+// Close closes the distribution layer, then the storage layer if the Node opened it. It
+// shadows the embedded Layer.Close.
+func (n Node) Close() error {
+	err := n.Layer.Close()
+	if n.storageOwned {
+		err = errors.Join(err, n.Storage.Close())
+	}
+	return err
+}
 
 // NewNode opens a Node and registers its teardown via testutil.DeferClose. It must be
 // called from within a Ginkgo node; use OpenNode from plain Go tests and benchmarks.
@@ -42,15 +50,22 @@ func NewNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
 }
 
 // OpenNode opens a Node. The overrides are layered on top of the base
-// distribution.LayerConfig, so a caller can pass its own storage layer. The caller
-// closes the returned Node.
+// distribution.LayerConfig. The Node opens its own storage layer unless an override
+// passes one, which the caller then closes. The caller closes the returned Node.
 func OpenNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
 	ginkgo.GinkgoHelper()
-	var (
-		addr = address.Address("localhost:0")
-		n    = Node{Storage: storagetestutil.OpenLayer(ctx)}
-		cfg  = distribution.LayerConfig{Storage: n.Storage, AdvertiseAddress: addr}
-	)
+	var n Node
+	for _, o := range overrides {
+		if o.Storage != nil {
+			n.Storage = o.Storage
+		}
+	}
+	if n.Storage == nil {
+		n.Storage = storagetestutil.OpenLayer(ctx)
+		n.storageOwned = true
+	}
+	addr := address.Address("localhost:0")
+	cfg := distribution.LayerConfig{Storage: n.Storage, AdvertiseAddress: addr}
 	cfgs := append([]distribution.LayerConfig{cfg}, overrides...)
 	n.Layer = testutil.MustSucceed(distribution.OpenLayer(ctx, cfgs...))
 	n.Framer.SetFreeIndexResolver(nopFreeIndexResolver{})

@@ -14,9 +14,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -56,6 +58,12 @@ var _ = Describe("Node", func() {
 		},
 		NodeTimeout(10*time.Second),
 	)
+
+	It("Should use the storage layer an override passes", func(ctx SpecContext) {
+		store := DeferClose(storagetestutil.OpenLayer(ctx))
+		n := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
+		Expect(n.Storage).To(BeIdenticalTo(store))
+	})
 
 	It("Should close the distribution and storage layers", func(ctx SpecContext) {
 		Expect(testutil.OpenNode(ctx).Close()).To(Succeed())
