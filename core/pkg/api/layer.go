@@ -988,6 +988,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Instrumentation: cfg.Instrumentation,
 		Arc:             cfg.Service.Arc,
 		Status:          cfg.Service.Status,
+		RBAC:            cfg.Service.RBAC,
+		RenameChannel:   bind.Write(l.binder, l.Channel.Rename),
 	}); err != nil {
 		return nil, err
 	}

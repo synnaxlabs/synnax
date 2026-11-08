@@ -16,13 +16,19 @@ import (
 	arclang "github.com/synnaxlabs/arc"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -56,6 +62,15 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// RBAC reads the access of the subject of each LSP stream.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// RenameChannel is the bound channel rename route. The LSP renames channels
+	// through it, so an editor rename is checked as any other rename is.
+	//
+	// [REQUIRED]
+	RenameChannel freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
 }
 
 var (
@@ -70,6 +85,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.RenameChannel = override.Nil(c.RenameChannel, other.RenameChannel)
 	return c
 }
 
@@ -79,13 +96,17 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("rename_channel", c.RenameChannel)
 	return v.Error()
 }
 
 type Service struct {
-	db       *gorp.DB
-	internal *arc.Service
-	status   *status.Service
+	db            *gorp.DB
+	internal      *arc.Service
+	status        *status.Service
+	rbac          *rbac.Service
+	renameChannel freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
 	alamos.Instrumentation
 }
 
@@ -99,6 +120,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Arc,
 		status:          cfg.Status,
+		rbac:            cfg.RBAC,
+		renameChannel:   cfg.RenameChannel,
 	}, nil
 }
 
@@ -250,12 +273,36 @@ func (s *Service) Compiled(
 // LSPMessage represents a single JSON-RPC message for the LSP
 type LSPMessage = arctransport.JSONRPCMessage
 
-// LSP handles LSP protocol messages over a Freighter stream
+// LSP serves the Arc language server over stream. The server treats the channels and
+// modules that the subject of the stream cannot retrieve as unknown names, and renames
+// channels through the channel rename route as the subject.
 func (s *Service) LSP(
 	ctx context.Context,
 	stream freighter.ServerStream[LSPMessage, LSPMessage],
 ) error {
-	lsp, err := s.internal.NewLSP()
+	md := freighter.MDFromContext(ctx)
+	subject := auth.GetSubject(ctx)
+	lsp, err := s.internal.NewLSP(arc.LSPConfig{
+		Allowed: func(ctx context.Context) (allowed func(resource.ID) bool, err error) {
+			err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				allowed, err = s.rbac.NewEnforcer(snap).
+					Allowed(ctx, subject, access.ActionRetrieve)
+				return err
+			})
+			return allowed, err
+		},
+		Rename: func(ctx context.Context, key channel.Key, name string) error {
+			// The LSP renames with a context of its own, which holds no request
+			// metadata.
+			req := md
+			req.Context = ctx
+			_, err := s.renameChannel(req, apichannel.RenameRequest{
+				Keys:  channel.Keys{key},
+				Names: []string{name},
+			})
+			return err
+		},
+	})
 	if err != nil {
 		return err
 	}
@@ -285,21 +332,24 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	if !ok {
 		return nil
 	}
-	var (
-		prog arclang.Program
-		err  error
-	)
-	switch src := automation.Source.Variant.(type) {
-	case arc.TextSource:
-		prog, err = s.compileText(ctx, src.Text)
-	case arc.GraphSource:
-		prog, err = arclang.CompileGraph(
-			ctx,
-			src.Graph,
-			s.internal.NewRoot(s.db),
-			arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
-		)
-	}
+	prog, err := channel.CompileConsistent(ctx, s.db, func(
+		snap gorp.Snapshot,
+		lookups *channel.Lookups,
+	) (arclang.Program, error) {
+		root := s.internal.NewRoot(snap, lookups)
+		switch src := automation.Source.Variant.(type) {
+		case arc.TextSource:
+			return s.compileText(ctx, src.Text, root)
+		case arc.GraphSource:
+			return arclang.CompileGraph(
+				ctx,
+				src.Graph,
+				root,
+				arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
+			)
+		}
+		return arclang.Program{}, nil
+	})
 	if err != nil {
 		return err
 	}
@@ -308,17 +358,19 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	return nil
 }
 
-// compileText compiles t, reporting parse and analysis failures as a CompileError.
+// compileText compiles t against root, reporting parse and analysis failures as a
+// CompileError.
 func (s *Service) compileText(
 	ctx context.Context,
 	t arctext.Text,
+	root *symbol.Symbol,
 ) (arclang.Program, error) {
 	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
 	parsed, diag := arctext.Parse(t, cfg)
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(s.db), cfg)
+	ir, diag := arctext.Analyze(ctx, parsed, root, cfg)
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}

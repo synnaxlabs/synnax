@@ -10,12 +10,16 @@
 package arc_test
 
 import (
+	"context"
+	"sync/atomic"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
@@ -23,7 +27,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -133,18 +139,18 @@ var _ = Describe("CompileProgram", func() {
 
 var _ = Describe("NewLSP", func() {
 	It("Should create an LSP server without error", func(ctx SpecContext) {
-		server := MustSucceed(svc.NewLSP())
+		server := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: readAll}))
 		Expect(server).ToNot(BeNil())
 	})
 
 	It("Should create multiple independent LSP servers", func(ctx SpecContext) {
-		server1 := MustSucceed(svc.NewLSP())
-		server2 := MustSucceed(svc.NewLSP())
+		server1 := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: readAll}))
+		server2 := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: readAll}))
 		Expect(server1).ToNot(BeIdenticalTo(server2))
 	})
 
 	It("Should republish diagnostics when channels change", func(ctx SpecContext) {
-		server := MustSucceed(svc.NewLSP())
+		server := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: readAll}))
 		DeferCleanup(func() { Expect(server.Shutdown(ctx)).To(Succeed()) })
 		client := &MockClient{}
 		server.SetClient(client)
@@ -169,6 +175,150 @@ var _ = Describe("NewLSP", func() {
 			return len(client.Diagnostics())
 		}).Should(Equal(0))
 	})
+
+	Context("Read access", func() {
+		const docURI = uri.URI("file:///access.arc")
+		var visible, hidden channel.Channel
+		BeforeEach(func(ctx SpecContext) {
+			visible = channel.Channel{
+				Name:     "lsp_visible_ch",
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			hidden = channel.Channel{
+				Name:     "lsp_hidden_ch",
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := channelSvc.NewWriter(tx)
+				return errors.Combine(w.Create(ctx, &visible), w.Create(ctx, &hidden))
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).DeleteMany(
+						ctx,
+						[]channel.Key{visible.Key(), hidden.Key()},
+						false,
+					)
+				})).To(Succeed())
+			})
+		})
+		hide := func(ids ...resource.ID) func(context.Context) (
+			func(resource.ID) bool,
+			error,
+		) {
+			return func(context.Context) (func(resource.ID) bool, error) {
+				return func(id resource.ID) bool { return !lo.Contains(ids, id) }, nil
+			}
+		}
+		open := func(
+			ctx SpecContext,
+			allowed func(context.Context) (func(resource.ID) bool, error),
+			source string,
+		) (*lsp.Server, *MockClient) {
+			GinkgoHelper()
+			server := MustSucceed(svc.NewLSP(arc.LSPConfig{Allowed: allowed}))
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(server.Shutdown(ctx)).To(Succeed())
+			})
+			client := &MockClient{}
+			server.SetClient(client)
+			OpenArcDocument(server, ctx, docURI, source)
+			return server, client
+		}
+
+		It("Should report a hidden channel as an undefined symbol", func(
+			ctx SpecContext,
+		) {
+			_, client := open(
+				ctx,
+				hide(hidden.ResourceID()),
+				"func test() {\n\ta := lsp_visible_ch\n\tb := lsp_hidden_ch\n}",
+			)
+			Expect(client.Diagnostics()).To(HaveLen(1))
+			Expect(DiagnosticMessage(client.Diagnostics()[0])).
+				To(ContainSubstring("undefined symbol: lsp_hidden_ch"))
+		})
+
+		It("Should leave a hidden channel out of completion", func(ctx SpecContext) {
+			server, _ := open(
+				ctx,
+				hide(hidden.ResourceID()),
+				"func test() {\n\tx := lsp_\n}",
+			)
+			Eventually(func(g Gomega) {
+				items := Completion(server, ctx, docURI, 1, 10).Items
+				g.Expect(HasCompletion(items, "lsp_visible_ch")).To(BeTrue())
+				g.Expect(HasCompletion(items, "lsp_hidden_ch")).To(BeFalse())
+			}).Should(Succeed())
+		})
+
+		It("Should report a hidden module as unknown", func(ctx SpecContext) {
+			m := newModule(arc.Base{
+				Name: "lsp_hidden_module",
+				Source: arc.Source{Variant: arc.TextSource{
+					Text: text.Text{Raw: "export func f() i64 { return 1 }"},
+				}},
+			})
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &m)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, m.Base().Key)
+				})).To(Succeed())
+			})
+			_, client := open(
+				ctx,
+				hide(m.ResourceID()),
+				"import lsp_hidden_module\n\n"+
+					"func g() i64 { return lsp_hidden_module.f() }",
+			)
+			Expect(client.Diagnostics()).To(ContainElement(WithTransform(
+				DiagnosticMessage,
+				ContainSubstring(`unknown module "lsp_hidden_module"`),
+			)))
+		})
+
+		It("Should read the access again for each analysis", func(ctx SpecContext) {
+			var revealed atomic.Bool
+			server, client := open(
+				ctx,
+				func(context.Context) (func(resource.ID) bool, error) {
+					shown := revealed.Load()
+					return func(id resource.ID) bool {
+						return shown || id != hidden.ResourceID()
+					}, nil
+				},
+				"func test() {\n\tx := lsp_hidden_ch\n}",
+			)
+			Expect(client.Diagnostics()).To(HaveLen(1))
+			revealed.Store(true)
+			ChangeDocument(
+				server,
+				ctx,
+				docURI,
+				"func test() {\n\ty := lsp_hidden_ch\n}",
+				2,
+			)
+			Eventually(client.Diagnostics).Should(BeEmpty())
+		})
+
+		It("Should report an error of the access read", func(ctx SpecContext) {
+			_, client := open(
+				ctx,
+				func(context.Context) (func(resource.ID) bool, error) {
+					return nil, errors.New("access read failed")
+				},
+				"func test() {\n\tx := lsp_visible_ch\n}",
+			)
+			Expect(client.Diagnostics()).To(ContainElement(WithTransform(
+				DiagnosticMessage,
+				ContainSubstring("access read failed"),
+			)))
+		})
+	})
 })
 
 var _ = Describe("NewRoot", func() {
@@ -191,7 +341,7 @@ var _ = Describe("NewRoot", func() {
 	})
 
 	It("Should resolve a channel by the name it first had", func(ctx SpecContext) {
-		root := svc.NewRoot(db)
+		root := svc.NewRoot(db, &channel.Lookups{})
 		Expect(root.Resolve(ctx, "new_root_ch")).To(HaveField("ID", int(ch.Key())))
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).
@@ -207,7 +357,7 @@ var _ = Describe("NewRoot", func() {
 				Rename(ctx, ch.Key(), "new_root_ch_3", false)
 		})).
 			To(Succeed())
-		root := svc.NewRoot(db)
+		root := svc.NewRoot(db, &channel.Lookups{})
 		Expect(root.Resolve(ctx, "new_root_ch_3")).To(HaveField("ID", int(ch.Key())))
 		Expect(root.Resolve(ctx, "new_root_ch")).Error().
 			To(BeAssignableToTypeOf(&symbol.UndefinedSymbolError{}))
