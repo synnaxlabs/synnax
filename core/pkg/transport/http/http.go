@@ -586,6 +586,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/device/rename",
 		),
+		DeviceDispatch: unary[device.DispatchRequest, struct{}](
+			router,
+			"/api/v1/device/dispatch",
+		),
 
 		// ACCESS
 		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](

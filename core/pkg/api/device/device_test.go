@@ -653,6 +653,36 @@ var _ = Describe("Create in a group", func() {
 	})
 })
 
+var _ = Describe("Dispatch", func() {
+	locate := apidevice.DispatchRequest{
+		DispatchKey: "dk",
+		Actions: []device.Action{device.NewSetAction(device.SetPayload{
+			Path:  []string{"location"},
+			Value: "Bay 2",
+		})},
+	}
+	It("Should apply the actions with update on the device", func(ctx SpecContext) {
+		u := createUser(ctx)
+		d := createDevice(ctx, "dispatch-granted")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), d.ResourceID())
+		req := locate
+		req.Key = d.Key
+		MustSucceed(dispatch(AuthedCtx(ctx, u), req))
+		Expect(retrieveDevice(ctx, d.Key).Location).To(Equal("Bay 2"))
+	})
+	It("Should refuse the actions without update on the device", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		d := createDevice(ctx, "dispatch-denied")
+		req := locate
+		req.Key = d.Key
+		Expect(dispatch(AuthedCtx(ctx, u), req)).
+			Error().To(denied(u, access.ActionUpdate, d.ResourceID()))
+		Expect(retrieveDevice(ctx, d.Key).Location).To(Equal(d.Location))
+	})
+})
+
 var _ = Describe("Create on another rack", func() {
 	var (
 		u     user.User
@@ -703,5 +733,31 @@ var _ = Describe("Create on another rack", func() {
 		moved := retrieveDevice(ctx, d.Key)
 		Expect(moved.Rack).To(Equal(other.Key))
 		Expect(moved.Group).To(BeNil())
+	})
+	Describe("Dispatch", func() {
+		setRack := func(ctx SpecContext) (struct{}, error) {
+			return dispatch(AuthedCtx(ctx, u), apidevice.DispatchRequest{
+				Key: d.Key,
+				Actions: []device.Action{device.NewSetRackAction(
+					device.SetRackPayload{Rack: other.Key},
+				)},
+			})
+		}
+		It("Should refuse to move a device without update on its group", func(
+			ctx SpecContext,
+		) {
+			Expect(setRack(ctx)).
+				Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
+			Expect(retrieveDevice(ctx, d.Key).Rack).To(Equal(d.Rack))
+		})
+		It("Should move the device and drop its group with update on it", func(
+			ctx SpecContext,
+		) {
+			grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+			MustSucceed(setRack(ctx))
+			moved := retrieveDevice(ctx, d.Key)
+			Expect(moved.Rack).To(Equal(other.Key))
+			Expect(moved.Group).To(BeNil())
+		})
 	})
 })
