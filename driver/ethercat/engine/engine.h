@@ -222,11 +222,11 @@ class Engine {
     /// wait is true, and otherwise keeps the last outputs while a writer holds it.
     void write_outputs(bool wait);
     [[nodiscard]] x::errors::Error cycle_error() const;
-    /// @brief returns the offset of each entry in a process image of image_size bytes.
+    /// @brief returns the offset of each entry in the process image.
     /// @returns errors::STATE_CHANGE_REFUSED for an entry on a left-out slave, or
     /// errors::PDO_MAPPING_ERROR when the image does not hold an entry.
     [[nodiscard]] std::pair<std::vector<pdo::Offset>, x::errors::Error>
-    offsets_locked(const std::vector<pdo::Entry> &entries, size_t image_size) const;
+    offsets_locked(const std::vector<pdo::Entry> &entries) const;
     /// @brief what join_locked() gives a new reader or writer.
     struct Joined {
         /// @brief the bus rate in millihertz.
