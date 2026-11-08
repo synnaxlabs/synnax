@@ -245,9 +245,10 @@ var _ = Describe("Service", func() {
 		)
 		It("Should let an Owner replace a certificate", func(ctx SpecContext) {
 			u := createUser(ctx)
-			Expect(svc.User.NewWriter(nil).AssignRole(
+			Expect(svc.User.NewWriter(nil).SetRole(
 				ctx,
 				svc.RBAC.Builtin.OwnerKey,
+				nil,
 				u.Key,
 			)).To(Succeed())
 			c := createCertificate(ctx, "Plant")

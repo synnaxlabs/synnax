@@ -127,7 +127,7 @@ class Tracer:
 
         :param key: The key of the span.
         :param env: The environment to run the span under.
-        :return: A span that tracks program execution. If the Tracer's environment
+        :returns: A span that tracks program execution. If the Tracer's environment
             filter rejects the provided env or the Tracer is noop, a no-op span is
             provided.
         """
@@ -147,7 +147,7 @@ class Tracer:
         context, the new span is made as its child.
 
         :param key: The key of the span.
-        :return: A span that tracks program execution. If the Tracer's environment
+        :returns: A span that tracks program execution. If the Tracer's environment
             filter rejects the debug env or the Tracer is noop, a no-op span is
             provided.
         """
@@ -161,7 +161,7 @@ class Tracer:
         context, the new span is made as its child.
 
         :param key: The key of the span.
-        :return: A span that tracks program execution. If the Tracer's environment
+        :returns: A span that tracks program execution. If the Tracer's environment
             filter rejects the bench env or the Tracer is noop, a no-op span is
             provided.
         """
@@ -175,7 +175,7 @@ class Tracer:
         context, the new span is made as its child.
 
         :param key: The key of the span.
-        :return: A span that tracks program execution. If the Tracer's environment
+        :returns: A span that tracks program execution. If the Tracer's environment
             filter rejects the prod env or the Tracer is noop, a no-op span is provided.
         """
         with self.trace(key, env="prod") as span:
