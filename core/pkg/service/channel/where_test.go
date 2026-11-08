@@ -50,14 +50,11 @@ var _ = Describe("Where", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		// An Aspen database leases each record to its leaseholder, and the records sit
-		// on nodes that the mock cluster does not have.
 		cfg, _ := serviceConfig(
 			ctx,
 			testutil.NewNode(ctx),
 			DeferClose(gorp.Wrap(memkv.New())),
 		)
-		chSvc = MustOpen(channel.OpenService(ctx, cfg))
 		chs := make([]channel.Channel, 0, len(v.Records))
 		for alias, r := range v.Records {
 			byName[r.Name] = alias
@@ -73,10 +70,12 @@ var _ = Describe("Where", Ordered, func() {
 				Expression:  r.Expression,
 			})
 		}
-		// The writer assigns its own keys, so the records go straight to the table.
+		// The writer assigns its own keys, so the records go straight to the table
+		// before the service opens it and indexes them.
 		Expect(gorp.NewCreate[channel.Key, channel.Channel]().
 			Entries(&chs).
 			Exec(ctx, cfg.DB)).To(Succeed())
+		chSvc = MustOpen(channel.OpenService(ctx, cfg))
 	})
 
 	DescribeTable(

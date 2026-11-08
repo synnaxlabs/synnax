@@ -91,7 +91,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should retrieve a user by its key", func(ctx SpecContext) {
 			created := MustSucceed(
-				w.Create(ctx, user.User{Name: uuid.New().String()}),
+				w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
 			)
 			var u user.User
 			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&u).
@@ -99,8 +99,12 @@ var _ = Describe("Service", func() {
 			Expect(u).To(Equal(created))
 		})
 		It("Should retrieve multiple users by keys", func(ctx SpecContext) {
-			a := MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
-			b := MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
+			a := MustSucceed(
+				w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
+			)
+			b := MustSucceed(
+				w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
+			)
 			var ret []user.User
 			Expect(svc.NewRetrieve().Where(user.MatchKeys(a.Key, b.Key)).Entries(&ret).
 				Exec(ctx, tx)).To(Succeed())
@@ -113,7 +117,9 @@ var _ = Describe("Service", func() {
 			)
 			BeforeEach(func(ctx SpecContext) {
 				username = uuid.New().String()
-				u = MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
+				u = MustSucceed(
+					w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
+				)
 				Expect(
 					passwordSvc.NewWriter(tx).Set(ctx, u.ResourceID(), auth.Credentials{
 						Username: username,
@@ -152,7 +158,7 @@ var _ = Describe("Service", func() {
 			})
 			It("Should exclude the matched users under Not", func(ctx SpecContext) {
 				other := MustSucceed(
-					w.Create(ctx, user.User{Name: uuid.New().String()}),
+					w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
 				)
 				var ret []user.User
 				Expect(svc.NewRetrieve().

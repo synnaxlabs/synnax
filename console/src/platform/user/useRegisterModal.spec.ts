@@ -61,6 +61,6 @@ describe("User.useRegisterModal", () => {
 
     const created = await client.users.retrieve({ username });
     expect(created.name).toEqual("Ada Lovelace");
-    expect(created.roles).toEqual([role.key]);
+    expect(created.role).toEqual(role.key);
   });
 });

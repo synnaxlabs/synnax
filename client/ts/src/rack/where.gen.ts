@@ -19,8 +19,6 @@ import { keyZ, type Payload, type Where } from "@/rack/types.gen";
  * that only the Core can check.
  */
 export interface Lines {
-  hostIsNode:
-    ((record: Payload, value: NonNullable<Where["hostIsNode"]>) => boolean) | null;
   groups: ((record: Payload, value: NonNullable<Where["groups"]>) => boolean) | null;
   grouped: ((record: Payload, value: NonNullable<Where["grouped"]>) => boolean) | null;
 }
@@ -46,10 +44,6 @@ export const matches = (lines: Lines, record: Payload, where?: Where): boolean =
     !filter.matchesContains(where.integrations, record.integrations)
   )
     return false;
-  if (where.hostIsNode != null) {
-    if (lines.hostIsNode == null) throw new Error("only the Core can check hostIsNode");
-    if (!lines.hostIsNode(record, where.hostIsNode)) return false;
-  }
   if (where.groups != null) {
     if (lines.groups == null) throw new Error("only the Core can check groups");
     if (!lines.groups(record, where.groups)) return false;
@@ -71,7 +65,6 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     where.or?.some((w) => serverComputed(lines, w)) === true ||
     (where.not != null && serverComputed(lines, where.not)) ||
     where.name?.regex != null ||
-    (where.hostIsNode != null && lines.hostIsNode == null) ||
     (where.groups != null && lines.groups == null) ||
     (where.grouped != null && lines.grouped == null));
 
@@ -84,11 +77,6 @@ const inputs = {
   embedded: filter.boolInputZ.exactOptional(),
   /** integrations selects by integrations. */
   integrations: filter.containsInputZ(z.string()).exactOptional(),
-  /**
-   * hostIsNode matches racks on the Core that serves the request, or racks on other
-   * Cores when false.
-   */
-  hostIsNode: z.boolean().exactOptional(),
   /** groups matches the racks in any of the given groups. */
   groups: filter.listInputZ(group.keyZ).exactOptional(),
   /** grouped matches the racks in a group, or in no group when false. */
@@ -138,7 +126,6 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "name",
         "embedded",
         "integrations",
-        "hostIsNode",
         "groups",
         "grouped",
       ]),

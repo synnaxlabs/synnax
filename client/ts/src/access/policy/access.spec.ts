@@ -15,6 +15,7 @@ import { role } from "@/access/role";
 import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
+  createEmptyRole,
   createTestClient,
   createTestClientWithPolicy,
   expectDeleted,
@@ -41,16 +42,15 @@ describe("policy", () => {
       const u = await client.users.create({
         username: id.create(),
         password: "test",
-        roles: [r.key],
+        role: r.key,
       });
       const subjects = [user.resourceID(u.key)];
       const key = { in: [held.key, other.key] };
-      const matched = await client.access.policies.retrieve({
-        where: { subjects, key },
-      });
+      const matched = await client.access.policies.retrieve({ subjects, key });
       expect(matched.map((p) => p.key)).toEqual([held.key]);
       const unmatched = await client.access.policies.retrieve({
-        where: { not: { subjects }, key },
+        not: { subjects },
+        key,
       });
       expect(unmatched.map((p) => p.key)).toEqual([other.key]);
     });
@@ -65,14 +65,14 @@ describe("policy", () => {
 
       // Retrieve only internal policies (built-in system policies)
       const internalPolicies = await client.access.policies.retrieve({
-        where: { internal: { eq: true } },
+        internal: true,
       });
       expect(internalPolicies.length).toBeGreaterThan(0);
       expect(internalPolicies.every((p) => p.internal === true)).toBe(true);
       expect(internalPolicies.find((p) => p.key === created.key)).toBeUndefined();
 
       const nonInternalPolicies = await client.access.policies.retrieve({
-        where: { internal: { eq: false } },
+        internal: false,
       });
       expect(nonInternalPolicies.every((p) => p.internal !== true)).toBe(true);
       expect(nonInternalPolicies.find((p) => p.key === created.key)).toBeDefined();
@@ -279,11 +279,13 @@ describe("cached reads", () => {
       }
     });
 
-    it("refetches the policies of a user whose roles change", async () => {
+    it("refetches the policies of a user whose role changes", async () => {
       const p = await createPolicy();
+      const empty = await createEmptyRole(client);
       const u = await client.users.create({
         username: id.create(),
         password: "test",
+        role: empty.key,
       });
       const subject = user.resourceID(u.key);
       const off = client.access.policies.onChange(
@@ -291,15 +293,13 @@ describe("cached reads", () => {
         () => {},
       );
       try {
-        expect(
-          await client.access.policies.retrieve({ where: { subjects: [subject] } }),
-        ).toEqual([]);
-        await remote.users.setRoles(u.key, { add: [owner.key] });
+        expect(await client.access.policies.retrieve({ subjects: [subject] })).toEqual(
+          [],
+        );
+        await remote.users.setRole(u.key, owner.key);
         await expect
           .poll(() => {
-            const cached = client.access.policies.getCached({
-              where: { subjects: [subject] },
-            });
+            const cached = client.access.policies.getCached({ subjects: [subject] });
             return query.isLive(cached) && cached.some(({ key }) => key === p.key);
           })
           .toBe(true);

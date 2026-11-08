@@ -33,10 +33,9 @@ var _ = Describe("Writer", func() {
 		w  policy.Writer
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, false)
 	})
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Create", func() {
 		It("Should create a policy with auto-generated UUID", func(ctx SpecContext) {
@@ -190,11 +189,10 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, policies[0].Key)).To(Succeed())
 
 			var p policy.Policy
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(policy.MatchKeys(policies[0].Key)).
 				Entry(&p).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete multiple policies", func(ctx SpecContext) {
@@ -260,7 +258,7 @@ var _ = Describe("Retriever", func() {
 		policies []policy.Policy
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, false)
 		policies = []policy.Policy{
 			{
@@ -286,7 +284,6 @@ var _ = Describe("Retriever", func() {
 			Expect(w.Create(ctx, &policies[i])).To(Succeed())
 		}
 	})
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("WhereKeys", func() {
 		It("Should retrieve a single policy by key", func(ctx SpecContext) {
@@ -310,11 +307,10 @@ var _ = Describe("Retriever", func() {
 
 		It("Should return empty when key not found", func(ctx SpecContext) {
 			var p policy.Policy
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(policy.MatchKeys(uuid.New())).
 				Entry(&p).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -541,8 +537,7 @@ var _ = Describe("Retriever", func() {
 
 var _ = Describe("Resources", func() {
 	var tx gorp.Tx
-	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
+	BeforeEach(func(ctx SpecContext) { tx = DeferClose(db.OpenTx()) })
 
 	Describe("Search", func() {
 		It(

@@ -54,10 +54,10 @@ func openDevices(
 		DB: db,
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           db,
-		HostProvider: testutil.NewStaticHostProvider(1),
-		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DB:         db,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 	}))
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     db,
@@ -130,10 +130,10 @@ var _ = Describe("Service", func() {
 		var tasksCfg tasktestutil.TasksConfig
 		devices, tasksCfg = openDevices(ctx, node.DB)
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Status:       tasksCfg.Status,
+			Channel: node.Channel,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  tasksCfg.Status,
 		}))
 		svc = MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
 			DB:     node.DB,

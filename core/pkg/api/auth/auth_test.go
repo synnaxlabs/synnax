@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -55,7 +56,9 @@ func authed(ctx context.Context, token string) freighter.Context {
 
 func createUser(ctx context.Context, username, pwd string) user.User {
 	GinkgoHelper()
-	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Name: username}))
+	u := MustSucceed(
+		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: username}),
+	)
 	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.ResourceID(), auth.Credentials{
 		Username: username,
 		Password: pwd,
@@ -86,8 +89,8 @@ var _ = Describe("Login", func() {
 			Expect(res.User.Key).To(Equal(root.Key))
 			session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
 			Expect(session.Subject).To(Equal(root.ResourceID()))
-			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Cluster.Key().String()))
-			Expect(res.ClusterInfo.NodeKey).To(Equal(node.Cluster.HostKey()))
+			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Identity.Key.String()))
+			Expect(res.ClusterInfo.NodeKey).To(Equal(node.Identity.HostKey))
 			Expect(res.ClusterInfo.NodeTime).ToNot(BeZero())
 		},
 	)
@@ -109,7 +112,7 @@ var _ = Describe("ChangePassword", func() {
 	var own auth.Credentials
 	BeforeEach(func(ctx SpecContext) {
 		own = auth.Credentials{Username: uuid.New().String(), Password: "old"}
-		u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+		u := MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
 			Name: own.Username,
 		}))
 		Expect(passwordSvc.NewWriter(nil).Set(ctx, u.ResourceID(), own)).To(Succeed())
@@ -285,7 +288,7 @@ var _ = Describe("SetPassword", func() {
 		})).Error().To(MatchError(validate.ErrValidation))
 	})
 	It("Should report a user with no password as not found", func(ctx SpecContext) {
-		u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+		u := MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
 			Name: "nopass-" + uuid.New().String(),
 		}))
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
