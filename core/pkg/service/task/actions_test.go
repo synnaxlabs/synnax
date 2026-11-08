@@ -78,14 +78,16 @@ var _ = Describe("Actions", func() {
 			Expect(next.Rack).To(BeEquivalentTo(7))
 		})
 
-		It("Should reject a guard that names no discriminator", func() {
+		It("Should reject a guard that names no union the path goes into", func() {
 			Expect(task.Reduce(base, task.NewSetAction(task.SetPayload{
 				Path:   []string{"name"},
 				Value:  "Renamed",
 				Guards: []patch.Guard{{Path: []string{"name"}, Value: "Other"}},
 			}))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("the guard names no discriminator")),
+				MatchError(ContainSubstring(
+					"[name]: the guard names no union that the path goes into",
+				)),
 			))
 		})
 
