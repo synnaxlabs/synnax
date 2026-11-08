@@ -955,7 +955,7 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				// Registered after the Driver, so it runs before Close waits on the stop.
+				// Runs before Close, which waits for the blocked stop.
 				DeferCleanup(release)
 				tasks := make([]task.Task, 3)
 				for i := range tasks {
@@ -1030,7 +1030,7 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				// Registered after the Driver, so it runs before Close waits on the stop.
+				// Runs before Close, which waits for the blocked stop.
 				DeferCleanup(release)
 				blocker := newTask(embeddedRackKey(ctx))
 				recreated := newTask(embeddedRackKey(ctx))
@@ -1109,7 +1109,7 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				// Registered after the Driver, so it runs before Close waits on the stop.
+				// Runs before Close, which waits for the blocked stop.
 				DeferCleanup(release)
 				blocker := newTask(embeddedRackKey(ctx))
 				recreated := newTask(embeddedRackKey(ctx))
@@ -1162,7 +1162,77 @@ var _ = Describe("Driver", func() {
 					mu.Lock()
 					defer mu.Unlock()
 					return stops[recreated.Key]
-				}, "200ms").Should(Equal(1))
+				}).Should(Equal(1))
+			},
+		)
+
+		It(
+			"should deploy a recreated task only after its deleted instance stops",
+			func(ctx SpecContext) {
+				var (
+					mu         sync.Mutex
+					configures = make(map[task.Key]int)
+					armed      atomic.Bool
+					blocking   = make(chan struct{})
+					released   = make(chan struct{})
+					release    = sync.OnceFunc(func() { close(released) })
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						mu.Lock()
+						configures[t.Key]++
+						mu.Unlock()
+						return &mockTask{
+							key: t.Key,
+							stopFunc: func(bool) error {
+								if armed.CompareAndSwap(true, false) {
+									close(blocking)
+									<-released
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				// Runs before Close, which waits for the blocked stop.
+				DeferCleanup(release)
+				recreated := newTask(embeddedRackKey(ctx))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &recreated)
+				})).To(Succeed())
+				writeCommand(ctx, task.Command{
+					Task: recreated.Key,
+					Type: "start",
+					Key:  "cmd-first",
+				})
+				configured := func() int {
+					mu.Lock()
+					defer mu.Unlock()
+					return configures[recreated.Key]
+				}
+				Eventually(configured).Should(Equal(1))
+				armed.Store(true)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, recreated.Key, false)
+				})).To(Succeed())
+				Eventually(blocking).Should(BeClosed())
+				again := recreated
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &again)
+				})).To(Succeed())
+				writeCommand(ctx, task.Command{
+					Task: recreated.Key,
+					Type: "start",
+					Key:  "cmd-again",
+				})
+				Consistently(configured).Should(Equal(1))
+				release()
+				Eventually(configured).Should(Equal(2))
 			},
 		)
 
