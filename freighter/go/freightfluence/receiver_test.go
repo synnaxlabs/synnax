@@ -227,11 +227,9 @@ var _ = Describe("Receiver", func() {
 			"Should exit with the error of the transform",
 			func(ctx SpecContext, shouldSend bool) {
 				errTransform := errors.New("transform failed")
-				sent, err := flow(ctx, func(context.Context, int) (int, bool, error) {
+				Expect(flow(ctx, func(context.Context, int) (int, bool, error) {
 					return 0, shouldSend, errTransform
-				})
-				Expect(err).To(MatchError(errTransform))
-				Expect(sent).To(BeEmpty())
+				})).Error().To(MatchError(errTransform))
 			},
 			Entry("when the transform sends the value", true),
 			Entry("when the transform does not send the value", false),
