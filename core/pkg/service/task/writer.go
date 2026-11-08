@@ -11,7 +11,6 @@ package task
 
 import (
 	"context"
-	"reflect"
 	"slices"
 	"uuid"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -176,10 +176,10 @@ func (w Writer) create(ctx context.Context, t *Task) error {
 		if err != nil {
 			return err
 		}
-		t.Config = rec.Data()
-		if t.ConfigHash, err = hashConfig(configContent(t.Config)); err != nil {
+		if t.Config, err = rec.Data(); err != nil {
 			return err
 		}
+		t.ConfigHash = rec.Hash()
 		record = &rec
 	}
 	cfg := t.Config // Restored after the row write; rows do not store config.
@@ -242,8 +242,9 @@ func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 }
 
 // apply applies the actions to the task with the given key and stores the result. It
-// returns the actions that only the Core computes: a set of the stored config when
-// storing changed it, such as by filling a default, then a set of the new config hash.
+// returns the actions that only the Core computes for an edit of the config: a set of
+// the stored config when storing changed it, such as by filling a default, then a set
+// of the new config hash.
 func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, error) {
 	var prev Task
 	if err := w.table.NewRetrieve().
@@ -259,47 +260,23 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 			key,
 		)
 	}
-	store, ok := w.configs.Store(prev.Type)
-	if !ok {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"unknown task type %q",
-			prev.Type,
-		)
-	}
-	var err error
-	if prev.Config, err = store.Read(ctx, w.tx, key); err != nil {
+	others, cursors, err := splitConfig(acts)
+	if err != nil {
 		return nil, err
 	}
-	next, err := Reduce(prev, acts...)
+	next, err := Reduce(prev, others...)
 	if err != nil {
 		return nil, err
 	}
 	if err = next.Validate(); err != nil {
 		return nil, err
 	}
-	rec, err := store.PrepareStrict(ctx, w.tx, key, next.Config)
-	if err != nil {
-		return nil, err
+	var computed []Action
+	if len(cursors) > 0 {
+		if computed, err = w.editConfig(ctx, &next, cursors); err != nil {
+			return nil, err
+		}
 	}
-	if err = rec.Write(ctx, w.tx); err != nil {
-		return nil, err
-	}
-	stored := rec.Data()
-	if next.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
-		return nil, err
-	}
-	computed := []Action{NewSetAction(SetPayload{
-		Path:  []string{"config_hash"},
-		Value: next.ConfigHash,
-	})}
-	if !reflect.DeepEqual(stored, next.Config) {
-		computed = slices.Insert(computed, 0, NewSetAction(SetPayload{
-			Path:  []string{"config"},
-			Value: stored,
-		}))
-	}
-	next.Config = nil
 	if err = w.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
@@ -309,6 +286,64 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 		}
 	}
 	return computed, nil
+}
+
+// splitConfig returns the actions that do not edit the task's config, then the cursors
+// of the actions that do, each past the segment that names the config.
+func splitConfig(acts []Action) ([]Action, []patch.Cursor, error) {
+	var (
+		others  []Action
+		cursors []patch.Cursor
+	)
+	for _, a := range acts {
+		c, ok, err := a.cursor()
+		if err != nil {
+			return nil, nil, err
+		}
+		if ok && c.Segment() == "config" {
+			cursors = append(cursors, c.Next())
+		} else {
+			others = append(others, a)
+		}
+	}
+	return others, cursors, nil
+}
+
+// editConfig applies the cursors to the config of t, stores it, and sets the config
+// hash of t. It returns a set of the stored config when storing changed it, then a set
+// of the hash.
+func (w Writer) editConfig(
+	ctx context.Context,
+	t *Task,
+	cursors []patch.Cursor,
+) ([]Action, error) {
+	store, ok := w.configs.Store(t.Type)
+	if !ok {
+		return nil, errors.Wrapf(validate.ErrValidation, "unknown task type %q", t.Type)
+	}
+	rec, changed, err := store.Edit(ctx, w.tx, t.Key, cursors)
+	if err != nil {
+		return nil, err
+	}
+	if err = rec.Write(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	t.ConfigHash = rec.Hash()
+	var computed []Action
+	if changed {
+		stored, err := rec.Data()
+		if err != nil {
+			return nil, err
+		}
+		computed = append(computed, NewSetAction(SetPayload{
+			Path:  []string{"config"},
+			Value: stored,
+		}))
+	}
+	return append(computed, NewSetAction(SetPayload{
+		Path:  []string{"config_hash"},
+		Value: t.ConfigHash,
+	})), nil
 }
 
 // syncConfig stores the hash of the config stored for the task with the given key. It
@@ -329,7 +364,7 @@ func (w Writer) syncConfig(ctx context.Context, key Key) ([]Action, error) {
 	if err != nil {
 		return nil, err
 	}
-	if t.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
+	if t.ConfigHash, err = store.Hash(ctx, w.tx, key); err != nil {
 		return nil, err
 	}
 	if err = w.table.NewCreate().Entry(&t).Exec(ctx, w.tx); err != nil {

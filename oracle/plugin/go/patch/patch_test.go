@@ -259,9 +259,200 @@ var _ = Describe("Go Patch Plugin", func() {
 				}
 			`, "doc", loader)
 				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
-					"doc.Inner has @patch fields, so no @patch field can reach it",
+					"doc.Inner is a document, so no other document can hold it",
 				)))
 			},
+		)
+	})
+
+	Describe("Store documents", func() {
+		const store = `
+			@go output "core/pkg/service/cfg"
+
+			Mode enum {
+				fast = "fast"
+				slow = "slow"
+			}
+
+			Rate float64
+
+			Range struct {
+				min float64
+				max float64
+			}
+
+			Scale struct {
+				scale float64
+			}
+
+			Base struct {
+				key  string
+				port string
+			}
+
+			Channel union on type extends Base {
+				analog extends Range, Scale {
+					port string = "AIN0"
+					gain float64
+				}
+				digital {
+					line int32
+				}
+			}
+
+			Entry struct {
+				key   string
+				name  string
+				modes Mode[]
+			}
+
+			Point struct {
+				x float64
+			}
+
+			Config struct {
+				key      uuid
+				rate     Rate
+				mode     Mode
+				label    string?
+				channels Channel[]
+				entries  Entry[]
+				points   Point[]
+				payload  any
+				fill     any?
+				id       uuid
+
+				@patch
+			}
+		`
+
+		It("Should switch on every field of a document with @patch", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, store, "cfg", loader, p)
+			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"func (cv *Config) Patch(c patch.Cursor) error {",
+					"return patch.Value(&cv.Key, c.Next())",
+					"return patch.Value(&cv.Rate, c.Next())",
+					"return patch.OptionalValue(&cv.Label, c.Next())",
+					"return patch.List(&cv.Channels, c.Next())",
+					"return patch.List(&cv.Entries, c.Next())",
+					"return patch.Value(&cv.Points, c.Next())",
+					"return patch.Any(&cv.Payload, c.Next())",
+					"return patch.OptionalAny(&cv.Fill, c.Next())",
+				).
+				ToNotContain("func (p *Point) Patch", "func (p *Point) PatchKey")
+		})
+
+		It("Should apply an action to the active variant of a union", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, store, "cfg", loader, p)
+			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").ToContain(
+				"func (cv *Channel) Patch(c patch.Cursor) error {",
+				"switch v := cv.Variant.(type) {",
+				"case AnalogChannel:",
+				`c, ok := c.Guard("type", "analog")`,
+				`if c.Segment() == "type" {`,
+				"return patch.Discriminator(cv, c)",
+				"if err := v.Patch(c); err != nil {",
+				"cv.Variant = v",
+				`return patch.Absent(cv, c, "type")`,
+				"func (ac *AnalogChannel) Patch(c patch.Cursor) error {",
+				"func (dc *DigitalChannel) Patch(c patch.Cursor) error {",
+			)
+		})
+
+		It("Should reach a field through the parents that a variant embeds", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, store, "cfg", loader, p)
+			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").ToContain(
+				"return patch.Value(&ac.Base.Key, c.Next())",
+				"return patch.Value(&ac.Base.Port, c.Next())",
+				"return patch.Value(&ac.Range.Min, c.Next())",
+				"return patch.Value(&ac.Scale.Scale, c.Next())",
+				"return patch.Value(&ac.Gain, c.Next())",
+			)
+		})
+
+		It("Should name the entries of a keyed list by their key", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, store, "cfg", loader, p)
+			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").ToContain(
+				"func (e *Entry) PatchKey() string { return e.Key }",
+				"func (cv *Channel) PatchKey() string {",
+				"case AnalogChannel:\n\t\treturn v.Base.Key",
+			)
+		})
+
+		It("Should hash every value of a document except its keys", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, store, "cfg", loader, p)
+			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").
+				ToContain(
+					"func (cv *Config) HashContent(h *content.Hash) {",
+					"h.Float(float64(cv.Rate))",
+					"h.String(string(cv.Mode))",
+					"if cv.Label == nil {",
+					"h.String(*cv.Label)",
+					"h.Len(len(cv.Channels))",
+					"cv.Channels[i0].HashContent(h)",
+					"for i0 := range e.Modes {",
+					"h.String(string(e.Modes[i0]))",
+					"h.Any(cv.Payload)",
+					"h.Any(*cv.Fill)",
+					"h.Bytes(cv.ID[:])",
+					"func (cv *Channel) HashContent(h *content.Hash) {",
+					`h.String("analog")`,
+					"func (p *Point) HashContent(h *content.Hash) {",
+					"h.Float(ac.Range.Min)",
+				).
+				ToNotContain("h.Bytes(cv.Key[:])", "h.String(e.Key)")
+		})
+
+		It("Should leave the hash out for a document with @patch fields", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/cell"
+
+				Cell struct {
+					name string {
+						@patch
+					}
+
+					action Set extends patch.Set {}
+				}
+			`, "cell", loader, p)
+			ExpectContent(resp, "core/pkg/service/cell/patch.gen.go").
+				ToNotContain("HashContent", "x/content")
+		})
+
+		DescribeTable("Should reject a value that the hash cannot write",
+			func(ctx SpecContext, field, msg string) {
+				req := MustGenerateRequest(ctx, `
+					@go output "core/pkg/service/cfg"
+
+					Config struct {
+						`+field+`
+
+						@patch
+					}
+				`, "cfg", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(msg)))
+			},
+			Entry(
+				"a map",
+				"tags map<string, string>",
+				"content hashing does not support a map",
+			),
 		)
 	})
 

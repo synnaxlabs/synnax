@@ -58,5 +58,6 @@ TaskConfig struct extends task.StartConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
