@@ -15,6 +15,7 @@ import (
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
 )
 
 var _ = Describe("ServiceConfig", func() {
@@ -22,6 +23,7 @@ var _ = Describe("ServiceConfig", func() {
 		return apiproject.ServiceConfig{
 			RBAC:    &rbac.Service{},
 			Project: &project.Service{},
+			Bundle:  &bundle.Service{},
 		}
 	}
 
@@ -47,6 +49,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apiproject.ServiceConfig) { c.Project = nil },
 				"project: must be non-nil",
 			),
+			Entry(
+				"bundle",
+				func(c *apiproject.ServiceConfig) { c.Bundle = nil },
+				"bundle: must be non-nil",
+			),
 		)
 	})
 
@@ -56,6 +63,7 @@ var _ = Describe("ServiceConfig", func() {
 			merged := apiproject.ServiceConfig{}.Override(cfg)
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Project).To(BeIdenticalTo(cfg.Project))
+			Expect(merged.Bundle).To(BeIdenticalTo(cfg.Bundle))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
@@ -63,6 +71,7 @@ var _ = Describe("ServiceConfig", func() {
 			merged := cfg.Override(apiproject.ServiceConfig{})
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Project).To(BeIdenticalTo(cfg.Project))
+			Expect(merged.Bundle).To(BeIdenticalTo(cfg.Bundle))
 		})
 	})
 })

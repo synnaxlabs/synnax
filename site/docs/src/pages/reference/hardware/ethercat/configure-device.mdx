@@ -18,7 +18,8 @@ export const components = mdxOverrides;
 [EtherCAT](https://www.ethercat.org/) is a fieldbus that runs on a standard Ethernet
 port. The Driver is the EtherCAT master: it finds each module on the network and reads
 and writes the process data of the module, which EtherCAT calls PDOs. Before a task can
-use a module, you configure it.
+use a module, you configure it. For Dewesoft IOLITE and SIRIUS devices, also see
+[Dewesoft devices](/reference/hardware/ethercat/dewesoft).
 
 <Divider.Divider x />
 
@@ -133,8 +134,10 @@ yet.
   the rate does not change until every task on the port stops. See
   ["cycles at ... Hz while a slave runs DC sync"](#the-bus-on--cycles-at--hz-while-a-slave-runs-dc-sync).
 - **Outputs** -> Each output holds the last value a write task commanded. When a write
-  task stops, its outputs go to zero. An output that another running write task
-  commanded keeps the last value of that task instead.
+  task stops, its outputs go to their stop values and hold them while the network runs.
+  When the network stops, or the Driver loses contact with a module, the module sets its
+  outputs to its own safe value. When the network starts, each output is 0 until a write
+  task commands it.
 - **Lost modules** -> When a module stops responding, the network continues to cycle,
   and the Driver returns the module to operation when it responds again. Until then,
   every read task on the port pauses with the warning "Failed to read data", and its

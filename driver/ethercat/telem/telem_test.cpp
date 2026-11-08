@@ -358,6 +358,32 @@ TEST(WritePdoFromValue, TwentyFourBitWithBitOffsetPreservesOtherBits) {
     EXPECT_EQ(buffer[3], 0xFC);
 }
 
+/// @brief it should leave the bits after a 12-bit entry to the next entry.
+TEST(WritePdoFromValue, TwelveBitKeepsTheNextEntry) {
+    uint8_t buffer[] = {0x00, 0xF0};
+    write_pdo_from_value(buffer, 0, 12, x::telem::INT16_T, int16_t{0x0ABC});
+    EXPECT_EQ(buffer[0], 0xBC);
+    EXPECT_EQ(buffer[1], 0xFA);
+}
+
+/// @brief it should write the low 12 bits of a negative value.
+TEST(WritePdoFromValue, TwelveBitNegative) {
+    uint8_t buffer[] = {0x00, 0x00};
+    write_pdo_from_value(buffer, 0, 12, x::telem::INT16_T, int16_t{-1});
+    EXPECT_EQ(buffer[0], 0xFF);
+    EXPECT_EQ(buffer[1], 0x0F);
+}
+
+/// @brief it should shift a 16-bit value to its bit offset and keep the bits around
+/// it.
+TEST(WritePdoFromValue, SixteenBitWithBitOffsetPreservesOtherBits) {
+    uint8_t buffer[] = {0x0F, 0x00, 0xF0};
+    write_pdo_from_value(buffer, 4, 16, x::telem::UINT16_T, uint16_t{0x1234});
+    EXPECT_EQ(buffer[0], 0x4F);
+    EXPECT_EQ(buffer[1], 0x23);
+    EXPECT_EQ(buffer[2], 0xF1);
+}
+
 TEST(PdoRequiredBytes, StandardByteLengths) {
     EXPECT_EQ(pdo_required_bytes(0, 8), 1u);
     EXPECT_EQ(pdo_required_bytes(0, 16), 2u);

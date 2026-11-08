@@ -13,11 +13,12 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";
+import { Project } from "@/feature/project";
 import {
   createResource,
   findModalButton,
   findTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import { assertDefined, resolveFocusedTab, uniqueName } from "@/testutil";
@@ -31,13 +32,13 @@ const createLog = async () => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
   });
-  return await client.logs.create(proj.key, { name: uniqueName("log") });
+  return await client.logs.create({ project: proj.key, name: uniqueName("log") });
 };
 
 const logResource = (key: string, name: string) =>
   createResource(log.resourceID(key), name);
 
-describe("log ontology service", () => {
+describe("log tree item", () => {
   it("should offer Reload Console", async () => {
     const l = await createLog();
     assertDefined(Item.ContextMenu);
@@ -83,11 +84,11 @@ describe("log ontology service", () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
     });
-    const l = await client.logs.create(proj.key, { name: uniqueName("log") });
-    const { store } = await renderOntologyTree({
+    const l = await client.logs.create({ project: proj.key, name: uniqueName("log") });
+    const { store } = await renderLiveTree({
       client,
       root: project.resourceID(proj.key),
-      items: Log.TREE_ITEMS,
+      items: { ...Project.TREE_ITEMS, ...Log.TREE_ITEMS },
     });
     fireEvent.doubleClick(await findTreeRow(l.name));
     const tab = await resolveFocusedTab(store, client);

@@ -16,9 +16,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rangerv1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	rangerv2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	filter "github.com/synnaxlabs/x/filter/versions/v0"
@@ -106,14 +107,14 @@ var _ = Describe("View", func() {
 			},
 			Entry("range", v2.View{Variant: v2.RangeView{
 				Base: v2.Base{Key: uuid.New(), Name: "Ranges"},
-				Where: &rangerv1.Where{Or: []rangerv1.Where{
+				Where: &rangerv2.Where{Or: []rangerv2.Where{
 					{Labels: []uuid.UUID{uuid.New()}},
-					{Not: &rangerv1.Where{Name: &filter.String{Eq: new("Run")}}},
+					{Not: &rangerv2.Where{Name: &filter.String{Eq: new("Run")}}},
 				}},
 			}}),
 			Entry("status", v2.View{Variant: v2.StatusView{
 				Base: v2.Base{Key: uuid.New(), Name: "Statuses"},
-				Where: &statusv1.Where{Variant: &filter.Set[statusv1.Variant]{
+				Where: &statusv2.Where{Variant: &filter.Set[statusv1.Variant]{
 					In: []statusv1.Variant{statusv1.VariantError},
 				}},
 			}}),
@@ -123,7 +124,7 @@ var _ = Describe("View", func() {
 			key, label := uuid.New(), uuid.New()
 			b := MustSucceed(json.Marshal(v2.View{Variant: v2.RangeView{
 				Base:  v2.Base{Key: key, Name: "Ranges"},
-				Where: &rangerv1.Where{Labels: []uuid.UUID{label}},
+				Where: &rangerv2.Where{Labels: []uuid.UUID{label}},
 			}}))
 			Expect(b).To(MatchJSON(`{
 				"type": "range",
@@ -182,14 +183,14 @@ var _ = Describe("View", func() {
 			},
 			Entry("range", v2.View{Variant: v2.RangeView{
 				Base: v2.Base{Key: uuid.New(), Name: "Ranges"},
-				Where: &rangerv1.Where{Or: []rangerv1.Where{
+				Where: &rangerv2.Where{Or: []rangerv2.Where{
 					{Labels: []uuid.UUID{uuid.New()}},
-					{Not: &rangerv1.Where{Name: &filter.String{Eq: new("Run")}}},
+					{Not: &rangerv2.Where{Name: &filter.String{Eq: new("Run")}}},
 				}},
 			}}),
 			Entry("status", v2.View{Variant: v2.StatusView{
 				Base: v2.Base{Key: uuid.New(), Name: "Statuses"},
-				Where: &statusv1.Where{
+				Where: &statusv2.Where{
 					Labels: []uuid.UUID{uuid.New()},
 					Variant: &filter.Set[statusv1.Variant]{
 						Eq: new(statusv1.VariantError),

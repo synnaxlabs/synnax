@@ -273,6 +273,29 @@ describe("Write", () => {
     expect(stateIndex.name).toBe(`${identifier}_state_time`);
   });
 
+  it("should save the stop value typed for a selected channel", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { draft } = await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x7000:01/ }));
+    const stopValue = await screen.findByLabelText("Stop value");
+    fireEvent.change(stopValue, { target: { value: "5" } });
+    fireEvent.blur(stopValue);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.WRITE_SCHEMAS,
+      });
+      expect(saved.config.channels[0]).toMatchObject({ stopValue: 5 });
+    });
+  });
+
   it("should honor custom command and state channel names", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
@@ -355,6 +378,7 @@ describe("Write", () => {
     );
     first.unmount();
     const [bound] = firstTask.config.channels;
+    await client.tasks.delete(firstTask.key);
     await client.channels.delete(bound.stateChannel);
 
     const second = await renderWrite(config);
@@ -391,13 +415,19 @@ describe("Write", () => {
       key: slave.key,
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
-    return { slave: updated, channel: deployed.config.channels[0] };
+    return { slave: updated, channel: deployed.config.channels[0], task: deployed.key };
+  };
+
+  // The Core refuses to delete a slave that a task uses.
+  const deleteSlave = async (slave: string, task: string) => {
+    await client.tasks.delete(task);
+    await client.devices.delete(slave);
   };
 
   it("should reuse the channels of a deleted slave with the same identifier", async () => {
     const identifier = createIdentifier();
     const first = await deploySlave(identifier);
-    await client.devices.delete(first.slave.key);
+    await deleteSlave(first.slave.key, first.task);
     const second = await deploySlave(identifier);
     expect(second.channel.cmdChannel).toBe(first.channel.cmdChannel);
     expect(second.channel.stateChannel).toBe(first.channel.stateChannel);
@@ -419,7 +449,7 @@ describe("Write", () => {
     try {
       const identifier = createIdentifier();
       const first = await deploySlave(identifier);
-      await client.devices.delete(first.slave.key);
+      await deleteSlave(first.slave.key, first.task);
       const second = await deploySlave(identifier);
       expect(second.channel.cmdChannel).toBe(first.channel.cmdChannel);
     } finally {

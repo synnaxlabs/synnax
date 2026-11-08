@@ -13,7 +13,7 @@ import path from "node:path";
 import {
   type channel,
   ni,
-  project,
+  type project,
   type rack,
   type Synnax,
   task,
@@ -396,7 +396,7 @@ const hardware = async (
   });
   await client.panels.create({
     name: "Hardware",
-    parent: project.resourceID(proj),
+    project: proj,
     root: {
       variant: "leaf",
       tabs: [{ variant: "resource", resource: task.resourceID(acquire.key) }],

@@ -23,9 +23,9 @@ type Update[K Key, E Entry[K]] struct {
 	// changes is the chain of transformations applied to each matched
 	// entry before it is written back.
 	changes changes[K, E]
-	// indexes is the set of secondary indexes the query stages writes
-	// against. Nil means writes are not staged.
-	indexes []Index[K, E]
+	// table is the Table the query writes through. Nil for a query that no Table
+	// built.
+	table *Table[K, E]
 }
 
 // NewUpdate opens a new Update query.
@@ -49,8 +49,12 @@ func (u Update[K, E]) ChangeErr(f func(Context, E) (E, error)) Update[K, E] {
 	return u
 }
 
-func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
+func (u Update[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("update.Exec", tx)
+	return inTx(ctx, tx, func(tx Tx) error { return u.exec(ctx, tx) })
+}
+
+func (u Update[K, E]) exec(ctx context.Context, tx Tx) (err error) {
 	var entries []E
 	if err = u.retrieve.Entries(&entries).Exec(ctx, tx); err != nil {
 		return err
@@ -69,7 +73,11 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 			return err
 		}
 	}
-	w := wrapWriter(tx, u.retrieve.keyPrefix, u.indexes)
+	if u.table != nil {
+		w := u.table.writer(tx, true)
+		return w.Set(ctx, entries...)
+	}
+	w := wrapWriter[K, E](tx, u.retrieve.keyPrefix, nil)
 	return w.Set(ctx, entries...)
 }
 
@@ -77,11 +85,13 @@ type changeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)
 
 type changes[K Key, E Entry[K]] []changeFunc[K, E]
 
-func (c changes[K, E]) exec(ctx Context, entry E) (o E, err error) {
+func (c changes[K, E]) exec(ctx Context, entry E) (E, error) {
 	for _, change := range c {
-		if o, err = change(ctx, entry); err != nil {
-			return o, err
+		var err error
+		if entry, err = change(ctx, entry); err != nil {
+			var zero E
+			return zero, err
 		}
 	}
-	return o, err
+	return entry, nil
 }

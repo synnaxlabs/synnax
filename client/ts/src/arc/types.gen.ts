@@ -62,6 +62,7 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   name?: filter.String;
+  directories?: string[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -80,6 +81,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   key: filter.setZ(keyZ).optional(),
   /** name selects by name. */
   name: filter.stringZ.optional(),
+  /** directories matches the Arcs in any of the given directories. */
+  directories: zod.nullToUndefined(z.uuid().array()),
 });
 
 /** Base carries the fields that every Arc shares. */
@@ -90,6 +93,8 @@ export const baseZ = z.object({
   name: z.string().min(1, "name is required"),
   /** source is the Arc's source code, written as text or drawn as a graph. */
   source: sourceZ.prefault({ mode: "text" }),
+  /** directory is the key of the directory that holds the Arc. */
+  directory: z.uuid().optional(),
 });
 export interface Base extends z.infer<typeof baseZ> {}
 

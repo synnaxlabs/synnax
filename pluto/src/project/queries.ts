@@ -7,8 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { project, query, resource, type Synnax } from "@synnaxlabs/client";
-import { array, deep, type record, verbs } from "@synnaxlabs/x";
+import {
+  type group,
+  project,
+  query,
+  type ranger,
+  type resource,
+  type Synnax,
+  UnexpectedError,
+} from "@synnaxlabs/client";
+import { array, deep, type destructor, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -92,60 +100,87 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   },
 });
 
-export type RetrieveChildrenQuery = {
-  resourceID?: resource.ID;
-  types: resource.Type[];
-};
+/** A record type that belongs to a project. */
+export type VisualizationType = "schematic" | "lineplot" | "log" | "table" | "panel";
 
-export interface Child extends record.KeyedNamed {
-  type: resource.Type;
+/** A visualization of any type. */
+export interface Visualization extends record.KeyedNamed<string>, project.Movable {}
+
+/** The flat where fields that every visualization client takes. */
+export interface VisualizationQuery {
+  key?: string[];
+  groups?: group.Key[];
+  grouped?: boolean;
+  projects?: project.Key[];
+  ranges?: ranger.Key[];
 }
 
-const collectChildren = async (
-  client: Flux.RetrieveParams<RetrieveChildrenQuery>["client"],
-  parentID: resource.ID,
-  types: resource.Type[],
-  exclude?: string,
-): Promise<Child[]> => {
-  const children = await client.ontology.children.retrieve({
-    ids: parentID,
-    types: [...types, "group"],
-  });
-  const results = await Promise.all(
-    children.map(async (child): Promise<Child[]> => {
-      if (types.includes(child.id.type) && child.id.key !== exclude)
-        return [{ key: child.id.key, name: child.name, type: child.id.type }];
-      if (child.id.type === "group")
-        return await collectChildren(client, child.id, types, exclude);
-      return [];
-    }),
-  );
-  return results.flat();
+/** The calls that every visualization client answers. */
+export interface VisualizationClient {
+  retrieve(query: VisualizationQuery): Promise<Visualization[]>;
+  onChange(
+    key: string,
+    handler: query.ChangeHandler<Visualization>,
+  ): destructor.Destructor;
+  onChange(
+    query: VisualizationQuery,
+    handler: query.ChangeHandler<Visualization[]>,
+  ): destructor.Destructor;
+  getCached(key: string): query.Cached<Visualization> | undefined;
+  getCached(query: VisualizationQuery): query.Cached<Visualization[]> | undefined;
+  readonly setProjectRequest: project.MoveRequest<string>;
+}
+
+/** Returns the client of each visualization type. */
+export const VISUALIZATIONS: Record<
+  VisualizationType,
+  (client: Synnax) => VisualizationClient
+> = {
+  schematic: (client) => client.schematics,
+  lineplot: (client) => client.lineplots,
+  log: (client) => client.logs,
+  table: (client) => client.tables,
+  panel: (client) => client.panels,
 };
 
-const findProjectAncestor = async (
-  client: Flux.RetrieveParams<RetrieveChildrenQuery>["client"],
-  resourceID: resource.ID,
-): Promise<resource.ID | null> => {
-  const { paths } = await client.ontology.ancestors.retrieve({ ids: resourceID });
-  for (const path of paths[resource.idToString(resourceID)] ?? [])
-    for (const id of path.toReversed()) {
-      if (id.type === "project") return id;
-      if (id.type !== "group") break;
-    }
-  return null;
+export const VISUALIZATION_TYPES = Object.keys(VISUALIZATIONS) as VisualizationType[];
+
+export const isVisualizationType = (type: resource.Type): type is VisualizationType =>
+  type in VISUALIZATIONS;
+
+export type RetrieveSiblingsQuery = {
+  resourceID?: resource.ID;
+  types: VisualizationType[];
 };
+
+export interface Sibling extends record.KeyedNamed<string> {
+  type: VisualizationType;
+}
 
 /**
- * Retrieves the sibling resources sharing the queried resource's project, excluding the
- * resource itself. Returns an empty list when the resource has no project ancestor.
+ * Retrieves the visualizations of the given types that share the queried
+ * visualization's project, excluding the visualization itself. Returns an empty list
+ * when the visualization belongs to no project.
+ * @throws if the resource is not a visualization.
  */
-export const retrieveChildren = async (
+export const retrieveSiblings = async (
   client: Synnax,
-  { resourceID, types }: RetrieveChildrenQuery,
-): Promise<Child[]> => {
+  { resourceID, types }: RetrieveSiblingsQuery,
+): Promise<Sibling[]> => {
   if (resourceID == null) return [];
-  const projectID = await findProjectAncestor(client, resourceID);
-  if (projectID == null) return [];
-  return await collectChildren(client, projectID, types, resourceID.key);
+  if (!isVisualizationType(resourceID.type))
+    throw new UnexpectedError(`a ${resourceID.type} does not belong to a project`);
+  const [source] = await VISUALIZATIONS[resourceID.type](client).retrieve({
+    key: [resourceID.key],
+  });
+  if (source?.project == null) return [];
+  const projects = [source.project];
+  const siblings = await Promise.all(
+    types.map(async (type) =>
+      (await VISUALIZATIONS[type](client).retrieve({ projects })).map(
+        ({ key, name }) => ({ key, name, type }),
+      ),
+    ),
+  );
+  return siblings.flat().filter(({ key }) => key !== resourceID.key);
 };

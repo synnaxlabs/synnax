@@ -33,13 +33,16 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
     afterOptimistic: ({ data: { key } }) => {
       maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Schematic.create({ key, editable: true }));
+    },
+    // A refused create must not leave a tab for a schematic that does not exist.
+    afterSuccess: ({ data: { key } }) => {
       openTab({
         variant: "resource",
         resource: schematic.resourceID(key),
         key: tabKey,
       });
+      capture("schematic_created", {});
     },
-    afterSuccess: () => capture("schematic_created", {}),
   });
   return (params = {}) =>
     update({ name: "Schematic", ...params, project: project ?? getActiveProject() });

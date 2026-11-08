@@ -15,6 +15,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/resource/id.h"
@@ -31,10 +32,9 @@
 
 namespace synnax::rack {
 
-struct StatusDetails;
 struct Where;
-struct RetrieveRequest;
 struct Rack;
+struct RetrieveRequest;
 struct RetrieveResponse;
 
 /// @brief Key is a composite identifier for a rack. The high 16 bits contain the Core
@@ -42,20 +42,7 @@ struct RetrieveResponse;
 /// Core named in its high bits, so writes route to the Core running its Driver.
 using Key = std::uint32_t;
 
-/// @brief StatusDetails contains rack-specific status details.
-struct StatusDetails {
-    /// @brief rack is the key of the rack this status pertains to.
-    Key rack = 0;
-
-    static StatusDetails parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::rack::pb::StatusDetails;
-    [[nodiscard]] std::pair<::service::rack::pb::StatusDetails, x::errors::Error>
-    to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const ::service::rack::pb::StatusDetails &pb);
-};
+using Status = ::synnax::status::Status<std::monostate>;
 
 /// @brief Where is a filter that selects racks.
 struct Where {
@@ -112,7 +99,37 @@ struct Where {
     from_proto(const ::service::rack::pb::Where &pb);
 };
 
-using Status = ::synnax::status::Status<StatusDetails>;
+/// @brief Rack is a collection container for hardware devices and tasks running on a
+/// specific Core. Racks are the integration point between the Core and physical
+/// hardware through the Driver.
+struct Rack {
+    /// @brief key is the composite identifier for this rack.
+    Key key = 0;
+    /// @brief name is a human-readable name for the rack.
+    std::string name;
+    /// @brief embedded is true if this rack is embedded within the Synnax server
+    /// process.
+    bool embedded = false;
+    /// @brief status is the current operational status of the rack.
+    std::optional<Status> status;
+    /// @brief integrations is the list of hardware integrations this rack supports
+    /// (e.g., "ni", "opc", "labjack"). An empty or nil list means the rack supports no
+    /// integrations.
+    std::vector<std::string> integrations = {};
+    /// @brief version is the version of the Driver that runs the rack, written at each
+    /// connect. Absent until a Driver reports it.
+    std::optional<std::string> version;
+
+    static Rack parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::rack::pb::Rack;
+    [[nodiscard]] std::pair<::service::rack::pb::Rack, x::errors::Error>
+    to_proto() const;
+    static std::pair<Rack, x::errors::Error>
+    from_proto(const ::service::rack::pb::Rack &pb);
+    task::Client tasks;
+};
 
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
 struct RetrieveOptions {
@@ -158,38 +175,6 @@ struct RetrieveRequest {
     to_proto() const;
     static std::pair<RetrieveRequest, x::errors::Error>
     from_proto(const ::api::rack::pb::RetrieveRequest &pb);
-};
-
-/// @brief Rack is a collection container for hardware devices and tasks running on a
-/// specific Core. Racks are the integration point between the Core and physical
-/// hardware through the Driver.
-struct Rack {
-    /// @brief key is the composite identifier for this rack.
-    Key key = 0;
-    /// @brief name is a human-readable name for the rack.
-    std::string name;
-    /// @brief embedded is true if this rack is embedded within the Synnax server
-    /// process.
-    bool embedded = false;
-    /// @brief status is the current operational status of the rack.
-    std::optional<Status> status;
-    /// @brief integrations is the list of hardware integrations this rack supports
-    /// (e.g., "ni", "opc", "labjack"). An empty or nil list means the rack supports no
-    /// integrations.
-    std::vector<std::string> integrations = {};
-    /// @brief version is the version of the Driver that runs the rack, written at each
-    /// connect. Absent until a Driver reports it.
-    std::optional<std::string> version;
-
-    static Rack parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::rack::pb::Rack;
-    [[nodiscard]] std::pair<::service::rack::pb::Rack, x::errors::Error>
-    to_proto() const;
-    static std::pair<Rack, x::errors::Error>
-    from_proto(const ::service::rack::pb::Rack &pb);
-    task::Client tasks;
 };
 
 /// @brief RetrieveResponse holds the racks a RetrieveRequest selects.

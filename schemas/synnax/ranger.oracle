@@ -46,23 +46,17 @@ Range struct {
             interfaces.
         """
     }
-    labels     label.Label[]?  {
-        @doc value     """
-            contains optional labels attached to this range for categorization and
-            filtering.
-        """
-        @go marshal    omit
-        @include
-        @validate skip
+    labels     label.Key[] = [] {
+        @doc value     "are the keys of the labels attached to the range."
+        @ref on_delete detach
     }
-    parent     Range?          {
+    parent     Key?            {
         @doc value     """
-            is an optional parent range for hierarchical organization. Ranges can be
-            nested within other ranges.
+            is the key of the range this range is nested in. Empty for a top-level
+            range.
         """
-        @go marshal    omit
-        @include
-        @validate skip
+        @ref acyclic
+        @ref on_delete cascade
     }
 
     action Create {
@@ -117,6 +111,9 @@ Where filter Range {
     labels   label.Key[]     {
         @doc value "matches ranges that have any of the given labels."
     }
+    parents  Key[]           {
+        @doc value "matches the ranges nested in any of the given ranges."
+    }
 
     @doc value         "is a filter that selects ranges."
     @go marshal
@@ -149,11 +146,6 @@ Ref union on variant {
 }
 
 New struct extends Range {
-    -labels
-    parent Range? {
-        @doc value "references the parent range."
-        @ts pick   key
-    }
     key?
 
     @cpp omit

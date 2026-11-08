@@ -11,11 +11,12 @@ import {
   imex,
   lineplot,
   log,
-  type ontology,
   project,
   type resource,
   schematic,
+  type Synnax as Client,
   table,
+  UnexpectedError,
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -169,7 +170,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   );
 };
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
+const useOnSelect = (): ((resource: Tree.Resource) => void) => {
   const client = Synnax.use();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
@@ -185,21 +186,63 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   };
 };
 
-const VALID_CHILDREN: resource.Type[] = [
-  "schematic",
-  "lineplot",
-  "log",
-  "table",
-  "group",
+const DROPPABLE_TYPES = new Set<resource.Type>([...Base.VISUALIZATION_TYPES, "group"]);
+
+/** Lists the projects that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "project",
+  children: (client, key) =>
+    Tree.createSource(client.projects, { groups: [key] }, Tree.toResource("project")),
+};
+
+/** Lists the top level of the project tree: its groups and the projects in no group. */
+export const listTreeRoot = (client: Client): Tree.Source[] => [
+  Tree.createSource(
+    client.groups,
+    { scope: "project", nested: false },
+    Tree.toResource("group"),
+  ),
+  Tree.createSource(client.projects, { grouped: false }, Tree.toResource("project")),
 ];
+
+const children: Tree.Children = ({ client, id }) => [
+  Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
+  ...Base.VISUALIZATION_TYPES.map((type) =>
+    Tree.createSource(
+      Base.VISUALIZATIONS[type](client),
+      { projects: [id.key], grouped: false },
+      Tree.toResource(type),
+    ),
+  ),
+];
+
+// A dropped visualization leaves its group. The Core moves the visualizations in a
+// dropped group along with it.
+const drop: Tree.Drop = async ({ client, destination, items }) => {
+  const groups: resource.ID[] = [];
+  const byType = new Map<Base.VisualizationType, string[]>();
+  items.forEach(({ id }) => {
+    if (id.type === "group") groups.push(id);
+    else if (Base.isVisualizationType(id.type))
+      byType.set(id.type, [...(byType.get(id.type) ?? []), id.key]);
+    else throw new UnexpectedError(`a ${id.type} does not belong to a project`);
+  });
+  await client.batch.send([
+    ...Group.moveRequests(client, groups, destination.id),
+    ...[...byType].map(([type, keys]) =>
+      Base.VISUALIZATIONS[type](client).setProjectRequest(keys, destination.id.key),
+    ),
+  ]);
+};
 
 const TreeItem = Tree.createItem({
   type: "project",
   icon: <Icon.Project />,
   useOnSelect,
+  children,
   ContextMenu: TreeContextMenu,
-  canDrop: ({ items }) =>
-    items.every(({ key }) => VALID_CHILDREN.some((c) => key.toString().includes(c))),
+  canDrop: ({ moved }) => moved.every(({ id }) => DROPPABLE_TYPES.has(id.type)),
+  drop,
 });
 
 export const TREE_ITEMS = { project: TreeItem } satisfies Tree.Items;

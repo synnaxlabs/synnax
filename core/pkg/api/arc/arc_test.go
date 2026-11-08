@@ -37,9 +37,8 @@ import (
 // scopedAction is a short local alias for the Arc action envelope.
 type scopedAction = actions.Scoped[arc.Key, arc.Action]
 
-// createArc persists a fresh Arc and returns it with its key populated. Writes
-// commit immediately (nil tx) so access-control reads can observe the new
-// ontology resource.
+// createArc persists a fresh Arc and returns it with its key populated. Writes commit
+// immediately (nil tx) so access-control reads can observe the new Arc.
 func createArc(ctx context.Context, name string) arc.Arc {
 	GinkgoHelper()
 	a := arc.Arc{Variant: arc.AutomationArc{
@@ -268,7 +267,7 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					a := createArc(ctx, "no-policy")
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -287,7 +286,7 @@ var _ = Describe("Service", func() {
 					a := createArc(ctx, "with-policy")
 					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -318,7 +317,7 @@ var _ = Describe("Service", func() {
 					b := createArc(ctx, "no-policy-target")
 					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         b.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -339,7 +338,7 @@ var _ = Describe("Service", func() {
 					a := createArc(ctx, "multi-action")
 					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -370,7 +369,7 @@ var _ = Describe("Service", func() {
 					missing := uuid.New()
 					grantUpdateOn(ctx, author.ResourceID(), arc.ResourceID(missing))
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         missing,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -397,7 +396,7 @@ var _ = Describe("Service", func() {
 						}),
 					)
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "session-marker-xyz",
 							Actions: []arc.Action{

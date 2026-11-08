@@ -21,8 +21,10 @@ import {
   removeNode,
   rename,
   setConfig,
+  setGroup,
   setNode,
   setNodePosition,
+  setProject,
 } from "@/schematic/actions.gen";
 import {
   type ElementConfig,
@@ -49,6 +51,20 @@ const handlers: Handlers = {
       targets: [state.key],
     };
   },
+
+  setGroup: (state, payload) => {
+    const oldGroup = state.group;
+    state.group = payload.group;
+    return { inverse: [setGroup({ group: oldGroup })], targets: [] };
+  },
+
+  setProject: (state, payload) => {
+    const oldProject = state.project;
+    state.project = payload.project;
+    const inverse = oldProject == null ? [] : [setProject({ project: oldProject })];
+    return { inverse, targets: [] };
+  },
+
   setNodePosition: (state, payload) => {
     const node = state.nodes.find((n) => n.key === payload.key);
     if (node == null) return actions.NO_OP_RESULT;

@@ -9,8 +9,10 @@
 
 import { isCalculated } from "@/channel/payload";
 import { type Lines } from "@/channel/where.gen";
+import { group } from "@/group";
 
 /** The typed lines of a channel Where. */
 export const LINES: Lines = {
+  ...group.MEMBER_LINES,
   virtual: (ch, value) => (ch.virtual && !isCalculated(ch)) === value,
 };

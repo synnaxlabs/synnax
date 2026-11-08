@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "client/cpp/errors/errors.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/proto.gen.h"
 #include "client/cpp/status/types.gen.h"
@@ -179,6 +180,21 @@ public:
             statuses.push_back(decoded);
         }
         return {statuses, x::errors::NIL};
+    }
+
+    /// @brief retrieves the status that owner holds.
+    /// @tparam Details the type of the custom details of the status.
+    /// @param owner the resource whose status to retrieve.
+    /// @param options the options of the retrieve.
+    /// @returns the status, and an error that matches NOT_FOUND when owner holds no
+    /// status.
+    template<typename Details = x::json::json>
+    [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
+    retrieve_by_owner(
+        const synnax::resource::ID &owner,
+        const RetrieveOptions &options = {}
+    ) const {
+        return this->retrieve<Details>(Where{.owners = owner}, x::filter::one, options);
     }
 
     /// @brief retrieves the one status that where selects.

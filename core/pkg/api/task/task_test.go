@@ -25,10 +25,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -55,6 +57,23 @@ func createTask(ctx SpecContext) task.Task {
 	return t
 }
 
+func createRange(ctx SpecContext) ranger.Range {
+	GinkgoHelper()
+	r := ranger.Range{
+		Name:      "Snapshot Range",
+		TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
+	}
+	Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	return r
+}
+
+func countInRange(ctx SpecContext, r ranger.Range) int {
+	GinkgoHelper()
+	return MustSucceed(svc.Task.NewRetrieve().
+		Where(task.MatchRanges(r.Key)).
+		Count(ctx, nil))
+}
+
 func retrieveTask(ctx SpecContext, key task.Key) task.Task {
 	GinkgoHelper()
 	var t task.Task
@@ -71,8 +90,7 @@ var _ = Describe("Rename", func() {
 		t := createTask(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
-			apitask.RenameRequest{Key: t.Key, Name: "After"},
+			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
 		)).Error().ToNot(HaveOccurred())
 		renamed := retrieveTask(ctx, t.Key)
 		Expect(renamed.Name).To(Equal("After"))
@@ -84,8 +102,7 @@ var _ = Describe("Rename", func() {
 		t := createTask(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
-			apitask.RenameRequest{Key: t.Key, Name: ""},
+			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: ""},
 		)).Error().To(MatchError(ContainSubstring("name: required")))
 		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
 	})
@@ -94,16 +111,14 @@ var _ = Describe("Rename", func() {
 		key := uuid.New()
 		grant(ctx, access.ActionUpdate, u.ResourceID(), task.ResourceID(key))
 		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
-			apitask.RenameRequest{Key: key, Name: "After"},
+			AuthedCtx(ctx, u), apitask.RenameRequest{Key: key, Name: "After"},
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
 		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
-			apitask.RenameRequest{Key: t.Key, Name: "After"},
+			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
 	})
@@ -133,7 +148,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), t.ResourceID())
 		res := MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apitask.DispatchRequest{
 				Key:         t.Key,
 				DispatchKey: "dk",
@@ -156,7 +170,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		res := MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apitask.DispatchRequest{
 				Key:         t.Key,
 				DispatchKey: "dk",
@@ -171,7 +184,6 @@ var _ = Describe("Dispatch", func() {
 		t := createDraft(ctx)
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apitask.DispatchRequest{
 				Key:         t.Key,
 				DispatchKey: "dk",
@@ -186,7 +198,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), task.ResourceID(key))
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apitask.DispatchRequest{
 				Key:         key,
 				DispatchKey: "dk",
@@ -225,6 +236,27 @@ var _ = Describe("Create", func() {
 			Expect(keys).To(Equal([]string{"dk-create"}))
 		},
 	)
+
+	It(
+		"Should refuse a snapshot in a range the subject cannot update",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+				Type: resource.TypeTask,
+			})
+			r := createRange(ctx)
+			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apitask.CreateRequest{
+				Tasks: []task.Task{{
+					Type:     pagerduty.AlertTaskType,
+					Rack:     svc.Rack.EmbeddedKey,
+					Name:     "Snapshot",
+					Snapshot: true,
+					Range:    &r.Key,
+				}},
+			})).Error().To(MatchError(access.ErrDenied))
+			Expect(countInRange(ctx, r)).To(BeZero())
+		},
+	)
 })
 
 var _ = Describe("Retrieve", func() {
@@ -232,9 +264,8 @@ var _ = Describe("Retrieve", func() {
 		u := createUser(ctx)
 		withStatus := createTask(ctx)
 		withoutStatus := createTask(ctx)
-		Expect(svc.Status.NewWriter(nil).Delete(
-			ctx, withoutStatus.ResourceID().String(),
-		)).To(Succeed())
+		w := svc.Status.NewWriter(nil)
+		Expect(w.DeleteOwned(ctx, withoutStatus.ResourceID())).To(Succeed())
 		grant(
 			ctx, access.ActionRetrieve, u.ResourceID(),
 			withStatus.ResourceID(), withoutStatus.ResourceID(),
@@ -249,7 +280,33 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Tasks[0].Key).To(Equal(withoutStatus.Key))
 		Expect(res.Tasks[0].Status).To(BeNil())
 		Expect(res.Tasks[1].Key).To(Equal(withStatus.Key))
-		Expect(res.Tasks[1].Status.Key).To(Equal(withStatus.ResourceID().String()))
+		Expect(res.Tasks[1].Status.Owner).To(HaveValue(Equal(withStatus.ResourceID())))
+	})
+
+	It("Should keep only the tasks that run the given Arcs", func(ctx SpecContext) {
+		u := createUser(ctx)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
+			Type: resource.TypeTask,
+		})
+		w := svc.Arc.NewWriter(nil)
+		deployed := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+			Name:   "Deployed",
+			Source: arc.Source{Variant: arc.GraphSource{}},
+		}}}
+		other := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+			Name:   "Other",
+			Source: arc.Source{Variant: arc.GraphSource{}},
+		}}}
+		Expect(w.Create(ctx, &deployed)).To(Succeed())
+		Expect(w.Create(ctx, &other)).To(Succeed())
+		update := arc.TaskUpdate{Rack: new(svc.Rack.EmbeddedKey)}
+		tsk := MustSucceed(w.UpdateTask(ctx, deployed.Base().Key, update))
+		MustSucceed(w.UpdateTask(ctx, other.Base().Key, update))
+		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+			Where: &task.Where{Arcs: []uuid.UUID{deployed.Base().Key}},
+		}))
+		Expect(res.Tasks).To(HaveLen(1))
+		Expect(res.Tasks[0].Key).To(Equal(tsk.Key))
 	})
 
 	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
@@ -335,11 +392,10 @@ func createRunningTask(ctx SpecContext, running bool) task.Task {
 func reportStopped(ctx context.Context, t task.Task) {
 	GinkgoHelper()
 	stat := task.Status{
-		Key:     t.ResourceID().String(),
+		Owner:   new(t.ResourceID()),
 		Variant: status.VariantSuccess,
 		Message: "Stopped task",
 		Time:    telem.Now(),
-		Details: task.StatusDetails{Task: t.Key},
 	}
 	Expect(svc.Status.NewWriter(nil).Set(ctx, &stat)).To(Succeed())
 }
@@ -449,6 +505,7 @@ var _ = Describe("Delete", func() {
 	withTimeout := func(timeout time.Duration) *apitask.Service {
 		GinkgoHelper()
 		return MustSucceed(apitask.NewService(apitask.ServiceConfig{
+			DB:          node.DB,
 			Task:        svc.Task,
 			Status:      svc.Status,
 			RBAC:        svc.RBAC,
@@ -491,12 +548,34 @@ var _ = Describe("Delete", func() {
 			reportStopped(ctx, t)
 		}()
 		Expect(withTimeout(10*time.Second).Delete(
-			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 		)).Error().ToNot(HaveOccurred())
 		Expect(svc.Channel.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
 		Eventually(driver).Should(BeClosed())
 		expectGone(ctx, t.Key)
 	})
+	It(
+		"Should return as soon as a running task reports its stop",
+		func(ctx SpecContext) {
+			t := createRunningTask(ctx, true)
+			grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
+			commands := streamCommands(ctx)
+			driver := make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				defer close(driver)
+				Eventually(commands).Should(Receive())
+				reportStopped(ctx, t)
+			}()
+			start := time.Now()
+			Expect(withTimeout(5*time.Second).Delete(
+				AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
+			Eventually(driver).Should(BeClosed())
+			expectGone(ctx, t.Key)
+		},
+	)
 	It("Should stop a batch that never acks within one timeout", func(ctx SpecContext) {
 		const timeout = 300 * time.Millisecond
 		tasks := []task.Task{
@@ -512,7 +591,7 @@ var _ = Describe("Delete", func() {
 		commands := streamCommands(ctx)
 		start := time.Now()
 		Expect(withTimeout(timeout).Delete(
-			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: keys},
+			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: keys},
 		)).Error().ToNot(HaveOccurred())
 		elapsed := time.Since(start)
 		Expect(elapsed).To(BeNumerically(">=", timeout))
@@ -539,7 +618,7 @@ var _ = Describe("Delete", func() {
 			stallWrites(ctx)
 			start := time.Now()
 			Expect(withTimeout(timeout).Delete(
-				AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+				AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(time.Since(start)).To(BeNumerically("<", 2*timeout))
 			expectGone(ctx, t.Key)
@@ -547,19 +626,11 @@ var _ = Describe("Delete", func() {
 	)
 	It("Should stop only the requested task", func(ctx SpecContext) {
 		target := createRunningTask(ctx, true)
-		other := createRunningTask(ctx, true)
+		createRunningTask(ctx, true)
 		grant(ctx, access.ActionDelete, u.ResourceID(), target.ResourceID())
-		forged := task.Status{
-			Key:     target.ResourceID().String(),
-			Variant: status.VariantSuccess,
-			Message: "Task is running",
-			Time:    telem.Now(),
-			Details: task.StatusDetails{Task: other.Key, Running: true},
-		}
-		Expect(svc.Status.NewWriter(nil).Set(ctx, &forged)).To(Succeed())
 		commands := streamCommands(ctx)
 		Expect(withTimeout(100*time.Millisecond).Delete(
-			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{target.Key}},
+			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{target.Key}},
 		)).Error().ToNot(HaveOccurred())
 		var cmd task.Command
 		Eventually(commands).Should(Receive(&cmd))
@@ -578,12 +649,8 @@ var _ = Describe("Delete", func() {
 				cancel()
 			}
 			Expect(withTimeout(10*time.Second).Delete(
-				AuthedCtx(
-					reqCtx,
-					u,
-				), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
-			),
-			).Error().To(MatchError(context.Canceled))
+				AuthedCtx(reqCtx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			)).Error().To(MatchError(context.Canceled))
 			Expect(retrieveTask(ctx, t.Key).Key).To(Equal(t.Key))
 		},
 		Entry("before the stop", time.Duration(0)),
@@ -597,7 +664,7 @@ var _ = Describe("Delete", func() {
 			commands := streamCommands(ctx)
 			start := time.Now()
 			Expect(withTimeout(10*time.Second).Delete(
-				AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+				AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(time.Since(start)).To(BeNumerically("<", time.Second))
 			Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
@@ -624,9 +691,58 @@ var _ = Describe("Delete", func() {
 		t := createRunningTask(ctx, true)
 		commands := streamCommands(ctx)
 		Expect(apiSvc.Delete(
-			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 		)).Error().To(MatchError(access.ErrDenied))
 		Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
 		Expect(retrieveTask(ctx, t.Key).Key).To(Equal(t.Key))
 	})
+})
+
+var _ = Describe("Copy", func() {
+	It("Should place a snapshot copy in a range", func(ctx SpecContext) {
+		u := createUser(ctx)
+		t := createTask(ctx)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
+			Type: resource.TypeTask,
+		})
+		grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+			Type: resource.TypeTask,
+		})
+		r := createRange(ctx)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), ranger.ResourceID(r.Key))
+		res := MustSucceed(apiSvc.Copy(AuthedCtx(ctx, u), nil, apitask.CopyRequest{
+			Key:      t.Key,
+			Name:     "Copy",
+			Snapshot: true,
+			Range:    &r.Key,
+		}))
+		Expect(res.Task.Range).To(Equal(&r.Key))
+		found := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+			Where: &task.Where{Ranges: []ranger.Key{r.Key}},
+		}))
+		Expect(found.Tasks).To(HaveLen(1))
+		Expect(found.Tasks[0].Key).To(Equal(res.Task.Key))
+	})
+
+	It(
+		"Should refuse a snapshot copy into a range the subject cannot update",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			t := createTask(ctx)
+			grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
+				Type: resource.TypeTask,
+			})
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+				Type: resource.TypeTask,
+			})
+			r := createRange(ctx)
+			Expect(apiSvc.Copy(AuthedCtx(ctx, u), nil, apitask.CopyRequest{
+				Key:      t.Key,
+				Name:     "Copy",
+				Snapshot: true,
+				Range:    &r.Key,
+			})).Error().To(MatchError(access.ErrDenied))
+			Expect(countInRange(ctx, r)).To(BeZero())
+		},
+	)
 })

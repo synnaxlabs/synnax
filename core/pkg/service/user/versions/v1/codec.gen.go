@@ -11,13 +11,23 @@
 
 package v1
 
-import "github.com/synnaxlabs/x/encoding/orc"
+import (
+	"github.com/synnaxlabs/x/encoding/orc"
+	"uuid"
+)
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (u User) EncodeOrc(w *orc.Writer) error {
 	w.Write(u.Key[:])
 	w.String(u.Name)
 	w.Bool(u.RootUser)
+	w.Bool(u.Roles != nil)
+	if u.Roles != nil {
+		w.Uint32(uint32(len(u.Roles)))
+		for i := range u.Roles {
+			w.Write(u.Roles[i][:])
+		}
+	}
 	return nil
 }
 
@@ -32,6 +42,24 @@ func (u *User) DecodeOrc(r *orc.Reader) error {
 	}
 	if u.RootUser, err = r.Bool(); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			u.Roles = make([]uuid.UUID, n)
+			for i := range u.Roles {
+				if _, err := r.Read(u.Roles[i][:]); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

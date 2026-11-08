@@ -7,13 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Arc programs on the real-time C++ runtime of the cRIO's Driver. Neither test needs
-C Series modules."""
+"""An Arc program on the real-time C++ runtime of the cRIO's Driver. It needs no C
+Series modules."""
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc import ArcCase
-from tests.arc.wait_accuracy_samples import _WaitSamples
 from tests.hitl.crio_case import CRIOCase
 
 DOUBLE_SOURCE = """
@@ -61,10 +60,3 @@ class CRIOArc(_ArcOnCRIO):
         skew = sy.TimeSpan(abs(int(now) - int(stamp)))
         if skew > _MAX_CLOCK_SKEW:
             self.fail(f"The cRIO's last output is {skew} off this machine's clock")
-
-
-class CRIOWaitSamples(_ArcOnCRIO, _WaitSamples):
-    """Measures the waits of a sequence on the cRIO's real-time runtime."""
-
-    profile_ms = [20, 10, 5, 1]
-    driver_os = "NI Linux RT"
