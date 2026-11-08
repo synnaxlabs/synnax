@@ -21,6 +21,7 @@
     "@eslint/js": "catalog:",
     "@stylistic/eslint-plugin": "catalog:",
     "babel-plugin-react-compiler": "catalog:",
+    "eslint-plugin-jsdoc": "catalog:",
     "eslint-plugin-react-hooks": "catalog:",
     "eslint-plugin-simple-import-sort": "catalog:",
     "globals": "catalog:",

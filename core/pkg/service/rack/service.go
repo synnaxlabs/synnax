@@ -13,7 +13,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -275,10 +274,10 @@ func newDriverRoleMigration(s *Service) gorp.Migration {
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 			return s.table.NewUpdate().
 				Where(gorp.Match(func(_ gorp.Context, r *Rack) (bool, error) {
-					return !slices.Contains(r.Roles, s.DriverRole), nil
+					return r.Role == uuid.Nil(), nil
 				})).
 				Change(func(_ gorp.Context, r Rack) Rack {
-					r.Roles = append(slices.Clone(r.Roles), s.DriverRole)
+					r.Role = s.DriverRole
 					return r
 				}).
 				Exec(ctx, tx)

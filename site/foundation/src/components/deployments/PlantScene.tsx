@@ -10,6 +10,13 @@
 import { type ReactElement } from "react";
 
 import {
+  Label,
+  Node,
+  Pad,
+  Rack,
+  Trace,
+} from "@/components/deployments/DeploymentGeometry";
+import {
   Box,
   CONCRETE,
   Cylinder,
@@ -20,8 +27,6 @@ import {
   type Point,
   Wire,
 } from "@/components/IndustrialGeometry";
-
-import { Label, Node, Pad, Rack, Trace } from "./DeploymentGeometry";
 
 const Column = ({
   x,
