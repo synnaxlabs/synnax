@@ -29,12 +29,10 @@ var _ = Describe("Table", func() {
 	var (
 		db    *gorp.DB
 		table *directory.Table
-		w     directory.Writer
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		table = MustOpen(directory.OpenTable(ctx, directory.TableConfig{DB: db}))
-		w = table.NewWriter(nil)
 	})
 	create := func(
 		ctx context.Context,
@@ -43,13 +41,15 @@ var _ = Describe("Table", func() {
 	) directory.Directory {
 		GinkgoHelper()
 		d := directory.Directory{Name: name, Parent: parent}
-		Expect(w.Create(ctx, &d)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return table.NewWriter(tx).Create(ctx, &d)
+		})).To(Succeed())
 		return d
 	}
 	retrieve := func(ctx context.Context, f directory.Filter) []directory.Directory {
 		GinkgoHelper()
 		var res []directory.Directory
-		Expect(table.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil)).
+		Expect(table.NewRetrieve().Where(f).Entries(&res).Exec(ctx, db)).
 			To(Succeed())
 		return res
 	}
@@ -58,6 +58,21 @@ var _ = Describe("Table", func() {
 		It("Should reject a config with no DB", func(ctx SpecContext) {
 			Expect(directory.OpenTable(ctx)).Error().
 				To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
+	})
+
+	Describe("Changes", func() {
+		It("Should return the directory that a commit creates", func(ctx SpecContext) {
+			var names []string
+			DeferCleanup(
+				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+					for ch := range table.Changes(ctx, c) {
+						names = append(names, ch.Value.Name)
+					}
+				}),
+			)
+			create(ctx, "lib", nil)
+			Expect(names).To(Equal([]string{"lib"}))
 		})
 	})
 
@@ -72,41 +87,61 @@ var _ = Describe("Table", func() {
 		It("Should reject a key in use", func(ctx SpecContext) {
 			d := create(ctx, "lib", nil)
 			dup := directory.Directory{Key: d.Key, Name: "other"}
-			Expect(w.Create(ctx, &dup)).To(MatchError(ContainSubstring(
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return table.NewWriter(tx).Create(ctx, &dup)
+			})).To(MatchError(ContainSubstring(
 				"directory " + d.Key.String() + " already exists",
 			)))
 		})
 
 		It("Should reject a directory with no name", func(ctx SpecContext) {
-			Expect(w.Create(ctx, &directory.Directory{})).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return table.NewWriter(tx).Create(ctx, &directory.Directory{})
+			})).
 				To(MatchError(ContainSubstring("name: required")))
 		})
 	})
 
-	Describe("Rename", func() {
-		It("Should give the directory the new name", func(ctx SpecContext) {
-			d := create(ctx, "lib", nil)
-			Expect(w.Rename(ctx, d.Key, "core")).To(Succeed())
-			Expect(retrieve(ctx, directory.MatchKeys(d.Key))).
-				To(ConsistOf(HaveField("Name", "core")))
-		})
-	})
-
-	Describe("SetParent", func() {
-		It("Should move the directories into the parent", func(ctx SpecContext) {
+	Describe("Update", func() {
+		It("Should store the changed directory", func(ctx SpecContext) {
 			parent := create(ctx, "parent", nil)
-			a, b := create(ctx, "a", nil), create(ctx, "b", nil)
-			Expect(w.SetParent(ctx, parent.Key, a.Key, b.Key)).To(Succeed())
-			Expect(retrieve(ctx, directory.MatchParents(parent.Key))).To(ConsistOf(
-				HaveField("Key", a.Key),
-				HaveField("Key", b.Key),
+			d := create(ctx, "lib", nil)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return table.NewWriter(tx).Update(ctx, d.Key, func(
+					d directory.Directory,
+				) (directory.Directory, error) {
+					d.Name, d.Parent = "core", &parent.Key
+					return d, nil
+				})
+			})).To(Succeed())
+			Expect(retrieve(ctx, directory.MatchKeys(d.Key))).To(ConsistOf(
+				directory.Directory{Key: d.Key, Name: "core", Parent: &parent.Key},
 			))
+		})
+
+		It("Should reject an invalid directory", func(ctx SpecContext) {
+			d := create(ctx, "lib", nil)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return table.NewWriter(tx).Update(ctx, d.Key, func(
+					d directory.Directory,
+				) (directory.Directory, error) {
+					d.Name = ""
+					return d, nil
+				})
+			})).To(MatchError(ContainSubstring("name: required")))
 		})
 
 		It("Should reject a move below itself", func(ctx SpecContext) {
 			top := create(ctx, "top", nil)
 			child := create(ctx, "child", &top.Key)
-			Expect(w.SetParent(ctx, child.Key, top.Key)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return table.NewWriter(tx).Update(ctx, top.Key, func(
+					d directory.Directory,
+				) (directory.Directory, error) {
+					d.Parent = &child.Key
+					return d, nil
+				})
+			})).
 				To(MatchError(ContainSubstring("would form a cycle")))
 		})
 	})
@@ -114,17 +149,21 @@ var _ = Describe("Table", func() {
 	Describe("Delete", func() {
 		It("Should delete an empty directory", func(ctx SpecContext) {
 			d := create(ctx, "lib", nil)
-			Expect(w.Delete(ctx, d.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return table.NewWriter(tx).Delete(ctx, d.Key)
+			})).To(Succeed())
 			Expect(table.NewRetrieve().
 				Where(directory.MatchKeys(d.Key)).
 				Entry(&directory.Directory{}).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should reject a directory that holds a directory", func(ctx SpecContext) {
 			d := create(ctx, "lib", nil)
 			create(ctx, "inner", &d.Key)
-			Expect(w.Delete(ctx, d.Key)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return table.NewWriter(tx).Delete(ctx, d.Key)
+			})).
 				To(MatchError(ContainSubstring(`directory "lib" is not empty`)))
 		})
 	})
@@ -155,7 +194,7 @@ var _ = Describe("Table", func() {
 			func(ctx SpecContext) {
 				Expect(table.Resources().Retrieve(
 					ctx,
-					nil,
+					db,
 					[]resource.ID{{Type: resource.TypeArcDirectory, Key: "bad"}},
 				)).Error().To(And(
 					MatchError(validate.ErrValidation),

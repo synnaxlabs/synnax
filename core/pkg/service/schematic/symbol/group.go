@@ -15,52 +15,27 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
-// RetrieveGroupSymbols returns the resource ID of every symbol in the group identified
-// by key, reading through tx. It returns query.ErrNotFound when no group has key.
-//
-// Callers that go on to write must pass the same tx they write under, so the IDs they
-// act on and the IDs the write touches come from one snapshot.
-func (s *Service) RetrieveGroupSymbols(
-	ctx context.Context,
-	tx gorp.Tx,
-	key group.Key,
-) ([]resource.ID, error) {
+// DeleteGroup deletes the group identified by key and every symbol in it. It returns
+// query.ErrNotFound when no group has key, and a validation error when the group holds
+// anything other than symbols.
+func (s *Service) DeleteGroup(ctx context.Context, tx gorp.Tx, key group.Key) error {
 	if err := s.cfg.Group.NewRetrieve().
 		Where(group.MatchKeys(key)).
 		Entry(&group.Group{}).
 		Exec(ctx, tx); err != nil {
-		return nil, err
+		return err
 	}
 	var symbols []Symbol
 	if err := s.NewRetrieve().
 		Where(MatchGroups(key)).
 		Entries(&symbols).
 		Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	return lo.Map(symbols, func(sym Symbol, _ int) resource.ID {
-		return sym.ResourceID()
-	}), nil
-}
-
-// DeleteGroup deletes the symbols that ids names, then the group identified by key.
-// Pass the ids RetrieveGroupSymbols returned under tx, so the symbols removed and the
-// symbols the caller enforced access on come from one snapshot. It returns a validation
-// error when the group still holds anything after the symbols are deleted.
-func (s *Service) DeleteGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	key group.Key,
-	ids []resource.ID,
-) error {
-	keys, err := KeysFromResourceIDs(ids)
-	if err != nil {
 		return err
 	}
-	if err = s.NewWriter(tx).Delete(ctx, keys...); err != nil {
+	keys := lo.Map(symbols, func(sym Symbol, _ int) Key { return sym.Key })
+	if err := s.NewWriter(tx).Delete(ctx, keys...); err != nil {
 		return err
 	}
 	return s.cfg.Group.NewWriter(tx).Delete(ctx, key)

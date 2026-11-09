@@ -18,7 +18,6 @@ import (
 var _ = Describe("Config", func() {
 	full := func() bundle.Config {
 		return bundle.Config{
-			DB:       db,
 			Resource: resourceSvc,
 			Project:  projectSvc,
 			Group:    groupSvc,
@@ -38,7 +37,6 @@ var _ = Describe("Config", func() {
 			clear(&cfg)
 			Expect(cfg.Validate()).To(MatchError(msg))
 		},
-		Entry("db", func(c *bundle.Config) { c.DB = nil }, "db: must be non-nil"),
 		Entry(
 			"resource",
 			func(c *bundle.Config) { c.Resource = nil },

@@ -16,7 +16,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/override"
@@ -108,12 +107,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		if s.sendOpenAck {
 			ack = make(chan struct{})
 		}
-		s.demands.Inlet() <- demand{
-			Variant: change.VariantSet,
-			Key:     s.addr,
-			Value:   Request{Keys: s.keys.Slice()},
-			ack:     ack,
-		}
+		s.demands.Inlet() <- demand{addr: s.addr, keys: s.keys.Slice(), ack: ack}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
 		responses, disconnect := s.relay.connectToDelta()
@@ -122,7 +116,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			// we do this before updating our demands, otherwise we may deadlock.
 			disconnect()
 			// Tell the tapper that we are no longer requesting any channels.
-			s.demands.Inlet() <- demand{Variant: change.VariantDelete, Key: s.addr}
+			s.demands.Inlet() <- demand{addr: s.addr, removed: true}
 			// If we add this in AttachClosables, it may not be closed at the end of if
 			// the caller does not use the confluence.CloseOutputInletsOnExit option, so
 			// we explicitly close it here.
@@ -176,7 +170,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 				req.Keys = lo.Uniq(req.Keys)
 				s.keys = set.New(req.Keys...)
-				d := demand{Variant: change.VariantSet, Key: s.addr, Value: req}
+				d := demand{addr: s.addr, keys: req.Keys}
 				if req.AckRequested {
 					d.ack = make(chan struct{})
 					pendingAcks = append(pendingAcks, d.ack)

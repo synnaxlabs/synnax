@@ -30,6 +30,7 @@ Color struct {
     @cpp hand
     @cpp include "x/cpp/color/color.h"
     @doc value   "is an RGBA color with RGB as 0-255 and alpha as 0-1."
+    @go json     hand
     @go marshal
     @py hand
     @py include  "x/py/x/color/color"

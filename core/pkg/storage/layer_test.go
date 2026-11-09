@@ -10,7 +10,6 @@
 package storage_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -20,7 +19,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -98,25 +96,6 @@ var _ = Describe("storage", func() {
 				cfg.InMemory = new(true)
 				MustOpen(storage.OpenLayer(ctx, cfg))
 			})
-		})
-		Describe("Change handlers", func() {
-			It(
-				"Should return from a write before its change handlers finish",
-				func(ctx SpecContext) {
-					cfg.InMemory = new(true)
-					l := MustOpen(storage.OpenLayer(ctx, cfg))
-					release := make(chan struct{})
-					done := make(chan struct{})
-					disconnect := l.KV.OnChange(func(context.Context, kv.TxReader) {
-						<-release
-						close(done)
-					})
-					defer disconnect()
-					Expect(l.KV.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
-					close(release)
-					Eventually(done).Should(BeClosed())
-				},
-			)
 		})
 		Describe("Aspen keys", func() {
 			It(

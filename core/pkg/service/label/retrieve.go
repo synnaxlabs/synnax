@@ -13,7 +13,6 @@ import "github.com/synnaxlabs/gorp"
 
 // Retrieve is a builder for querying labels.
 type Retrieve struct {
-	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Label]
 	indexes indexes
 }
