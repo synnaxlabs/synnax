@@ -392,7 +392,7 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should report commits without control until control returns",
+			"Should report a commit without control",
 			func(ctx SpecContext) {
 				host := testutil.NewNode(ctx)
 				keys := channel.KeysFromChannels(
@@ -423,11 +423,9 @@ var _ = Describe("Writer", func() {
 					Authorities:    []control.Authority{control.AuthorityAbsolute},
 					Sync:           new(true),
 				}))
-				for range 2 {
-					end, authorized := MustSucceed2(w.Commit())
-					Expect(authorized).To(BeFalse())
-					Expect(end).To(BeZero())
-				}
+				end, authorized := MustSucceed2(w.Commit())
+				Expect(authorized).To(BeFalse())
+				Expect(end).To(BeZero())
 				Expect(holder.Close()).To(Succeed())
 				Expect(w.Write(frameAt(11))).To(BeTrue())
 				Expect(MustCommit(w)).To(Equal(11*telem.SecondTS + 1))

@@ -343,18 +343,16 @@ var _ = Describe("Control", func() {
 				BeforeEach(func(ctx SpecContext) { idx = createIndex(ctx) })
 
 				It(
-					"Should report every commit until control returns",
+					"Should report a commit without control",
 					func(ctx SpecContext) {
 						low := open(ctx, "low", 1, idx)
 						Expect(low.Write(frame(10, 11))).To(BeTrue())
 						Expect(MustCommit(low)).To(Equal(11*telem.SecondTS + 1))
 						Expect(low.Write(frame(12, 13))).To(BeTrue())
 						high := open(ctx, "high", 2, idx)
-						for range 2 {
-							end, authorized := MustSucceed2(low.Commit())
-							Expect(authorized).To(BeFalse())
-							Expect(end).To(BeZero())
-						}
+						end, authorized := MustSucceed2(low.Commit())
+						Expect(authorized).To(BeFalse())
+						Expect(end).To(BeZero())
 						Expect(high.Close()).To(Succeed())
 						Expect(low.Write(frame(14))).To(BeTrue())
 						Expect(MustCommit(low)).To(Equal(14*telem.SecondTS + 1))
@@ -378,6 +376,39 @@ var _ = Describe("Control", func() {
 						Expect(low.Close()).To(Succeed())
 					},
 				)
+				DescribeTable(
+					"Should report a refused write at the next commit after control returns",
+					func(ctx SpecContext, sync bool) {
+						low := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							ControlSubject:   xcontrol.Subject{Key: "low"},
+							Start:            10 * telem.SecondTS,
+							Channels:         []cesium.ChannelKey{idx},
+							Authorities:      []xcontrol.Authority{1},
+							EnableAutoCommit: new(false),
+							Sync:             new(sync),
+						}))
+						Expect(low.Write(frame(10))).To(BeTrue())
+						MustCommit(low)
+						high := open(ctx, "high", 2, idx)
+						Expect(low.Write(frame(11))).To(Equal(!sync))
+						// A synchronous command orders the write before control
+						// returns.
+						Expect(low.SetAuthority(cesium.WriterConfig{
+							Authorities: []xcontrol.Authority{1},
+						})).To(Succeed())
+						Expect(high.Close()).To(Succeed())
+						Expect(low.Write(frame(12))).To(BeTrue())
+						end, authorized := MustSucceed2(low.Commit())
+						Expect(authorized).To(BeFalse())
+						Expect(end).To(BeZero())
+						Expect(MustCommit(low)).To(Equal(12*telem.SecondTS + 1))
+						Expect(low.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
+						Expect(f.Get(idx).Len()).To(Equal(int64(2)))
+					},
+					Entry("sync", true),
+					Entry("async", false),
+				)
 				It(
 					"Should report commits on a virtual channel without control",
 					func(ctx SpecContext) {
@@ -391,11 +422,9 @@ var _ = Describe("Control", func() {
 						MustCommit(low)
 						high := open(ctx, "high", 2, cmd)
 						Expect(low.Write(fr)).To(BeFalse())
-						for range 2 {
-							end, authorized := MustSucceed2(low.Commit())
-							Expect(authorized).To(BeFalse())
-							Expect(end).To(BeZero())
-						}
+						end, authorized := MustSucceed2(low.Commit())
+						Expect(authorized).To(BeFalse())
+						Expect(end).To(BeZero())
 						Expect(high.Close()).To(Succeed())
 						Expect(low.Write(fr)).To(BeTrue())
 						MustCommit(low)
@@ -403,15 +432,20 @@ var _ = Describe("Control", func() {
 					},
 				)
 				It(
-					"Should report a writer that never had control",
+					"Should not report control of a channel the writer never wrote to",
 					func(ctx SpecContext) {
+						controlled := createIndex(ctx)
+						low := open(ctx, "low", 1, controlled, idx)
 						high := open(ctx, "high", 2, idx)
-						low := open(ctx, "low", 1, idx)
-						end, authorized := MustSucceed2(low.Commit())
-						Expect(authorized).To(BeFalse())
-						Expect(end).To(BeZero())
-						Expect(low.Close()).To(Succeed())
+						Expect(low.Write(telem.UnaryFrame(
+							controlled,
+							telem.NewSeriesSecondsTSV(10),
+						))).To(BeTrue())
+						Expect(MustCommit(low)).To(Equal(10*telem.SecondTS + 1))
 						Expect(high.Close()).To(Succeed())
+						Expect(low.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, controlled))
+						Expect(f.HasData()).To(BeTrue())
 					},
 				)
 				It(
@@ -422,11 +456,11 @@ var _ = Describe("Control", func() {
 							controlled := createIndex(ctx)
 							keys := []cesium.ChannelKey{controlled, idx}
 							low := open(ctx, "low", 1, keys...)
-							high := open(ctx, "high", 2, idx)
-							Expect(low.Write(telem.UnaryFrame(
-								controlled,
+							Expect(low.Write(telem.MultiFrame(keys, []telem.Series{
 								telem.NewSeriesSecondsTSV(10),
-							))).To(BeTrue())
+								telem.NewSeriesSecondsTSV(10),
+							}))).To(BeTrue())
+							high := open(ctx, "high", 2, idx)
 							end, authorized := MustSucceed2(low.Commit())
 							Expect(authorized).To(BeFalse())
 							Expect(end).To(BeZero())
@@ -537,8 +571,11 @@ var _ = Describe("Control", func() {
 							authorized = MustSucceed(w2.Write(w2Frame))
 							Expect(authorized).To(BeTrue())
 
-							end := MustCommit(w2)
-							Expect(end).To(Equal(telem.SecondTS*14 + 1))
+							By("Reporting the refused write at the next commit")
+							end, authorized := MustSucceed2(w2.Commit())
+							Expect(authorized).To(BeFalse())
+							Expect(end).To(BeZero())
+							Expect(MustCommit(w2)).To(Equal(telem.SecondTS*14 + 1))
 
 							By("Shutting down the writers")
 							Expect(w1.Close()).To(Succeed())

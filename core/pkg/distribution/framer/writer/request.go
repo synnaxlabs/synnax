@@ -73,6 +73,8 @@ type Response struct {
 	// Command is the command that was executed on the writer.
 	Command Command
 	// Authorized flags whether the operation was authorized. It is only valid during
-	// calls to CommandWrite, CommandCommit, and CommandEndDomain.
+	// calls to CommandWrite, CommandCommit, and CommandEndDomain. A commit is not
+	// authorized if the writer lacks control, or if a write since the last commit was
+	// refused for no control.
 	Authorized bool
 }

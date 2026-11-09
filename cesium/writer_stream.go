@@ -80,7 +80,9 @@ type WriterResponse struct {
 	// Command is the command that is being responded to.
 	Command WriterCommand
 	// Authorized flags whether the operation was authorized. It is only valid during
-	// calls to WriterCommandWrite, WriterCommandCommit, and WriterCommandEndDomain.
+	// calls to WriterCommandWrite, WriterCommandCommit, and WriterCommandEndDomain. A
+	// commit is not authorized if the writer lacks control, or if a write since the
+	// last commit was refused for no control.
 	Authorized bool
 }
 
@@ -112,9 +114,12 @@ type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 type streamWriter struct {
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
-	relay              confluence.Inlet[relayResponse]
-	accumulatedErr     error
-	errSent            bool
+	relay          confluence.Inlet[relayResponse]
+	accumulatedErr error
+	errSent        bool
+	// writeRefused is true when a write was refused for no control since the last
+	// commit that reported it.
+	writeRefused       bool
 	virtual            *virtualWriter
 	updateDBControl    func(ctx context.Context, u ControlUpdate)
 	authorizeEndDomain func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error
@@ -245,6 +250,9 @@ func (w *streamWriter) maybeSendRes(
 	}
 	if w.accumulatedErr != nil &&
 		errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
+		if req.Command == WriterCommandWrite {
+			w.writeRefused = true
+		}
 		w.accumulatedErr = nil
 		w.errSent = false
 		res.Authorized = false
@@ -415,10 +423,6 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 	)
 	for _, idxW := range w.internal {
 		ts, err := idxW.Commit(ctx)
-		if err == nil {
-			// A group with nothing to commit does not reach the control check.
-			err = idxW.authorize()
-		}
 		if err != nil {
 			if !errors.Is(err, xcontrol.ErrUnauthorized) {
 				return 0, err
@@ -430,14 +434,13 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 			maxTS = ts
 		}
 	}
-	for _, chW := range w.virtual.internal {
-		if err := chW.Authorize(); err != nil {
-			if !errors.Is(err, xcontrol.ErrUnauthorized) {
-				return 0, err
-			}
-			unauthorized = err
-		}
+	if unauthorized == nil && w.writeRefused {
+		unauthorized = errors.Wrap(
+			xcontrol.ErrUnauthorized,
+			"a write since the last commit had no control",
+		)
 	}
+	w.writeRefused = false
 	if unauthorized != nil {
 		return 0, unauthorized
 	}
@@ -795,15 +798,6 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 		return 0, err
 	}
 	return end.Lower, nil
-}
-
-func (w *idxWriter) authorize() error {
-	for _, chW := range w.internal {
-		if err := chW.Authorize(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (w *idxWriter) endDomain(
