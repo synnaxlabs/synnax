@@ -17,15 +17,16 @@ export type Kind =
   | { kind: "list"; entry: z.ZodType; update: z.ZodType }
   | { kind: "valueList"; entry: z.ZodType };
 
-// Holds the kind of each schema that a field factory returns. Keys are schemas, so the
-// map only answers what a schema is.
-const kinds = new WeakMap<$ZodType, Kind>();
+// Keys the kind that a field factory sets on the schema it returns.
+const KIND = Symbol("patch.kind");
 
-/** Records the kind of a schema that a field factory returns, and returns it. */
-export const mark = <S extends z.ZodType>(schema: S, kind: Kind): S => {
-  kinds.set(schema, kind);
-  return schema;
-};
+interface Marked {
+  [KIND]?: Kind;
+}
+
+/** Sets the kind of a schema that a field factory returns, and returns the schema. */
+export const mark = <S extends z.ZodType>(schema: S, kind: Kind): S =>
+  Object.defineProperty(schema, KIND, { value: kind, enumerable: false });
 
 const WRAPPERS = new Set(["optional", "default", "prefault", "nullable", "readonly"]);
 
@@ -36,7 +37,7 @@ const WRAPPERS = new Set(["optional", "default", "prefault", "nullable", "readon
  */
 export const kindOf = (schema: $ZodType): Kind | undefined => {
   for (;;) {
-    const kind = kinds.get(schema);
+    const kind = (schema as Marked)[KIND];
     if (kind != null) return kind;
     const def = schema._zod.def as { type: string; innerType?: $ZodType };
     if (!WRAPPERS.has(def.type) || def.innerType == null) return undefined;
