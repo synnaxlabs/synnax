@@ -104,6 +104,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.AnalogWriteConfigLadder,
 			Legacy:             &legacy.AnalogWrite,
+			Migrations:         []gorp.Migration{v3.AnalogWriteMigration},
 			SetEntryKey:        (*AnalogWriteConfig).SetKey,
 			PatchEntry:         (*AnalogWriteConfig).Patch,
 			HashEntry:          (*AnalogWriteConfig).HashContent,

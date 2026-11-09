@@ -904,3 +904,7 @@ const (
 	// per inch per second squared.
 	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = v3.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
 )
+
+// CommandedAOChannel carries the command and state channels of a commanded analog
+// output.
+type CommandedAOChannel = v3.CommandedAOChannel

@@ -23,3 +23,50 @@ func MigrateScanConfig(ctx context.Context, old v2.ScanConfig) (ScanConfig, erro
 
 // ScanMigration lifts stored scan configs to v3.
 var ScanMigration = migrate.NewEntry("v61_drop_ignored_models", MigrateScanConfig)
+
+// MigrateAnalogWriteConfig lifts a v2 analog write config to v3.
+func MigrateAnalogWriteConfig(
+	ctx context.Context,
+	old v2.AnalogWriteConfig,
+) (AnalogWriteConfig, error) {
+	return autoMigrateAnalogWriteConfig(ctx, old)
+}
+
+// MigrateBaseAOChannel lifts the shared fields of a v2 analog output channel to v3.
+func MigrateBaseAOChannel(
+	ctx context.Context,
+	old v2.BaseAOChannel,
+) (BaseAOChannel, error) {
+	return autoMigrateBaseAOChannel(ctx, old)
+}
+
+// MigrateAOChannel lifts a v2 analog output channel to v3. A function generator drops
+// its command and state channels. The other types keep them.
+func MigrateAOChannel(ctx context.Context, old v2.AOChannel) (AOChannel, error) {
+	ch, err := autoMigrateAOChannel(ctx, old)
+	if err != nil {
+		return AOChannel{}, err
+	}
+	base := old.Base()
+	commanded := CommandedAOChannel{
+		CmdChannel:       base.CmdChannel,
+		StateChannel:     base.StateChannel,
+		CmdChannelName:   base.CmdChannelName,
+		StateChannelName: base.StateChannelName,
+	}
+	switch v := ch.Variant.(type) {
+	case AOCurrentChannel:
+		v.CommandedAOChannel = commanded
+		ch.Variant = v
+	case AOVoltageChannel:
+		v.CommandedAOChannel = commanded
+		ch.Variant = v
+	}
+	return ch, nil
+}
+
+// AnalogWriteMigration lifts stored analog write configs to v3.
+var AnalogWriteMigration = migrate.NewEntry(
+	"v61_drop_func_gen_channels",
+	MigrateAnalogWriteConfig,
+)

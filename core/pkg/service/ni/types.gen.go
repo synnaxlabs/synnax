@@ -908,6 +908,10 @@ const (
 	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
 )
 
+// CommandedAOChannel carries the command and state channels of a commanded analog
+// output.
+type CommandedAOChannel = versions.CommandedAOChannel
+
 // AnalogInputPort is an analog input port of an NI device.
 type AnalogInputPort struct {
 	// Port is the number in the DAQmx name of the port, such as 3 for ai3.

@@ -196,7 +196,7 @@ Outputs a current.
 
 Generates a waveform on the output from the task start to the task stop. To change the
 waveform, stop the task, change the settings, then start it again. This channel has no
-command or state channel, and the task ignores `cmd_channel` and `state_channel`.
+command or state channel.
 
 Few NI devices support this channel type. On other devices, NI-DAQmx rejects the channel
 when the task starts. NI-DAQmx can also reject a task that has this channel type and

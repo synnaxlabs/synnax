@@ -4502,8 +4502,7 @@ type AOChannelType string
 const (
 	// AOCurrentChannelType drives a current output.
 	AOCurrentChannelType AOChannelType = "ao_current"
-	// AOFuncGenChannelType generates a waveform from task start to task stop, with no
-	// commands.
+	// AOFuncGenChannelType drives a function-generator output.
 	AOFuncGenChannelType AOChannelType = "ao_func_gen"
 	// AOVoltageChannelType drives a voltage output.
 	AOVoltageChannelType AOChannelType = "ao_voltage"
@@ -4537,7 +4536,7 @@ func (a AOCurrentChannel) Validate() error {
 	return v.Error()
 }
 
-// AOFuncGenChannel generates a waveform from task start to task stop, with no commands.
+// AOFuncGenChannel drives a function-generator output.
 type AOFuncGenChannel struct {
 	BaseAOChannel
 	// WaveType selects the waveform to generate.

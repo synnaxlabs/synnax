@@ -9,6 +9,10 @@
 
 package v3
 
+// CustomTypeName gives AnalogWriteConfig records a table prefix that cannot collide
+// with the identically named config types of other integrations.
+func (AnalogWriteConfig) CustomTypeName() string { return "ni_analog_write_config" }
+
 // CustomTypeName gives ScanConfig records a table prefix that cannot collide with
 // the identically named config types of other integrations.
 func (ScanConfig) CustomTypeName() string { return "ni_scanner_config" }

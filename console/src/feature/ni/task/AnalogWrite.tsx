@@ -69,25 +69,27 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const device = useFromConfig();
   const skipped = Task.useSkipped(root.config.channels, itemKey, portOf);
   if (item == null) return null;
-  const { port, cmdChannel, stateChannel, type } = item;
-  const Icon = AO_CHANNEL_TYPE_ICONS[type];
+  const Icon = AO_CHANNEL_TYPE_ICONS[item.type];
+  const names = isGenerated(item)
+    ? {}
+    : {
+        channel: item.cmdChannel,
+        defaultName: device == null ? undefined : ANALOG_OUTPUT.name(item, device),
+        stateChannel: item.stateChannel,
+        stateDefaultName:
+          device == null ? undefined : analogOutputStateName(item, device),
+      };
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
-      port={port}
+      {...names}
+      port={item.port}
       hasTareButton={false}
-      channel={cmdChannel}
-      defaultName={device == null ? undefined : ANALOG_OUTPUT.name(item, device)}
-      stateChannel={stateChannel}
       skipped={skipped}
-      stateDefaultName={
-        device == null ? undefined : analogOutputStateName(item, device)
-      }
       portMaxChars={2}
       canTare={false}
-      channelNamesHidden={isGenerated(item)}
       path={entry}
-      icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
+      icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[item.type] }}
     />
   );
 };
@@ -113,10 +115,16 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
         disabled: value.disabled,
       }}
       type={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[value.type] }}
-      channel={value.cmdChannel}
-      channelNameHidden={isGenerated(value)}
-      namePath={path.cmdChannelName}
-      defaultName={device == null ? undefined : ANALOG_OUTPUT.name(value, device)}
+      name={
+        isGenerated(value)
+          ? undefined
+          : {
+              channel: value.cmdChannel,
+              path: deep.variant(path, "type", value.type).cmdChannelName,
+              defaultName:
+                device == null ? undefined : ANALOG_OUTPUT.name(value, device),
+            }
+      }
       skipped={skipped}
       model={device?.model}
     />
@@ -182,12 +190,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
   });
   PlatformDevice.checkConfigured(dev);
   const commanded = config.channels.filter((c) => !isGenerated(c));
-  const detach = (c: AOChannel): AOChannel => ({
-    ...c,
-    ...Task.WRITE_CHANNEL_OVERRIDE,
-  });
-  if (commanded.length === 0)
-    return [{ ...config, channels: config.channels.map(detach) }, dev.rack];
+  if (commanded.length === 0) return [config, dev.rack];
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(dev.properties.analogOutput.stateIndex);
   if (!shouldCreateStateIndex)
@@ -209,8 +212,8 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       dev.properties.analogOutput.stateIndex = stateIndex.key;
       dev.properties.analogOutput.channels = {};
     }
-    const commandsToCreate: AOChannel[] = [];
-    const statesToCreate: AOChannel[] = [];
+    const commandsToCreate: typeof commanded = [];
+    const statesToCreate: typeof commanded = [];
     for (const channel of Task.firstPerPort(commanded, portOf)) {
       const key = portOf(channel);
       const exPair = dev.properties.analogOutput.channels[key];
@@ -278,7 +281,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     if (modified) await client.devices.create(dev, SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
-    if (isGenerated(c)) return detach(c);
+    if (isGenerated(c)) return c;
     const pair = dev.properties.analogOutput.channels[c.port.toString()];
     return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
   });

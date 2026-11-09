@@ -17,13 +17,152 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
+var (
+	fullyPopulatedBaseAOChannel = v3.BaseAOChannel{
+		Key:      "test_1",
+		Disabled: false,
+		Port:     4,
+	}
+	fullyPopulatedMinMaxVal   = v3.MinMaxVal{MinVal: 1.5, MaxVal: 2.5}
+	fullyPopulatedCustomScale = v3.CustomScale{
+		CustomScale: v3.Scale{Variant: v3.LinearScale{
+			Slope:          2.5,
+			YIntercept:     3.5,
+			PreScaledUnits: v3.Units("Volts"),
+			ScaledUnits:    "test_5",
+		}},
+	}
+	fullyPopulatedCommandedAOChannel = v3.CommandedAOChannel{
+		CmdChannel:       channel.Key(2),
+		StateChannel:     channel.Key(3),
+		CmdChannelName:   "test_3",
+		StateChannelName: "test_4",
+	}
+)
+
 var _ = Describe("Codec", func() {
+	Describe("AOChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.AOChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.AOChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("ao_current variant", v3.AOChannel{Variant: v3.AOCurrentChannel{
+				BaseAOChannel:      fullyPopulatedBaseAOChannel,
+				MinMaxVal:          fullyPopulatedMinMaxVal,
+				CustomScale:        fullyPopulatedCustomScale,
+				CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+			}}),
+			Entry("ao_func_gen variant", v3.AOChannel{Variant: v3.AOFuncGenChannel{
+				BaseAOChannel: fullyPopulatedBaseAOChannel,
+				WaveType:      v3.WaveType("Sine"),
+				Frequency:     2.5,
+				Amplitude:     3.5,
+				Offset:        4.5,
+			}}),
+			Entry("ao_voltage variant", v3.AOChannel{Variant: v3.AOVoltageChannel{
+				BaseAOChannel:      fullyPopulatedBaseAOChannel,
+				MinMaxVal:          fullyPopulatedMinMaxVal,
+				CustomScale:        fullyPopulatedCustomScale,
+				CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+			}}),
+		)
+	})
+	Describe("AnalogWriteConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.AnalogWriteConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.AnalogWriteConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v3.AnalogWriteConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				StateRate:          telem.Rate(5.5),
+				Channels: []v3.AOChannel{
+					{Variant: v3.AOCurrentChannel{
+						BaseAOChannel:      fullyPopulatedBaseAOChannel,
+						MinMaxVal:          fullyPopulatedMinMaxVal,
+						CustomScale:        fullyPopulatedCustomScale,
+						CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+					}},
+				},
+			}),
+			Entry("zero values", v3.AnalogWriteConfig{
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				StateRate:          telem.Rate(0),
+				Channels:           []v3.AOChannel{},
+			}),
+			Entry("empty collections", v3.AnalogWriteConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				StateRate:          telem.Rate(5.5),
+				Channels:           []v3.AOChannel{},
+			}),
+		)
+	})
+	Describe("BaseAOChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.BaseAOChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.BaseAOChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedBaseAOChannel),
+			Entry("zero values", v3.BaseAOChannel{
+				Key:      "",
+				Disabled: false,
+				Port:     0,
+			}),
+		)
+	})
+	Describe("CommandedAOChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.CommandedAOChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.CommandedAOChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedCommandedAOChannel),
+			Entry("zero values", v3.CommandedAOChannel{
+				CmdChannel:       channel.Key(0),
+				StateChannel:     channel.Key(0),
+				CmdChannelName:   "",
+				StateChannelName: "",
+			}),
+		)
+	})
 	Describe("ScanConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v3.ScanConfig) {
@@ -49,6 +188,93 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+func BenchmarkEncodeDecodeAOChannel(b *testing.B) {
+	seed := v3.AOChannel{Variant: v3.AOCurrentChannel{
+		BaseAOChannel:      fullyPopulatedBaseAOChannel,
+		MinMaxVal:          fullyPopulatedMinMaxVal,
+		CustomScale:        fullyPopulatedCustomScale,
+		CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.AOChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeAnalogWriteConfig(b *testing.B) {
+	seed := v3.AnalogWriteConfig{
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Device:             "test_4",
+		StateRate:          telem.Rate(5.5),
+		Channels: []v3.AOChannel{
+			{Variant: v3.AOCurrentChannel{
+				BaseAOChannel:      fullyPopulatedBaseAOChannel,
+				MinMaxVal:          fullyPopulatedMinMaxVal,
+				CustomScale:        fullyPopulatedCustomScale,
+				CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+			}},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.AnalogWriteConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeBaseAOChannel(b *testing.B) {
+	seed := fullyPopulatedBaseAOChannel
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.BaseAOChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeCommandedAOChannel(b *testing.B) {
+	seed := fullyPopulatedCommandedAOChannel
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.CommandedAOChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 	seed := v3.ScanConfig{
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -68,6 +294,231 @@ func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeAOChannel(f *testing.F) {
+	{
+		seed := v3.AOChannel{Variant: v3.AOCurrentChannel{
+			BaseAOChannel:      fullyPopulatedBaseAOChannel,
+			MinMaxVal:          fullyPopulatedMinMaxVal,
+			CustomScale:        fullyPopulatedCustomScale,
+			CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AOChannel{Variant: v3.AOFuncGenChannel{
+			BaseAOChannel: fullyPopulatedBaseAOChannel,
+			WaveType:      v3.WaveType("Sine"),
+			Frequency:     2.5,
+			Amplitude:     3.5,
+			Offset:        4.5,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AOChannel{Variant: v3.AOVoltageChannel{
+			BaseAOChannel:      fullyPopulatedBaseAOChannel,
+			MinMaxVal:          fullyPopulatedMinMaxVal,
+			CustomScale:        fullyPopulatedCustomScale,
+			CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.AOChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.AOChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeAnalogWriteConfig(f *testing.F) {
+	{
+		seed := v3.AnalogWriteConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			StateRate:          telem.Rate(5.5),
+			Channels: []v3.AOChannel{
+				{Variant: v3.AOCurrentChannel{
+					BaseAOChannel:      fullyPopulatedBaseAOChannel,
+					MinMaxVal:          fullyPopulatedMinMaxVal,
+					CustomScale:        fullyPopulatedCustomScale,
+					CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+				}},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AnalogWriteConfig{
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			StateRate:          telem.Rate(0),
+			Channels:           []v3.AOChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AnalogWriteConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			StateRate:          telem.Rate(5.5),
+			Channels:           []v3.AOChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.AnalogWriteConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.AnalogWriteConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeBaseAOChannel(f *testing.F) {
+	{
+		seed := fullyPopulatedBaseAOChannel
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.BaseAOChannel{
+			Key:      "",
+			Disabled: false,
+			Port:     0,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.BaseAOChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.BaseAOChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeCommandedAOChannel(f *testing.F) {
+	{
+		seed := fullyPopulatedCommandedAOChannel
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CommandedAOChannel{
+			CmdChannel:       channel.Key(0),
+			StateChannel:     channel.Key(0),
+			CmdChannelName:   "",
+			StateChannelName: "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.CommandedAOChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.CommandedAOChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeScanConfig(f *testing.F) {

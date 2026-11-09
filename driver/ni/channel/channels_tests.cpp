@@ -774,8 +774,6 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
         {"key", "AepqBDjsgwx"},
         {"port", 1},
         {"disabled", false},
-        {"cmd_channel", 0},
-        {"state_channel", 0},
         {"wave_type", "Sine"},
         {"frequency", 0},
         {"amplitude", 0},
@@ -785,6 +783,7 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
     const auto chan = channel::parse_output(p, "ni_analog_write");
     ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
+    EXPECT_TRUE(chan->free_running);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
     const auto dmx = mock_dmx(mock);

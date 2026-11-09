@@ -96,7 +96,11 @@ func decodeAnalogWriteConfig(
 		if err != nil {
 			return AnalogWriteConfig{}, err
 		}
-		return t2, nil
+		t3, err := v3.MigrateAnalogWriteConfig(ctx, t2)
+		if err != nil {
+			return AnalogWriteConfig{}, err
+		}
+		return t3, nil
 	case v3.Version:
 		return imex.DecodeBlob[AnalogWriteConfig](data, "ni.AnalogWriteConfig", version)
 	}

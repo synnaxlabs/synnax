@@ -12,9 +12,242 @@
 package v3
 
 import (
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (aoc AOChannel) EncodeOrc(w *orc.Writer) error {
+	switch v := aoc.Variant.(type) {
+	case AOCurrentChannel:
+		w.String("ao_current")
+		if err := v.BaseAOChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.CustomScale.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.CommandedAOChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+	case AOFuncGenChannel:
+		w.String("ao_func_gen")
+		if err := v.BaseAOChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(string(v.WaveType))
+		w.Float64(float64(v.Frequency))
+		w.Float64(float64(v.Amplitude))
+		w.Float64(float64(v.Offset))
+	case AOVoltageChannel:
+		w.String("ao_voltage")
+		if err := v.BaseAOChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.CustomScale.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.CommandedAOChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("AOChannel: nil or unknown variant %T", aoc.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (aoc *AOChannel) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "ao_current":
+		var v AOCurrentChannel
+		if err := v.BaseAOChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.CustomScale.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.CommandedAOChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		aoc.Variant = v
+	case "ao_func_gen":
+		var v AOFuncGenChannel
+		if err := v.BaseAOChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.WaveType = WaveType(rawV)
+		}
+		if v.Frequency, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.Amplitude, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.Offset, err = r.Float64(); err != nil {
+			return err
+		}
+		aoc.Variant = v
+	case "ao_voltage":
+		var v AOVoltageChannel
+		if err := v.BaseAOChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.CustomScale.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.CommandedAOChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		aoc.Variant = v
+	default:
+		return errors.Newf("AOChannel: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (awc AnalogWriteConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(awc.Key[:])
+	w.Bool(awc.AutoStart)
+	w.Bool(awc.DataSavingDisabled)
+	w.String(awc.Device)
+	w.Float64(float64(awc.StateRate))
+	w.Bool(awc.Channels != nil)
+	if awc.Channels != nil {
+		w.Uint32(uint32(len(awc.Channels)))
+		for i := range awc.Channels {
+			if err := awc.Channels[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (awc *AnalogWriteConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(awc.Key[:]); err != nil {
+		return err
+	}
+	if awc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if awc.DataSavingDisabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if awc.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Float64()
+		if err != nil {
+			return err
+		}
+		awc.StateRate = telem.Rate(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			awc.Channels = make([]AOChannel, n)
+			for i := range awc.Channels {
+				if err = awc.Channels[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (baoc BaseAOChannel) EncodeOrc(w *orc.Writer) error {
+	w.String(baoc.Key)
+	w.Bool(baoc.Disabled)
+	w.Int32(int32(baoc.Port))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (baoc *BaseAOChannel) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if baoc.Key, err = r.String(); err != nil {
+		return err
+	}
+	if baoc.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if baoc.Port, err = r.Int32(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (caoc CommandedAOChannel) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(caoc.CmdChannel))
+	w.Uint32(uint32(caoc.StateChannel))
+	w.String(caoc.CmdChannelName)
+	w.String(caoc.StateChannelName)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (caoc *CommandedAOChannel) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		caoc.CmdChannel = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		caoc.StateChannel = channel.Key(rawV)
+	}
+	if caoc.CmdChannelName, err = r.String(); err != nil {
+		return err
+	}
+	if caoc.StateChannelName, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (sc ScanConfig) EncodeOrc(w *orc.Writer) error {

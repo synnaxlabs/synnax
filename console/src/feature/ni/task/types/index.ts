@@ -240,8 +240,8 @@ export const createAOChannel = (type: AOChannelType = "ao_voltage"): AOChannel =
  * Whether the hardware generates the channel's output from its config. The channel
  * runs with the task and has no command or state channel.
  */
-export const isGenerated = ({ type }: AOChannel): boolean =>
-  type === AO_FUNC_GEN_CHAN_TYPE;
+export const isGenerated = (c: AOChannel): c is ni.AOFuncGenChannel =>
+  c.type === AO_FUNC_GEN_CHAN_TYPE;
 
 export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   ao_current: "Current",

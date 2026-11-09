@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <map>
 #include <string>
-#include <type_traits>
 #include <vector>
 
 #include "client/cpp/ni/json.gen.h"
@@ -2182,10 +2181,11 @@ parse_output(x::json::Parser &cfg, const std::string &task_type) {
     visit_leaf(
         [&](const auto &v) {
             out->enabled = !v.disabled;
-            out->cmd_ch_key = v.cmd_channel;
-            out->state_ch_key = v.state_channel;
-            using Leaf = std::remove_cvref_t<decltype(v)>;
-            out->free_running = std::is_same_v<Leaf, ::synnax::ni::AOFuncGenChannel>;
+            if constexpr (requires { v.cmd_channel; }) {
+                out->cmd_ch_key = v.cmd_channel;
+                out->state_ch_key = v.state_channel;
+            } else
+                out->free_running = true;
         },
         out->channel
     );

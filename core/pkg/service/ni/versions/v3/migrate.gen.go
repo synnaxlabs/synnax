@@ -14,7 +14,9 @@ package v3
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
+	"github.com/synnaxlabs/x/errors"
 )
 
 func autoMigrateAnalogReadConfig(_ context.Context, old v2.AnalogReadConfig) (AnalogReadConfig, error) {
@@ -24,10 +26,16 @@ func autoMigrateAnalogReadConfig(_ context.Context, old v2.AnalogReadConfig) (An
 	}, nil
 }
 
-func autoMigrateAnalogWriteConfig(_ context.Context, old v2.AnalogWriteConfig) (AnalogWriteConfig, error) {
+func autoMigrateAnalogWriteConfig(ctx context.Context, old v2.AnalogWriteConfig) (AnalogWriteConfig, error) {
+	channels, err := lo.MapErr(old.Channels, func(v v2.AOChannel, _ int) (AOChannel, error) {
+		return MigrateAOChannel(ctx, v)
+	})
+	if err != nil {
+		return AnalogWriteConfig{}, err
+	}
 	return AnalogWriteConfig{
 		WriteConfig: old.WriteConfig,
-		Channels:    old.Channels,
+		Channels:    channels,
 	}, nil
 }
 
@@ -56,5 +64,54 @@ func autoMigrateDigitalWriteConfig(_ context.Context, old v2.DigitalWriteConfig)
 func autoMigrateScanConfig(_ context.Context, old v2.ScanConfig) (ScanConfig, error) {
 	return ScanConfig{
 		ScanConfig: old.ScanConfig,
+	}, nil
+}
+
+func autoMigrateAOChannel(ctx context.Context, old v2.AOChannel) (AOChannel, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return AOChannel{}, nil
+	case v2.AOCurrentChannel:
+		baseAOChannel, err := MigrateBaseAOChannel(ctx, variant.BaseAOChannel)
+		if err != nil {
+			return AOChannel{}, err
+		}
+		return AOChannel{Variant: AOCurrentChannel{
+			BaseAOChannel: baseAOChannel,
+			MinMaxVal:     variant.MinMaxVal,
+			CustomScale:   variant.CustomScale,
+		}}, nil
+	case v2.AOFuncGenChannel:
+		baseAOChannel, err := MigrateBaseAOChannel(ctx, variant.BaseAOChannel)
+		if err != nil {
+			return AOChannel{}, err
+		}
+		return AOChannel{Variant: AOFuncGenChannel{
+			BaseAOChannel: baseAOChannel,
+			WaveType:      variant.WaveType,
+			Frequency:     variant.Frequency,
+			Amplitude:     variant.Amplitude,
+			Offset:        variant.Offset,
+		}}, nil
+	case v2.AOVoltageChannel:
+		baseAOChannel, err := MigrateBaseAOChannel(ctx, variant.BaseAOChannel)
+		if err != nil {
+			return AOChannel{}, err
+		}
+		return AOChannel{Variant: AOVoltageChannel{
+			BaseAOChannel: baseAOChannel,
+			MinMaxVal:     variant.MinMaxVal,
+			CustomScale:   variant.CustomScale,
+		}}, nil
+	default:
+		return AOChannel{}, errors.Newf("unknown AOChannel variant %T", variant)
+	}
+}
+
+func autoMigrateBaseAOChannel(_ context.Context, old v2.BaseAOChannel) (BaseAOChannel, error) {
+	return BaseAOChannel{
+		Key:      old.Key,
+		Disabled: old.Disabled,
+		Port:     old.Port,
 	}, nil
 }

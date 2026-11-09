@@ -40,7 +40,7 @@ const createChannel = (
     ...NI.Task.createAOChannel(type),
     key: id.create(),
     port,
-    cmdChannelName: `cmd_${type}_${port}`,
+    ...(type === "ao_func_gen" ? null : { cmdChannelName: `cmd_${type}_${port}` }),
     ...overrides,
   }) as NI.Task.AOChannel;
 
@@ -65,6 +65,9 @@ const renderAnalogWrite = async (
   });
   return { ...rendered, draft };
 };
+
+const commanded = (channels: NI.Task.AOChannel[]) =>
+  channels.filter((c) => !NI.Task.isGenerated(c));
 
 const createConfig = (channels: NI.Task.AOChannel[], device = "") => ({
   ...NI.Task.ANALOG_WRITE_SCHEMAS.config.parse({}),
@@ -144,7 +147,7 @@ describe("AnalogWrite", () => {
     });
     expect(created.type).toBe(NI.Task.ANALOG_WRITE_TYPE);
     expect(created.rack).toBe(dev.rack);
-    const [c0] = created.config.channels;
+    const [c0] = commanded(created.config.channels);
     expect(c0.cmdChannel).not.toBe(0);
     expect(c0.stateChannel).not.toBe(0);
 
@@ -175,15 +178,14 @@ describe("AnalogWrite", () => {
   it("should create no channels for a task of function generators", async () => {
     const dev = await createNIDevice(client);
     const rendered = await renderAnalogWrite(
-      createConfig([createChannel("ao_func_gen", 0, { cmdChannelName: "" })], dev.key),
+      createConfig([createChannel("ao_func_gen", 0)], dev.key),
     );
     await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
     const created = await client.tasks.retrieve({
       key: rendered.draft.key,
       schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
     });
-    expect(created.config.channels[0].cmdChannel).toBe(0);
-    expect(created.config.channels[0].stateChannel).toBe(0);
+    expect(created.config.channels[0]).not.toHaveProperty("cmdChannel");
     const updated = await client.devices.retrieve({
       key: dev.key,
       schemas: NI.Device.SCHEMAS,
@@ -197,7 +199,7 @@ describe("AnalogWrite", () => {
     const rendered = await renderAnalogWrite(
       createConfig(
         [
-          createChannel("ao_func_gen", 0, { cmdChannelName: "" }),
+          createChannel("ao_func_gen", 0),
           createChannel("ao_voltage", 1, { cmdChannelName: "" }),
         ],
         dev.key,
@@ -209,41 +211,14 @@ describe("AnalogWrite", () => {
       schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
     });
     const [generator, voltage] = created.config.channels;
-    expect(generator.cmdChannel).toBe(0);
-    expect(generator.stateChannel).toBe(0);
-    expect(voltage.cmdChannel).not.toBe(0);
-    expect(voltage.stateChannel).not.toBe(0);
+    expect(generator).not.toHaveProperty("cmdChannel");
+    expect(voltage).not.toHaveProperty("cmdChannel", 0);
+    expect(voltage).not.toHaveProperty("stateChannel", 0);
     const updated = await client.devices.retrieve({
       key: dev.key,
       schemas: NI.Device.SCHEMAS,
     });
     expect(Object.keys(updated.properties.analogOutput.channels)).toEqual(["1"]);
-  });
-
-  it("should detach the Synnax channels of a stored function generator", async () => {
-    const dev = await createNIDevice(client);
-    const rendered = await renderAnalogWrite(
-      createConfig(
-        [
-          createChannel("ao_func_gen", 0, {
-            cmdChannel: 1234,
-            stateChannel: 1235,
-            stateChannelName: "stale_state",
-          }),
-        ],
-        dev.key,
-      ),
-    );
-    await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
-    const created = await client.tasks.retrieve({
-      key: rendered.draft.key,
-      schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
-    });
-    const [generator] = created.config.channels;
-    expect(generator.cmdChannel).toBe(0);
-    expect(generator.stateChannel).toBe(0);
-    expect(generator.cmdChannelName).toBe("");
-    expect(generator.stateChannelName).toBe("");
   });
 
   it("should use custom command and state channel names when provided", async () => {
@@ -266,7 +241,7 @@ describe("AnalogWrite", () => {
       key: rendered.draft.key,
       schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
     });
-    const [c0] = created.config.channels;
+    const [c0] = commanded(created.config.channels);
     const cmd = await client.channels.retrieve(c0.cmdChannel);
     expect(cmd.name).toBe(cmdName);
     const state = await client.channels.retrieve(c0.stateChannel);
@@ -288,7 +263,7 @@ describe("AnalogWrite", () => {
       schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
     });
     first.unmount();
-    const [bound] = firstTask.config.channels;
+    const [bound] = commanded(firstTask.config.channels);
     const cmd = await client.channels.retrieve(bound.cmdChannel);
     const second = await renderAnalogWrite(config);
     await findChannelListItem(cmd.name);
@@ -297,8 +272,9 @@ describe("AnalogWrite", () => {
         key: second.draft.key,
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
       });
-      expect(saved.config.channels[0].cmdChannel).toBe(bound.cmdChannel);
-      expect(saved.config.channels[0].stateChannel).toBe(bound.stateChannel);
+      const [rebound] = commanded(saved.config.channels);
+      expect(rebound.cmdChannel).toBe(bound.cmdChannel);
+      expect(rebound.stateChannel).toBe(bound.stateChannel);
     });
   });
 
@@ -327,12 +303,10 @@ describe("AnalogWrite", () => {
         key: second.draft.key,
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
       });
-      expect(again.config.channels[0].cmdChannel).toBe(
-        firstTask.config.channels[0].cmdChannel,
-      );
-      expect(again.config.channels[0].stateChannel).toBe(
-        firstTask.config.channels[0].stateChannel,
-      );
+      const [reused] = commanded(again.config.channels);
+      const [original] = commanded(firstTask.config.channels);
+      expect(reused.cmdChannel).toBe(original.cmdChannel);
+      expect(reused.stateChannel).toBe(original.stateChannel);
     });
   });
 
@@ -364,7 +338,7 @@ describe("AnalogWrite function generators", () => {
     await renderAnalogWrite(
       createConfig(
         [
-          createChannel("ao_func_gen", 0, { cmdChannelName: "" }),
+          createChannel("ao_func_gen", 0),
           createChannel("ao_voltage", 1, { cmdChannelName: "" }),
         ],
         dev.key,
@@ -398,7 +372,7 @@ describe("AnalogWrite function generators", () => {
     await renderAnalogWrite(
       createConfig(
         [
-          createChannel("ao_func_gen", 0, { cmdChannelName: "" }),
+          createChannel("ao_func_gen", 0),
           createChannel("ao_voltage", 0, { cmdChannelName: "" }),
         ],
         dev.key,
@@ -462,8 +436,9 @@ describe("AnalogWrite disabled channels", () => {
       first.draft.key,
       NI.Task.ANALOG_WRITE_SCHEMAS,
     );
-    expect(config.channels[1].cmdChannel).toBe(config.channels[0].cmdChannel);
-    expect(config.channels[1].stateChannel).toBe(config.channels[0].stateChannel);
+    const [disabled, enabled] = commanded(config.channels);
+    expect(enabled.cmdChannel).toBe(disabled.cmdChannel);
+    expect(enabled.stateChannel).toBe(disabled.stateChannel);
     first.unmount();
     const second = await renderAnalogWrite(config);
     await deployAndAwaitTask(client, second.container, second.draft.key);

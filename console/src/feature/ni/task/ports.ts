@@ -274,8 +274,10 @@ export const COUNTER_INPUT: PortKind<CIChannel> = {
 };
 
 /** The name an analog output channel's state channel shows by. */
-export const analogOutputStateName = (c: AOChannel, d: Device): string =>
-  named(c.stateChannelName, () => `${identifierOf(d)}_ao_${c.port}_state`);
+export const analogOutputStateName = (
+  c: Exclude<AOChannel, { type: "ao_func_gen" }>,
+  d: Device,
+): string => named(c.stateChannelName, () => `${identifierOf(d)}_ao_${c.port}_state`);
 
 /** The name a digital input channel shows by. */
 export const digitalInputName = (

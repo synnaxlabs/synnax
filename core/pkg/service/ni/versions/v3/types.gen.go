@@ -12,8 +12,15 @@
 package v3
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"strconv"
+
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Units enumerates the engineering units for NI analog channel values.
@@ -833,36 +840,271 @@ const (
 )
 
 // BaseAOChannel carries the fields every NI analog output channel shares.
-type BaseAOChannel = v2.BaseAOChannel
-
-// AOChannel is a single NI analog output channel. The type field selects the output
-// mode and the fields that accompany it.
-type AOChannel = v2.AOChannel
-
-// AOChannelVariant is implemented by every AOChannel variant.
-type AOChannelVariant = v2.AOChannelVariant
+type BaseAOChannel struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Port is the physical port the channel writes to.
+	Port int32 `json:"port" msgpack:"port"`
+}
 
 // AOChannelType is the "type" value that selects a variant of AOChannel.
-type AOChannelType = v2.AOChannelType
+type AOChannelType string
 
 const (
 	// AOCurrentChannelType drives a current output.
-	AOCurrentChannelType AOChannelType = v2.AOCurrentChannelType
+	AOCurrentChannelType AOChannelType = "ao_current"
 	// AOFuncGenChannelType generates a waveform from task start to task stop, with no
 	// commands.
-	AOFuncGenChannelType AOChannelType = v2.AOFuncGenChannelType
+	AOFuncGenChannelType AOChannelType = "ao_func_gen"
 	// AOVoltageChannelType drives a voltage output.
-	AOVoltageChannelType AOChannelType = v2.AOVoltageChannelType
+	AOVoltageChannelType AOChannelType = "ao_voltage"
 )
 
+// AOChannelVariant is implemented by every AOChannel variant.
+type AOChannelVariant interface {
+	isAOChannelVariant()
+}
+
 // AOCurrentChannel drives a current output.
-type AOCurrentChannel = v2.AOCurrentChannel
+type AOCurrentChannel struct {
+	BaseAOChannel
+	MinMaxVal
+	CustomScale
+	CommandedAOChannel
+}
+
+func (AOCurrentChannel) isAOChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AOCurrentChannel) ApplyDefaults() {
+	a.MinMaxVal.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AOCurrentChannel) Validate() error {
+	v := validate.New("AOCurrentChannel")
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
 
 // AOFuncGenChannel generates a waveform from task start to task stop, with no commands.
-type AOFuncGenChannel = v2.AOFuncGenChannel
+type AOFuncGenChannel struct {
+	BaseAOChannel
+	// WaveType selects the waveform to generate.
+	WaveType WaveType `json:"wave_type" msgpack:"wave_type"`
+	// Frequency is the waveform frequency, in Hertz.
+	Frequency float64 `json:"frequency" msgpack:"frequency"`
+	// Amplitude is the waveform amplitude.
+	Amplitude float64 `json:"amplitude" msgpack:"amplitude"`
+	// Offset is the waveform DC offset.
+	Offset float64 `json:"offset" msgpack:"offset"`
+}
+
+func (AOFuncGenChannel) isAOChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AOFuncGenChannel) ApplyDefaults() {
+	if a.WaveType == "" {
+		a.WaveType = WaveTypeSine
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AOFuncGenChannel) Validate() error {
+	v := validate.New("AOFuncGenChannel")
+	v.Ternaryf("wave_type", !a.WaveType.IsValid(), "invalid wave_type: %v", a.WaveType)
+	return v.Error()
+}
 
 // AOVoltageChannel drives a voltage output.
-type AOVoltageChannel = v2.AOVoltageChannel
+type AOVoltageChannel struct {
+	BaseAOChannel
+	MinMaxVal
+	CustomScale
+	CommandedAOChannel
+}
+
+func (AOVoltageChannel) isAOChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AOVoltageChannel) ApplyDefaults() {
+	a.MinMaxVal.ApplyDefaults()
+	a.CustomScale.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AOVoltageChannel) Validate() error {
+	v := validate.New("AOVoltageChannel")
+	v.Exec(a.CustomScale.Validate)
+	return v.Error()
+}
+
+// AOChannel is a single NI analog output channel. The type field selects the output
+// mode and the fields that accompany it.
+type AOChannel struct {
+	Variant AOChannelVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u AOChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case AOCurrentChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AOChannelType `json:"type"`
+			AOCurrentChannel
+		}{Type: AOCurrentChannelType, AOCurrentChannel: v})
+	case AOFuncGenChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AOChannelType `json:"type"`
+			AOFuncGenChannel
+		}{Type: AOFuncGenChannelType, AOFuncGenChannel: v})
+	case AOVoltageChannel:
+		return json.MarshalEncode(enc, struct {
+			Type AOChannelType `json:"type"`
+			AOVoltageChannel
+		}{Type: AOVoltageChannelType, AOVoltageChannel: v})
+	default:
+		return errors.Newf("AOChannel: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type AOChannelType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case AOCurrentChannelType:
+		var v struct {
+			Type AOChannelType `json:"type"`
+			AOCurrentChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AOCurrentChannel
+	case AOFuncGenChannelType:
+		var v struct {
+			Type AOChannelType `json:"type"`
+			AOFuncGenChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AOFuncGenChannel
+	case AOVoltageChannelType:
+		var v struct {
+			Type AOChannelType `json:"type"`
+			AOVoltageChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AOVoltageChannel
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"AOChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u AOChannel) Type() AOChannelType {
+	switch u.Variant.(type) {
+	case AOCurrentChannel:
+		return AOCurrentChannelType
+	case AOFuncGenChannel:
+		return AOFuncGenChannelType
+	case AOVoltageChannel:
+		return AOVoltageChannelType
+	}
+	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *AOChannel) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case AOCurrentChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AOFuncGenChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AOVoltageChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u AOChannel) Validate() error {
+	switch variant := u.Variant.(type) {
+	case AOCurrentChannel:
+		return variant.Validate()
+	case AOFuncGenChannel:
+		return variant.Validate()
+	case AOVoltageChannel:
+		return variant.Validate()
+	}
+	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u AOChannel) Base() BaseAOChannel {
+	switch variant := u.Variant.(type) {
+	case AOCurrentChannel:
+		return variant.BaseAOChannel
+	case AOFuncGenChannel:
+		return variant.BaseAOChannel
+	case AOVoltageChannel:
+		return variant.BaseAOChannel
+	}
+	return BaseAOChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *AOChannel) SetBase(base BaseAOChannel) {
+	switch variant := u.Variant.(type) {
+	case AOCurrentChannel:
+		variant.BaseAOChannel = base
+		u.Variant = variant
+	case AOFuncGenChannel:
+		variant.BaseAOChannel = base
+		u.Variant = variant
+	case AOVoltageChannel:
+		variant.BaseAOChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("AOChannel: cannot set the base of variant %T", variant))
+	}
+}
 
 // DIChannel is a digital input channel the task acquires from.
 type DIChannel = v2.DIChannel
@@ -882,7 +1124,29 @@ type CounterReadConfig = v2.CounterReadConfig
 type WriteConfig = v2.WriteConfig
 
 // AnalogWriteConfig configures an NI analog write task.
-type AnalogWriteConfig = v2.AnalogWriteConfig
+type AnalogWriteConfig struct {
+	WriteConfig
+	// Channels are the analog output channels the task drives.
+	Channels []AOChannel `json:"channels" msgpack:"channels"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AnalogWriteConfig) ApplyDefaults() {
+	a.WriteConfig.ApplyDefaults()
+	for i := range a.Channels {
+		a.Channels[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AnalogWriteConfig) Validate() error {
+	v := validate.New("AnalogWriteConfig")
+	for i := range a.Channels {
+		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // DigitalReadConfig configures an NI digital read task.
 type DigitalReadConfig = v2.DigitalReadConfig
@@ -914,3 +1178,16 @@ const (
 	// per inch per second squared.
 	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
 )
+
+// CommandedAOChannel carries the command and state channels of a commanded analog
+// output.
+type CommandedAOChannel struct {
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel channel.Key `json:"cmd_channel" msgpack:"cmd_channel"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName string `json:"cmd_channel_name" msgpack:"cmd_channel_name"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName string `json:"state_channel_name" msgpack:"state_channel_name"`
+}

@@ -37,6 +37,7 @@ struct WriteConfig;
 struct ScanConfig;
 struct CounterPort;
 struct DigitalPort;
+struct CommandedAOChannel;
 struct DigitalReadConfig;
 struct DigitalWriteConfig;
 struct BridgePolynomial;
@@ -294,14 +295,6 @@ struct BaseAOChannel {
     std::string key;
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
-    /// @brief cmd_channel is the Synnax channel commands are read from.
-    ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
-    /// @brief state_channel is the Synnax channel the output state is written to.
-    ::synnax::channel::Key state_channel = ::synnax::channel::Key(0);
-    /// @brief cmd_channel_name is the human-readable name of the command channel.
-    std::string cmd_channel_name = "";
-    /// @brief state_channel_name is the human-readable name of the state channel.
-    std::string state_channel_name = "";
     /// @brief port is the physical port the channel writes to.
     std::int32_t port = 0;
 
@@ -392,6 +385,22 @@ struct DigitalPort {
     bool output = false;
 
     static DigitalPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CommandedAOChannel carries the command and state channels of a commanded
+/// analog output.
+struct CommandedAOChannel {
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    ::synnax::channel::Key state_channel = ::synnax::channel::Key(0);
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::string cmd_channel_name = "";
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::string state_channel_name = "";
+
+    static CommandedAOChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -1549,7 +1558,10 @@ CIChannel parse_ci_channel(x::json::Parser parser);
 }
 
 /// @brief AOCurrentChannel drives a current output.
-struct AOCurrentChannel : public BaseAOChannel, public MinMaxVal, public CustomScale {
+struct AOCurrentChannel : public BaseAOChannel,
+                          public MinMaxVal,
+                          public CustomScale,
+                          public CommandedAOChannel {
     std::string type = "ao_current";
 
     static AOCurrentChannel parse(x::json::Parser parser);
@@ -1574,7 +1586,10 @@ struct AOFuncGenChannel : public BaseAOChannel {
 };
 
 /// @brief AOVoltageChannel drives a voltage output.
-struct AOVoltageChannel : public BaseAOChannel, public MinMaxVal, public CustomScale {
+struct AOVoltageChannel : public BaseAOChannel,
+                          public MinMaxVal,
+                          public CustomScale,
+                          public CommandedAOChannel {
     std::string type = "ao_voltage";
 
     static AOVoltageChannel parse(x::json::Parser parser);
