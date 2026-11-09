@@ -71,7 +71,7 @@ describe("device", () => {
         {
           name: "test",
           objects: [device.resourceID("")],
-          actions: ["create", "update"],
+          actions: ["create"],
         },
         { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["create"] },
         { name: "test", objects: [rack.TYPE_RESOURCE_ID], actions: ["update"] },
@@ -117,7 +117,7 @@ describe("device", () => {
         {
           name: "test",
           objects: [device.resourceID("")],
-          actions: ["delete", "retrieve", "update"],
+          actions: ["delete", "retrieve"],
         },
         { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["delete"] },
         { name: "test", objects: [rack.TYPE_RESOURCE_ID], actions: ["update"] },

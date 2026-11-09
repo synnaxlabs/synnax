@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import itertools
+
 import synnax as sy
 from framework.utils import create_virtual_channels
 from tests.arc.arc import ArcCase
@@ -151,23 +153,29 @@ vars_start => reset_matrix_main
 sequence reset_matrix_main {
     counter_1 i64 := 0
     counter_2 i64 $= 0
+    counter_6 i64 $= 2 + 3
 
     stage s1 {
         counter_3 i64 := 0
         counter_4 i64 $= 5
         counter_5 i64 $= 0
+        counter_7 i64 $= 2 + 3
 
         1 => counter_1 + 1 => counter_1
         1 => counter_2 + 1 => counter_2
         1 => counter_3 + 1 => counter_3
         1 => counter_4 + 1 => counter_4
         1 => counter_5 + 1 => counter_5
+        1 => counter_6 + 1 => counter_6
+        1 => counter_7 + 1 => counter_7
 
         counter_1 -> counter_out_1
         counter_2 -> counter_out_2
         counter_3 -> counter_out_3
         counter_4 -> counter_out_4
         counter_5 -> counter_out_5
+        counter_6 -> counter_out_6
+        counter_7 -> counter_out_7
 
         counter_5 >= 3 => reset_done_stage
         time.wait(100ms) => s2
@@ -325,6 +333,100 @@ sequence input_alias_main {
     alias_fire -> chan_reader(channel=rd_alias) -> alias_out
     alias_write_src -> chan_writer(channel=wr_alias)
 }
+
+// ──────────────────────── computed initializers ─────────────────────────
+top_computed i64 := 2 + 3
+vars_start => toplevel_computed_reader
+vars_start => computed_main
+
+sequence toplevel_computed_reader {
+    top_computed -> computed_top_out
+}
+
+func pass_through(v i64) {n u8} i64 {
+    return v
+}
+
+func stamp(t i64 ns) {n u8} i64 {
+    return t
+}
+
+computed_now_fire -> stamp(time.now()) -> computed_now_out
+
+sequence computed_main {
+    seed i64 := 0
+    persisted i64 $= 2 + 3
+    started $= time.now()
+    from_seed i64 $= seed + 100
+
+    stage computed_first {
+        entry i64 := seed + 1
+        entered := time.now()
+        stage_kept i64 $= seed + 50
+        entry -> computed_entry_out
+        stage_kept = stage_kept + 1
+        stage_kept -> computed_stage_kept_out
+        persisted = persisted + 1
+        started = started + 1
+        persisted -> computed_stateful_out
+        from_seed -> computed_scoped_out
+        computed_fire -> pass_through(entry * 2) -> computed_input_out
+        computed_fire -> started + 0 -> computed_started_out
+        computed_fire -> entered + 0 -> computed_entered_out
+        computed_to_second => computed_second
+    }
+    stage computed_second {
+        1 -> computed_second_ready
+        seed = seed + 10
+        computed_to_first => computed_first
+    }
+}
+
+vars_start => sequence {
+    stamp_entry $= time.now()
+    stamp_entry -> stamp_control_out
+    stage stamp_1 {
+        stamp_1_time $= time.now()
+        stamp_1_time -> stamp_out_1
+        time.wait(100ms) => next
+    }
+    stage stamp_2 {
+        stamp_2_time $= time.now()
+        stamp_2_time -> stamp_out_2
+        time.wait(100ms) => next
+    }
+    stage stamp_3 {
+        stamp_3_time $= time.now()
+        stamp_3_time -> stamp_out_3
+        time.wait(100ms) => next
+    }
+    stage stamp_4 {
+        stamp_4_time $= time.now()
+        stamp_4_time -> stamp_out_4
+        time.wait(100ms) => next
+    }
+    stage stamp_5 {
+        stamp_5_time $= time.now()
+        stamp_5_time -> stamp_out_5
+    }
+}
+
+computed_late_start => computed_late
+sequence computed_late {
+    late_seed i64 := 20
+    late_visits i64 $= 0
+    stage late_first {
+        kept i64 $= late_seed + 1
+        computed_late_fire -> kept + 0 -> computed_late_out
+        computed_late_bump -> 7 -> kept
+        computed_late_to_second => computed_late_second
+    }
+    stage computed_late_second {
+        late_visits = late_visits + 1
+        late_visits -> computed_late_second_ready
+        computed_late_to_first => late_first
+    }
+}
 """
 
 VAR_OUTPUTS = [
@@ -358,6 +460,8 @@ RESET_OUTPUTS = [
     "counter_out_3",
     "counter_out_4",
     "counter_out_5",
+    "counter_out_6",
+    "counter_out_7",
     "reset_done",
 ]
 REEXPR_OUTPUTS = [
@@ -377,6 +481,26 @@ INPUT_OUTPUTS = [
     "alias_dst_a",
     "alias_dst_b",
 ]
+COMPUTED_OUTPUTS = [
+    "computed_top_out",
+    "computed_entry_out",
+    "computed_stateful_out",
+    "computed_input_out",
+    "computed_now_out",
+    "computed_started_out",
+    "computed_entered_out",
+    "computed_scoped_out",
+    "computed_stage_kept_out",
+    "computed_second_ready",
+    "computed_late_out",
+    "computed_late_second_ready",
+    "stamp_control_out",
+    "stamp_out_1",
+    "stamp_out_2",
+    "stamp_out_3",
+    "stamp_out_4",
+    "stamp_out_5",
+]
 OUTPUTS = (
     VAR_OUTPUTS
     + INHERIT_OUTPUTS
@@ -384,6 +508,7 @@ OUTPUTS = (
     + RESET_OUTPUTS
     + REEXPR_OUTPUTS
     + INPUT_OUTPUTS
+    + COMPUTED_OUTPUTS
 )
 
 F64_CHANNELS = [
@@ -414,6 +539,25 @@ I64_CHANNELS = [
     "counter_out_3",
     "counter_out_4",
     "counter_out_5",
+    "counter_out_6",
+    "counter_out_7",
+    "computed_top_out",
+    "computed_entry_out",
+    "computed_stateful_out",
+    "computed_input_out",
+    "computed_now_out",
+    "computed_started_out",
+    "computed_entered_out",
+    "computed_scoped_out",
+    "computed_stage_kept_out",
+    "computed_late_out",
+    "computed_late_second_ready",
+    "stamp_control_out",
+    "stamp_out_1",
+    "stamp_out_2",
+    "stamp_out_3",
+    "stamp_out_4",
+    "stamp_out_5",
 ]
 STR_CHANNELS = [
     "channel_read_write_str_a",
@@ -462,6 +606,16 @@ U8_CHANNELS = [
     "a_to_d",
     "d_to_e",
     "alias_fire",
+    "computed_fire",
+    "computed_now_fire",
+    "computed_to_second",
+    "computed_to_first",
+    "computed_second_ready",
+    "computed_late_start",
+    "computed_late_fire",
+    "computed_late_to_second",
+    "computed_late_to_first",
+    "computed_late_bump",
 ]
 
 BOOL_CHANNELS = [
@@ -511,6 +665,8 @@ class Variables(ArcCase):
         self._verify_reexpr()
         self._verify_value_inputs()
         self._verify_alias_inputs()
+        self._verify_computed()
+        self._verify_stage_stamps()
 
     def _verify_literal(self) -> None:
         self.log("=== Literal ===")
@@ -605,6 +761,8 @@ class Variables(ArcCase):
         self.wait_for_eq("counter_out_2", 3)
         self.wait_for_eq("counter_out_4", 8)
         self.wait_for_eq("counter_out_5", 3)
+        self.wait_for_eq("counter_out_6", 8)
+        self.wait_for_eq("counter_out_7", 8)
 
     def _verify_reexpr(self) -> None:
         self.log("=== reassignment across jumps (skip + reorder) ===")
@@ -694,3 +852,73 @@ class Variables(ArcCase):
         self.writer.write("alias_write_src", "w2")
         self.wait_for_eq("alias_dst_b", "w2")
         self.wait_for_eq("alias_dst_a", "w1")
+
+    def _verify_stage_stamps(self) -> None:
+        self.log("=== stateful stamps on stage entry ===")
+        self.wait_for_gt("stamp_control_out", 0)
+        stamps = [int(self.read_tlm("stamp_control_out", 0))]
+        for i in range(1, 6):
+            self.wait_for_gt(f"stamp_out_{i}", 0)
+            stamps.append(int(self.read_tlm(f"stamp_out_{i}", 0)))
+        if stamps[1] < stamps[0]:
+            self.fail("the first stage stamp must not precede the sequence entry")
+        for prev, cur in itertools.pairwise(stamps[1:]):
+            delta = sy.TimeSpan(cur - prev)
+            if delta < 90 * sy.TimeSpan.MILLISECOND:
+                self.fail(f"stage stamps {delta} apart, expected about 100ms")
+
+    def _verify_computed(self) -> None:
+        self.log("=== computed initializers ===")
+        self.wait_for_eq("computed_top_out", 5)
+        # First entry: entry samples seed=0; the statefuls ran once on entry, so
+        # from_seed read seed=0 and the stage incremented persisted.
+        self.wait_for_eq("computed_entry_out", 1)
+        self.wait_for_eq("computed_stateful_out", 6)
+        self.wait_for_eq("computed_scoped_out", 100)
+        self.wait_for_eq("computed_stage_kept_out", 51)
+        self.writer.write("computed_fire", 1)
+        self.wait_for_eq("computed_input_out", 2)
+        self.wait_for_gt("computed_started_out", 0)
+        self.wait_for_gt("computed_entered_out", 0)
+        started = self.read_tlm("computed_started_out", 0)
+        entered = self.read_tlm("computed_entered_out", 0)
+
+        # A call input is computed when the trigger fires, not at program start.
+        before = int(sy.TimeStamp.now())
+        self.writer.write("computed_now_fire", 1)
+        self.wait_for_gt("computed_now_out", before)
+
+        # Re-entry: seed moved to 10, so entry recomputes to 11; the statefuls keep
+        # their assigned values and increment once more. The stage stamp is
+        # recomputed.
+        self.writer.write("computed_to_second", 1)
+        self.wait_for_eq("computed_second_ready", 1)
+        self.writer.write("computed_to_first", 1)
+        self.wait_for_eq("computed_entry_out", 11)
+        self.wait_for_eq("computed_stateful_out", 7)
+        self.wait_for_eq("computed_scoped_out", 100)
+        # A stage stateful keeps its written value; a re-run would read seed=10.
+        self.wait_for_eq("computed_stage_kept_out", 52)
+        self.writer.write("computed_fire", 1)
+        self.wait_for_eq("computed_input_out", 22)
+        self.wait_for_gt("computed_entered_out", entered)
+        self.wait_for_eq("computed_started_out", started + 1)
+
+        # A stage stateful initializes on the first entry from a sequence variable,
+        # keeps that value across re-entry, and keeps a written value the same way.
+        self.writer.write("computed_late_start", 1)
+        self.writer.write("computed_late_fire", 1)
+        self.wait_for_eq("computed_late_out", 21)
+        self.writer.write("computed_late_to_second", 1)
+        self.wait_for_eq("computed_late_second_ready", 1)
+        self.writer.write("computed_late_to_first", 1)
+        self.writer.write("computed_late_fire", 1)
+        self.wait_for_eq("computed_late_out", 21)
+        self.writer.write("computed_late_bump", 1)
+        self.writer.write("computed_late_fire", 1)
+        self.wait_for_eq("computed_late_out", 7)
+        self.writer.write("computed_late_to_second", 1)
+        self.wait_for_eq("computed_late_second_ready", 2)
+        self.writer.write("computed_late_to_first", 1)
+        self.writer.write("computed_late_fire", 1)
+        self.wait_for_eq("computed_late_out", 7)

@@ -28,11 +28,14 @@ Label struct {
     }
     name  string      {
         @doc value           "is a human-readable name for the label."
+        @index sorted
+        @patch
         @search
         @validate min_length 1
     }
     color color.Color {
         @doc value "is the display color for visual identification of the label."
+        @patch
     }
 
     action Create {

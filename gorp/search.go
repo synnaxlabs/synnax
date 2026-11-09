@@ -96,7 +96,7 @@ func (s *SearchIndex[K, E]) Search(
 
 // Filter returns a Filter matching the entries that Search returns for term. A
 // Retrieve returns the entries closest match first, also when other filters narrow
-// them, so Limit and Offset page through them by relevance.
+// them, so Limit keeps the closest matches.
 func (s *SearchIndex[K, E]) Filter(term string) Filter[K, E] {
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {

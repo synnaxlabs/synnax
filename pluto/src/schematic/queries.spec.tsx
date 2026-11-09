@@ -143,6 +143,44 @@ describe("schematic queries", () => {
     });
   });
 
+  describe("useMultiple", () => {
+    it("should retrieve the schematics with the keys", async () => {
+      const [a, b] = await Promise.all([
+        createTestSchematic(proj.key),
+        createTestSchematic(proj.key),
+      ]);
+      const { result } = await renderHookSuspended(
+        () => Schematic.useMultiple({ keys: [a.key, b.key] }),
+        { wrapper: Wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current?.map(({ key }) => key).sort()).toEqual(
+          [a.key, b.key].sort(),
+        ),
+      );
+    });
+
+    it("should update when one of the schematics changes", async () => {
+      const [a, b] = await Promise.all([
+        createTestSchematic(proj.key),
+        createTestSchematic(proj.key),
+      ]);
+      const { result } = await renderHookSuspended(
+        () => Schematic.useMultiple({ keys: [a.key, b.key] }),
+        { wrapper: Wrapper },
+      );
+      await waitFor(() => expect(result.current).toHaveLength(2));
+      await act(async () => {
+        await client.schematics.rename(a.key, "renamed_schematic");
+      });
+      await waitFor(() =>
+        expect(result.current).toContainEqual(
+          expect.objectContaining({ key: a.key, name: "renamed_schematic" }),
+        ),
+      );
+    });
+  });
+
   describe("useEnsure", () => {
     it("populates the store so downstream selectors resolve", async () => {
       const schem = await createTestSchematic(proj.key);
@@ -170,7 +208,9 @@ describe("schematic queries", () => {
 
       // Restoring re-creates from the corpse, which keeps the original key.
       // The read heals off the cache alone: no boundary reset, no refetch.
-      const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
+      const corpse = query.requireCorpse(
+        client.schematics.watch(doomed.key).getCached(),
+      );
       await client.schematics.create({ ...corpse, project: proj.key });
       await waitFor(() => expect(result.current).toBeNull());
     });
@@ -188,9 +228,9 @@ describe("schematic queries", () => {
       await loadSchematic(Wrapper, doomed.key);
       await client.schematics.delete(doomed.key);
       await waitFor(() =>
-        expect(query.Deleted.matches(client.schematics.getCached(doomed.key))).toBe(
-          true,
-        ),
+        expect(
+          query.Deleted.matches(client.schematics.watch(doomed.key).getCached()),
+        ).toBe(true),
       );
 
       const caught: Error[] = [];
@@ -215,7 +255,9 @@ describe("schematic queries", () => {
       const error = caught[0];
       assert(Flux.DeletedError.matches(error));
       expect(error.corpseName).toBe("test_schematic");
-      const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
+      const corpse = query.requireCorpse(
+        client.schematics.watch(doomed.key).getCached(),
+      );
       expect(corpse.key).toBe(doomed.key);
     });
 
@@ -406,7 +448,7 @@ describe("schematic queries", () => {
     });
   });
 
-  describe("useList", () => {
+  describe("list", () => {
     it("should list the snapshots of a range", async () => {
       const rng = await client.ranges.create({
         name: "list_range",
@@ -422,12 +464,19 @@ describe("schematic queries", () => {
         snapshot: true,
         range: rng.key,
       });
-      const { result } = renderHook(() => Schematic.useList(), { wrapper: Wrapper });
-      act(() => {
-        result.current.retrieve({ ranges: [rng.key] });
+      const { result } = renderHook(
+        () =>
+          Flux.useList((c) => c.schematics, {
+            name: "schematics",
+            query: { ranges: [rng.key] },
+          }),
+        { wrapper: Wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => {
+        expect(result.current.variant).toBe("success");
+        expect(result.current.data).toEqual([snapshot.key]);
       });
-      await waitFor(() => expect(result.current.variant).toBe("success"));
-      expect(result.current.data).toEqual([snapshot.key]);
       expect(result.current.getItem(snapshot.key)?.name).toBe("list_snapshot");
     });
   });
@@ -529,7 +578,7 @@ describe("schematic queries", () => {
             // The client applies the rename before it calls back, so the cached
             // schematic already carries the new name here.
             afterOptimistic: ({ client: c, data }) => {
-              const cached = c.schematics.getCached(data.key);
+              const cached = c.schematics.watch(data.key).getCached();
               order.push(`optimistic:${query.isLive(cached) ? cached.name : ""}`);
             },
             afterSuccess: () => {
@@ -1100,6 +1149,36 @@ describe("schematic queries", () => {
       expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
         variant: "value",
       });
+    });
+
+    it("should show the last of two variant changes to an edge", async () => {
+      const schem = await client.schematics.create({
+        project: proj.key,
+        name: "edge_variants",
+        nodes: [
+          { key: "n1", position: { x: 0, y: 0 } },
+          { key: "n2", position: { x: 10, y: 10 } },
+        ],
+        edges: [
+          {
+            key: "e1",
+            source: { node: "n1", param: "out" },
+            target: { node: "n2", param: "in" },
+          },
+        ],
+        configs: {
+          n1: { variant: "tank" },
+          n2: { variant: "tank" },
+          e1: { variant: "pipe", segments: [] },
+        },
+      });
+      const { result } = await renderHookSuspended(
+        () => Schematic.useConfigForm({ key: schem.key, elKey: "e1" }),
+        { wrapper: Wrapper },
+      );
+      act(() => result.current.form.set(element.variant, "electric"));
+      act(() => result.current.form.set(element.variant, "secondary"));
+      expect(result.current.form.get(element.variant).value).toBe("secondary");
     });
 
     it("should send an edit as a path action into the element's config", async () => {

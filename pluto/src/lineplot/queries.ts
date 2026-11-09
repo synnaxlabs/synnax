@@ -26,8 +26,8 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.lineplots.retrieve(query.key),
   onChange: ({ client, query }, handler) =>
-    client.lineplots.onChange(query.key, handler),
-  getCached: ({ client, query }) => client.lineplots.getCached(query.key),
+    client.lineplots.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.lineplots.watch(query.key).getCached(),
   awaitCreation: true,
 });
 

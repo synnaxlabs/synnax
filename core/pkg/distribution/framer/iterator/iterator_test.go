@@ -56,7 +56,9 @@ var _ = Describe("Iterator", func() {
 				writeBatch(10, 11, 12)
 				writeBatch(13, 14, 15, 16, 17)
 				writeBatch(18, 19, 20, 21, 22)
-				Expect(writer.Commit()).To(BeNumerically("==", telem.SecondTS*22+1))
+				Expect(
+					MustCommit(writer),
+				).To(BeNumerically("==", telem.SecondTS*22+1))
 				Expect(writer.Close()).To(Succeed())
 			})
 			It(
@@ -220,7 +222,7 @@ var _ = Describe("Read failure", func() {
 			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
 		}
 		host := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
-		channels := MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
+		channels := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 			Name:     "failure",
 			IsIndex:  true,
 			DataType: telem.TimestampT,
@@ -236,7 +238,7 @@ var _ = Describe("Read failure", func() {
 			series[i] = telem.NewSeriesSecondsTSV(10, 11, 12)
 		}
 		Expect(w.Write(frame.NewMulti(keys, series))).To(BeTrue())
-		MustSucceed(w.Commit())
+		MustCommit(w)
 		Expect(w.Close()).To(Succeed())
 
 		iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
@@ -275,7 +277,7 @@ func openScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
 	dist := testutil.OpenNode(ctx)
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		keys:     keys,

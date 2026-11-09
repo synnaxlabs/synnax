@@ -16,7 +16,7 @@ from synnax.access.policy.payload import (
     Policy,
     resource_id,
 )
-from synnax.access.policy.types_gen import Where, WhereInput
+from synnax.access.policy.types_gen import Cursor, Order, Where, WhereInput
 
 __all__ = [
     "ACTION_CREATE",
@@ -24,6 +24,8 @@ __all__ = [
     "ACTION_RETRIEVE",
     "ACTION_UPDATE",
     "Client",
+    "Cursor",
+    "Order",
     "Policy",
     "Where",
     "WhereInput",
