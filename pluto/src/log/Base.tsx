@@ -23,6 +23,7 @@ import { type ReactElement, type ReactNode, useRef } from "react";
 
 import { CSS } from "@/css";
 import { log } from "@/log/aether";
+import { compile } from "@/log/aether/search";
 import { type LogState, use, type UseProps } from "@/log/use";
 import { Canvas } from "@/vis/canvas";
 
@@ -159,7 +160,10 @@ export const Base = ({
   };
 
   // The pause and the request go in one update, so the worker pauses before it jumps.
+  // A search with no pattern has no match to jump to, so the log stays as it is.
   const jump = (direction: log.Direction) => {
+    if (compile({ text: search?.text ?? "", mode: search?.mode ?? "text" }) == null)
+      return;
     setState((s) => ({
       ...s,
       scrolling: true,

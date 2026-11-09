@@ -338,7 +338,10 @@ export class Log
     // Read before any setState below, which overwrites prevState.
     const wasVisible = this.prevState.visible;
     const jumped = this.state.jump.request !== this.prevState.jump.request;
-    if (!deep.equal(this.state.search, this.prevState.search)) this.cursor = null;
+    if (!deep.equal(this.state.search, this.prevState.search)) {
+      this.cursor = null;
+      this.endJump("");
+    }
     i.render = render.Context.use(ctx);
     i.stopListeningRestore?.();
     i.stopListeningRestore = i.render.on2DRestore(() => {
@@ -467,7 +470,9 @@ export class Log
       }
     }
 
-    if (jumped && this.state.jump.request > 0) {
+    // A live log has no jump to run or report.
+    if (!this.state.scrolling) this.endJump("");
+    else if (jumped && this.state.jump.request > 0) {
       this.jumping = this.state.jump.direction;
       this.jump();
     }
@@ -495,6 +500,7 @@ export class Log
     const direction = this.jumping;
     const { pattern, telem, lineHeight } = this.internal;
     if (direction == null) return;
+    if (!this.state.scrolling) return this.endJump("");
     if (pattern == null) return this.endJump("");
     const { entries } = this;
     const located = this.cursor == null ? -1 : this.locate(this.cursor);
@@ -526,7 +532,7 @@ export class Log
     this.scrollState.offset = Math.min(entries.length, i + 1 + half);
     this.scrollState.tail = 0;
     this.moveView(0, lineHeight);
-    this.scrollState.awayFromEnd = true;
+    this.scrollState.awayFromEnd = this.scrollState.offset < entries.length;
     this.anchors.scroll = entries[this.scrollState.offset - 1];
     this.endJump("");
     this.requestRender();

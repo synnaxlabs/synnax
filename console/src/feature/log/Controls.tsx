@@ -23,6 +23,9 @@ import { Session } from "@/session";
 
 const stopPropagation = (e: React.MouseEvent): void => e.stopPropagation();
 
+const NEXT_TRIGGER: Triggers.Trigger = ["Enter"];
+const PREVIOUS_TRIGGER: Triggers.Trigger = ["Shift", "Enter"];
+
 // A button that opens a box to find and filter the lines of a log.
 const Search = (): ReactElement => {
   const key = Base.useKey();
@@ -76,7 +79,12 @@ const Search = (): ReactElement => {
           size="small"
           variant="text"
           onClick={() => jump("previous")}
-          tooltip="Previous match"
+          tooltip={
+            <Text.Text level="small" color={11}>
+              Previous match
+              <Triggers.Text trigger={PREVIOUS_TRIGGER} level="small" />
+            </Text.Text>
+          }
           aria-label="Previous match"
         >
           <Icon.Caret.Up />
@@ -85,7 +93,12 @@ const Search = (): ReactElement => {
           size="small"
           variant="text"
           onClick={() => jump("next")}
-          tooltip="Next match"
+          tooltip={
+            <Text.Text level="small" color={11}>
+              Next match
+              <Triggers.Text trigger={NEXT_TRIGGER} level="small" />
+            </Text.Text>
+          }
           aria-label="Next match"
         >
           <Icon.Caret.Down />

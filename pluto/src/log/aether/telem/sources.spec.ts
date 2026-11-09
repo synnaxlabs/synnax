@@ -1257,6 +1257,15 @@ describe("StreamMultiChannelLog", () => {
       expect(reads).toBe(1);
     });
 
+    it("should be exhausted when every channel hides", async () => {
+      const core = createCore();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a, b] });
+      await settle(log, 2 * HISTORY);
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [a, b] });
+      expect(log.exhausted).toBe(true);
+    });
+
     it("should be exhausted when no channel stores samples", async () => {
       const core = createCore({ derived: true });
       const { virtual } = core;
@@ -1722,6 +1731,37 @@ describe("StreamMultiChannelLog", () => {
       failed = false;
       await page(log, STORED);
       expect(statuses).toHaveLength(1);
+    });
+
+    it("should notify once a failed page read can run again", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let failed = true;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (
+            failed &&
+            keys.includes(a) &&
+            tr.end.valueOf() !== TimeStamp.MAX.valueOf()
+          )
+            throw new Error("page unavailable");
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const statuses: cstatus.Crude[] = [];
+      const log = open(
+        core,
+        client,
+        { channels: [a] },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      await settle(log, PAGE);
+      // A consumer that reads older pages only when the log notifies.
+      closers.push(log.onChange(() => log.loadOlder()));
+      log.loadOlder();
+      await expect.poll(() => statuses.length, POLL).toBe(1);
+      failed = false;
+      await settle(log, PAGE + 999);
     });
 
     it("should wait for a page while its stream is down", async () => {

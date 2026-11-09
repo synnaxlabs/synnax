@@ -710,6 +710,80 @@ describe("log/aether/Log", () => {
       jumpTo(updateState, "next", 2);
       expect(log.state.jumpStatus).toBe("none");
     });
+
+    it("should read newer lines until it finds a match", () => {
+      const { log, source, updateState } = setup(
+        lines(1_000, [20]),
+        REGION_500,
+        SEARCH,
+      );
+      source.live = false;
+      jumpTo(updateState, "previous", 1);
+      jumpTo(updateState, "next", 2);
+      expect(source.loadNewerCalls).toBeGreaterThan(0);
+      expect(log.state.jumpStatus).toBe("reading");
+      source.setEntries([...lines(1_000, [20]), { ...makeEntry(1_000), value: "err" }]);
+      source.notify();
+      log.render();
+      expect(log.state.rowEntries).toContain(1_000);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
+    it("should stay paused after a jump to a match near the newest line", () => {
+      const { log, updateState } = setup(lines(1_000, [998]), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.scrolling).toBe(true);
+    });
+
+    it("should end a jump that reads when the log resumes", () => {
+      const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.jumpStatus).toBe("reading");
+      updateState({
+        ...SEARCH,
+        scrolling: false,
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(log.state.jumpStatus).toBe("");
+      const calls = source.loadOlderCalls;
+      source.notify();
+      expect(source.loadOlderCalls).toBe(calls);
+    });
+
+    it("should start again from the view when the search changes", () => {
+      const { log, updateState } = setup(lines(1_000, [20, 150]), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      jumpTo(updateState, "previous", 2);
+      const changed = { ...SEARCH, search: { text: "ERR" } };
+      updateState({
+        ...changed,
+        scrolling: true,
+        jump: { direction: "previous", request: 2 },
+      });
+      updateState({
+        ...changed,
+        scrolling: true,
+        jump: { direction: "previous", request: 3 },
+      });
+      log.render();
+      expect(log.state.rowEntries).toContain(20);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
+    it("should clear the jump status when the search changes", () => {
+      const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      source.exhausted = true;
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.jumpStatus).toBe("none");
+      updateState({
+        ...SEARCH,
+        search: { text: "ok" },
+        scrolling: true,
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(log.state.jumpStatus).toBe("");
+    });
   });
 
   describe("color handling", () => {
