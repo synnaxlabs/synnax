@@ -732,6 +732,8 @@ TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotConnected) {
 TEST_F(EtherCATScanStatusTest, EditedSlaveStaysConnected) {
     auto dev = ASSERT_NIL_P(this->scanner->scan(common::ScannerContext{.count = 1}))
                    .at(0);
+    // A scan derives the key from the serial, so every run would get the same key.
+    dev.key = make_unique_channel_name(dev.key);
     ASSERT_NIL(this->client->devices.create(dev));
     this->scanner->on_device_set(dev);
     const auto status = ASSERT_NIL_P(

@@ -275,6 +275,13 @@ void send_start(
     );
 }
 
+/// @brief deletes the stored task and creates task in its place. A create refuses an
+/// existing key, and the C++ client has no task dispatch to edit the task instead.
+void replace_task(const synnax::task::Client &tasks, synnax::task::Task &task) {
+    ASSERT_NIL(tasks.del(task.key));
+    ASSERT_NIL(tasks.create(task));
+}
+
 synnax::task::Status wait_for_task_status(
     synnax::framer::Streamer &streamer,
     const synnax::task::Task &task,
@@ -512,7 +519,7 @@ TEST_F(TaskManagerTest, RackMoveStopsLiveInstanceSilently) {
 
     auto other = ASSERT_NIL_P(client->racks.create("move_target"));
     task.rack = other.key;
-    ASSERT_NIL(other.tasks.create(task));
+    replace_task(other.tasks, task);
     // The redeploy start lands on the new rack; here it silently frees the
     // instance this driver still holds.
     send_start(client, task, "s2");
@@ -829,7 +836,7 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
 
     for (int i = 0; i < 5; i++) {
         task.config = x::json::json{{"rate", i + 1}};
-        ASSERT_NIL(rack.tasks.create(task));
+        replace_task(rack.tasks, task);
         send_start(client, task, "start-" + std::to_string(i + 1));
     }
     std::this_thread::sleep_for((500 * x::telem::MILLISECOND).chrono());
@@ -874,7 +881,7 @@ TEST_F(TaskManagerTest, StartWithUnchangedConfigDoesNotReconfigure) {
 
     // Changed config: the third start rebuilds the task first.
     task.config = x::json::json{{"rate", 100}};
-    ASSERT_NIL(rack.tasks.create(task));
+    replace_task(rack.tasks, task);
     send_start(client, task, "s3");
     EVENTUALLY(
         [&] {
@@ -915,7 +922,7 @@ TEST_F(TaskManagerTest, StartWithStaleCommandHashRedeploys) {
     // A start naming the deployed hash cannot hold the fast path once the
     // stored config has moved on: the new revision deploys.
     task.config = x::json::json{{"rate", 100}};
-    ASSERT_NIL(rack.tasks.create(task));
+    replace_task(rack.tasks, task);
     ASSERT_NE(task.config_hash, deployed_hash);
     send_start(client, task, "s2", deployed_hash);
     EVENTUALLY(
@@ -1021,7 +1028,7 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashIsRefused) {
     const auto seen_hash = task.config_hash;
 
     task.config = x::json::json{{"rate", 100}};
-    ASSERT_NIL(rack.tasks.create(task));
+    replace_task(rack.tasks, task);
     ASSERT_NE(task.config_hash, seen_hash);
     send_cmd(
         client,
@@ -1066,7 +1073,7 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashKeepsRunningStatus) {
     const auto deployed_hash = task.config_hash;
 
     task.config = x::json::json{{"rate", 100}};
-    ASSERT_NIL(rack.tasks.create(task));
+    replace_task(rack.tasks, task);
     ASSERT_NE(task.config_hash, deployed_hash);
     send_cmd(
         client,
@@ -1264,7 +1271,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
     );
 
     task.config = x::json::json{{"rate", 2}};
-    ASSERT_NIL(rack.tasks.create(task));
+    replace_task(rack.tasks, task);
     send_start(client, task, "s2");
 
     ASSERT_EVENTUALLY_TRUE(first_state->stopped.load());
@@ -1350,7 +1357,7 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     ASSERT_FALSE(f->first_destroyed.load());
 
     task.config = {{"rate", 2}};
-    ASSERT_NIL(rack.tasks.create(task));
+    replace_task(rack.tasks, task);
     send_start(client, task, "s2");
 
     ASSERT_EVENTUALLY_GE(f->configure_count.load(), 2);
@@ -1911,7 +1918,7 @@ TEST_F(TaskManagerTest, RackMoveDropsStatusFromResend) {
 
     auto other = ASSERT_NIL_P(client->racks.create("move_target"));
     moved.rack = other.key;
-    ASSERT_NIL(other.tasks.create(moved));
+    replace_task(other.tasks, moved);
     // The set event that moves the task carries no signal that it was handled.
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
 
@@ -1949,14 +1956,14 @@ TEST_F(TaskManagerTest, RackMoveBackWritesStatusesAgain) {
 
     auto other = ASSERT_NIL_P(client->racks.create("move_target"));
     task.rack = other.key;
-    ASSERT_NIL(other.tasks.create(task));
+    replace_task(other.tasks, task);
     send_start(client, task, "s2");
     EVENTUALLY([&] { return first->stopped.load(); }, [] { return "not stopped"; });
     // The worker drops the status after the instance stops and is destroyed.
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
 
     task.rack = rack.key;
-    ASSERT_NIL(rack.tasks.create(task));
+    replace_task(rack.tasks, task);
     const auto since = x::telem::TimeStamp::now();
     send_start(client, task, "s3");
     WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {

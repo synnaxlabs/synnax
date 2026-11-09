@@ -93,7 +93,7 @@ protected:
     synnax::device::Device create_network_device(const std::string &interface) {
         x::json::json props = {{"interface", interface}, {"rate", 100.0}};
         synnax::device::Device dev{
-            .key = "ecat_network_" + interface,
+            .key = make_unique_channel_name("ecat_network_" + interface),
             .rack = rack.key,
             .location = interface,
             .make = "EtherCAT",
@@ -123,7 +123,7 @@ protected:
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
         synnax::device::Device dev{
-            .key = "ecat_slave_" + std::to_string(serial),
+            .key = make_unique_channel_name("ecat_slave_" + std::to_string(serial)),
             .rack = rack.key,
             .location = std::to_string(serial),
             .make = "DEWESoft",

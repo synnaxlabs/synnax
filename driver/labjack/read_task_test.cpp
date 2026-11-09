@@ -470,9 +470,9 @@ TEST(TestBacklogWarnOnCount, testExplicitCountKept) {
     ASSERT_EQ(count, 7);
 }
 
-x::json::json basic_read_task_config() {
+x::json::json basic_read_task_config(const std::string &device) {
     return {
-        {"device", "230227d9-02aa-47e4-b370-0d590add1bc1"},
+        {"device", device},
         {"sample_rate", 10},
         {"stream_rate", 5},
         {"data_saving_disabled", false},
@@ -512,7 +512,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+        .key = make_unique_channel_name("labjack"),
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
@@ -538,7 +538,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
         true
     ));
 
-    auto j = basic_read_task_config();
+    auto j = basic_read_task_config(dev.key);
     j["channels"][0]["channel"] = tc_ch.key;
     j["channels"][1]["channel"] = di_ch.key;
     j["channels"][2]["channel"] = ai_ch.key;
@@ -586,7 +586,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+        .key = make_unique_channel_name("labjack"),
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
@@ -603,7 +603,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     ));
 
     // Create a config with an invalid channel type
-    auto j = basic_read_task_config();
+    auto j = basic_read_task_config(dev.key);
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
           {"disabled", false},
@@ -624,7 +624,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto dev = synnax::device::Device{
-        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+        .key = make_unique_channel_name("labjack"),
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
@@ -638,7 +638,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
         true
     ));
 
-    auto j = basic_read_task_config();
+    auto j = basic_read_task_config(dev.key);
     j["data_saving_disabled"] = false;
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
@@ -670,7 +670,7 @@ protected:
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
         auto dev = synnax::device::Device{
-            .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+            .key = make_unique_channel_name("labjack"),
             .rack = rack.key,
             .location = "dev1",
             .make = "labjack",
@@ -683,7 +683,7 @@ protected:
             x::telem::FLOAT64_T,
             true
         ));
-        auto j = basic_read_task_config();
+        auto j = basic_read_task_config(dev.key);
         if (thermocouple)
             j["channels"] = x::json::json::array(
                 {{{"port", "AIN0"},
@@ -1078,8 +1078,7 @@ protected:
         };
         const auto create_err = this->client->devices.create(device);
         EXPECT_NIL(create_err);
-        auto j = basic_read_task_config();
-        j["device"] = device.key;
+        auto j = basic_read_task_config(device.key);
         j["channels"] = channels;
         j["sample_rate"] = sample_rate;
         j["stream_rate"] = stream_rate;
