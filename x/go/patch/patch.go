@@ -15,7 +15,8 @@
 // __proto__, returns an error that wraps validate.ErrValidation. A generated Patch
 // method accepts only the actions that give the same result on the JSON form of its
 // record, writes only memory that the record owns, and leaves the record unchanged on
-// error.
+// error. An Update changes a typed record by a partial record instead, and fails with
+// ErrStale where an action does nothing.
 package patch
 
 import (

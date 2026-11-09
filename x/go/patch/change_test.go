@@ -27,8 +27,8 @@ type settings struct {
 }
 
 type settingsUpdate struct {
-	Rate   patch.Change[int] `json:"rate,omitzero"   msgpack:"rate,omitempty"`
-	Stream patch.Change[int] `json:"stream,omitzero" msgpack:"stream,omitempty"`
+	Rate   patch.Change[int] `json:"rate,omitzero"`
+	Stream patch.Change[int] `json:"stream,omitzero"`
 }
 
 type settingsField = patch.Struct[settingsUpdate, settings]
@@ -36,13 +36,13 @@ type settingsField = patch.Struct[settingsUpdate, settings]
 // holder has the shape of a generated update: a required and an optional scalar, a
 // required and an optional struct, and the msgpack methods that carry its JSON form.
 type holder struct {
-	Name     patch.Change[string]                `json:"name,omitzero"     msgpack:"name,omitempty"`
-	Group    patch.Change[string]                `json:"group,omitzero"    msgpack:"group,omitempty"`
-	Count    patch.Change[int64]                 `json:"count,omitzero"    msgpack:"count,omitempty"`
-	Settings settingsField                       `json:"settings,omitzero" msgpack:"settings,omitempty"`
-	Extra    patch.Change[settingsField]         `json:"extra,omitzero"    msgpack:"extra,omitempty"`
-	Tags     patch.ValueList[string]             `json:"tags,omitzero"     msgpack:"tags,omitempty"`
-	Pairs    patch.List[settings, int, settings] `json:"pairs,omitzero"    msgpack:"pairs,omitempty"`
+	Name     patch.Change[string]                `json:"name,omitzero"`
+	Group    patch.Change[string]                `json:"group,omitzero"`
+	Count    patch.Change[int64]                 `json:"count,omitzero"`
+	Settings settingsField                       `json:"settings,omitzero"`
+	Extra    patch.Change[settingsField]         `json:"extra,omitzero"`
+	Tags     patch.ValueList[string]             `json:"tags,omitzero"`
+	Pairs    patch.List[settings, int, settings] `json:"pairs,omitzero"`
 }
 
 func (h holder) EncodeMsgpack(enc *msgpack.Encoder) error {

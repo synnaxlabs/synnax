@@ -116,6 +116,7 @@ ListMove struct<K> {
 
     @doc value "moves an entry of a list after another entry."
     @pb omit
+    @py dict
 }
 
 List struct<E, K, U> {
@@ -141,6 +142,7 @@ List struct<E, K, U> {
         that exists, fails the update.
     """
     @pb omit
+    @py dict
     @ts hand
     @ts include "x/ts/src/patch/field"
 }
@@ -165,6 +167,7 @@ ValueList struct<E> {
         value that exists, fails the update.
     """
     @pb omit
+    @py dict
     @ts hand
     @ts include "x/ts/src/patch/field"
 }

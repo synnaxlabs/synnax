@@ -3406,4 +3406,57 @@ var _ = Describe("Collection type aliases and maps", func() {
 	)
 })
 
+var _ = Describe("Dict forms", func() {
+	It("Should declare the dict form of a struct with @py dict", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Move struct<K> {
+				key   K
+				after K?
+				@py dict
+			}
+
+			Ops struct<E, K> {
+				insert E[]?
+				move   Move<K>[]?
+				@py dict
+			}
+		`
+		resp := MustGenerate(ctx, source, "ops", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"from typing import Generic, NotRequired, TypedDict, TypeVar",
+			"# MoveDict is the dict form of Move.\n"+
+				"class MoveDict(TypedDict, Generic[K]):\n"+
+				"    key: K\n"+
+				"    after: NotRequired[K]",
+			"# OpsDict is the dict form of Ops.\n"+
+				"class OpsDict(TypedDict, Generic[E, K]):\n"+
+				"    insert: NotRequired[list[E]]\n"+
+				"    move: NotRequired[list[MoveDict[K]]]",
+		)
+	})
+
+	It("Should reject a dict form with a keyword field", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Range struct {
+				in int32
+				@py dict
+			}
+		`
+		req := MustGenerateRequest(ctx, source, "range", loader)
+		Expect(typesPlugin.Generate(req)).Error().To(
+			MatchError(
+				ContainSubstring("@py dict cannot declare the keyword field in"),
+			),
+		)
+	})
+})
+
 var _ = ShouldNotLeakGoroutinesPerSpec()

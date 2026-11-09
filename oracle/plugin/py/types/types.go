@@ -244,6 +244,9 @@ func generatePyFile(
 			if err := addFilterInput(typ, &sd, table, data); err != nil {
 				return nil, err
 			}
+			if err := addDictForm(typ, &sd, table, data); err != nil {
+				return nil, err
+			}
 			// The alias keeps a field named override from shadowing the decorator in
 			// the class body.
 			if sd.KeyField != "" && !sd.Skip && !sd.IsAlias {

@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar
+from typing import Generic, NotRequired, TypedDict, TypeVar
 
 from pydantic import BaseModel, Field, JsonValue
 
@@ -46,6 +46,12 @@ class ListMove(BaseModel, Generic[K]):
 
     key: K
     after: K | None = None
+
+
+# ListMoveDict is the dict form of ListMove.
+class ListMoveDict(TypedDict, Generic[K]):
+    key: K
+    after: NotRequired[K]
 
 
 class Set(BaseModel):
@@ -131,6 +137,15 @@ class List(BaseModel, Generic[E, K, U]):
     move: list[ListMove[K]] | None = None
 
 
+# ListDict is the dict form of List.
+class ListDict(TypedDict, Generic[E, K, U]):
+    set: NotRequired[list[E]]
+    insert: NotRequired[list[E]]
+    remove: NotRequired[list[K]]
+    update: NotRequired[list[U]]
+    move: NotRequired[list[ListMoveDict[K]]]
+
+
 class ValueList(BaseModel, Generic[E]):
     """Changes a list of values that are their own keys. The operators apply in the
     order remove, insert, then move. A value that is missing, or an insert of a value
@@ -147,3 +162,11 @@ class ValueList(BaseModel, Generic[E]):
     insert: list[E] | None = None
     remove: list[E] | None = None
     move: list[ListMove[E]] | None = None
+
+
+# ValueListDict is the dict form of ValueList.
+class ValueListDict(TypedDict, Generic[E]):
+    set: NotRequired[list[E]]
+    insert: NotRequired[list[E]]
+    remove: NotRequired[list[E]]
+    move: NotRequired[list[ListMoveDict[E]]]

@@ -8,10 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing import Any, TypedDict
+from pathlib import Path
+from typing import Any, Literal, TypedDict
 
 import pytest
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from x import patch
 from x.codec import JSONCodec
@@ -27,11 +28,23 @@ class SettingsUpdate(TypedDict, total=False):
     stream: int
 
 
+class Pair(TypedDict):
+    key: str
+    rate: int
+
+
+class PairUpdate(TypedDict, total=False):
+    key: str
+    rate: int
+
+
 class Holder(TypedDict, total=False):
     name: str
     group: patch.Change[str]
     settings: patch.Struct[SettingsUpdate, Settings]
     extra: patch.Change[patch.Struct[SettingsUpdate, Settings]]
+    tags: patch.ValueListDict[str]
+    pairs: patch.ListDict[Pair, str, PairUpdate]
 
 
 HOLDER = TypeAdapter(Holder)
@@ -50,6 +63,18 @@ class TestStruct:
             ({"extra": None}, '{"extra":null}'),
             ({"settings": {"rate": 5}}, '{"settings":{"rate":5}}'),
             ({"group": None}, '{"group":null}'),
+            ({"tags": {"set": []}}, '{"tags":{"set":[]}}'),
+            (
+                {
+                    "pairs": {
+                        "remove": ["a"],
+                        "update": [{"key": "b", "rate": 2}],
+                        "move": [{"key": "b"}, {"key": "c", "after": "b"}],
+                    }
+                },
+                '{"pairs":{"remove":["a"],"update":[{"key":"b","rate":2}],'
+                '"move":[{"key":"b"},{"key":"c","after":"b"}]}}',
+            ),
         ],
         ids=[
             "absent",
@@ -58,6 +83,8 @@ class TestStruct:
             "clear",
             "required merge",
             "scalar clear",
+            "empty set",
+            "keyed operators",
         ],
     )
     def test_round_trip(self, value: Holder, data: str) -> None:
@@ -92,6 +119,11 @@ class TestList:
         assert parsed.insert is None
         assert parsed.move == [patch.ListMove[str](key="a")]
 
+    def test_dict_form_rejects_plain_list(self) -> None:
+        """Should reject a plain list where a dict form takes operators."""
+        with pytest.raises(ValidationError):
+            HOLDER.validate_python({"tags": ["a"]})
+
     def test_value_operators(self) -> None:
         """Should read value list operators."""
         parsed = patch.ValueList[str].model_validate({"remove": ["a"]})
@@ -119,4 +151,78 @@ class TestClears:
         assert json.loads(JSONCodec().encode(request))["update"]["value"] == {
             "settings": {"rate": 5},
             "extra": None,
+        }
+
+
+class AI(TypedDict):
+    key: str
+    type: Literal["ai"]
+    port: int
+    range: int
+    units: str
+
+
+class DI(TypedDict):
+    key: str
+    type: Literal["di"]
+    port: int
+    line: int
+
+
+class AIUpdate(TypedDict, total=False):
+    key: str
+    type: Literal["ai"]
+    port: patch.Change[int]
+    range: patch.Change[int]
+    units: patch.Change[str]
+
+
+class DIUpdate(TypedDict, total=False):
+    key: str
+    type: Literal["di"]
+    port: patch.Change[int]
+    line: patch.Change[int]
+
+
+class Config(TypedDict):
+    rate: int
+    channels: list[AI | DI]
+
+
+class ConfigUpdate(TypedDict, total=False):
+    rate: patch.Change[int]
+    channels: patch.ListDict[AI | DI, str, AIUpdate | DIUpdate]
+
+
+class Limits(TypedDict):
+    low: int
+    high: int
+
+
+class LimitsUpdate(TypedDict, total=False):
+    low: patch.Change[int]
+    high: patch.Change[int]
+
+
+class DocUpdate(TypedDict, total=False):
+    name: patch.Change[str]
+    group: patch.Change[str]
+    config: patch.Struct[ConfigUpdate, Config]
+    limits: patch.Change[patch.Struct[LimitsUpdate, Limits]]
+    tags: patch.ValueListDict[str]
+
+
+VECTORS = json.loads(
+    (Path(__file__).parents[2] / "testdata" / "update" / "vectors.json").read_text()
+)["cases"]
+
+
+class TestVectors:
+    @pytest.mark.parametrize("case", VECTORS, ids=[case["name"] for case in VECTORS])
+    def test_wire_form(self, case: dict[str, Any]) -> None:
+        """Should read and write each shared update as Go and TypeScript do."""
+        update = patch.Update[DocUpdate].model_validate(case["update"])
+        assert json.loads(update.model_dump_json()) == {
+            "guards": [],
+            **case["update"],
         }

@@ -11,4 +11,6 @@ export * from "@/patch/convert";
 export * from "@/patch/diff";
 export * from "@/patch/field";
 export * from "@/patch/patch";
+export * from "@/patch/stale";
 export * from "@/patch/types.gen";
+export * from "@/patch/update";
