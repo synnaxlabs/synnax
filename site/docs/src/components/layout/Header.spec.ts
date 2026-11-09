@@ -16,7 +16,6 @@ import { fromHtml } from "hast-util-from-html";
 import { describe, expect, it } from "vitest";
 
 import Header from "@/components/layout/Header.astro";
-import { type Release, Releases } from "@/util/releases";
 import { resolve, ROOT, type Version } from "@/util/version";
 
 const elements = (node: Root | Element): Element[] =>
@@ -32,18 +31,10 @@ const text = (node: Element): string =>
     .join("")
     .trim();
 
-const RELEASES: Release[] = [
-  { tag_name: "core/v0.60.0", prerelease: false, draft: false },
-];
-
 const render = async (version: Version | null = null): Promise<Element[]> => {
   const container = await experimental_AstroContainer.create();
   container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
-  const releases = new Releases({
-    fetch: async () => new Response(JSON.stringify(RELEASES)),
-  });
   const html = await container.renderToString(Header, {
-    locals: { releases },
     props: { version },
     request: new Request("https://docs.synnaxlabs.com/reference/"),
   });
@@ -62,10 +53,15 @@ const classed = (nodes: Element[], name: string): Element[] =>
   );
 
 describe("Header", () => {
-  it("should show the newest Core train when the build has no version", async () => {
-    const nodes = await render();
-    expect(classed(nodes, "version").map(text)).toEqual(["0.60"]);
-    expect(classed(nodes, "version-menu")).toEqual([]);
+  it("should show no version menu when the build has no version", async () => {
+    expect(classed(await render(), "version-menu")).toEqual([]);
+  });
+
+  it("should link GitHub from the nav and the mobile menu", async () => {
+    expect(hrefs(await render(), "GitHub")).toEqual([
+      "https://github.com/synnaxlabs/synnax",
+      "https://github.com/synnaxlabs/synnax",
+    ]);
   });
 
   it("should link each version at the current path", async () => {
@@ -80,7 +76,6 @@ describe("Header", () => {
       `${ROOT}/reference/`,
       "https://v0-59.docs.synnaxlabs.com/reference/",
     ]);
-    expect(classed(nodes, "version").map(text)).toEqual([]);
   });
 
   it("should send the pages no version owns to the root", async () => {
