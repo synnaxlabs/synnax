@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <cstdint>
+#include <limits>
 
 #include "gtest/gtest.h"
 
@@ -1620,6 +1621,47 @@ TEST(FromSampleValue, Uint8NonZeroToBoolean) {
     ASSERT_EQ(result, json(true));
 }
 
+TEST(FromSampleValue, NonFiniteFloatToNumberErrors) {
+    for (const double v:
+         {std::numeric_limits<double>::quiet_NaN(),
+          std::numeric_limits<double>::infinity(),
+          -std::numeric_limits<double>::infinity()})
+        ASSERT_OCCURRED_AS_P(
+            x::json::from_sample_value(x::telem::SampleValue(v), x::json::Type::Number),
+            x::json::CONVERSION_ERROR
+        );
+}
+
+TEST(FromSampleValue, Float32NaNToNumberErrors) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(std::numeric_limits<float>::quiet_NaN()),
+            x::json::Type::Number
+        ),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+TEST(FromSampleValue, NaNToBooleanErrors) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(std::numeric_limits<double>::quiet_NaN()),
+            x::json::Type::Boolean
+        ),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+TEST(FromSampleValue, InfinityToBoolean) {
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(std::numeric_limits<double>::infinity()),
+            x::json::Type::Boolean
+        )
+    );
+    ASSERT_EQ(result, json(true));
+}
+
 TEST(FromSampleValue, StringToString) {
     const auto result = ASSERT_NIL_P(
         x::json::from_sample_value(
@@ -1748,6 +1790,18 @@ TEST(FromSampleValue, EnumNoMatchFallsThrough) {
         )
     );
     ASSERT_EQ(result, json("99"));
+}
+
+TEST(FromSampleValue, NaNToEnumErrors) {
+    const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
+    ASSERT_OCCURRED_AS_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(std::numeric_limits<double>::quiet_NaN()),
+            x::json::Type::String,
+            &enums
+        ),
+        x::json::CONVERSION_ERROR
+    );
 }
 
 TEST(FromSampleValue, EnumIgnoredForNonStringTarget) {
