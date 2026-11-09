@@ -9,26 +9,24 @@
 
 import "@/input/Auto.css";
 
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
+import { Badge } from "@/badge";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 
-/** Props for the {@link AutoChip} component. */
-export interface AutoChipProps extends Omit<
-  ComponentPropsWithoutRef<"span">,
-  "children"
-> {}
+/** Props for the {@link AutoBadge} component. */
+export interface AutoBadgeProps extends Omit<Badge.BadgeProps, "children" | "status"> {}
 
 /**
  * Marks a field whose value the program picks until a person sets one. Place it where a
  * unit sits, such as an input's `endContent`.
  */
-export const AutoChip = ({ className, ...rest }: AutoChipProps): ReactElement => (
-  <span className={CSS.cls(CSS.B("input-auto-chip"), className)} {...rest}>
+export const AutoBadge = ({ className, ...rest }: AutoBadgeProps): ReactElement => (
+  <Badge.Badge className={CSS.cls(CSS.B("input-auto-badge"), className)} {...rest}>
     Auto
-  </span>
+  </Badge.Badge>
 );
 
 /** Props for the {@link AutoButton} component. */

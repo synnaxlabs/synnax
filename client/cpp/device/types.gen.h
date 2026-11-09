@@ -18,8 +18,8 @@
 #include <utility>
 #include <vector>
 
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/key.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
@@ -39,13 +39,11 @@ struct RetrieveResponse;
 
 using Key = std::string;
 
-/// @brief StatusDetails contains device-specific status details identifying the device
-/// and its associated rack.
+/// @brief StatusDetails contains device-specific status details, including the rack the
+/// device belongs to.
 struct StatusDetails {
     /// @brief rack is the key of the rack this device belongs to.
     ::synnax::rack::Key rack = 0;
-    /// @brief device is the device identifier.
-    Key device;
     /// @brief connected is true while the Driver confirms that it can reach the device.
     /// A device whose state is unknown is not connected.
     bool connected = false;
@@ -120,6 +118,18 @@ struct Where {
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching devices to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
 /// @brief RetrieveRequest is a request to retrieve devices.
 struct RetrieveRequest {
     /// @brief where selects the devices to retrieve. An absent where selects all of
@@ -133,8 +143,17 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
-    /// @brief include_parent includes the parent of each record.
-    bool include_parent = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_status = options.include_status,
+        };
+    }
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -171,9 +190,9 @@ struct Device {
     x::json::json::object_t properties;
     /// @brief status is the current operational status of the device.
     std::optional<Status> status;
-    /// @brief parent is an optional parent resource ID for hierarchical device
-    /// organization (e.g., NI chassis containing modules).
-    std::optional<::synnax::ontology::ID> parent;
+    /// @brief parent is the key of the device that holds this device, such as the NI
+    /// chassis of a module. Empty for a device that sits directly on its rack.
+    std::optional<Key> parent;
 
     static Device parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -200,9 +219,9 @@ struct RetrieveResponse {
     from_proto(const ::api::device::pb::RetrieveResponse &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("device", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("device", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("device", key);
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("device", key);
 }
 }

@@ -15,8 +15,8 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -24,6 +24,9 @@ import (
 
 // Key is a unique identifier for a saved view configuration.
 type Key = v1.Key
+
+// Base carries the fields shared by every view variant.
+type Base = v1.Base
 
 // Type names the resource that a view lists.
 type Type string
@@ -80,6 +83,9 @@ func (StatusView) isViewVariant() {}
 func (s StatusView) Validate() error {
 	v := validate.New("StatusView")
 	v.Exec(s.Base.Validate)
+	if s.Where != nil {
+		v.Exec(func() error { return validate.PathedError(s.Where.Validate(), "where") })
+	}
 	return v.Error()
 }
 
@@ -204,6 +210,3 @@ func (u *View) SetBase(base Base) {
 		panic(errors.Newf("View: cannot set the base of variant %T", variant))
 	}
 }
-
-// Base carries the fields shared by every view variant.
-type Base = v1.Base

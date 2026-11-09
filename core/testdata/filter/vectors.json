@@ -8,13 +8,7 @@
           "start": 1000,
           "end": 2000
         },
-        "labels": [
-          {
-            "key": "00000000-0000-4000-8000-0000000000f1",
-            "name": "Engine",
-            "color": "#ff0000"
-          }
-        ]
+        "labels": ["00000000-0000-4000-8000-0000000000f1"]
       },
       "b": {
         "key": "00000000-0000-4000-8000-00000000000b",
@@ -24,16 +18,8 @@
           "end": 3000
         },
         "labels": [
-          {
-            "key": "00000000-0000-4000-8000-0000000000f1",
-            "name": "Engine",
-            "color": "#ff0000"
-          },
-          {
-            "key": "00000000-0000-4000-8000-0000000000f2",
-            "name": "Anomaly",
-            "color": "#00ff00"
-          }
+          "00000000-0000-4000-8000-0000000000f1",
+          "00000000-0000-4000-8000-0000000000f2"
         ]
       },
       "c": {
@@ -398,13 +384,7 @@
         "variant": "success",
         "message": "Started task",
         "time": 1000,
-        "labels": [
-          {
-            "key": "00000000-0000-4000-8000-0000000000f1",
-            "name": "Engine",
-            "color": "#ff0000"
-          }
-        ]
+        "labels": ["00000000-0000-4000-8000-0000000000f1"]
       },
       "b": {
         "key": "status-b",
@@ -413,16 +393,8 @@
         "message": "Started task",
         "time": 1000,
         "labels": [
-          {
-            "key": "00000000-0000-4000-8000-0000000000f1",
-            "name": "Engine",
-            "color": "#ff0000"
-          },
-          {
-            "key": "00000000-0000-4000-8000-0000000000f2",
-            "name": "Anomaly",
-            "color": "#00ff00"
-          }
+          "00000000-0000-4000-8000-0000000000f1",
+          "00000000-0000-4000-8000-0000000000f2"
         ]
       },
       "c": {
@@ -658,25 +630,29 @@
         "key": 65538,
         "name": "Hotfire rack",
         "embedded": false,
-        "integrations": ["ni", "labjack"]
+        "integrations": ["ni", "labjack"],
+        "role": "6f1c2d3e-4b5a-4c6d-8e7f-0a1b2c3d4e5f"
       },
       "b": {
         "key": 65539,
         "name": "Cold flow rack",
         "embedded": false,
-        "integrations": ["opc"]
+        "integrations": ["opc"],
+        "role": "6f1c2d3e-4b5a-4c6d-8e7f-0a1b2c3d4e5f"
       },
       "c": {
         "key": 131073,
         "name": "Remote rack",
         "embedded": false,
-        "integrations": []
+        "integrations": [],
+        "role": "6f1c2d3e-4b5a-4c6d-8e7f-0a1b2c3d4e5f"
       },
       "d": {
         "key": 131074,
         "name": "Remote embedded rack",
         "embedded": true,
-        "integrations": ["ni"]
+        "integrations": ["ni"],
+        "role": "6f1c2d3e-4b5a-4c6d-8e7f-0a1b2c3d4e5f"
       }
     },
     "cases": [
@@ -802,22 +778,6 @@
           }
         },
         "expected": []
-      },
-      {
-        "name": "host is node",
-        "where": {
-          "host_is_node": true
-        },
-        "expected": ["a", "b"],
-        "server_computed": true
-      },
-      {
-        "name": "host is not node",
-        "where": {
-          "host_is_node": false
-        },
-        "expected": ["c", "d"],
-        "server_computed": true
       },
       {
         "name": "the slots on one node are ANDed",
@@ -1554,23 +1514,6 @@
           }
         },
         "expected": ["a", "c"],
-        "server_computed": true
-      },
-      {
-        "name": "name_patterns matches a valid name exactly",
-        "where": { "name_patterns": ["pressure_1", "pressure"] },
-        "expected": ["a"]
-      },
-      {
-        "name": "name_patterns anchors an unanchored pattern",
-        "where": { "name_patterns": ["pressure_.*", "valve"] },
-        "expected": ["a", "c"],
-        "server_computed": true
-      },
-      {
-        "name": "name_patterns keeps an anchored pattern as given",
-        "where": { "name_patterns": ["^valve"] },
-        "expected": ["d"],
         "server_computed": true
       },
       {

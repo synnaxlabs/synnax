@@ -8,6 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.arc.directory.client import Client
-from synnax.arc.directory.types_gen import ONTOLOGY_TYPE, Directory, Key, ontology_id
+from synnax.arc.directory.types_gen import TYPE_RESOURCE_ID, Directory, Key, resource_id
 
-__all__ = ["ONTOLOGY_TYPE", "Client", "Directory", "Key", "ontology_id"]
+__all__ = ["TYPE_RESOURCE_ID", "Client", "Directory", "Key", "resource_id"]

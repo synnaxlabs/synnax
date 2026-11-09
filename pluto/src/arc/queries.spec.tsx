@@ -461,11 +461,7 @@ describe("Arc queries", () => {
         expect(result.current.variant).toEqual("success");
       });
       const createdArc = await client.arcs.retrieve({ name });
-      const children = await client.ontology.children.retrieve({
-        ids: arc.ontologyID(createdArc.key),
-      });
-      const taskChildren = children.filter((c) => c.id.type === "task");
-      expect(taskChildren).toHaveLength(0);
+      expect(await client.arcs.task.retrieve(createdArc.key)).toBeNull();
     });
   });
 
@@ -520,12 +516,8 @@ describe("Arc queries", () => {
 
       const moved = await client.tasks.retrieve(first.key);
       expect(moved.rack).toBe(rack2.key);
-      const children = await client.ontology.children.retrieve({
-        ids: arc.ontologyID(created.key),
-        types: ["task"],
-      });
-      expect(children).toHaveLength(1);
-      expect(children[0].id.key).toBe(first.key);
+      const arcTasks = await client.tasks.retrieve({ arcs: [created.key] });
+      expect(arcTasks.map((t) => t.key)).toEqual([first.key]);
     });
 
     it("clears the rack with a zero rack, deleting the task", async () => {
@@ -827,6 +819,11 @@ describe("Arc queries", () => {
   });
 
   describe("useTask", () => {
+    const createArcTask = async (arcKey: arc.Key, name: string): Promise<task.Task> => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      return await rack.createTask({ name, type: "arc", config: { arcKey } });
+    };
+
     it("should return null when no task is associated with arc", async () => {
       const testArc = await client.arcs.create({
         name: `arc-no-task-${Math.random().toString(36).substring(7)}`,
@@ -849,17 +846,7 @@ describe("Arc queries", () => {
         source: { mode: "text" },
       });
 
-      const rack = await client.racks.create({ name: "test-rack" });
-      const testTask = await rack.createTask({
-        name: "arc-task",
-        type: "pagerduty_alert",
-        config: { routingKey: "rk" },
-      });
-
-      await client.ontology.addChildren(
-        arc.ontologyID(testArc.key),
-        task.ontologyID(testTask.key),
-      );
+      const testTask = await createArcTask(testArc.key, "arc-task");
 
       const { result } = await renderHookSuspended(
         () => Arc.useTask({ arcKey: testArc.key }),
@@ -870,7 +857,7 @@ describe("Arc queries", () => {
         timeout: 5000,
       });
       expect(result.current?.name).toEqual("arc-task");
-      expect(result.current?.config).toMatchObject({ routingKey: "rk" });
+      expect(result.current?.config).toMatchObject({ arcKey: testArc.key });
     });
 
     it("should update when a task is associated with arc", async () => {
@@ -887,29 +874,21 @@ describe("Arc queries", () => {
 
       expect(result.current).toBeNull();
 
-      const rack = await client.racks.create({ name: "test-rack-add" });
-      const testTask = await rack.createTask({
-        name: "new-arc-task",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
+      let taskKey: task.Key | undefined;
       await act(async () => {
-        await client.ontology.addChildren(
-          arc.ontologyID(testArc.key),
-          task.ontologyID(testTask.key),
-        );
+        taskKey = (await createArcTask(testArc.key, "new-arc-task")).key;
       });
+      assert(taskKey != null);
 
       await waitFor(
         () => {
           const cached = client.arcs.task.getCached(testArc.key);
-          expect(query.isLive(cached) && cached?.key).toEqual(testTask.key);
+          expect(query.isLive(cached) && cached?.key).toEqual(taskKey);
         },
         { timeout: 15000 },
       );
       await act(async () => {});
-      expect(result.current?.key).toEqual(testTask.key);
+      expect(result.current?.key).toEqual(taskKey);
     }, 20000);
 
     it("should update when task status changes", async () => {
@@ -919,17 +898,7 @@ describe("Arc queries", () => {
         source: { mode: "text" },
       });
 
-      const rack = await client.racks.create({ name: "test-rack-status" });
-      const testTask = await rack.createTask({
-        name: "status-task",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      await client.ontology.addChildren(
-        arc.ontologyID(testArc.key),
-        task.ontologyID(testTask.key),
-      );
+      const testTask = await createArcTask(testArc.key, "status-task");
 
       const { result } = await renderHookSuspended(
         () => Arc.useTask({ arcKey: testArc.key }),
@@ -939,11 +908,10 @@ describe("Arc queries", () => {
       const taskStatus: task.Status = status.create<
         ReturnType<typeof task.statusDetailsZ>
       >({
-        key: task.statusKey(testTask.key),
+        owner: task.resourceID(testTask.key),
         variant: "error",
         message: "Task failed",
         details: {
-          task: testTask.key,
           running: false,
           cmd: "",
           configHash: "",
@@ -969,17 +937,7 @@ describe("Arc queries", () => {
         source: { mode: "text" },
       });
 
-      const rack = await client.racks.create({ name: "test-rack-rename" });
-      const testTask = await rack.createTask({
-        name: "original-task-name",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      await client.ontology.addChildren(
-        arc.ontologyID(testArc.key),
-        task.ontologyID(testTask.key),
-      );
+      const testTask = await createArcTask(testArc.key, "original-task-name");
 
       const { result } = await renderHookSuspended(
         () => Arc.useTask({ arcKey: testArc.key }),
@@ -1042,11 +1000,10 @@ describe("Arc queries", () => {
     ): Promise<void> => {
       await client.statuses.set(
         status.create<ReturnType<typeof task.statusDetailsZ>>({
-          key: task.statusKey(tsk.key),
+          owner: task.resourceID(tsk.key),
           variant: "success",
           message: "Running",
           details: {
-            task: tsk.key,
             running: true,
             cmd: "",
             configHash: overrides.configHash ?? tsk.configHash,

@@ -101,7 +101,7 @@ class StableFor(ArcCase):
         t0 = sy.TimeStamp.now()
         self.log(f"Waiting until the wall clock is {DELIVERY_DELAY} past t0")
         while sy.TimeStamp.now() < t0 + DELIVERY_DELAY:
-            sy.sleep(0.05)
+            sy.sleep(0.05)  # noqa: TID251 waits out DELIVERY_DELAY
 
         emitted: list[bool] = []
         with (
@@ -166,7 +166,7 @@ class StableFor(ArcCase):
             def ingest(values: list[float]) -> None:
                 nonlocal last_read
                 while sy.TimeStamp.now() < last_read + VIRTUAL_HOLD:
-                    sy.sleep(0.02)
+                    sy.sleep(0.02)  # noqa: TID251 paces the batches
                 writer.write({"sf_vpt": values})
                 self._settle(stream, "sf_vseen", values[-1], "sf_vout", emitted)
                 last_read = sy.TimeStamp.now()

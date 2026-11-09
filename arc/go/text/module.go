@@ -138,6 +138,7 @@ func link(i *ir.IR, units []*unit, shell *shellBuilder, bound set.Set[string]) {
 		i.Nodes = append(i.Nodes, u.ir.Nodes...)
 		i.Edges = append(i.Edges, u.ir.Edges...)
 		maps.Copy(i.TypeMap, u.ir.TypeMap)
+		maps.Copy(i.FmtStrings, u.ir.FmtStrings)
 		for _, stratum := range u.ir.Root.Strata {
 			for _, m := range stratum {
 				if m.Scope != nil {

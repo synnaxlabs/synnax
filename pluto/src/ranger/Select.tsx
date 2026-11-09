@@ -14,14 +14,14 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select as Base } from "@synnaxlabs/lyra/select";
-import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type Flux } from "@/flux";
+import { Label } from "@/label";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
-import { type ListQuery, useList } from "@/ranger/queries";
+import { type ListQuery, useList, useResult } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
 
 export interface SelectProps
@@ -81,8 +81,10 @@ const ListItem = ({
   ...rest
 }: ListItemProps): ReactElement | null => {
   const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
+  const parentKey = showParent ? item?.parent : undefined;
+  const parent = useResult(parentKey == null ? null : { key: parentKey }).data;
   if (item == null) return null;
-  const { name, timeRange, parent, labels } = item;
+  const { name, timeRange } = item;
   return (
     <Base.Item
       className={CSS.cls(CSS.BE("range", "list-item"), className)}
@@ -97,15 +99,7 @@ const ListItem = ({
         timeRange={timeRange}
       />
       <Flex.Box x>
-        {showLabels && labels != null && labels.length > 0 && (
-          <>
-            {labels.map(({ key, name, color }) => (
-              <Tag.Tag key={key} color={color} size="small">
-                {name}
-              </Tag.Tag>
-            ))}
-          </>
-        )}
+        {showLabels && <Label.Tags keys={item.labels} />}
         <Telem.Text.TimeRange level="tiny">{timeRange}</Telem.Text.TimeRange>
       </Flex.Box>
     </Base.Item>

@@ -27,7 +27,7 @@ export const EditConnectionMenuItem = ({
 }: EditConnectionMenuItemProps) => {
   const first = ids.at(0);
   const hasUpdatePermission = Access.useUpdateGranted(
-    first != null ? device.ontologyID(first.key) : device.TYPE_ONTOLOGY_ID,
+    first != null ? device.resourceID(first.key) : device.TYPE_RESOURCE_ID,
   );
   if (first == null || ids.length !== 1 || !hasUpdatePermission) return null;
   const handleClick = () => onConfigure(first.key);

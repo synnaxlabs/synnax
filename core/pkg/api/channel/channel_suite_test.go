@@ -11,20 +11,22 @@ package channel_test
 
 import (
 	"testing"
-	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -39,50 +41,71 @@ func TestAPIChannel(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db         *gorp.DB
 	channelSvc *channel.Service
+	groupSvc   *group.Service
 	statusSvc  *status.Service
 	rbacSvc    *rbac.Service
 	rangeSvc   *ranger.Service
 	aliasSvc   *alias.Service
 	userSvc    *user.Service
 	apiSvc     *apichannel.Service
-	author     user.User
+	dist       testutil.Node
+	// The handlers run their routes as the API layer binds them.
+	createChannels freighter.UnaryHandler[
+		apichannel.CreateRequest,
+		apichannel.CreateResponse,
+	]
+	deleteChannels freighter.UnaryHandler[apichannel.DeleteRequest, struct{}]
+	renameChannels freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
+	dispatch       freighter.UnaryHandler[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]
+	setGroup         freighter.UnaryHandler[apichannel.SetGroupRequest, struct{}]
+	retrieveChannels freighter.UnaryHandler[
+		apichannel.AliasedRetrieveRequest,
+		apichannel.RetrieveResponse,
+	]
+	author user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	svc := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
-	channelSvc, statusSvc, rbacSvc = svc.Channel, svc.Status, svc.RBAC
+	dist = testutil.NewNode(ctx)
+	db = dist.DB
+	svc := MustOpen(svctestutil.OpenLayer(ctx, dist))
+	channelSvc, groupSvc, statusSvc, rbacSvc = svc.Channel, svc.Group, svc.Status, svc.RBAC
 	rangeSvc, aliasSvc, userSvc = svc.Ranger, svc.Alias, svc.User
 	apiSvc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
+		DB:      db,
 		RBAC:    rbacSvc,
 		Channel: channelSvc,
 		Status:  statusSvc,
 		Alias:   aliasSvc,
 	}))
+	binder := MustSucceed(
+		bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}),
+	)
+	createChannels = bind.Write(binder, apiSvc.Create)
+	deleteChannels = bind.Write(binder, apiSvc.Delete)
+	renameChannels = bind.Write(binder, apiSvc.Rename)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	retrieveChannels = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
+		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
 })
 
-// grantOn assigns the subject a role that allows the actions on the objects.
+// grantOn grants the actions on the objects to the subject.
 func grantOn(
 	ctx SpecContext,
-	subject ontology.ID,
+	subject resource.ID,
 	actions []access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: actions,
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }

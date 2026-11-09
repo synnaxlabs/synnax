@@ -10,6 +10,7 @@
 import "schemas/synnax/ranger"
 import "schemas/synnax/status"
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/view"
 @py output "client/py/synnax/view"
@@ -42,6 +43,33 @@ View union on type Type extends Base {
         @doc value "is a saved view of statuses."
     }
 
+    action Create {
+        view View
+
+        @doc value """
+            replaces the view with the given created state. Emitted by the Core when a
+            view is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the view."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the view.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the view."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the view."
+    }
+
     @create
     @doc value     """
         is a saved, named filter over a list of resources. The type selects the resource
@@ -49,7 +77,7 @@ View union on type Type extends Base {
     """
     @go marshal
     @go migrate
-    @ontology type "view"
+    @resource type "view"
     @retrieve
 }
 

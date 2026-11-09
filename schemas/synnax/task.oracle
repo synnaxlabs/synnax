@@ -9,6 +9,7 @@
 
 import "schemas/synnax/device"
 import "schemas/synnax/rack"
+import "schemas/synnax/ranger"
 import "schemas/synnax/status"
 import "schemas/x/filter"
 import "schemas/x/patch"
@@ -25,9 +26,6 @@ Key = uuid {
 }
 
 StatusDetails struct<Data? = record> {
-    task        Key      {
-        @doc value "is the key of the task this status pertains to."
-    }
     running     bool     {
         @doc value "is true if the task is currently executing."
     }
@@ -70,13 +68,17 @@ Task struct<
         @key
     }
     rack        rack.Key = 0 {
-        @doc value """
+        @doc value     """
             is the key of the rack this task deploys to. Zero for a draft that has not
             been assigned a rack; required to start.
         """
+        @patch
+        @ref kind      place
+        @ref on_delete cascade
     }
     name        string              {
         @doc value         "is a human-readable name for the task."
+        @patch
         @search
         @validate required
     }
@@ -109,6 +111,13 @@ Task struct<
         @doc value  "is the current execution status of the task."
         @go marshal omit
         @include
+    }
+    range       ranger.Key?         {
+        @cpp omit
+        @doc value     "is the range the task is a snapshot in, if any."
+        @pb omit
+        @ref kind      place
+        @ref on_delete cascade
     }
 
     action Create {
@@ -144,8 +153,8 @@ Task struct<
     """
     @go marshal
     @go migrate
-    @ontology type           "task"
     @py name                 "Payload"
+    @resource type           "task"
     @retrieve indexes
     @ts coalesce_type_params
     @ts concrete_types
@@ -159,6 +168,14 @@ Where filter Task {
     rack
     internal
     snapshot
+    ranges   ranger.Key[] {
+        @cpp omit
+        @doc value "matches the tasks that are snapshots in any of the given ranges."
+    }
+    arcs     uuid[]       {
+        @cpp omit
+        @doc value "matches the tasks that run any of the Arcs with the given keys."
+    }
 
     @doc value         "is a filter that selects tasks."
     @go request_output "core/pkg/api/task"
@@ -239,7 +256,9 @@ ReadConfig struct extends PersistConfig {
 
 WriteConfig struct extends PersistConfig {
     device device.Key = "" {
-        @doc value "is the key of the device the task writes to."
+        @doc value     "is the key of the device the task writes to."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value "carries the configuration fields shared by hardware control tasks."

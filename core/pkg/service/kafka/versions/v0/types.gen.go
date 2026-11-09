@@ -17,7 +17,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -102,6 +102,27 @@ type ReadField struct {
 func (r *ReadField) ApplyDefaults() {
 	if r.DataType == "" {
 		r.DataType = "float64"
+	}
+}
+
+// ReadRecord is a set of fields read from the records with one Kafka key.
+type ReadRecord struct {
+	// Key uniquely identifies the record within the task.
+	Key string `json:"key" msgpack:"key"`
+	// RecordKey is the Kafka key of the records read here. Empty reads every record
+	// that no other record of the task claims, keyless ones included.
+	RecordKey string `json:"record_key" msgpack:"record_key"`
+	// Index is the key of the field whose channel indexes the others. Empty when the
+	// task stamps samples on arrival.
+	Index string `json:"index" msgpack:"index"`
+	// Fields contains the values to extract from the record.
+	Fields []ReadField `json:"fields" msgpack:"fields"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *ReadRecord) ApplyDefaults() {
+	for i := range r.Fields {
+		r.Fields[i].ApplyDefaults()
 	}
 }
 
@@ -250,25 +271,4 @@ func (w WriteConfig) Validate() error {
 		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
 	return v.Error()
-}
-
-// ReadRecord is a set of fields read from the records with one Kafka key.
-type ReadRecord struct {
-	// Key uniquely identifies the record within the task.
-	Key string `json:"key" msgpack:"key"`
-	// RecordKey is the Kafka key of the records read here. Empty reads every record
-	// that no other record of the task claims, keyless ones included.
-	RecordKey string `json:"record_key" msgpack:"record_key"`
-	// Index is the key of the field whose channel indexes the others. Empty when the
-	// task stamps samples on arrival.
-	Index string `json:"index" msgpack:"index"`
-	// Fields contains the values to extract from the record.
-	Fields []ReadField `json:"fields" msgpack:"fields"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadRecord) ApplyDefaults() {
-	for i := range r.Fields {
-		r.Fields[i].ApplyDefaults()
-	}
 }

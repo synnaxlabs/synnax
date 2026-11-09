@@ -12,8 +12,9 @@
 import { control, filter, telem, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { node } from "@/node";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 export const keyZ = z.uint32().or(
@@ -64,7 +65,8 @@ export type Where = {
   isIndex?: filter.Bool;
   internal?: filter.Bool;
   virtual?: boolean;
-  namePatterns?: string[];
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -96,12 +98,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
    * when false.
    */
   virtual: z.boolean().optional(),
-  /**
-   * namePatterns matches channels whose name matches any of the given patterns. A valid
-   * channel name matches exactly, and any other pattern is a regular expression,
-   * anchored when unanchored.
-   */
-  namePatterns: zod.nullToUndefined(z.string().array()),
+  /** groups matches the channels in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the channels in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
 });
 
 export const nameZ = z.string().min(1, "Name is required");
@@ -184,6 +184,8 @@ export const payloadZ = z.object({
   concurrency: control.concurrencyZ.default(control.Concurrency.exclusive),
   /** status is the current operational status of the channel. */
   status: statusZ.optional(),
+  /** group is the group the channel sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 export interface New extends z.input<typeof payloadZ> {}
@@ -195,5 +197,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("channel");
-export const TYPE_ONTOLOGY_ID = ontologyID(0);
+export const resourceID = resource.createIDFactory<Key>("channel");
+export const TYPE_RESOURCE_ID = resourceID(0);

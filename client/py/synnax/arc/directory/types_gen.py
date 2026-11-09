@@ -11,13 +11,14 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-from typing import override as _override
+from typing import Any, TypeAlias, TypedDict, override as _override
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax.ontology.payload import ID
+from synnax.resource import ID
+from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = UUID
 
@@ -28,18 +29,98 @@ class Directory(BaseModel):
     Attributes:
         key: Is the unique identifier for this directory.
         name: Is the name of the directory, one segment of an import path.
+        parent: Is the directory that holds this directory. The root has none.
     """
 
     key: Key
     name: str
+    parent: Key | None = None
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="arc_directory")
+class Where(BaseModel):
+    """Is a filter that selects Arc directories.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        parents: Matches the directories that any of the given directories hold.
+        nested: Matches the directories that another directory holds, or the root when
+            false.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    parents: list[Key] | None = None
+    nested: bool | None = None
+
+    @field_validator("parents", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
-def ontology_id(key: Key) -> ID:
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "parents": Key | list[Key],
+        "nested": bool,
+    },
+    total=False,
+)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the directories a RetrieveRequest selects.
+
+    Attributes:
+        directories: Are the directories the request selects.
+    """
+
+    directories: list[Directory] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve directories.
+
+    Attributes:
+        where: Selects the directories to retrieve. An absent where selects all of them.
+        search_term: Keeps the directories that match the term, closest match first.
+        limit: Is the most directories to return.
+        offset: Is the number of matching directories to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+
+
+Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="arc_directory")
+
+
+def resource_id(key: Key) -> ID:
     return ID(type="arc_directory", key=str(key))

@@ -7,14 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import UUID
-
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
-from synnax.arc.directory.types_gen import ONTOLOGY_TYPE, Directory, Key
-from synnax.ontology.client import Client as OntologyClient
-from synnax.ontology.payload import ID, ROOT_ID, CrudeID
+from synnax.arc.directory.types_gen import (
+    Directory,
+    Key,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+)
+from synnax.resource import ID, CrudeID
 from x.lists import normalize
 
 
@@ -51,21 +54,23 @@ class Client:
     """Creates, renames, deletes, and moves the directories that hold Arcs."""
 
     _client: UnaryClient
-    _ontology: OntologyClient
 
-    def __init__(self, client: UnaryClient, ontology: OntologyClient) -> None:
+    def __init__(self, client: UnaryClient) -> None:
         self._client = client
-        self._ontology = ontology
 
     def root(self) -> Key:
         """Returns the key of the Arcs root, the directory every Arc starts in.
 
-        :raises LookupError: If the ontology root has no Arcs directory.
+        :raises LookupError: If the Core has no Arcs root.
         """
-        for child in self._ontology.retrieve_children(ROOT_ID):
-            if child.type == ONTOLOGY_TYPE.type and child.key:
-                return UUID(child.key)
-        raise LookupError("the ontology root has no Arcs directory")
+        res = self._client.send(
+            "/arc/directory/retrieve",
+            RetrieveRequest(where=Where(nested=False)),
+            RetrieveResponse,
+        )
+        if not res.directories:
+            raise LookupError("the Core has no Arcs root")
+        return res.directories[0].key
 
     def create(self, name: str, *, parent: Key, key: Key | None = None) -> Directory:
         """Creates a directory in the directory parent.

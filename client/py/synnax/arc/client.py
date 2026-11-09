@@ -33,10 +33,9 @@ from synnax.arc.types_gen import (
     Type,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
-from synnax.ontology.client import Client as OntologyClient
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -51,7 +50,7 @@ class _CreateResponse(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[UUID]
+    keys: list[Key]
 
 
 class Automation(AutomationPayload):
@@ -62,16 +61,16 @@ class Automation(AutomationPayload):
     """
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
 
 class Module(ModulePayload):
     """An Arc that holds code for other Arcs to import."""
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
 
 Arc = Automation | Module
@@ -103,9 +102,9 @@ class Client:
     directories: directory.Client
     """Creates, renames, deletes, and moves the directories of Arcs."""
 
-    def __init__(self, client: UnaryClient, ontology: OntologyClient) -> None:
+    def __init__(self, client: UnaryClient) -> None:
         self._client = client
-        self.directories = directory.Client(client, ontology)
+        self.directories = directory.Client(client)
 
     @overload
     def create(
@@ -155,6 +154,7 @@ class Client:
         *,
         key: Key,
         name: filter.StringInput = ...,
+        directories: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -170,6 +170,7 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         name: str,
+        directories: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -185,6 +186,7 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         name: filter.StringInput = ...,
+        directories: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -202,6 +204,7 @@ class Client:
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         name: list[str] | filter.StringDict | filter.String = ...,
+        directories: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -235,6 +238,7 @@ class Client:
 
         :param key: Keeps Arcs with this key.
         :param name: Keeps Arcs with this name.
+        :param directories: Keeps Arcs in any of these directories.
         :param and_: Keeps Arcs that match every filter in the list.
         :param or_: Keeps Arcs that match any filter in the list.
         :param not_: Keeps Arcs that do not match the filter.
@@ -259,19 +263,16 @@ class Client:
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
         )
-        res = self._client.send(
-            "/arc/retrieve",
-            RetrieveRequest(
-                where=request_where(Where, filter.merge(where, flat), fields),
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-                include_program=include_program,
-            ),
-            RetrieveResponse,
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
+            include_program=include_program,
         )
+        res = self._client.send("/arc/retrieve", req, RetrieveResponse)
         arcs = self._sugar(res.arcs)
-        return sole("Arc", fields, arcs) if single else arcs
+        return sole("Arc", req, arcs) if single else arcs
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)

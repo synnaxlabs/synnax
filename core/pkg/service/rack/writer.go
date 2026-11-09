@@ -14,12 +14,14 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete racks within a Synnax cluster.
@@ -27,66 +29,90 @@ type Writer struct {
 	// tx is the underlying gorp transaction that rack operations will be executed
 	// against.
 	tx gorp.Tx
-	// otg is a writer used to modify rack related resources and relationships within
-	// the ontology.
-	otg ontology.Writer
-	// group is the base group that racks will be created under.
-	group group.Group
 	// newKey returns a new key for a rack.
 	newKey func(context.Context) (Key, error)
 	// status is used to write status updates.
 	status status.Writer
+	// statuses retrieves the status that a rack holds.
+	statuses *status.Service
 	// table is the gorp table for rack entries.
 	table *gorp.Table[Key, Rack]
 	// driverRole is the role each new rack receives.
 	driverRole role.Key
+	// dispatcher attaches the actions of each write to tx.
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
+}
+
+// resolveStatus returns the status to persist for r. The owner selects the status, so a
+// provided key is ignored.
 func resolveStatus(r *Rack) *Status {
 	if r.Status == nil {
 		return &Status{
-			Key:     r.OntologyID().String(),
+			Owner:   new(r.ResourceID()),
 			Name:    r.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
 			Message: "Rack status unknown",
-			Details: StatusDetails{Rack: r.Key},
 		}
 	}
 	stat := *r.Status
-	stat.Key = r.OntologyID().String()
-	stat.Details.Rack = r.Key
+	stat.Key = ""
+	stat.Owner = new(r.ResourceID())
 	stat.Name = r.Name
 	return &stat
 }
 
-// writeStatus writes the status provided on r. With none, it keeps the stored row and
-// changes only its name. The default status is written only if no row exists, because
-// a stored row may be a live status from the Driver.
+// writeStatus sets r.Status to the status that r now holds in the DB. A status provided
+// on r replaces the stored status. With none, the stored status stays and takes the
+// rack's name. The default status is written only if the rack holds no status, because
+// a stored status may be a live status from the Driver.
 func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
-	stat := resolveStatus(r)
 	if r.Status != nil {
-		return w.status.Set(ctx, stat)
+		r.Status = resolveStatus(r)
+		return w.status.Set(ctx, r.Status)
 	}
 	// A stored status can hold any details, so they do not decode as StatusDetails.
-	var stored status.Status[any]
-	err := gorp.NewRetrieve[status.Key, status.Status[any]]().
-		Where(gorp.MatchKeys[status.Key, status.Status[any]](stat.Key)).
-		Entry(&stored).
-		Exec(ctx, w.tx)
-	if errors.Is(err, query.ErrNotFound) {
-		return w.status.Set(ctx, stat)
-	}
-	if err != nil || stored.Name == r.Name {
+	var held []status.Status[any]
+	if err := w.statuses.NewRetrieve[any]().
+		Where(status.MatchOwners[any](r.ResourceID())).
+		Entries(&held).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.status.Rename(ctx, stat.Key, r.Name)
+	if len(held) == 0 {
+		r.Status = resolveStatus(r)
+		return w.status.Set(ctx, r.Status)
+	}
+	h := held[0]
+	r.Status = &Status{
+		Key:         h.Key,
+		Name:        r.Name,
+		Variant:     h.Variant,
+		Message:     h.Message,
+		Description: h.Description,
+		Time:        h.Time,
+		Labels:      h.Labels,
+		Owner:       h.Owner,
+	}
+	if h.Name == r.Name {
+		return nil
+	}
+	return w.status.Rename(ctx, h.Key, r.Name)
 }
 
-// Create creates or updates a rack. If the rack key is zero or a rack with the key does
-// not exist, a new rack will be created. A status provided on the rack replaces the
-// stored status. With no provided status, the stored status stays and takes the rack's
-// name, and only a rack with no stored status gets the default "unknown" status.
+// Create creates or updates a rack and attaches a create action that holds it. If the
+// rack key is zero or a rack with the key does not exist, a new rack will be created
+// with the Driver role. An existing rack keeps its group and role. A status provided on
+// the rack replaces the stored status. With no provided status, the stored status stays
+// and takes the rack's name, and only a rack with no stored status gets the default
+// "unknown" status. Create sets r.Status to the resulting status.
 func (w Writer) Create(ctx context.Context, r *Rack) error {
 	var err error
 	if r.Key.IsZero() {
@@ -98,35 +124,49 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 	if err = r.Validate(); err != nil {
 		return err
 	}
-	exists, err := w.table.NewRetrieve().
+	var existing Rack
+	err = w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Rack](r.Key)).
-		Exists(ctx, w.tx)
-	if err != nil {
+		Entry(&existing).
+		Exec(ctx, w.tx)
+	if errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	otgID := r.OntologyID()
-	if err = w.otg.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if !exists {
-		if err = w.otg.DefineRelationships(
+	if err == nil {
+		r.Group = existing.Group
+		r.Role = existing.Role
+	} else {
+		r.Role = w.driverRole
+		if err = group.CheckMember(
 			ctx,
-			role.OntologyID(w.driverRole),
-			ontology.RelationshipTypeParentOf,
-			otgID,
+			w.tx,
+			r.Group,
+			resource.TypeRack,
+			nil,
 		); err != nil {
 			return err
 		}
 	}
+	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
+		return err
+	}
 	if err = w.writeStatus(ctx, r); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationships(
-		ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID,
-	)
+	w.dispatcher.Attach(w.tx, r.Key, NewCreateAction(CreatePayload{Rack: *r}))
+	return nil
+}
+
+// SetGroup applies a set of the group to each rack with keys, moving it into g, or out
+// of its group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	set := NewSetAction(SetPayload{Path: []string{"group"}, Value: g})
+	for _, k := range keys {
+		if err := w.Apply(ctx, k, set); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // CreateMany creates the given racks. If racks with the same key already exist, they
@@ -140,41 +180,80 @@ func (w Writer) CreateMany(ctx context.Context, racks *[]Rack) error {
 	return nil
 }
 
-// Rename renames the rack with the given key and its status, keeping every other field.
-// It returns query.ErrNotFound if no rack with the key exists and a validation error if
-// name is empty.
+// Rename applies a set of the name to the rack with the given key. It returns
+// query.ErrNotFound if no rack with the key exists and a validation error if name is
+// empty.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Rack](key)).
-		ChangeErr(func(_ gorp.Context, r Rack) (Rack, error) {
-			r.Name = name
-			if err := r.Validate(); err != nil {
-				return Rack{}, err
-			}
-			return r, nil
-		}).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	// A missing status row is valid: the next Create heals it.
-	return errors.Skip(w.status.Rename(ctx, StatusKey(key), name), query.ErrNotFound)
+	return w.Apply(
+		ctx,
+		key,
+		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
+	)
 }
 
-// DeleteGuard deletes the rack with the given key and its associated status if the
-// provided guard function returns nil.
-func (w Writer) DeleteGuard(
-	ctx context.Context,
-	key Key,
-	guard gorp.GuardFunc[Key, Rack],
-) error {
-	if err := w.table.NewDelete().
+// Apply applies the actions to the rack with the given key and attaches them to the
+// transaction of w. A change of name also renames the rack's status. Apply returns an
+// error wrapping validate.ErrValidation when an action is a create, the result fails to
+// validate, or the rack's group cannot hold racks, and an error wrapping
+// query.ErrNotFound when no rack has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	var prev Rack
+	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Rack](key)).
-		Guard(guard).
+		Entry(&prev).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DeleteResources(ctx, key.OntologyID()); err != nil {
+	next, err := Reduce(prev, acts...)
+	if err != nil {
 		return err
 	}
-	return w.status.Delete(ctx, key.OntologyID().String())
+	if err = next.Validate(); err != nil {
+		return err
+	}
+	if err = group.CheckMember(
+		ctx,
+		w.tx,
+		next.Group,
+		resource.TypeRack,
+		nil,
+	); err != nil {
+		return err
+	}
+	if err = w.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if next.Name != prev.Name {
+		if err = w.writeStatus(ctx, &next); err != nil {
+			return err
+		}
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
+}
+
+// Delete deletes the racks with keys, their statuses, and every task they hold. It
+// returns a validation error when a rack is embedded, holds a device, or fails guard.
+// Delete racks through task.Writer.DeleteRacks, which keeps the tasks of users.
+func (w Writer) Delete(
+	ctx context.Context,
+	guard gorp.GuardFunc[Key, Rack],
+	keys ...Key,
+) error {
+	return w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Rack](keys...)).
+		Guard(guardEmbedded).
+		Guard(guard).
+		Exec(ctx, w.tx)
+}
+
+func guardEmbedded(_ gorp.Context, r Rack) error {
+	if !r.Embedded {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"cannot delete embedded rack %s",
+		r.Name,
+	)
 }

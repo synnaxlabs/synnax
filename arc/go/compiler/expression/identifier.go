@@ -44,7 +44,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	switch scope.Kind {
 	case symbol.KindVariable, symbol.KindInput, symbol.KindLoopVariable:
 		// Inherited channel read/write (cpu := chan): no local here, read by key.
-		if scope.Type.Kind == types.KindChan && !sameFunction(ctx.Scope, scope) {
+		if scope.Type.Kind == types.KindChan && !SameFunction(ctx.Scope, scope) {
 			ctx.Writer.WriteI32Const(int32(channelKeyOf(scope)))
 			if chanRef {
 				return scope.Type, nil
@@ -54,7 +54,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		}
 		// A never-reassigned flow variable collapses to its initial value;
 		// reassigned reads are lifted into params before compilation gets here.
-		if scope.Kind == symbol.KindVariable && !sameFunction(ctx.Scope, scope) {
+		if scope.Kind == symbol.KindVariable && !SameFunction(ctx.Scope, scope) {
 			if scope.DefaultValue != nil {
 				return castAndEmitConst(ctx, scope)
 			}
@@ -107,8 +107,8 @@ func liftedInput(scope *symbol.Symbol, name string) *symbol.Symbol {
 	if !strings.Contains(name, ".") {
 		return nil
 	}
-	fn, _ := scope.ClosestAncestorOfKind(symbol.KindFunction)
-	if fn == nil {
+	fn, err := scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if err != nil {
 		return nil
 	}
 	if in := fn.FindChild(name); in != nil && in.Kind == symbol.KindInput {
@@ -126,11 +126,15 @@ func channelKeyOf(sym *symbol.Symbol) int {
 	return sym.ID
 }
 
-// sameFunction reports whether a and b compile into the same unit (same enclosing
+// SameFunction reports whether a and b compile into the same unit (same enclosing
 // function, or both module-level).
-func sameFunction(a, b *symbol.Symbol) bool {
-	af, _ := a.ClosestAncestorOfKind(symbol.KindFunction)
-	bf, _ := b.ClosestAncestorOfKind(symbol.KindFunction)
+func SameFunction(a, b *symbol.Symbol) bool {
+	af, aErr := a.ClosestAncestorOfKind(symbol.KindFunction)
+	bf, bErr := b.ClosestAncestorOfKind(symbol.KindFunction)
+	// A module-level symbol has no enclosing function.
+	if aErr != nil || bErr != nil {
+		return aErr != nil && bErr != nil
+	}
 	return af == bf
 }
 

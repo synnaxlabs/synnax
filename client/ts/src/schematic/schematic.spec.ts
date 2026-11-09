@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { id, TimeRange, uuid } from "@synnaxlabs/x";
+import { describe, expect, it, test, vi } from "vitest";
 
 import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
@@ -17,9 +17,7 @@ import { createTestClient, expectDeleted } from "@/testutil";
 
 const newProjectSchematic = async (client: ReturnType<typeof createTestClient>) => {
   const proj = await client.projects.create({ name: "dispatch" });
-  const schem = await client.schematics.create(proj.key, {
-    name: "dispatch",
-  });
+  const schem = await client.schematics.create({ project: proj.key, name: "dispatch" });
   return { proj, schem };
 };
 
@@ -31,7 +29,8 @@ describe("Schematic", () => {
       const proj = await client.projects.create({
         name: "Schematic",
       });
-      const schem = await client.schematics.create(proj.key, {
+      const schem = await client.schematics.create({
+        project: proj.key,
         name: "Schematic",
       });
       expect(schem.name).toEqual("Schematic");
@@ -46,7 +45,8 @@ describe("Schematic", () => {
       const proj = await client.projects.create({
         name: "Schematic",
       });
-      const schem = await client.schematics.create(proj.key, {
+      const schem = await client.schematics.create({
+        project: proj.key,
         name: "Schematic",
       });
       await client.schematics.rename(schem.key, "Schematic2");
@@ -55,12 +55,56 @@ describe("Schematic", () => {
     });
   });
 
+  describe("project", () => {
+    test("retrieve the schematics of a project", async () => {
+      const proj = await client.projects.create({ name: "Schematic" });
+      const other = await client.projects.create({ name: "Schematic" });
+      const v = await client.schematics.create({
+        project: proj.key,
+        name: "Schematic",
+      });
+      expect(v.project).toEqual(proj.key);
+      const owned = await client.schematics.retrieve({ projects: [proj.key] });
+      expect(owned.map(({ key }) => key)).toEqual([v.key]);
+      const unowned = await client.schematics.retrieve({ projects: [other.key] });
+      expect(unowned).toEqual([]);
+    });
+
+    test("move to another project", async () => {
+      const proj = await client.projects.create({ name: "Schematic" });
+      const dest = await client.projects.create({ name: "Schematic" });
+      const v = await client.schematics.create({
+        project: proj.key,
+        name: "Schematic",
+      });
+      await client.batch.send([client.schematics.setProjectRequest(v.key, dest.key)]);
+      const res = await client.schematics.retrieve([v.key]);
+      expect(res[0].project).toEqual(dest.key);
+    });
+
+    test("delete with its project", async () => {
+      const proj = await client.projects.create({ name: "Schematic" });
+      const v = await client.schematics.create({
+        project: proj.key,
+        name: "Schematic",
+      });
+      await client.projects.delete(proj.key);
+      await vi.waitFor(
+        async () =>
+          await expect(client.schematics.retrieve(v.key)).rejects.toThrow(
+            NotFoundError,
+          ),
+      );
+    });
+  });
+
   describe("delete", () => {
     test("delete one", async () => {
       const proj = await client.projects.create({
         name: "Schematic",
       });
-      const schem = await client.schematics.create(proj.key, {
+      const schem = await client.schematics.create({
+        project: proj.key,
         name: "Schematic",
       });
       await client.schematics.delete(schem.key);
@@ -73,7 +117,8 @@ describe("Schematic", () => {
   describe("config case preservation", () => {
     test("preserves element key casing and round-trips telem args", async () => {
       const proj = await client.projects.create({ name: "CaseTest" });
-      const schem = await client.schematics.create(proj.key, {
+      const schem = await client.schematics.create({
+        project: proj.key,
         name: "CaseTest",
         configs: {
           myNode_A1: { variant: "value", channel: 42, rollingAverage: 5 },
@@ -94,7 +139,8 @@ describe("Schematic", () => {
       const proj = await client.projects.create({
         name: "Schematic",
       });
-      const schem = await client.schematics.create(proj.key, {
+      const schem = await client.schematics.create({
+        project: proj.key,
         name: "Schematic",
       });
       const schem2 = await client.schematics.copy({
@@ -107,11 +153,60 @@ describe("Schematic", () => {
     });
 
     describe("snapshot", () => {
+      it("should put a snapshot in a range", async () => {
+        const proj = await client.projects.create({ name: "Schematic" });
+        const schem = await client.schematics.create({
+          project: proj.key,
+          name: "Schematic",
+        });
+        const rng = await client.ranges.create({
+          name: "Snapshot Range",
+          timeRange: new TimeRange(1n, 1000n),
+        });
+        const snap = await client.schematics.copy({
+          key: schem.key,
+          name: "Snapshot",
+          snapshot: true,
+          range: rng.key,
+        });
+        expect(snap.range).toEqual(rng.key);
+        expect(snap.project).toBeUndefined();
+        const owned = await client.schematics.retrieve({ ranges: [rng.key] });
+        expect(owned.map(({ key }) => key)).toEqual([snap.key]);
+      });
+
+      it("should delete a snapshot with its range", async () => {
+        const proj = await client.projects.create({ name: "Schematic" });
+        const schem = await client.schematics.create({
+          project: proj.key,
+          name: "Schematic",
+        });
+        const rng = await client.ranges.create({
+          name: "Snapshot Range",
+          timeRange: new TimeRange(1n, 1000n),
+        });
+        const snap = await client.schematics.copy({
+          key: schem.key,
+          name: "Snapshot",
+          snapshot: true,
+          range: rng.key,
+        });
+        await client.ranges.delete(rng.key);
+        await vi.waitFor(
+          async () =>
+            await expect(client.schematics.retrieve(snap.key)).rejects.toThrow(
+              NotFoundError,
+            ),
+        );
+        expect((await client.schematics.retrieve(schem.key)).key).toEqual(schem.key);
+      });
+
       it("should not allow the caller to edit the snapshot", async () => {
         const proj = await client.projects.create({
           name: "Schematic",
         });
-        const schem = await client.schematics.create(proj.key, {
+        const schem = await client.schematics.create({
+          project: proj.key,
           name: "Schematic",
         });
         const schem2 = await client.schematics.copy({
@@ -305,6 +400,9 @@ describe("Schematic", () => {
       }
     });
 
+    const setNodes = (...keys: string[]): schematic.Action[] =>
+      keys.map((key) => schematic.setNode({ node: { key, position: { x: 0, y: 0 } } }));
+
     test("addEdge appends new edges and is a no-op on duplicate keys", async () => {
       const { schem } = await newProjectSchematic(client);
       const e = (
@@ -319,6 +417,7 @@ describe("Schematic", () => {
         target: { node: tgtNode, param: tgtParam },
       });
       await client.schematics.dispatch(schem.key, [
+        ...setNodes("a", "b", "c", "d"),
         schematic.addEdge({ edge: e("e1", "a", "o", "b", "i") }),
         schematic.addEdge({ edge: e("e2", "b", "o", "c", "i") }),
       ]);
@@ -337,6 +436,7 @@ describe("Schematic", () => {
     test("removeEdge removes the matching edge", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
+        ...setNodes("a", "b"),
         schematic.addEdge({
           edge: {
             key: "e1",
@@ -344,17 +444,21 @@ describe("Schematic", () => {
             target: { node: "b", param: "i" },
           },
         }),
+        schematic.setConfig({ key: "e1", config: { variant: "pipe" } }),
       ]);
+      expect((await client.schematics.retrieve(schem.key)).edges).toHaveLength(1);
       await client.schematics.dispatch(schem.key, [
         schematic.removeEdge({ key: "e1" }),
       ]);
       const res = await client.schematics.retrieve(schem.key);
       expect(res.edges).toEqual([]);
+      expect(res.configs).toEqual({});
     });
 
     test("setConfig replaces the config under the given key", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
+        ...setNodes("n1"),
         schematic.setConfig({
           key: "n1",
           config: { variant: "tank", label: { label: "Original" } },
@@ -378,6 +482,7 @@ describe("Schematic", () => {
       const { schem } = await newProjectSchematic(client);
       const base = tank({ label: { label: "Original" } });
       await client.schematics.dispatch(schem.key, [
+        ...setNodes("n1"),
         schematic.setConfig({ key: "n1", config: base }),
       ]);
       const red = { strokeColor: "#ff0000" };
@@ -402,6 +507,7 @@ describe("Schematic", () => {
       const { schem } = await newProjectSchematic(client);
       const base = tank({ strokeColor: "#ff0000" });
       await client.schematics.dispatch(schem.key, [
+        ...setNodes("n1"),
         schematic.setConfig({ key: "n1", config: base }),
       ]);
       await client.schematics.dispatch(
@@ -460,6 +566,7 @@ describe("Schematic", () => {
     test("round-trips telem args through dispatch", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
+        ...setNodes("valveNode_B2"),
         schematic.setConfig({
           key: "valveNode_B2",
           config: { variant: "valve", stateChannel: 12, commandChannel: 13 },
@@ -480,7 +587,8 @@ describe("store", () => {
   it("tombstones deletes from live delete signals", async () => {
     await client.connect();
     const project = await client.projects.create({ name: `sch-${id.create()}` });
-    const created = await client.schematics.create(project.key, {
+    const created = await client.schematics.create({
+      project: project.key,
       name: `schematic-${id.create()}`,
     });
     await client.schematics.delete(created.key);

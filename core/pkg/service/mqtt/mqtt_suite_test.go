@@ -21,7 +21,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	mochi "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/hooks/auth"
@@ -33,17 +32,21 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -54,8 +57,9 @@ var (
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	statusSvc  *status.Service
-	// host is the Core that the services run on, and peer is a second Core.
-	host, peer node.Key
+	taskSvc    *task.Service
+	// host is the key of the Core that the services run on.
+	host node.Key
 )
 
 func TestMQTT(t *testing.T) {
@@ -67,48 +71,36 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	cluster := testutil.NewCluster(ctx, 0)
-	core := cluster.Provision(ctx)
-	host, peer = core.Cluster.HostKey(), cluster.Provision(ctx).Cluster.HostKey()
+	core := testutil.NewNode(ctx)
+	host = core.Identity.HostKey
 	db = core.DB
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: db,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: otg,
-		DB:       db,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: db,
+	}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB: db,
 	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           db,
-		Ontology:     otg,
-		Group:        groupSvc,
-		HostProvider: testutil.NewStaticHostProvider(1),
-		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		DB:         db,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
+		// No Driver reports for the rack, so a check would overwrite task statuses.
+		HealthCheckInterval: telem.Hour,
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Status:   statusSvc,
-		Rack:     rackSvc,
+		DB:     db,
+		Status: statusSvc,
+		Rack:   rackSvc,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      core.Channel,
-		DB:           db,
-		HostProvider: core.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: core.Channel,
+		DB:      db,
+		HostKey: core.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      db,
@@ -120,6 +112,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Framer:       core.Framer,
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
+	}))
+	mqttSvc := MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{DB: db}))
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:      db,
+		Rack:    rackSvc,
+		Status:  statusSvc,
+		Channel: channelSvc,
+		ImEx:    imex.NewService(),
+		Configs: MustSucceed(taskconfig.NewRegistry(mqttSvc.Stores()...)),
 	}))
 })
 
@@ -218,12 +219,17 @@ func (h *unackedHook) OnPublish(
 	return pk, packets.ErrRejectPacket
 }
 
-// tcpListener returns from Close only after every connection it accepted is done. Mochi
-// counts a connection in Listeners.ClientsWg from the goroutine that serves it, so a
-// connection accepted during Server.Close races the Wait of that group.
+// tcpListener is a TCP listener that returns from Close only after every connection it
+// accepted is done. Mochi counts a connection in Listeners.ClientsWg from the goroutine
+// that serves it, so a connection accepted during Server.Close races the Wait of that
+// group. listeners.TCP is not used, because it leaves open a connection that it accepts
+// during Close, and the client of that connection then waits for a CONNACK.
 type tcpListener struct {
-	*listeners.TCP
-	mu struct {
+	cfg    listeners.Config
+	listen net.Listener
+	// accepting closes when Serve stops accepting connections.
+	accepting chan struct{}
+	mu        struct {
 		sync.Mutex
 		closed bool
 		// conns holds each connection that is served, with a channel that closes
@@ -231,38 +237,68 @@ type tcpListener struct {
 		conns map[net.Conn]chan struct{}
 	}
 	serving sync.WaitGroup
-	// closeErr holds the errors of the connections that Close closed.
+	// closeErr holds the errors of the listener and of the connections that Close
+	// closed.
 	closeErr error
 }
 
+var _ listeners.Listener = (*tcpListener)(nil)
+
 func newTCPListener(cfg listeners.Config) *tcpListener {
-	l := &tcpListener{TCP: listeners.NewTCP(cfg)}
+	l := &tcpListener{cfg: cfg, accepting: make(chan struct{})}
 	l.mu.conns = make(map[net.Conn]chan struct{})
 	return l
 }
 
+func (l *tcpListener) ID() string { return l.cfg.ID }
+
+func (l *tcpListener) Address() string { return l.listen.Addr().String() }
+
+func (l *tcpListener) Protocol() string { return "tcp" }
+
+func (l *tcpListener) Init(*slog.Logger) (err error) {
+	if l.cfg.TLSConfig != nil {
+		l.listen, err = tls.Listen("tcp", l.cfg.Address, l.cfg.TLSConfig)
+	} else {
+		l.listen, err = net.Listen("tcp", l.cfg.Address)
+	}
+	return err
+}
+
 func (l *tcpListener) Serve(establish listeners.EstablishFn) {
-	l.TCP.Serve(func(id string, c net.Conn) error {
-		// Mochi runs its hooks for c on this goroutine.
-		defer GinkgoRecover()
+	defer close(l.accepting)
+	for {
+		c, err := l.listen.Accept()
+		if err != nil {
+			return
+		}
 		l.mu.Lock()
 		if l.mu.closed {
+			l.closeErr = errors.Combine(l.closeErr, c.Close())
 			l.mu.Unlock()
-			return c.Close()
+			continue
 		}
 		served := make(chan struct{})
 		l.mu.conns[c] = served
 		l.serving.Add(1)
 		l.mu.Unlock()
-		defer func() {
-			l.mu.Lock()
-			delete(l.mu.conns, c)
-			l.mu.Unlock()
-			close(served)
-			l.serving.Done()
+		go func() {
+			// Mochi runs its hooks for c on this goroutine.
+			defer GinkgoRecover()
+			defer func() {
+				l.mu.Lock()
+				delete(l.mu.conns, c)
+				l.mu.Unlock()
+				close(served)
+				l.serving.Done()
+			}()
+			// A client that leaves ends establish with an error, so the error only
+			// shows in the output of a failed spec.
+			if err := establish(l.cfg.ID, c); err != nil {
+				GinkgoWriter.Println(err)
+			}
 		}()
-		return establish(id, c)
-	})
+	}
 }
 
 // awaitServed blocks until mochi is done with c.
@@ -277,16 +313,19 @@ func (l *tcpListener) awaitServed(c net.Conn) {
 }
 
 func (l *tcpListener) Close(closeClients listeners.CloseFn) {
+	GinkgoHelper()
 	l.mu.Lock()
 	l.mu.closed = true
+	l.closeErr = l.listen.Close()
 	for c := range l.mu.conns {
 		l.closeErr = errors.Combine(l.closeErr, errors.Skip(c.Close(), net.ErrClosed))
 	}
 	l.mu.Unlock()
+	Eventually(l.accepting).Should(BeClosed())
 	// Clients.GetByListener takes its read lock two times, so mochi deadlocks when it
 	// closes its clients while one of them leaves. Every client must be gone first.
 	l.serving.Wait()
-	l.TCP.Close(closeClients)
+	closeClients(l.cfg.ID)
 }
 
 // brokerOptions selects what a test broker requires of its clients.
@@ -369,22 +408,11 @@ var _ = Describe("Test broker", func() {
 						continue
 					}
 					connected.Do(func() { close(dialing) })
-					// Mochi leaves open a connection that it accepts during Close, so
-					// ending the dialing ends the read.
-					unblocked := make(chan struct{})
-					unblock := context.AfterFunc(dialCtx, func() {
-						defer GinkgoRecover()
-						defer close(unblocked)
-						Expect(c.SetReadDeadline(time.Now())).To(Succeed())
-					})
 					// The broker drops a connection whose first packet is not CONNECT.
 					// Closing second leaves no local port in TIME_WAIT.
 					_, err = c.Write([]byte{0xE0, 0})
 					for buf := make([]byte, 1); err == nil; {
 						_, err = c.Read(buf)
-					}
-					if !unblock() {
-						Eventually(unblocked).Should(BeClosed())
 					}
 					Expect(c.Close()).To(Succeed())
 				}

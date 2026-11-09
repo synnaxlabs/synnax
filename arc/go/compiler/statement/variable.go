@@ -140,9 +140,7 @@ func resolveChannelSource(
 		return nil, channelSourceNone
 	}
 	// A param or variable of this function has a WASM local holding the key.
-	fn, _ := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-	owner, _ := scope.ClosestAncestorOfKind(symbol.KindFunction)
-	if fn == owner {
+	if expression.SameFunction(ctx.Scope, scope) {
 		return scope, channelSourceLocal
 	}
 	if scope.SourceID != nil {

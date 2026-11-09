@@ -19,7 +19,7 @@ class TestArcDirectory:
     """Tests for the directories that hold Arcs."""
 
     def test_root(self, client: sy.Synnax) -> None:
-        """Should find the Arcs root below the ontology root."""
+        """Should find the Arcs root."""
         root = client.arcs.directories.root()
         assert client.arcs.directories.root() == root
 
@@ -51,11 +51,9 @@ class TestArcDirectory:
         module = client.arcs.create(
             name=f"mod_{uuid4().hex}", mode="text", type="module"
         )
-        dirs.move(root, d.key, module.ontology_id)
-        children = client.ontology.retrieve_children(
-            sy.arc.directory.ontology_id(d.key)
-        )
-        assert module.ontology_id in children
-        dirs.move(d.key, root, module.ontology_id)
+        dirs.move(root, d.key, module.resource_id)
+        assert client.arcs.retrieve(key=module.key).directory == d.key
+        dirs.move(d.key, root, module.resource_id)
+        assert client.arcs.retrieve(key=module.key).directory == root
         client.arcs.delete(module.key)
         dirs.delete(d.key)

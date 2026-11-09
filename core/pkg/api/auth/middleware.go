@@ -17,7 +17,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
@@ -119,13 +119,13 @@ const (
 )
 
 // GetSubject returns the subject of the request's session.
-func GetSubject(ctx context.Context) ontology.ID {
+func GetSubject(ctx context.Context) resource.ID {
 	s, ok := freighter.MDFromContext(ctx).Get(subjectKey)
 	if !ok {
 		zap.S().DPanic("[api] - no subject found in context")
-		return user.OntologyID(uuid.Nil())
+		return user.ResourceID(uuid.Nil())
 	}
-	return s.(ontology.ID)
+	return s.(resource.ID)
 }
 
 func getSession(ctx context.Context) auth.Session {

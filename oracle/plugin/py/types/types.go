@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/domain/ontology"
+	"github.com/synnaxlabs/oracle/domain/resource"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -126,14 +126,14 @@ func generatePyFile(
 	}
 	allStructs := lo.Filter(table.StructTypes(), inOutput)
 	allRawKeyFields := key.Collect(allStructs, table, nil)
-	data.Ontology = extractOntology(
+	data.Resource = extractResource(
 		slices.Concat(allStructs, lo.Filter(table.UnionTypes(), inOutput)),
 		allRawKeyFields,
 		nil,
 		table,
 	)
-	if data.Ontology != nil {
-		data.imports.addOntology("ID")
+	if data.Resource != nil {
+		data.imports.addResource("ID")
 	}
 
 	// Pre-collect the declared, field and TypeVar names, so a module import that one
@@ -308,17 +308,17 @@ func convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
 	return result
 }
 
-func extractOntology(
+func extractResource(
 	types []resolution.Type,
 	rawFields []key.Field,
-	skip ontology.SkipFunc,
+	skip resource.SkipFunc,
 	table *resolution.Table,
-) *ontologyData {
-	data := ontology.Extract(types, rawFields, skip, table)
+) *resourceData {
+	data := resource.Extract(types, rawFields, skip, table)
 	if data == nil {
 		return nil
 	}
-	return &ontologyData{
+	return &resourceData{
 		TypeName:   data.TypeName,
 		KeyType:    "Key",
 		StructName: data.StructName,
@@ -739,10 +739,9 @@ func processStruct(
 				}
 			}
 
-			// Check if any child field would create a type incompatibility
-			// (overriding a required parent field as optional). If so, we
-			// inline all fields instead of using inheritance to avoid
-			// type: ignore comments.
+			// A child that makes a required parent field optional, or omits one, cannot
+			// override it through inheritance without a type: ignore comment, so its
+			// fields are inlined instead.
 			hasTypeConflict := false
 			for _, field := range form.Fields {
 				if field.Optional {
@@ -757,6 +756,13 @@ func processStruct(
 					break
 				}
 			}
+			for _, pf := range parentFields {
+				if lo.Contains(form.OmittedFields, pf.Name) &&
+					requiredInPython(pf, table) {
+					hasTypeConflict = true
+					break
+				}
+			}
 
 			if hasTypeConflict {
 				// Inline all fields from parents and child into a standalone class
@@ -766,19 +772,12 @@ func processStruct(
 				for _, f := range form.Fields {
 					childFieldsByName[f.Name] = f
 				}
-				omittedSet := make(set.Set[string])
-				for _, name := range form.OmittedFields {
-					omittedSet.Add(name)
-				}
-
 				sd.Fields = make([]fieldData, 0, len(parentFields)+len(form.Fields))
 				addedFields := make(set.Set[string])
 
-				// Add parent fields, using child overrides where they exist
+				// Add parent fields, using child overrides where they exist. An
+				// omitted field stays so that it parses, but it is never sent.
 				for _, pf := range parentFields {
-					if omittedSet.Contains(pf.Name) {
-						continue
-					}
 					if childField, ok := childFieldsByName[pf.Name]; ok {
 						fd := processField(
 							childField,
@@ -1004,6 +1003,8 @@ func processField(
 	if isExcluded {
 		fieldConstraints = append(fieldConstraints, "exclude=True")
 	}
+	// A type never sends an excluded field, so it cannot require one.
+	excludedRequired := isExcluded && requiredInPython(field, table)
 
 	if fd.IsArray {
 		fd.PyType = fmt.Sprintf("list[%s]", baseType)
@@ -1021,7 +1022,8 @@ func processField(
 	// defaulted too.
 	isOptionalTypeParam := field.Type.IsTypeParam() &&
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
-	if field.Optional || isOptionalTypeParam {
+	optional := field.Optional || isOptionalTypeParam || excludedRequired
+	if optional {
 		fd.PyType = fd.PyType + " | None"
 	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
 		if kind == "Array" {
@@ -1031,15 +1033,23 @@ func processField(
 		}
 	}
 
-	fd.Default = buildDefault(
-		field,
-		fieldConstraints,
-		fd.Alias,
-		data,
-		isOptionalTypeParam,
-	)
+	fd.Default = buildDefault(fieldConstraints, fd.Alias, data, optional)
 
 	return fd
+}
+
+// requiredInPython reports whether a Python model must be given field: it is not
+// optional and has no default.
+func requiredInPython(field resolution.Field, table *resolution.Table) bool {
+	if field.Optional || field.Default != nil {
+		return false
+	}
+	if field.Type.IsTypeParam() && field.Type.TypeParam != nil &&
+		field.Type.TypeParam.Optional {
+		return false
+	}
+	_, isCollection := resolution.CollectionKind(field.Type, table)
+	return !isCollection
 }
 
 // orderBounds moves ge and le to the end of constraints, so the output does not depend
@@ -1073,17 +1083,14 @@ func ensureDefaultFactory(constraints []string, factory string) []string {
 }
 
 func buildDefault(
-	field resolution.Field,
 	constraints []string,
 	alias string,
 	data *templateData,
-	optionalTypeParam bool,
+	optional bool,
 ) string {
-	isAnyOptional := field.Optional || optionalTypeParam
-
 	// When field is optional, filter out any default= constraints from validation
 	// since we'll be using default=None for the optional field
-	if isAnyOptional {
+	if optional {
 		constraints = lo.Filter(constraints, func(c string, _ int) bool {
 			return !strings.HasPrefix(c, "default=")
 		})
@@ -1095,7 +1102,7 @@ func buildDefault(
 
 	hasConstraints := len(constraints) > 0
 
-	if isAnyOptional {
+	if optional {
 		if hasConstraints {
 			data.imports.addPydantic("Field")
 			return fmt.Sprintf(
@@ -1915,8 +1922,8 @@ type importManager struct {
 	enum           []string
 	pydantic       []string
 	synnax         []string
-	// ontology holds imports from synnax.ontology.payload.
-	ontology []string
+	// resource holds imports from synnax.resource.
+	resource []string
 	// codec holds imports from x.codec.
 	codec []string
 	// namespaces maps alias to path.
@@ -1972,9 +1979,9 @@ func (m *importManager) addCodec(name string) {
 	}
 }
 
-func (m *importManager) addOntology(name string) {
-	if !lo.Contains(m.ontology, name) {
-		m.ontology = append(m.ontology, name)
+func (m *importManager) addResource(name string) {
+	if !lo.Contains(m.resource, name) {
+		m.resource = append(m.resource, name)
 	}
 }
 
@@ -1991,7 +1998,7 @@ func (m *importManager) addNamespace(alias, path string) {
 }
 
 // generatedImportNames holds every name the generator itself imports from typing,
-// pydantic, uuid, enum, the ontology and x.codec. A module import never binds one of
+// pydantic, uuid, enum, the resource ID and x.codec. A module import never binds one of
 // them, because the generator may add that import later in the same file.
 var generatedImportNames = set.New(
 	"Annotated", "Any", "BaseModel", "Bytes", "ConfigDict", "Field", "Generic",
@@ -2005,7 +2012,7 @@ func (m *importManager) bound(name string) bool {
 		return true
 	}
 	for _, names := range [][]string{
-		m.uuid, m.typing, m.enum, m.pydantic, m.synnax, m.ontology, m.codec,
+		m.uuid, m.typing, m.enum, m.pydantic, m.synnax, m.resource, m.codec,
 	} {
 		if lo.Contains(names, name) {
 			return true
@@ -2055,8 +2062,8 @@ func (m *importManager) AddImport(category, path, name string) {
 		m.addPydantic(name)
 	case "synnax":
 		m.addSynnax(name)
-	case "ontology":
-		m.addOntology(name)
+	case "resource":
+		m.addResource(name)
 	case "internal":
 		// For cross-namespace imports, use module imports
 		// Note: the alias is returned but not used here; type references
@@ -2067,7 +2074,7 @@ func (m *importManager) AddImport(category, path, name string) {
 
 type templateData struct {
 	imports    *importManager
-	Ontology   *ontologyData
+	Resource   *resourceData
 	Namespace  string
 	OutputPath string
 	// GeneratedModule is the module name of each generated file.
@@ -2102,7 +2109,7 @@ type typeDefData struct {
 	IsDistinct bool
 }
 
-type ontologyData struct {
+type resourceData struct {
 	TypeName   string
 	KeyType    string
 	StructName string
@@ -2118,7 +2125,7 @@ func (d *templateData) TypingImports() []string {
 func (d *templateData) EnumImports() []string     { return d.imports.enum }
 func (d *templateData) PydanticImports() []string { return d.imports.pydantic }
 func (d *templateData) SynnaxImports() []string   { return d.imports.synnax }
-func (d *templateData) OntologyImports() []string { return d.imports.ontology }
+func (d *templateData) ResourceImports() []string { return d.imports.resource }
 func (d *templateData) CodecImports() []string    { return d.imports.codec }
 
 func (d *templateData) NamespaceImports() []namespaceImportData { return d.imports.namespaces }
@@ -2342,8 +2349,8 @@ from pydantic import {{ join .PydanticImports ", " }}
 {{- if .SynnaxImports }}
 from synnax.telem import {{ join .SynnaxImports ", " }}
 {{- end }}
-{{- if .OntologyImports }}
-from synnax.ontology.payload import {{ join .OntologyImports ", " }}
+{{- if .ResourceImports }}
+from synnax.resource import {{ join .ResourceImports ", " }}
 {{- end }}
 {{- if .CodecImports }}
 from x.codec import {{ join .CodecImports ", " }}
@@ -2522,14 +2529,14 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
 {{ . }}.model_rebuild()
 {{- end }}
 {{- end }}
-{{- if .Ontology }}
+{{- if .Resource }}
 
 
-ONTOLOGY_TYPE = ID(type="{{ .Ontology.TypeName }}")
+TYPE_RESOURCE_ID = ID(type="{{ .Resource.TypeName }}")
 
 
-def ontology_id(key: {{ .Ontology.KeyType }}) -> ID:
-    return ID(type="{{ .Ontology.TypeName }}", key=str(key))
+def resource_id(key: {{ .Resource.KeyType }}) -> ID:
+    return ID(type="{{ .Resource.TypeName }}", key=str(key))
 {{- end }}
 `),
 )
