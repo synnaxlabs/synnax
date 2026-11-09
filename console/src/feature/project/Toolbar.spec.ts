@@ -20,10 +20,12 @@ const roles = new RoleClients(client);
 
 describe("project toolbar", () => {
   it("should list the top-level project groups and the projects in no group", async () => {
-    const p = await client.projects.create({ name: uniqueName("project") });
+    // The root lists every project and group on the shared Core by name. A leading "!"
+    // sorts these first, so the spec does not scroll past the rows of other specs.
+    const p = await client.projects.create({ name: uniqueName("!project") });
     const g = await client.groups.create({
       scope: "project",
-      name: uniqueName("group"),
+      name: uniqueName("!group"),
     });
     await renderToolbar(Project.TOOLBAR.content, { client, items: Project.TREE_ITEMS });
     expect(await findTreeRow(p.name)).toBeTruthy();
