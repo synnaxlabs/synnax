@@ -76,6 +76,33 @@ describe("queries", () => {
       expect(renders.get(b.key)).toBe(rendersOfB);
     });
 
+    it("should read the shown records while a search has no answer", async () => {
+      const rack = await client.racks.create({ name: "searchRack" });
+      const t = await rack.createTask({
+        name: "shown",
+        type: "pagerduty_alert",
+        config: {},
+      });
+      await setStatus(t.key);
+      const { result } = renderHook(
+        () =>
+          Task.useList({
+            query: { where: { rack: { eq: rack.key } } },
+            searchDebounce: 0,
+          }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([t.key]));
+      const shown = result.current.getItem(t.key);
+      expect(shown?.status?.variant).toEqual("error");
+      holdRequests(client, "/task/retrieve");
+      act(() => result.current.search("shown"));
+      await waitFor(() => expect(result.current.variant).toEqual("loading"));
+      expect(result.current.data).toEqual([t.key]);
+      expect(result.current.getItem(t.key)).toBe(shown);
+    });
+
     it("should leave out internal tasks unless the query sets where.internal", async () => {
       const rack = await client.racks.create({ name: "testRack" });
       const [visible, internal] = await Promise.all([

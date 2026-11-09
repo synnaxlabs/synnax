@@ -215,9 +215,11 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   };
   const keep = (record: E | undefined): E | undefined =>
     record == null || (filter != null && !filter(record)) ? undefined : record;
+  // Set only while a new query shows the last answer, so getItem keeps its identity.
+  const shown = window === current ? undefined : window;
   // A select with no value reads its zero key.
   const getOne = (key: K): E | undefined => {
-    const member = membersOf(list?.getCached())?.get(key);
+    const member = membersOf(shown ?? list?.getCached())?.get(key);
     if (member != null) return keep(member);
     if (retriever == null || primitive.isZero(key)) return undefined;
     const cached = retriever.watch(itemQuery(key)).getCached();

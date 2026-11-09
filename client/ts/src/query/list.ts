@@ -179,6 +179,7 @@ interface Entry<Q, K extends record.Key, D extends Data, V, C> {
   /**
    * The composed record of each member and the table record it came from. A member
    * keeps its composed record until its table record or a watched table changes it.
+   * Only a maintained window holds it, since an unmaintained one misses those changes.
    */
   composedByKey?: Map<K, { source: V; value: D }>;
   /** The window last delivered to the handlers. */
@@ -605,13 +606,16 @@ export class Lists<
       entry.composedByKey = undefined;
       return this.scheduleRefetch(entry);
     }
+    // Admitting can drop a member that a refetch puts back, so the composed records go
+    // first.
+    const members = new Set(entry.keys);
+    result.forEach((key) => entry.composedByKey?.delete(key));
+    if (result.some((key) => members.has(key))) entry.composed = undefined;
     if (trigger.contentOnly !== true)
       if (entry.ranked) this.scheduleRefetch(entry);
       else this.admit(entry, result);
-    const members = new Set(entry.keys);
-    if (!result.some((key) => members.has(key))) return;
-    result.forEach((key) => entry.composedByKey?.delete(key));
-    entry.composed = undefined;
+    const admitted = new Set(entry.keys);
+    if (!result.some((key) => admitted.has(key))) return;
     this.deliver(entry);
   }
 
@@ -632,7 +636,6 @@ export class Lists<
     entry.keys = entry.keys.filter((key) => table.get(key) != null);
     // A trigger's change leaves the records as they were, so the window composes again.
     entry.composed = undefined;
-    entry.composedByKey = undefined;
     this.scheduleRefetch(entry);
   }
 
@@ -640,6 +643,7 @@ export class Lists<
     entry.idleSince = undefined;
     entry.teardown?.();
     entry.teardown = undefined;
+    entry.composedByKey = undefined;
     entry.seen = this.seen();
     this.clearRefetch(entry);
   }
@@ -747,10 +751,9 @@ export class Lists<
       entry.composed = { ...composed, keys, versions };
       return composed.value;
     }
-    const kept = entry.composedByKey;
     const composedByKey = new Map<K, { source: V; value: D }>();
     const composedRecords = records.map((source) => {
-      const previous = kept?.get(source.key);
+      const previous = entry.composedByKey?.get(source.key);
       const value =
         previous?.source === source ? previous.value : compose(source, query);
       composedByKey.set(source.key, { source, value });
@@ -758,7 +761,7 @@ export class Lists<
     });
     const value = { records: composedRecords, end };
     entry.composed = { records, keys, end, versions, value };
-    entry.composedByKey = composedByKey;
+    if (entry.teardown != null) entry.composedByKey = composedByKey;
     return value;
   }
 
