@@ -72,9 +72,9 @@ func (v *Validator) NotNil(field string, value any) bool {
 }
 
 // Positive returns true and attaches an error to v if the value is not greater than
-// zero.
+// zero. The numeric comparisons in this file reject NaN.
 func (v *Validator) Positive[T types.Numeric](field string, value T) bool {
-	return v.Ternary(field, value <= 0, "must be positive")
+	return v.Ternary(field, !(value > 0), "must be positive")
 }
 
 // InBounds returns true and attaches an error to v if the value is outside the
@@ -85,7 +85,7 @@ func (v *Validator) InBounds[T types.Numeric](
 ) bool {
 	return v.Ternaryf(
 		field,
-		value < lower || value >= upper,
+		!(value >= lower && value < upper),
 		"must be in bounds [%v, %v)",
 		lower,
 		upper,
@@ -99,7 +99,7 @@ func (v *Validator) GreaterThan[T types.Numeric](
 	value T,
 	threshold T,
 ) bool {
-	return v.Ternaryf(field, value <= threshold, "must be greater than %v", threshold)
+	return v.Ternaryf(field, !(value > threshold), "must be greater than %v", threshold)
 }
 
 // GreaterThanEq returns true and attaches an error to v if the value is less than the
@@ -111,7 +111,7 @@ func (v *Validator) GreaterThanEq[T types.Numeric](
 ) bool {
 	return v.Ternaryf(
 		field,
-		value < threshold,
+		!(value >= threshold),
 		"must be greater than or equal to %v",
 		threshold,
 	)
@@ -126,7 +126,7 @@ func (v *Validator) LessThanEq[T types.Numeric](
 ) bool {
 	return v.Ternaryf(
 		field,
-		value > threshold,
+		!(value <= threshold),
 		"must be less than or equal to %v",
 		threshold,
 	)
