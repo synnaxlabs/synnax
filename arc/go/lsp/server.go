@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -453,19 +454,33 @@ func (s *Server) refreshSemanticTokens(ctx context.Context, docURI uri.URI) {
 }
 
 // analyze performs parse+analyze on the given content and returns protocol diagnostics,
-// the resulting IR, and the raw diagnostics. It does NOT mutate any Document fields.
+// the resulting IR, and the raw diagnostics. It does NOT mutate any Document fields. A
+// panic in analysis becomes an error diagnostic, as analysis runs on goroutines that
+// nothing else recovers.
 func (s *Server) analyze(
 	ctx context.Context,
 	content string,
 	meta documentMetadata,
-) ([]protocol.Diagnostic, ir.IR, diagnostics.Diagnostics) {
+) (pDiagnostics []protocol.Diagnostic, docIR ir.IR, docDiag diagnostics.Diagnostics) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			return
+		}
+		s.cfg.L.Error(
+			"recovered from panic in Arc analysis",
+			zap.Any("panic", r),
+			zap.ByteString("stack", debug.Stack()),
+		)
+		docIR = ir.IR{}
+		docDiag = diagnostics.Diagnostics{{
+			Severity: protocol.DiagnosticSeverityError,
+			Message:  "internal error while analyzing the program",
+		}}
+		pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
+	}()
 	s.cfg.L.Debug("analyzing program")
-	var (
-		pDiagnostics []protocol.Diagnostic
-		docIR        ir.IR
-		docDiag      diagnostics.Diagnostics
-		cfg          = parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
-	)
+	cfg := parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
 
 	if meta.isFunctionBlock {
 		wrappedContent := fmt.Sprintf("{%s}", content)

@@ -12,6 +12,7 @@ package lsp_test
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -610,6 +611,35 @@ var _ = Describe("External Change Notifications", func() {
 			}
 			close(done)
 			wg.Wait()
+		},
+	)
+})
+
+var _ = Describe("Analysis Panics", func() {
+	It(
+		"Should publish an error diagnostic when analysis panics during a republish",
+		func(ctx SpecContext) {
+			var panicking atomic.Bool
+			observer := observe.New[struct{}]()
+			server, docURI, client := SetupTestServerWithClient(lsp.Config{
+				NewRoot: func() *symbol.Symbol {
+					if panicking.Load() {
+						panic("analyzer failure")
+					}
+					return NewRoot(StaticResolver{})
+				},
+				OnExternalChange: observer,
+			})
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(server.Shutdown(ctx)).To(Succeed())
+			})
+			OpenArcDocument(server, ctx, docURI, "func test() {}")
+			Expect(client.Diagnostics()).To(BeEmpty())
+			panicking.Store(true)
+			observer.Notify(ctx, struct{}{})
+			Eventually(client.Diagnostics).Should(ConsistOf(
+				WithTransform(DiagnosticMessage, ContainSubstring("internal error")),
+			))
 		},
 	)
 })
