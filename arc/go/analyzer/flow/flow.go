@@ -222,6 +222,9 @@ func resolveUpstreamType(
 			ctx.Diagnostics.Add(diagnostics.Error(err, prevIDNode))
 			return types.Type{}, false
 		}
+		if isFloatConstant(idSym) {
+			return constantType(ctx, prevIDNode, idSym), true
+		}
 		// A register-backed value variable feeds its current value.
 		if idSym.IsLiteral() {
 			return idSym.Type, true
@@ -243,7 +246,7 @@ func resolveUpstreamType(
 		return idSym.Type.Unwrap(), true
 	}
 	if prevExpr := prevNode.Expression(); prevExpr != nil {
-		return atypes.InferFromExpression(ctx.Child(prevExpr)).Unwrap(), true
+		return expressionType(ctx, prevExpr), true
 	}
 	if prevFuncNode := prevNode.Function(); prevFuncNode != nil {
 		if isFedByRoutingTable(ctx) {
@@ -347,6 +350,27 @@ func consultTrigger[T antlr.ParserRuleContext](
 	}
 }
 
+func isFloatConstant(sym *symbol.Symbol) bool {
+	_, ok := sym.DefaultValue.(float64)
+	return sym.Kind == symbol.KindConstant && ok
+}
+
+// constantType returns the type of the module constant sym at flow node id, giving
+// each use its own type variable so it takes the type of the node it feeds.
+func constantType[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	id parser.IIdentifierContext,
+	sym *symbol.Symbol,
+) types.Type {
+	if t, ok := ctx.TypeMap[id]; ok {
+		return t
+	}
+	t := types.Freshen(sym.Type, ctx.ScopedKey("const", id))
+	ctx.Constraints.AddVariable(t)
+	ctx.TypeMap[id] = t
+	return t
+}
+
 func analyzeIdentifier(
 	ctx context.Context[parser.IIdentifierContext],
 	prevNode parser.IFlowNodeContext,
@@ -361,18 +385,24 @@ func analyzeIdentifier(
 
 	isValueVarSink := (sym.Kind == symbol.KindVariable ||
 		sym.Kind == symbol.KindStatefulVariable) && sym.Type.Kind != types.KindChan
-	if prevNode != nil {
-		validTarget := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage ||
-			sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindVariable ||
-			sym.Kind == symbol.KindStatefulVariable
-		if !validTarget {
-			d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
-			if sym.Kind == symbol.KindFunction {
-				d = d.WithNote("use " + name + "() to instantiate the function")
-			}
-			ctx.Diagnostics.Add(d)
-			return
+	// A module constant sends its value, as a compile-time variable does.
+	if isFloatConstant(sym) && !isLastNode {
+		constantType(ctx, ctx.AST, sym)
+		return
+	}
+	// Any other symbol would lower to a read or write of a channel that does not exist.
+	isFlowNode := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage ||
+		sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindVariable ||
+		sym.Kind == symbol.KindStatefulVariable
+	if !isFlowNode {
+		d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
+		if sym.Kind == symbol.KindFunction {
+			d = d.WithNote("use " + name + "() to instantiate the function")
 		}
+		ctx.Diagnostics.Add(d)
+		return
+	}
+	if prevNode != nil {
 		if sym.IsReactive() {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"cannot write to channel-read variable %s; it is read-only", name))
@@ -417,7 +447,7 @@ func flowSourceType(
 	prevNode parser.IFlowNodeContext,
 ) (types.Type, string) {
 	if prevExpr := prevNode.Expression(); prevExpr != nil {
-		exprType := atypes.InferFromExpression(ctx.Child(prevExpr))
+		exprType := expressionType(ctx, prevExpr)
 		return exprType, fmt.Sprintf("expression type %s", exprType)
 	}
 	if prevID := prevNode.Identifier(); prevID != nil {
@@ -425,6 +455,10 @@ func flowSourceType(
 		srcSym, err := ctx.ResolveQualified(parser.IdentifierParts(prevID))
 		if err != nil {
 			return types.Type{}, ""
+		}
+		if isFloatConstant(srcSym) {
+			t := constantType(ctx, prevID, srcSym)
+			return t, fmt.Sprintf("%s value type %s", srcName, t)
 		}
 		srcValueType := srcSym.Type.Unwrap()
 		return srcValueType, fmt.Sprintf("%s value type %s", srcName, srcValueType)
@@ -570,7 +604,6 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		rejectTransitionIntoBranch(ctx.Child(entry))
-		warnNumericTransitions(ctx.Child(entry))
 	}
 
 	if len(nodesBefore) == 0 && len(nodesAfter) > 0 {
@@ -582,6 +615,10 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 			ctx.AST,
 			"routing table must have associated flow nodes",
 		))
+	}
+	// An entry's types are known once the table's flow nodes are analyzed.
+	for _, entry := range ctx.AST.AllRoutingEntry() {
+		warnNumericTransitions(ctx.Child(entry))
 	}
 }
 
@@ -925,7 +962,7 @@ func analyzeRoutingTargetWithParam(
 // in a routing-entry chain.
 func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types.Type {
 	if expr := ctx.AST.Expression(); expr != nil {
-		return atypes.InferFromExpression(ctx.Child(expr))
+		return expressionType(ctx, expr)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
 		fnName := parser.FunctionName(fn)
@@ -938,10 +975,30 @@ func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types
 	}
 	if idNode := ctx.AST.Identifier(); idNode != nil {
 		sym, err := ctx.ResolveQualified(parser.IdentifierParts(idNode))
-		if err != nil || sym.Kind != symbol.KindChannel {
+		if err != nil {
+			return types.Type{}
+		}
+		if isFloatConstant(sym) {
+			return constantType(ctx, idNode, sym)
+		}
+		if sym.Kind != symbol.KindChannel {
 			return types.Type{}
 		}
 		return sym.Type.Unwrap()
 	}
 	return types.Type{}
+}
+
+// expressionType returns the output type of the node AnalyzeSingleExpression
+// registered for expr, or an invalid type if it registered none.
+func expressionType[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+) types.Type {
+	sym, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil {
+		return types.Type{}
+	}
+	out, _ := sym.Type.Outputs.Get(ir.DefaultOutputParam)
+	return out.Type
 }

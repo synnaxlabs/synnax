@@ -12,7 +12,10 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
+
+#include "absl/log/log.h"
 
 #include "client/cpp/task/json.gen.h"
 
@@ -54,6 +57,14 @@ private:
     std::set<synnax::channel::Key> state_indexes;
     /// @brief whether data saving is disabled for the task.
     bool data_saving_disabled;
+    /// @brief the warning reported during the current write.
+    Warning warning;
+
+protected:
+    /// @brief reports a problem with the frame in the current write that does not stop
+    /// the task, such as a command the sink skipped. The task shows it as a warning
+    /// without a retry wait. The next write without a warning clears it.
+    void warn(Warning warning) { this->warning = std::move(warning); }
 
 public:
     /// @brief the rate at which to communicate state values down the channel.
@@ -89,6 +100,10 @@ public:
     }
 
     virtual x::errors::Error start() { return x::errors::NIL; }
+
+    /// @brief returns the warning reported during the last write, and clears it. Empty
+    /// if the write reported none.
+    Warning take_warning() { return std::exchange(this->warning, {}); }
 
     virtual x::errors::Error stop() { return x::errors::NIL; }
 
@@ -149,6 +164,8 @@ class WriteTask final : public driver::task::Task {
         /// @brief the underlying wrapped sink that actually executes commands on
         /// the hardware.
         std::unique_ptr<common::Sink> internal;
+        /// @brief the warning last written to the log. Empty if there is none.
+        Warning logged_warning;
 
         WrappedSink(WriteTask &p, std::unique_ptr<common::Sink> sink):
             p(p), internal(std::move(sink)) {}
@@ -184,11 +201,24 @@ class WriteTask final : public driver::task::Task {
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
             auto err = this->internal->write(frame);
-            if (!err)
+            const auto warning = this->internal->take_warning();
+            if (err) {
+                this->logged_warning = {};
+                if (err.matches(errors::TEMPORARY_HARDWARE_ERROR))
+                    this->p.state.send_warning("Failed to write commands", err.data);
+                return err;
+            }
+            if (warning.empty()) {
+                this->logged_warning = {};
                 this->p.state.clear_warning();
-            else if (err.matches(errors::TEMPORARY_HARDWARE_ERROR))
-                this->p.state.send_warning("Failed to write commands", err.data);
-            return err;
+                return x::errors::NIL;
+            }
+            if (warning != this->logged_warning)
+                LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
+                             << warning.description;
+            this->logged_warning = warning;
+            this->p.state.send_warning(warning.message, warning.description);
+            return x::errors::NIL;
         }
 
         [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
@@ -325,6 +355,7 @@ public:
                 return false;
             }
             this->state.reset();
+            this->sink->logged_warning = {};
             if (this->state
                     .error(this->sink->internal->start(), "Failed to start task")) {
                 this->state.send_start(cmd_key);
