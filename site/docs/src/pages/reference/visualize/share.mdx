@@ -82,8 +82,10 @@ the same `.zip` file as the Console.
   <Fragment slot="python">
 
 ```python
-project = client.projects.retrieve(search_term="Engine test")[0]
-client.projects.export(project.key, "engine-test.zip")
+projects = client.projects.retrieve(search_term="Engine test")
+if not projects:
+    raise ValueError("No project matches Engine test")
+client.projects.export(projects[0].key, "engine-test.zip")
 
 copy = client.projects.import_("engine-test.zip")
 print(copy.name)
@@ -101,6 +103,7 @@ import { readFile, writeFile } from "node:fs/promises";
 
 const file = "engine-test.zip";
 const [project] = await client.projects.retrieve({ searchTerm: "Engine test" });
+if (project == null) throw new Error("No project matches Engine test");
 const stream = await client.projects.export(project.key, { encoding: "JSON" });
 await writeFile(file, new Uint8Array(await new Response(stream).arrayBuffer()));
 
