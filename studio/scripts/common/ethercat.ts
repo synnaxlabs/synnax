@@ -14,7 +14,7 @@ import { capture, fixtures } from "@/index";
 import { DRIVER, fieldItem, rackItem } from "./task";
 
 /** The EL3102 as the Driver finds it, with the modes that its ESI file lists. */
-export const SLAVE: fixtures.SimulatedDevice = {
+const SLAVE: fixtures.SimulatedDevice = {
   ...fixtures.EL3102,
   properties: {
     ...fixtures.EL3102.properties,
