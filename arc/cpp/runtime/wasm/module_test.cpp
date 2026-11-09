@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -25,6 +26,7 @@
 
 #include "arc/cpp/runtime/testutil/compile.h"
 #include "arc/cpp/runtime/wasm/module.h"
+#include "arc/cpp/stl/stl.h"
 
 namespace arc::runtime::wasm {
 
@@ -111,6 +113,51 @@ TEST(ModuleOpenTest, ReservesSmallLinearMemory) {
             EXPECT_LT(end - start, LARGE);
 }
 #endif
+
+namespace {
+/// @brief captures the store and memory that Module::open hands to host modules.
+class MemoryCapture final : public stl::Module {
+public:
+    wasmtime::Store *store = nullptr;
+    wasmtime::Memory *memory = nullptr;
+
+    void set_wasm_context(wasmtime::Store *store, wasmtime::Memory *memory) override {
+        this->store = store;
+        this->memory = memory;
+    }
+};
+}
+
+/// @brief it should keep a module's memory contents when the memory grows past its
+/// reservation and moves.
+TEST(ModuleOpenTest, GrowsMemoryPastReservation) {
+    const auto client = new_test_client();
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
+    const auto mod = testutil::compile_text(
+        client,
+        "func double() {val f32} f32 {\n    return val * 2\n}\n" + ch.name +
+            " -> double()"
+    );
+    const auto capture = std::make_shared<MemoryCapture>();
+    const auto module = ASSERT_NIL_P(
+        Module::open({.program = mod, .modules = {capture}})
+    );
+    auto &store = *capture->store;
+    const auto &memory = *capture->memory;
+    const auto *base = memory.data(store).data();
+    memory.data(store)[100] = 42;
+    ASSERT_TRUE(memory.grow(store, 2 * MEMORY_RESERVATION / memory.page_size(store)));
+    const auto data = memory.data(store);
+    ASSERT_NE(data.data(), base);
+    ASSERT_GT(data.size(), 2 * MEMORY_RESERVATION);
+    ASSERT_EQ(data[100], 42);
+    data[data.size() - 1] = 7;
+    ASSERT_EQ(memory.data(store)[data.size() - 1], 7);
+}
 
 /// @brief Module::func returns NOT_FOUND for non-existent export.
 TEST(ModuleFuncTest, ReturnsNotFoundForMissingExport) {
