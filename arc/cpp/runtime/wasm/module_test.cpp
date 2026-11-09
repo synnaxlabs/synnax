@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <cstdint>
+#include <fstream>
+#include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 #include "wasmtime.hh"
@@ -64,6 +70,47 @@ func double() {val f32} f32 {
     const auto module = ASSERT_NIL_P(Module::open(cfg));
     ASSERT_NE(module, nullptr);
 }
+
+#if defined(__linux__)
+namespace {
+/// @brief returns the address range of each of the process's memory mappings.
+std::vector<std::pair<std::uintptr_t, std::uintptr_t>> mappings() {
+    std::ifstream maps("/proc/self/maps");
+    std::vector<std::pair<std::uintptr_t, std::uintptr_t>> ranges;
+    std::string line;
+    while (std::getline(maps, line)) {
+        std::uintptr_t start = 0;
+        std::uintptr_t end = 0;
+        char dash = 0;
+        std::istringstream(line) >> std::hex >> start >> dash >> end;
+        ranges.emplace_back(start, end);
+    }
+    return ranges;
+}
+}
+
+/// @brief it should set aside no large address range for a module, since a Driver that
+/// locks its memory counts every reserved byte against RLIMIT_MEMLOCK.
+TEST(ModuleOpenTest, ReservesSmallLinearMemory) {
+    const auto client = new_test_client();
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
+    const auto mod = testutil::compile_text(
+        client,
+        "func double() {val f32} f32 {\n    return val * 2\n}\n" + ch.name +
+            " -> double()"
+    );
+    constexpr std::uintptr_t LARGE = 256 * 1024 * 1024;
+    const auto before = mappings();
+    const auto module = ASSERT_NIL_P(Module::open({.program = mod}));
+    for (const auto &[start, end]: mappings())
+        if (std::ranges::find(before, std::pair{start, end}) == before.end())
+            EXPECT_LT(end - start, LARGE);
+}
+#endif
 
 /// @brief Module::func returns NOT_FOUND for non-existent export.
 TEST(ModuleFuncTest, ReturnsNotFoundForMissingExport) {

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -176,6 +177,13 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
 const auto BASE_ERROR = errors::BASE.sub("wasm");
 const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
+/// @brief address space Wasmtime sets aside for a module's linear memory, and again for
+/// each growth past it. Wasmtime's 4 GiB default counts against RLIMIT_MEMLOCK once the
+/// Driver locks its memory.
+constexpr std::uint64_t MEMORY_RESERVATION = 2 * 1024 * 1024;
+/// @brief size of each guard region around a module's linear memory.
+constexpr std::uint64_t MEMORY_GUARD_SIZE = 64 * 1024;
+
 struct ModuleConfig {
     program::Program program;
     std::vector<std::shared_ptr<stl::Module>> modules;
@@ -216,7 +224,11 @@ public:
                 x::errors::Error(x::errors::VALIDATION, "wasm bytes are empty")
             };
 
-        wasmtime::Engine engine;
+        wasmtime::Config engine_cfg;
+        engine_cfg.memory_reservation(MEMORY_RESERVATION);
+        engine_cfg.memory_reservation_for_growth(MEMORY_RESERVATION);
+        engine_cfg.memory_guard_size(MEMORY_GUARD_SIZE);
+        wasmtime::Engine engine(std::move(engine_cfg));
         wasmtime::Store store(engine);
 
         auto &wasm_bytes = const_cast<std::vector<uint8_t> &>(cfg.program.wasm);
