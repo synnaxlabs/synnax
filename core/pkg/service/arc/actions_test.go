@@ -107,16 +107,6 @@ var _ = Describe("Reducer", func() {
 		)
 	})
 
-	Describe("Rename", func() {
-		It("Should replace the module name", func() {
-			out := MustSucceed(arc.Reduce(
-				newAutomation(arc.Base{Name: "old"}),
-				arc.NewRenameAction(arc.RenamePayload{Name: "new"}),
-			))
-			Expect(out.Base().Name).To(Equal("new"))
-		})
-	})
-
 	Describe("SetNode", func() {
 		It("Should append the node when no node has the same key", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
@@ -434,7 +424,7 @@ var _ = Describe("Reducer", func() {
 				Expect(err).To(MatchError(union.ErrMissingPayload))
 				Expect(out).To(Equal(state))
 			},
-			Entry("rename", arc.ActionTypeRename),
+			Entry("set", arc.ActionTypeSet),
 			Entry("set_node", arc.ActionTypeSetNode),
 			Entry("set_node_position", arc.ActionTypeSetNodePosition),
 			Entry("set_node_inputs", arc.ActionTypeSetNodeInputs),
@@ -491,14 +481,37 @@ var _ = Describe("Path actions", func() {
 			Expect(graphOf(next.Base()).Nodes).To(Equal(graphOf(state.Base()).Nodes))
 		})
 
-		DescribeTable("Should reject", func(path []string, value any) {
-			Expect(arc.Reduce(state, set(path, value))).Error().To(SatisfyAll(
+		It("Should set the name", func() {
+			next := MustSucceed(arc.Reduce(state, set([]string{"name"}, "Other")))
+			Expect(next.Base().Name).To(Equal("Other"))
+			Expect(graphOf(next.Base())).To(Equal(graphOf(state.Base())))
+		})
+
+		It("Should set the name of a text Arc", func() {
+			text := newAutomation(arc.Base{
+				Name:   "Press",
+				Source: arc.Source{Variant: arc.TextSource{}},
+			})
+			next := MustSucceed(arc.Reduce(text, set([]string{"name"}, "Other")))
+			Expect(next.Base().Name).To(Equal("Other"))
+		})
+
+		DescribeTable("Should reject", func(path []string, msg string) {
+			Expect(arc.Reduce(state, set(path, nil))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("the path is not inside an entry of")),
+				MatchError(ContainSubstring(msg)),
 			))
 		},
-			Entry("a path outside the node inputs", []string{"name"}, "Other"),
-			Entry("a path to the graph's nodes", []string{"graph", "nodes"}, nil),
+			Entry(
+				"a path to another field",
+				[]string{"directory"},
+				`unknown object member name "directory"`,
+			),
+			Entry(
+				"a path to the graph's nodes",
+				[]string{"graph", "nodes"},
+				"the path is not inside an entry of",
+			),
 		)
 	})
 

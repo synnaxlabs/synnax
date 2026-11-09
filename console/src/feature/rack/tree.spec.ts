@@ -267,7 +267,7 @@ describe("rack children", () => {
         ...Rack.TREE_ITEMS,
         ...Device.TREE_ITEMS,
         ...createHostItems((c) => [
-          Tree.createSource(c.racks, [r.key], (rk) =>
+          Tree.createSource(c.racks, { key: [r.key] }, (rk) =>
             Tree.toResource("rack")(rk.payload),
           ),
         ]),

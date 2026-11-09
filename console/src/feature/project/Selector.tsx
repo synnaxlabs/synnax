@@ -18,7 +18,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, type Flux, Project } from "@synnaxlabs/pluto";
+import { Access, Flux, Project } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactElement, useState } from "react";
 
@@ -128,8 +128,10 @@ export const Selector = (): ReactElement | null => {
   const activeKey = Session.Project.useSelectSelected();
   const openCreate = PlatformProject.useCreateModal();
   const [dialogVisible, setDialogVisible] = useState(false);
-  const { data, retrieve, getItem, subscribe } = Project.useList();
-  const { fetchMore, search } = List.usePager({ retrieve, pageSize: 20 });
+  const { data, getItem, subscribe, more, search } = Flux.useList(
+    (client) => client.projects,
+    { name: "projects", pageSize: 20 },
+  );
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_RESOURCE_ID);
   const handleChange = (key: project.Key | null) => {
     if (key == null) return;
@@ -157,7 +159,7 @@ export const Selector = (): ReactElement | null => {
           onChange={handleChange}
           getItem={getItem}
           subscribe={subscribe}
-          onFetchMore={fetchMore}
+          onFetchMore={more}
         >
           <Dialog.Trigger
             size="large"

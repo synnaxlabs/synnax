@@ -521,17 +521,18 @@ var _ = Describe("Reference", func() {
 				for _, k := range keys {
 					Expect(createDevice(ctx, refDevice{Key: k, Rack: 1})).To(Succeed())
 				}
-				page := func(offset int) []string {
+				page := func(after string) []string {
+					q := devices.NewRetrieve().Where(deviceRef.rack.Filter(1)).Limit(2)
+					if after != "" {
+						q = q.After(after)
+					}
 					var res []refDevice
-					Expect(devices.NewRetrieve().
-						Where(deviceRef.rack.Filter(1)).
-						Offset(offset).
-						Limit(2).
-						Entries(&res).
-						Exec(ctx, db)).To(Succeed())
+					Expect(q.Entries(&res).Exec(ctx, db)).To(Succeed())
 					return lo.Map(res, func(d refDevice, _ int) string { return d.Key })
 				}
-				Expect(slices.Concat(page(0), page(2), page(4))).
+				first := page("")
+				second := page(first[1])
+				Expect(slices.Concat(first, second, page(second[1]))).
 					To(Equal([]string{"a", "b", "c", "d", "e"}))
 			},
 		)

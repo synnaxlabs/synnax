@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias, TypedDict, override as _override
+from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -22,6 +22,11 @@ from x import filter
 from x.filter import shorthand
 
 Key: TypeAlias = int
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 Status: TypeAlias = status_.Status
 
@@ -78,6 +83,30 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of racks: the sort value and the key of a rack.
+
+    Attributes:
+        key: Is the key of the rack at the position.
+        name: Is the name of the rack at the position, when the order sorts by it.
+    """
+
+    key: Key = Field(ge=0, le=4294967295)
+    name: str | None = None
+
+
+class Order(BaseModel):
+    """Is a sort of racks.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
+
+
 class Base(BaseModel):
     """Is a collection container for hardware devices and tasks running on a specific
     Core. Racks are the integration point between the Core and physical hardware through
@@ -117,8 +146,9 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the racks to retrieve. An absent where selects all of them.
         search_term: Keeps the racks that match the term, closest match first.
+        order: Sorts the racks. An absent order sorts them by key.
+        after: Starts the racks strictly past this position in their order.
         limit: Is the most racks to return.
-        offset: Is the number of matching racks to skip.
         include_status: Includes the status of each record.
     """
 
@@ -126,8 +156,9 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
     include_status: bool = False
 
 
