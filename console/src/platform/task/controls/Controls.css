@@ -83,8 +83,8 @@
         white-space: pre-wrap;
         word-break: normal;
         overflow-wrap: anywhere;
-        user-select: text !important;
-        -webkit-user-select: text !important;
+        -webkit-user-select: text;
+        user-select: text;
         padding: 1rem;
         background: var(--pluto-gray-l0);
         border-radius: var(--pluto-border-radius);
