@@ -131,22 +131,21 @@ export const Base = ({
   const stopDragRef = useRef<(() => void) | null>(null);
   useEffect(() => () => stopDragRef.current?.(), []);
 
-  const mouseYToEntryIndex = (clientY: number): number => {
-    const { computedLineHeight, region, rowEntries, visibleStart } = stateRef.current;
+  // The row of the view at the pointer, counted from the top.
+  const rowAt = (clientY: number): number => {
+    const { computedLineHeight, region } = stateRef.current;
     if (computedLineHeight <= 0) return 0;
-    const localY = clientY - box.top(region);
-    const lineIndex = Math.floor((localY - 6) / computedLineHeight);
-    if (rowEntries.length === 0) return Math.max(0, visibleStart + lineIndex);
-    return rowEntries[Math.min(Math.max(0, lineIndex), rowEntries.length - 1)];
+    return Math.max(
+      0,
+      Math.floor((clientY - box.top(region) - 6) / computedLineHeight),
+    );
   };
 
-  // Past an edge, the selection ends at the row the worker shows there after the
-  // scroll, not at the row shown now.
-  const selectionEndAt = (clientY: number): number => {
-    const { region } = stateRef.current;
-    if (clientY < box.top(region)) return log.SELECT_TOP_ROW;
-    if (clientY > box.bottom(region)) return log.SELECT_BOTTOM_ROW;
-    return mouseYToEntryIndex(clientY);
+  const mouseYToEntryIndex = (clientY: number): number => {
+    const { rowEntries, visibleStart } = stateRef.current;
+    const row = rowAt(clientY);
+    if (rowEntries.length === 0) return visibleStart + row;
+    return rowEntries[Math.min(row, rowEntries.length - 1)];
   };
 
   const scrollPastEdge = () => {
@@ -159,7 +158,7 @@ export const Base = ({
     setState((s) => ({
       ...s,
       wheelPos: s.wheelPos - past * EDGE_SCROLL_RATE,
-      selectionEnd: selectionEndAt(y),
+      selectionEnd: log.selectRow(rowAt(y)),
     }));
     frameRef.current = requestAnimationFrame(scrollPastEdge);
   };
@@ -173,7 +172,7 @@ export const Base = ({
         return;
       }
       pointerYRef.current = e.clientY;
-      setState((s) => ({ ...s, selectionEnd: selectionEndAt(e.clientY) }));
+      setState((s) => ({ ...s, selectionEnd: log.selectRow(rowAt(e.clientY)) }));
       if (frameRef.current == null)
         frameRef.current = requestAnimationFrame(scrollPastEdge);
     };

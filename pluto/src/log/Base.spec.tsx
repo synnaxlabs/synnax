@@ -453,7 +453,7 @@ describe("log/Base", () => {
       const state = dragTo(-50, 3);
       expect(state.wheelPos).toBeGreaterThan(0);
       expect(state.scrolling).toBe(true);
-      expect(state.selectionEnd).toBe(log.SELECT_TOP_ROW);
+      expect(state.selectionEnd).toBe(log.selectRow(0));
     });
 
     it("should pause the log when it scrolls up", () => {
@@ -465,7 +465,7 @@ describe("log/Base", () => {
     it("should scroll down and select the bottom row below the log", () => {
       const state = dragTo(550, 3);
       expect(state.wheelPos).toBeLessThan(0);
-      expect(state.selectionEnd).toBe(log.SELECT_BOTTOM_ROW);
+      expect(state.selectionEnd).toBe(log.selectRow(34));
     });
 
     it("should scroll faster the farther the pointer is past the edge", () => {
@@ -477,7 +477,7 @@ describe("log/Base", () => {
     it("should not scroll while the pointer is inside the log", () => {
       const state = dragTo(100, 3);
       expect(state.wheelPos).toBe(0);
-      expect(state.selectionEnd).toBe(12);
+      expect(state.selectionEnd).toBe(log.selectRow(5));
     });
 
     it("should stop scrolling on mouse up", () => {

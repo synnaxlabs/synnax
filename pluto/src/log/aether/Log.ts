@@ -87,12 +87,16 @@ export const methodsZ = {
  */
 export const SELECT_ALL_END = Number.MAX_SAFE_INTEGER;
 
+const MAX_ROWS = 1_000_000;
+const SELECT_ROW = SELECT_ALL_END - MAX_ROWS;
+
 /**
- * Selection ends at the top and bottom rows of the view. Each render turns them into
- * the entry of that row, so a selection follows a scroll it starts.
+ * Returns a selection end at a row of the view, counted from the top. The next render
+ * turns it into the entry that row shows, so a selection keeps up with a scroll still
+ * on its way to the worker. A row past the last row is the last row.
  */
-export const SELECT_TOP_ROW = Number.MAX_SAFE_INTEGER - 2;
-export const SELECT_BOTTOM_ROW = Number.MAX_SAFE_INTEGER - 1;
+export const selectRow = (row: number): number =>
+  SELECT_ROW + Math.min(Math.max(0, row), MAX_ROWS - 1);
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
 const SCROLLBAR_WIDTH = 6;
@@ -677,9 +681,10 @@ export class Log
   }
 
   private resolveRow(selectionEnd: number, rowEntries: number[]): number {
-    if (selectionEnd === SELECT_TOP_ROW) return rowEntries.at(0) ?? -1;
-    if (selectionEnd === SELECT_BOTTOM_ROW) return rowEntries.at(-1) ?? -1;
-    return selectionEnd;
+    if (selectionEnd < SELECT_ROW || selectionEnd === SELECT_ALL_END)
+      return selectionEnd;
+    const row = Math.min(selectionEnd - SELECT_ROW, rowEntries.length - 1);
+    return rowEntries.at(row) ?? -1;
   }
 
   // Returns where the rows sit in the times the source stores, from 0 to 1, or null
@@ -757,7 +762,7 @@ export class Log
   private setAnchors(selectionStart: number, selectionEnd: number): void {
     const last = this.entries.length - 1;
     const anchor = (i: number): LogEntry | undefined =>
-      i >= SELECT_TOP_ROW ? undefined : this.entries[Math.min(i, last)];
+      i >= SELECT_ROW ? undefined : this.entries[Math.min(i, last)];
     this.anchors = {
       start: anchor(selectionStart),
       end: anchor(selectionEnd),
