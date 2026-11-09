@@ -13,6 +13,7 @@
           "enum_values": [],
           "key": "fld-ts",
           "name": "fixture_http_timestamp",
+          "optional": false,
           "pointer": "/data/timestamp",
           "time_format": "unix_ms"
         },
@@ -36,6 +37,7 @@
           ],
           "key": "fld-mode",
           "name": "fixture_http_mode",
+          "optional": false,
           "pointer": "/data/modeLabel"
         },
         {
@@ -45,6 +47,7 @@
           "enum_values": [],
           "key": "fld-press",
           "name": "fixture_http_pressure",
+          "optional": false,
           "pointer": "/data/pressurePsi"
         }
       ],
@@ -83,6 +86,7 @@
           "enum_values": [],
           "key": "fld-temp",
           "name": "fixture_http_temperature",
+          "optional": false,
           "pointer": "/results/0/tempC"
         }
       ],

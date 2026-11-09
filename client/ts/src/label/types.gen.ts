@@ -12,7 +12,7 @@
 import { color, filter, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -38,7 +38,6 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   name?: filter.String;
-  for?: ontology.ID;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -57,8 +56,6 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   key: filter.setZ(keyZ).optional(),
   /** name selects by name. */
   name: filter.stringZ.optional(),
-  /** for matches the labels attached to the given resource. */
-  for: ontology.idZ.optional(),
 });
 export interface New extends z.input<typeof labelZ> {}
 
@@ -81,3 +78,6 @@ export const retrieveRequestZ = z.strictObject({
   offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+
+export const resourceID = resource.createIDFactory<Key>("label");
+export const TYPE_RESOURCE_ID = resourceID("");

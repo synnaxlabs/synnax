@@ -251,9 +251,7 @@ describe("Retriever", () => {
         async () => [],
       );
       await expect(client.retrieve({ key: "a", minSize: 2 })).rejects.toThrow(
-        new NotFoundError(
-          'thing not found matching {"where":{"key":{"eq":"a"}},"minSize":2}',
-        ),
+        new NotFoundError('Found no thing where key = "a"'),
       );
     });
 
@@ -272,9 +270,7 @@ describe("Retriever", () => {
         async () => [thing("a", 3), thing("b", 4)],
       );
       await expect(client.retrieve({ minSize: 2, one: true })).rejects.toThrow(
-        new MultipleFoundError(
-          'Expected one thing matching {"minSize":2}, but found 2',
-        ),
+        new MultipleFoundError("Expected one thing, but found 2"),
       );
     });
 
@@ -947,9 +943,7 @@ describe("Retriever", () => {
     it("throws a NotFoundError when no record has the name", async () => {
       const client = new NamedClient(newCache(), byKey, byName(thing("a")));
       await expect(client.retrieve("c-name")).rejects.toThrow(
-        new NotFoundError(
-          'thing not found matching {"where":{"name":{"eq":"c-name"}}}',
-        ),
+        new NotFoundError('Found no thing where name = "c-name"'),
       );
     });
 
@@ -957,9 +951,7 @@ describe("Retriever", () => {
       const dup = (key: string): Thing => ({ ...thing(key), name: "dup" });
       const client = new NamedClient(newCache(), byKey, byName(dup("a"), dup("b")));
       await expect(client.retrieve("dup")).rejects.toThrow(
-        new MultipleFoundError(
-          'Expected one thing matching {"where":{"name":{"eq":"dup"}}}, but found 2',
-        ),
+        new MultipleFoundError('Expected one thing where name = "dup", but found 2'),
       );
     });
   });

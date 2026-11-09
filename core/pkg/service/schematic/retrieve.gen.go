@@ -15,12 +15,18 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 )
+
+// tableName names the Schematic table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "schematic"
 
 // Retrieve is used to retrieve Schematic records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Schematic]
 	indexes indexes
 }
@@ -30,7 +36,10 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	search *gorp.SearchIndex[Key, Schematic]
+	group    *gorp.KeyReference[Key, Schematic, group.Key]
+	project  *gorp.KeyReference[Key, Schematic, project.Key]
+	rangeVal *gorp.KeyReference[Key, Schematic, ranger.Key]
+	search   *gorp.SearchIndex[Key, Schematic]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -38,6 +47,43 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, group.Key]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: gorp.Detach,
+			Kind:     gorp.Place,
+			Targets: func(e *Schematic) []group.Key {
+				if e.Group == nil {
+					return nil
+				}
+				return []group.Key{*e.Group}
+			},
+			Detach: func(e *Schematic, _ group.Key) { e.Group = nil },
+		}),
+		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, project.Key]{
+			Name:     "project",
+			Table:    "project",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
+			Targets: func(e *Schematic) []project.Key {
+				if e.Project == nil {
+					return nil
+				}
+				return []project.Key{*e.Project}
+			},
+		}),
+		rangeVal: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, ranger.Key]{
+			Name:     "range",
+			Table:    "range",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
+			Targets: func(e *Schematic) []ranger.Key {
+				if e.Range == nil {
+					return nil
+				}
+				return []ranger.Key{*e.Range}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Schematic](
 			"search",
 			func(e *Schematic) []string {
@@ -52,6 +98,16 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Schematic] {
 	return []gorp.Index[Key, Schematic]{
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Schematic] {
+	return []gorp.Reference[Key, Schematic]{
+		i.group,
+		i.project,
+		i.rangeVal,
 	}
 }
 
@@ -115,6 +171,82 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
+// MatchSnapshot returns a filter for schematics by their
+// Snapshot field.
+func MatchSnapshot(v bool) Filter {
+	return func(Retrieve) gorp.Filter[Key, Schematic] {
+		return gorp.Match(func(_ gorp.Context, e *Schematic) (bool, error) {
+			return e.Snapshot == v, nil
+		})
+	}
+}
+
+// MatchGroups returns a filter for schematics
+// whose Group matches any of the provided
+// values.
+func MatchGroups(vals ...group.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Schematic] {
+		return r.indexes.group.Filter(vals...)
+	}
+}
+
+// MatchHasGroup returns a filter for schematics whose
+// Group holds a target when has is true, and holds none when has is false.
+func MatchHasGroup(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Schematic] {
+		return r.indexes.group.FilterHolding(has)
+	}
+}
+
+// setGroup returns an update that sets the Group of the
+// schematics with keys to v.
+func setGroup(
+	table *gorp.Table[Key, Schematic],
+	v *group.Key,
+	keys ...Key,
+) gorp.Update[Key, Schematic] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Schematic](keys...)).
+		Change(func(_ gorp.Context, e Schematic) Schematic {
+			e.Group = v
+			return e
+		})
+}
+
+// MatchProjects returns a filter for schematics
+// whose Project matches any of the provided
+// values.
+func MatchProjects(vals ...project.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Schematic] {
+		return r.indexes.project.Filter(vals...)
+	}
+}
+
+// MatchHasProject returns a filter for schematics whose
+// Project holds a target when has is true, and holds none when has is false.
+func MatchHasProject(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Schematic] {
+		return r.indexes.project.FilterHolding(has)
+	}
+}
+
+// MatchRanges returns a filter for schematics
+// whose Range matches any of the provided
+// values.
+func MatchRanges(vals ...ranger.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Schematic] {
+		return r.indexes.rangeVal.Filter(vals...)
+	}
+}
+
+// MatchHasRange returns a filter for schematics whose
+// Range holds a target when has is true, and holds none when has is false.
+func MatchHasRange(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Schematic] {
+		return r.indexes.rangeVal.FilterHolding(has)
+	}
+}
+
 // Where applies the provided filter to the query, binding it to the Retrieve
 // so service-bound filters can read from r.indexes, r.label, r.hostProvider,
 // etc. To compose multiple filters, chain Where calls or pass a combined
@@ -156,17 +288,19 @@ func (r Retrieve) SkipMissingKeys() Retrieve {
 	return r
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of schematics matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of schematics in snap that match
+// the query. It panics when snap is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any schematics match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exists checks whether any schematics in snap match the
+// query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }

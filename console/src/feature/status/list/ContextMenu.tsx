@@ -30,7 +30,7 @@ const Internal = ({ keys, nameID = List.itemNameID }: ContextMenuProps) => {
   const statuses = Status.useMultiple({ keys });
   const dispatch = Session.useDispatch();
   const favoriteSet = Session.Status.useSelectFavoriteSet();
-  const ids = status.ontologyID(keys);
+  const ids = status.resourceID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
 

@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
 
-import { SubcategorySection } from "./SubcategorySection";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 
 export const NoteShowcase = () => (
   <Flex.Box y pack empty>

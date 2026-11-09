@@ -2556,17 +2556,15 @@ var _ = Describe("Writer Behavior", func() {
 					BeforeEach(func() {
 						index = GenerateChannelKey()
 						basic = GenerateChannelKey()
-					})
-
-					AfterEach(func() {
-						Expect(db2.Close()).To(Succeed())
-						Expect(fs.Remove("size-capped-db")).To(Succeed())
+						DeferCleanup(func() {
+							Expect(fs.Remove("size-capped-db")).To(Succeed())
+						})
 					})
 
 					Specify(
 						"Alignment holds across a rollover and a control handoff",
 						func(ctx SpecContext) {
-							db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+							db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 								cesium.WithFS(fs),
 								cesium.WithFileSizeCap(40*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
@@ -2659,7 +2657,7 @@ var _ = Describe("Writer Behavior", func() {
 					)
 
 					Specify("With AutoCommit", func(ctx SpecContext) {
-						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+						db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(40*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -2794,7 +2792,7 @@ var _ = Describe("Writer Behavior", func() {
 					Specify(
 						"With AutoCommit: should not commit a tiny domain",
 						func(ctx SpecContext) {
-							db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+							db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 								cesium.WithFS(fs),
 								cesium.WithFileSizeCap(80*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
@@ -2935,7 +2933,7 @@ var _ = Describe("Writer Behavior", func() {
 							By("Closing an reopening the db")
 							Expect(db2.Close()).To(Succeed())
 
-							db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+							db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 								cesium.WithFS(fs),
 								cesium.WithFileSizeCap(64*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
@@ -3034,7 +3032,7 @@ var _ = Describe("Writer Behavior", func() {
 					)
 
 					Specify("Without AutoCommit", func(ctx SpecContext) {
-						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+						db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(40*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -3157,7 +3155,7 @@ var _ = Describe("Writer Behavior", func() {
 					It(
 						"Should not break when auto committing to not all channels",
 						func(ctx SpecContext) {
-							db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+							db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 								cesium.WithFS(fs),
 								cesium.WithFileSizeCap(40*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
@@ -4206,14 +4204,13 @@ var _ = Describe("Writer Behavior", func() {
 
 			Describe("Open Errors", func() {
 				Specify("Channel that does not exist", func(ctx SpecContext) {
-					_, err := db.OpenWriter(
+					Expect(db.OpenWriter(
 						ctx,
 						cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{55000},
 							Start:    10 * telem.SecondTS,
 						},
-					)
-					Expect(err).To(MatchError(channel.ErrNotFound))
+					)).Error().To(MatchError(channel.ErrNotFound))
 				})
 				Specify(
 					"Encounters channel that does not exist after already successfully creating some writers",
@@ -4237,14 +4234,13 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						)).To(Succeed())
 
-						_, err := db.OpenWriter(
+						Expect(db.OpenWriter(
 							ctx,
 							cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{idx, 88888},
 								Start:    10 * telem.SecondTS,
 							},
-						)
-						Expect(err).To(MatchError(channel.ErrNotFound))
+						)).Error().To(MatchError(channel.ErrNotFound))
 					},
 				)
 			})
@@ -4636,7 +4632,6 @@ var _ = Describe("Writer Behavior", func() {
 			Describe("Error On ErrUnauthorized Open", func() {
 				var (
 					key cesium.ChannelKey
-					w1  *cesium.Writer
 					w2  *cesium.Writer
 				)
 				BeforeEach(func(ctx SpecContext) {
@@ -4652,7 +4647,7 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						),
 					).To(Succeed())
-					w1 = MustSucceed(
+					MustOpen(
 						db.OpenWriter(
 							ctx,
 							cesium.WriterConfig{
@@ -4661,9 +4656,6 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						),
 					)
-				})
-				AfterEach(func() {
-					Expect(w1.Close()).To(Succeed())
 				})
 				Context("False", func() {
 					It(
@@ -5168,14 +5160,13 @@ var _ = Describe("Writer Behavior", func() {
 							),
 						).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
-						_, err := subDB.OpenWriter(
+						Expect(subDB.OpenWriter(
 							ctx,
 							cesium.WriterConfig{
 								Start:    0,
 								Channels: []cesium.ChannelKey{key},
 							},
-						)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
+						)).Error().To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					},
@@ -5199,14 +5190,13 @@ var _ = Describe("Writer Behavior", func() {
 							),
 						).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
-						_, err := subDB.NewStreamWriter(
+						Expect(subDB.NewStreamWriter(
 							ctx,
 							cesium.WriterConfig{
 								Start:    0,
 								Channels: []cesium.ChannelKey{key},
 							},
-						)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
+						)).Error().To(MatchError(cesium.ErrDBClosed))
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					},
 				)
@@ -5227,22 +5217,20 @@ var _ = Describe("Writer Behavior", func() {
 						),
 					).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
-					err := subDB.Write(
+					Expect(subDB.Write(
 						ctx,
 						0,
 						telem.MultiFrame(
 							[]cesium.ChannelKey{key},
 							[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
 						),
-					)
-					Expect(err).To(MatchError(cesium.ErrDBClosed))
-					err = subDB.WriteSeries(
+					)).To(MatchError(cesium.ErrDBClosed))
+					Expect(subDB.WriteSeries(
 						ctx,
 						key,
 						0,
 						telem.NewSeriesV[int64](1, 2, 3),
-					)
-					Expect(err).To(MatchError(cesium.ErrDBClosed))
+					)).To(MatchError(cesium.ErrDBClosed))
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
 			})

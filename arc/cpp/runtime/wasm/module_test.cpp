@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <random>
 #include <string>
 
 #include "gtest/gtest.h"
@@ -22,18 +21,6 @@
 #include "arc/cpp/runtime/wasm/module.h"
 
 namespace arc::runtime::wasm {
-
-namespace {
-// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
-// printed so that a failing run can be replayed.
-std::mt19937 gen_rand = random_generator("Module Tests");
-// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
-
-std::string random_name(const std::string &prefix) {
-    std::uniform_int_distribution<> dis(10000, 99999);
-    return prefix + "_" + std::to_string(dis(gen_rand));
-}
-}
 
 /// @brief Module::open returns error for empty WASM bytes.
 TEST(ModuleOpenTest, ReturnsErrorForEmptyWasmBytes) {
@@ -58,9 +45,11 @@ TEST(ModuleOpenTest, ReturnsErrorForInvalidWasmBytes) {
 /// @brief Module::open succeeds with valid compiled module.
 TEST(ModuleOpenTest, SucceedsWithValidModule) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -79,9 +68,11 @@ func double() {val f32} f32 {
 /// @brief Module::func returns NOT_FOUND for non-existent export.
 TEST(ModuleFuncTest, ReturnsNotFoundForMissingExport) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -100,9 +91,11 @@ func double() {val f32} f32 {
 /// @brief Module::func returns valid function for existing export.
 TEST(ModuleFuncTest, ReturnsValidFunctionForExistingExport) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -119,9 +112,11 @@ func double() {val f32} f32 {
 /// @brief Function::call executes and returns results.
 TEST(FunctionCallTest, ExecutesFunctionAndReturnsResults) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {

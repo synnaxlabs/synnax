@@ -13,6 +13,9 @@ package v3
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -97,6 +100,24 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 	w.Bool(lv.ChannelNamesHidden)
 	w.Bool(lv.TimestampsHidden)
 	w.String(string(lv.TimeZone))
+	if lv.Group != nil {
+		w.Bool(true)
+		w.Write((*lv.Group)[:])
+	} else {
+		w.Bool(false)
+	}
+	if lv.Project != nil {
+		w.Bool(true)
+		w.Write((*lv.Project)[:])
+	} else {
+		w.Bool(false)
+	}
+	if lv.Range != nil {
+		w.Bool(true)
+		w.Write((*lv.Range)[:])
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -142,6 +163,45 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		lv.TimeZone = telem.TimeZone(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv group.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			lv.Group = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv project.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			lv.Project = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv ranger.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			lv.Range = &hv
+		}
 	}
 	return nil
 }
