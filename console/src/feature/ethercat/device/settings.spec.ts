@@ -39,7 +39,23 @@ describe("Settings", () => {
     });
   });
 
+  describe("findChannel", () => {
+    it("should find the input of each entry that reads it", () => {
+      const description = createSettingsDescription();
+      for (const entry of channel.entries)
+        expect(Settings.findChannel(description, entry)).toBe(description.channels[0]);
+      expect(
+        Settings.findChannel(description, { index: 0x6040, subIndex: 2 }),
+      ).toBeUndefined();
+    });
+  });
+
   describe("set", () => {
+    it("should keep the values of other inputs", () => {
+      const other = { index: 0x8041, subIndex: 1, dataType: "uint16", value: 6 };
+      expect(Settings.set(fields, [other], RANGE, 1)).toContainEqual(other);
+    });
+
     it("should give a shown field its default when its value is not an option", () => {
       const voltage = Settings.set(fields, [], RANGE, 4);
       const current = Settings.set(fields, voltage, MEASUREMENT, 1);

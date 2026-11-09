@@ -31,6 +31,8 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
 	case "channels":
 		return patch.List(&rc.Channels, c.Next())
+	case "settings":
+		return patch.Value(&rc.Settings, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -46,6 +48,10 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	for i0 := range rc.Channels {
 		rc.Channels[i0].HashContent(h)
 	}
+	h.Len(len(rc.Settings))
+	for i0 := range rc.Settings {
+		rc.Settings[i0].HashContent(h)
+	}
 }
 
 // HashContent writes the content of the value to h, without its keys.
@@ -54,6 +60,15 @@ func (s *Setting) HashContent(h *content.Hash) {
 	h.Uint(uint64(s.SubIndex))
 	h.String(string(s.DataType))
 	h.Float(s.Value)
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (ss *SlaveSettings) HashContent(h *content.Hash) {
+	h.String(ss.Device)
+	h.Len(len(ss.Values))
+	for i0 := range ss.Values {
+		ss.Values[i0].HashContent(h)
+	}
 }
 
 // Patch applies the path action at c, which is not done, to the value.
@@ -171,8 +186,6 @@ func (erc *EntryReadChannel) Patch(c patch.Cursor) error {
 			return patch.Value(&erc.Scale, c)
 		}
 		return erc.Scale.Patch(c)
-	case "settings":
-		return patch.Value(&erc.Settings, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -188,10 +201,6 @@ func (erc *EntryReadChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(erc.SubIndex))
 	h.String(string(erc.DataType))
 	erc.Scale.HashContent(h)
-	h.Len(len(erc.Settings))
-	for i0 := range erc.Settings {
-		erc.Settings[i0].HashContent(h)
-	}
 }
 
 // Patch applies the path action at c, which is not done, to the value.

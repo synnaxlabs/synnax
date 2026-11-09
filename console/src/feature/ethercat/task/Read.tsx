@@ -174,10 +174,10 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 
   // The settings, data type, and repeated name checks run before any create, so their
   // failure leaves nothing behind.
+  config.settings = fillSettings(slaves, config.channels, config.settings);
   const plans = [];
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
-    fillSettings(slave, channels);
     const missing = await findChannelsToCreate(
       client,
       channels,

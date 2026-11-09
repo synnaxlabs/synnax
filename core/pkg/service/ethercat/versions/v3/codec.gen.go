@@ -31,15 +31,6 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.Scale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Bool(v.Settings != nil)
-		if v.Settings != nil {
-			w.Uint32(uint32(len(v.Settings)))
-			for i := range v.Settings {
-				if err := v.Settings[i].EncodeOrc(w); err != nil {
-					return err
-				}
-			}
-		}
 	case UnresolvedReadChannel:
 		w.String("unresolved")
 		if err := v.BaseReadChannel.EncodeOrc(w); err != nil {
@@ -80,24 +71,6 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 		if err = v.Scale.DecodeOrc(r); err != nil {
 			return err
 		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				n, err := r.CollectionLen()
-				if err != nil {
-					return err
-				}
-				v.Settings = make([]Setting, n)
-				for i := range v.Settings {
-					if err = v.Settings[i].DecodeOrc(r); err != nil {
-						return err
-					}
-				}
-			}
-		}
 		rc.Variant = v
 	case "unresolved":
 		var v UnresolvedReadChannel
@@ -126,6 +99,15 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 		w.Uint32(uint32(len(rc.Channels)))
 		for i := range rc.Channels {
 			if err := rc.Channels[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(rc.Settings != nil)
+	if rc.Settings != nil {
+		w.Uint32(uint32(len(rc.Settings)))
+		for i := range rc.Settings {
+			if err := rc.Settings[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
@@ -177,6 +159,24 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rc.Settings = make([]SlaveSettings, n)
+			for i := range rc.Settings {
+				if err = rc.Settings[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -207,6 +207,48 @@ func (s *Setting) DecodeOrc(r *orc.Reader) error {
 	}
 	if s.Value, err = r.Float64(); err != nil {
 		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (ss SlaveSettings) EncodeOrc(w *orc.Writer) error {
+	w.String(ss.Device)
+	w.Bool(ss.Values != nil)
+	if ss.Values != nil {
+		w.Uint32(uint32(len(ss.Values)))
+		for i := range ss.Values {
+			if err := ss.Values[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (ss *SlaveSettings) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if ss.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			ss.Values = make([]Setting, n)
+			for i := range ss.Values {
+				if err = ss.Values[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

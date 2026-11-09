@@ -735,20 +735,27 @@ TEST_F(EtherCATReadTest, StartAppliesSavedSlaveSettingsOnTheNetwork) {
     read_task->exec(stop);
 }
 
-/// @brief it should write the settings of each channel to its slave, in order, when
-/// the task starts the bus.
-TEST_F(EtherCATReadTest, StartWritesChannelSettingsToTheSlave) {
+/// @brief it should write the settings of each slave to it, in order, when the task
+/// starts the bus.
+TEST_F(EtherCATReadTest, StartWritesTheSlaveSettings) {
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
-    auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
-    ch["settings"] = {
-        {{"index", 0x8040},
-         {"sub_index", 0x1C},
-         {"data_type", "float32"},
-         {"value", 5}},
-        {{"index", 0x8040}, {"sub_index", 1}, {"data_type", "uint16"}, {"value", 6}},
-    };
+    const auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
     cfg["channels"].push_back(ch);
+    cfg["settings"] = {{
+        {"device", ch["device"]},
+        {"values",
+         {
+             {{"index", 0x8040},
+              {"sub_index", 0x1C},
+              {"data_type", "float32"},
+              {"value", 5}},
+             {{"index", 0x8040},
+              {"sub_index", 1},
+              {"data_type", "uint16"},
+              {"value", 6}},
+         }},
+    }};
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure(NETWORK_INTERFACE, this->mock_master);
     Factory factory(std::move(manager), this->client, this->rack.key);
@@ -774,21 +781,26 @@ TEST_F(EtherCATReadTest, StartWritesChannelSettingsToTheSlave) {
     read_task->exec(stop);
 }
 
-/// @brief it should reject a channel setting whose value does not fit its data type.
+/// @brief it should reject a slave setting whose value does not fit its data type.
 TEST_F(EtherCATReadTest, ParseConfigRejectsASettingThatDoesNotFitItsType) {
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
-    auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
-    ch["settings"] = {
-        {{"index", 0x8040}, {"sub_index", 1}, {"data_type", "uint16"}, {"value", -1}},
-    };
+    const auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
     cfg["channels"].push_back(ch);
+    cfg["settings"] = {{
+        {"device", ch["device"]},
+        {"values",
+         {{{"index", 0x8040},
+           {"sub_index", 1},
+           {"data_type", "uint16"},
+           {"value", -1}}}},
+    }};
     auto parser = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(client, parser);
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
     const auto errors = parser.error_json()["errors"];
     ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.settings.0.value");
+    EXPECT_EQ(errors[0]["path"], "settings.0.values.0.value");
     EXPECT_EQ(errors[0]["message"], "must be a whole number from 0 to 65535");
 }
 

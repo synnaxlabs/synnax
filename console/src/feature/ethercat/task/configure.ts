@@ -10,7 +10,7 @@
 import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
-import { check, fill, findChannel } from "@/feature/ethercat/device/settings";
+import { check, fill, sameAddress } from "@/feature/ethercat/device/settings";
 import {
   MAKE,
   SLAVE_MODEL,
@@ -138,24 +138,37 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
 };
 
 /**
- * Fills the settings of each read channel that the slave's catalog describes, giving
- * every field a value.
+ * @returns the settings of each slave: a value for every field of each input that a
+ * channel reads, in the order of the slave's catalog. Values the task held stay.
  * @throws {Error} if a value breaks a limit or a rule of the catalog.
  */
 export const fillSettings = (
-  slave: SlaveDevice,
-  channels: EntryReadChannel[],
-): void => {
-  for (const ch of channels) {
-    const channel = findChannel(slave.properties.settings, ch);
-    if (channel == null) continue;
-    ch.settings = fill(channel.settings, ch.settings);
-    const [problem] = check(channel, ch.settings);
-    if (problem != null)
-      throw new Error(
-        `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`,
-      );
+  slaves: SlaveDevice[],
+  channels: ReadChannel[],
+  held: ethercat.SlaveSettings[],
+): ethercat.SlaveSettings[] => {
+  const filled: ethercat.SlaveSettings[] = [];
+  for (const slave of slaves) {
+    const inputs = slave.properties.settings?.channels ?? [];
+    const entries = channels.filter(
+      (ch): ch is EntryReadChannel => hasEntry(ch) && ch.device === slave.key,
+    );
+    const prior = held.find((s) => s.device === slave.key)?.values ?? [];
+    const values: ethercat.Setting[] = [];
+    for (const input of inputs) {
+      const ch = entries.find((e) => input.entries.some((a) => sameAddress(a, e)));
+      if (ch == null) continue;
+      const settings = fill(input.settings, prior);
+      const [problem] = check(input, settings);
+      if (problem != null)
+        throw new Error(
+          `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`,
+        );
+      values.push(...settings);
+    }
+    if (values.length > 0) filled.push({ device: slave.key, values });
   }
+  return filled;
 };
 
 export interface IndexOptions {

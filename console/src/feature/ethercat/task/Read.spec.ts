@@ -32,6 +32,7 @@ import {
   createUnresolvedReadChannel,
   STATUS_ENTRY,
   STRAIN_ENTRY,
+  STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
 import {
   awaitEditableForm,
@@ -104,7 +105,7 @@ const createStrainSlave = async () =>
   await createSlaveDevice(client, testRack.key, {
     identifier: createIdentifier(),
     network: "eth0",
-    pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+    pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
     settings: createSettingsDescription(),
   });
 
@@ -258,14 +259,35 @@ describe("Read", () => {
         key: draft.key,
         schemas: EtherCAT.Task.READ_SCHEMAS,
       });
-      expect(saved.config.channels[0]).toMatchObject({
-        settings: [
-          { ...MEASUREMENT, value: 6 },
-          { ...RANGE, value: 0 },
-          { ...EXCITATION, value: 0 },
-        ],
-      });
+      expect(saved.config.settings).toEqual([
+        {
+          device: slave.key,
+          values: [
+            { ...MEASUREMENT, value: 6 },
+            { ...RANGE, value: 0 },
+            { ...EXCITATION, value: 0 },
+          ],
+        },
+      ]);
     });
+  });
+
+  it("should share the settings of an input between the entries that read it", async () => {
+    const slave = await createStrainSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
+        EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY),
+      ],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Measurement/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Bridge/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /0x6040:01/ }));
+    expect(
+      await screen.findByRole("button", { name: /^Measurement.*Bridge/ }),
+    ).toBeTruthy();
   });
 
   it("should show why an unresolved channel cannot run", async () => {
@@ -550,14 +572,18 @@ describe("Read", () => {
     expect(updated.properties.readIndex).toBe(0);
   });
 
-  it("should save a value for every setting that the catalog describes", async () => {
+  it("should save one value for each setting of each input that a channel reads", async () => {
     const slave = await createStrainSlave();
     const { container, draft } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
+        EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
+        EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY),
+      ],
+      settings: [
         {
-          ...EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
-          settings: [
+          device: slave.key,
+          values: [
             { ...EXCITATION, value: 5 },
             { ...MEASUREMENT, value: 6 },
           ],
@@ -570,25 +596,24 @@ describe("Read", () => {
       draft.key,
       EtherCAT.Task.READ_SCHEMAS,
     );
-    expect(created.config.channels[0]).toMatchObject({
-      settings: [
-        { ...MEASUREMENT, value: 6 },
-        { ...RANGE, value: 0 },
-        { ...EXCITATION, value: 5 },
-      ],
-    });
+    expect(created.config.settings).toEqual([
+      {
+        device: slave.key,
+        values: [
+          { ...MEASUREMENT, value: 6 },
+          { ...RANGE, value: 0 },
+          { ...EXCITATION, value: 5 },
+        ],
+      },
+    ]);
   });
 
   it("should block configuration of a setting that breaks a rule of the catalog", async () => {
     const slave = await createStrainSlave();
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [
-        {
-          ...EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
-          settings: [{ ...MEASUREMENT, value: 6 }],
-        },
-      ],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+      settings: [{ device: slave.key, values: [{ ...MEASUREMENT, value: 6 }] }],
     });
     await clickDeploy(container);
     await awaitStatus(

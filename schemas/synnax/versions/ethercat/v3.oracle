@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
@@ -30,6 +31,18 @@ Setting struct {
     @go marshal
 }
 
+SlaveSettings struct {
+    device device.Key = "" {
+        @doc value "is the key of the slave device the values are written to."
+    }
+    values Setting[] = [] {
+        @doc value "are the values written to the slave's CoE objects, in order."
+    }
+
+    @doc value  "is what a read task writes to one slave when it starts."
+    @go marshal
+}
+
 ReadChannel union on type extends v1.BaseReadChannel {
     entry {
         index     uint16         {
@@ -45,12 +58,6 @@ ReadChannel union on type extends v1.BaseReadChannel {
             @doc value """
                 is the scale applied to raw samples after acquisition. A scaled channel
                 writes to a float Synnax channel.
-            """
-        }
-        settings  Setting[] = [] {
-            @doc value """
-                are the values the task writes to the slave's CoE objects for this
-                channel when it starts, in order.
             """
         }
 
@@ -115,8 +122,11 @@ WriteChannel union on type extends v1.BaseWriteChannel {
 }
 
 ReadConfig struct extends task.ReadConfig {
-    channels ReadChannel[] {
+    channels ReadChannel[]   {
         @doc value "are the channels the task acquires."
+    }
+    settings SlaveSettings[] = [] {
+        @doc value "are the values the task writes to its slaves when it starts."
     }
 
     @doc value  """

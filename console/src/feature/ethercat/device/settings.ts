@@ -50,15 +50,15 @@ export const requirementZ = z.object({
 });
 export interface Requirement extends z.infer<typeof requirementZ> {}
 
-/** The fields of the input entry at the address. */
+/** The fields of one input, and the entries that read it in every PDO layout. */
 export const channelZ = z.object({
-  ...ADDRESS,
+  entries: z.array(z.object(ADDRESS)),
   settings: z.array(fieldZ),
   requires: z.array(requirementZ),
 });
 export interface Channel extends z.infer<typeof channelZ> {}
 
-/** The fields of a slave: those of the whole slave, and those of each input entry. */
+/** The fields of a slave: those of the whole slave, and those of each input. */
 export const descriptionZ = z.object({
   device: z.array(fieldZ),
   channels: z.array(channelZ),
@@ -79,11 +79,12 @@ export interface Problem extends Address {
 export const sameAddress = (a: Address, b: Address): boolean =>
   a.index === b.index && a.subIndex === b.subIndex;
 
-/** @returns the fields of the input entry at the address, or undefined. */
+/** @returns the input that the entry at the address reads, or undefined. */
 export const findChannel = (
   description: Description | undefined,
   address: Address,
-): Channel | undefined => description?.channels.find((c) => sameAddress(c, address));
+): Channel | undefined =>
+  description?.channels.find((c) => c.entries.some((e) => sameAddress(e, address)));
 
 /**
  * @returns the value at the address: the one in values, or the default of the first
@@ -135,19 +136,21 @@ export const fill = (fields: Field[], values: Value[]): ethercat.Setting[] => {
 };
 
 /**
- * @returns the settings after the field at the address takes the value, filled as
- * {@link fill} fills them.
+ * @returns the values after the field at the address takes the value. The values of the
+ * fields are filled as {@link fill} fills them, and the other values stay.
  */
 export const set = (
   fields: Field[],
-  values: Value[],
+  values: ethercat.Setting[],
   address: Address,
   value: number,
-): ethercat.Setting[] =>
-  fill(fields, [
+): ethercat.Setting[] => [
+  ...values.filter((v) => !fields.some((f) => sameAddress(f, v))),
+  ...fill(fields, [
     { ...address, value },
     ...values.filter((v) => !sameAddress(v, address)),
-  ]);
+  ]),
+];
 
 const rangeMessage = ({ name, unit, min, max }: Field): string => {
   const suffix = unit === "" ? "" : ` ${unit}`;

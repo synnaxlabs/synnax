@@ -17,6 +17,7 @@ import (
 	"reflect"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
+	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
@@ -38,6 +39,14 @@ type Setting struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// Value is the value written to the object.
 	Value float64 `json:"value" msgpack:"value"`
+}
+
+// SlaveSettings is what a read task writes to one slave when it starts.
+type SlaveSettings struct {
+	// Device is the key of the slave device the values are written to.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Values are the values written to the slave's CoE objects, in order.
+	Values []Setting `json:"values" msgpack:"values"`
 }
 
 // ReadChannelType is the "type" value that selects a variant of ReadChannel.
@@ -68,9 +77,6 @@ type EntryReadChannel struct {
 	// Scale is the scale applied to raw samples after acquisition. A scaled channel
 	// writes to a float Synnax channel.
 	Scale taskv2.Scale `json:"scale" msgpack:"scale"`
-	// Settings are the values the task writes to the slave's CoE objects for this
-	// channel when it starts, in order.
-	Settings []Setting `json:"settings" msgpack:"settings"`
 }
 
 func (EntryReadChannel) isReadChannelVariant() {}
@@ -380,6 +386,8 @@ type ReadConfig struct {
 	task.ReadConfig
 	// Channels are the channels the task acquires.
 	Channels []ReadChannel `json:"channels" msgpack:"channels"`
+	// Settings are the values the task writes to its slaves when it starts.
+	Settings []SlaveSettings `json:"settings" msgpack:"settings"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

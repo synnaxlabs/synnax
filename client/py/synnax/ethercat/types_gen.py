@@ -94,6 +94,33 @@ class Setting(BaseModel):
     value: float
 
 
+class EntryReadChannel(BaseReadChannel):
+    """Addresses a PDO entry by its CoE index and sub-index."""
+
+    type: Literal["entry"] = "entry"
+    index: int = Field(ge=0, le=65535)
+    sub_index: int = Field(ge=0, le=255)
+    data_type: telem.DataType
+    scale: task.Scale = Field(default_factory=lambda: task.NoneScale(type="none"))
+
+
+class UnresolvedReadChannel(BaseReadChannel):
+    """Is a channel whose PDO entry name matched no single entry on its slave. It must
+    be given an entry before the task runs.
+    """
+
+    type: Literal["unresolved"] = "unresolved"
+    pdo: str
+
+
+# Is a single EtherCAT read channel (TxPDO, slave to master). The type field
+# selects how the PDO entry is addressed.
+ReadChannel = Annotated[
+    EntryReadChannel | UnresolvedReadChannel,
+    Field(discriminator="type"),
+]
+
+
 class EntryWriteChannel(BaseWriteChannel):
     """Addresses a PDO entry by its CoE index and sub-index."""
 
@@ -121,32 +148,16 @@ WriteChannel = Annotated[
 ]
 
 
-class EntryReadChannel(BaseReadChannel):
-    """Addresses a PDO entry by its CoE index and sub-index."""
+class SlaveSettings(BaseModel):
+    """Is what a read task writes to one slave when it starts.
 
-    type: Literal["entry"] = "entry"
-    index: int = Field(ge=0, le=65535)
-    sub_index: int = Field(ge=0, le=255)
-    data_type: telem.DataType
-    scale: task.Scale = Field(default_factory=lambda: task.NoneScale(type="none"))
-    settings: list[Setting] = Field(default_factory=list)
-
-
-class UnresolvedReadChannel(BaseReadChannel):
-    """Is a channel whose PDO entry name matched no single entry on its slave. It must
-    be given an entry before the task runs.
+    Attributes:
+        device: Is the key of the slave device the values are written to.
+        values: Are the values written to the slave's CoE objects, in order.
     """
 
-    type: Literal["unresolved"] = "unresolved"
-    pdo: str
-
-
-# Is a single EtherCAT read channel (TxPDO, slave to master). The type field
-# selects how the PDO entry is addressed.
-ReadChannel = Annotated[
-    EntryReadChannel | UnresolvedReadChannel,
-    Field(discriminator="type"),
-]
+    device: device_.Key = ""
+    values: list[Setting] = Field(default_factory=list)
 
 
 class WriteConfig(task.PersistConfig):
@@ -174,9 +185,11 @@ class ReadConfig(task.ReadConfig):
 
     Attributes:
         channels: Are the channels the task acquires.
+        settings: Are the values the task writes to its slaves when it starts.
     """
 
     channels: list[ReadChannel] = Field(default_factory=list)
+    settings: list[SlaveSettings] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:

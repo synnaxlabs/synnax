@@ -82,10 +82,21 @@ export const STRAIN_ENTRY: ethercat.PDOEntry = {
   dataType: "int32",
 };
 
+/** A buffered layout entry that reads the input of {@link STRAIN_ENTRY}. */
+export const STRAIN_SAMPLE_ENTRY: ethercat.PDOEntry = {
+  name: "CH 1",
+  pdoName: "Buffered channel 1",
+  index: 0x6040,
+  subIndex: 1,
+  bitLength: 32,
+  dataType: "uint32",
+};
+
 /**
- * Builds the catalog fields of a strain input at {@link STRAIN_ENTRY}. A voltage input
- * picks one of five ranges, a current input one of two. A bridge shows an excitation
- * voltage from 0 to 24 V and needs one above 0.
+ * Builds the catalog fields of a strain input that {@link STRAIN_ENTRY} and
+ * {@link STRAIN_SAMPLE_ENTRY} read. A voltage input picks one of five ranges, a current
+ * input one of two. A bridge shows an excitation voltage from 0 to 24 V and needs one
+ * above 0.
  */
 export const createSettingsDescription = (): Description => {
   const measurement = { index: 0x8040, subIndex: 1 };
@@ -108,8 +119,10 @@ export const createSettingsDescription = (): Description => {
     ],
     channels: [
       {
-        index: STRAIN_ENTRY.index,
-        subIndex: STRAIN_ENTRY.subIndex,
+        entries: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY].map(({ index, subIndex }) => ({
+          index,
+          subIndex,
+        })),
         settings: [
           {
             ...measurement,

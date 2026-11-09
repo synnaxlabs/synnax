@@ -74,8 +74,6 @@ TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
     const auto &channels = (*settings)["channels"];
     ASSERT_EQ(channels.size(), 6);
     const auto &input_2 = channels[1];
-    EXPECT_EQ(input_2["index"], 0x6030);
-    EXPECT_EQ(input_2["sub_index"], 2);
     const auto &range = setting(input_2, 3);
     EXPECT_EQ(range["index"], 0x8041);
     EXPECT_EQ(
@@ -94,6 +92,21 @@ TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
     EXPECT_EQ(input_2["requires"][0]["then"]["index"], 0x8041);
     EXPECT_EQ(input_2["requires"][0]["when"][0]["index"], 0x8041);
     EXPECT_EQ((*settings)["device"][0]["index"], 0x8020);
+}
+
+/// @brief it should give each 6xSTG input the entries that read it in the unbuffered
+/// and buffered PDO layouts.
+TEST(ReadSettings, Lists6xSTGInputEntriesInEveryLayout) {
+    const auto settings = ASSERT_NIL_P(read_settings(DEWESOFT, IOLITE_6XSTG, read_stg));
+    ASSERT_TRUE(settings.has_value());
+    const auto &entries = (*settings)["channels"][1]["entries"];
+    std::vector<std::pair<int, int>> addresses;
+    for (const auto &e: entries)
+        addresses.emplace_back(e["index"].get<int>(), e["sub_index"].get<int>());
+    std::vector<std::pair<int, int>> want{{0x6030, 2}};
+    for (int k = 1; k <= 8; k++)
+        want.emplace_back(0x6041, k);
+    EXPECT_EQ(addresses, want);
 }
 
 /// @brief it should return no settings for a product that the catalog does not

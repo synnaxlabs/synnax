@@ -73,6 +73,20 @@ x::errors::Error resolve(x::json::json &setting, const coe::Read &read) {
     return x::errors::NIL;
 }
 
+/// @brief returns the address of each entry that channel n reads, in every layout.
+x::json::json entries_of(const x::json::json &layouts, const int n) {
+    auto entries = x::json::json::array();
+    for (const auto &layout: layouts) {
+        const auto index = layout["index"].get<int>() +
+                           n * layout["index_step"].get<int>();
+        const auto first = layout["sub_index"].get<int>() +
+                           n * layout["sub_index_step"].get<int>();
+        for (int k = 0; k < layout["count"].get<int>(); k++)
+            entries.push_back({{"index", index}, {"sub_index", first + k}});
+    }
+    return entries;
+}
+
 x::errors::Error resolve_all(x::json::json &settings, const coe::Read &read) {
     for (auto &setting: settings)
         if (auto err = resolve(setting, read)) return err;
@@ -101,12 +115,9 @@ std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
     if (!it->contains("channels")) return {std::move(result), x::errors::NIL};
     const auto &channels = (*it)["channels"];
     const auto index_step = channels["index_step"].get<uint16_t>();
-    const auto sub_index = channels["entry_sub_index"].get<uint8_t>();
-    const auto sub_index_step = channels["entry_sub_index_step"].get<uint8_t>();
     for (int n = 0; n < channels["count"].get<int>(); n++) {
         x::json::json channel{
-            {"index", channels["entry_index"]},
-            {"sub_index", sub_index + n * sub_index_step},
+            {"entries", entries_of(channels["entries"], n)},
             {"settings", channels["settings"]},
             {"requires", channels["requires"]},
         };

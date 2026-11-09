@@ -31,9 +31,6 @@ var _ = Describe("JSON", func() {
 				Scale: task.Scale{
 					Variant: task.LinearScale{Slope: 2, Offset: 1},
 				},
-				Settings: []v3.Setting{
-					{Index: 0x8040, SubIndex: 1, DataType: telem.Uint16T, Value: 6},
-				},
 			}},
 			{Variant: v3.UnresolvedReadChannel{
 				BaseReadChannel: v3.BaseReadChannel{Key: "b", Channel: 6, Device: "d"},
@@ -43,9 +40,7 @@ var _ = Describe("JSON", func() {
 		encoded := `[
 			{"type": "entry", "key": "a", "name": "", "disabled": false, "channel": 5,
 			 "device": "d", "index": 24576, "sub_index": 1, "data_type": "int16",
-			 "scale": {"type": "linear", "slope": 2, "offset": 1},
-			 "settings": [{"index": 32832, "sub_index": 1, "data_type": "uint16",
-			               "value": 6}]},
+			 "scale": {"type": "linear", "slope": 2, "offset": 1}},
 			{"type": "unresolved", "key": "b", "name": "", "disabled": false,
 			 "channel": 6, "device": "d", "pdo": "Input"}
 		]`
@@ -58,6 +53,28 @@ var _ = Describe("JSON", func() {
 			var decoded []v3.ReadChannel
 			Expect(json.Unmarshal([]byte(encoded), &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(channels))
+		})
+	})
+
+	Describe("SlaveSettings", func() {
+		settings := []v3.SlaveSettings{{
+			Device: "d",
+			Values: []v3.Setting{
+				{Index: 0x8040, SubIndex: 1, DataType: telem.Uint16T, Value: 6},
+			},
+		}}
+		encoded := `[{"device": "d", "values": [
+			{"index": 32832, "sub_index": 1, "data_type": "uint16", "value": 6}
+		]}]`
+
+		It("Should encode the values of each slave", func() {
+			Expect(MustSucceed(json.Marshal(settings))).To(MatchJSON(encoded))
+		})
+
+		It("Should decode the values of each slave", func() {
+			var decoded []v3.SlaveSettings
+			Expect(json.Unmarshal([]byte(encoded), &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(settings))
 		})
 	})
 

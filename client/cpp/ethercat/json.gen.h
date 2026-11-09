@@ -94,6 +94,10 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
             });
         return result;
     }();
+    result.settings = parser.field<std::vector<SlaveSettings>>(
+        "settings",
+        std::vector<SlaveSettings>{}
+    );
     return result;
 }
 
@@ -107,6 +111,7 @@ inline x::json::json ReadConfig::to_json() const {
             arr.push_back(::synnax::ethercat::to_json(item));
         j["channels"] = arr;
     }
+    j["settings"] = x::json::to_array(this->settings);
     return j;
 }
 
@@ -183,6 +188,20 @@ inline x::json::json Setting::to_json() const {
     return j;
 }
 
+inline SlaveSettings SlaveSettings::parse(x::json::Parser parser) {
+    return SlaveSettings{
+        .device = parser.field<::synnax::device::Key>("device", ""),
+        .values = parser.field<std::vector<Setting>>("values", std::vector<Setting>{}),
+    };
+}
+
+inline x::json::json SlaveSettings::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["device"] = this->device;
+    j["values"] = x::json::to_array(this->values);
+    return j;
+}
+
 inline EntryReadChannel EntryReadChannel::parse(x::json::Parser parser) {
     EntryReadChannel result;
     static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
@@ -192,10 +211,6 @@ inline EntryReadChannel EntryReadChannel::parse(x::json::Parser parser) {
     result.scale = parser.has("scale")
                      ? ::synnax::task::parse_scale(parser.child("scale"))
                      : ::synnax::task::Scale{::synnax::task::NoneScale{}};
-    result.settings = parser.field<std::vector<Setting>>(
-        "settings",
-        std::vector<Setting>{}
-    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -208,7 +223,6 @@ inline x::json::json EntryReadChannel::to_json() const {
     j["sub_index"] = this->sub_index;
     j["data_type"] = this->data_type;
     j["scale"] = ::synnax::task::to_json(this->scale);
-    j["settings"] = x::json::to_array(this->settings);
     j["type"] = this->type;
     return j;
 }

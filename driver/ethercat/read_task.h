@@ -12,6 +12,7 @@
 #include <cmath>
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "client/cpp/ethercat/json.gen.h"
@@ -40,6 +41,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     size_t samples_per_chan = 0;
     /// @brief scales the raw samples of scaled channels into engineering units.
     transform::Scale scales;
+    /// @brief the values the task writes to each slave when it starts.
+    engine::Settings settings;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         BaseReadTaskConfig(std::move(other)),
@@ -47,7 +50,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
         samples_per_chan(other.samples_per_chan),
-        scales(std::move(other.scales)) {}
+        scales(std::move(other.scales)),
+        settings(std::move(other.settings)) {}
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
     const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
@@ -83,14 +87,24 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (slave == nullptr) return;
             auto input = channel::make_input(parsed, *slave, ch);
             if (input == nullptr) return;
-            if (ch.has("settings"))
-                ch.iter("settings", [&input](x::json::Parser &setting) {
-                    input->settings.push_back(slave::StartupParameter::parse(setting));
-                });
             transform::validate_scale(ch, "scale", input->scale);
             claims.claim(input->entry, *slave, ch);
             this->channels.push_back(std::move(input));
         });
+
+        if (cfg.has("settings"))
+            cfg.iter("settings", [&](x::json::Parser &s) {
+                const auto *slave = this->slaves.resolve(
+                    *client,
+                    s.field<std::string>("device"),
+                    s
+                );
+                if (slave == nullptr) return;
+                auto &values = this->settings[slave->position];
+                s.iter("values", [&values](x::json::Parser &value) {
+                    values.push_back(slave::StartupParameter::parse(value));
+                });
+            });
 
         if (cfg.error()) return;
 
@@ -187,19 +201,14 @@ public:
 
         std::vector<pdo::Entry> entries;
         entries.reserve(this->cfg.channels.size());
-        engine::Settings settings;
-        for (const auto &ch: this->cfg.channels) {
+        for (const auto &ch: this->cfg.channels)
             entries.push_back(ch->entry);
-            if (ch->settings.empty()) continue;
-            auto &params = settings[ch->entry.slave_position];
-            params.insert(params.end(), ch->settings.begin(), ch->settings.end());
-        }
 
         auto [rdr, err] = this->engine->open_reader(
             entries,
             this->cfg.sample_rate,
             this->cfg.samples_per_chan,
-            settings
+            this->cfg.settings
         );
         if (err) return err;
         this->reader = std::move(rdr);

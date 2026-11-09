@@ -82,3 +82,6 @@ type ScanConfig = v3.ScanConfig
 
 // Setting is a value that a task writes to a CoE object of its slave.
 type Setting = v3.Setting
+
+// SlaveSettings is what a read task writes to one slave when it starts.
+type SlaveSettings = v3.SlaveSettings
