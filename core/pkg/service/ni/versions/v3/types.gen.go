@@ -95,6 +95,21 @@ const (
 	AccelSensitivityUnitsVoltsPerG AccelSensitivityUnits = v2.AccelSensitivityUnitsVoltsPerG
 )
 
+// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
+// sensitivity rating.
+type AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnits
+
+const (
+	// AccelChargeSensitivityUnitsPicoCoulombsPerG is picocoulombs per g.
+	AccelChargeSensitivityUnitsPicoCoulombsPerG AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerG
+	// AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared is picocoulombs
+	// per meter per second squared.
+	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared
+	// AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared is picocoulombs
+	// per inch per second squared.
+	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
+)
+
 // AccelUnits are the engineering units for an acceleration measurement.
 type AccelUnits = v2.AccelUnits
 
@@ -849,6 +864,19 @@ type BaseAOChannel struct {
 	Port int32 `json:"port" msgpack:"port"`
 }
 
+// CommandedAOChannel carries the command and state channels of a commanded analog
+// output.
+type CommandedAOChannel struct {
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel channel.Key `json:"cmd_channel" msgpack:"cmd_channel"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName string `json:"cmd_channel_name" msgpack:"cmd_channel_name"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName string `json:"state_channel_name" msgpack:"state_channel_name"`
+}
+
 // AOChannelType is the "type" value that selects a variant of AOChannel.
 type AOChannelType string
 
@@ -1162,32 +1190,4 @@ type ScanConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
 	s.ScanConfig.ApplyDefaults()
-}
-
-// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
-// sensitivity rating.
-type AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnits
-
-const (
-	// AccelChargeSensitivityUnitsPicoCoulombsPerG is picocoulombs per g.
-	AccelChargeSensitivityUnitsPicoCoulombsPerG AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerG
-	// AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared is picocoulombs
-	// per meter per second squared.
-	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared
-	// AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared is picocoulombs
-	// per inch per second squared.
-	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
-)
-
-// CommandedAOChannel carries the command and state channels of a commanded analog
-// output.
-type CommandedAOChannel struct {
-	// CmdChannel is the Synnax channel commands are read from.
-	CmdChannel channel.Key `json:"cmd_channel" msgpack:"cmd_channel"`
-	// StateChannel is the Synnax channel the output state is written to.
-	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
-	// CmdChannelName is the human-readable name of the command channel.
-	CmdChannelName string `json:"cmd_channel_name" msgpack:"cmd_channel_name"`
-	// StateChannelName is the human-readable name of the state channel.
-	StateChannelName string `json:"state_channel_name" msgpack:"state_channel_name"`
 }

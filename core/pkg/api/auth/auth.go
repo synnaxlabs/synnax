@@ -212,7 +212,7 @@ func (s *Service) ChangePassword(
 ) (struct{}, error) {
 	identity, _ := hash.Proven()
 	if err := s.password.NewWriter(tx).
-		ChangePassword(ctx, identity.Subject, hash); err != nil {
+		Apply(ctx, identity.Subject, password.NewSetHashAction(hash)); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, identity.Credential)
