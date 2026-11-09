@@ -283,4 +283,15 @@ var _ = Describe("Place", func() {
 			MatchError(ContainSubstring("group: group %s does not exist", missing)),
 		))
 	})
+
+	It("Should refuse a move into the zero group", func(ctx SpecContext) {
+		Expect(placements(
+			ctx,
+			project.Placement{Project: &p.Key},
+			project.Placement{Group: new(uuid.Nil()), Project: &p.Key},
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("group: group %s does not exist", uuid.Nil())),
+		))
+	})
 })

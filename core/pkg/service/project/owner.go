@@ -100,7 +100,7 @@ func Place[A any](
 	set func(patch.Set) A,
 	remove func(patch.Remove) A,
 ) (Placement, []A, error) {
-	if lo.FromPtr(prev.Group) != lo.FromPtr(next.Group) {
+	if !groupsEqual(prev.Group, next.Group) {
 		p, err := GroupProject(ctx, tx, next.Group, t)
 		if err != nil {
 			return Placement{}, nil, err
@@ -116,6 +116,13 @@ func Place[A any](
 	}
 	next.Group = nil
 	return next, []A{remove(patch.Remove{Key: "group"})}, nil
+}
+
+func groupsEqual(a, b *group.Key) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // TopParentProject returns the project that a visualization of type t belongs to when
