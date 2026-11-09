@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -291,33 +292,68 @@ Channel struct {
 		Expect(report.Status).To(Equal(check.StatusPass))
 	})
 
-	It("Should fail a stored reference that imports a live schema", func() {
-		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
-		write("schemas/x/telem.oracle", "TimeStamp = int64\n")
-		write("schemas/synnax/versions/channel/v0.oracle", `
-import "schemas/x/telem"
+	placementFindings := func(report check.GateReport) []string {
+		GinkgoHelper()
+		var found []string
+		for _, f := range report.Findings {
+			if strings.Contains(f.Message, "but imports its live schema") {
+				found = append(found, f.Message)
+			}
+		}
+		return found
+	}
 
+	DescribeTable("Should fail a reference that imports a live schema",
+		func(decls string) {
+			write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+			write("schemas/x/telem.oracle", "TimeStamp = int64\n")
+			write(
+				"schemas/synnax/versions/channel/v0.oracle",
+				"import \"schemas/x/telem\"\n\n"+decls,
+			)
+			report := run(analyzeLive(liveV0))
+			Expect(report.Status).To(Equal(check.StatusFail))
+			Expect(placementFindings(report)).To(ConsistOf(
+				"schemas/synnax/channel v0 references telem but imports its live schema",
+			))
+		},
+		Entry("when the reference is stored", `
 Channel struct {
 	key uuid @key
 	created telem.TimeStamp
 
 	@go marshal
 }
-`)
-		p := analyzeLive(liveV0)
-		report := run(p)
-		Expect(report.Status).To(Equal(check.StatusFail))
-		var placement bool
-		for _, f := range report.Findings {
-			if f.Message == "schemas/synnax/channel v0 stores telem "+
-				"but imports its live schema" {
-				placement = true
-			}
-		}
-		Expect(placement).To(BeTrue(), "expected a placement finding")
-	})
+`),
+		Entry("when the reference is an omitted field", `
+Channel struct {
+	key uuid @key
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
 
-	It("Should fail a resolved-only reference that pins", func() {
+	@go marshal
+}
+`),
+		Entry("when an inline union variant holds the reference", `
+Shape union on kind {
+	circle {
+		at telem.TimeStamp
+	}
+
+	@go marshal
+}
+
+Channel struct {
+	key uuid @key
+	shape Shape
+
+	@go marshal
+}
+`),
+	)
+
+	It("Should accept an omitted field that pins its dependency", func() {
 		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
 		write("schemas/x/telem.oracle", "TimeStamp = int64\n")
 		write("schemas/synnax/versions/channel/v0.oracle", `
@@ -332,17 +368,26 @@ Channel struct {
 	@go marshal
 }
 `)
-		p := analyzeLive(liveV0)
-		report := run(p)
-		Expect(report.Status).To(Equal(check.StatusFail))
-		var placement bool
-		for _, f := range report.Findings {
-			if f.Message == "schemas/synnax/channel v0 only resolves telem "+
-				"at read time but pins it" {
-				placement = true
-			}
-		}
-		Expect(placement).To(BeTrue(), "expected a placement finding")
+		Expect(placementFindings(run(analyzeLive(liveV0)))).To(BeEmpty())
+	})
+
+	It("Should accept a live import of an ended chain", func() {
+		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+		write("schemas/x/versions/telem/v1.oracle", "// Ended.\n")
+		write("schemas/x/telem.oracle", "TimeStamp = int64\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/telem"
+
+Channel struct {
+	key uuid @key
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`)
+		Expect(placementFindings(run(analyzeLive(liveV0)))).To(BeEmpty())
 	})
 
 	It("Should fail a stored pin lagging its dependency's current version", func() {
@@ -371,6 +416,161 @@ Channel struct {
 		}
 		Expect(currency).To(BeTrue(), "expected a pin-currency finding")
 	})
+
+	It("Should fail an omitted-field pin lagging its dependency's current version",
+		func() {
+			write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+			write("schemas/x/versions/telem/v1.oracle", "TimeStamp = int32\n")
+			write("schemas/x/telem.oracle", "TimeStamp = int32\n")
+			write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+	key uuid @key
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`)
+			report := run(analyzeLive(liveV0))
+			Expect(report.Status).To(Equal(check.StatusFail))
+			var messages []string
+			for _, f := range report.Findings {
+				messages = append(messages, f.Message)
+			}
+			Expect(messages).To(ContainElement(
+				"schemas/synnax/channel's current surface resolves telem at v0 for " +
+					"omitted fields, but schemas/x/telem's current version is v1",
+			))
+		},
+	)
+
+	DescribeTable(
+		"Should fail a lagging omitted-field pin that the current surface uses",
+		func(files map[string]string) {
+			write("schemas/x/versions/telem/v0.oracle",
+				"TimeStamp = int64\n\nStamp = int64\n")
+			write("schemas/x/versions/telem/v1.oracle",
+				"TimeStamp = int32\n\nStamp = v0.Stamp\n")
+			write("schemas/x/telem.oracle", "TimeStamp = int32\n\nStamp = int64\n")
+			for rel, content := range files {
+				write(rel, content)
+			}
+			var messages []string
+			for _, f := range run(analyzeLive(liveV0)).Findings {
+				messages = append(messages, f.Message)
+			}
+			Expect(messages).To(ContainElement(ContainSubstring(
+				"resolves telem at v0 for omitted fields",
+			)))
+		},
+		Entry("when an earlier version file declares the member", map[string]string{
+			"schemas/synnax/versions/channel/v0.oracle": `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+	key uuid @key
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+			"schemas/synnax/versions/channel/v1.oracle": "Channel = v0.Channel\n",
+		}),
+		Entry("when an inline union variant holds the omitted field", map[string]string{
+			"schemas/synnax/versions/channel/v0.oracle": `
+import "schemas/x/versions/telem/v0"
+
+Shape union on kind {
+	circle {
+		seen telem.TimeStamp {
+			@go marshal omit
+		}
+	}
+
+	@go marshal
+}
+
+Channel struct {
+	key uuid @key
+	shape Shape
+
+	@go marshal
+}
+`,
+		}),
+		Entry("when a stored reference also uses the dependency", map[string]string{
+			"schemas/synnax/versions/channel/v0.oracle": `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+	key uuid @key
+	created telem.Stamp
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+		}),
+	)
+
+	It("Should leave a lagging stored member to the stored check", func() {
+		write("schemas/x/versions/telem/v0.oracle",
+			"TimeStamp = int64\n\nStamp = int64\n")
+		write("schemas/x/versions/telem/v1.oracle",
+			"TimeStamp = v0.TimeStamp\n\nStamp = int32\n")
+		write("schemas/x/telem.oracle", "TimeStamp = int64\n\nStamp = int32\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+	key uuid @key
+	created telem.Stamp
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`)
+		var messages []string
+		for _, f := range run(analyzeLive(liveV0)).Findings {
+			messages = append(messages, f.Message)
+		}
+		Expect(
+			messages,
+		).To(ContainElement(ContainSubstring("resolves telem at v0, but")))
+		Expect(messages).ToNot(ContainElement(ContainSubstring("for omitted fields")))
+	})
+
+	It("Should accept an omitted-field pin at its dependency's current version",
+		func() {
+			write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+			write("schemas/x/versions/telem/v1.oracle", "TimeStamp = int32\n")
+			write("schemas/x/telem.oracle", "TimeStamp = int32\n")
+			write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v1"
+
+Channel struct {
+	key uuid @key
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`)
+			for _, f := range run(analyzeLive(liveV0)).Findings {
+				Expect(f.Message).ToNot(ContainSubstring("for omitted fields"))
+			}
+		},
+	)
 
 	It("Should fail a stored pin that only a borrowed enum reaches", func() {
 		write("schemas/x/versions/auth/v0.oracle", `
@@ -721,5 +921,260 @@ Channel struct {
 }
 `)
 		Expect(aliasHints(run(p))).To(BeEmpty())
+	})
+
+	Describe("Rules on a type aliased from a frozen definer", func() {
+		const channelV1 = `
+Entry = v0.Entry
+
+Window = v0.Window
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	window Window
+	name string
+
+	@go marshal
+}
+`
+		frozen := func(entryRules, spanRules string) string {
+			return `
+Entry struct {
+	min_val float64 = 0 {` + entryRules + `
+	}
+	max_val float64 = 1 {` + entryRules + `
+	}
+}
+
+Window union on variant {
+	rolling {
+		span int32 {` + spanRules + `
+		}
+	}
+}
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	window Window
+
+	@go marshal
+}
+`
+		}
+		live := func(entryRules, spanRules, entryGo string) string {
+			return `
+@go output "core/pkg/service/channel"
+
+Entry struct {
+	min_val float64 = 0 {` + entryRules + `
+	}
+	max_val float64 = 1 {` + entryRules + `
+	}
+` + entryGo + `
+}
+
+Window union on variant {
+	rolling {
+		span int32 {` + spanRules + `
+		}
+	}
+}
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	window Window
+	name string
+}
+`
+		}
+		const (
+			validate = "\n\t\t@validate max 17"
+			group    = "\n\t\t@default group \"range\""
+			fields   = "\t@go fields \"Size int\""
+		)
+
+		DescribeTable("Should fail a live rule that the frozen definer lacks",
+			func(entryRules, spanRules, entryGo, want string) {
+				write("schemas/synnax/versions/channel/v0.oracle", frozen("", ""))
+				write("schemas/synnax/versions/channel/v1.oracle", channelV1)
+				report := run(analyzeLive(live(entryRules, spanRules, entryGo)))
+				Expect(report.Status).To(Equal(check.StatusFail))
+				Expect(report.Findings).ToNot(BeEmpty())
+				Expect(report.Findings[0].Path).
+					To(Equal("schemas/synnax/versions/channel/v1.oracle"))
+				Expect(report.Findings[0].Message).To(ContainSubstring(want))
+				Expect(report.Findings[0].FixHint).
+					To(Equal("the Go alias uses v0's rules: restate the rule in v0"))
+			},
+			Entry("on a validate rule", validate, "", "",
+				"v1 aliases Entry from v0, but the live @validate on "+
+					"Entry.min_val does not match v0's"),
+			Entry("on a default group", group, "", "",
+				"the live @default on Entry.min_val"),
+			Entry("on a Go method rule", "", "", fields,
+				"the live @go method rules on Entry"),
+			Entry("on an inline variant payload", "", validate, "",
+				"v1 aliases Window from v0, but the live @validate on "),
+		)
+
+		It("Should pass when the frozen definer restates the live rules", func() {
+			write(
+				"schemas/synnax/versions/channel/v0.oracle",
+				frozen(validate+group, validate),
+			)
+			write("schemas/synnax/versions/channel/v1.oracle", channelV1)
+			report := run(analyzeLive(live(validate+group, validate, "")))
+			Expect(report.Findings).To(BeEmpty())
+		})
+
+		// channel v1 aliases v0's Entry, which pins label v0, which pins tone v0.
+		writeDependencies := func(labelRules, toneRules string) {
+			GinkgoHelper()
+			write("schemas/synnax/versions/tone/v0.oracle", `
+Tone struct {
+	level int32 {`+toneRules+`
+	}
+
+	@go marshal
+}
+`)
+			write("schemas/synnax/tone.oracle", `
+@go output "core/pkg/service/tone"
+
+Tone struct {
+	level int32 {
+		@validate max 9
+	}
+}
+`)
+			write("schemas/synnax/versions/label/v0.oracle", `
+import "schemas/synnax/versions/tone/v0"
+
+Label struct {
+	key uuid @key
+	name string {`+labelRules+`
+	}
+	tone tone.Tone
+
+	@go marshal
+}
+`)
+			write("schemas/synnax/label.oracle", `
+import "schemas/synnax/tone"
+
+@go output "core/pkg/service/label"
+
+Label struct {
+	key uuid @key
+	name string {
+		@validate required
+	}
+	tone tone.Tone
+}
+`)
+			write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/synnax/versions/label/v0"
+
+Entry struct {
+	labels label.Label[]
+}
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+
+	@go marshal
+}
+`)
+			write("schemas/synnax/versions/channel/v1.oracle", `
+Entry = v0.Entry
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	name string
+
+	@go marshal
+}
+`)
+			write("schemas/synnax/channel.oracle", `
+import "schemas/synnax/label"
+
+@go output "core/pkg/service/channel"
+
+Entry struct {
+	labels label.Label[]
+}
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	name string
+}
+`)
+		}
+		runDependencies := func() check.GateReport {
+			GinkgoHelper()
+			loader := analyzer.NewStandardFileLoader(root)
+			table, diag := analyzer.Analyze(
+				GinkgoT().Context(),
+				[]string{
+					"schemas/synnax/tone",
+					"schemas/synnax/label",
+					"schemas/synnax/channel",
+				},
+				loader,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			chains := MustSucceed(versions.Discover(root))
+			return run(&pipeline.Result{
+				Resolutions: table,
+				Chains:      chains,
+				Versions:    versions.NewResolver(chains, loader),
+			})
+		}
+		const (
+			labelRule = "\n\t\t@validate required"
+			toneRule  = "\n\t\t@validate max 9"
+		)
+
+		DescribeTable(
+			"Should check the rules of every dependency a frozen definer reaches",
+			func(labelRules, toneRules string, want []string) {
+				writeDependencies(labelRules, toneRules)
+				report := runDependencies()
+				messages := make([]string, len(report.Findings))
+				for i, f := range report.Findings {
+					messages[i] = f.Path + ": " + f.Message
+				}
+				Expect(messages).To(Equal(want))
+			},
+			Entry("when a direct dependency's version file lacks a live rule",
+				"", toneRule,
+				[]string{"schemas/synnax/versions/label/v0.oracle: frozen " +
+					"schemas/synnax/channel v0 reaches schemas/synnax/label v0, but " +
+					"the live @validate on Label.name does not match v0's"}),
+			Entry("when a transitive dependency's version file lacks a live rule",
+				labelRule, "",
+				[]string{"schemas/synnax/versions/tone/v0.oracle: frozen " +
+					"schemas/synnax/channel v0 reaches schemas/synnax/tone v0, but " +
+					"the live @validate on Tone.level does not match v0's"}),
+			Entry("when every dependency restates its live rules",
+				labelRule, toneRule, []string{}),
+		)
+
+		It("Should fail when a reached dependency's chain cannot be resolved", func() {
+			writeDependencies(labelRule, toneRule)
+			write("schemas/synnax/versions/label/v1.oracle", "Label struct {{{\n")
+			report := runDependencies()
+			Expect(report.Status).To(Equal(check.StatusFail))
+			Expect(report.Findings).To(ContainElement(And(
+				HaveField("Path", "schemas/synnax/versions/channel/v1.oracle"),
+				HaveField("Message", ContainSubstring("failed to parse")),
+			)))
+		})
 	})
 })

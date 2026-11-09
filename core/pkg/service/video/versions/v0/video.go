@@ -11,7 +11,7 @@ package v0
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Video{}
@@ -19,10 +19,7 @@ var _ gorp.Entry[Key] = Video{}
 // GorpKey implements gorp.Entry.
 func (v Video) GorpKey() Key { return v.Key }
 
-// SetOptions implements gorp.Entry.
-func (Video) SetOptions() []any { return nil }
-
-// OntologyID returns the unique ontology identifier for the video view.
-func (v Video) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeVideo, Key: v.Key.String()}
+// ResourceID returns the resource ID of the video view.
+func (v Video) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeVideo, Key: v.Key.String()}
 }

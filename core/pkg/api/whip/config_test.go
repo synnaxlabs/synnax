@@ -21,6 +21,7 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiwhip.ServiceConfig {
 		return apiwhip.ServiceConfig{
+			DB:      db,
 			Factory: &whip.Factory{},
 			APIKey:  &apikey.Service{},
 			RBAC:    &rbac.Service{},
@@ -39,6 +40,11 @@ var _ = Describe("ServiceConfig", func() {
 				clear(&cfg)
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
+			Entry(
+				"db",
+				func(c *apiwhip.ServiceConfig) { c.DB = nil },
+				"db: must be non-nil",
+			),
 			Entry(
 				"factory",
 				func(c *apiwhip.ServiceConfig) { c.Factory = nil },
@@ -61,6 +67,7 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take the other config's services when set", func() {
 			cfg := full()
 			merged := apiwhip.ServiceConfig{}.Override(cfg)
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Factory).To(BeIdenticalTo(cfg.Factory))
 			Expect(merged.APIKey).To(BeIdenticalTo(cfg.APIKey))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))

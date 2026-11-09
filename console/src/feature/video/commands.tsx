@@ -19,7 +19,7 @@ const CreateCommand = Command.create({
   name: "Create video view",
   icon: <Video.CreateIcon />,
   useOnSelect: useCreate,
-  useVisible: () => Access.useCreateGranted(video.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(video.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = FLAGS.video ? [CreateCommand] : [];

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
+	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
@@ -69,7 +70,9 @@ type DB struct {
 	}
 }
 
-// Write writes the frame to database at the specified start time.
+// Write writes the frame to database at the specified start time. It returns
+// control.ErrUnauthorized if another writer controls a channel in the frame, and then
+// it may have committed only some of the channels.
 func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
 	if db.closed.Load() {
 		return ErrDBClosed
@@ -86,10 +89,14 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	if _, err = w.Write(frame); err != nil {
 		return err
 	}
-	if _, err = w.Commit(); err != nil {
+	_, authorized, err := w.Commit()
+	if err != nil {
 		return err
 	}
-	return span.Error(w.Close())
+	if !authorized {
+		err = errors.Wrap(xcontrol.ErrUnauthorized, "another writer controls the frame")
+	}
+	return span.Error(errors.Combine(err, w.Close()))
 }
 
 // WriteSeries writes a series into the specified channel at the specified start time.

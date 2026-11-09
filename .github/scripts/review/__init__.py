@@ -8,16 +8,19 @@
 #  included in the file licenses/APL.txt.
 
 """Sedosaur, the pull request reviewer: runs Claude Code on a pull request, and posts
-its review in the form Greptile uses."""
+its review as a check run, inline threads, and a summary in the pull request body."""
 
 from review import compare
-from review.findings import SEVERITIES, Finding, Review, parse
-from review.post import GH, Target, gh, open_findings, post, reviewed
+from review.carry import carry
+from review.dismiss import dismiss
+from review.findings import SEVERITIES, Dismissal, Finding, Review, parse
+from review.post import GH, Target, Thread, dismissed, gh, post, reviewed, threads
 from review.run import (
     Claude,
     Config,
     Doc,
     Lens,
+    Pass,
     PullRequest,
     Usage,
     Window,
@@ -30,20 +33,26 @@ __all__ = [
     "SEVERITIES",
     "Claude",
     "Config",
+    "Dismissal",
     "Doc",
     "Finding",
     "Lens",
+    "Pass",
     "PullRequest",
     "Review",
     "Target",
+    "Thread",
     "Usage",
     "Window",
+    "carry",
     "compare",
+    "dismiss",
+    "dismissed",
     "gh",
     "load",
-    "open_findings",
     "parse",
     "post",
     "reviewed",
     "run",
+    "threads",
 ]

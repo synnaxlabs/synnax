@@ -12,6 +12,7 @@
 package v1
 
 import (
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	node "github.com/synnaxlabs/synnax/pkg/service/node/versions/v0"
 	control "github.com/synnaxlabs/x/control/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -39,6 +40,12 @@ func (c Channel) EncodeOrc(w *orc.Writer) error {
 		}
 	}
 	w.String(c.Expression)
+	if c.Group != nil {
+		w.Bool(true)
+		w.Write((*c.Group)[:])
+	} else {
+		w.Bool(false)
+	}
 	w.Int64(int64(c.Retention))
 	return nil
 }
@@ -113,6 +120,19 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 	}
 	if c.Expression, err = r.String(); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv group.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			c.Group = &hv
+		}
 	}
 	{
 		rawV, err := r.Int64()

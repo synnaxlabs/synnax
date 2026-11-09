@@ -193,13 +193,9 @@ TEST(RegisterWriter, MergesAdjacentRegisters) {
     ASSERT_NIL(writer.write(dev, fr));
 
     uint16_t words[2] = {slave.get_holding_register(0), slave.get_holding_register(1)};
-    const auto [value, err] = util::parse_register_value(
-        words,
-        x::telem::FLOAT32_T,
-        false,
-        false
+    const auto value = ASSERT_NIL_P(
+        util::parse_register_value(words, x::telem::FLOAT32_T, false, false)
     );
-    ASSERT_NIL(err);
     EXPECT_FLOAT_EQ(std::get<float>(value), 1.5f);
     EXPECT_EQ(slave.get_holding_register(2), 42);
     EXPECT_EQ(slave.get_holding_register(5), 999);

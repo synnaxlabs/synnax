@@ -41,7 +41,7 @@ describe("Video Commands", () => {
     await selectCommand("Create video view");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(video.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(video.TYPE_RESOURCE_ID.type);
     const created = await client.videos.retrieve({ key: tab.resource.key });
     expect(created.name).toBe("Video");
   });
@@ -61,7 +61,7 @@ describe("Video Commands", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(video.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(video.TYPE_RESOURCE_ID),
       }),
       { client: await roles.get("Viewer") },
     );

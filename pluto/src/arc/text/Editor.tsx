@@ -24,7 +24,7 @@ export interface EditorProps extends Pick<
 > {}
 
 const bootstrap = (client: Client | null, key: arc.Key): CollabText | null => {
-  const cached = client?.arcs.getCached(key);
+  const cached = client?.arcs.watch(key).getCached();
   if (!query.isLive(cached) || cached.source.mode !== "text") return null;
   const doc = cached.source.text.doc;
   return doc != null ? CollabText.bootstrap(doc) : null;
@@ -37,8 +37,9 @@ export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
   const dispatch = useSingleDispatch();
   const hasText = useHasText();
 
-  // text is the working CRDT replica. It is bootstrapped once the document loads and lives
-  // for the editor's lifetime, materializing the value and translating edits to operations.
+  // text is the working CRDT replica. It is bootstrapped once the document loads and
+  // lives for the editor's lifetime, materializing the value and translating edits to
+  // operations.
   const text = hasText ? bootstrap(client, resourceKey) : null;
 
   const handleEdit = (edits: readonly TextChange[]) => {
@@ -52,7 +53,7 @@ export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
   // edit. Returning the unsubscribe lets React tear the subscription down on unmount.
   const connect = (handle: Code.EditorHandle | null) => {
     if (handle == null || text == null || client == null) return;
-    return client.arcs.onChange(resourceKey, (cached) => {
+    return client.arcs.watch(resourceKey).onChange((cached) => {
       if (!query.isLive(cached) || cached.source.mode !== "text") return;
       text.sync(cached.source.text.doc);
       handle.setValue(text.value());

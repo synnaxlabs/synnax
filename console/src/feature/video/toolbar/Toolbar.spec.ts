@@ -85,7 +85,7 @@ describe("video/toolbar/Toolbar", () => {
     });
     fireEvent.click(await screen.findByText(range.name));
     await expect
-      .poll(async () => (await client.videos.retrieve({ key })).range)
+      .poll(async () => (await client.videos.retrieve({ key })).playbackRange)
       .toEqual({ variant: "key", key: range.key });
   });
 
@@ -95,7 +95,7 @@ describe("video/toolbar/Toolbar", () => {
       timeRange: new TimeRange(TimeStamp.seconds(10), TimeStamp.seconds(20)),
     });
     await renderVideo(Toolbar, {
-      video: { range: { variant: "key", key: range.key } },
+      video: { playbackRange: { variant: "key", key: range.key } },
     });
     expect(await screen.findByText(range.name)).toBeDefined();
   });
@@ -115,7 +115,10 @@ describe("video/toolbar/Toolbar", () => {
       timeRange: new TimeRange(TimeStamp.seconds(5), TimeStamp.seconds(20)),
     });
     await renderVideo(Toolbar, {
-      video: { channel: ch.key, range: { variant: "key", key: range.key } },
+      video: {
+        channel: ch.key,
+        playbackRange: { variant: "key", key: range.key },
+      },
     });
     fireEvent.click(await screen.findByLabelText("Download as MP4"));
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));

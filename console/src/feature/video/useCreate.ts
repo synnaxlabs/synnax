@@ -27,10 +27,10 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   const maybeChangeProject = useMaybeChange();
   const openTab = Panel.useOpenTab();
   const { update } = Video.useCreate({
-    afterOptimistic: ({ data: { key } }) => {
-      maybeChangeProject(project ?? getActiveProject());
-      openTab({ variant: "resource", resource: video.ontologyID(key), key: tabKey });
-    },
+    afterOptimistic: () => maybeChangeProject(project ?? getActiveProject()),
+    // A refused create must not leave a tab for a view that does not exist.
+    afterSuccess: ({ data: { key } }) =>
+      openTab({ variant: "resource", resource: video.resourceID(key), key: tabKey }),
   });
   return (params = {}) =>
     update({ name: "Video", ...params, project: project ?? getActiveProject() });

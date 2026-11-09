@@ -9,7 +9,7 @@
 
 import { type project, table } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { compare, grid, id, uuid, verbs, type xy } from "@synnaxlabs/x";
+import { compare, grid, id, verbs, type xy } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Cell } from "@/table/cells";
@@ -30,8 +30,9 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
 >({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.tables.retrieve(query.key),
-  onChange: ({ client, query }, handler) => client.tables.onChange(query.key, handler),
-  getCached: ({ client, query }) => client.tables.getCached(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.tables.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.tables.watch(query.key).getCached(),
   awaitCreation: true,
 });
 
@@ -106,7 +107,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
 });
 
 export interface CreateParams extends table.New {
-  project?: project.Key;
+  project: project.Key;
 }
 
 const createDefaultLayout = (): Pick<table.New, "rows" | "columns" | "cells"> => {
@@ -126,7 +127,7 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<CreateParams, table.Table
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.tables.create(data.project ?? uuid.ZERO, data, {
+    await client.tables.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });

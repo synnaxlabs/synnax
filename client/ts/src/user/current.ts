@@ -54,38 +54,43 @@ export class Current {
     const { key } = this;
     if (key == null) throw new UnexpectedError("no user is signed in after connecting");
     // A login returns the user without a retrieve grant, so its record comes first.
-    const cached = this.users.getCached(key);
+    const cached = this.users.watch(key).getCached();
     if (query.isLive(cached)) return cached;
     return await this.users.retrieve(key);
   }
 
   /**
-   * Calls the handler each time the signed-in user changes: an edit to the user, or a
-   * login as a different user. Returns a destructor that unsubscribes.
+   * Returns the live signed-in user. A handler fires on each edit to the user, and on
+   * each login as a different user.
    */
-  onChange(handler: query.ChangeHandler<User>): destructor.Destructor {
-    let release = this.follow(handler);
-    const stop = this.switches.onChange(() => {
-      release?.();
-      release = this.follow(handler);
-      handler(this.getCached());
-    });
-    return () => {
-      stop();
-      release?.();
+  watch(): query.Live<User> {
+    return {
+      retrieve: async () => await this.retrieve(),
+      getCached: () => this.cached(),
+      onChange: (handler) => {
+        let release = this.follow(handler);
+        const stop = this.switches.onChange(() => {
+          release?.();
+          release = this.follow(handler);
+          handler(this.cached());
+        });
+        return () => {
+          stop();
+          release?.();
+        };
+      },
     };
   }
 
-  /** @returns The cached signed-in user, or undefined when no user is signed in. */
-  getCached(): query.Cached<User> | undefined {
+  private cached(): query.Cached<User> | undefined {
     if (this.key == null) return undefined;
-    return this.users.getCached(this.key);
+    return this.users.watch(this.key).getCached();
   }
 
   private follow(
     handler: query.ChangeHandler<User>,
   ): destructor.Destructor | undefined {
     if (this.key == null) return undefined;
-    return this.users.onChange(this.key, handler);
+    return this.users.watch(this.key).onChange(handler);
   }
 }

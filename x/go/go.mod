@@ -7,6 +7,7 @@ replace github.com/synnaxlabs/alamos => ../../alamos/go
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/bluenviron/mediacommon/v2 v2.9.7
+	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cockroachdb/errors v1.14.0
 	github.com/cockroachdb/pebble v1.1.5
 	github.com/cockroachdb/pebble/v2 v2.1.7
@@ -35,7 +36,6 @@ require (
 	github.com/abema/go-mp4 v1.7.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
-	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cockroachdb/crlib v0.0.0-20260823170307-44ef894cf300 // indirect
 	github.com/cockroachdb/fifo v0.0.0-20240816210425-c5d0cb0b6fc0 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20241215232642-bb51bb14a506 // indirect

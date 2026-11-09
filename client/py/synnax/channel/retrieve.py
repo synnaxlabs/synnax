@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -28,9 +29,14 @@ from synnax.exceptions import NotFoundError
 from synnax.util import sole
 from x import filter
 
+# synnax.ranger imports synnax.channel at load time.
+if TYPE_CHECKING:
+    from synnax import ranger
+
 
 class _AliasedRetrieveRequest(BaseModel):
     request: RetrieveRequest
+    # Pydantic resolves this type at runtime, where ranger.Key would be circular.
     range_key: UUID | None = None
 
 
@@ -76,12 +82,12 @@ class Retriever:
         :raises NotFoundError: If no channel matches param.
         :raises MultipleFoundError: If more than one channel matches param.
         """
-        where = params_where(param)
-        return sole("channel", where, self.filter(RetrieveRequest(where=where)))
+        req = RetrieveRequest(where=params_where(param))
+        return sole("channel", req, self.filter(req))
 
     @trace("debug")
     def filter(
-        self, req: RetrieveRequest, range_key: UUID | None = None
+        self, req: RetrieveRequest, range_key: ranger.Key | None = None
     ) -> list[Payload]:
         """Returns the channels req selects. A range_key sets each channel's alias in
         the range, and a search term then also matches those aliases, ranked first.

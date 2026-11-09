@@ -88,7 +88,8 @@ export const renderVideo = async (
   Component: ComponentType,
   { video: overrides, as = client }: RenderVideoOptions = {},
 ) => {
-  const created = await client.videos.create(await project(), {
+  const created = await client.videos.create({
+    project: await project(),
     name: "Camera",
     ...overrides,
   });
@@ -102,7 +103,7 @@ export const renderVideo = async (
   await load(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(
     client,
-    video.ontologyID(created.key),
+    video.resourceID(created.key),
   );
   await primePanel(Wrapper, panelKey);
   let result!: ReturnType<typeof render>;

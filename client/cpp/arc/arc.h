@@ -120,7 +120,7 @@ public:
     /// @param options the options of the retrieve.
     /// @returns the Arc program, and an error that matches NOT_FOUND when no program
     /// matches, MULTIPLE_RESULTS when more than one does, or VALIDATION when options
-    /// set a limit or an offset.
+    /// set a limit or a cursor.
     [[nodiscard]] std::pair<Arc, x::errors::Error> retrieve(
         const Where &where,
         x::filter::One,
@@ -138,12 +138,6 @@ public:
     [[nodiscard]] x::errors::Error del(const std::vector<x::uuid::UUID> &keys) const;
 
 private:
-    [[nodiscard]] std::pair<Arc, x::errors::Error> retrieve_one(
-        const Where &where,
-        const RetrieveOptions &options,
-        const std::string &query
-    ) const;
-
     /// @brief Client for retrieving Arc programs.
     std::shared_ptr<RetrieveClient> retrieve_client;
 

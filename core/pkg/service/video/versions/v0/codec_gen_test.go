@@ -18,6 +18,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/video/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -37,16 +39,22 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Video{
-				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:    "test_2",
-				Channel: channel.Key(4),
-				Range:   new(ranger.Ref{Variant: ranger.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")}}),
+				Key:           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:          "test_2",
+				Channel:       channel.Key(4),
+				PlaybackRange: new(ranger.Ref{Variant: ranger.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")}}),
+				Group:         new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+				Project:       new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+				Range:         new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 			}),
 			Entry("zero values", v0.Video{
-				Key:     uuid.Nil(),
-				Name:    "",
-				Channel: channel.Key(0),
-				Range:   nil,
+				Key:           uuid.Nil(),
+				Name:          "",
+				Channel:       channel.Key(0),
+				PlaybackRange: nil,
+				Group:         nil,
+				Project:       nil,
+				Range:         nil,
 			}),
 		)
 	})
@@ -54,10 +62,13 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeVideo(b *testing.B) {
 	seed := v0.Video{
-		Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name:    "test_2",
-		Channel: channel.Key(4),
-		Range:   new(ranger.Ref{Variant: ranger.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")}}),
+		Key:           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:          "test_2",
+		Channel:       channel.Key(4),
+		PlaybackRange: new(ranger.Ref{Variant: ranger.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")}}),
+		Group:         new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+		Project:       new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+		Range:         new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -77,10 +88,13 @@ func BenchmarkEncodeDecodeVideo(b *testing.B) {
 func FuzzDecodeVideo(f *testing.F) {
 	{
 		seed := v0.Video{
-			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:    "test_2",
-			Channel: channel.Key(4),
-			Range:   new(ranger.Ref{Variant: ranger.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")}}),
+			Key:           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:          "test_2",
+			Channel:       channel.Key(4),
+			PlaybackRange: new(ranger.Ref{Variant: ranger.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")}}),
+			Group:         new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+			Project:       new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+			Range:         new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -90,10 +104,13 @@ func FuzzDecodeVideo(f *testing.F) {
 	}
 	{
 		seed := v0.Video{
-			Key:     uuid.Nil(),
-			Name:    "",
-			Channel: channel.Key(0),
-			Range:   nil,
+			Key:           uuid.Nil(),
+			Name:          "",
+			Channel:       channel.Key(0),
+			PlaybackRange: nil,
+			Group:         nil,
+			Project:       nil,
+			Range:         nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

@@ -16,7 +16,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ gorp.Entry[Key] = Channel{}
@@ -37,15 +39,6 @@ func (c Channel) Index() Key {
 
 // GorpKey implements the gorp.Entry interface.
 func (c Channel) GorpKey() Key { return c.Key() }
-
-// SetOptions implements the gorp.Entry interface. Returns a set of options that tell an
-// aspen.DB to properly lease the Channel to the node it will be recording data from.
-func (c Channel) SetOptions() []any {
-	if c.Free() {
-		return []any{node.KeyBootstrapper}
-	}
-	return []any{c.Leaseholder}
-}
 
 // Free returns true if the channel is not leased to a particular node i.e. it is a
 // non-leased virtual channel.
@@ -108,14 +101,37 @@ func (c Channel) String() string {
 	return fmt.Sprintf("<%d>", c.Key())
 }
 
-// OntologyID returns the ontology.ID for the channel.
-func (c Channel) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeChannel, Key: c.Key().String()}
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy "node_id" and
+// new "leaseholder" field names for backward compatibility.
+func (c *Channel) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type alias Channel
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return errors.Wrap(err, "failed to read raw channel msgpack")
+	}
+	if err = msgpack.Unmarshal(raw, (*alias)(c)); err != nil {
+		return errors.Wrap(err, "failed to decode channel from msgpack")
+	}
+	if c.Leaseholder == 0 {
+		var legacy struct {
+			NodeID node.Key `msgpack:"node_id"`
+		}
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return errors.Wrap(err, "failed to decode legacy node_id from msgpack")
+		}
+		c.Leaseholder = legacy.NodeID
+	}
+	return nil
+}
+
+// ResourceID returns the resource.ID for the channel.
+func (c Channel) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeChannel, Key: c.Key().String()}
 }
 
 // ToPayload returns a map representation of the channel for use in ontology resources
-// and signal marshaling. The "operations" key is omitted when the channel has no
-// operations.
+// and signal marshaling. The "operations" and "group" keys are omitted when the channel
+// has no operations or no group.
 func (c Channel) ToPayload() map[string]any {
 	p := map[string]any{
 		"key":         c.Key(),
@@ -127,10 +143,12 @@ func (c Channel) ToPayload() map[string]any {
 		"internal":    c.Internal,
 		"virtual":     c.Virtual,
 		"expression":  c.Expression,
-		"retention":   c.Retention,
 	}
 	if len(c.Operations) > 0 {
 		p["operations"] = c.Operations
+	}
+	if c.Group != nil {
+		p["group"] = *c.Group
 	}
 	return p
 }

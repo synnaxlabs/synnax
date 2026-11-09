@@ -7,26 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type patch } from "@synnaxlabs/x";
+import { type Draft } from "immer";
+
 import { actions } from "@/actions";
 import {
   type Action,
   createReduceAll,
+  type HandlerResult,
   type Handlers,
-  rename,
   setChannel,
-  setRange,
+  setPlaybackRange,
 } from "@/video/actions.gen";
+import { type Video, videoZ } from "@/video/types.gen";
+
+const applyPath = (state: Draft<Video>, action: patch.Action): HandlerResult =>
+  actions.applyPath(state, action, videoZ);
 
 const handlers: Handlers = {
   create: (state, payload) => {
     Object.assign(state, payload.video);
     return { inverse: [], targets: [payload.video.key] };
-  },
-
-  rename: (state, payload) => {
-    const prev = state.name;
-    state.name = payload.name;
-    return { inverse: [rename({ name: prev })], targets: [state.key] };
   },
 
   setChannel: (state, payload) => {
@@ -36,11 +37,16 @@ const handlers: Handlers = {
     return { inverse: [setChannel({ channel: prev })], targets: [state.key] };
   },
 
-  setRange: (state, payload) => {
-    const prev = actions.snapshotDraft(state.range);
-    state.range = payload.range;
-    return { inverse: [setRange({ range: prev })], targets: [state.key] };
+  setPlaybackRange: (state, payload) => {
+    const prev = actions.snapshotDraft(state.playbackRange);
+    state.playbackRange = payload.playbackRange;
+    return {
+      inverse: [setPlaybackRange({ playbackRange: prev })],
+      targets: [state.key],
+    };
   },
+
+  ...actions.createPathHandlers(applyPath),
 };
 
 export const reduceAll = createReduceAll(handlers);

@@ -16,4 +16,9 @@ import (
 )
 
 // Migrations is the ordered migration chain for stored channels.
-var Migrations = []gorp.Migration{v0.NormalizeKeys, v0.Migration, v1.Migration}
+var Migrations = []gorp.Migration{
+	v0.NormalizeKeys,
+	v0.Migration,
+	v1.Migration,
+	v1.MembersMigration,
+}

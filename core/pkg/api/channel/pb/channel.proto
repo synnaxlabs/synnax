@@ -19,6 +19,11 @@ import "x/go/control/pb/control.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/channel/pb";
 
+// OrderField is a field that channels can be sorted by.
+enum OrderField {
+  ORDER_FIELD_NAME = 0;
+}
+
 // Channel is a logical collection of samples emitted by or representing values from a
 // single source. Channels are the fundamental unit of telemetry storage and streaming
 // in Synnax.
@@ -58,9 +63,28 @@ message Channel {
   .x.control.pb.Concurrency concurrency = 12;
   // status is the current operational status of the channel.
   optional .service.status.pb.Status status = 13;
+  // group is the group the channel sits in, if any.
+  optional string group = 14;
   // retention is how long the Core keeps the data of an index channel and of every
   // channel on it. Zero keeps the data forever. Only an index channel can set it.
-  int64 retention = 14;
+  int64 retention = 15;
+}
+
+// Cursor is a position in an order of channels: the sort value and the key of a
+// channel.
+message Cursor {
+  // key is the key of the channel at the position.
+  uint32 key = 1;
+  // name is the name of the channel at the position, when the order sorts by it.
+  optional string name = 2;
+}
+
+// Order is a sort of channels.
+message Order {
+  // field is the field to sort by. Records with equal values sort by key.
+  OrderField field = 1;
+  // descending sorts from the greatest value to the least.
+  bool descending = 2;
 }
 
 // RetrieveRequest is a request to retrieve channels.
@@ -69,12 +93,14 @@ message RetrieveRequest {
   optional .service.channel.pb.Where where = 1;
   // search_term keeps the channels that match the term, closest match first.
   string search_term = 2;
+  // order sorts the channels. An absent order sorts them by key.
+  optional Order order = 3;
+  // after starts the channels strictly past this position in their order.
+  optional Cursor after = 4;
   // limit is the most channels to return.
-  optional uint32 limit = 3;
-  // offset is the number of matching channels to skip.
-  uint32 offset = 4;
+  optional uint32 limit = 5;
   // include_status includes the status of each record.
-  bool include_status = 5;
+  bool include_status = 6;
 }
 
 // RetrieveResponse holds the channels a RetrieveRequest selects.

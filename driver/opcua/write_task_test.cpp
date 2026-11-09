@@ -275,14 +275,7 @@ protected:
 
         server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
-
-        // Wait for server to be ready by attempting to connect
-        auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            connection::connect(conn_cfg, {}, "test"),
-            (5 * x::telem::SECOND).chrono(),
-            (250 * x::telem::MILLISECOND).chrono()
-        );
-        UA_Client_disconnect(test_client.get());
+        ASSERT_TRUE(server->wait_until_ready());
     }
 
     std::unique_ptr<common::WriteTask> create_task() {
@@ -343,7 +336,7 @@ protected:
         };
         auto p = x::json::Parser(task_cfg);
         auto write_cfg = WriteTaskConfig(ctx->client, p);
-        EXPECT_FALSE(p.error()) << p.error().message();
+        EXPECT_NIL(p.error());
         return std::make_unique<WriteTaskSink>(
             ctx->client,
             conn_pool,
@@ -357,9 +350,8 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     wt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(
@@ -370,9 +362,8 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     wt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(second_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Stopped task");
 }
@@ -473,12 +464,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
 
     // Restart the server and wait for it to be ready
     server->start();
-    auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        connection::connect(conn_cfg, {}, "test"),
-        (5 * x::telem::SECOND).chrono(),
-        (250 * x::telem::MILLISECOND).chrono()
-    );
-    UA_Client_disconnect(test_client.get());
+    ASSERT_TRUE(server->wait_until_ready());
 
     // Write after server restart - should trigger reconnect and succeed
     auto fr3 = ::x::telem::Frame(1);
@@ -589,7 +575,7 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
     };
     auto p = x::json::Parser(task_cfg);
     auto write_cfg = WriteTaskConfig(ctx->client, p);
-    ASSERT_FALSE(p.error()) << p.error().message();
+    ASSERT_NIL(p.error());
     const auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
@@ -638,7 +624,7 @@ std::unique_ptr<WriteTaskSink> sink_for(
     };
     auto p = x::json::Parser(task_cfg);
     auto write_cfg = WriteTaskConfig(client, p);
-    EXPECT_FALSE(p.error()) << p.error().message();
+    EXPECT_NIL(p.error());
     return std::make_unique<WriteTaskSink>(client, pool, std::move(write_cfg));
 }
 
@@ -906,7 +892,7 @@ TEST_F(TestWriteTask, testNodeErrorKeepsConnection) {
         this->secured_cmd_channel.key,
         x::telem::Series(static_cast<uint32_t>(1), x::telem::UINT32_T)
     );
-    ASSERT_NIL(store->regenerate().second);
+    ASSERT_NIL_P(store->regenerate());
     ASSERT_MATCHES(sink->write(fr), errors::COMMAND_REJECTED);
     ASSERT_EQ(conn_pool->size(), 1);
     ASSERT_NIL(sink->stop());
@@ -933,7 +919,7 @@ TEST_F(TestWriteTask, testUnboundDisabledChannel) {
 
     auto p = x::json::Parser(task_cfg);
     const auto parsed = std::make_unique<WriteTaskConfig>(ctx->client, p);
-    ASSERT_FALSE(p.error()) << p.error().message();
+    ASSERT_NIL(p.error());
     EXPECT_EQ(parsed->channels.size(), 1);
     EXPECT_TRUE(parsed->channels.contains(this->bool_cmd_channel.key));
 }

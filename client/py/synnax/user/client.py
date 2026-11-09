@@ -8,14 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Literal, overload
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
+from synnax.access import role as role_
 from synnax.exceptions import ValidationError
 from synnax.user.payload import New, User
-from synnax.user.types_gen import RetrieveRequest, Where, WhereInput
+from synnax.user.types_gen import Cursor, Key, Order, RetrieveRequest, Where, WhereInput
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -35,17 +35,22 @@ class _RetrieveResponse(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[UUID]
+    keys: list[Key]
 
 
 class _ChangeUsernameRequest(BaseModel):
-    key: UUID
+    key: Key
     username: str
 
 
 class _ChangeNameRequest(BaseModel):
-    key: UUID
+    key: Key
     name: str
+
+
+class _SetRoleRequest(BaseModel):
+    keys: list[Key]
+    role: role_.Key
 
 
 class Client:
@@ -60,8 +65,9 @@ class Client:
         *,
         username: str,
         password: str,
+        role: role_.Key,
         name: str = "",
-        key: UUID | None = None,
+        key: Key | None = None,
     ) -> User: ...
 
     @overload
@@ -76,19 +82,19 @@ class Client:
         *,
         username: str | None = None,
         password: str | None = None,
+        role: role_.Key | None = None,
         name: str = "",
-        key: UUID | None = None,
+        key: Key | None = None,
         user: New | None = None,
         users: list[New] | None = None,
     ) -> User | list[User]:
         if username is not None:
             if password is None:
                 raise ValueError("password is required when username is provided")
+            if role is None:
+                raise ValueError("role is required when username is provided")
             user = New(
-                username=username,
-                password=password,
-                name=name,
-                key=key,
+                username=username, password=password, name=name, key=key, role=role
             )
         single = user is not None
         if user is not None:
@@ -102,22 +108,37 @@ class Client:
             return res[0]
         return res
 
-    def change_username(self, key: UUID, username: str) -> None:
+    def change_username(self, key: Key, username: str) -> None:
         self.client.send(
             "/user/change-username",
             _ChangeUsernameRequest(key=key, username=username),
             Empty,
         )
 
-    def change_name(self, key: UUID, *, name: str) -> None:
+    def change_name(self, key: Key, *, name: str) -> None:
         self.client.send("/user/rename", _ChangeNameRequest(key=key, name=name), Empty)
 
+    def set_role(self, keys: Key | list[Key], role: role_.Key) -> None:
+        """Gives a role to the users with the given keys. The role replaces the role
+        each user holds. The Core changes all of the users in one transaction.
+
+        :param keys: The keys of the users.
+        :param role: The key of the role to give.
+        :raises ValidationError: If one of the users is a root user or the role does
+            not exist.
+        :raises NotFoundError: If one of the users does not exist.
+        """
+        self.client.send(
+            "/user/set-role", _SetRoleRequest(keys=normalize(keys), role=role), Empty
+        )
+
     @overload
     def retrieve(
         self,
         *,
-        key: UUID,
+        key: Key,
         usernames: str | list[str] = ...,
+        roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -130,9 +151,10 @@ class Client:
     def retrieve(
         self,
         *,
-        key: filter.SetInput[UUID] = ...,
+        key: filter.SetInput[Key] = ...,
         username: str,
         usernames: str | list[str] = ...,
+        roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -145,13 +167,14 @@ class Client:
     def retrieve(
         self,
         *,
-        key: filter.SetInput[UUID] = ...,
+        key: filter.SetInput[Key] = ...,
         usernames: str | list[str] = ...,
+        roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         one: Literal[True],
     ) -> User: ...
@@ -160,16 +183,18 @@ class Client:
     def retrieve(
         self,
         *,
-        key: list[UUID] | filter.SetDict[UUID] | filter.Set[UUID] = ...,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         usernames: str | list[str] = ...,
+        roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[User]: ...
 
@@ -178,10 +203,11 @@ class Client:
         self,
         *,
         where: Where | None = None,
-        keys: list[UUID] | None = None,
+        keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> User | list[User]:
@@ -193,6 +219,7 @@ class Client:
         :param key: Keeps users with this key.
         :param username: Keeps the user with this username.
         :param usernames: Keeps users with this username, or any username in the list.
+        :param roles: Keeps the users that hold any of these roles.
         :param and_: Keeps users that match every filter in the list.
         :param or_: Keeps users that match any filter in the list.
         :param not_: Keeps users that do not match the filter.
@@ -200,7 +227,9 @@ class Client:
         :param keys: Keeps users with one of these keys.
         :param search_term: A fuzzy search term matched against user names.
         :param limit: The maximum number of users to retrieve.
-        :param offset: The number of users to skip.
+        :param order: The order of the users. Defaults to key order.
+        :param after: Retrieves the users past this position in the order: the key of
+            the last user of the page before, and its value of the order field.
         :param one: Returns one user for any filter.
         :returns: One user for a plain ``key``, a ``username``, or when ``one`` is
             set, otherwise a list of users. The list leaves out keys that do not
@@ -208,7 +237,7 @@ class Client:
         :raises NotFoundError: If one user is wanted and none matches.
         :raises MultipleFoundError: If one user is wanted and more than one matches.
         :raises ValidationError: If a filter field or ``username`` is None, or if one
-            user is wanted beside a limit or an offset.
+            user is wanted beside a limit or a cursor.
         """
         if "username" in fields:
             username = fields.pop("username")
@@ -218,16 +247,17 @@ class Client:
                 )
             where = filter.merge(where, Where(usernames=[username]))
             one = True
-        single = returns_one(fields, one, limit, offset)
-        flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
+        single = returns_one(fields, one, limit=limit, after=after)
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
         )
         res = self.client.send("/user/retrieve", req, _RetrieveResponse)
-        return sole("user", req.where, res.users) if single else res.users
+        return sole("user", req, res.users) if single else res.users
 
-    def delete(self, keys: UUID | list[UUID] | None = None) -> None:
+    def delete(self, keys: Key | list[Key] | None = None) -> None:
         self.client.send("/user/delete", _DeleteRequest(keys=normalize(keys)), Empty)

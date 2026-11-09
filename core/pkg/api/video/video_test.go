@@ -14,12 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	apivideo "github.com/synnaxlabs/synnax/pkg/api/video"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/video"
 	"github.com/synnaxlabs/x/filter"
@@ -27,47 +29,35 @@ import (
 )
 
 var _ = Describe("ServiceConfig", func() {
-	It("Should require the video and RBAC services", func() {
-		Expect(apivideo.ServiceConfig{RBAC: &rbac.Service{}}.Validate()).
+	It("Should require the video service", func() {
+		Expect(apivideo.ServiceConfig{}.Validate()).
 			To(MatchError("video: must be non-nil"))
-		Expect(apivideo.ServiceConfig{Video: &video.Service{}}.Validate()).
-			To(MatchError("rbac: must be non-nil"))
 	})
 })
 
 var _ = Describe("Video", func() {
 	var editor user.User
-	BeforeEach(func(ctx SpecContext) {
-		editor = newUser(
-			ctx,
-			access.ActionCreate,
-			access.ActionRetrieve,
-			access.ActionUpdate,
-			access.ActionDelete,
-		)
-	})
+	BeforeEach(func(ctx SpecContext) { editor = newEditor(ctx) })
 
-	create := func(ctx SpecContext, name string) video.Video {
+	createVideo := func(ctx SpecContext, name string) video.Video {
 		GinkgoHelper()
-		res := MustSucceed(
-			apiSvc.Create(AuthedCtx(ctx, editor), nil, apivideo.CreateRequest{
-				Project: proj.Key,
-				Videos:  []video.Video{{Name: name, Channel: 4}},
-			}),
-		)
+		res := MustSucceed(create(AuthedCtx(ctx, editor), apivideo.CreateRequest{
+			Videos: []video.Video{{Name: name, Channel: 4, Project: &proj.Key}},
+		}))
 		Expect(res.Videos).To(HaveLen(1))
 		return res.Videos[0]
 	}
+	retrieveVideos := func(ctx SpecContext, key video.Key) []video.Video {
+		GinkgoHelper()
+		return MustSucceed(retrieve(AuthedCtx(ctx, editor), apivideo.RetrieveRequest{
+			Where: &video.Where{Key: &filter.Set[video.Key]{Eq: &key}},
+		})).Videos
+	}
 
 	It("Should create and retrieve a video view", func(ctx SpecContext) {
-		v := create(ctx, "camera")
+		v := createVideo(ctx, "camera")
 		Expect(v.Key).ToNot(Equal(uuid.Nil()))
-		res := MustSucceed(
-			apiSvc.Retrieve(AuthedCtx(ctx, editor), apivideo.RetrieveRequest{
-				Where: &video.Where{Key: &filter.Set[video.Key]{Eq: &v.Key}},
-			}),
-		)
-		Expect(res.Videos).To(Equal([]video.Video{v}))
+		Expect(retrieveVideos(ctx, v.Key)).To(Equal([]video.Video{v}))
 	})
 
 	It(
@@ -75,13 +65,10 @@ var _ = Describe("Video", func() {
 		func(ctx SpecContext) {
 			rec := &Recorder[video.Key, video.Action]{}
 			DeferCleanup(svc.Video.OnAction(rec.Record))
-			res := MustSucceed(
-				apiSvc.Create(AuthedCtx(ctx, editor), nil, apivideo.CreateRequest{
-					Project:     proj.Key,
-					Videos:      []video.Video{{Name: "broadcast"}},
-					DispatchKey: "dk-create",
-				}),
-			)
+			res := MustSucceed(create(AuthedCtx(ctx, editor), apivideo.CreateRequest{
+				Videos:      []video.Video{{Name: "broadcast", Project: &proj.Key}},
+				DispatchKey: "dk-create",
+			}))
 			frames := rec.Snapshot()
 			Expect(frames).To(HaveLen(1))
 			Expect(frames[0].Key).To(Equal(res.Videos[0].Key))
@@ -90,76 +77,64 @@ var _ = Describe("Video", func() {
 	)
 
 	It("Should dispatch actions to a video view", func(ctx SpecContext) {
-		v := create(ctx, "camera")
-		MustSucceed(
-			apiSvc.Dispatch(AuthedCtx(ctx, editor), nil, apivideo.DispatchRequest{
-				Key:         v.Key,
-				DispatchKey: "dk",
-				Actions: []video.Action{
-					video.NewSetChannelAction(video.SetChannelPayload{Channel: 9}),
-				},
-			}),
-		)
-		res := MustSucceed(
-			apiSvc.Retrieve(AuthedCtx(ctx, editor), apivideo.RetrieveRequest{
-				Where: &video.Where{Key: &filter.Set[video.Key]{Eq: &v.Key}},
-			}),
-		)
-		Expect(res.Videos[0].Channel).To(Equal(channel.Key(9)))
+		v := createVideo(ctx, "camera")
+		MustSucceed(dispatch(AuthedCtx(ctx, editor), apivideo.DispatchRequest{
+			Key:         v.Key,
+			DispatchKey: "dk",
+			Actions: []video.Action{
+				video.NewSetChannelAction(video.SetChannelPayload{Channel: 9}),
+			},
+		}))
+		Expect(retrieveVideos(ctx, v.Key)[0].Channel).To(Equal(channel.Key(9)))
 	})
 
 	It("Should delete a video view", func(ctx SpecContext) {
-		v := create(ctx, "camera")
-		MustSucceed(apiSvc.Delete(AuthedCtx(ctx, editor), nil, apivideo.DeleteRequest{
+		v := createVideo(ctx, "camera")
+		MustSucceed(del(AuthedCtx(ctx, editor), apivideo.DeleteRequest{
 			Keys: []video.Key{v.Key},
 		}))
-		res := MustSucceed(
-			apiSvc.Retrieve(AuthedCtx(ctx, editor), apivideo.RetrieveRequest{
-				Where: &video.Where{Key: &filter.Set[video.Key]{Eq: &v.Key}},
-			}),
-		)
-		Expect(res.Videos).To(BeEmpty())
+		Expect(retrieveVideos(ctx, v.Key)).To(BeEmpty())
+	})
+
+	It("Should move a video view into a group", func(ctx SpecContext) {
+		v := createVideo(ctx, "camera")
+		g := group.Group{Name: "cameras", Parent: new(project.ResourceID(proj.Key))}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Group.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
+		grant(ctx, access.ActionUpdate, editor.ResourceID(), g.ResourceID())
+		MustSucceed(setGroup(AuthedCtx(ctx, editor), apivideo.SetGroupRequest{
+			Group: &g.Key,
+			Keys:  []video.Key{v.Key},
+		}))
+		Expect(retrieveVideos(ctx, v.Key)[0].Group).To(Equal(&g.Key))
 	})
 
 	Describe("Access", func() {
 		It("Should deny a create to a user with no policy", func(ctx SpecContext) {
 			stranger := newUser(ctx)
-			Expect(apiSvc.Create(AuthedCtx(ctx, stranger), nil, apivideo.CreateRequest{
-				Project: proj.Key,
-				Videos:  []video.Video{{Name: "camera"}},
+			Expect(create(AuthedCtx(ctx, stranger), apivideo.CreateRequest{
+				Videos: []video.Video{{Name: "camera", Project: &proj.Key}},
 			})).Error().To(MatchError(access.ErrDenied))
 		})
 
 		It(
 			"Should deny each request a user lacks permission for",
 			func(ctx SpecContext) {
-				v := create(ctx, "camera")
+				v := createVideo(ctx, "camera")
 				stranger := newUser(ctx)
-				Expect(
-					apiSvc.Retrieve(AuthedCtx(ctx, stranger), apivideo.RetrieveRequest{
-						Where: &video.Where{Key: &filter.Set[video.Key]{Eq: &v.Key}},
-					}),
-				).Error().
-					To(MatchError(access.ErrDenied))
-				Expect(
-					apiSvc.Dispatch(
-						AuthedCtx(ctx, stranger),
-						nil,
-						apivideo.DispatchRequest{
-							Key: v.Key,
-							Actions: []video.Action{
-								video.NewRenameAction(video.RenamePayload{Name: "x"}),
-							},
-						},
-					),
-				).Error().
-					To(MatchError(access.ErrDenied))
-				Expect(
-					apiSvc.Delete(AuthedCtx(ctx, stranger), nil, apivideo.DeleteRequest{
-						Keys: []video.Key{v.Key},
-					}),
-				).Error().
-					To(MatchError(access.ErrDenied))
+				Expect(retrieve(AuthedCtx(ctx, stranger), apivideo.RetrieveRequest{
+					Where: &video.Where{Key: &filter.Set[video.Key]{Eq: &v.Key}},
+				})).Error().To(MatchError(access.ErrDenied))
+				Expect(dispatch(AuthedCtx(ctx, stranger), apivideo.DispatchRequest{
+					Key: v.Key,
+					Actions: []video.Action{
+						video.NewSetChannelAction(video.SetChannelPayload{Channel: 2}),
+					},
+				})).Error().To(MatchError(access.ErrDenied))
+				Expect(del(AuthedCtx(ctx, stranger), apivideo.DeleteRequest{
+					Keys: []video.Key{v.Key},
+				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 	})

@@ -17,6 +17,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
@@ -59,7 +60,9 @@ func createVideo(
 	index, channels := createIndexed(ctx, dataTypes...)
 	DeferCleanup(func(ctx SpecContext) {
 		keys := append(svcchannel.KeysFromChannels(channels), index.Key())
-		Expect(channelWriter.DeleteMany(ctx, keys, false)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).DeleteMany(ctx, keys, false)
+		})).To(Succeed())
 	})
 	return index, channels
 }

@@ -18,16 +18,69 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Cursor is a position in an order of videos: the sort value and the key of a video.
+type Cursor struct {
+	// Key is the key of the video at the position.
+	Key servicevideo.Key `json:"key" msgpack:"key"`
+	// Name is the name of the video at the position, when the order sorts by it.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+// OrderField is a field that videos can be sorted by.
+type OrderField string
+
+// OrderFieldName sorts the videos by name.
+const OrderFieldName OrderField = "name"
+
+// IsValid reports whether o is one of the defined OrderField
+// values.
+func (o OrderField) IsValid() bool {
+	switch o {
+	case OrderFieldName:
+		return true
+	default:
+		return false
+	}
+}
+
+// Order is a sort of videos.
+type Order struct {
+	// Field is the field to sort by. Records with equal values sort by key.
+	Field OrderField `json:"field" msgpack:"field"`
+	// Descending sorts from the greatest value to the least.
+	Descending bool `json:"descending" msgpack:"descending"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o Order) Validate() error {
+	v := validate.New("Order")
+	v.Ternaryf("field", !o.Field.IsValid(), "invalid field: %v", o.Field)
+	return v.Error()
+}
+
 // RetrieveRequest is a request to retrieve videos.
 type RetrieveRequest struct {
 	// Where selects the videos to retrieve. An absent where selects all of them.
 	Where *servicevideo.Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the videos that match the term, closest match first.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Order sorts the videos. An absent order sorts them by key.
+	Order *Order `json:"order,omitzero" msgpack:"order,omitempty"`
+	// After starts the videos strictly past this position in their order.
+	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
 	// Limit is the most videos to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching videos to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveRequest) Validate() error {
+	v := validate.New("RetrieveRequest")
+	if r.Order != nil {
+		v.Exec(func() error { return validate.PathedError(r.Order.Validate(), "order") })
+	}
+	return v.Error()
 }
 
 // RetrieveResponse holds the videos a RetrieveRequest selects.

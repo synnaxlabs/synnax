@@ -74,6 +74,15 @@ func MustSucceed2[A, B any](a A, b B, err error) (A, B) {
 	return a, b
 }
 
+// MustCommit is a test helper that commits the writer, asserts that the commit succeeds
+// with control authority, and returns the end of the commit.
+func MustCommit[T any](w interface{ Commit() (T, bool, error) }) T {
+	ginkgo.GinkgoHelper()
+	end, authorized := MustSucceed2(w.Commit())
+	gomega.Expect(authorized).To(gomega.BeTrue())
+	return end
+}
+
 // MustBeOk is a test helper that asserts the ok value is true and returns the value.
 // This is useful for unwrapping Go's comma-ok idiom in test assertions.
 //
@@ -102,7 +111,7 @@ func MustBeOk[T any](value T, ok bool) T {
 //
 // Example:
 //
-//	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+//	table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
 func MustOpen[T io.Closer](v T, err error) T {
 	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 	DeferClose(v)

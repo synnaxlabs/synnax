@@ -13,6 +13,7 @@ package ingest
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -28,11 +29,12 @@ import (
 // not video.
 func Channels(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	svc *channel.Service,
 	key channel.Key,
 ) (channel.Keys, error) {
 	var ch channel.Channel
-	err := svc.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&ch).Exec(ctx, nil)
+	err := svc.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&ch).Exec(ctx, snap)
 	if errors.Is(err, query.ErrNotFound) {
 		return nil, errors.Wrapf(
 			validate.ErrValidation,

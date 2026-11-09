@@ -44,7 +44,7 @@ var _ = Describe("ReadTask", func() {
 			cam := openH264Camera(freeAddr())
 			ch := createVirtual(ctx, telem.VideoT)
 			v := watch(ctx, ch)
-			start(ctx, factory, newTask(readConfig(cam.url(), ch)))
+			start(ctx, factory, newTask(ctx, readConfig(cam.url(), ch)))
 			Expect(v.connect(cam, sps, pps, idr)).To(Equal(keyframe(sps, pps, idr)))
 			cam.write(pSlice)
 			v.expect(deltaFrame(pSlice))
@@ -60,7 +60,9 @@ var _ = Describe("ReadTask", func() {
 			cfg := readConfig(cam.url(), ch)
 			cfg.Offset = -telem.Hour
 			before := telem.Now()
-			configured := MustSucceed(factory.ConfigureTask(ctx, newTask(cfg), "cmd"))
+			configured := MustSucceed(
+				factory.ConfigureTask(ctx, newTask(ctx, cfg), "cmd"),
+			)
 			v.connect(cam, sps, pps, idr)
 			cam.write(pSlice)
 			v.expect(deltaFrame(pSlice))
@@ -83,7 +85,7 @@ var _ = Describe("ReadTask", func() {
 		func(ctx SpecContext) {
 			cam := openH264Camera(freeAddr())
 			idx, ch := createPersisted(ctx)
-			t := newTask(readConfig(cam.url(), ch))
+			t := newTask(ctx, readConfig(cam.url(), ch))
 			configured := MustSucceed(factory.ConfigureTask(ctx, t, "cmd"))
 			// The warning shows that the task reads the stream.
 			Eventually(func(g Gomega) {
@@ -106,7 +108,7 @@ var _ = Describe("ReadTask", func() {
 			cam := openH264Camera(freeAddr(), sps, pps)
 			ch := createVirtual(ctx, telem.VideoT)
 			v := watch(ctx, ch)
-			start(ctx, factory, newTask(readConfig(cam.url(), ch)))
+			start(ctx, factory, newTask(ctx, readConfig(cam.url(), ch)))
 			Expect(v.connect(cam, idr)).To(Equal(keyframe(sps, pps, idr)))
 		},
 	)
@@ -115,7 +117,7 @@ var _ = Describe("ReadTask", func() {
 		cam := openH264Camera(freeAddr())
 		ch := createVirtual(ctx, telem.VideoT)
 		v := watch(ctx, ch)
-		t := newTask(readConfig(cam.url(), ch))
+		t := newTask(ctx, readConfig(cam.url(), ch))
 		start(ctx, factory, t)
 		v.connect(cam, sps, pps, idr)
 		cam.write(bSlice)
@@ -127,7 +129,7 @@ var _ = Describe("ReadTask", func() {
 	It("Should fail the task for a stream with no H.264 track", func(ctx SpecContext) {
 		cam := openCamera(freeAddr(), &format.MJPEG{})
 		ch := createVirtual(ctx, telem.VideoT)
-		t := newTask(readConfig(cam.url(), ch))
+		t := newTask(ctx, readConfig(cam.url(), ch))
 		start(ctx, factory, t)
 		expectStatus(
 			ctx, t, status.VariantError, "Failed to run task", rtsp.ErrNoH264.Error(),
@@ -140,7 +142,7 @@ var _ = Describe("ReadTask", func() {
 			cam := openH264Camera(freeAddr())
 			ch := createVirtual(ctx, telem.VideoT)
 			v := watch(ctx, ch)
-			t := newTask(readConfig(cam.url(), ch))
+			t := newTask(ctx, readConfig(cam.url(), ch))
 			start(ctx, factory, t)
 			v.connect(cam, sps, pps, idr)
 			Eventually(func(g Gomega) {
@@ -164,7 +166,7 @@ var _ = Describe("ReadTask", func() {
 		cam := openH264Camera(addr)
 		ch := createVirtual(ctx, telem.VideoT)
 		v := watch(ctx, ch)
-		t := newTask(readConfig(cam.url(), ch))
+		t := newTask(ctx, readConfig(cam.url(), ch))
 		start(ctx, factory, t)
 		v.connect(cam, sps, pps, idr)
 		cam.close()
@@ -185,7 +187,7 @@ var _ = Describe("ReadTask", func() {
 
 		expectInvalid := func(ctx SpecContext, cfg rtsp.ReadConfig, message string) {
 			GinkgoHelper()
-			Expect(factory.ConfigureTask(ctx, newTask(cfg), "cmd")).Error().
+			Expect(factory.ConfigureTask(ctx, newTask(ctx, cfg), "cmd")).Error().
 				To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(message)),
@@ -206,8 +208,7 @@ var _ = Describe("ReadTask", func() {
 
 		It("Should reject a channel that does not exist", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.VideoT)
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).
-				To(Succeed())
+			Expect(deleteChannel(ctx, ch.Key())).To(Succeed())
 			expectInvalid(
 				ctx,
 				readConfig(cam.url(), ch),

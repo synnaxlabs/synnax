@@ -33,7 +33,7 @@ const std::vector SCAN_SKIP_ERRORS = {
 struct ScanTaskConfig : ::synnax::labjack::ScanConfig {
     explicit ScanTaskConfig(x::json::Parser &cfg):
         ::synnax::labjack::ScanConfig(::synnax::labjack::ScanConfig::parse(cfg)) {
-        if (this->tcp_scan_multiplier <= 0)
+        if (this->tcp_scan_multiplier == 0)
             cfg.field_err("tcp_scan_multiplier", "must be greater than 0");
     }
 };
@@ -116,16 +116,12 @@ class Scanner final : public common::Scanner {
                 .name = name,
             };
             sy_dev.status = synnax::device::Status{
-                .key = synnax::device::status_key(sy_dev),
                 .name = name,
                 .variant = synnax::status::VARIANT_SUCCESS,
                 .message = "Device present",
                 .time = x::telem::TimeStamp::now(),
-                .details = synnax::device::StatusDetails{
-                    .rack = rack,
-                    .device = sy_dev.key,
-                    .connected = true,
-                }
+                .details = {.rack = rack, .connected = true},
+                .owner = synnax::device::resource_id(sy_dev.key),
             };
             devices.push_back(sy_dev);
         }

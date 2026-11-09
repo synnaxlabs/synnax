@@ -13,10 +13,12 @@ package v1_test
 
 import (
 	"testing"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	node "github.com/synnaxlabs/synnax/pkg/service/node/versions/v0"
 	control "github.com/synnaxlabs/x/control/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -54,7 +56,8 @@ var _ = Describe("Codec", func() {
 					},
 				},
 				Expression: "test_14",
-				Retention:  telem.TimeSpan(16),
+				Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
+				Retention:  telem.TimeSpan(17),
 			}),
 			Entry("zero values", v1.Channel{
 				Name:        "",
@@ -68,6 +71,7 @@ var _ = Describe("Codec", func() {
 				Internal:    false,
 				Operations:  []v1.Operation{},
 				Expression:  "",
+				Group:       nil,
 				Retention:   telem.TimeSpan(0),
 			}),
 			Entry("empty collections", v1.Channel{
@@ -82,7 +86,8 @@ var _ = Describe("Codec", func() {
 				Internal:    true,
 				Operations:  []v1.Operation{},
 				Expression:  "test_11",
-				Retention:   telem.TimeSpan(13),
+				Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+				Retention:   telem.TimeSpan(14),
 			}),
 		)
 	})
@@ -107,7 +112,8 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 			},
 		},
 		Expression: "test_14",
-		Retention:  telem.TimeSpan(16),
+		Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
+		Retention:  telem.TimeSpan(17),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -144,7 +150,8 @@ func FuzzDecodeChannel(f *testing.F) {
 				},
 			},
 			Expression: "test_14",
-			Retention:  telem.TimeSpan(16),
+			Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
+			Retention:  telem.TimeSpan(17),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -165,6 +172,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Internal:    false,
 			Operations:  []v1.Operation{},
 			Expression:  "",
+			Group:       nil,
 			Retention:   telem.TimeSpan(0),
 		}
 		w := orc.NewWriter(0)
@@ -186,7 +194,8 @@ func FuzzDecodeChannel(f *testing.F) {
 			Internal:    true,
 			Operations:  []v1.Operation{},
 			Expression:  "test_11",
-			Retention:   telem.TimeSpan(13),
+			Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+			Retention:   telem.TimeSpan(14),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

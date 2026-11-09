@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import BaseModel
 
@@ -16,42 +17,55 @@ from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
 from x import filter
 
 
-def sole[T](name: str, where: BaseModel | None, results: Sequence[T]) -> T:
+class _Request(Protocol):
+    """The parts of a retrieve request that select records."""
+
+    @property
+    def where(self) -> BaseModel | None: ...
+
+    @property
+    def search_term(self) -> str: ...
+
+
+def sole[T](name: str, req: _Request, results: Sequence[T]) -> T:
     """Returns the only record that a single retrieve found.
 
     :param name: The kind of record, such as "range", for the error message.
-    :param where: The filter that the retrieve sent. The errors describe it.
-    :param results: The records that matched the filter.
+    :param req: The request that the retrieve sent. The errors describe its search term
+        and filter.
+    :param results: The records that the request found.
     :raises NotFoundError: If no record matched.
     :raises MultipleFoundError: If more than one record matched.
     """
-    found = sole_or_none(name, where, results)
+    found = sole_or_none(name, req, results)
     if found is None:
-        raise NotFoundError(f"Found no {name}{_clause(where)}")
+        raise NotFoundError(f"Found no {name}{_clause(req)}")
     return found
 
 
-def sole_or_none[T](
-    name: str, where: BaseModel | None, results: Sequence[T]
-) -> T | None:
+def sole_or_none[T](name: str, req: _Request, results: Sequence[T]) -> T | None:
     """Returns the only record that a single retrieve found, or None if no record
     matched.
 
     :param name: The kind of record, such as "range", for the error message.
-    :param where: The filter that the retrieve sent. The errors describe it.
-    :param results: The records that matched the filter.
+    :param req: The request that the retrieve sent. The errors describe its search term
+        and filter.
+    :param results: The records that the request found.
     :raises MultipleFoundError: If more than one record matched.
     """
     if len(results) > 1:
         raise MultipleFoundError(
-            f"Expected one {name}{_clause(where)}, but found {len(results)}"
+            f"Expected one {name}{_clause(req)}, but found {len(results)}"
         )
     return results[0] if results else None
 
 
-def _clause(where: BaseModel | None) -> str:
-    description = filter.describe(where)
-    return "" if description == "" else f" where {description}"
+def _clause(req: _Request) -> str:
+    description = filter.describe(req.where)
+    clause = "" if description == "" else f" where {description}"
+    if req.search_term == "":
+        return clause
+    return f" matching {json.dumps(req.search_term, ensure_ascii=False)}{clause}"
 
 
 def request_where[W: BaseModel](
@@ -82,21 +96,25 @@ def request_where[W: BaseModel](
 
 
 def returns_one(
-    fields: Mapping[str, Any], one: bool, limit: int | None, offset: int
+    fields: Mapping[str, Any],
+    one: bool,
+    *,
+    limit: int | None = None,
+    after: object | None = None,
 ) -> bool:
     """Reports whether a retrieve returns one record: one is set, or the key or name
     field holds a plain value.
 
-    :raises ValidationError: If such a retrieve sets limit or offset, since a page could
-        hide a second match.
+    :raises ValidationError: If such a retrieve sets a limit or a cursor, since a page
+        could hide a second match.
     """
     single = one or any(
         f in fields and not isinstance(fields[f], (list, tuple, dict, BaseModel))
         for f in ("key", "name")
     )
-    if single and (limit is not None or offset != 0):
+    if single and (limit is not None or after is not None):
         raise ValidationError(
-            "A retrieve of one record cannot set limit or offset, since a page could "
-            "hide a second match."
+            "A retrieve of one record cannot set a limit or a cursor, since a page "
+            "could hide a second match."
         )
     return single

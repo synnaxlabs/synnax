@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -37,6 +36,10 @@ import (
 // Config is the configuration for opening a Cache.
 type Config struct {
 	alamos.Instrumentation
+	// DB holds the video channels.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Channel finds the video channels and reports changes to them.
 	//
 	// [REQUIRED]
@@ -66,6 +69,7 @@ var (
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.MaxFrames = override.Numeric(c.MaxFrames, other.MaxFrames)
@@ -76,6 +80,7 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("gop")
+	v.NotNil("db", c.DB)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
 	v.Positive("max_frames", c.MaxFrames)
@@ -163,7 +168,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Cache, error) {
 			return ch.DataType == telem.VideoT, nil
 		})).
 		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, cfg.DB); err != nil {
 		return nil, errors.Combine(err, c.Close())
 	}
 	c.follow(ctx, func(entries map[channel.Key]*entry) bool {
@@ -183,11 +188,11 @@ func (c *Cache) handleChange(
 		for ch := range changes {
 			_, followed := entries[ch.Key]
 			switch {
-			case ch.Variant == change.VariantSet && !followed &&
+			case ch.Kind != gorp.ChangeDelete && !followed &&
 				ch.Value.DataType == telem.VideoT:
 				entries[ch.Key] = &entry{}
 				changed = true
-			case ch.Variant == change.VariantDelete && followed:
+			case ch.Kind == gorp.ChangeDelete && followed:
 				delete(entries, ch.Key)
 				changed = true
 			}

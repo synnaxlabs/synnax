@@ -146,17 +146,17 @@ var _ = Describe("C++ Types Plugin", func() {
 			resp := MustGenerate(ctx, ThingFilter, "thing", loader, cppPlugin)
 			ExpectContent(resp, "thing/types.gen.h").ToContain(
 				"struct RetrieveOptions {\n"+
+					"    /// @brief after starts the things strictly past this position in their order.\n"+
+					"    std::optional<Cursor> after;\n"+
 					"    /// @brief limit is the most things to return.\n"+
 					"    std::optional<std::uint32_t> limit;\n"+
-					"    /// @brief offset is the number of matching things to skip.\n"+
-					"    std::uint32_t offset = 0;\n"+
 					"};",
 				"static RetrieveRequest\n"+
 					"    from(Where where, const RetrieveOptions &options = {}) {\n"+
 					"        return {\n"+
 					"            .where = std::move(where),\n"+
+					"            .after = options.after,\n"+
 					"            .limit = options.limit,\n"+
-					"            .offset = options.offset,\n"+
 					"        };\n"+
 					"    }",
 			)
@@ -2310,7 +2310,7 @@ var _ = Describe("C++ Union Generation", func() {
 		},
 	)
 
-	It("Should emit ontology helpers for a union", func(ctx SpecContext) {
+	It("Should emit resource helpers for a union", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
 
@@ -2328,18 +2328,18 @@ var _ = Describe("C++ Union Generation", func() {
 					size int32
 				}
 
-				@ontology type "view"
+				@resource type "view"
 			}
 		`
 		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
 			ToContain(
-				`const synnax::ontology::ID ONTOLOGY_TYPE("view", "");`,
-				`return synnax::ontology::ID("view", key.to_string());`,
+				`const synnax::resource::ID TYPE_RESOURCE_ID("view", "");`,
+				`return synnax::resource::ID("view", key.to_string());`,
 			)
 	})
 
-	It("Should type union ontology helpers by a primitive key", func(ctx SpecContext) {
+	It("Should type union resource helpers by a primitive key", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
 
@@ -2352,12 +2352,12 @@ var _ = Describe("C++ Union Generation", func() {
 					name string
 				}
 
-				@ontology type "view"
+				@resource type "view"
 			}
 		`
 		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
-			ToContain(`ontology_id(const x::uuid::UUID& key)`)
+			ToContain(`resource_id(const x::uuid::UUID& key)`)
 	})
 
 	It(

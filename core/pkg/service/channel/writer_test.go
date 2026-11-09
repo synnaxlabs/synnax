@@ -14,13 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -44,15 +45,16 @@ var _ = Describe("Writer", func() {
 	// it through the channel limit: only external non-virtual channels count toward it.
 	Describe("External Channel Limit", Ordered, func() {
 		var (
-			limitSvc    *channel.Service
-			limitWriter channel.Writer
+			db       *gorp.DB
+			limitSvc *channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			limitSvc, _ = openService(ctx, testutil.NewNode(ctx), channel.ServiceConfig{
+			dist := testutil.NewNode(ctx)
+			db = dist.DB
+			limitSvc = openService(ctx, dist, channel.ServiceConfig{
 				Limit: fixedLimit(2),
 			})
-			limitWriter = limitSvc.NewWriter(nil)
 		})
 		It(
 			"Should not count virtual or internal channels toward the limit",
@@ -64,7 +66,9 @@ var _ = Describe("Writer", func() {
 						Virtual:     true,
 						Leaseholder: node.KeyFree,
 					}
-					Expect(limitWriter.Create(ctx, &virtual)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return limitSvc.NewWriter(tx).Create(ctx, &virtual)
+					})).To(Succeed())
 					internal := channel.Channel{
 						Name:        UniqueChannelName(),
 						DataType:    telem.TimestampT,
@@ -72,7 +76,9 @@ var _ = Describe("Writer", func() {
 						Internal:    true,
 						Leaseholder: 1,
 					}
-					Expect(limitWriter.Create(ctx, &internal)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return limitSvc.NewWriter(tx).Create(ctx, &internal)
+					})).To(Succeed())
 				}
 			},
 		)
@@ -86,7 +92,9 @@ var _ = Describe("Writer", func() {
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
-					Expect(limitWriter.Create(ctx, &ch)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return limitSvc.NewWriter(tx).Create(ctx, &ch)
+					})).To(Succeed())
 				}
 				third := channel.Channel{
 					Name:        UniqueChannelName(),
@@ -94,16 +102,19 @@ var _ = Describe("Writer", func() {
 					IsIndex:     true,
 					Leaseholder: 1,
 				}
-				Expect(limitWriter.Create(ctx, &third)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return limitSvc.NewWriter(tx).Create(ctx, &third)
+				})).
 					Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 			},
 		)
 		It(
 			"Should remove overwritten channels from the external channel set",
 			func(ctx SpecContext) {
-				cleanupSvc, _ := openService(
+				cleanup := testutil.NewNode(ctx)
+				cleanupSvc := openService(
 					ctx,
-					testutil.NewNode(ctx),
+					cleanup,
 					channel.ServiceConfig{
 						Limit: fixedLimit(3),
 					},
@@ -114,7 +125,9 @@ var _ = Describe("Writer", func() {
 					IsIndex:     true,
 					Leaseholder: 1,
 				}
-				Expect(cleanupSvc.NewWriter(nil).Create(ctx, &idx)).To(Succeed())
+				Expect(cleanup.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return cleanupSvc.NewWriter(tx).Create(ctx, &idx)
+				})).To(Succeed())
 				name := UniqueChannelName()
 				data := channel.Channel{
 					Name:        name,
@@ -122,7 +135,9 @@ var _ = Describe("Writer", func() {
 					LocalIndex:  idx.LocalKey,
 					Leaseholder: 1,
 				}
-				Expect(cleanupSvc.NewWriter(nil).Create(ctx, &data)).To(Succeed())
+				Expect(cleanup.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return cleanupSvc.NewWriter(tx).Create(ctx, &data)
+				})).To(Succeed())
 
 				overwrite := channel.Channel{
 					Name:        name,
@@ -130,10 +145,11 @@ var _ = Describe("Writer", func() {
 					LocalIndex:  idx.LocalKey,
 					Leaseholder: 1,
 				}
-				Expect(cleanupSvc.NewWriter(nil).Create(ctx, &overwrite,
-					channel.OverwriteIfNameExistsAndDifferentProperties(),
-				),
-				).To(Succeed())
+				Expect(cleanup.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return cleanupSvc.NewWriter(tx).Create(ctx, &overwrite,
+						channel.OverwriteIfNameExistsAndDifferentProperties(),
+					)
+				})).To(Succeed())
 
 				// The set now holds {idx, overwrite}. If the overwritten channel's key
 				// had been left behind, creating another external channel would push
@@ -144,9 +160,73 @@ var _ = Describe("Writer", func() {
 					LocalIndex:  idx.LocalKey,
 					Leaseholder: 1,
 				}
-				Expect(cleanupSvc.NewWriter(nil).Create(ctx, &another)).To(Succeed())
+				Expect(cleanup.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return cleanupSvc.NewWriter(tx).Create(ctx, &another)
+				})).To(Succeed())
 			},
 		)
+		Describe("Rolled back transaction", func() {
+			var (
+				oneSvc   *channel.Service
+				oneDB    *gorp.DB
+				rollback = errors.New("rollback")
+				create   = func(ctx SpecContext, ch *channel.Channel) error {
+					return oneDB.WithTx(ctx, func(tx gorp.Tx) error {
+						return oneSvc.NewWriter(tx).Create(ctx, ch)
+					})
+				}
+			)
+			BeforeEach(func(ctx SpecContext) {
+				one := testutil.NewNode(ctx)
+				oneDB = one.DB
+				oneSvc = openService(
+					ctx,
+					one,
+					channel.ServiceConfig{Limit: fixedLimit(1)},
+				)
+			})
+			It("Should not count a create that rolls back", func(ctx SpecContext) {
+				Expect(oneDB.WithTx(ctx, func(tx gorp.Tx) error {
+					ch := channel.Channel{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					}
+					if err := oneSvc.NewWriter(tx).Create(ctx, &ch); err != nil {
+						return err
+					}
+					return rollback
+				})).To(MatchError(rollback))
+				Expect(create(ctx, &channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				})).To(Succeed())
+			})
+			It(
+				"Should keep counting a channel whose delete rolls back",
+				func(ctx SpecContext) {
+					ch := channel.Channel{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					}
+					Expect(create(ctx, &ch)).To(Succeed())
+					Expect(oneDB.WithTx(ctx, func(tx gorp.Tx) error {
+						if err := oneSvc.NewWriter(tx).
+							Delete(ctx, ch.Key(), false); err != nil {
+							return err
+						}
+						return rollback
+					})).To(MatchError(rollback))
+					Expect(create(ctx, &channel.Channel{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					})).To(MatchError(ContainSubstring("channel limit exceeded")))
+				},
+			)
+		})
 	})
 
 	// Name validation is enforced internally on the create/rename path, so these specs
@@ -155,7 +235,9 @@ var _ = Describe("Writer", func() {
 	Describe("Name Validation", func() {
 		DescribeTable("Should accept valid names", func(ctx SpecContext, name string) {
 			ch := channel.Channel{Name: name, DataType: telem.Float64T, Virtual: true}
-			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 		},
 			Entry("only letters", "name_valid_temperature"),
 			Entry("mixed case", "name_valid_Pressure"),
@@ -171,9 +253,9 @@ var _ = Describe("Writer", func() {
 					DataType: telem.Float64T,
 					Virtual:  true,
 				}
-				Expect(
-					channelWriter.Create(ctx, &ch),
-				).Error().
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).
 					To(MatchError(ContainSubstring(msg)))
 			},
 			Entry("empty name", "", "name cannot be empty"),
@@ -189,16 +271,15 @@ var _ = Describe("Writer", func() {
 
 	Describe("Create", Ordered, func() {
 		var (
-			dist          testutil.Node
-			otg           *ontology.Ontology
-			svc           *channel.Service
-			channelWriter channel.Writer
+			dist testutil.Node
+			db   *gorp.DB
+			svc  *channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
 			dist = testutil.NewNode(ctx)
-			svc, otg = openService(ctx, dist)
-			channelWriter = svc.NewWriter(nil)
+			db = dist.DB
+			svc = openService(ctx, dist)
 		})
 		Context("Single channel", func() {
 			var ch channel.Channel
@@ -207,36 +288,18 @@ var _ = Describe("Writer", func() {
 				ch.Name = UniqueChannelName()
 				ch.DataType = telem.TimestampT
 				ch.Leaseholder = 1
-				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
 			})
-			It(
-				"Should create the channel without a group relationship",
-				func(ctx SpecContext) {
-					ch.Name = UniqueChannelName()
-					Expect(
-						channelWriter.Create(
-							ctx,
-							&ch,
-							channel.CreateWithoutGroupRelationship(),
-						),
-					).To(Succeed())
-					entries := []ontology.Resource{}
-					Expect(otg.
-						NewRetrieve().
-						WhereIDs(ch.OntologyID()).
-						TraverseTo(ontology.ParentsTraverser).
-						Entries(&entries).
-						Exec(ctx, nil),
-					).To(Succeed())
-					Expect(entries).To(BeEmpty())
-				},
-			)
 			Context("error cases", func() {
 				It(
 					"Should return an error if the name is invalid",
 					func(ctx SpecContext) {
 						ch.Name = "invalid name"
-						Expect(channelWriter.Create(ctx, &ch)).
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(ctx, &ch)
+						})).
 							To(MatchError(ContainSubstring("contains invalid characters")))
 					},
 				)
@@ -248,7 +311,9 @@ var _ = Describe("Writer", func() {
 							DataType:    telem.Float64T,
 							Leaseholder: 1,
 						}
-						Expect(channelWriter.Create(ctx, &ch2)).
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(ctx, &ch2)
+						})).
 							To(MatchError(ContainSubstring(fmt.Sprintf("channel with name '%s' already exists", ch.Name))))
 					},
 				)
@@ -261,7 +326,9 @@ var _ = Describe("Writer", func() {
 							Leaseholder: 1,
 							Operations:  []channel.Operation{{Type: "not-a-real-op"}},
 						}
-						Expect(channelWriter.Create(ctx, &ch2)).
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(ctx, &ch2)
+						})).
 							To(MatchError(ContainSubstring("operations.0.type: invalid type")))
 					},
 				)
@@ -276,12 +343,14 @@ var _ = Describe("Writer", func() {
 					IsIndex:     true,
 					Retention:   telem.Hour,
 				}
-				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
 				var res channel.Channel
 				Expect(svc.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Entry(&res).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(res.Retention).To(Equal(telem.Hour))
 			})
 			DescribeTable(
@@ -290,8 +359,9 @@ var _ = Describe("Writer", func() {
 					ch.Name = UniqueChannelName()
 					ch.Leaseholder = 1
 					ch.Retention = telem.Hour
-					err := channelWriter.Create(ctx, &ch)
-					Expect(err).To(MatchError(ContainSubstring(
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &ch)
+					})).To(MatchError(ContainSubstring(
 						"only a persisted index channel can have a retention",
 					)))
 				},
@@ -316,7 +386,9 @@ var _ = Describe("Writer", func() {
 					IsIndex:     true,
 					Retention:   -telem.Hour,
 				}
-				Expect(channelWriter.Create(ctx, &ch)).To(MatchError(ContainSubstring(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(MatchError(ContainSubstring(
 					"retention: retention cannot be negative",
 				)))
 			})
@@ -337,7 +409,9 @@ var _ = Describe("Writer", func() {
 						IsIndex:     true,
 					},
 				}
-				Expect(channelWriter.CreateMany(ctx, &chs)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).CreateMany(ctx, &chs)
+				})).To(Succeed())
 				Expect(chs[0].Key().Lease()).To(Equal(node.Key(1)))
 				Expect(chs[0].Key().LocalKey()).ToNot(BeZero())
 				Expect(chs[1].Key().Lease()).To(Equal(node.Key(1)))
@@ -359,7 +433,10 @@ var _ = Describe("Writer", func() {
 						Leaseholder: 1,
 						Virtual:     true,
 					}
-					Expect(channelWriter.CreateMany(ctx, &[]channel.Channel{ch1, ch2})).
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).
+							CreateMany(ctx, &[]channel.Channel{ch1, ch2})
+					})).
 						To(MatchError(ContainSubstring(fmt.Sprintf("duplicate channel name '%s' in request", ch1.Name))))
 				},
 			)
@@ -373,22 +450,26 @@ var _ = Describe("Writer", func() {
 				ch.Leaseholder = 1
 			})
 			It("Should create the channel without error", func(ctx SpecContext) {
-				Expect(
-					channelWriter.Create(ctx, &ch, channel.RetrieveIfNameExists()),
-				).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).
+						Create(ctx, &ch, channel.RetrieveIfNameExists())
+				})).To(Succeed())
 				Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 				Expect(ch.Key().LocalKey()).ToNot(BeZero())
 			})
 			It(
 				"Should not create the channel if it already exists by name",
 				func(ctx SpecContext) {
-					Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &ch)
+					})).To(Succeed())
 					k := ch.Key()
 					ch.Leaseholder = 0
 					ch.LocalKey = 0
-					Expect(
-						channelWriter.Create(ctx, &ch, channel.RetrieveIfNameExists()),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).
+							Create(ctx, &ch, channel.RetrieveIfNameExists())
+					})).To(Succeed())
 					Expect(ch.Key()).To(Equal(k))
 					Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 				},
@@ -404,7 +485,9 @@ var _ = Describe("Writer", func() {
 							DataType:    telem.Float64T,
 							Leaseholder: 1,
 						}
-						Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(ctx, &ch)
+						})).To(Succeed())
 						originalKey := ch.Key()
 
 						// Try to create a new channel with the same name but different
@@ -416,17 +499,17 @@ var _ = Describe("Writer", func() {
 							Leaseholder: 1,
 						}
 
-						Expect(
-							channelWriter.Create(
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(
 								ctx,
 								&newCh,
 								channel.OverwriteIfNameExistsAndDifferentProperties(),
-							),
-						).To(Succeed())
+							)
+						})).To(Succeed())
 
 						var resChannels []channel.Channel
 						Expect(svc.NewRetrieve().Where(channel.MatchKeys(newCh.Key())).
-							Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
+							Entries(&resChannels).Exec(ctx, db)).To(Succeed())
 						Expect(resChannels).To(HaveLen(1))
 
 						Expect(resChannels[0].Virtual).To(BeTrue())
@@ -436,7 +519,7 @@ var _ = Describe("Writer", func() {
 							svc.NewRetrieve().
 								Where(channel.MatchKeys(originalKey)).
 								Entries(&resChannels).
-								Exec(ctx, nil),
+								Exec(ctx, db),
 						).To(MatchError(query.ErrNotFound))
 					},
 				)
@@ -449,7 +532,9 @@ var _ = Describe("Writer", func() {
 							DataType:    telem.TimestampT,
 							Leaseholder: 1,
 						}
-						Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(ctx, &ch)
+						})).To(Succeed())
 						originalKey := ch.Key()
 
 						newCh := channel.Channel{
@@ -459,13 +544,13 @@ var _ = Describe("Writer", func() {
 							Leaseholder: 1,
 						}
 
-						Expect(
-							channelWriter.Create(
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(
 								ctx,
 								&newCh,
 								channel.OverwriteIfNameExistsAndDifferentProperties(),
-							),
-						).To(Succeed())
+							)
+						})).To(Succeed())
 						Expect(newCh.Key()).To(Equal(originalKey))
 
 						var resChannels []channel.Channel
@@ -473,7 +558,7 @@ var _ = Describe("Writer", func() {
 							svc.NewRetrieve().
 								Where(channel.MatchKeys(originalKey)).
 								Entries(&resChannels).
-								Exec(ctx, nil),
+								Exec(ctx, db),
 						).To(Succeed())
 						Expect(resChannels).To(HaveLen(1))
 						Expect(resChannels[0].IsIndex).To(BeTrue())
@@ -481,7 +566,7 @@ var _ = Describe("Writer", func() {
 					},
 				)
 				It(
-					"Should delete the overwritten channel's ontology resource",
+					"Should leave the overwritten channel out of its resources",
 					func(ctx SpecContext) {
 						name := UniqueChannelName()
 						ch := channel.Channel{
@@ -490,13 +575,10 @@ var _ = Describe("Writer", func() {
 							DataType:    telem.Float64T,
 							Leaseholder: 1,
 						}
-						Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(ctx, &ch)
+						})).To(Succeed())
 						originalKey := ch.Key()
-						Expect(otg.
-							NewRetrieve().
-							WhereIDs(channel.OntologyID(originalKey)).
-							Exists(ctx, nil),
-						).To(BeTrue())
 
 						newCh := channel.Channel{
 							Virtual:     true,
@@ -504,23 +586,22 @@ var _ = Describe("Writer", func() {
 							DataType:    telem.Float32T,
 							Leaseholder: 1,
 						}
-						Expect(
-							channelWriter.Create(
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(
 								ctx,
 								&newCh,
 								channel.OverwriteIfNameExistsAndDifferentProperties(),
-							),
-						).To(Succeed())
+							)
+						})).To(Succeed())
 						Expect(newCh.Key()).ToNot(Equal(originalKey))
 
-						Expect(otg.NewRetrieve().
-							WhereIDs(channel.OntologyID(originalKey)).
-							Exists(ctx, nil),
-						).To(BeFalse())
-						Expect(otg.NewRetrieve().
-							WhereIDs(channel.OntologyID(newCh.Key())).
-							Exists(ctx, nil),
-						).To(BeTrue())
+						Expect(svc.Resources().Retrieve(ctx, dist.DB, []resource.ID{
+							channel.ResourceID(originalKey),
+							channel.ResourceID(newCh.Key()),
+						})).To(ConsistOf(resource.Resource{
+							ID:   channel.ResourceID(newCh.Key()),
+							Name: name,
+						}))
 					},
 				)
 			})
@@ -530,16 +611,18 @@ var _ = Describe("Writer", func() {
 					ch.Name = "SG0002"
 					ch.Virtual = true
 					ch.Leaseholder = node.KeyFree
-					Expect(
-						channelWriter.Create(ctx, &ch, channel.RetrieveIfNameExists()),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).
+							Create(ctx, &ch, channel.RetrieveIfNameExists())
+					})).To(Succeed())
 					Expect(ch.Key().Lease()).To(Equal(node.KeyFree))
 					k := ch.Key()
 					ch.LocalKey = 0
 					ch.Leaseholder = 0
-					Expect(
-						channelWriter.Create(ctx, &ch, channel.RetrieveIfNameExists()),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).
+							Create(ctx, &ch, channel.RetrieveIfNameExists())
+					})).To(Succeed())
 					Expect(ch.Key()).To(Equal(k))
 					Expect(ch.Key().Lease()).To(Equal(node.KeyFree))
 				},
@@ -555,7 +638,9 @@ var _ = Describe("Writer", func() {
 						Expression: "return 1 + 1",
 						Virtual:    true,
 					}
-					Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calcCh)
+					})).To(Succeed())
 
 					Expect(calcCh.Leaseholder).To(Equal(node.KeyFree))
 					Expect(calcCh.Virtual).To(BeTrue())
@@ -566,7 +651,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(indexName)).
 						Entries(&indexChannels).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(indexChannels).To(HaveLen(1))
 
 					indexCh := indexChannels[0]
@@ -588,7 +673,9 @@ var _ = Describe("Writer", func() {
 						Expression: "return 1 + 1",
 						Virtual:    true,
 					}
-					Expect(channelWriter.Create(ctx, &calcCh)).To(
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calcCh)
+					})).To(
 						MatchError(
 							ContainSubstring(
 								"calculated channels cannot specify an index manually",
@@ -607,7 +694,9 @@ var _ = Describe("Writer", func() {
 						Expression: "return 1 + 1",
 						Virtual:    true,
 					}
-					Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calcCh)
+					})).To(Succeed())
 					originalKey := calcCh.Key()
 					originalIndexKey := calcCh.LocalIndex
 
@@ -617,13 +706,13 @@ var _ = Describe("Writer", func() {
 						DataType:   telem.Float64T,
 						Expression: "return 1 + 1",
 					}
-					Expect(
-						channelWriter.Create(
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(
 							ctx,
 							&calcCh2,
 							channel.RetrieveIfNameExists(),
-						),
-					).To(Succeed())
+						)
+					})).To(Succeed())
 
 					// Should return existing channel with same index
 					Expect(calcCh2.Key()).To(Equal(originalKey))
@@ -647,8 +736,12 @@ var _ = Describe("Writer", func() {
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
-					Expect(channelWriter.Create(ctx, &indexCh1)).To(Succeed())
-					Expect(channelWriter.Create(ctx, &indexCh2)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &indexCh1)
+					})).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &indexCh2)
+					})).To(Succeed())
 
 					// Now create channels with proper indexes
 					channels := []channel.Channel{
@@ -676,7 +769,9 @@ var _ = Describe("Writer", func() {
 						},
 					}
 					for i := range channels {
-						Expect(channelWriter.Create(ctx, &channels[i])).To(Succeed())
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Create(ctx, &channels[i])
+						})).To(Succeed())
 					}
 
 					// Check calculated channels have auto-created indexes
@@ -692,7 +787,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames("calculated1_time", "calculated2_time")).
 						Entries(&indexChannels).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(indexChannels).To(HaveLen(2))
 				},
 			)
@@ -706,13 +801,17 @@ var _ = Describe("Writer", func() {
 						DataType: telem.Float64T,
 						Virtual:  true,
 					}
-					Expect(channelWriter.Create(ctx, &taken)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &taken)
+					})).To(Succeed())
 					calcCh := channel.Channel{
 						Name:       name,
 						DataType:   telem.Float64T,
 						Expression: "return 1 + 1",
 					}
-					Expect(channelWriter.Create(ctx, &calcCh)).To(SatisfyAll(
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calcCh)
+					})).To(SatisfyAll(
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
@@ -732,26 +831,32 @@ var _ = Describe("Writer", func() {
 						DataType:   telem.Float64T,
 						Expression: "return 1 + 1",
 					}
-					Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calcCh)
+					})).To(Succeed())
 					originalIndex := calcCh.LocalIndex
 
 					// Deleting the calculated channel leaves its auto-created index
 					// behind; re-creating a calculated channel with the same name must
 					// reuse it rather than duplicating the index name.
-					Expect(channelWriter.Delete(ctx, calcCh.Key(), false)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, calcCh.Key(), false)
+					})).To(Succeed())
 					recreated := channel.Channel{
 						Name:       name,
 						DataType:   telem.Float64T,
 						Expression: "return 1 + 1",
 					}
-					Expect(channelWriter.Create(ctx, &recreated)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &recreated)
+					})).To(Succeed())
 					Expect(recreated.LocalIndex).To(Equal(originalIndex))
 
 					var indexChannels []channel.Channel
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(name+"_time")).
 						Entries(&indexChannels).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(indexChannels).To(HaveLen(1))
 				},
 			)
@@ -765,19 +870,21 @@ var _ = Describe("Writer", func() {
 						DataType: telem.Float64T,
 						Virtual:  true,
 					}
-					Expect(channelWriter.Create(ctx, &taken)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &taken)
+					})).To(Succeed())
 					calcCh := channel.Channel{
 						Name:       name,
 						DataType:   telem.Float64T,
 						Expression: "return 1 + 1",
 					}
-					Expect(
-						channelWriter.Create(
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(
 							ctx,
 							&calcCh,
 							channel.RetrieveIfNameExists(),
-						),
-					).To(SatisfyAll(
+						)
+					})).To(SatisfyAll(
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
@@ -800,7 +907,9 @@ var _ = Describe("Writer", func() {
 						},
 						{Name: name + "_time", DataType: telem.Float64T, Virtual: true},
 					}
-					Expect(channelWriter.CreateMany(ctx, &chs)).To(SatisfyAll(
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).CreateMany(ctx, &chs)
+					})).To(SatisfyAll(
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
@@ -827,7 +936,9 @@ var _ = Describe("Writer", func() {
 							IsIndex:  true,
 						},
 					}
-					Expect(channelWriter.CreateMany(ctx, &chs)).To(SatisfyAll(
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).CreateMany(ctx, &chs)
+					})).To(SatisfyAll(
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
@@ -856,7 +967,9 @@ var _ = Describe("Writer", func() {
 							Leaseholder: node.KeyFree,
 						},
 					}
-					Expect(channelWriter.CreateMany(ctx, &chs)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).CreateMany(ctx, &chs)
+					})).To(Succeed())
 					Expect(chs[0].LocalIndex).To(Equal(chs[1].LocalKey))
 					Expect(chs[0].Index()).To(Equal(chs[1].Key()))
 				},
@@ -871,7 +984,9 @@ var _ = Describe("Writer", func() {
 						DataType:   telem.Float64T,
 						Expression: "return 1 + 1",
 					}
-					Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calcCh)
+					})).To(Succeed())
 					originalIndex := calcCh.LocalIndex
 
 					replacement := channel.Channel{
@@ -879,17 +994,19 @@ var _ = Describe("Writer", func() {
 						DataType:   telem.Float64T,
 						Expression: "return 2 + 2",
 					}
-					Expect(channelWriter.Create(
-						ctx,
-						&replacement,
-						channel.OverwriteIfNameExistsAndDifferentProperties(),
-					)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(
+							ctx,
+							&replacement,
+							channel.OverwriteIfNameExistsAndDifferentProperties(),
+						)
+					})).To(Succeed())
 
 					var indexChannels []channel.Channel
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(name+"_time")).
 						Entries(&indexChannels).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(indexChannels).To(HaveLen(1))
 					Expect(indexChannels[0].LocalKey).To(Equal(originalIndex))
 					Expect(replacement.LocalIndex).To(Equal(originalIndex))
@@ -905,7 +1022,9 @@ var _ = Describe("Writer", func() {
 						Expression: "return 1 + 1",
 						Internal:   true,
 					}
-					Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calcCh)
+					})).To(Succeed())
 
 					// Verify index is also internal
 					indexName := "internal_calculated_time"
@@ -913,7 +1032,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(indexName)).
 						Entries(&indexChannels).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(indexChannels).To(HaveLen(1))
 					Expect(indexChannels[0].Internal).To(BeTrue())
 				},
@@ -929,7 +1048,9 @@ var _ = Describe("Writer", func() {
 						DataType: telem.Float64T,
 						Virtual:  true,
 					}
-					Expect(channelWriter.Create(ctx, &sensor1)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &sensor1)
+					})).To(Succeed())
 
 					// 1. Create calculated channel
 					calcCh := channel.Channel{
@@ -937,7 +1058,9 @@ var _ = Describe("Writer", func() {
 						DataType:   telem.Float64T,
 						Expression: "return sensor1 * 2.5",
 					}
-					Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calcCh)
+					})).To(Succeed())
 
 					originalKey := calcCh.Key()
 					originalIndexKey := calcCh.LocalIndex
@@ -945,7 +1068,9 @@ var _ = Describe("Writer", func() {
 
 					// 2. Modify expression and call Create() again with same key
 					calcCh.Expression = "return sensor1 * 3.0 + 10"
-					Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calcCh)
+					})).To(Succeed())
 
 					// 3. Verify key unchanged
 					Expect(calcCh.Key()).To(Equal(originalKey))
@@ -958,7 +1083,7 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(originalKey)).
 						Entry(&retrieved).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(retrieved.Expression).To(Equal("return sensor1 * 3.0 + 10"))
 					Expect(retrieved.Name).To(Equal(originalName))
 					Expect(retrieved.Key()).To(Equal(originalKey))
@@ -973,7 +1098,9 @@ var _ = Describe("Writer", func() {
 						DataType:   telem.Float64T,
 						Expression: "return 1.0",
 					}
-					Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calcCh)
+					})).To(Succeed())
 					Expect(calcCh.DataType).To(Equal(telem.Float64T))
 					originalKey := calcCh.Key()
 
@@ -981,14 +1108,16 @@ var _ = Describe("Writer", func() {
 					// the expression, so the caller-provided DataType is ignored.
 					calcCh.Expression = "return 2.0"
 					calcCh.DataType = telem.Float32T
-					Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calcCh)
+					})).To(Succeed())
 
 					// 3. Retrieve from DB and verify DataType was updated
 					var retrieved channel.Channel
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(originalKey)).
 						Entry(&retrieved).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 
 					Expect(retrieved.Expression).To(Equal("return 2.0"))
 					Expect(retrieved.DataType).To(Equal(telem.Float64T))
@@ -1011,13 +1140,19 @@ var _ = Describe("Writer", func() {
 					DataType:    telem.TimestampT,
 					Leaseholder: 1,
 				}
-				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
-				Expect(channelWriter.Create(ctx, &ch2)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch2)
+				})).To(Succeed())
 			})
 			It("Should update the channel name without error", func(ctx SpecContext) {
 				newName := UniqueChannelName()
 				ch.Name = newName
-				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
 				Expect(ch.Name).To(Equal(newName))
 
 				var resChannels []channel.Channel
@@ -1025,7 +1160,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(channel.MatchKeys(ch.Key())).
 						Entries(&resChannels).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(resChannels).To(HaveLen(1))
 				Expect(resChannels[0].Name).To(Equal(newName))
@@ -1035,9 +1170,10 @@ var _ = Describe("Writer", func() {
 				func(ctx SpecContext) {
 					existingName := ch2.Name
 					ch.Name = existingName
-					Expect(
-						channelWriter.Create(ctx, &ch, channel.RetrieveIfNameExists()),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).
+							Create(ctx, &ch, channel.RetrieveIfNameExists())
+					})).To(Succeed())
 					Expect(ch.Name).To(Equal(existingName))
 
 					var resChannels []channel.Channel
@@ -1045,7 +1181,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(channel.MatchKeys(ch.Key())).
 							Entries(&resChannels).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(resChannels).To(HaveLen(1))
 					Expect(resChannels[0].Name).To(Equal(existingName))
@@ -1062,11 +1198,15 @@ var _ = Describe("Writer", func() {
 						Leaseholder: 1,
 						Virtual:     false,
 					}
-					Expect(channelWriter.Create(ctx, &nonVirtualCh)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &nonVirtualCh)
+					})).To(Succeed())
 					originalKey := nonVirtualCh.Key()
 
 					nonVirtualCh.Name = "UpdatedName"
-					Expect(channelWriter.Create(ctx, &nonVirtualCh)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &nonVirtualCh)
+					})).To(Succeed())
 
 					Expect(nonVirtualCh.Key()).ToNot(Equal(originalKey))
 
@@ -1075,7 +1215,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(channel.MatchKeys(originalKey, nonVirtualCh.Key())).
 							Entries(&resChannels).
-							Exec(ctx, nil),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(resChannels).To(HaveLen(2))
 
@@ -1089,17 +1229,18 @@ var _ = Describe("Writer", func() {
 	Context("Name Validation Disabled", func() {
 		Describe("Channel Creation", Ordered, func() {
 			var (
-				svc           *channel.Service
-				channelWriter channel.Writer
+				db  *gorp.DB
+				svc *channel.Service
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				svc, _ = openService(
+				dist := testutil.NewNode(ctx)
+				db = dist.DB
+				svc = openService(
 					ctx,
-					testutil.NewNode(ctx),
+					dist,
 					channel.ServiceConfig{ValidateNames: new(false)},
 				)
-				channelWriter = svc.NewWriter(nil)
 			})
 			It(
 				"Should create a channel with spaces in the name",
@@ -1110,13 +1251,15 @@ var _ = Describe("Writer", func() {
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
-					Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &ch)
+					})).To(Succeed())
 					Expect(ch.Key()).ToNot(BeZero())
 					var retrieved channel.Channel
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(ch.Key())).
 						Entry(&retrieved).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(retrieved.Name).To(Equal("my channel with spaces"))
 				},
 			)
@@ -1129,13 +1272,15 @@ var _ = Describe("Writer", func() {
 						Virtual:     true,
 						Leaseholder: node.KeyFree,
 					}
-					Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &ch)
+					})).To(Succeed())
 					Expect(ch.Key()).ToNot(BeZero())
 					var retrieved channel.Channel
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(ch.Key())).
 						Entry(&retrieved).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(retrieved.Name).To(Equal("sensor!@#$%"))
 				},
 			)
@@ -1148,13 +1293,15 @@ var _ = Describe("Writer", func() {
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
-					Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &ch)
+					})).To(Succeed())
 					Expect(ch.Key()).ToNot(BeZero())
 					var retrieved channel.Channel
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(ch.Key())).
 						Entry(&retrieved).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(retrieved.Name).To(Equal("1sensor"))
 				},
 			)
@@ -1165,7 +1312,9 @@ var _ = Describe("Writer", func() {
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
 				}
-				Expect(channelWriter.Create(ctx, &ch)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).
 					To(MatchError(ContainSubstring("name: required")))
 			})
 			It(
@@ -1177,20 +1326,22 @@ var _ = Describe("Writer", func() {
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
-					Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
-					Expect(
-						channelWriter.Rename(
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &ch)
+					})).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Rename(
 							ctx,
 							ch.Key(),
 							"new name with spaces!",
 							false,
-						),
-					).To(Succeed())
+						)
+					})).To(Succeed())
 					var retrieved channel.Channel
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(ch.Key())).
 						Entry(&retrieved).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(retrieved.Name).To(Equal("new name with spaces!"))
 				},
 			)
@@ -1199,15 +1350,15 @@ var _ = Describe("Writer", func() {
 
 	Describe("Delete", Ordered, func() {
 		var (
-			dist          testutil.Node
-			svc           *channel.Service
-			channelWriter channel.Writer
+			dist testutil.Node
+			db   *gorp.DB
+			svc  *channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
 			dist = testutil.NewNode(ctx)
-			svc, _ = openService(ctx, dist)
-			channelWriter = svc.NewWriter(nil)
+			db = dist.DB
+			svc = openService(ctx, dist)
 		})
 		Context("Single Channel", func() {
 			var idxCh, ch channel.Channel
@@ -1217,40 +1368,50 @@ var _ = Describe("Writer", func() {
 				idxCh.DataType = telem.TimestampT
 				idxCh.IsIndex = true
 				idxCh.Leaseholder = 1
-				Expect(channelWriter.Create(ctx, &idxCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &idxCh)
+				})).To(Succeed())
 				ch.Name = prefix + "_data"
 				ch.DataType = telem.Float64T
 				ch.LocalIndex = idxCh.LocalKey
 				ch.Leaseholder = 1
-				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
 			})
 			It(
 				"Should not allow deletion of index channel with dependent channels",
 				func(ctx SpecContext) {
-					Expect(channelWriter.Delete(ctx, idxCh.Key(), true)).To(
-						MatchError(
-							ContainSubstring("because it indexes data in channel"),
-						),
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, idxCh.Key(), true)
+					})).To(
+						MatchError(gorp.RestrictError{
+							Target:    gorp.NewTarget("channel", idxCh.Key()),
+							Holder:    gorp.NewTarget("channel", ch.Key()),
+							Reference: "index",
+						}),
 					)
 				},
 			)
 			It("Should delete the channel without error", func(ctx SpecContext) {
-				Expect(
-					channelWriter.DeleteMany(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).DeleteMany(
 						ctx,
 						channel.Keys{idxCh.Key(), ch.Key()},
 						true,
-					),
-				).To(Succeed())
+					)
+				})).To(Succeed())
 			})
 			It(
 				"Should not be able to retrieve the channel after deletion",
 				func(ctx SpecContext) {
-					Expect(channelWriter.Delete(ctx, ch.Key(), true)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, ch.Key(), true)
+					})).To(Succeed())
 					exists := MustSucceed(
 						svc.NewRetrieve().
 							Where(channel.MatchKeys(ch.Key())).
-							Exists(ctx, nil),
+							Exists(ctx, db),
 					)
 					Expect(exists).To(BeFalse())
 				},
@@ -1258,7 +1419,9 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should not be able to retrieve the channel from the time-series DB",
 				func(ctx SpecContext) {
-					Expect(channelWriter.Delete(ctx, ch.Key(), true)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, ch.Key(), true)
+					})).To(Succeed())
 					Expect(
 						dist.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()),
 					).
@@ -1267,13 +1430,63 @@ var _ = Describe("Writer", func() {
 				},
 			)
 		})
+		Context("Calculated Channel Index", func() {
+			It(
+				"Should refuse an update that names an index that does not exist",
+				func(ctx SpecContext) {
+					calc := channel.Channel{
+						Name:       UniqueChannelName(),
+						DataType:   telem.Float64T,
+						Expression: "return 1 + 1",
+						Virtual:    true,
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calc)
+					})).To(Succeed())
+					calc.LocalIndex = 99999
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calc)
+					})).To(MatchError(
+						ContainSubstring(fmt.Sprintf(
+							"index: channel %d does not exist",
+							distchannel.NewKey(node.KeyFree, 99999),
+						)),
+					))
+				},
+			)
+			It(
+				"Should clear on open the index of a channel whose index does not exist",
+				func(ctx SpecContext) {
+					fresh := testutil.NewNode(ctx)
+					calc := channel.Channel{
+						Name:        "dangling_calc",
+						Leaseholder: node.KeyFree,
+						LocalKey:    7,
+						LocalIndex:  8,
+						DataType:    telem.Float64T,
+						Expression:  "return 1 + 1",
+						Virtual:     true,
+					}
+					Expect(gorp.WrapWriter[channel.Key, channel.Channel](fresh.DB).
+						Set(ctx, calc)).To(Succeed())
+					freshSvc := openService(ctx, fresh)
+					var stored channel.Channel
+					Expect(freshSvc.NewRetrieve().
+						Where(channel.MatchKeys(calc.Key())).
+						Entry(&stored).
+						Exec(ctx, fresh.DB)).To(Succeed())
+					Expect(stored.LocalIndex).To(BeZero())
+				},
+			)
+		})
 		Context("Nonexistent Channels", func() {
 			It(
 				"Should succeed when deleting a key that does not exist",
 				func(ctx SpecContext) {
-					Expect(
-						channelWriter.Delete(ctx, distchannel.NewKey(1, 40000), false),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).
+							Delete(ctx, distchannel.NewKey(1, 40000), false)
+					})).To(Succeed())
 				},
 			)
 			It(
@@ -1283,16 +1496,18 @@ var _ = Describe("Writer", func() {
 						distchannel.NewKey(1, 40001),
 						distchannel.NewKey(1, 40002),
 					}
-					Expect(channelWriter.DeleteMany(ctx, keys, false)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).DeleteMany(ctx, keys, false)
+					})).To(Succeed())
 				},
 			)
 			It(
 				"Should succeed when deleting by names that do not exist",
 				func(ctx SpecContext) {
 					names := []string{UniqueChannelName(), UniqueChannelName()}
-					Expect(
-						channelWriter.DeleteManyByNames(ctx, names, false),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).DeleteManyByNames(ctx, names, false)
+					})).To(Succeed())
 				},
 			)
 		})
@@ -1305,17 +1520,21 @@ var _ = Describe("Writer", func() {
 						{Name: prefix + "_a", DataType: telem.Float32T, Virtual: true},
 						{Name: prefix + "_b", DataType: telem.Float32T, Virtual: true},
 					}
-					Expect(channelWriter.CreateMany(ctx, &chs)).To(Succeed())
-					Expect(channelWriter.DeleteManyByNames(
-						ctx,
-						[]string{prefix + "_a", prefix + "_.*"},
-						false,
-					)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).CreateMany(ctx, &chs)
+					})).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).DeleteManyByNames(
+							ctx,
+							[]string{prefix + "_a", prefix + "_.*"},
+							false,
+						)
+					})).To(Succeed())
 					var remaining []channel.Channel
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(prefix+"_a", prefix+"_b")).
 						Entries(&remaining).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(remaining).To(ConsistOf(HaveField("Name", prefix+"_b")))
 				},
 			)
@@ -1330,29 +1549,36 @@ var _ = Describe("Writer", func() {
 					Internal:    true,
 					Leaseholder: 1,
 				}
-				Expect(channelWriter.Create(ctx, &internalCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &internalCh)
+				})).To(Succeed())
 			})
 			It(
 				"Should return an error when deleting an internal channel by key",
 				func(ctx SpecContext) {
-					Expect(channelWriter.Delete(ctx, internalCh.Key(), false)).
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, internalCh.Key(), false)
+					})).
 						To(MatchError(ContainSubstring("can't delete internal channel")))
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(internalCh.Key())).
-						Exists(ctx, nil)).To(BeTrue())
+						Exists(ctx, db)).To(BeTrue())
 				},
 			)
 			It(
 				"Should return an error when deleting an internal channel by name",
 				func(ctx SpecContext) {
-					Expect(channelWriter.DeleteManyByNames(
-						ctx,
-						[]string{internalCh.Name},
-						false,
-					)).To(MatchError(ContainSubstring("can't delete internal channel")))
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).DeleteManyByNames(
+							ctx,
+							[]string{internalCh.Name},
+							false,
+						)
+					})).
+						To(MatchError(ContainSubstring("can't delete internal channel")))
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(internalCh.Name)).
-						Exists(ctx, nil)).To(BeTrue())
+						Exists(ctx, db)).To(BeTrue())
 				},
 			)
 			It(
@@ -1364,27 +1590,31 @@ var _ = Describe("Writer", func() {
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
-					Expect(channelWriter.Create(ctx, &externalCh)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &externalCh)
+					})).To(Succeed())
 					keys := channel.Keys{externalCh.Key(), internalCh.Key()}
-					Expect(channelWriter.DeleteMany(ctx, keys, false)).
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).DeleteMany(ctx, keys, false)
+					})).
 						To(MatchError(ContainSubstring("can't delete internal channel")))
 					var remaining []channel.Channel
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(keys...)).
 						Entries(&remaining).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					Expect(remaining).To(HaveLen(2))
 				},
 			)
 			It(
 				"Should delete an internal channel when allowInternal is true",
 				func(ctx SpecContext) {
-					Expect(
-						channelWriter.Delete(ctx, internalCh.Key(), true),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, internalCh.Key(), true)
+					})).To(Succeed())
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(internalCh.Key())).
-						Exists(ctx, nil)).To(BeFalse())
+						Exists(ctx, db)).To(BeFalse())
 				},
 			)
 		})
@@ -1392,13 +1622,14 @@ var _ = Describe("Writer", func() {
 
 	Describe("Rename", Ordered, func() {
 		var (
-			svc           *channel.Service
-			channelWriter channel.Writer
+			db  *gorp.DB
+			svc *channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc, _ = openService(ctx, testutil.NewNode(ctx))
-			channelWriter = svc.NewWriter(nil)
+			dist := testutil.NewNode(ctx)
+			db = dist.DB
+			svc = openService(ctx, dist)
 		})
 		Context("Single channel", func() {
 			var ch channel.Channel
@@ -1407,23 +1638,28 @@ var _ = Describe("Writer", func() {
 				ch.Name = UniqueChannelName()
 				ch.DataType = telem.Float64T
 				ch.Leaseholder = 1
-				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
 			})
 			It("Should rename the channel without error", func(ctx SpecContext) {
 				name := UniqueChannelName()
-				Expect(channelWriter.Rename(ctx, ch.Key(), name, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Rename(ctx, ch.Key(), name, false)
+				})).To(Succeed())
 				var resCh channel.Channel
 				Expect(svc.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Entry(&resCh).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(resCh.Name).To(Equal(name))
 			})
 			Context("new name is invalid", func() {
 				It("Should return an error", func(ctx SpecContext) {
-					Expect(
-						channelWriter.Rename(ctx, ch.Key(), "invalid name", false),
-					).To(MatchError(ContainSubstring("contains invalid characters")))
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).
+							Rename(ctx, ch.Key(), "invalid name", false)
+					})).To(MatchError(ContainSubstring("contains invalid characters")))
 				})
 			})
 			Context("new name is a duplicate", func() {
@@ -1433,8 +1669,13 @@ var _ = Describe("Writer", func() {
 						Virtual:  true,
 						DataType: telem.Float64T,
 					}
-					Expect(channelWriter.Create(ctx, &secondCh)).To(Succeed())
-					Expect(channelWriter.Rename(ctx, ch.Key(), secondCh.Name, false)).
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &secondCh)
+					})).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).
+							Rename(ctx, ch.Key(), secondCh.Name, false)
+					})).
 						To(MatchError(ContainSubstring("channel with name '%s' already exists", secondCh.Name)))
 				})
 			})
@@ -1459,25 +1700,29 @@ var _ = Describe("Writer", func() {
 						Virtual:     true,
 					},
 				}
-				Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).CreateMany(ctx, &channels)
+				})).To(Succeed())
 				keys := channel.KeysFromChannels(channels)
 				names := []string{
 					UniqueChannelName(),
 					UniqueChannelName(),
 					UniqueChannelName(),
 				}
-				Expect(channelWriter.RenameMany(
-					ctx,
-					keys,
-					names,
-					false,
-				)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).RenameMany(
+						ctx,
+						keys,
+						names,
+						false,
+					)
+				})).To(Succeed())
 				var resChannels []channel.Channel
 				Expect(
 					svc.NewRetrieve().
 						Where(channel.MatchKeys(keys...)).
 						Entries(&resChannels).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(channel.KeysFromChannels(resChannels)).To(Equal(keys))
 				Expect(resChannels[0].Name).To(Equal(names[0]))
@@ -1489,19 +1734,19 @@ var _ = Describe("Writer", func() {
 
 	Describe("Limit", Ordered, func() {
 		var (
-			limit       = 5
-			dist        testutil.Node
-			limitSvc    *channel.Service
-			limitWriter channel.Writer
+			limit    = 5
+			dist     testutil.Node
+			db       *gorp.DB
+			limitSvc *channel.Service
 		)
 		BeforeEach(func(ctx SpecContext) {
 			dist = testutil.NewNode(ctx)
-			limitSvc, _ = openService(
+			db = dist.DB
+			limitSvc = openService(
 				ctx,
 				dist,
 				channel.ServiceConfig{Limit: fixedLimit(limit)},
 			)
-			limitWriter = limitSvc.NewWriter(nil)
 		})
 		It("Should not allow creating channels over the limit", func(ctx SpecContext) {
 			// Create channels up to the limit
@@ -1512,7 +1757,9 @@ var _ = Describe("Writer", func() {
 					Name:        fmt.Sprintf("LimitTest%d", i),
 					Leaseholder: 1,
 				}
-				Expect(limitWriter.Create(ctx, &ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return limitSvc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
 			}
 
 			// Try to create one more channel over the limit
@@ -1522,7 +1769,9 @@ var _ = Describe("Writer", func() {
 				Name:        "OverLimit",
 				Leaseholder: 1,
 			}
-			Expect(limitWriter.Create(ctx, &overLimitCh)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return limitSvc.NewWriter(tx).Create(ctx, &overLimitCh)
+			})).
 				Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 		})
 
@@ -1538,7 +1787,9 @@ var _ = Describe("Writer", func() {
 						Name:        fmt.Sprintf("LimitTest%d", i),
 						Leaseholder: 1,
 					}
-					Expect(limitWriter.Create(ctx, &ch)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return limitSvc.NewWriter(tx).Create(ctx, &ch)
+					})).To(Succeed())
 					channels[i] = ch
 				}
 
@@ -1549,11 +1800,15 @@ var _ = Describe("Writer", func() {
 					Name:        "OverLimit",
 					Leaseholder: 1,
 				}
-				Expect(limitWriter.Create(ctx, &overLimitCh)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return limitSvc.NewWriter(tx).Create(ctx, &overLimitCh)
+				})).
 					Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 
 				// Delete one channel
-				Expect(limitWriter.Delete(ctx, channels[0].Key(), false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return limitSvc.NewWriter(tx).Delete(ctx, channels[0].Key(), false)
+				})).To(Succeed())
 
 				// Now we should be able to create a new channel
 				newCh := channel.Channel{
@@ -1562,7 +1817,9 @@ var _ = Describe("Writer", func() {
 					Name:        "NewAfterDelete",
 					Leaseholder: 1,
 				}
-				Expect(limitWriter.Create(ctx, &newCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return limitSvc.NewWriter(tx).Create(ctx, &newCh)
+				})).To(Succeed())
 
 				// Try to create one more channel (should fail again)
 				anotherCh := channel.Channel{
@@ -1571,7 +1828,9 @@ var _ = Describe("Writer", func() {
 					Name:        "AnotherOverLimit",
 					Leaseholder: 1,
 				}
-				Expect(limitWriter.Create(ctx, &anotherCh)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return limitSvc.NewWriter(tx).Create(ctx, &anotherCh)
+				})).
 					Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 			},
 		)
@@ -1586,7 +1845,9 @@ var _ = Describe("Writer", func() {
 					Name:        fmt.Sprintf("LimitTest%d", i),
 					Leaseholder: 1,
 				}
-				Expect(limitWriter.Create(ctx, &ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return limitSvc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
 				createdChannels[i] = ch
 			}
 
@@ -1597,7 +1858,9 @@ var _ = Describe("Writer", func() {
 				Name:        "OverLimit",
 				Leaseholder: 1,
 			}
-			Expect(limitWriter.Create(ctx, &overLimitCh)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return limitSvc.NewWriter(tx).Create(ctx, &overLimitCh)
+			})).
 				Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 
 			// Retrieve all channels - this should work fine even at the limit
@@ -1606,7 +1869,7 @@ var _ = Describe("Writer", func() {
 			Expect(
 				retrieve.Entries(&retrievedChannels).
 					Where(channel.MatchLeaseholders(1)).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).To(Succeed())
 			Expect(retrievedChannels).To(HaveLen(limit))
 
@@ -1615,7 +1878,7 @@ var _ = Describe("Writer", func() {
 			Expect(
 				retrieve.Where(channel.MatchKeys(createdChannels[0].Key())).
 					Entry(&singleChannel).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).To(Succeed())
 			Expect(singleChannel.Name).To(Equal(createdChannels[0].Name))
 		})
@@ -1630,7 +1893,9 @@ var _ = Describe("Writer", func() {
 						Name:        fmt.Sprintf("LimitTest%d", i),
 						Leaseholder: 1,
 					}
-					Expect(limitWriter.Create(ctx, &ch)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return limitSvc.NewWriter(tx).Create(ctx, &ch)
+					})).To(Succeed())
 					channels[i] = ch
 				}
 				overLimitCh := channel.Channel{
@@ -1639,7 +1904,9 @@ var _ = Describe("Writer", func() {
 					Name:        "OverLimit",
 					Leaseholder: 1,
 				}
-				Expect(limitWriter.Create(ctx, &overLimitCh)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return limitSvc.NewWriter(tx).Create(ctx, &overLimitCh)
+				})).
 					To(MatchError(ContainSubstring("channel limit exceeded")))
 
 				// The rejected create must not leave an orphaned storage channel behind
@@ -1650,14 +1917,18 @@ var _ = Describe("Writer", func() {
 
 				// The rejected create must not burn a local key: after freeing
 				// capacity, the next create receives the next sequential key.
-				Expect(limitWriter.Delete(ctx, channels[0].Key(), false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return limitSvc.NewWriter(tx).Delete(ctx, channels[0].Key(), false)
+				})).To(Succeed())
 				newCh := channel.Channel{
 					IsIndex:     true,
 					DataType:    telem.TimestampT,
 					Name:        "NewAfterReject",
 					Leaseholder: 1,
 				}
-				Expect(limitWriter.Create(ctx, &newCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return limitSvc.NewWriter(tx).Create(ctx, &newCh)
+				})).To(Succeed())
 				Expect(newCh.LocalKey).To(Equal(channels[limit-1].LocalKey + 1))
 			},
 		)
@@ -1672,13 +1943,18 @@ var _ = Describe("Writer", func() {
 						Name:        fmt.Sprintf("LimitTest%d", i),
 						Leaseholder: 1,
 					}
-					Expect(limitWriter.Create(ctx, &ch)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return limitSvc.NewWriter(tx).Create(ctx, &ch)
+					})).To(Succeed())
 					createdChannels[i] = ch
 				}
 				MustOpen(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Keys: []channel.Key{createdChannels[0].Key()},
 				}))
-				Expect(limitWriter.Delete(ctx, createdChannels[0].Key(), false)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return limitSvc.NewWriter(tx).
+						Delete(ctx, createdChannels[0].Key(), false)
+				})).
 					To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
 				newCh := channel.Channel{
 					IsIndex:     true,
@@ -1686,21 +1962,164 @@ var _ = Describe("Writer", func() {
 					Name:        "NewAfterDelete",
 					Leaseholder: 1,
 				}
-				Expect(limitWriter.Create(ctx, &newCh)).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return limitSvc.NewWriter(tx).Create(ctx, &newCh)
+				})).
 					To(MatchError(ContainSubstring("channel limit exceeded")))
+			},
+		)
+	})
+
+	Describe("Storage", Ordered, func() {
+		var (
+			dist     testutil.Node
+			db       *gorp.DB
+			svc      *channel.Service
+			rollback = errors.New("rollback")
+			create   = func(ctx SpecContext) channel.Channel {
+				GinkgoHelper()
+				ch := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				return ch
+			}
+			stored = func(ctx SpecContext, ch channel.Channel) ts.Channel {
+				GinkgoHelper()
+				return MustSucceed(
+					dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+				)
+			}
+			expectNotStored = func(ctx SpecContext, ch channel.Channel) {
+				GinkgoHelper()
+				Expect(dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey())).
+					Error().To(MatchError(ts.ErrChannelNotFound))
+			}
+		)
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			dist = testutil.NewNode(ctx)
+			db = dist.DB
+			svc = openService(ctx, dist)
+		})
+		It(
+			"Should create the storage channel when the transaction commits",
+			func(ctx SpecContext) {
+				ch := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := svc.NewWriter(tx).Create(ctx, &ch); err != nil {
+						return err
+					}
+					expectNotStored(ctx, ch)
+					return nil
+				})).To(Succeed())
+				Expect(stored(ctx, ch).Name).To(Equal(ch.Name))
+			},
+		)
+		It(
+			"Should create no storage channel when the transaction rolls back",
+			func(ctx SpecContext) {
+				ch := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := svc.NewWriter(tx).Create(ctx, &ch); err != nil {
+						return err
+					}
+					return rollback
+				})).To(MatchError(rollback))
+				Expect(ch.LocalKey).ToNot(BeZero())
+				expectNotStored(ctx, ch)
+			},
+		)
+		It(
+			"Should delete the storage channel when the transaction commits",
+			func(ctx SpecContext) {
+				ch := create(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := svc.NewWriter(tx).
+						Delete(ctx, ch.Key(), false); err != nil {
+						return err
+					}
+					stored(ctx, ch)
+					return nil
+				})).To(Succeed())
+				expectNotStored(ctx, ch)
+			},
+		)
+		It(
+			"Should keep the storage channel when a delete rolls back",
+			func(ctx SpecContext) {
+				ch := create(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := svc.NewWriter(tx).
+						Delete(ctx, ch.Key(), false); err != nil {
+						return err
+					}
+					return rollback
+				})).To(MatchError(rollback))
+				stored(ctx, ch)
+			},
+		)
+		It(
+			"Should keep the channel when its storage channel cannot be deleted",
+			func(ctx SpecContext) {
+				ch := create(ctx)
+				MustOpen(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Keys: []channel.Key{ch.Key()},
+				}))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, ch.Key(), false)
+				})).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(ch.Key())).
+					Exists(ctx, db)).To(BeTrue())
+			},
+		)
+		It(
+			"Should rename the storage channel when the transaction commits",
+			func(ctx SpecContext) {
+				ch := create(ctx)
+				name := UniqueChannelName()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := svc.NewWriter(tx).
+						Rename(ctx, ch.Key(), name, false); err != nil {
+						return err
+					}
+					Expect(stored(ctx, ch).Name).To(Equal(ch.Name))
+					return nil
+				})).To(Succeed())
+				Expect(stored(ctx, ch).Name).To(Equal(name))
+				var res channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(ch.Key())).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res.Name).To(Equal(name))
 			},
 		)
 	})
 
 	Describe("ChangeDataType", Ordered, func() {
 		var (
-			svc           *channel.Service
-			channelWriter channel.Writer
+			db  *gorp.DB
+			svc *channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc, _ = openService(ctx, testutil.NewNode(ctx))
-			channelWriter = svc.NewWriter(nil)
+			dist := testutil.NewNode(ctx)
+			db = dist.DB
+			svc = openService(ctx, dist)
 		})
 		It(
 			"Should change the data type of a calculated channel",
@@ -1711,16 +2130,19 @@ var _ = Describe("Writer", func() {
 					Virtual:    true,
 					Expression: "return 1",
 				}
-				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
-				Expect(
-					channelWriter.ChangeDataType(ctx, base.Key(), telem.Float32T),
-				).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).
+						ChangeDataType(ctx, base.Key(), telem.Float32T)
+				})).To(Succeed())
 				var retrieved channel.Channel
 				Expect(
 					svc.NewRetrieve().
 						Where(channel.MatchKeys(base.Key())).
 						Entry(&retrieved).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(retrieved.DataType).To(Equal(telem.Float32T))
 			},
@@ -1734,10 +2156,13 @@ var _ = Describe("Writer", func() {
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
 				}
-				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
-				Expect(
-					channelWriter.ChangeDataType(ctx, ch.Key(), telem.Float32T),
-				).To(SatisfyAll(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).
+						ChangeDataType(ctx, ch.Key(), telem.Float32T)
+				})).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(
 						ContainSubstring(
@@ -1750,7 +2175,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(channel.MatchKeys(ch.Key())).
 						Entry(&retrieved).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(retrieved.DataType).To(Equal(telem.Float64T))
 			},

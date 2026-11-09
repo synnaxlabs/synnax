@@ -18,7 +18,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/config"
@@ -32,6 +31,10 @@ import (
 // Config is the configuration for opening a Service.
 type Config struct {
 	alamos.Instrumentation
+	// DB holds the index channels.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Channel finds the index channels that have a retention.
 	//
 	// [REQUIRED]
@@ -40,11 +43,6 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Framer *framer.Service
-	// HostProvider gives the key of this Core. The Service deletes data only for the
-	// index channels that this Core leases.
-	//
-	// [REQUIRED]
-	HostProvider cluster.HostProvider
 	// Interval is the time between two passes over the index channels.
 	//
 	// [OPTIONAL] - Defaults to 1 minute.
@@ -62,7 +60,7 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Interval = override.Numeric(c.Interval, other.Interval)
 	return c
 }
@@ -72,13 +70,13 @@ func (c Config) Validate() error {
 	v := validate.New("retention")
 	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
-	v.NotNil("host_provider", c.HostProvider)
+	v.NotNil("db", c.DB)
 	v.Positive("interval", c.Interval)
 	return v.Error()
 }
 
-// Service deletes, once each interval, the data of each index channel that this Core
-// leases and that is older than the channel's retention. The delete includes every
+// Service deletes, once each interval, the data of each index channel that is older
+// than the channel's retention. The delete includes every
 // channel on the index, and stops at the oldest open writer on those channels.
 type Service struct {
 	shutdown io.Closer
@@ -102,18 +100,15 @@ func Open(cfgs ...Config) (*Service, error) {
 func (s *Service) delete(ctx context.Context, now time.Time) error {
 	var indexes []channel.Channel
 	if err := s.cfg.Channel.NewRetrieve().
-		Where(channel.And(
-			channel.MatchLeaseholders(s.cfg.HostProvider.HostKey()),
-			channel.Match(func(
-				_ gorp.Context,
-				_ channel.Retrieve,
-				ch *channel.Channel,
-			) (bool, error) {
-				return ch.Retention > 0, nil
-			}),
-		)).
+		Where(channel.Match(func(
+			_ gorp.Context,
+			_ channel.Retrieve,
+			ch *channel.Channel,
+		) (bool, error) {
+			return ch.Retention > 0, nil
+		})).
 		Entries(&indexes).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, s.cfg.DB); err != nil {
 		s.cfg.L.Error("failed to retrieve index channels", zap.Error(err))
 		return nil
 	}

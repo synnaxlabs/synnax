@@ -11,13 +11,11 @@
 
 from __future__ import annotations
 
-from typing import Literal
-from typing import override as _override
+from typing import Literal, override as _override
 
 from pydantic import Field
 
-from synnax import channel as channel_
-from synnax import task
+from synnax import channel as channel_, task
 from x import telem
 
 TIME_SOURCE_ARRIVAL: Literal["arrival"] = "arrival"

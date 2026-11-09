@@ -676,6 +676,131 @@ describe("Cache", () => {
     });
   });
 
+  describe("record cap", () => {
+    const capped = (openStreamer: framer.StreamOpener) =>
+      new query.Cache({
+        openStreamer,
+        breaker: { baseInterval: TimeSpan.milliseconds(1) },
+        onError: vi.fn(),
+        onStreamRetry: vi.fn(),
+        recordCap: 10,
+      });
+    const docs = (n: number): Doc[] =>
+      Array.from({ length: n }, (_, i) => ({ key: `${i}`, name: `${i}` }));
+
+    it("should drop records past the cap while the stream is live", async () => {
+      const cache = capped(async () => new MockStreamer());
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      await cache.ensureStreaming();
+      table.set(docs(11));
+      await sleep.sleep(TimeSpan.milliseconds(1));
+      table.set(docs(12)[11]);
+      await expect.poll(() => table.size).toBe(9);
+      await cache.close();
+    });
+
+    it("should return every record of a fetch that passes the cap", async () => {
+      const cache = capped(async () => new MockStreamer());
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      const space = cache.queries<string, Doc[], string, Doc>({
+        name: "docs",
+        table,
+        fetch: async () => {
+          table.set(docs(12));
+          return docs(12).map(({ key }) => key);
+        },
+        compose: (records) => records,
+        matches: () => true,
+      });
+      await cache.ensureStreaming();
+      expect(await space.retrieve("all")).toEqual(docs(12));
+      await cache.close();
+    });
+
+    it("should keep records that a maintained answer holds", async () => {
+      const cache = capped(async () => new MockStreamer());
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      const space = cache.queries<string, Doc[], string, Doc>({
+        name: "docs",
+        table,
+        fetch: async () => {
+          table.set(docs(11));
+          return docs(11).map(({ key }) => key);
+        },
+        compose: (records) => records,
+        matches: () => true,
+      });
+      space.onChange("all", vi.fn());
+      await space.retrieve("all");
+      await sleep.sleep(TimeSpan.milliseconds(5));
+      expect(table.size).toBe(11);
+      await cache.close();
+    });
+
+    it("should forget an unmaintained answer whose records dropped", async () => {
+      const cache = capped(async () => new MockStreamer());
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      const space = cache.queries<string, Doc[], string, Doc>({
+        name: "docs",
+        table,
+        fetch: async () => {
+          table.set(docs(3));
+          return ["0", "1", "2"];
+        },
+        compose: (records) => records,
+        matches: () => true,
+      });
+      await cache.ensureStreaming();
+      await space.retrieve("some");
+      table.set(docs(20).slice(3));
+      await sleep.sleep(TimeSpan.milliseconds(1));
+      table.set(docs(21)[20]);
+      await expect.poll(() => table.size).toBe(9);
+      expect(space.getCached("some")).toBeUndefined();
+      await cache.close();
+    });
+
+    it("should drop the records written offline once the stream reopens", async () => {
+      const first = new MockStreamer();
+      const reopen = Promise.withResolvers<void>();
+      let opens = 0;
+      const cache = capped(async () => {
+        opens++;
+        if (opens === 1) return first;
+        await reopen.promise;
+        return new MockStreamer();
+      });
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      await cache.ensureStreaming();
+      first.drop();
+      await expect.poll(() => opens).toBe(2);
+      table.set(docs(11));
+      reopen.resolve();
+      await expect.poll(() => cache.epoch).toBe(2);
+      table.set(docs(12)[11]);
+      await expect.poll(() => table.size).toBe(9);
+      await cache.close();
+    });
+
+    it("should drop nothing while the stream is down", async () => {
+      const first = new MockStreamer();
+      let opens = 0;
+      const cache = capped(async () => {
+        opens++;
+        if (opens === 1) return first;
+        throw new Unreachable();
+      });
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      await cache.ensureStreaming();
+      first.drop();
+      await expect.poll(() => opens).toBeGreaterThan(1);
+      table.set(docs(11));
+      await sleep.sleep(TimeSpan.milliseconds(5));
+      expect(table.size).toBe(11);
+      await cache.close();
+    });
+  });
+
   describe("dead change stream", () => {
     it("stops maintaining answers once reconnects run out", async () => {
       const cache = makeEngine(async () => failingStreamer(), { maxRetries: 1 });

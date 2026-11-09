@@ -15,10 +15,10 @@ import { useCreate } from "@/feature/video/useCreate";
 import { type Selector } from "@/platform/selector";
 
 export const Selectable: Selector.Selectable = {
-  type: video.TYPE_ONTOLOGY_ID.type,
+  type: video.TYPE_RESOURCE_ID.type,
   title: "Video",
   icon: <Icon.Video />,
   description: "Live and past video",
   useOnSelect: useCreate,
-  useVisible: () => Access.useCreateGranted(video.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(video.TYPE_RESOURCE_ID),
 };

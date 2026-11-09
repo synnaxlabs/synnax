@@ -15,14 +15,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apivideo "github.com/synnaxlabs/synnax/pkg/api/video"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -36,42 +39,81 @@ func TestAPIVideo(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	svc    *service.Layer
-	apiSvc *apivideo.Service
-	proj   project.Project
+	db  *gorp.DB
+	svc *service.Layer
+	// create, del, dispatch, setGroup, and retrieve run their routes as the API layer
+	// binds them.
+	create   freighter.UnaryHandler[apivideo.CreateRequest, apivideo.CreateResponse]
+	del      freighter.UnaryHandler[apivideo.DeleteRequest, struct{}]
+	dispatch freighter.UnaryHandler[apivideo.DispatchRequest, struct{}]
+	setGroup freighter.UnaryHandler[apivideo.SetGroupRequest, struct{}]
+	retrieve freighter.UnaryHandler[
+		apivideo.RetrieveRequest,
+		apivideo.RetrieveResponse,
+	]
+	proj project.Project
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	svc = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
-	apiSvc = MustSucceed(apivideo.NewService(apivideo.ServiceConfig{
-		RBAC:  svc.RBAC,
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
+	apiSvc := MustSucceed(apivideo.NewService(apivideo.ServiceConfig{
 		Video: svc.Video,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	proj = project.Project{Name: "test-project"}
-	Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Project.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
 })
 
-// newUser creates a user that may run actions on every video view.
-func newUser(ctx SpecContext, actions ...access.Action) user.User {
+// newUser creates a user with no policies.
+func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	u := MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
-	if len(actions) == 0 {
-		return u
+}
+
+// newEditor creates a user that may run every action on every video view, and create
+// views in the suite project.
+func newEditor(ctx SpecContext) user.User {
+	GinkgoHelper()
+	u := newUser(ctx)
+	for _, a := range []access.Action{
+		access.ActionCreate,
+		access.ActionRetrieve,
+		access.ActionUpdate,
+		access.ActionDelete,
+	} {
+		grant(ctx, a, u.ResourceID(), resource.ID{Type: resource.TypeVideo})
 	}
-	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    "policy-" + uuid.New().String(),
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeVideo}},
-		Actions: actions,
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, u.OntologyID(), r.Key)).To(Succeed())
+	grant(ctx, access.ActionUpdate, u.ResourceID(), project.ResourceID(proj.Key))
 	return u
+}
+
+// grant grants the action on the objects to the subject.
+func grant(
+	ctx SpecContext,
+	action access.Action,
+	subject resource.ID,
+	objects ...resource.ID,
+) {
+	GinkgoHelper()
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	actions := []access.Action{action}
+	MustSucceed(
+		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, key, actions, objects...),
+	)
 }

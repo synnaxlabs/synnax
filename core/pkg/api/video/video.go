@@ -13,12 +13,11 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/video"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -31,10 +30,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Video *video.Service
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -46,7 +41,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Video = override.Nil(c.Video, other.Video)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -54,12 +48,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.video")
 	v.NotNil("video", c.Video)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *video.Service
 }
 
@@ -70,14 +62,12 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Video,
-		access:   cfg.RBAC,
 	}, nil
 }
 
 type (
 	CreateRequest struct {
-		Videos  []video.Video `json:"videos"  msgpack:"videos"`
-		Project project.Key   `json:"project" msgpack:"project"`
+		Videos []video.Video `json:"videos" msgpack:"videos"`
 		// DispatchKey is stamped onto the create broadcasts so the sender skips its
 		// echo.
 		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
@@ -87,21 +77,15 @@ type (
 	}
 )
 
+// Create creates the video views, and overwrites each one whose key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeVideo}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
-		CreateMany(ctx, req.Project, &req.Videos); err != nil {
+		CreateMany(ctx, &req.Videos); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Videos: req.Videos}, nil
@@ -111,41 +95,41 @@ func (s *Service) Create(
 // identifies the batch of the sender, so the sender can skip its own broadcast.
 type DispatchRequest = actions.DispatchRequest[video.Key, video.Action]
 
-// Dispatch applies the actions to the video view atomically. Subscribers to the video
+// Dispatch applies the actions to the video view in tx. Subscribers to the video
 // action signals receive them after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{video.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.
-		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the video views that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, video.ResourceID)
+}
+
+// Retrieve returns the video views that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Videos))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Videos))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: video.OntologyIDsFromVideos(res.Videos),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, video.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -155,17 +139,46 @@ type DeleteRequest struct {
 	Keys []video.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the video views with the given keys. A key that matches no view is
+// ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: video.OntologyIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+}
+
+// SetGroupRequest moves video views into Group, or out of their group when Group is
+// nil.
+type SetGroupRequest struct {
+	Group *group.Key  `json:"group" msgpack:"group"`
+	Keys  []video.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the video views with the given keys into a group. A move into a group
+// under another project moves the views into that project.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
+}
+
+// SetProjectRequest moves video views into Project.
+type SetProjectRequest struct {
+	Project project.Key `json:"project" msgpack:"project"`
+	Keys    []video.Key `json:"keys"    msgpack:"keys"`
+}
+
+// SetProject moves the video views with the given keys out of their group and into a
+// project.
+func (s *Service) SetProject(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetProjectRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).
+		SetProject(ctx, req.Project, req.Keys...)
 }

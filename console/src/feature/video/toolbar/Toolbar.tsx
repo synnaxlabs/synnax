@@ -30,7 +30,7 @@ const Internal = (): ReactElement => {
         </Base.Title>
         <Base.Actions>
           <Download />
-          <Core.CopyLinkToolbarButton name={name} ontologyID={video.ontologyID(key)} />
+          <Core.CopyLinkToolbarButton name={name} resourceID={video.resourceID(key)} />
         </Base.Actions>
       </Base.Header>
       <Base.Body>

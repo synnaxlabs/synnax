@@ -10,15 +10,13 @@
 package video_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/video"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,39 +31,51 @@ func TestVideo(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db   *gorp.DB
-	otg  *ontology.Ontology
-	proj project.Project
-	svc  *video.Service
-	tx   gorp.Tx
+	db         *gorp.DB
+	groupSvc   *group.Service
+	proj       project.Project
+	projectSvc *project.Service
+	svc        *video.Service
 )
 
-var (
-	_ = BeforeSuite(func(ctx SpecContext) {
-		ShouldNotLeakGoroutines()
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		panelSvc := MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			ImEx:     imex.NewService(),
-			Panel:    panelSvc,
-		}))
-		svc = MustOpen(video.OpenService(ctx, video.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		proj.Name = "test-project"
-		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{DB: db}))
+	svc = MustOpen(video.OpenService(ctx, video.ServiceConfig{DB: db}))
+	proj.Name = "test-project"
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
+})
+
+// dispatch runs Writer.Apply in a transaction of its own.
+func dispatch(
+	ctx context.Context,
+	key video.Key,
+	dispatchKey string,
+	acts []video.Action,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).WithDispatchKey(dispatchKey).Apply(ctx, key, acts...)
 	})
-	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-)
+}
+
+// create creates v in the test project, in a transaction of its own.
+func create(ctx context.Context, v video.Video) video.Video {
+	GinkgoHelper()
+	v.Project = &proj.Key
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).Create(ctx, &v)
+	})).To(Succeed())
+	return v
+}
+
+func retrieve(ctx context.Context, key video.Key) video.Video {
+	GinkgoHelper()
+	var res video.Video
+	Expect(svc.NewRetrieve().Where(video.MatchKeys(key)).Entry(&res).Exec(ctx, db)).
+		To(Succeed())
+	return res
+}

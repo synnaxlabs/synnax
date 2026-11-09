@@ -11,12 +11,14 @@ package video
 
 import (
 	"context"
-	"io"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -33,10 +35,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology relates video views to other resources.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Signals, when set, broadcasts each dispatch on the sy_video_set channel and each
 	// delete on the sy_video_delete channel.
 	//
@@ -50,7 +48,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -59,7 +56,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("video")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -88,26 +84,27 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Video]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishActions(
-			ctx,
-			signals.ActionPublisherConfig[Key, Action]{
-				Observable: s.state,
-				Name:       "video",
-			},
-		); !ok(err, sig) {
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:     "sy_video_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+			Table:    tableName,
+		}); !ok(err, nil) {
 			return nil, err
 		}
-		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-		deleteCfg.DisableSet = true
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Video]{
+			Changes:     s.table.Changes,
+			Resource:    ResourceID,
+			SetDisabled: new(true),
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -117,53 +114,19 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close releases the resources of the service.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// OnAction subscribes handler to the actions that Dispatch applies. The handler runs
-// inside Dispatch after its transaction commits.
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnChange(handler)
 }
 
-// Dispatch applies acts atomically to the video view with the given key. Dispatches to
-// one view run one at a time, each in a transaction that commits before its actions
-// are broadcast. dispatchKey goes onto the broadcast so the sender recognizes its own
-// echo. Returns a validation error, and stores nothing, when the actions leave the
-// view invalid.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	return s.state.Dispatch(
-		ctx,
-		key,
-		dispatchKey,
-		acts,
-		func(tx gorp.Tx) ([]Action, error) {
-			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Video](key)).
-				ChangeErr(func(_ gorp.Context, v Video) (Video, error) {
-					reduced, err := Reduce(v, acts...)
-					if err != nil {
-						return Video{}, err
-					}
-					if err = reduced.Validate(); err != nil {
-						return Video{}, err
-					}
-					return reduced, nil
-				}).Exec(ctx, tx)
-		},
-	)
-}
-
-// NewWriter opens a writer that runs in tx, or directly on the database when tx is
-// nil.
+// NewWriter opens a writer that creates, edits, and deletes video views in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		tx:         tx,
-		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
@@ -173,7 +136,30 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
 	}
+}
+
+// MoveGroups moves the video views in groups into the project top, in tx, after those
+// groups move under top. It returns a validation error when one of the groups holds a
+// video view and top is not a project.
+func (s *Service) MoveGroups(
+	ctx context.Context,
+	tx gorp.Tx,
+	groups []group.Key,
+	top *resource.ID,
+) error {
+	var moved []Video
+	if err := s.NewRetrieve().
+		Where(MatchGroups(groups...)).
+		Entries(&moved).
+		Exec(ctx, tx); err != nil || len(moved) == 0 {
+		return err
+	}
+	p, err := project.TopParentProject(top, resource.TypeVideo)
+	if err != nil {
+		return err
+	}
+	keys := lo.Map(moved, func(v Video, _ int) Key { return v.Key })
+	return s.NewWriter(tx).setProject(ctx, *p, keys...)
 }

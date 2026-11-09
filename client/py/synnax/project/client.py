@@ -13,9 +13,11 @@ from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, FileTransport, UnaryClient
-from synnax import imex
+from synnax import group as group_, imex
 from synnax.project.types_gen import (
+    Cursor,
     Key,
+    Order,
     Project,
     RetrieveRequest,
     RetrieveResponse,
@@ -168,6 +170,8 @@ class Client:
         self,
         *,
         key: Key,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -181,6 +185,8 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -195,6 +201,8 @@ class Client:
         self,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -202,7 +210,8 @@ class Client:
         keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Project]: ...
 
@@ -213,7 +222,8 @@ class Client:
         keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Project | list[Project]:
@@ -223,6 +233,9 @@ class Client:
         must match every field. A plain ``key`` returns one project.
 
         :param key: Keeps projects with this key.
+        :param groups: Keeps projects in any of these groups.
+        :param grouped: Keeps only projects in a group when True, and only projects in
+            no group when False.
         :param and_: Keeps projects that match every filter in the list.
         :param or_: Keeps projects that match any filter in the list.
         :param not_: Keeps projects that do not match the filter.
@@ -230,22 +243,25 @@ class Client:
         :param keys: Keeps projects with one of these keys.
         :param search_term: A fuzzy search term matched against project names.
         :param limit: The maximum number of projects to retrieve.
-        :param offset: The number of projects to skip.
+        :param order: The order of the projects. Defaults to key order.
+        :param after: Retrieves the projects past this position in the order: the key of
+            the last project of the page before, and its value of the order field.
         :param one: Returns one project for any filter.
         :returns: One project for a plain ``key`` or when ``one`` is set, otherwise a
             list of projects. The list leaves out keys that do not exist.
         :raises NotFoundError: If one project is wanted and none matches.
         :raises MultipleFoundError: If one project is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one project is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
         )
         res = self._client.send("/project/retrieve", req, RetrieveResponse)
-        return sole("project", req.where, res.projects) if single else res.projects
+        return sole("project", req, res.projects) if single else res.projects

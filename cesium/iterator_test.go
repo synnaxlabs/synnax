@@ -10,8 +10,11 @@
 package cesium_test
 
 import (
+	"context"
 	"slices"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,6 +30,41 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// sendFailContext cancels once for the first send that finds full true, and cancels
+// nothing before or after that send. failed closes when the next send starts.
+type sendFailContext struct {
+	context.Context
+	full     func() bool
+	canceled atomic.Bool
+	failed   chan struct{}
+	report   sync.Once
+}
+
+func newSendFailContext(ctx context.Context, full func() bool) *sendFailContext {
+	return &sendFailContext{Context: ctx, full: full, failed: make(chan struct{})}
+}
+
+func (c *sendFailContext) Done() <-chan struct{} {
+	if c.canceled.Load() {
+		c.report.Do(func() { close(c.failed) })
+		return nil
+	}
+	if !c.full() {
+		return nil
+	}
+	c.canceled.Store(true)
+	done := make(chan struct{})
+	close(done)
+	return done
+}
+
+func (c *sendFailContext) Err() error {
+	if c.canceled.Load() {
+		return context.Canceled
+	}
+	return nil
+}
 
 var _ = Describe("Iterator Behavior", func() {
 	for fsName, openFS := range FileSystems {
@@ -409,7 +447,7 @@ var _ = Describe("Iterator Behavior", func() {
 							telem.NewSeriesV[int64](0, 1, 2, 3, 4),
 						},
 					)))
-					MustSucceed(w.Commit())
+					MustCommit(w)
 					Expect(w.Close()).To(Succeed())
 				})
 
@@ -644,7 +682,7 @@ var _ = Describe("Iterator Behavior", func() {
 							[]cesium.ChannelKey{idxKey, dataKey},
 							[]telem.Series{ts, vals},
 						)))
-						MustSucceed(w.Commit())
+						MustCommit(w)
 						Expect(w.Close()).To(Succeed())
 					}
 					write(
@@ -787,7 +825,7 @@ var _ = Describe("Iterator Behavior", func() {
 							[]cesium.ChannelKey{idxKey, dataKey},
 							[]telem.Series{ts, vals},
 						)))
-						MustSucceed(w.Commit())
+						MustCommit(w)
 						Expect(w.Close()).To(Succeed())
 					}
 					write(
@@ -1687,6 +1725,131 @@ var _ = Describe("Iterator Behavior", func() {
 					}
 				})
 
+				It(
+					"Should release its channels when it flows in a canceled context",
+					func(ctx SpecContext) {
+						subDB := mustOpenDBOnFS(ctx, openFS())
+						key := GenerateChannelKey()
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Nansen",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						})).To(Succeed())
+						iter := MustSucceed(
+							subDB.NewStreamIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []channel.Key{key},
+							}),
+						)
+						sCtx, cancel := signal.Isolated()
+						cancel()
+						iter.InFrom(confluence.NewStream[cesium.IteratorRequest]())
+						iter.OutTo(confluence.NewStream[cesium.IteratorResponse]())
+						iter.Flow(sCtx)
+						Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+						Expect(subDB.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should exit on cancel when nothing reads its responses",
+					func(ctx SpecContext) {
+						subDB := mustOpenDBOnFS(ctx, openFS())
+						key := GenerateChannelKey()
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Shackleton",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						})).To(Succeed())
+						Expect(subDB.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
+						))).To(Succeed())
+						iter := MustSucceed(
+							subDB.NewStreamIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []channel.Key{key},
+							}),
+						)
+						var (
+							sCtx, cancel = signal.Isolated()
+							requests     = confluence.NewStream[cesium.IteratorRequest]()
+						)
+						iter.InFrom(requests)
+						iter.OutTo(confluence.NewStream[cesium.IteratorResponse]())
+						iter.Flow(sCtx)
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandSeekFirst,
+						}
+						// The ack of the seek has no reader.
+						cancel()
+						Eventually(sCtx.Stopped()).Should(BeClosed())
+						Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+						Expect(subDB.Close()).To(Succeed())
+					},
+				)
+
+				DescribeTable(
+					"Should not acknowledge a read whose data it failed to send",
+					func(ctx SpecContext, span telem.TimeSpan) {
+						subDB := mustOpenDBOnFS(ctx, openFS())
+						key := GenerateChannelKey()
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Scott",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						})).To(Succeed())
+						Expect(subDB.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
+						))).To(Succeed())
+						iter := MustSucceed(
+							subDB.NewStreamIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []channel.Key{key},
+							}),
+						)
+						var (
+							requests  = confluence.NewStream[cesium.IteratorRequest](2)
+							responses = confluence.NewStream[cesium.IteratorResponse](1)
+						)
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandSeekFirst,
+						}
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandNext,
+							Span:    span,
+						}
+						// The ack of the seek fills responses for the data of the read.
+						failCtx := newSendFailContext(ctx, func() bool {
+							return len(requests.Outlet()) == 0 &&
+								len(responses.Outlet()) == cap(responses.Outlet())
+						})
+						sCtx := signal.Wrap(failCtx)
+						iter.InFrom(requests)
+						iter.OutTo(responses)
+						iter.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+						Eventually(failCtx.failed).Should(BeClosed())
+						Eventually(responses.Outlet()).Should(Receive(
+							HaveField("Command", cesium.IteratorCommandSeekFirst),
+						))
+						var ack cesium.IteratorResponse
+						Eventually(responses.Outlet()).Should(Receive(&ack))
+						Expect(ack.Variant).To(Equal(cesium.IteratorResponseVariantAck))
+						Expect(ack.Err).To(MatchError(context.Canceled))
+						Expect(ack.Ack).To(BeFalse())
+						requests.Close()
+						Eventually(sCtx.Stopped()).Should(BeClosed())
+						Expect(sCtx.Wait()).To(Succeed())
+						Expect(subDB.Close()).To(Succeed())
+					},
+					Entry("automatic span", cesium.AutoSpan),
+					Entry("fixed span", telem.Second),
+				)
+
 				// openFaulty writes five samples to an index and a data channel through
 				// a fault-injecting file system and returns the keys of both.
 				openFaulty := func(
@@ -1810,13 +1973,12 @@ var _ = Describe("Iterator Behavior", func() {
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
-						_, err := subDB.OpenIterator(
+						Expect(subDB.OpenIterator(
 							cesium.IteratorConfig{
 								Bounds:   telem.TimeRangeMax,
 								Channels: []cesium.ChannelKey{key},
 							},
-						)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
+						)).Error().To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					},
@@ -1835,13 +1997,12 @@ var _ = Describe("Iterator Behavior", func() {
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
-						_, err := subDB.NewStreamIterator(
+						Expect(subDB.NewStreamIterator(
 							cesium.IteratorConfig{
 								Bounds:   telem.TimeRangeMax,
 								Channels: []cesium.ChannelKey{key},
 							},
-						)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
+						)).Error().To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					},
@@ -1858,12 +2019,122 @@ var _ = Describe("Iterator Behavior", func() {
 						IsIndex:  true,
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
-					_, err := subDB.Read(ctx, telem.TimeRangeMax, key)
-					Expect(err).To(MatchError(cesium.ErrDBClosed))
+					Expect(
+						subDB.Read(ctx, telem.TimeRangeMax, key),
+					).Error().
+						To(MatchError(cesium.ErrDBClosed))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
 			})
 		})
 	}
+})
+
+var _ = Describe("Iterator index lookups", func() {
+	It("Should read the index once for every channel on it", func(ctx SpecContext) {
+		rec := NewRecorder(fs.NewMem())
+		db := mustOpenDBOnFS(ctx, rec)
+		idxKey := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key:      idxKey,
+			Name:     "Lovelace",
+			IsIndex:  true,
+			DataType: telem.TimestampT,
+		})).To(Succeed())
+		stamps := make([]telem.TimeStamp, 1000)
+		for i := range stamps {
+			stamps[i] = telem.TimeStamp(i) * telem.SecondTS
+		}
+		keys := []cesium.ChannelKey{idxKey}
+		series := []telem.Series{telem.NewSeries(stamps)}
+		for i := range 4 {
+			key := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key:      key,
+				Name:     "Babbage" + strconv.Itoa(i),
+				Index:    idxKey,
+				DataType: telem.Float32T,
+			})).To(Succeed())
+			keys = append(keys, key)
+			series = append(series, telem.NewSeries(make([]float32, len(stamps))))
+		}
+		Expect(db.Write(ctx, 0, telem.MultiFrame(keys, series))).To(Succeed())
+		tr := (100 * telem.SecondTS).Range(900 * telem.SecondTS)
+		// Index probes are the only 8-byte reads, since data reads span many samples.
+		indexReads := func(keys ...cesium.ChannelKey) int {
+			GinkgoHelper()
+			rec.Reset()
+			fr := MustSucceed(db.Read(ctx, tr, keys...))
+			Expect(fr.Count()).To(Equal(len(keys)))
+			return rec.Count(MatchOp(OpReadAt), MatchLength(8))
+		}
+		one := indexReads(keys[1])
+		Expect(one).To(BeNumerically(">", 0))
+		Expect(indexReads(keys[1:]...)).To(Equal(one))
+	})
+
+	It("Should see an index rewritten between commands", func(ctx SpecContext) {
+		db := mustOpenDBOnFS(ctx, fs.NewMem())
+		idxKey, dataKey := GenerateChannelKey(), GenerateChannelKey()
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key:      idxKey,
+				Name:     "Hopper",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			},
+			cesium.Channel{
+				Key:      dataKey,
+				Name:     "Turing",
+				Index:    idxKey,
+				DataType: telem.Int64T,
+			},
+		)).To(Succeed())
+		// write fills [0s, 9s] with a sample every step, so each write has the same
+		// domain bounds but a different sample count.
+		write := func(step telem.TimeSpan) {
+			GinkgoHelper()
+			var (
+				stamps []telem.TimeStamp
+				values []int64
+			)
+			for ts := telem.TimeStamp(0); ts <= 9*telem.SecondTS; ts += telem.TimeStamp(step) {
+				stamps = append(stamps, ts)
+				values = append(values, int64(ts))
+			}
+			Expect(db.Write(ctx, 0, telem.MultiFrame(
+				[]cesium.ChannelKey{idxKey, dataKey},
+				[]telem.Series{telem.NewSeries(stamps), telem.NewSeries(values)},
+			))).To(Succeed())
+		}
+		write(telem.Second)
+		i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			Channels:      []cesium.ChannelKey{dataKey},
+			Bounds:        telem.TimeRangeMax,
+			AutoChunkSize: 2,
+		}))
+		DeferClose(i)
+		read := func() telem.Series {
+			GinkgoHelper()
+			Expect(i.SeekGE(7 * telem.SecondTS)).To(BeTrue())
+			Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
+			return i.Value().SeriesAt(0)
+		}
+		Expect(read()).To(telem.MatchSeriesDataV[int64](
+			int64(7*telem.SecondTS),
+			int64(8*telem.SecondTS),
+		))
+		Expect(db.DeleteTimeRange(
+			ctx,
+			[]cesium.ChannelKey{idxKey, dataKey},
+			telem.TimeRangeMax,
+		)).To(Succeed())
+		write(telem.Second / 2)
+		Expect(read()).To(telem.MatchSeriesDataV[int64](
+			int64(7*telem.SecondTS),
+			int64(7*telem.SecondTS+telem.SecondTS/2),
+		))
+	})
 })

@@ -209,7 +209,8 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 // DeleteTimeRange deletes a time range of data in the database in the given channels
 // This method return an error if the channel to be deleted is an index channel and
 // there are other channels depending on it in the time range. DeleteTimeRange is
-// idempotent, but when the channel does not exist, it returns ErrChannelNotFound.
+// idempotent, but when the channel does not exist, it returns ErrChannelNotFound. It
+// deletes nothing and returns ctx.Err() if ctx is already canceled.
 func (db *DB) DeleteTimeRange(
 	ctx context.Context,
 	chs []ChannelKey,
@@ -265,6 +266,9 @@ func (db *DB) deleteTimeRange(
 	chs []ChannelKey,
 	tr telem.TimeRange,
 ) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	var (
 		indexChannels = make([]ChannelKey, 0, len(chs))
 		dataChannels  = make([]ChannelKey, 0, len(chs))
@@ -333,6 +337,10 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 	for i := range min(int(maxGoRoutine), len(pending)) {
 		sCtx.Go(func(ctx context.Context) error {
 			for uDB := range pending {
+				// A collection rewrites files and does not stop for ctx.
+				if ctx.Err() != nil {
+					return nil
+				}
 				if err := uDB.GarbageCollect(ctx); err != nil {
 					return err
 				}

@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "client/cpp/label/types.gen.h"
+#include "client/cpp/resource/id.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
@@ -32,7 +33,9 @@
 
 namespace synnax::status {
 
+struct Cursor;
 struct Where;
+struct Order;
 struct RetrieveResponse;
 struct RetrieveRequest;
 
@@ -43,16 +46,18 @@ constexpr const char *VARIANT_ERROR = "error";
 constexpr const char *VARIANT_LOADING = "loading";
 constexpr const char *VARIANT_DISABLED = "disabled";
 
+constexpr const char *ORDER_FIELD_NAME = "name";
+
 using Key = std::string;
 
 /// @brief Status is a standardized message used to communicate state across the Synnax
 /// platform. Statuses support different severity variants and can carry
-/// component-specific details. A status is uniquely identified by a key and may carry a
-/// human-readable name and labels for categorization and filtering.
+/// component-specific details. A status is uniquely identified by a key, may name the
+/// resource that owns it, and may carry a human-readable name and labels.
 template<typename Details = std::monostate>
 struct Status {
-    /// @brief key is a unique identifier for this status, auto-generated if not
-    /// provided.
+    /// @brief key is a unique identifier for this status. The Core assigns a UUID when
+    /// a status has no key and its owner holds no status.
     Key key;
     /// @brief name is the name of what the status is about, such as a task, device, or
     /// rack. Empty when the status is not about a named thing.
@@ -73,8 +78,12 @@ struct Status {
     /// @brief details contains optional component-specific custom details for the
     /// status.
     Details details;
-    /// @brief labels contains optional labels for categorization and filtering.
-    std::optional<std::vector<::synnax::label::Label>> labels;
+    /// @brief labels are the keys of the labels attached to the status.
+    std::vector<::synnax::label::Key> labels = {};
+    /// @brief owner is the resource the status reports on, such as a task, device, or
+    /// rack. An owner holds at most one status. Empty for a status that no resource
+    /// owns.
+    std::optional<::synnax::resource::ID> owner;
 
     static Status parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -84,6 +93,25 @@ struct Status {
     to_proto() const;
     static std::pair<Status, x::errors::Error>
     from_proto(const ::service::status::pb::Status &pb);
+};
+
+/// @brief Cursor is a position in an order of statuses: the sort value and the key of a
+/// status.
+struct Cursor {
+    /// @brief key is the key of the status at the position.
+    Key key;
+    /// @brief name is the name of the status at the position, when the order sorts by
+    /// it.
+    std::optional<std::string> name;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::status::pb::Cursor;
+    [[nodiscard]] std::pair<::api::status::pb::Cursor, x::errors::Error>
+    to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::status::pb::Cursor &pb);
 };
 
 /// @brief Where is a filter that selects statuses.
@@ -100,6 +128,8 @@ struct Where {
     ::x::filter::Field<::x::filter::Set<std::string>> variant;
     /// @brief labels matches statuses that have any of the given labels.
     ::x::filter::List<::synnax::label::Key> labels;
+    /// @brief owners matches the statuses that the given resources own.
+    ::x::filter::List<::synnax::resource::ID> owners;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {
@@ -136,6 +166,23 @@ struct Where {
     from_proto(const ::service::status::pb::Where &pb);
 };
 
+/// @brief Order is a sort of statuses.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
+
+    static Order parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::status::pb::Order;
+    [[nodiscard]] std::pair<::api::status::pb::Order, x::errors::Error>
+    to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::status::pb::Order &pb);
+};
+
 /// @brief RetrieveResponse holds the statuses a RetrieveRequest selects.
 struct RetrieveResponse {
     /// @brief statuses are the statuses the request selects.
@@ -155,12 +202,12 @@ struct RetrieveResponse {
 struct RetrieveOptions {
     /// @brief search_term keeps the statuses that match the term, closest match first.
     std::string search_term = "";
+    /// @brief order sorts the statuses. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the statuses strictly past this position in their order.
+    std::optional<Cursor> after;
     /// @brief limit is the most statuses to return.
     std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching statuses to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_labels includes the labels of each record.
-    bool include_labels = false;
 };
 
 /// @brief RetrieveRequest is a request to retrieve statuses.
@@ -170,21 +217,21 @@ struct RetrieveRequest {
     std::optional<Where> where;
     /// @brief search_term keeps the statuses that match the term, closest match first.
     std::string search_term = "";
+    /// @brief order sorts the statuses. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the statuses strictly past this position in their order.
+    std::optional<Cursor> after;
     /// @brief limit is the most statuses to return.
     std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching statuses to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_labels includes the labels of each record.
-    bool include_labels = false;
 
     /// @brief returns a request for the records that where selects.
     static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
         return {
             .where = std::move(where),
             .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
             .limit = options.limit,
-            .offset = options.offset,
-            .include_labels = options.include_labels,
         };
     }
 
@@ -197,4 +244,10 @@ struct RetrieveRequest {
     static std::pair<RetrieveRequest, x::errors::Error>
     from_proto(const ::api::status::pb::RetrieveRequest &pb);
 };
+
+const synnax::resource::ID TYPE_RESOURCE_ID("status", "");
+
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("status", key);
+}
 }

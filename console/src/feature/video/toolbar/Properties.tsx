@@ -29,14 +29,14 @@ export const Properties = (): ReactElement => {
   const key = Video.useKey();
   const dispatch = Video.useSingleDispatch();
   const value = Video.useChannel();
-  const ref = Video.useRange();
-  const editable = Access.useUpdateGranted(video.ontologyID(key));
+  const ref = Video.usePlaybackRange();
+  const editable = Access.useUpdateGranted(video.resourceID(key));
   const handleChange = (channel: channel.Key | undefined) =>
     dispatch(video.setChannel({ channel: channel ?? 0 }));
   const handleRangeChange = (range: ranger.Key | null) =>
     dispatch(
-      video.setRange({
-        range: range == null ? undefined : { variant: "key", key: range },
+      video.setPlaybackRange({
+        playbackRange: range == null ? undefined : { variant: "key", key: range },
       }),
     );
   return (

@@ -74,9 +74,11 @@ message Channel {
   // expression is an Arc expression for calculated channels. If set, the channel is
   // automatically configured as virtual.
   string expression = 11;
+  // group is the group the channel sits in, if any.
+  optional string group = 12;
   // retention is how long the Core keeps the data of an index channel and of every
   // channel on it. Zero keeps the data forever. Only an index channel can set it.
-  int64 retention = 12;
+  int64 retention = 13;
 }
 message WhereList {
   repeated Where values = 1;
@@ -117,6 +119,9 @@ message TelemDataTypeSet {
   // in matches a value equal to an element of in.
   TelemDataTypeList in = 2;
 }
+message GroupKeyList {
+  repeated string values = 1;
+}
 
 // Where is a filter that selects channels.
 message Where {
@@ -141,4 +146,8 @@ message Where {
   // virtual matches virtual channels that are not calculated, or every other channel
   // when false.
   optional bool virtual = 10;
+  // groups matches the channels in any of the given groups.
+  GroupKeyList groups = 11;
+  // grouped matches the channels in a group, or in no group when false.
+  optional bool grouped = 12;
 }

@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -26,9 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/gop"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -38,41 +37,28 @@ import (
 
 var _ = Describe("Streamer", Ordered, func() {
 	var (
-		node          testutil.Node
-		channelSvc    *channel.Service
-		channelWriter channel.Writer
-		streamerSvc   *streamer.Service
-		gopCache      *gop.Cache
+		node        testutil.Node
+		channelSvc  *channel.Service
+		streamerSvc *streamer.Service
+		gopCache    *gop.Cache
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node = testutil.NewNode(ctx)
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB: node.DB,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       node.DB,
-			Group:    groupSvc,
-			Ontology: otg,
-			Label:    labelSvc,
+			DB: node.DB,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Ontology:     otg,
-			Group:        groupSvc,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
 		}))
-		channelWriter = channelSvc.NewWriter(nil)
 		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
+			DB:      node.DB,
 			Framer:  node.Framer,
 			Channel: channelSvc,
 		}))
@@ -89,6 +75,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			ChannelGraph: channelGraph,
 		}))
 		gopCache = MustOpen(gop.Open(ctx, gop.Config{
+			DB:      node.DB,
 			Channel: channelSvc,
 			Framer:  node.Framer,
 		}))
@@ -129,7 +116,9 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -161,7 +150,9 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			cfg := streamer.Config{Keys: keys, SendOpenAck: true}
 			slow := MustSucceed(streamerSvc.New(ctx, cfg))
@@ -221,7 +212,9 @@ var _ = Describe("Streamer", Ordered, func() {
 					DataType: telem.Float32T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				keys := []channel.Key{ch.Key()}
 				s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
 					Keys:        keys,
@@ -270,8 +263,16 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.VideoT,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			key = ch.Key()
+			// The GOP cache outlives the spec, so it must stop following the channel.
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Delete(ctx, key, false)
+				})).To(Succeed())
+			})
 		})
 
 		videoFrame := func(keyframe bool, index uint32) telem.VideoFrame {
@@ -416,7 +417,9 @@ var _ = Describe("Streamer", Ordered, func() {
 					DataType: telem.Float32T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				keys := []channel.Key{ch.Key()}
 				cfg.SendOpenAck = true
 				s := MustSucceed(streamerSvc.New(ctx, cfg))
@@ -466,19 +469,25 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
-			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, indexCh)
+			})).To(Succeed())
 			dataCh1 = &channel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelWriter.Create(ctx, dataCh1)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, dataCh1)
+			})).To(Succeed())
 			dataCh2 = &channel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelWriter.Create(ctx, dataCh2)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, dataCh2)
+			})).To(Succeed())
 		})
 
 		It("Should receive calculated values", func(ctx SpecContext) {
@@ -487,7 +496,9 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType:   telem.Float32T,
 				Expression: fmt.Sprintf("return %s + %s", dataCh1.Name, dataCh2.Name),
 			}
-			Expect(channelWriter.Create(ctx, calculation)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, calculation)
+			})).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
@@ -533,7 +544,9 @@ var _ = Describe("Streamer", Ordered, func() {
 						dataCh2.Name,
 					),
 				}
-				Expect(channelWriter.Create(ctx, calculation)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, calculation)
+				})).To(Succeed())
 				keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 				w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start: telem.SecondTS,
@@ -578,32 +591,42 @@ var _ = Describe("Streamer", Ordered, func() {
 					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}
-				Expect(channelWriter.Create(ctx, idxA)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, idxA)
+				})).To(Succeed())
 				idxB := &channel.Channel{
 					Name:     UniqueChannelName(),
 					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}
-				Expect(channelWriter.Create(ctx, idxB)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, idxB)
+				})).To(Succeed())
 				dataA := &channel.Channel{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float32T,
 					LocalIndex: idxA.LocalKey,
 				}
-				Expect(channelWriter.Create(ctx, dataA)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, dataA)
+				})).To(Succeed())
 				dataB := &channel.Channel{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float32T,
 					LocalIndex: idxB.LocalKey,
 				}
-				Expect(channelWriter.Create(ctx, dataB)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, dataB)
+				})).To(Succeed())
 
 				calculation := &channel.Channel{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float32T,
 					Expression: fmt.Sprintf("return %s + %s", dataA.Name, dataB.Name),
 				}
-				Expect(channelWriter.Create(ctx, calculation)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, calculation)
+				})).To(Succeed())
 
 				keysA := []channel.Key{idxA.Key(), dataA.Key()}
 				wA := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
@@ -663,7 +686,9 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -698,7 +723,9 @@ var _ = Describe("Streamer", Ordered, func() {
 					DataType: telem.Float32T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				keys := []channel.Key{ch.Key()}
 				w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start: telem.Now(),
@@ -741,21 +768,27 @@ var _ = Describe("Streamer", Ordered, func() {
 					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}
-				Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, indexCh)
+				})).To(Succeed())
 
 				dataCh1 := &channel.Channel{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float32T,
 					LocalIndex: indexCh.LocalKey,
 				}
-				Expect(channelWriter.Create(ctx, dataCh1)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, dataCh1)
+				})).To(Succeed())
 
 				dataCh2 := &channel.Channel{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float32T,
 					LocalIndex: indexCh.LocalKey,
 				}
-				Expect(channelWriter.Create(ctx, dataCh2)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, dataCh2)
+				})).To(Succeed())
 
 				calculation := &channel.Channel{
 					Name:     UniqueChannelName(),
@@ -766,7 +799,9 @@ var _ = Describe("Streamer", Ordered, func() {
 						dataCh2.Name,
 					),
 				}
-				Expect(channelWriter.Create(ctx, calculation)).To(Succeed())
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, calculation)
+				})).To(Succeed())
 
 				keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 				w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
@@ -828,13 +863,17 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
-			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, indexCh)
+			})).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, dataCh)
+			})).To(Succeed())
 			total := &channel.Channel{
 				Name:     UniqueChannelName(),
 				DataType: telem.Float32T,
@@ -843,7 +882,9 @@ var _ = Describe("Streamer", Ordered, func() {
 					dataCh.Name,
 				),
 			}
-			Expect(channelWriter.Create(ctx, total)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, total)
+			})).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
 			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
@@ -925,7 +966,9 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -963,7 +1006,9 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -1000,7 +1045,9 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -1043,7 +1090,9 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -1081,7 +1130,9 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -1118,7 +1169,9 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),

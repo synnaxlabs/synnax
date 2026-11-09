@@ -11,9 +11,9 @@ import { type EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
   type connection,
-  type ontology,
   panel,
   type project,
+  type resource,
   type Synnax as Client,
   type SynnaxParams,
 } from "@synnaxlabs/client";
@@ -204,10 +204,10 @@ export interface ConsoleTestProviderOptions {
 
 /**
  * Builds the console test store the same way the app builds its store: the full root
- * reducer wired through drift's middleware, but with a NoopRuntime in place of the Tauri
- * runtime. Window actions (Drift.focusWindow, createWindow) resolve their labels exactly
- * as they do in production. Async because Drift.configureStore awaits runtime setup. This
- * is the one console store — every render helper below is backed by it.
+ * reducer wired through drift's middleware, but with a NoopRuntime in place of the
+ * Tauri runtime. Window actions (Drift.focusWindow, createWindow) resolve their labels
+ * exactly as they do in production. Async because Drift.configureStore awaits runtime
+ * setup. This is the one console store — every render helper below is backed by it.
  */
 export const createTestStore = async (options: ConsoleTestProviderOptions = {}) => {
   const { preloadedState, windowLabel } = options;
@@ -363,7 +363,7 @@ export const createConsoleWrapper = async ({
  */
 export const awaitGranted = async (
   client: Client,
-  id: ontology.ID,
+  id: resource.ID,
   action: access.Action = "create",
 ): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });

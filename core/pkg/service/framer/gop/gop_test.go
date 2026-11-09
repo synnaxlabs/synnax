@@ -12,15 +12,14 @@ package gop_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/gop"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -52,29 +51,15 @@ var _ = Describe("Cache", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node = testutil.NewNode(ctx)
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
-		}))
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: node.DB}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       node.DB,
-			Group:    groupSvc,
-			Ontology: otg,
-			Label:    labelSvc,
+			DB: node.DB,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Ontology:     otg,
-			Group:        groupSvc,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
 		}))
 	})
 
@@ -87,6 +72,7 @@ var _ = Describe("Cache", Ordered, func() {
 
 	open := func(ctx SpecContext, cfgs ...gop.Config) {
 		cache = MustOpen(gop.Open(ctx, append([]gop.Config{{
+			DB:      node.DB,
 			Channel: channelSvc,
 			Framer:  node.Framer,
 		}}, cfgs...)...))
@@ -95,7 +81,9 @@ var _ = Describe("Cache", Ordered, func() {
 			DataType: telem.VideoT,
 			Virtual:  true,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, ch)
+		})).To(Succeed())
 		key = ch.Key()
 		w = MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 			Start: telem.Now(),

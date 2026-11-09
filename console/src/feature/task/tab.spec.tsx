@@ -140,7 +140,7 @@ describe("task tab", () => {
     });
     await client.tasks.create({
       ...created.payload,
-      status: createTaskStatus({ details: { task: created.key, running: true } }),
+      status: createTaskStatus({ details: { running: true } }),
     });
     // Restore rebuilds from the corpse the cache holds, which exists only once
     // the client has seen the task live. The tab reads statuses, so the corpse
@@ -148,13 +148,15 @@ describe("task tab", () => {
     await client.tasks.retrieve({ key: created.key, includeStatus: true });
     await client.tasks.delete(created.key);
     await waitFor(() =>
-      expect(query.Deleted.matches(client.tasks.getCached(created.key))).toBe(true),
+      expect(query.Deleted.matches(client.tasks.watch(created.key).getCached())).toBe(
+        true,
+      ),
     );
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
     });
-    await restore({ client, project: project.key, resource: created.ontologyID });
+    await restore({ client, project: project.key, resource: created.resourceID });
 
     // Read back through a second client: the restoring client write-throughs its own
     // cache, so retrieving on it would pass even if the Core never got it.

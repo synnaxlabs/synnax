@@ -24,6 +24,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -165,12 +166,19 @@ func (c *camera) close() {
 func create(ctx context.Context, ch *channel.Channel) {
 	GinkgoHelper()
 	ch.Name = UniqueChannelName()
-	w := channelSvc.NewWriter(nil)
-	Expect(w.Create(ctx, ch)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, ch)
+	})).To(Succeed())
 	key := ch.Key()
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(errors.Skip(w.Delete(ctx, key, false), query.ErrNotFound)).
-			To(Succeed())
+		Expect(errors.Skip(deleteChannel(ctx, key), query.ErrNotFound)).To(Succeed())
+	})
+}
+
+// deleteChannel deletes the channel with key in a transaction of its own.
+func deleteChannel(ctx context.Context, key channel.Key) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Delete(ctx, key, false)
 	})
 }
 
@@ -217,16 +225,27 @@ func readPersisted(
 	return stamps, frames
 }
 
-func newTask(cfg rtsp.ReadConfig) task.Task {
+// newTask stores and returns a task with cfg. It skips task.Writer, which writes a
+// status of its own, so a spec sees only the statuses the factory writes.
+func newTask(ctx context.Context, cfg rtsp.ReadConfig) task.Task {
 	GinkgoHelper()
 	var encoded msgpack.EncodedJSON
 	Expect(json.Unmarshal(MustSucceed(json.Marshal(cfg)), &encoded)).To(Succeed())
-	return task.Task{
+	t := task.Task{
 		Key:    uuid.New(),
 		Name:   "rtsp-task",
 		Type:   rtsp.ReadTaskType,
+		Rack:   rackKey,
 		Config: encoded,
 	}
+	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+		To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+		})).To(Succeed())
+	})
+	return t
 }
 
 func readConfig(url string, ch channel.Channel) rtsp.ReadConfig {
@@ -251,9 +270,9 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 	var stat task.Status
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+			Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 			Entry(&stat).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		query.ErrNotFound,
 	)).To(Succeed())
 	return stat

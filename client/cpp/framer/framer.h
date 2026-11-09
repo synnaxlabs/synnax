@@ -270,7 +270,7 @@ private:
 
     /// @brief the channels named by drop notices since the last frame read.
     std::set<channel::Key> pending_dropped;
-    std::vector<channel::Key> dropped_;
+    std::vector<channel::Key> dropped_keys;
 
     /// @brief custom framing codec.
     Codec codec;
@@ -363,6 +363,22 @@ private:
     friend class Writer;
 };
 
+/// @brief the result of a commit.
+struct CommitResult {
+    /// @brief the end of the committed time range. When the commit itself had control,
+    /// this is the real end, even if authorized is false because of an earlier refused
+    /// write.
+    x::telem::TimeStamp end;
+    /// @brief false if this commit lacked control of a channel, or if a write since the
+    /// last reported commit was refused. Each refusal is reported once.
+    bool authorized = false;
+
+    /// @brief parses a commit result from a writer response. A response from a Core
+    /// that does not send the unauthorized field reads as authorized.
+    [[nodiscard]] static CommitResult
+    from_proto(const grpc::framer::WriterResponse &res);
+};
+
 /// @brief used to write a new domain of telemetry frames to a set of channels in
 /// time order. Writer cannot be constructed directly, and should instead be opened
 /// using the FrameClient.
@@ -429,6 +445,12 @@ public:
     /// @returns false if the commit failed. After a commit fails, the caller must
     /// acknowledge the error by calling error() or close() on the writer.
     std::pair<x::telem::TimeStamp, x::errors::Error> commit();
+
+    /// @brief commits like commit(), and also reports whether the writer had control.
+    /// @returns the result of the commit. When authorized is false because this commit
+    /// lacked control, other channels may have committed. The writer stays open so that
+    /// it can regain control.
+    [[nodiscard]] std::pair<CommitResult, x::errors::Error> commit_result();
 
     /// @brief closes the writer and releases any resources associated with it. A
     /// writer MUST be closed after use, or the caller risks leaking resources.

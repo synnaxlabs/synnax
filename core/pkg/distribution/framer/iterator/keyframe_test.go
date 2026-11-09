@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -24,23 +23,19 @@ import (
 )
 
 var _ = Describe("SeekKeyframe", func() {
-	DescribeTable("should seek to the last keyframe through", func(
+	It("Should seek to the last keyframe at or before a timestamp", func(
 		ctx SpecContext,
-		leaseholder node.Key,
 	) {
-		cluster := DeferClose(testutil.OpenCluster(ctx, 2))
-		dist := cluster.Nodes[1]
-		idx := MustSucceed(dist.Channel.Create(ctx, []channel.Channel{{
-			Name:        "Lumiere",
-			IsIndex:     true,
-			DataType:    telem.TimestampT,
-			Leaseholder: leaseholder,
+		dist := testutil.NewNode(ctx)
+		idx := MustSucceed(dist.CreateChannels(ctx, []channel.Channel{{
+			Name:     "Lumiere",
+			IsIndex:  true,
+			DataType: telem.TimestampT,
 		}}))[0]
-		video := MustSucceed(dist.Channel.Create(ctx, []channel.Channel{{
-			Name:        "Edison",
-			LocalIndex:  idx.LocalKey,
-			DataType:    telem.VideoT,
-			Leaseholder: leaseholder,
+		video := MustSucceed(dist.CreateChannels(ctx, []channel.Channel{{
+			Name:       "Edison",
+			LocalIndex: idx.LocalKey,
+			DataType:   telem.VideoT,
 		}}))[0]
 		keys := channel.Keys{idx.Key(), video.Key()}
 		frames := make([]telem.VideoFrame, 6)
@@ -60,7 +55,7 @@ var _ = Describe("SeekKeyframe", func() {
 			telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15),
 			telem.NewVideoSeries(frames),
 		}))).To(BeTrue())
-		Expect(w.Commit()).To(BeNumerically(">", 0))
+		Expect(MustCommit(w)).To(BeNumerically(">", 0))
 		Expect(w.Close()).To(Succeed())
 
 		iter := MustSucceed(dist.Framer.OpenIterator(ctx, iterator.Config{
@@ -83,8 +78,5 @@ var _ = Describe("SeekKeyframe", func() {
 			"cannot seek to a keyframe of a timestamp channel",
 		)))
 		Expect(iter.Close()).To(MatchError(validate.ErrValidation))
-	},
-		Entry("the gateway", node.Key(1)),
-		Entry("a peer", node.Key(2)),
-	)
+	})
 })

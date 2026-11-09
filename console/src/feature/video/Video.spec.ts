@@ -38,7 +38,10 @@ describe("video/Video", () => {
       timeRange: new TimeRange(TimeStamp.seconds(10), TimeStamp.seconds(20)),
     });
     await renderVideo(Video, {
-      video: { channel: ch.key, range: { variant: "key", key: range.key } },
+      video: {
+        channel: ch.key,
+        playbackRange: { variant: "key", key: range.key },
+      },
     });
     expect(await screen.findByLabelText("Play")).toBeDefined();
     expect(screen.getByLabelText("Time")).toBeDefined();

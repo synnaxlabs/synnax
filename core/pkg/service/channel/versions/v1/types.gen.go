@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	v0 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	node "github.com/synnaxlabs/synnax/pkg/service/node/versions/v0"
 	control "github.com/synnaxlabs/x/control/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -89,6 +90,8 @@ type Channel struct {
 	// Expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
 	Expression string `json:"expression" msgpack:"expression"`
+	// Group is the group the channel sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 	// Retention is how long the Core keeps the data of an index channel and of every
 	// channel on it. Zero keeps the data forever. Only an index channel can set it.
 	Retention telem.TimeSpan `json:"retention" msgpack:"retention"`

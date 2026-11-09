@@ -53,7 +53,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				)
 				BeforeEach(func(ctx SpecContext) {
 					fs = openFS()
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -64,9 +64,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						},
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 				Specify("Happy Path", func(ctx SpecContext) {
 					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
@@ -691,30 +688,24 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					It(
 						"Should not allow opening a writer if the specified end timestamp is before the start",
 						func(ctx SpecContext) {
-							_, _, err := db.OpenWriter(
+							Expect(db.OpenWriter(
 								ctx,
 								unary.WriterConfig{
 									Start:   10,
 									End:     3,
 									Subject: control.Subject{Key: "foo"},
 								},
-							)
-							Expect(
-								err,
-							).To(MatchError(ContainSubstring("end timestamp must be after")))
+							)).Error().To(MatchError(ContainSubstring("end timestamp must be after")))
 						},
 					)
 
 					It(
 						"Should not allow opening a writer without a subject key",
 						func(ctx SpecContext) {
-							_, _, err := db.OpenWriter(
+							Expect(db.OpenWriter(
 								ctx,
 								unary.WriterConfig{Start: 3, End: 10},
-							)
-							Expect(
-								err,
-							).To(MatchError(ContainSubstring("subject.key: required")))
+							)).Error().To(MatchError(ContainSubstring("subject.key: required")))
 						},
 					)
 				})
@@ -731,7 +722,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				BeforeEach(func(ctx SpecContext) {
 					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -746,7 +737,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -761,10 +752,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
-				})
-				AfterEach(func() {
-					Expect(dataDB.Close()).To(Succeed())
-					Expect(indexDB.Close()).To(Succeed())
 				})
 				Specify("Happy Path", func(ctx SpecContext) {
 					Expect(
@@ -1007,9 +994,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(w2.Close())
 
 							By("Asserting that the data is correct", func() {
-								i, _ := dataDB.OpenIterator(
+								i := MustSucceed(dataDB.OpenIterator(
 									unary.IteratorConfig{Bounds: telem.TimeRangeMax},
-								)
+								))
 								Expect(i.SeekFirst(ctx)).To(BeTrue())
 								Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 								f := i.Value()
@@ -1154,9 +1141,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(w2.Close())
 
 							By("Asserting that the data is correct", func() {
-								i, _ := dataDB.OpenIterator(
+								i := MustSucceed(dataDB.OpenIterator(
 									unary.IterRange(telem.TimeRangeMax),
-								)
+								))
 								Expect(i.SeekFirst(ctx)).To(BeTrue())
 								Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 								f := i.Value()
@@ -1272,9 +1259,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(w2.Close())
 
 							By("Asserting that the data is correct", func() {
-								i, _ := dataDB.OpenIterator(
+								i := MustSucceed(dataDB.OpenIterator(
 									unary.IterRange(telem.TimeRangeMax),
-								)
+								))
 								Expect(i.SeekFirst(ctx)).To(BeTrue())
 								Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 								f := i.Value()
@@ -1377,9 +1364,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						MustSucceed(w2.Close())
 
 						By("Asserting that the data is correct", func() {
-							i, _ := dataDB.OpenIterator(
+							i := MustSucceed(dataDB.OpenIterator(
 								unary.IteratorConfig{Bounds: telem.TimeRangeMax},
-							)
+							))
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
@@ -1450,7 +1437,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				)
 				BeforeEach(func(ctx SpecContext) {
 					fs = openFS()
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -1461,9 +1448,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						},
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 				Describe("Index", func() {
 					Specify("Control Handoff", func(ctx SpecContext) {
@@ -1494,8 +1478,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						)
 						Expect(err).To(MatchError(control.ErrUnauthorized))
 						Expect(a).To(Equal(telem.Alignment(0)))
-						_, err = w1.Commit(ctx)
-						Expect(err).To(MatchError(control.ErrUnauthorized))
+						Expect(
+							w1.Commit(ctx),
+						).Error().
+							To(MatchError(control.ErrUnauthorized))
 						t = MustSucceed(w2.Close())
 						Expect(t.Occurred()).To(BeTrue())
 						Expect(
@@ -1719,7 +1705,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				)
 				BeforeEach(func(ctx SpecContext) {
 					fs = openFS()
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -1730,9 +1716,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						},
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 				It(
 					"Should not allow operations on a closed writer",

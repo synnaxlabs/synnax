@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/video/versions/v0"
 )
 
@@ -24,14 +24,10 @@ var _ = Describe("Video", func() {
 		Expect(v0.Video{Key: key}.GorpKey()).To(Equal(key))
 	})
 
-	It("Should return no options", func() {
-		Expect(v0.Video{}.SetOptions()).To(BeNil())
-	})
-
-	It("Should return its ontology ID", func() {
+	It("Should return its resource ID", func() {
 		key := uuid.New()
-		Expect(v0.Video{Key: key}.OntologyID()).To(Equal(ontology.ID{
-			Type: ontology.ResourceTypeVideo,
+		Expect(v0.Video{Key: key}.ResourceID()).To(Equal(resource.ID{
+			Type: resource.TypeVideo,
 			Key:  key.String(),
 		}))
 	})

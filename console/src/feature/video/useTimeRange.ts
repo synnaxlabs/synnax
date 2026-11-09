@@ -17,7 +17,7 @@ import { Session } from "@/session";
  * video, and null while the Core resolves the saved range of the view.
  */
 export const useTimeRange = (): TimeRange | null | undefined => {
-  const ref = Video.useRange();
+  const ref = Video.usePlaybackRange();
   const [window] = Session.Range.useResolveWindows(ref == null ? [] : [ref]);
   if (ref != null && window == null) return null;
   // A rolling window ends now, so it shows live video.

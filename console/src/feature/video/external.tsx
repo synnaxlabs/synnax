@@ -23,7 +23,7 @@ export * from "@/feature/video/Selectable";
 export * from "@/feature/video/tree";
 export * from "@/feature/video/useCreate";
 
-const TAB_TYPE = video.TYPE_ONTOLOGY_ID.type;
+const TAB_TYPE = video.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = FLAGS.video ? [Selectable] : [];
 
@@ -41,8 +41,14 @@ const TAB: Panel.Tab = {
     <Icon.Video />,
   ),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(client.videos.getCached(resource.key));
-    await client.videos.create(project, corpse);
+    const corpse = query.requireCorpse(client.videos.watch(resource.key).getCached());
+    // A restored record comes back in the project, as its range or group may be gone.
+    await client.videos.create({
+      ...corpse,
+      project,
+      range: undefined,
+      group: undefined,
+    });
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),

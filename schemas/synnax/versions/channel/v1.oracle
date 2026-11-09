@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/node/v0"
 import "schemas/x/versions/control/v0"
 import "schemas/x/versions/telem/v0"
@@ -22,6 +23,9 @@ OperationType = v0.OperationType
 Operation = v0.Operation
 
 Channel struct extends v0.Channel {
+    group     group.Key?     {
+        @doc value "is the group the channel sits in, if any."
+    }
     retention telem.TimeSpan = 0 {
         @doc value """
             is how long the Core keeps the data of an index channel and of every channel

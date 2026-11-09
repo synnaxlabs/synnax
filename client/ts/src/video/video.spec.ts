@@ -23,17 +23,21 @@ const createProject = async () =>
 describe("Video", () => {
   it("should create a live video view", async () => {
     const proj = await createProject();
-    const v = await client.videos.create(proj.key, { name: "Camera", channel: 4 });
+    const v = await client.videos.create({
+      project: proj.key,
+      name: "Camera",
+      channel: 4,
+    });
     expect(v.name).toEqual("Camera");
     expect(v.key).not.toEqual(uuid.ZERO);
     expect(v.channel).toEqual(4);
-    expect(v.range).toBeUndefined();
+    expect(v.playbackRange).toBeUndefined();
     expect(await client.videos.retrieve({ key: v.key })).toEqual(v);
   });
 
   it("should rename a video view", async () => {
     const proj = await createProject();
-    const v = await client.videos.create(proj.key, { name: "Camera" });
+    const v = await client.videos.create({ project: proj.key, name: "Camera" });
     await client.videos.rename(v.key, "Chamber");
     await expect
       .poll(async () => (await client.videos.retrieve({ key: v.key })).name)
@@ -42,7 +46,7 @@ describe("Video", () => {
 
   it("should dispatch a channel change to the Core", async () => {
     const proj = await createProject();
-    const v = await client.videos.create(proj.key, { name: "Camera" });
+    const v = await client.videos.create({ project: proj.key, name: "Camera" });
     expect(await client.videos.dispatch(v.key, video.setChannel({ channel: 8 }))).toBe(
       true,
     );
@@ -56,7 +60,7 @@ describe("Video", () => {
 
   it("should delete a video view", async () => {
     const proj = await createProject();
-    const v = await client.videos.create(proj.key, { name: "Camera" });
+    const v = await client.videos.create({ project: proj.key, name: "Camera" });
     await client.videos.delete(v.key);
     await expect(client.videos.retrieve({ key: v.key })).rejects.toThrow(NotFoundError);
   });
@@ -64,11 +68,16 @@ describe("Video", () => {
   it("should tombstone a delete from the live delete signal", async () => {
     await client.connect();
     const proj = await createProject();
-    const v = await client.videos.create(proj.key, { name: `video-${id.create()}` });
+    const v = await client.videos.create({
+      project: proj.key,
+      name: `video-${id.create()}`,
+    });
     await client.videos.delete(v.key);
     await expect
-      .poll(() => query.Deleted.matches(client.videos.getCached(v.key)))
+      .poll(() => query.Deleted.matches(client.videos.watch(v.key).getCached()))
       .toBe(true);
-    expect(expectDeleted(client.videos.getCached(v.key)).corpse.name).toEqual(v.name);
+    expect(expectDeleted(client.videos.watch(v.key).getCached()).corpse.name).toEqual(
+      v.name,
+    );
   });
 });

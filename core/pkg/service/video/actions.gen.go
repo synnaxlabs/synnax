@@ -14,18 +14,26 @@ package video
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/union"
 )
 
 const (
 	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
 	ActionTypeCreate = "create"
-	// ActionTypeRename is the Type of an Action that carries RenamePayload.
-	ActionTypeRename = "rename"
 	// ActionTypeSetChannel is the Type of an Action that carries SetChannelPayload.
 	ActionTypeSetChannel = "set_channel"
-	// ActionTypeSetRange is the Type of an Action that carries SetRangePayload.
-	ActionTypeSetRange = "set_range"
+	// ActionTypeSetPlaybackRange is the Type of an Action that carries
+	// SetPlaybackRangePayload.
+	ActionTypeSetPlaybackRange = "set_playback_range"
+	// ActionTypeSet is the Type of an Action that carries SetPayload.
+	ActionTypeSet = "set"
+	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
+	ActionTypeRemove = "remove"
+	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
+	ActionTypeInsert = "insert"
+	// ActionTypeMove is the Type of an Action that carries MovePayload.
+	ActionTypeMove = "move"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -34,29 +42,58 @@ type CreatePayload struct {
 	Video Video `json:"video" msgpack:"video"`
 }
 
-// RenamePayload renames the video view.
-type RenamePayload struct {
-	Name string `json:"name" msgpack:"name"`
-}
-
 // SetChannelPayload sets the video channel the view shows.
 type SetChannelPayload struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
-// SetRangePayload sets the range the view plays back. Absent shows live video.
-type SetRangePayload struct {
-	Range *ranger.Ref `json:"range,omitzero" msgpack:"range,omitempty"`
+// SetPlaybackRangePayload sets the range the view plays back. Absent shows live video.
+type SetPlaybackRangePayload struct {
+	PlaybackRange *ranger.Ref `json:"playback_range,omitzero" msgpack:"playback_range,omitempty"`
+}
+
+// SetPayload replaces the value at a path in the video view.
+type SetPayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Value  any           `json:"value" msgpack:"value"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// RemovePayload removes an entry from a list or a field from an object in the video
+// view.
+type RemovePayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Key    string        `json:"key" msgpack:"key"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// InsertPayload adds an entry to a list in the video view.
+type InsertPayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Value  any           `json:"value" msgpack:"value"`
+	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// MovePayload moves an entry in a list in the video view.
+type MovePayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Key    string        `json:"key" msgpack:"key"`
+	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
 }
 
 // Action is a discriminated union for all Video mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
-	Type       string             `json:"type" msgpack:"type"`
-	Create     *CreatePayload     `json:"create,omitzero" msgpack:"create,omitempty"`
-	Rename     *RenamePayload     `json:"rename,omitzero" msgpack:"rename,omitempty"`
-	SetChannel *SetChannelPayload `json:"set_channel,omitzero" msgpack:"set_channel,omitempty"`
-	SetRange   *SetRangePayload   `json:"set_range,omitzero" msgpack:"set_range,omitempty"`
+	Type             string                   `json:"type" msgpack:"type"`
+	Create           *CreatePayload           `json:"create,omitzero" msgpack:"create,omitempty"`
+	SetChannel       *SetChannelPayload       `json:"set_channel,omitzero" msgpack:"set_channel,omitempty"`
+	SetPlaybackRange *SetPlaybackRangePayload `json:"set_playback_range,omitzero" msgpack:"set_playback_range,omitempty"`
+	Set              *SetPayload              `json:"set,omitzero" msgpack:"set,omitempty"`
+	Remove           *RemovePayload           `json:"remove,omitzero" msgpack:"remove,omitempty"`
+	Insert           *InsertPayload           `json:"insert,omitzero" msgpack:"insert,omitempty"`
+	Move             *MovePayload             `json:"move,omitzero" msgpack:"move,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
@@ -72,21 +109,36 @@ func Reduce(state Video, actions ...Action) (Video, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
-		case ActionTypeRename:
-			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Rename.Handle(state)
 		case ActionTypeSetChannel:
 			if a.SetChannel == nil {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannel.Handle(state)
-		case ActionTypeSetRange:
-			if a.SetRange == nil {
+		case ActionTypeSetPlaybackRange:
+			if a.SetPlaybackRange == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetRange.Handle(state)
+			state, err = a.SetPlaybackRange.Handle(state)
+		case ActionTypeSet:
+			if a.Set == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Set.Handle(state)
+		case ActionTypeRemove:
+			if a.Remove == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Remove.Handle(state)
+		case ActionTypeInsert:
+			if a.Insert == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Insert.Handle(state)
+		case ActionTypeMove:
+			if a.Move == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Move.Handle(state)
 		default:
 			return state, union.UnknownVariant(a.Type)
 		}
@@ -102,17 +154,32 @@ func NewCreateAction(p CreatePayload) Action {
 	return Action{Type: ActionTypeCreate, Create: &p}
 }
 
-// NewRenameAction wraps a RenamePayload in an Action envelope.
-func NewRenameAction(p RenamePayload) Action {
-	return Action{Type: ActionTypeRename, Rename: &p}
-}
-
 // NewSetChannelAction wraps a SetChannelPayload in an Action envelope.
 func NewSetChannelAction(p SetChannelPayload) Action {
 	return Action{Type: ActionTypeSetChannel, SetChannel: &p}
 }
 
-// NewSetRangeAction wraps a SetRangePayload in an Action envelope.
-func NewSetRangeAction(p SetRangePayload) Action {
-	return Action{Type: ActionTypeSetRange, SetRange: &p}
+// NewSetPlaybackRangeAction wraps a SetPlaybackRangePayload in an Action envelope.
+func NewSetPlaybackRangeAction(p SetPlaybackRangePayload) Action {
+	return Action{Type: ActionTypeSetPlaybackRange, SetPlaybackRange: &p}
+}
+
+// NewSetAction wraps a SetPayload in an Action envelope.
+func NewSetAction(p SetPayload) Action {
+	return Action{Type: ActionTypeSet, Set: &p}
+}
+
+// NewRemoveAction wraps a RemovePayload in an Action envelope.
+func NewRemoveAction(p RemovePayload) Action {
+	return Action{Type: ActionTypeRemove, Remove: &p}
+}
+
+// NewInsertAction wraps a InsertPayload in an Action envelope.
+func NewInsertAction(p InsertPayload) Action {
+	return Action{Type: ActionTypeInsert, Insert: &p}
+}
+
+// NewMoveAction wraps a MovePayload in an Action envelope.
+func NewMoveAction(p MovePayload) Action {
+	return Action{Type: ActionTypeMove, Move: &p}
 }

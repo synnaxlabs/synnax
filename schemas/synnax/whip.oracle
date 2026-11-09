@@ -48,4 +48,5 @@ ReadConfig struct extends task.PersistConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
 }

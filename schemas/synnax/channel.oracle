@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/synnax/node"
 import "schemas/synnax/status"
 import "schemas/x/control"
 import "schemas/x/filter"
+import "schemas/x/patch"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/channel"
@@ -106,7 +108,7 @@ Operation struct {
 Channel struct {
     name        Name                {
         @doc value    "is the human-readable channel name."
-        @index lookup
+        @index sorted
         @search
     }
     leaseholder node.Key            {
@@ -129,8 +131,7 @@ Channel struct {
         @doc value "is the locally-unique portion of this channel's key."
     }
     local_index LocalKey            {
-        @doc value    "is the locally-unique portion of the index channel's key."
-        @index lookup
+        @doc value "is the locally-unique portion of the index channel's key."
     }
     virtual     bool                {
         @doc value """
@@ -158,10 +159,52 @@ Channel struct {
             automatically configured as virtual.
         """
     }
+    group       group.Key?          {
+        @doc value     "is the group the channel sits in, if any."
+        @group scope   channel
+        @ref kind      place
+        @ref on_delete detach
+    }
     retention   telem.TimeSpan = 0 {
         @doc value """
             is how long the Core keeps the data of an index channel and of every channel
             on it. Zero keeps the data forever. Only an index channel can set it.
+        """
+    }
+
+    action Create {
+        channel Channel
+
+        @doc value """
+            replaces the channel with the given created state. Emitted by the Core when
+            a channel is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the channel."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the channel.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the channel."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the channel."
+    }
+
+    action Rename {
+        name Name
+
+        @doc value """
+            renames the channel. The Core also renames the channel's storage when the
+            transaction commits.
         """
     }
 
@@ -174,9 +217,9 @@ Channel struct {
     @go marshal
     @go migrate
     @go output     "core/pkg/service/channel"
-    @ontology type "channel"
     @pb
     @py hand
+    @resource type "channel"
     @retrieve
     @retrieve key  "Key"
     @ts hand
@@ -260,6 +303,10 @@ APIChannel struct {
         @doc value "is the current operational status of the channel."
         @include
     }
+    group       group.Key?          {
+        @cpp omit
+        @doc value "is the group the channel sits in, if any."
+    }
     retention   telem.TimeSpan = 0 {
         @doc value """
             is how long the Core keeps the data of an index channel and of every channel
@@ -276,9 +323,9 @@ APIChannel struct {
     """
     @go name       "Channel"
     @go output     "core/pkg/api/channel"
-    @ontology type "channel"
     @pb name       "Channel"
     @py name       "Payload"
+    @resource type "channel"
     @ts name       "Payload"
 }
 
@@ -289,11 +336,19 @@ Where filter Channel {
     data_type
     is_index
     internal
-    virtual     bool {
+    virtual     bool        {
         @doc value """
             matches virtual channels that are not calculated, or every other channel
             when false.
         """
+    }
+    groups      group.Key[] {
+        @cpp omit
+        @doc value "matches the channels in any of the given groups."
+    }
+    grouped     bool        {
+        @cpp omit
+        @doc value "matches the channels in a group, or in no group when false."
     }
 
     @doc value         "is a filter that selects channels."

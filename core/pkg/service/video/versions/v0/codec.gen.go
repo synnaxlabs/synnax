@@ -13,6 +13,8 @@ package v0
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -22,11 +24,29 @@ func (vv Video) EncodeOrc(w *orc.Writer) error {
 	w.Write(vv.Key[:])
 	w.String(vv.Name)
 	w.Uint32(uint32(vv.Channel))
-	if vv.Range != nil {
+	if vv.PlaybackRange != nil {
 		w.Bool(true)
-		if err := vv.Range.EncodeOrc(w); err != nil {
+		if err := vv.PlaybackRange.EncodeOrc(w); err != nil {
 			return err
 		}
+	} else {
+		w.Bool(false)
+	}
+	if vv.Group != nil {
+		w.Bool(true)
+		w.Write((*vv.Group)[:])
+	} else {
+		w.Bool(false)
+	}
+	if vv.Project != nil {
+		w.Bool(true)
+		w.Write((*vv.Project)[:])
+	} else {
+		w.Bool(false)
+	}
+	if vv.Range != nil {
+		w.Bool(true)
+		w.Write((*vv.Range)[:])
 	} else {
 		w.Bool(false)
 	}
@@ -57,6 +77,45 @@ func (vv *Video) DecodeOrc(r *orc.Reader) error {
 		if present {
 			var hv ranger.Ref
 			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			vv.PlaybackRange = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv group.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			vv.Group = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv project.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			vv.Project = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv ranger.Key
+			if _, err := r.Read(hv[:]); err != nil {
 				return err
 			}
 			vv.Range = &hv

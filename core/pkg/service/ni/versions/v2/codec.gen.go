@@ -588,11 +588,11 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "ai_voltage":
 		var v AIVoltageChannel
 		if err := v.BaseAIChannel.DecodeOrc(r); err != nil {
@@ -1532,11 +1532,11 @@ func (aoc AOChannel) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (aoc *AOChannel) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "ao_current":
 		var v AOCurrentChannel
 		if err := v.BaseAOChannel.DecodeOrc(r); err != nil {
@@ -2109,11 +2109,11 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "ci_frequency":
 		var v CIFrequencyChannel
 		if err := v.BaseCIChannel.DecodeOrc(r); err != nil {
@@ -2507,11 +2507,11 @@ func (cjc CJC) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (cjc *CJC) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "built_in":
 		var v BuiltInCJC
 		cjc.Variant = v
@@ -2961,11 +2961,11 @@ func (s Scale) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (s *Scale) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "linear":
 		var v LinearScale
 		if v.Slope, err = r.Float64(); err != nil {

@@ -1,0 +1,53 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package relay
+
+import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+)
+
+// Request opens or updates a relay subscription, streaming live samples for the given
+// channels. Sending a new Request replaces the previous set of channels.
+type Request struct {
+	// Keys are the channels to stream live samples from.
+	Keys channel.Keys
+	// AckRequested asks the streamer for a Response with Ack set once the relay applies
+	// Keys. A write issued after the ack is delivered.
+	AckRequested bool
+}
+
+// Response carries a batch of live samples delivered to a relay subscriber.
+type Response struct {
+	// Frame holds the live samples for the subscribed channels.
+	Frame frame.Frame `json:"frame" msgpack:"frame"`
+	// Group identifies the control group that produced the frame, used to filter
+	// relayed frames (see relay ExcludeGroups).
+	Group uint32 `json:"group" msgpack:"group"`
+	// KeepAlive marks an empty response emitted on the wire so the client can detect a
+	// silently dead connection. The relay never sets it; the API layer's response
+	// sender does.
+	KeepAlive bool `json:"keep_alive" msgpack:"keep_alive"`
+	// Ack marks the empty response that answers a Request with AckRequested set. Acks
+	// arrive in the order of their requests.
+	Ack bool `json:"ack" msgpack:"ack"`
+	// Dropped are the channels that lost frames before this response, because a
+	// consumer read too slowly.
+	Dropped channel.Keys `json:"dropped" msgpack:"dropped"`
+}
+
+func reqToStorage(req Request) ts.StreamerRequest {
+	return ts.StreamerRequest{Channels: req.Keys.Storage()}
+}
+
+func resFromStorage(res ts.StreamerResponse) Response {
+	return Response{Frame: frame.NewFromStorage(res.Frame), Group: res.Group}
+}

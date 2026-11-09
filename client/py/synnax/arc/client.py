@@ -16,14 +16,17 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax.arc import directory
 from synnax.arc.graph import Graph
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
     AutomationPayload,
+    Cursor,
     GraphSource,
     Key,
     Mode,
     ModulePayload,
+    Order,
     Payload,
     RetrieveRequest,
     RetrieveResponse,
@@ -32,9 +35,9 @@ from synnax.arc.types_gen import (
     Type,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -49,7 +52,7 @@ class _CreateResponse(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[UUID]
+    keys: list[Key]
 
 
 class Automation(AutomationPayload):
@@ -60,16 +63,16 @@ class Automation(AutomationPayload):
     """
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
 
 class Module(ModulePayload):
     """An Arc that holds code for other Arcs to import."""
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
 
 Arc = Automation | Module
@@ -98,9 +101,12 @@ class Client:
     """Client for managing Arc programs in the Synnax cluster."""
 
     _client: UnaryClient
+    directories: directory.Client
+    """Creates, renames, deletes, and moves the directories of Arcs."""
 
     def __init__(self, client: UnaryClient) -> None:
         self._client = client
+        self.directories = directory.Client(client)
 
     @overload
     def create(
@@ -150,6 +156,7 @@ class Client:
         *,
         key: Key,
         name: filter.StringInput = ...,
+        directories: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -165,6 +172,7 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         name: str,
+        directories: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -180,6 +188,7 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         name: filter.StringInput = ...,
+        directories: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -197,6 +206,7 @@ class Client:
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         name: list[str] | filter.StringDict | filter.String = ...,
+        directories: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -205,7 +215,8 @@ class Client:
         names: list[str] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_program: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Arc]: ...
@@ -218,7 +229,8 @@ class Client:
         names: list[str] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_program: bool = False,
         one: bool = False,
         **fields: Any,
@@ -230,6 +242,7 @@ class Client:
 
         :param key: Keeps Arcs with this key.
         :param name: Keeps Arcs with this name.
+        :param directories: Keeps Arcs in any of these directories.
         :param and_: Keeps Arcs that match every filter in the list.
         :param or_: Keeps Arcs that match any filter in the list.
         :param not_: Keeps Arcs that do not match the filter.
@@ -238,7 +251,9 @@ class Client:
         :param names: Keeps Arcs with one of these names.
         :param search_term: A fuzzy search term matched against Arc names.
         :param limit: The maximum number of Arcs to retrieve.
-        :param offset: The number of Arcs to skip.
+        :param order: The order of the Arcs. Defaults to key order.
+        :param after: Retrieves the Arcs past this position in the order: the key of the
+            last Arc of the page before, and its value of the order field.
         :param include_program: Whether the Core compiles each automation and sets
             its program. The Core raises an error if any automation fails to compile.
         :param one: Returns one Arc for any filter.
@@ -247,9 +262,9 @@ class Client:
         :raises NotFoundError: If one Arc is wanted and none matches.
         :raises MultipleFoundError: If one Arc is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one Arc is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
@@ -258,12 +273,13 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
             include_program=include_program,
         )
         res = self._client.send("/arc/retrieve", req, RetrieveResponse)
         arcs = self._sugar(res.arcs)
-        return sole("Arc", req.where, arcs) if single else arcs
+        return sole("Arc", req, arcs) if single else arcs
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)

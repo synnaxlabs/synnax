@@ -16,13 +16,19 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/rtsp"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -31,6 +37,8 @@ var (
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	statusSvc  *status.Service
+	taskSvc    *task.Service
+	rackKey    rack.Key
 )
 
 func TestRTSP(t *testing.T) {
@@ -42,31 +50,15 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	core := testutil.NewCluster(ctx, 0).Provision(ctx)
+	core := testutil.NewNode(ctx)
 	db = core.DB
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-	}))
-	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: otg,
-		DB:       db,
-		Group:    groupSvc,
-		Label:    labelSvc,
-	}))
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
+	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      core.Channel,
-		DB:           db,
-		HostProvider: core.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: core.Channel,
+		DB:      db,
+		HostKey: core.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      db,
@@ -79,4 +71,27 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
+	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:         db,
+		HostKey:    core.Identity.HostKey,
+		Status:     statusSvc,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
+		// No Driver reports for the rack, so a check would overwrite task statuses.
+		HealthCheckInterval: telem.Hour,
+	}))
+	configSvc := MustOpen(rtsp.OpenService(ctx, rtsp.ServiceConfig{DB: db}))
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:      db,
+		Rack:    rackSvc,
+		Status:  statusSvc,
+		Channel: channelSvc,
+		ImEx:    imex.NewService(),
+		Configs: MustSucceed(taskconfig.NewRegistry(configSvc.Stores()...)),
+	}))
+	r := rack.Rack{Name: "rtsp-rack"}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rackSvc.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
+	rackKey = r.Key
 })

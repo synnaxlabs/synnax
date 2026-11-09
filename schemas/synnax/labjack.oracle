@@ -75,7 +75,9 @@ BaseReadChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that raw samples are written to."
+        @doc value     "is the Synnax channel that raw samples are written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     port     string = "" {
         @doc value "is the physical port the channel reads from (e.g. 'AIN0', 'DIO4')."
@@ -94,11 +96,12 @@ ReadChannel union on type extends BaseReadChannel {
                 channel uses the smallest range of the device that covers it.
             """
         }
-        neg_chan int32 = 199 {
-            @doc value """
-                is the negative channel for differential readings on T7 devices. 199
-                selects single-ended.
+        neg_chan uint16?    {
+            @doc value    """
+                is the AIN port of the negative input for a differential reading on T7
+                devices. When absent, the channel reads against ground.
             """
+            @validate max 127
         }
         scale    task.Scale = none {
             @doc value "is the scale applied to raw samples after acquisition."
@@ -118,11 +121,12 @@ ReadChannel union on type extends BaseReadChannel {
         thermocouple_type ThermocoupleType = k {
             @doc value "selects the thermocouple alloy type."
         }
-        neg_chan          int32 = 199 {
-            @doc value """
-                is the AIN port of the thermocouple's negative lead on T7 devices. 199
-                selects single-ended.
+        neg_chan          uint16?          {
+            @doc value    """
+                is the AIN port of the thermocouple's negative lead on T7 devices. When
+                absent, the channel reads against ground.
             """
+            @validate max 127
         }
         cjc_source        string = "TEMPERATURE_DEVICE_K" {
             @doc value """
@@ -164,10 +168,14 @@ BaseWriteChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     cmd_channel        channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
+        @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
-        @doc value "is the Synnax channel the output state is written to."
+        @doc value     "is the Synnax channel the output state is written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -203,28 +211,34 @@ WriteChannel union on type extends BaseWriteChannel {
 
 ReadConfig struct extends task.ReadConfig {
     device                            device.Key = "" {
-        @doc value "is the key of the device the task acquires from."
+        @doc value     "is the key of the device the task acquires from."
+        @ref kind      use
+        @ref on_delete restrict
     }
     channels                          ReadChannel[] {
         @doc value "are the channels the task acquires."
     }
-    device_scan_backlog_warn_on_count uint32 = 0 {
-        @doc value """
+    device_scan_backlog_warn_on_count uint32?       {
+        @doc value    """
             is the device-side scan backlog above which the task reports a skew warning.
-            Zero lets the Driver pick two seconds of scans.
+            When absent, the Driver picks two seconds of scans.
         """
+        @validate min 1
     }
-    ljm_scan_backlog_warn_on_count    uint32 = 0 {
-        @doc value """
+    ljm_scan_backlog_warn_on_count    uint32?       {
+        @doc value    """
             is the LJM-side scan backlog above which the task reports a skew warning.
-            Zero lets the Driver pick one second of scans.
+            When absent, the Driver picks one second of scans.
         """
+        @validate min 1
     }
 
-    @doc value  "configures a LabJack read task."
-    @go imex    body
+    @doc value           "configures a LabJack read task."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 WriteConfig struct extends task.WriteConfig {
@@ -236,22 +250,26 @@ WriteConfig struct extends task.WriteConfig {
         @doc value "are the channels the task drives."
     }
 
-    @doc value  "configures a LabJack write task."
-    @go imex    body
+    @doc value           "configures a LabJack write task."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {
-    tcp_scan_multiplier int32 = 10 {
-        @doc value """
+    tcp_scan_multiplier uint32 = 10 {
+        @doc value    """
             is the number of scan cycles between TCP device scans. USB devices scan
             every cycle; TCP scans are slower, so they run every Nth cycle.
         """
+        @validate min 1
     }
 
     @doc value  "configures a LabJack scan task."
     @go imex    body
     @go marshal
     @go migrate
+    @patch
 }

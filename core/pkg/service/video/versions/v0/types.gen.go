@@ -15,6 +15,8 @@ import (
 	"uuid"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -30,8 +32,16 @@ type Video struct {
 	Name string `json:"name" msgpack:"name"`
 	// Channel is the video channel the view shows.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// Range is the range the view plays back. Absent shows live video.
-	Range *ranger.Ref `json:"range,omitzero" msgpack:"range,omitempty"`
+	// PlaybackRange is the range the view plays back. Absent shows live video.
+	PlaybackRange *ranger.Ref `json:"playback_range,omitzero" msgpack:"playback_range,omitempty"`
+	// Group is the group the video view sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Project is the project that owns the video view, if any. Exactly one of project
+	// and range is set.
+	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
+	// Range is the range that owns the video view, if any. Exactly one of project and
+	// range is set.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

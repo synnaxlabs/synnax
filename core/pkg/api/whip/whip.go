@@ -16,12 +16,13 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/whip"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -30,6 +31,10 @@ import (
 
 // ServiceConfig is the configuration for the WHIP API service.
 type ServiceConfig struct {
+	// DB opens the snapshots that access checks read.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Factory runs the WHIP sessions of tasks.
 	//
 	// [REQUIRED]
@@ -52,6 +57,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Factory = override.Nil(c.Factory, other.Factory)
 	c.APIKey = override.Nil(c.APIKey, other.APIKey)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
@@ -61,6 +67,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.whip")
+	v.NotNil("db", c.DB)
 	v.NotNil("factory", c.Factory)
 	v.NotNil("api_key", c.APIKey)
 	v.NotNil("rbac", c.RBAC)
@@ -69,6 +76,7 @@ func (c ServiceConfig) Validate() error {
 
 // Service publishes encoders to WHIP read tasks.
 type Service struct {
+	db      *gorp.DB
 	factory *whip.Factory
 	apiKey  *apikey.Service
 	access  *rbac.Service
@@ -80,7 +88,12 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{factory: cfg.Factory, apiKey: cfg.APIKey, access: cfg.RBAC}, nil
+	return &Service{
+		db:      cfg.DB,
+		factory: cfg.Factory,
+		apiKey:  cfg.APIKey,
+		access:  cfg.RBAC,
+	}, nil
 }
 
 type (
@@ -150,9 +163,9 @@ func (s *Service) authorize(ctx context.Context, key string, task uuid.UUID) err
 	if err != nil {
 		return err
 	}
-	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	return s.access.NewEnforcer(s.db).Enforce(ctx, access.Request{
 		Subject: identity.Subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{channel.OntologyID(ch)},
+		Objects: []resource.ID{channel.ResourceID(ch)},
 	})
 }

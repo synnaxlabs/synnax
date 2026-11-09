@@ -14,6 +14,7 @@
 package api
 
 import (
+	"context"
 	"slices"
 
 	"github.com/samber/lo"
@@ -24,7 +25,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
 	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
+	arcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
@@ -37,13 +41,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
-	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
+	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
@@ -53,8 +57,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/video"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/api/whip"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
-	svctask "github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
 )
 
@@ -82,12 +84,16 @@ type Transport struct {
 	UserCreate         freighter.UnaryServer[user.CreateRequest, user.CreateResponse]
 	UserDelete         freighter.UnaryServer[user.DeleteRequest, struct{}]
 	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
+	UserSetRole        freighter.UnaryServer[user.SetRoleRequest, struct{}]
+	// UserDispatch applies actions to a user.
+	UserDispatch freighter.UnaryServer[user.DispatchRequest, struct{}]
 	// CHANNEL
-	ChannelCreate        freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
-	ChannelRetrieve      freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
-	ChannelDelete        freighter.UnaryServer[channel.DeleteRequest, struct{}]
-	ChannelRename        freighter.UnaryServer[channel.RenameRequest, struct{}]
-	ChannelRetrieveGroup freighter.UnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse]
+	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
+	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
+	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
+	ChannelRename   freighter.UnaryServer[channel.RenameRequest, struct{}]
+	// ChannelDispatch applies actions to a channel.
+	ChannelDispatch freighter.UnaryServer[channel.DispatchRequest, channel.DispatchResponse]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[struct{}, connectivity.CheckResponse]
 	// LICENSE
@@ -114,27 +120,32 @@ type Transport struct {
 	KVGet    freighter.UnaryServer[kv.GetRequest, kv.GetResponse]
 	KVSet    freighter.UnaryServer[kv.SetRequest, struct{}]
 	KVDelete freighter.UnaryServer[kv.DeleteRequest, struct{}]
+	// KVDispatch applies path actions to a range key-value pair.
+	KVDispatch freighter.UnaryServer[kv.DispatchRequest, struct{}]
 	// ALIAS
 	AliasSet      freighter.UnaryServer[alias.SetRequest, struct{}]
 	AliasResolve  freighter.UnaryServer[alias.ResolveRequest, alias.ResolveResponse]
 	AliasDelete   freighter.UnaryServer[alias.DeleteRequest, struct{}]
 	AliasList     freighter.UnaryServer[alias.ListRequest, alias.ListResponse]
 	AliasRetrieve freighter.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]
-	// ONTOLOGY
-	OntologyRetrieve       freighter.UnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse]
-	OntologyAddChildren    freighter.UnaryServer[ontology.AddChildrenRequest, struct{}]
-	OntologyRemoveChildren freighter.UnaryServer[ontology.RemoveChildrenRequest, struct{}]
-	OntologyMoveChildren   freighter.UnaryServer[ontology.MoveChildrenRequest, struct{}]
+	// AliasDispatch applies path actions to a range alias.
+	AliasDispatch freighter.UnaryServer[alias.DispatchRequest, struct{}]
+	// RESOURCE
+	ResourceSearch   freighter.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]
+	ResourceRetrieve freighter.UnaryServer[apiresource.RetrieveRequest, apiresource.RetrieveResponse]
 	// GROUP
-	GroupCreate   freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
-	GroupDelete   freighter.UnaryServer[group.DeleteRequest, struct{}]
-	GroupRename   freighter.UnaryServer[group.RenameRequest, struct{}]
-	GroupRetrieve freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
+	GroupCreate            freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
+	GroupDelete            freighter.UnaryServer[group.DeleteRequest, struct{}]
+	GroupRename            freighter.UnaryServer[group.RenameRequest, struct{}]
+	GroupDispatch          freighter.UnaryServer[group.DispatchRequest, struct{}]
+	GroupRetrieve          freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
+	GroupRetrieveAncestors freighter.UnaryServer[group.RetrieveAncestorsRequest, group.RetrieveAncestorsResponse]
 	// PROJECT
 	ProjectCreate   freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
 	ProjectRetrieve freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
 	ProjectDelete   freighter.UnaryServer[project.DeleteRequest, struct{}]
 	ProjectRename   freighter.UnaryServer[project.RenameRequest, struct{}]
+	ProjectDispatch freighter.UnaryServer[project.DispatchRequest, struct{}]
 	ProjectExport   freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
 	ProjectImport   freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
 	// SCHEMATIC
@@ -144,14 +155,14 @@ type Transport struct {
 	SchematicDispatch freighter.UnaryServer[schematic.DispatchRequest, struct{}]
 	SchematicCopy     freighter.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]
 	// SCHEMATIC SYMBOL
-	SchematicSymbolCreate        freighter.UnaryServer[symbol.CreateRequest, symbol.CreateResponse]
-	SchematicSymbolRetrieve      freighter.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]
-	SchematicSymbolDelete        freighter.UnaryServer[symbol.DeleteRequest, struct{}]
-	SchematicSymbolRename        freighter.UnaryServer[symbol.RenameRequest, struct{}]
-	SchematicSymbolRetrieveGroup freighter.UnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse]
-	SchematicSymbolExportGroup   freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
-	SchematicSymbolImportGroup   freighter.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]
-	SchematicSymbolDeleteGroup   freighter.UnaryServer[symbol.DeleteGroupRequest, struct{}]
+	SchematicSymbolCreate      freighter.UnaryServer[symbol.CreateRequest, symbol.CreateResponse]
+	SchematicSymbolRetrieve    freighter.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]
+	SchematicSymbolDelete      freighter.UnaryServer[symbol.DeleteRequest, struct{}]
+	SchematicSymbolRename      freighter.UnaryServer[symbol.RenameRequest, struct{}]
+	SchematicSymbolDispatch    freighter.UnaryServer[symbol.DispatchRequest, struct{}]
+	SchematicSymbolExportGroup freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
+	SchematicSymbolImportGroup freighter.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]
+	SchematicSymbolDeleteGroup freighter.UnaryServer[symbol.DeleteGroupRequest, struct{}]
 	// LOG
 	LogCreate   freighter.UnaryServer[log.CreateRequest, log.CreateResponse]
 	LogRetrieve freighter.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]
@@ -195,6 +206,8 @@ type Transport struct {
 	RackDelete   freighter.UnaryServer[rack.DeleteRequest, struct{}]
 	// RackRename renames a rack.
 	RackRename freighter.UnaryServer[rack.RenameRequest, struct{}]
+	// RackDispatch applies actions to a rack.
+	RackDispatch freighter.UnaryServer[rack.DispatchRequest, struct{}]
 	// TASK
 	TaskCreate   freighter.UnaryServer[task.CreateRequest, task.CreateResponse]
 	TaskRetrieve freighter.UnaryServer[task.RetrieveRequest, task.RetrieveResponse]
@@ -210,6 +223,8 @@ type Transport struct {
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
 	// DeviceRename renames a device.
 	DeviceRename freighter.UnaryServer[device.RenameRequest, struct{}]
+	// DeviceDispatch applies actions to a device.
+	DeviceDispatch freighter.UnaryServer[device.DispatchRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -217,8 +232,10 @@ type Transport struct {
 	AccessCreateRole     freighter.UnaryServer[role.CreateRequest, role.CreateResponse]
 	AccessDeleteRole     freighter.UnaryServer[role.DeleteRequest, struct{}]
 	AccessRetrieveRole   freighter.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]
-	AccessAssignRole     freighter.UnaryServer[role.AssignRequest, struct{}]
-	AccessUnassignRole   freighter.UnaryServer[role.UnassignRequest, struct{}]
+	// AccessDispatchPolicy applies path actions to a policy.
+	AccessDispatchPolicy freighter.UnaryServer[policy.DispatchRequest, struct{}]
+	// AccessDispatchRole applies path actions to a role.
+	AccessDispatchRole freighter.UnaryServer[role.DispatchRequest, struct{}]
 	// STATUS
 	StatusSet      freighter.UnaryServer[status.SetRequest, status.SetResponse]
 	StatusRetrieve freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
@@ -227,25 +244,51 @@ type Transport struct {
 	StatusRename         freighter.UnaryServer[status.RenameRequest, struct{}]
 	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
-	ArcCreate          freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
-	ArcDelete          freighter.UnaryServer[arc.DeleteRequest, struct{}]
-	ArcRetrieve        freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
-	ArcDispatch        freighter.UnaryServer[arc.DispatchRequest, struct{}]
-	ArcUpdateTask      freighter.UnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse]
-	ArcCreateDirectory freighter.UnaryServer[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse]
-	ArcRenameDirectory freighter.UnaryServer[arc.RenameDirectoryRequest, struct{}]
-	ArcDeleteDirectory freighter.UnaryServer[arc.DeleteDirectoryRequest, struct{}]
-	ArcMove            freighter.UnaryServer[arc.MoveRequest, struct{}]
-	ArcLSP             freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
+	ArcCreate            freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
+	ArcDelete            freighter.UnaryServer[arc.DeleteRequest, struct{}]
+	ArcRetrieve          freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
+	ArcDispatch          freighter.UnaryServer[arc.DispatchRequest, struct{}]
+	ArcUpdateTask        freighter.UnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse]
+	ArcRetrieveDirectory freighter.UnaryServer[arcdirectory.RetrieveRequest, arcdirectory.RetrieveResponse]
+	ArcCreateDirectory   freighter.UnaryServer[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse]
+	ArcRenameDirectory   freighter.UnaryServer[arc.RenameDirectoryRequest, struct{}]
+	ArcDispatchDirectory freighter.UnaryServer[arc.DispatchDirectoryRequest, struct{}]
+	ArcDeleteDirectory   freighter.UnaryServer[arc.DeleteDirectoryRequest, struct{}]
+	ArcMove              freighter.UnaryServer[arc.MoveRequest, struct{}]
+	ArcLSP               freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
 	// VIEW
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
 	// ViewRename renames a view.
 	ViewRename freighter.UnaryServer[view.RenameRequest, struct{}]
+	// ViewDispatch applies path actions to a view.
+	ViewDispatch freighter.UnaryServer[view.DispatchRequest, struct{}]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
+	// GROUP MEMBERSHIP
+	GroupSetParent          freighter.UnaryServer[group.SetParentRequest, struct{}]
+	ChannelSetGroup         freighter.UnaryServer[channel.SetGroupRequest, struct{}]
+	DeviceSetGroup          freighter.UnaryServer[device.SetGroupRequest, struct{}]
+	RackSetGroup            freighter.UnaryServer[rack.SetGroupRequest, struct{}]
+	ProjectSetGroup         freighter.UnaryServer[project.SetGroupRequest, struct{}]
+	SchematicSetGroup       freighter.UnaryServer[schematic.SetGroupRequest, struct{}]
+	SchematicSymbolSetGroup freighter.UnaryServer[symbol.SetGroupRequest, struct{}]
+	LinePlotSetGroup        freighter.UnaryServer[lineplot.SetGroupRequest, struct{}]
+	LogSetGroup             freighter.UnaryServer[log.SetGroupRequest, struct{}]
+	TableSetGroup           freighter.UnaryServer[table.SetGroupRequest, struct{}]
+	PanelSetGroup           freighter.UnaryServer[panel.SetGroupRequest, struct{}]
+	VideoSetGroup           freighter.UnaryServer[video.SetGroupRequest, struct{}]
+	// PROJECT MEMBERSHIP
+	SchematicSetProject freighter.UnaryServer[schematic.SetProjectRequest, struct{}]
+	LinePlotSetProject  freighter.UnaryServer[lineplot.SetProjectRequest, struct{}]
+	LogSetProject       freighter.UnaryServer[log.SetProjectRequest, struct{}]
+	TableSetProject     freighter.UnaryServer[table.SetProjectRequest, struct{}]
+	PanelSetProject     freighter.UnaryServer[panel.SetProjectRequest, struct{}]
+	VideoSetProject     freighter.UnaryServer[video.SetProjectRequest, struct{}]
+	// BATCH
+	Batch freighter.UnaryServer[batch.ExecRequest, batch.ExecResponse]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific
@@ -259,7 +302,7 @@ type Layer struct {
 	Control      *control.Service
 	Connectivity *connectivity.Service
 	License      *license.Service
-	Ontology     *ontology.Service
+	Resource     *apiresource.Service
 	Range        *ranger.Service
 	KV           *kv.Service
 	Alias        *alias.Service
@@ -282,6 +325,8 @@ type Layer struct {
 	Arc          *arc.Service
 	Status       *status.Service
 	ImEx         *imex.Service
+	Batch        *batch.Service
+	binder       *bind.Service
 	config       config.LayerConfig
 }
 
@@ -292,11 +337,16 @@ func (l *Layer) BindTo(t Transport) {
 		instrumentation = lo.Must(
 			alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}),
 		)
-		rec                = recovery.Middleware(l.config.Instrumentation)
-		gate               = license.Middleware(l.config.Service.License)
+		rec      = recovery.Middleware(l.config.Instrumentation)
+		gate     = license.Middleware(l.config.Service.License)
+		restrict = restrictMiddleware(
+			l.config.Distribution.DB,
+			l.config.Service.Resource,
+			l.config.Service.RBAC,
+		)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
 		secureMiddleware   = append(slices.Clone(insecureMiddleware), tk)
-		gatedMiddleware    = append(slices.Clone(secureMiddleware), gate)
+		gatedMiddleware    = append(slices.Clone(secureMiddleware), gate, restrict)
 	)
 
 	freighter.UseOnAll(
@@ -347,13 +397,15 @@ func (l *Layer) BindTo(t Transport) {
 		t.UserCreate,
 		t.UserDelete,
 		t.UserRetrieve,
+		t.UserSetRole,
+		t.UserDispatch,
 
 		// CHANNEL
 		t.ChannelCreate,
 		t.ChannelRetrieve,
 		t.ChannelDelete,
 		t.ChannelRename,
-		t.ChannelRetrieveGroup,
+		t.ChannelDispatch,
 
 		// FRAME
 		t.FrameWriter,
@@ -365,17 +417,17 @@ func (l *Layer) BindTo(t Transport) {
 		// CONTROL
 		t.ControlRetrieve,
 
-		// ONTOLOGY
-		t.OntologyRetrieve,
-		t.OntologyAddChildren,
-		t.OntologyRemoveChildren,
-		t.OntologyMoveChildren,
+		// RESOURCE
+		t.ResourceSearch,
+		t.ResourceRetrieve,
 
 		// GROUP
 		t.GroupCreate,
 		t.GroupDelete,
 		t.GroupRename,
+		t.GroupDispatch,
 		t.GroupRetrieve,
+		t.GroupRetrieveAncestors,
 
 		// RANGE
 		t.RangeCreate,
@@ -389,6 +441,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.KVGet,
 		t.KVSet,
 		t.KVDelete,
+		t.KVDispatch,
 
 		// ALIAS
 		t.AliasSet,
@@ -396,12 +449,14 @@ func (l *Layer) BindTo(t Transport) {
 		t.AliasRetrieve,
 		t.AliasList,
 		t.AliasDelete,
+		t.AliasDispatch,
 
 		// PROJECT
 		t.ProjectDelete,
 		t.ProjectCreate,
 		t.ProjectRetrieve,
 		t.ProjectRename,
+		t.ProjectDispatch,
 		t.ProjectExport,
 		t.ProjectImport,
 
@@ -417,7 +472,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicSymbolRetrieve,
 		t.SchematicSymbolDelete,
 		t.SchematicSymbolRename,
-		t.SchematicSymbolRetrieveGroup,
+		t.SchematicSymbolDispatch,
 		t.SchematicSymbolExportGroup,
 		t.SchematicSymbolImportGroup,
 		t.SchematicSymbolDeleteGroup,
@@ -463,6 +518,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.RackRetrieve,
 		t.RackDelete,
 		t.RackRename,
+		t.RackDispatch,
 
 		// TASK
 		t.TaskCreate,
@@ -477,6 +533,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.DeviceRetrieve,
 		t.DeviceDelete,
 		t.DeviceRename,
+		t.DeviceDispatch,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -485,8 +542,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.AccessCreateRole,
 		t.AccessDeleteRole,
 		t.AccessRetrieveRole,
-		t.AccessAssignRole,
-		t.AccessUnassignRole,
+		t.AccessDispatchPolicy,
+		t.AccessDispatchRole,
 
 		// STATUS
 		t.StatusSet,
@@ -500,6 +557,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ViewRetrieve,
 		t.ViewDelete,
 		t.ViewRename,
+		t.ViewDispatch,
 
 		// ARC
 		t.ArcCreate,
@@ -507,8 +565,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcRetrieve,
 		t.ArcDispatch,
 		t.ArcUpdateTask,
+		t.ArcRetrieveDirectory,
 		t.ArcCreateDirectory,
 		t.ArcRenameDirectory,
+		t.ArcDispatchDirectory,
 		t.ArcDeleteDirectory,
 		t.ArcMove,
 		t.ArcLSP,
@@ -516,251 +576,298 @@ func (l *Layer) BindTo(t Transport) {
 		// IMPORT/EXPORT
 		t.ImExImport,
 		t.ImExExport,
+
+		// GROUP MEMBERSHIP
+		t.GroupSetParent,
+		t.ChannelSetGroup,
+		t.DeviceSetGroup,
+		t.RackSetGroup,
+		t.ProjectSetGroup,
+		t.SchematicSetGroup,
+		t.SchematicSymbolSetGroup,
+		t.LinePlotSetGroup,
+		t.LogSetGroup,
+		t.TableSetGroup,
+		t.PanelSetGroup,
+		t.VideoSetGroup,
+
+		// PROJECT MEMBERSHIP
+		t.SchematicSetProject,
+		t.LinePlotSetProject,
+		t.LogSetProject,
+		t.TableSetProject,
+		t.PanelSetProject,
+		t.VideoSetProject,
+
+		// BATCH
+		t.Batch,
 	)
 
 	db := l.config.Distribution.DB
 
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
-	t.AuthChangePassword.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
-	)
+	t.AuthChangePassword.BindHandler(bind.WritePrepared(
+		l.binder,
+		l.Auth.PrepareChangePassword,
+		l.Auth.ChangePassword,
+	))
 	t.AuthSessionCreate.BindHandler(l.Auth.CreateSession)
 	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
-	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
-	t.AuthSessionDelete.BindHandler(l.Auth.DeleteSessions)
-	t.AuthKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateKey))
-	t.AuthKeyRetrieve.BindHandler(l.Auth.RetrieveKeys)
-	t.AuthKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteKeys))
-	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.SetPassword))
+	t.AuthSessionRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req auth.SessionRetrieveRequest,
+	) (auth.SessionRetrieveResponse, error) {
+		return l.Auth.RetrieveSessions(ctx, snap, req)
+	}))
+	t.AuthSessionDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteSessions))
+	t.AuthKeyCreate.BindHandler(bind.Write(l.binder, l.Auth.CreateKey))
+	t.AuthKeyRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req auth.KeyRetrieveRequest,
+	) (auth.KeyRetrieveResponse, error) {
+		return l.Auth.RetrieveKeys(ctx, snap, req)
+	}))
+	t.AuthKeyDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteKeys))
+	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
+		l.binder,
+		l.Auth.PrepareSetPassword,
+		l.Auth.SetPassword,
+	))
 
 	// LICENSE
-	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
+	t.LicenseRetrieve.BindHandler(bind.Read(l.binder, l.License.Retrieve))
 	t.LicenseActivate.BindHandler(l.License.Activate)
 	t.LicenseDeactivate.BindHandler(l.License.Deactivate)
 
 	// USER
-	t.UserRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Rename))
-	t.UserChangeUsername.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.User.ChangeUsername),
+	t.UserRename.BindHandler(bind.Write(l.binder, l.User.Rename))
+	t.UserChangeUsername.BindHandler(bind.Write(l.binder, l.User.ChangeUsername))
+	t.UserCreate.BindHandler(
+		bind.WritePrepared(l.binder, l.User.PrepareCreate, l.User.Create),
 	)
-	t.UserCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Create))
-	t.UserDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Delete))
-	t.UserRetrieve.BindHandler(l.User.Retrieve)
+	t.UserDelete.BindHandler(bind.Write(l.binder, l.User.Delete))
+	t.UserRetrieve.BindHandler(bind.Read(l.binder, l.User.Retrieve))
+	t.UserSetRole.BindHandler(bind.Write(l.binder, l.User.SetRole))
+	t.UserDispatch.BindHandler(bind.Write(l.binder, l.User.Dispatch))
 
 	// CHANNEL
-	t.ChannelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Create))
-	t.ChannelRetrieve.BindHandler(l.Channel.Retrieve)
+	t.ChannelCreate.BindHandler(bind.Write(l.binder, l.Channel.Create))
+	t.ChannelRetrieve.BindHandler(bind.Read(l.binder, l.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
-	t.ChannelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Delete))
-	t.ChannelRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Rename))
-	t.ChannelRetrieveGroup.BindHandler(l.Channel.RetrieveGroup)
+	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
+	t.ChannelRename.BindHandler(bind.Write(l.binder, l.Channel.Rename))
+	t.ChannelDispatch.BindHandler(bind.Write(l.binder, l.Channel.Dispatch))
 
 	// FRAME
 	t.FrameWriter.BindHandler(l.Framer.Write)
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
+	// Frame delete changes Cesium data, not Gorp records, so it checks its own access.
 	t.FrameDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Framer.Delete))
 	t.FrameRead.BindHandler(l.Framer.Read)
 
 	// CONTROL
-	t.ControlRetrieve.BindHandler(l.Control.Retrieve)
+	t.ControlRetrieve.BindHandler(bind.Read(l.binder, l.Control.Retrieve))
 
-	// ONTOLOGY
-	t.OntologyRetrieve.BindHandler(l.Ontology.Retrieve)
-	t.OntologyAddChildren.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Ontology.AddChildren),
-	)
-	t.OntologyRemoveChildren.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Ontology.RemoveChildren),
-	)
-	t.OntologyMoveChildren.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Ontology.MoveChildren),
-	)
+	// RESOURCE
+	t.ResourceSearch.BindHandler(bind.Read(l.binder, l.Resource.Search))
+	t.ResourceRetrieve.BindHandler(bind.Read(l.binder, l.Resource.Retrieve))
 
 	// GROUP
-	t.GroupCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Create))
-	t.GroupDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Delete))
-	t.GroupRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Rename))
-	t.GroupRetrieve.BindHandler(l.Group.Retrieve)
+	t.GroupCreate.BindHandler(bind.Write(l.binder, l.Group.Create))
+	t.GroupDelete.BindHandler(bind.Write(l.binder, l.Group.Delete))
+	t.GroupRename.BindHandler(bind.Write(l.binder, l.Group.Rename))
+	t.GroupDispatch.BindHandler(bind.Write(l.binder, l.Group.Dispatch))
+	t.GroupRetrieve.BindHandler(bind.Read(l.binder, l.Group.Retrieve))
+	t.GroupRetrieveAncestors.BindHandler(bind.Read(l.binder, l.Group.RetrieveAncestors))
+
+	// GROUP MEMBERSHIP
+	t.GroupSetParent.BindHandler(bind.Write(l.binder, l.Group.SetParent))
+	t.ChannelSetGroup.BindHandler(bind.Write(l.binder, l.Channel.SetGroup))
+	t.DeviceSetGroup.BindHandler(bind.Write(l.binder, l.Device.SetGroup))
+	t.RackSetGroup.BindHandler(bind.Write(l.binder, l.Rack.SetGroup))
+	t.ProjectSetGroup.BindHandler(bind.Write(l.binder, l.Project.SetGroup))
+	t.SchematicSetGroup.BindHandler(bind.Write(l.binder, l.Schematic.SetGroup))
+	t.SchematicSymbolSetGroup.BindHandler(bind.Write(l.binder, l.Symbol.SetGroup))
+	t.LinePlotSetGroup.BindHandler(bind.Write(l.binder, l.LinePlot.SetGroup))
+	t.LogSetGroup.BindHandler(bind.Write(l.binder, l.Log.SetGroup))
+	t.TableSetGroup.BindHandler(bind.Write(l.binder, l.Table.SetGroup))
+	t.PanelSetGroup.BindHandler(bind.Write(l.binder, l.Panel.SetGroup))
+	t.VideoSetGroup.BindHandler(bind.Write(l.binder, l.Video.SetGroup))
+
+	// PROJECT MEMBERSHIP
+	t.SchematicSetProject.BindHandler(bind.Write(l.binder, l.Schematic.SetProject))
+	t.LinePlotSetProject.BindHandler(bind.Write(l.binder, l.LinePlot.SetProject))
+	t.LogSetProject.BindHandler(bind.Write(l.binder, l.Log.SetProject))
+	t.TableSetProject.BindHandler(bind.Write(l.binder, l.Table.SetProject))
+	t.PanelSetProject.BindHandler(bind.Write(l.binder, l.Panel.SetProject))
+	t.VideoSetProject.BindHandler(bind.Write(l.binder, l.Video.SetProject))
+
+	// BATCH
+	t.Batch.BindHandler(bind.Write(l.binder, l.Batch.Exec))
 
 	// RANGE
-	t.RangeRetrieve.BindHandler(l.Range.Retrieve)
-	t.RangeCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Create))
-	t.RangeDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Delete))
-	t.RangeRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Rename))
-	t.RangeSetEnd.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.SetEnd))
-	t.RangeDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Dispatch))
+	t.RangeRetrieve.BindHandler(bind.Read(l.binder, l.Range.Retrieve))
+	t.RangeCreate.BindHandler(bind.Write(l.binder, l.Range.Create))
+	t.RangeDelete.BindHandler(bind.Write(l.binder, l.Range.Delete))
+	t.RangeRename.BindHandler(bind.Write(l.binder, l.Range.Rename))
+	t.RangeSetEnd.BindHandler(bind.Write(l.binder, l.Range.SetEnd))
+	t.RangeDispatch.BindHandler(bind.Write(l.binder, l.Range.Dispatch))
 
 	// KV
-	t.KVGet.BindHandler(l.KV.Get)
-	t.KVSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.KV.Set))
-	t.KVDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.KV.Delete))
+	t.KVGet.BindHandler(bind.Read(l.binder, l.KV.Get))
+	t.KVSet.BindHandler(bind.Write(l.binder, l.KV.Set))
+	t.KVDelete.BindHandler(bind.Write(l.binder, l.KV.Delete))
+	t.KVDispatch.BindHandler(bind.Write(l.binder, l.KV.Dispatch))
 
 	// ALIAS
-	t.AliasSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Alias.Set))
-	t.AliasResolve.BindHandler(l.Alias.Resolve)
-	t.AliasRetrieve.BindHandler(l.Alias.Retrieve)
-	t.AliasList.BindHandler(l.Alias.List)
-	t.AliasDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Alias.Delete))
+	t.AliasSet.BindHandler(bind.Write(l.binder, l.Alias.Set))
+	t.AliasResolve.BindHandler(bind.Read(l.binder, l.Alias.Resolve))
+	t.AliasRetrieve.BindHandler(bind.Read(l.binder, l.Alias.Retrieve))
+	t.AliasList.BindHandler(bind.Read(l.binder, l.Alias.List))
+	t.AliasDelete.BindHandler(bind.Write(l.binder, l.Alias.Delete))
+	t.AliasDispatch.BindHandler(bind.Write(l.binder, l.Alias.Dispatch))
 
 	// PROJECT
-	t.ProjectCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Create))
-	t.ProjectDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Delete))
-	t.ProjectRetrieve.BindHandler(l.Project.Retrieve)
-	t.ProjectRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Rename))
-	t.ProjectExport.BindHandler(l.Project.Export)
-	t.ProjectImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Import))
+	t.ProjectCreate.BindHandler(bind.Write(l.binder, l.Project.Create))
+	t.ProjectDelete.BindHandler(bind.Write(l.binder, l.Project.Delete))
+	t.ProjectRetrieve.BindHandler(bind.Read(l.binder, l.Project.Retrieve))
+	t.ProjectRename.BindHandler(bind.Write(l.binder, l.Project.Rename))
+	t.ProjectDispatch.BindHandler(bind.Write(l.binder, l.Project.Dispatch))
+	t.ProjectExport.BindHandler(bind.Read(l.binder, l.Project.Export))
+	t.ProjectImport.BindHandler(bind.Write(l.binder, l.Project.Import))
 
 	// SCHEMATIC
-	t.SchematicCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Create))
-	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
-	t.SchematicDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Delete))
-	t.SchematicDispatch.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Schematic.Dispatch),
-	)
-	t.SchematicCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Copy))
+	t.SchematicCreate.BindHandler(bind.Write(l.binder, l.Schematic.Create))
+	t.SchematicRetrieve.BindHandler(bind.Read(l.binder, l.Schematic.Retrieve))
+	t.SchematicDelete.BindHandler(bind.Write(l.binder, l.Schematic.Delete))
+	t.SchematicDispatch.BindHandler(bind.Write(l.binder, l.Schematic.Dispatch))
+	t.SchematicCopy.BindHandler(bind.Write(l.binder, l.Schematic.Copy))
 
 	// SCHEMATIC SYMBOL
-	t.SchematicSymbolCreate.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Create),
+	t.SchematicSymbolCreate.BindHandler(bind.Write(l.binder, l.Symbol.Create))
+	t.SchematicSymbolRetrieve.BindHandler(bind.Read(l.binder, l.Symbol.Retrieve))
+	t.SchematicSymbolDelete.BindHandler(bind.Write(l.binder, l.Symbol.Delete))
+	t.SchematicSymbolRename.BindHandler(bind.Write(l.binder, l.Symbol.Rename))
+	t.SchematicSymbolDispatch.BindHandler(bind.Write(l.binder, l.Symbol.Dispatch))
+	t.SchematicSymbolExportGroup.BindHandler(
+		bind.Read(l.binder, l.Symbol.ExportGroup),
 	)
-	t.SchematicSymbolRetrieve.BindHandler(l.Symbol.Retrieve)
-	t.SchematicSymbolDelete.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Delete),
-	)
-	t.SchematicSymbolRename.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Rename),
-	)
-	t.SchematicSymbolRetrieveGroup.BindHandler(l.Symbol.RetrieveGroup)
-	t.SchematicSymbolExportGroup.BindHandler(l.Symbol.ExportGroup)
 	t.SchematicSymbolImportGroup.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.ImportGroup),
+		bind.Write(l.binder, l.Symbol.ImportGroup),
 	)
 	t.SchematicSymbolDeleteGroup.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.DeleteGroup),
+		bind.Write(l.binder, l.Symbol.DeleteGroup),
 	)
 
 	// LINE PLOT
-	t.LinePlotCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Create))
-	t.LinePlotDispatch.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Dispatch),
-	)
-	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
-	t.LinePlotDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Delete))
+	t.LinePlotCreate.BindHandler(bind.Write(l.binder, l.LinePlot.Create))
+	t.LinePlotDispatch.BindHandler(bind.Write(l.binder, l.LinePlot.Dispatch))
+	t.LinePlotRetrieve.BindHandler(bind.Read(l.binder, l.LinePlot.Retrieve))
+	t.LinePlotDelete.BindHandler(bind.Write(l.binder, l.LinePlot.Delete))
 
 	// PANEL
-	t.PanelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Create))
-	t.PanelRetrieve.BindHandler(l.Panel.Retrieve)
-	t.PanelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Delete))
-	t.PanelDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Dispatch))
+	t.PanelCreate.BindHandler(bind.Write(l.binder, l.Panel.Create))
+	t.PanelRetrieve.BindHandler(bind.Read(l.binder, l.Panel.Retrieve))
+	t.PanelDelete.BindHandler(bind.Write(l.binder, l.Panel.Delete))
+	t.PanelDispatch.BindHandler(bind.Write(l.binder, l.Panel.Dispatch))
 
 	// LOG
-	t.LogCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Create))
-	t.LogRetrieve.BindHandler(l.Log.Retrieve)
-	t.LogDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Delete))
-	t.LogDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Dispatch))
-	t.VideoCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Video.Create))
-	t.VideoRetrieve.BindHandler(l.Video.Retrieve)
-	t.VideoDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Video.Delete))
-	t.VideoDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Video.Dispatch))
+	t.LogCreate.BindHandler(bind.Write(l.binder, l.Log.Create))
+	t.LogRetrieve.BindHandler(bind.Read(l.binder, l.Log.Retrieve))
+	t.LogDelete.BindHandler(bind.Write(l.binder, l.Log.Delete))
+	t.LogDispatch.BindHandler(bind.Write(l.binder, l.Log.Dispatch))
+	t.VideoCreate.BindHandler(bind.Write(l.binder, l.Video.Create))
+	t.VideoRetrieve.BindHandler(bind.Read(l.binder, l.Video.Retrieve))
+	t.VideoDelete.BindHandler(bind.Write(l.binder, l.Video.Delete))
+	t.VideoDispatch.BindHandler(bind.Write(l.binder, l.Video.Dispatch))
 
 	// WHIP
 	t.WHIPPublish.BindHandler(l.WHIP.Publish)
 	t.WHIPUnpublish.BindHandler(l.WHIP.Unpublish)
 
 	// TABLE
-	t.TableCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.Create))
-	t.TableRetrieve.BindHandler(l.Table.Retrieve)
-	t.TableDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.Delete))
-	t.TableDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.Dispatch))
+	t.TableCreate.BindHandler(bind.Write(l.binder, l.Table.Create))
+	t.TableRetrieve.BindHandler(bind.Read(l.binder, l.Table.Retrieve))
+	t.TableDelete.BindHandler(bind.Write(l.binder, l.Table.Delete))
+	t.TableDispatch.BindHandler(bind.Write(l.binder, l.Table.Dispatch))
 
 	// LABEL
-	t.LabelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Create))
-	t.LabelRetrieve.BindHandler(l.Label.Retrieve)
-	t.LabelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Delete))
-	t.LabelAdd.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Add))
-	t.LabelRemove.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Remove))
-	t.LabelDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Dispatch))
+	t.LabelCreate.BindHandler(bind.Write(l.binder, l.Label.Create))
+	t.LabelRetrieve.BindHandler(bind.Read(l.binder, l.Label.Retrieve))
+	t.LabelDelete.BindHandler(bind.Write(l.binder, l.Label.Delete))
+	t.LabelAdd.BindHandler(bind.Write(l.binder, l.Label.Add))
+	t.LabelRemove.BindHandler(bind.Write(l.binder, l.Label.Remove))
+	t.LabelDispatch.BindHandler(bind.Write(l.binder, l.Label.Dispatch))
 
 	// RACK
-	t.RackCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Create))
-	t.RackRetrieve.BindHandler(l.Rack.Retrieve)
-	t.RackDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Delete))
-	t.RackRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Rename))
+	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
+	t.RackRetrieve.BindHandler(bind.Read(l.binder, l.Rack.Retrieve))
+	t.RackDelete.BindHandler(bind.Write(l.binder, l.Rack.Delete))
+	t.RackRename.BindHandler(bind.Write(l.binder, l.Rack.Rename))
+	t.RackDispatch.BindHandler(bind.Write(l.binder, l.Rack.Dispatch))
 
 	// TASK
-	t.TaskCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Create))
-	t.TaskRetrieve.BindHandler(l.Task.Retrieve)
-	t.TaskDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Delete))
-	t.TaskCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Copy))
-	t.TaskRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Rename))
-	t.TaskDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Dispatch))
+	t.TaskCreate.BindHandler(bind.Write(l.binder, l.Task.Create))
+	t.TaskRetrieve.BindHandler(bind.Read(l.binder, l.Task.Retrieve))
+	t.TaskDelete.BindHandler(
+		bind.WritePrepared(l.binder, l.Task.PrepareDelete, l.Task.Delete),
+	)
+	t.TaskCopy.BindHandler(bind.Write(l.binder, l.Task.Copy))
+	t.TaskRename.BindHandler(bind.Write(l.binder, l.Task.Rename))
+	t.TaskDispatch.BindHandler(bind.Write(l.binder, l.Task.Dispatch))
 
 	// DEVICE
-	t.DeviceCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Create))
-	t.DeviceRetrieve.BindHandler(l.Device.Retrieve)
-	t.DeviceDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Delete))
-	t.DeviceRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Rename))
+	t.DeviceCreate.BindHandler(bind.Write(l.binder, l.Device.Create))
+	t.DeviceRetrieve.BindHandler(bind.Read(l.binder, l.Device.Retrieve))
+	t.DeviceDelete.BindHandler(bind.Write(l.binder, l.Device.Delete))
+	t.DeviceRename.BindHandler(bind.Write(l.binder, l.Device.Rename))
+	t.DeviceDispatch.BindHandler(bind.Write(l.binder, l.Device.Dispatch))
 
 	// ACCESS
-	t.AccessCreatePolicy.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Policy.Create),
-	)
-	t.AccessDeletePolicy.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Policy.Delete),
-	)
-	t.AccessRetrievePolicy.BindHandler(l.Policy.Retrieve)
-	t.AccessCreateRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Role.Create),
-	)
-	t.AccessDeleteRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Role.Delete),
-	)
-	t.AccessRetrieveRole.BindHandler(l.Role.Retrieve)
-	t.AccessAssignRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Role.Assign),
-	)
-	t.AccessUnassignRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Role.Unassign),
-	)
+	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
+	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
+	t.AccessRetrievePolicy.BindHandler(bind.Read(l.binder, l.Policy.Retrieve))
+	t.AccessCreateRole.BindHandler(bind.Write(l.binder, l.Role.Create))
+	t.AccessDeleteRole.BindHandler(bind.Write(l.binder, l.Role.Delete))
+	t.AccessRetrieveRole.BindHandler(bind.Read(l.binder, l.Role.Retrieve))
+	t.AccessDispatchPolicy.BindHandler(bind.Write(l.binder, l.Policy.Dispatch))
+	t.AccessDispatchRole.BindHandler(bind.Write(l.binder, l.Role.Dispatch))
 
 	// STATUS
-	t.StatusSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Set))
-	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
-	t.StatusDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Delete))
-	t.StatusRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Rename))
-	t.StatusSetByKeyOrName.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Status.SetByKeyOrName),
-	)
+	t.StatusSet.BindHandler(bind.Write(l.binder, l.Status.Set))
+	t.StatusRetrieve.BindHandler(bind.Read(l.binder, l.Status.Retrieve))
+	t.StatusDelete.BindHandler(bind.Write(l.binder, l.Status.Delete))
+	t.StatusRename.BindHandler(bind.Write(l.binder, l.Status.Rename))
+	t.StatusSetByKeyOrName.BindHandler(bind.Write(l.binder, l.Status.SetByKeyOrName))
 
 	// VIEW
-	t.ViewCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Create))
-	t.ViewRetrieve.BindHandler(l.View.Retrieve)
-	t.ViewDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Delete))
-	t.ViewRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Rename))
+	t.ViewCreate.BindHandler(bind.Write(l.binder, l.View.Create))
+	t.ViewRetrieve.BindHandler(bind.Read(l.binder, l.View.Retrieve))
+	t.ViewDelete.BindHandler(bind.Write(l.binder, l.View.Delete))
+	t.ViewRename.BindHandler(bind.Write(l.binder, l.View.Rename))
+	t.ViewDispatch.BindHandler(bind.Write(l.binder, l.View.Dispatch))
 
 	// ARC
-	t.ArcCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Create))
-	t.ArcDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Delete))
-	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
-	t.ArcDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Dispatch))
-	t.ArcUpdateTask.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.UpdateTask))
-	t.ArcCreateDirectory.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Arc.CreateDirectory),
-	)
-	t.ArcRenameDirectory.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Arc.RenameDirectory),
-	)
-	t.ArcDeleteDirectory.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Arc.DeleteDirectory),
-	)
-	t.ArcMove.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Move))
+	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
+	t.ArcDelete.BindHandler(bind.Write(l.binder, l.Arc.Delete))
+	t.ArcRetrieve.BindHandler(l.Arc.Compiled(bind.Read(l.binder, l.Arc.Retrieve)))
+	t.ArcDispatch.BindHandler(bind.Write(l.binder, l.Arc.Dispatch))
+	t.ArcUpdateTask.BindHandler(bind.Write(l.binder, l.Arc.UpdateTask))
+	t.ArcRetrieveDirectory.BindHandler(bind.Read(l.binder, l.Arc.RetrieveDirectories))
+	t.ArcCreateDirectory.BindHandler(bind.Write(l.binder, l.Arc.CreateDirectory))
+	t.ArcRenameDirectory.BindHandler(bind.Write(l.binder, l.Arc.RenameDirectory))
+	t.ArcDispatchDirectory.BindHandler(bind.Write(l.binder, l.Arc.DispatchDirectory))
+	t.ArcDeleteDirectory.BindHandler(bind.Write(l.binder, l.Arc.DeleteDirectory))
+	t.ArcMove.BindHandler(bind.Write(l.binder, l.Arc.Move))
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT
-	t.ImExImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ImEx.Import))
-	t.ImExExport.BindHandler(l.ImEx.Export)
+	t.ImExImport.BindHandler(bind.Write(l.binder, l.ImEx.Import))
+	t.ImExExport.BindHandler(bind.Read(l.binder, l.ImEx.Export))
 }
 
 // NewLayer instantiates the server API layer using the provided Configs. This should
@@ -771,22 +878,29 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	l := &Layer{config: cfg}
+	if l.binder, err = bind.NewService(bind.ServiceConfig{
+		DB:   cfg.Distribution.DB,
+		RBAC: cfg.Service.RBAC,
+		Held: auth.HeldTables(),
+	}); err != nil {
+		return nil, err
+	}
 	if l.Auth, err = auth.NewService(auth.ServiceConfig{
+		DB:       cfg.Distribution.DB,
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,
 		APIKey:   cfg.Service.APIKey,
-		Ontology: cfg.Service.Ontology,
 		User:     cfg.Service.User,
 		RBAC:     cfg.Service.RBAC,
-		Cluster:  cfg.Distribution.Cluster,
+		Identity: cfg.Distribution.Identity,
 	}); err != nil {
 		return nil, err
 	}
 	if l.User, err = user.NewService(user.ServiceConfig{
+		DB:       cfg.Distribution.DB,
 		RBAC:     cfg.Service.RBAC,
 		User:     cfg.Service.User,
 		Password: cfg.Service.Password,
-		Auth:     cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}
@@ -802,16 +916,16 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Framer, err = framer.NewService(framer.ServiceConfig{
 		Instrumentation: cfg.Instrumentation,
+		DB:              cfg.Distribution.DB,
 		Framer:          cfg.Service.Framer,
 		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
-		Records: map[svcchannel.Key]framer.RecordOf{
-			cfg.Service.Task.ActionChannelKey(): svctask.ActionRecord,
-		},
+		Records:         cfg.Service.Signals.Records(),
 	}); err != nil {
 		return nil, err
 	}
 	if l.Channel, err = channel.NewService(channel.ServiceConfig{
+		DB:      cfg.Distribution.DB,
 		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
 		Status:  cfg.Service.Status,
@@ -821,100 +935,90 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Control, err = control.NewService(control.ServiceConfig{
 		Control: cfg.Service.Control,
-		RBAC:    cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Connectivity, err = connectivity.NewService(connectivity.ServiceConfig{
-		Cluster: cfg.Distribution.Cluster,
-		License: cfg.Service.License,
+		Identity: cfg.Distribution.Identity,
+		License:  cfg.Service.License,
 	}); err != nil {
 		return nil, err
 	}
 	if l.License, err = license.NewService(license.ServiceConfig{
+		DB:      cfg.Distribution.DB,
 		RBAC:    cfg.Service.RBAC,
 		License: cfg.Service.License,
 	}); err != nil {
 		return nil, err
 	}
-	if l.Ontology, err = ontology.NewService(ontology.ServiceConfig{
-		Ontology: cfg.Service.Ontology,
-		RBAC:     cfg.Service.RBAC,
+	if l.Resource, err = apiresource.NewService(apiresource.ServiceConfig{
+		Resource: cfg.Service.Resource,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Range, err = ranger.NewService(ranger.ServiceConfig{
-		RBAC:   cfg.Service.RBAC,
 		Ranger: cfg.Service.Ranger,
-		Label:  cfg.Service.Label,
 	}); err != nil {
 		return nil, err
 	}
 	if l.KV, err = kv.NewService(kv.ServiceConfig{
-		RBAC: cfg.Service.RBAC,
-		KV:   cfg.Service.KV,
+		KV: cfg.Service.KV,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Alias, err = alias.NewService(alias.ServiceConfig{
-		RBAC:  cfg.Service.RBAC,
 		Alias: cfg.Service.Alias,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Group, err = group.NewService(group.ServiceConfig{
-		RBAC:  cfg.Service.RBAC,
 		Group: cfg.Service.Group,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Project, err = project.NewService(project.ServiceConfig{
-		RBAC:    cfg.Service.RBAC,
 		Project: cfg.Service.Project,
+		Bundle:  cfg.Service.Bundle,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.NewService(schematic.ServiceConfig{
-		RBAC:      cfg.Service.RBAC,
 		Schematic: cfg.Service.Schematic,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Symbol, err = symbol.NewService(symbol.ServiceConfig{
 		Symbol: cfg.Service.Schematic.Symbol,
-		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.NewService(lineplot.ServiceConfig{
 		LinePlot: cfg.Service.LinePlot,
-		RBAC:     cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Panel, err = panel.NewService(panel.ServiceConfig{
-		RBAC:  cfg.Service.RBAC,
 		Panel: cfg.Service.Panel,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Label, err = label.NewService(label.ServiceConfig{
-		Label: cfg.Service.Label,
-		RBAC:  cfg.Service.RBAC,
+		Label:  cfg.Service.Label,
+		Ranger: cfg.Service.Ranger,
+		Status: cfg.Service.Status,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Rack, err = rack.NewService(rack.ServiceConfig{
 		Rack:   cfg.Service.Rack,
-		Device: cfg.Service.Device,
 		Task:   cfg.Service.Task,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
-		Auth:   cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Task, err = task.NewService(task.ServiceConfig{
+		DB:     cfg.Distribution.DB,
 		Task:   cfg.Service.Task,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
@@ -923,26 +1027,24 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Device, err = device.NewService(device.ServiceConfig{
-		Device:   cfg.Service.Device,
-		Status:   cfg.Service.Status,
-		RBAC:     cfg.Service.RBAC,
-		Ontology: cfg.Service.Ontology,
+		Device: cfg.Service.Device,
+		Status: cfg.Service.Status,
+		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Log, err = log.NewService(log.ServiceConfig{
-		Log:  cfg.Service.Log,
-		RBAC: cfg.Service.RBAC,
+		Log: cfg.Service.Log,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Video, err = video.NewService(video.ServiceConfig{
 		Video: cfg.Service.Video,
-		RBAC:  cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.WHIP, err = whip.NewService(whip.ServiceConfig{
+		DB:      cfg.Distribution.DB,
 		Factory: cfg.Service.WHIPFactory,
 		APIKey:  cfg.Service.APIKey,
 		RBAC:    cfg.Service.RBAC,
@@ -951,36 +1053,34 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Table, err = table.NewService(table.ServiceConfig{
 		Table: cfg.Service.Table,
-		RBAC:  cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Status, err = status.NewService(status.ServiceConfig{
 		Status: cfg.Service.Status,
-		Label:  cfg.Service.Label,
-		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Arc, err = arc.NewService(arc.ServiceConfig{
+		DB:              cfg.Distribution.DB,
 		Instrumentation: cfg.Instrumentation,
-		RBAC:            cfg.Service.RBAC,
 		Arc:             cfg.Service.Arc,
 		Status:          cfg.Service.Status,
+		RBAC:            cfg.Service.RBAC,
+		RenameChannel:   bind.Write(l.binder, l.Channel.Rename),
 	}); err != nil {
 		return nil, err
 	}
 	if l.View, err = view.NewService(view.ServiceConfig{
 		View: cfg.Service.View,
-		RBAC: cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.ImEx, err = imex.NewService(imex.ServiceConfig{
 		ImEx: cfg.Service.ImEx,
-		RBAC: cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
+	l.Batch = batch.NewService(l.batchRoutes())
 	return l, nil
 }

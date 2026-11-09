@@ -30,7 +30,11 @@ describe("video queries", () => {
     overrides: Partial<video.New> = {},
   ): Promise<video.Video> => {
     const proj = await client.projects.create({ name: `video_${uuid.create()}` });
-    return await client.videos.create(proj.key, { name: "camera", ...overrides });
+    return await client.videos.create({
+      project: proj.key,
+      name: "camera",
+      ...overrides,
+    });
   };
 
   // Loads the view into the cache, then renders the hook.

@@ -77,6 +77,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:            ReadTaskType,
 			Ladder:          versions.ReadConfigLadder,
 			SetEntryKey:     (*ReadConfig).SetKey,
+			PatchEntry:      (*ReadConfig).Patch,
+			HashEntry:       (*ReadConfig).HashContent,
 		},
 	); !ok(err, s.Read) {
 		return nil, err

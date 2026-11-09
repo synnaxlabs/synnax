@@ -151,7 +151,7 @@ func (f *Factory) configureRead(
 	if err != nil {
 		return nil, errors.Wrapf(validate.ErrValidation, "url: %s", err)
 	}
-	keys, err := ingest.Channels(ctx, f.cfg.Channel, cfg.Channel)
+	keys, err := ingest.Channels(ctx, f.cfg.DB, f.cfg.Channel, cfg.Channel)
 	if err != nil {
 		return nil, err
 	}

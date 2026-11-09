@@ -13,8 +13,23 @@ import { filter, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ontology } from "@/ontology";
+import { group } from "@/group";
+import { project } from "@/project";
 import { ranger } from "@/ranger";
+import { resource } from "@/resource";
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
+/** Order is a sort of videos. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -27,8 +42,20 @@ export const videoZ = z.object({
   name: z.string().min(1, "name is required"),
   /** channel is the video channel the view shows. */
   channel: channel.keyZ.default(0),
-  /** range is the range the view plays back. Absent shows live video. */
-  range: zod.nullToUndefined(ranger.refZ),
+  /** playbackRange is the range the view plays back. Absent shows live video. */
+  playbackRange: zod.nullToUndefined(ranger.refZ),
+  /** group is the group the video view sits in, if any. */
+  group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the video view, if any. Exactly one of project and
+   * range is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the video view, if any. Exactly one of project and
+   * range is set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface Video extends z.infer<typeof videoZ> {}
 
@@ -38,6 +65,10 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
+  projects?: project.Key[];
+  ranges?: ranger.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -54,7 +85,26 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** groups matches the video views in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the video views in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
+  /** projects matches the video views owned by any of the given projects. */
+  projects: zod.nullToUndefined(project.keyZ.array()),
+  /** ranges matches the video views owned by any of the given ranges. */
+  ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
+
+/**
+ * Cursor is a position in an order of videos: the sort value and the key of a video.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the video at the position. */
+  key: keyZ,
+  /** name is the name of the video at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 export interface New extends z.input<typeof videoZ> {}
 
 /** RetrieveResponse holds the videos a RetrieveRequest selects. */
@@ -70,12 +120,14 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the videos that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the videos. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the videos strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most videos to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching videos to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
-export const ontologyID = ontology.createIDFactory<Key>("video");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("video");
+export const TYPE_RESOURCE_ID = resourceID("");

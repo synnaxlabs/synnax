@@ -12,7 +12,7 @@ import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { type ontology } from "@/ontology";
+import { group } from "@/group";
 import { project } from "@/project";
 import { query } from "@/query";
 import { createOf, kindOf, reduceAll } from "@/video/actions";
@@ -20,26 +20,35 @@ import {
   type Action,
   dispatchReqZ,
   dispatchResZ,
-  rename as renameAction,
   scopedActionZ,
+  set,
 } from "@/video/actions.gen";
 import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
   type Video,
   videoZ,
 } from "@/video/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/video/where.gen";
+import {
+  compareCursors,
+  cursor,
+  type Lines,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/video/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_video_set";
 export const DELETE_CHANNEL_NAME = "sy_video_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
+
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
@@ -54,7 +63,6 @@ export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const createReqZ = z.object({
-  project: project.keyZ,
   dispatchKey: z.string(),
   videos: videoZ.array(),
 });
@@ -65,12 +73,15 @@ const emptyResZ = z.object({});
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Video> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Video>;
+  /** Builds requests that move video views between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move video views out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Video, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -85,6 +96,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
     });
     const dispatcher = new actions.Controller<Key, Video, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
@@ -97,29 +109,28 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
       name: "video",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (video, req) => matches(video, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (video, req) => matches(LINES, video, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/video/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
+    this.setProjectRequest = project.createMoveRequest(
+      "/video/set-project",
+      (keys, to) => project.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 
+  async create(video: New, opts?: query.WriteOptions<Video[]>): Promise<Video>;
+  async create(videos: New[], opts?: query.WriteOptions<Video[]>): Promise<Video[]>;
   async create(
-    project: project.Key,
-    video: New,
-    opts?: query.WriteOptions<Video[]>,
-  ): Promise<Video>;
-  async create(
-    project: project.Key,
-    videos: New[],
-    opts?: query.WriteOptions<Video[]>,
-  ): Promise<Video[]>;
-  async create(
-    project: project.Key,
     videos: New | New[],
     opts: query.WriteOptions<Video[]> = {},
   ): Promise<Video | Video[]> {
@@ -136,7 +147,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
           async (dispatchKey) =>
             await this.cfg.unary.send(
               "/video/create",
-              { project, dispatchKey, videos: optimistic },
+              { dispatchKey, videos: optimistic },
               createReqZ,
               createResZ,
             ),
@@ -151,10 +162,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
       query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
       return () => {
         query.partialUpdate(this.store, key, { name: prev });
-        resource();
       };
     };
     const rollback = rename();
@@ -164,7 +173,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
       rollback();
       throw errors.fromUnknown(e);
     }
-    await this.dispatcher.send(key, [renameAction({ name })], {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
       rollback,
       reapply: rename,
     });
@@ -172,9 +181,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
   }
 
   /**
-   * Applies actions to the cached video view and sends them to the server, recording an
-   * undoable entry. Returns false without side effects when the view isn't cached. Rolls
-   * back the local apply and rethrows on send failure.
+   * Applies actions to the cached view and sends them to the server, recording an
+   * undoable entry. Returns false without side effects when the view isn't cached.
+   * Rolls back the local apply and rethrows on send failure.
    */
   async dispatch(
     key: Key,
@@ -225,10 +234,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

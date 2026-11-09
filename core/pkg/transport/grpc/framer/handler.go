@@ -132,9 +132,10 @@ func (frameWriterResponseTranslator) Forward(
 	msg framer.WriterResponse,
 ) (*WriterResponse, error) {
 	return &WriterResponse{
-		Command: int32(msg.Command),
-		End:     int64(msg.End),
-		Error:   errors.TranslatePayloadForward(msg.Err),
+		Command:      int32(msg.Command),
+		End:          int64(msg.End),
+		Error:        errors.TranslatePayloadForward(msg.Err),
+		Unauthorized: !msg.Authorized,
 	}, nil
 }
 
@@ -169,7 +170,6 @@ func (t frameIteratorResponseTranslator) Forward(
 	res := &IteratorResponse{
 		Variant: int32(msg.Variant),
 		Command: int32(msg.Command),
-		NodeKey: int32(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int32(msg.SeqNum),
 		Error:   fgrpc.EncodeError(ctx, msg.Error, false),

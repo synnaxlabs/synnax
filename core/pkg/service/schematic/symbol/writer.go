@@ -13,101 +13,146 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Writer is used to create, update, and delete symbols within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter
-// method. If no transaction is provided, the writer will execute operations directly
-// on the database.
+// method.
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	table     *gorp.Table[Key, Symbol]
+	tx         gorp.Tx
+	table      *gorp.Table[Key, Symbol]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// Create creates the given symbol as a child of the ontology.Resource with the given
-// parent ID. If the symbol does not have a key, a new key will be generated. If the
-// symbol already exists, it will be updated and the existing parent relationship will
-// be deleted and replaced with the new parent relationship.
-func (w Writer) Create(
-	ctx context.Context,
-	s *Symbol,
-	parent ontology.ID,
-) (err error) {
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
+}
+
+// Create creates the given symbol. If the symbol does not have a key, a new key will be
+// generated. An existing symbol keeps its group, and a new symbol takes s.Group. The
+// commit carries a create action that holds the stored symbol.
+func (w Writer) Create(ctx context.Context, s *Symbol) error {
 	s.ApplyDefaults()
-	if err = s.Validate(); err != nil {
+	if err := s.Validate(); err != nil {
 		return err
 	}
 	var exists bool
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().
+		var stored Symbol
+		err := w.table.NewRetrieve().
 			Where(gorp.MatchKeys[Key, Symbol](s.Key)).
-			Exists(ctx, w.tx)
-		if err != nil {
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
+		if exists = err == nil; exists {
+			s.Group = stored.Group
+		}
 	}
-	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	otgID := s.OntologyID()
-	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	// Symbol already exists = delete incoming relationships and define new parent
-	// Symbol does not exist = define parent
-	if exists {
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
+	if !exists {
+		if err := group.CheckMember(
 			ctx,
-			otgID,
-			ontology.RelationshipTypeParentOf,
+			w.tx,
+			s.Group,
+			resource.TypeSchematicSymbol,
+			nil,
 		); err != nil {
 			return err
 		}
 	}
-	return w.otgWriter.DefineRelationships(
-		ctx, parent, ontology.RelationshipTypeParentOf, otgID,
-	)
+	if err := w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, s.Key, NewCreateAction(CreatePayload{Symbol: *s}))
+	return nil
 }
 
-// CreateMany creates the given symbols as children of the ontology.Resource with the
-// given parent ID. If symbols with the same key already exist, they will be
-// overwritten.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	symbols *[]Symbol,
-	parent ontology.ID,
-) error {
+// Apply applies the actions to the symbol with the given key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create, the
+// result fails to decode or validate, or the new group cannot hold a symbol, and an
+// error wrapping query.ErrNotFound when no symbol has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Symbol](key)).
+		ChangeErr(func(_ gorp.Context, s Symbol) (Symbol, error) {
+			next, err := Reduce(s, acts...)
+			if err != nil {
+				return Symbol{}, err
+			}
+			next.ApplyDefaults()
+			if err = next.Validate(); err != nil {
+				return Symbol{}, err
+			}
+			if lo.FromPtr(next.Group) == lo.FromPtr(s.Group) {
+				return next, nil
+			}
+			if err = group.CheckMember(
+				ctx,
+				w.tx,
+				next.Group,
+				resource.TypeSchematicSymbol,
+				nil,
+			); err != nil {
+				return Symbol{}, err
+			}
+			return next, nil
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
+}
+
+// CreateMany creates the given symbols. If symbols with the same key already exist,
+// they will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, symbols *[]Symbol) error {
 	for i := range *symbols {
-		if err := w.Create(ctx, &(*symbols)[i], parent); err != nil {
+		if err := w.Create(ctx, &(*symbols)[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// Rename renames the symbol with the given key to the provided name.
+// SetGroup moves the symbols with keys into g, or out of their group when g is nil.
+// Each move applies a set of the group.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	set := NewSetAction(SetPayload{Path: []string{"group"}, Value: g})
+	for _, k := range keys {
+		if err := w.Apply(ctx, k, set); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Rename renames the symbol with the given key by applying a set of the name.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Symbol](key)).
-		Change(func(_ gorp.Context, s Symbol) Symbol {
-			s.Name = name
-			return s
-		}).
-		Exec(ctx, w.tx)
+	return w.Apply(
+		ctx,
+		key,
+		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
+	)
 }
 
 // Delete deletes the symbols with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Symbol](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+		Exec(ctx, w.tx)
 }

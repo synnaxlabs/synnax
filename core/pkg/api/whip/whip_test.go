@@ -17,15 +17,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/pion/webrtc/v4"
+	"github.com/synnaxlabs/gorp"
 	apiwhip "github.com/synnaxlabs/synnax/pkg/api/whip"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/whip"
@@ -37,40 +36,29 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// grant lets subject run action on object.
-func grant(
-	ctx context.Context,
-	subject ontology.ID,
-	action access.Action,
-	object ontology.ID,
-) {
-	GinkgoHelper()
-	r := &role.Role{Name: "whip-" + uuid.New().String()}
-	Expect(rbacSvc.Role.NewWriter(nil, true).Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    "whip-policy-" + uuid.New().String(),
-		Objects: []ontology.ID{object},
-		Actions: []access.Action{action},
-	}
-	policies := rbacSvc.Policy.NewWriter(nil, true)
-	Expect(policies.Create(ctx, p)).To(Succeed())
-	Expect(policies.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(rbacSvc.Role.NewWriter(nil, true).AssignRole(ctx, subject, r.Key)).
-		To(Succeed())
-}
-
 // newKey creates a user with an API key and returns the key. The user may write to ch
 // when writable is true.
 func newKey(ctx context.Context, ch channel.Channel, writable bool) string {
 	GinkgoHelper()
-	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+	u := MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "whip-" + uuid.New().String(),
 	}))
-	subject := user.OntologyID(u.Key)
 	if writable {
-		grant(ctx, subject, access.ActionCreate, channel.OntologyID(ch.Key()))
+		MustSucceed(rbactestutil.Grant(
+			ctx,
+			db,
+			svc.RBAC,
+			svc.User,
+			u.Key,
+			[]access.Action{access.ActionCreate},
+			channel.ResourceID(ch.Key()),
+		))
 	}
-	_, token := MustSucceed2(apiKeySvc.NewWriter(nil).Create(ctx, subject, "encoder"))
+	var token string
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		_, token, err = svc.APIKey.NewWriter(tx).Create(ctx, u.ResourceID(), "encoder")
+		return err
+	})).To(Succeed())
 	return token
 }
 
@@ -106,27 +94,29 @@ func offer() (*webrtc.PeerConnection, string) {
 
 var _ = Describe("Service", func() {
 	var (
-		svc             *apiwhip.Service
+		api             *apiwhip.Service
 		t               task.Task
 		allowed, denied string
 	)
 	BeforeEach(func(ctx SpecContext) {
-		svc = MustSucceed(apiwhip.NewService(apiwhip.ServiceConfig{
-			Factory: factory,
-			APIKey:  apiKeySvc,
-			RBAC:    rbacSvc,
+		api = MustSucceed(apiwhip.NewService(apiwhip.ServiceConfig{
+			DB:      db,
+			Factory: svc.WHIPFactory,
+			APIKey:  svc.APIKey,
+			RBAC:    svc.RBAC,
 		}))
 		ch := channel.Channel{
 			Name:     UniqueChannelName(),
 			DataType: telem.VideoT,
 			Virtual:  true,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(errors.Skip(
-				channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false),
-				query.ErrNotFound,
-			)).To(Succeed())
+			Expect(errors.Skip(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Delete(ctx, ch.Key(), false)
+			}), query.ErrNotFound)).To(Succeed())
 		})
 		var cfg msgpack.EncodedJSON
 		Expect(json.Unmarshal(MustSucceed(json.Marshal(whip.ReadConfig{
@@ -137,9 +127,19 @@ var _ = Describe("Service", func() {
 			Key:    uuid.New(),
 			Name:   "obs",
 			Type:   whip.ReadTaskType,
+			Rack:   rackKey,
 			Config: cfg,
 		}
-		configured := MustSucceed(factory.ConfigureTask(ctx, t, driver.NoCommand))
+		Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+			To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Task.NewWriter(tx).Delete(ctx, t.Key, true)
+			})).To(Succeed())
+		})
+		configured := MustSucceed(
+			svc.WHIPFactory.ConfigureTask(ctx, t, driver.NoCommand),
+		)
 		DeferCleanup(func() { Expect(configured.Stop(false)).To(Succeed()) })
 		allowed = newKey(ctx, ch, true)
 		denied = newKey(ctx, ch, false)
@@ -150,7 +150,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			pc, sdp := offer()
-			res := MustSucceed(svc.Publish(ctx, apiwhip.PublishRequest{
+			res := MustSucceed(api.Publish(ctx, apiwhip.PublishRequest{
 				Task:  t.Key,
 				Key:   allowed,
 				Offer: sdp,
@@ -164,7 +164,7 @@ var _ = Describe("Service", func() {
 
 		It("Should reject an unknown API key", func(ctx SpecContext) {
 			_, sdp := offer()
-			Expect(svc.Publish(ctx, apiwhip.PublishRequest{
+			Expect(api.Publish(ctx, apiwhip.PublishRequest{
 				Task:  t.Key,
 				Key:   "not-a-key",
 				Offer: sdp,
@@ -175,7 +175,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			_, sdp := offer()
-			Expect(svc.Publish(ctx, apiwhip.PublishRequest{
+			Expect(api.Publish(ctx, apiwhip.PublishRequest{
 				Task:  t.Key,
 				Key:   denied,
 				Offer: sdp,
@@ -184,7 +184,7 @@ var _ = Describe("Service", func() {
 
 		It("Should reject a task that is not running", func(ctx SpecContext) {
 			_, sdp := offer()
-			Expect(svc.Publish(ctx, apiwhip.PublishRequest{
+			Expect(api.Publish(ctx, apiwhip.PublishRequest{
 				Task:  uuid.New(),
 				Key:   allowed,
 				Offer: sdp,
@@ -192,7 +192,7 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should reject an offer that is not valid SDP", func(ctx SpecContext) {
-			Expect(svc.Publish(ctx, apiwhip.PublishRequest{
+			Expect(api.Publish(ctx, apiwhip.PublishRequest{
 				Task:  t.Key,
 				Key:   allowed,
 				Offer: "nope",
@@ -206,7 +206,7 @@ var _ = Describe("Service", func() {
 	Describe("Unpublish", func() {
 		It("Should end a session", func(ctx SpecContext) {
 			_, sdp := offer()
-			res := MustSucceed(svc.Publish(ctx, apiwhip.PublishRequest{
+			res := MustSucceed(api.Publish(ctx, apiwhip.PublishRequest{
 				Task:  t.Key,
 				Key:   allowed,
 				Offer: sdp,
@@ -216,8 +216,8 @@ var _ = Describe("Service", func() {
 				Session: res.Session,
 				Key:     allowed,
 			}
-			MustSucceed(svc.Unpublish(ctx, req))
-			Expect(svc.Unpublish(ctx, req)).Error().To(And(
+			MustSucceed(api.Unpublish(ctx, req))
+			Expect(api.Unpublish(ctx, req)).Error().To(And(
 				MatchError(query.ErrNotFound),
 				MatchError(HavePrefix(
 					"session "+res.Session.String()+" does not exist",
@@ -229,12 +229,12 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			_, sdp := offer()
-			res := MustSucceed(svc.Publish(ctx, apiwhip.PublishRequest{
+			res := MustSucceed(api.Publish(ctx, apiwhip.PublishRequest{
 				Task:  t.Key,
 				Key:   allowed,
 				Offer: sdp,
 			}))
-			Expect(svc.Unpublish(ctx, apiwhip.UnpublishRequest{
+			Expect(api.Unpublish(ctx, apiwhip.UnpublishRequest{
 				Task:    t.Key,
 				Session: res.Session,
 				Key:     denied,

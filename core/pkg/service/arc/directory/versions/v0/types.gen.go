@@ -26,6 +26,8 @@ type Directory struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is the name of the directory, one segment of an import path.
 	Name string `json:"name" msgpack:"name"`
+	// Parent is the directory that holds this directory. The root has none.
+	Parent *Key `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

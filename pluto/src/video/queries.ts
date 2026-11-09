@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type project, type video } from "@synnaxlabs/client";
-import { uuid, verbs } from "@synnaxlabs/x";
+import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Scope } from "@/video/scope";
@@ -25,8 +25,9 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
 >({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.videos.retrieve(query.key),
-  onChange: ({ client, query }, handler) => client.videos.onChange(query.key, handler),
-  getCached: ({ client, query }) => client.videos.getCached(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.videos.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.videos.watch(query.key).getCached(),
   awaitCreation: true,
 });
 
@@ -34,7 +35,9 @@ export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
 export const useChannel = Scope.bindHook(createSelector(({ channel }) => channel));
 
-export const useRange = Scope.bindHook(createSelector(({ range }) => range));
+export const usePlaybackRange = Scope.bindHook(
+  createSelector(({ playbackRange }) => playbackRange),
+);
 
 export const {
   useUndo: useUndoBase,
@@ -60,14 +63,14 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
 });
 
 export interface CreateParams extends video.New {
-  project?: project.Key;
+  project: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, video.Video>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.videos.create(data.project ?? uuid.ZERO, data, {
+    await client.videos.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });

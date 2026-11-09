@@ -13,13 +13,12 @@ import {
   type UnaryClient,
   WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { binary, Series, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
+import { binary, Series, TimeSpan, TimeStamp, url, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { type channel } from "@/channel";
 import { framer } from "@/framer";
 import { label } from "@/label";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
 import { status } from "@/status";
@@ -71,16 +70,16 @@ const unary: UnaryClient = {
   },
 };
 
-const createStreamedClient = async () => {
+const createStreamedClient = async (recordCap?: number) => {
   const stream = new PushStreamer();
   const cache = new query.Cache({
     openStreamer: async () => stream,
     breaker: { baseInterval: TimeSpan.milliseconds(1) },
     onError: () => {},
+    recordCap,
   });
   onTestFinished(async () => await cache.close());
-  const ont = new ontology.Client({ unary, cache });
-  const labels = new label.Client({ unary, cache, ontology: ont });
+  const labels = new label.Client({ unary, cache, relabel: {} });
   const coreURL = new url.URL(TEST_CORE_ADDRESS);
   const frames = new framer.Client({
     stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
@@ -92,30 +91,37 @@ const createStreamedClient = async () => {
     unary,
     cache,
     labels,
-    ontology: ont,
     framer: frames,
     channels: async () => [],
   });
-  const statuses = new status.Client({ unary, cache, ontology: ont, labels });
+  const statuses = new status.Client({ unary, cache });
   const tasks = new task.Client({
     unary,
     framer: frames,
-    ontology: ont,
     ranges,
     cache,
     statuses,
   });
   await cache.ensureStreaming();
-  return { stream, tasks };
+  return { stream, tasks, statuses };
 };
 
-const createStatus = (key: task.Key, message: string, time: TimeStamp) => ({
-  key: task.statusKey(key),
+const STATUS_KEY = "5c1e7a0b-2d3f-4e6a-8b9c-0d1e2f3a4b5c";
+
+const createStatus = (
+  key: task.Key,
+  message: string,
+  time: TimeStamp,
+  statusKey: string = STATUS_KEY,
+) => ({
+  key: statusKey,
   name: "Task status",
   variant: "warning" as const,
   message,
   time,
-  details: { task: key, running: false, cmd: "", data: {} },
+  labels: [],
+  owner: task.resourceID(key),
+  details: { running: false, cmd: "", data: {} },
 });
 
 describe("task.Client", () => {
@@ -124,7 +130,7 @@ describe("task.Client", () => {
       const { stream, tasks } = await createStreamedClient();
       const key = "0a7d3c2e-6f1b-4c5d-9e8f-1a2b3c4d5e6f";
       const cachedMessage = () => {
-        const cached = tasks.getCached(key);
+        const cached = tasks.watch(key).getCached();
         return query.isLive(cached) ? cached.status?.message : undefined;
       };
       stream.push(
@@ -149,7 +155,7 @@ describe("task.Client", () => {
           ]),
         }),
       );
-      await expect.poll(() => query.isLive(tasks.getCached(key))).toBe(true);
+      await expect.poll(() => query.isLive(tasks.watch(key).getCached())).toBe(true);
       expect(cachedMessage()).toBe("Task not deployed");
       stream.push(
         new framer.Frame({
@@ -159,6 +165,56 @@ describe("task.Client", () => {
         }),
       );
       await expect.poll(cachedMessage).toBe("Task configured");
+    });
+  });
+
+  describe("record cap", () => {
+    it("should keep the status of a held task when it trims statuses", async () => {
+      const { stream, tasks, statuses } = await createStreamedClient(10);
+      const key = "3b8e1f4a-7c2d-4e9b-a5f6-2c3d4e5f6a7b";
+      onTestFinished(tasks.watch(key).onChange(() => {}));
+      const cachedMessage = () => {
+        const cached = tasks.watch(key).getCached();
+        return query.isLive(cached) ? cached.status?.message : undefined;
+      };
+      stream.push(
+        new framer.Frame({
+          [task.ACTION_CHANNEL_NAME]: new Series([
+            {
+              key,
+              dispatchKey: "remote-dispatch",
+              seq: 1,
+              actions: [
+                task.create({
+                  task: {
+                    key,
+                    name: "held",
+                    type: "test",
+                    config: {},
+                    status: createStatus(key, "Task not deployed", TimeStamp.now()),
+                  },
+                }),
+              ],
+            },
+          ]),
+        }),
+      );
+      await expect.poll(cachedMessage).toBe("Task not deployed");
+      const pushStatuses = (n: number) =>
+        stream.push(
+          new framer.Frame({
+            [status.SET_CHANNEL_NAME]: new Series(
+              Array.from({ length: n }, () =>
+                createStatus(uuid.create(), "Other", TimeStamp.now(), uuid.create()),
+              ),
+            ),
+          }),
+        );
+      pushStatuses(11);
+      await expect.poll(() => statuses.store.size).toBe(12);
+      pushStatuses(1);
+      await expect.poll(() => statuses.store.size).toBe(9);
+      expect(statuses.ownedBy(task.resourceID(key))?.message).toBe("Task not deployed");
     });
   });
 });

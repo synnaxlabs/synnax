@@ -221,7 +221,7 @@ func (f *Factory) configureRead(
 	t task.Task,
 	cfg ReadConfig,
 ) (*driver.ReadTask, error) {
-	keys, err := ingest.Channels(ctx, f.cfg.Channel, cfg.Channel)
+	keys, err := ingest.Channels(ctx, f.cfg.DB, f.cfg.Channel, cfg.Channel)
 	if err != nil {
 		return nil, err
 	}

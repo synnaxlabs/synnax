@@ -49,7 +49,7 @@ std::pair<x::telem::Frame, x::errors::Error> Streamer::read() {
         std::tie(fr, exc) = this->stream->receive();
     }
     if (!exc) {
-        this->dropped_.assign(
+        this->dropped_keys.assign(
             this->pending_dropped.begin(),
             this->pending_dropped.end()
         );
@@ -67,7 +67,7 @@ std::pair<x::telem::Frame, x::errors::Error> Streamer::read() {
 }
 
 const std::vector<channel::Key> &Streamer::dropped() const {
-    return this->dropped_;
+    return this->dropped_keys;
 }
 
 void Streamer::close_send() const {

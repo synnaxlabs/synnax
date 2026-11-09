@@ -276,7 +276,7 @@ describe("channels", () => {
       const write = { "/cmd": MISSING_KEY };
       const key = await Task.configureCommandChannel(client, write, {
         propertiesKey: "/cmd",
-        channel: MISSING_KEY,
+        channel: 0,
         name,
         dataType: "uint8",
       });

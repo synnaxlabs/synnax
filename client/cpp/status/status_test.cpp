@@ -167,10 +167,7 @@ TEST(StatusTest, RetrieveOneWhereNotFound) {
     const auto key = "test-one-none-" + x::uuid::create().to_string();
     const auto [_, err] = client.statuses.retrieve(Where{.key = key}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(
-        err.data,
-        R"(status matching {"key":{"eq":")" + key + R"("}} not found.)"
-    );
+    ASSERT_EQ(err.data, "Found no status where key = \"" + key + "\"");
 }
 
 /// @brief it should return an error when more than one status matches a filter.
@@ -191,11 +188,11 @@ TEST(StatusTest, RetrieveOneWhereMultipleFound) {
     );
 }
 
-/// @brief it should reject a limit or an offset on a retrieve of one status.
+/// @brief it should reject a limit or a cursor on a retrieve of one status.
 TEST(StatusTest, RetrieveRejectsPage) {
     const auto client = new_test_client();
     for (const auto &options:
-         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.after = Cursor{}}})
         for (const auto &err:
              {client.statuses.retrieve("status", options).second,
               client.statuses.retrieve(Where{.key = "status"}, x::filter::one, options)
@@ -203,11 +200,10 @@ TEST(StatusTest, RetrieveRejectsPage) {
             ASSERT_MATCHES(err, x::errors::VALIDATION);
             ASSERT_EQ(
                 err.data,
-                "a query for one record takes no limit or offset, since a page could "
+                "a query for one record takes no limit or cursor, since a page could "
                 "hide a second match"
             );
         }
-    }
 }
 
 /// @brief it should page a retrieve of statuses by keys or by filter.
@@ -229,7 +225,7 @@ TEST(StatusTest, RetrieveListPage) {
     const auto by_key = ASSERT_NIL_P(client.statuses.retrieve(keys, {.limit = 2}));
     ASSERT_EQ(by_key.size(), 2);
     const auto by_where = ASSERT_NIL_P(
-        client.statuses.retrieve(Where{.key = keys}, {.offset = 2})
+        client.statuses.retrieve(Where{.key = keys}, {.after = Cursor{.key = keys[1]}})
     );
     ASSERT_EQ(by_where.size(), 1);
 }
@@ -253,6 +249,74 @@ TEST(StatusTest, UpdateExistingStatus) {
     EXPECT_EQ(retrieved.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(retrieved.message, "Updated message");
     EXPECT_EQ(retrieved.description, "Added description");
+}
+
+/// @brief it should assign a key to a status that names an owner and no key.
+TEST(StatusTest, SetOwnedStatusAssignsKey) {
+    const auto client = new_test_client();
+    auto r = synnax::rack::Rack{.name = "status_owner_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    Status<x::json::json> s;
+    s.variant = synnax::status::VARIANT_INFO;
+    s.message = "Owned";
+    s.time = x::telem::TimeStamp::now();
+    s.owner = synnax::rack::resource_id(r.key);
+    ASSERT_NIL(client.statuses.set(s));
+    EXPECT_FALSE(s.key.empty());
+    EXPECT_EQ(s.owner.value(), synnax::rack::resource_id(r.key));
+}
+
+/// @brief it should write to the status the owner holds when a write names the owner
+/// and no key.
+TEST(StatusTest, SetOwnedStatusUpdatesOwnerStatus) {
+    const auto client = new_test_client();
+    auto r = synnax::rack::Rack{.name = "status_owner_update_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    Status<x::json::json> first;
+    first.variant = synnax::status::VARIANT_INFO;
+    first.message = "First";
+    first.time = x::telem::TimeStamp::now();
+    first.owner = synnax::rack::resource_id(r.key);
+    ASSERT_NIL(client.statuses.set(first));
+    Status<x::json::json> second;
+    second.variant = synnax::status::VARIANT_WARNING;
+    second.message = "Second";
+    second.time = x::telem::TimeStamp::now();
+    second.owner = synnax::rack::resource_id(r.key);
+    ASSERT_NIL(client.statuses.set(second));
+    EXPECT_EQ(second.key, first.key);
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(first.key));
+    EXPECT_EQ(retrieved.message, "Second");
+    EXPECT_EQ(retrieved.variant, synnax::status::VARIANT_WARNING);
+}
+
+/// @brief it should retrieve the status that an owner holds.
+TEST(StatusTest, RetrieveByOwner) {
+    const auto client = new_test_client();
+    auto r = synnax::rack::Rack{.name = "status_retrieve_owner_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    Status<x::json::json> s;
+    s.variant = synnax::status::VARIANT_INFO;
+    s.message = "Owned";
+    s.time = x::telem::TimeStamp::now();
+    s.owner = synnax::rack::resource_id(r.key);
+    ASSERT_NIL(client.statuses.set(s));
+    const auto retrieved = ASSERT_NIL_P(
+        client.statuses.retrieve_by_owner(synnax::rack::resource_id(r.key))
+    );
+    EXPECT_EQ(retrieved.key, s.key);
+    EXPECT_EQ(retrieved.message, "Owned");
+}
+
+/// @brief it should return a not found error for an owner that holds no status.
+TEST(StatusTest, RetrieveByOwnerNotFound) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(
+        client.statuses.retrieve_by_owner(
+            synnax::resource::ID{.type = "task", .key = x::uuid::create().to_string()}
+        ),
+        x::errors::NOT_FOUND
+    );
 }
 
 /// @brief it should return a not found error for non-existent status.
@@ -545,8 +609,10 @@ TEST(StatusTest, SetByKeyOrNameMultiMatch) {
 TEST(StatusTest, SetByKeyOrNameInvalidVariant) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_iv_");
-    auto [res, err] = client.statuses.set_by_key_or_name(name, "x", "bogus");
-    EXPECT_FALSE(err.ok());
+    const auto res = ASSERT_OCCURRED_AS_P(
+        client.statuses.set_by_key_or_name(name, "x", "bogus"),
+        x::errors::VALIDATION
+    );
     EXPECT_TRUE(res.key.empty());
 }
 

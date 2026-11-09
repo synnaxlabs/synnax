@@ -57,7 +57,7 @@ var _ = Describe("ReadTask", func() {
 		func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.VideoT)
 			v := watch(ctx, ch)
-			t := newTask(readConfig(ch))
+			t := newTask(ctx, readConfig(ch))
 			start(ctx, factory, t)
 			e := openEncoder(webrtc.MimeTypeH264)
 			e.publish(ctx, factory, t)
@@ -74,7 +74,7 @@ var _ = Describe("ReadTask", func() {
 			v := watch(ctx, ch)
 			cfg := readConfig(ch)
 			cfg.Offset = -telem.Hour
-			t := newTask(cfg)
+			t := newTask(ctx, cfg)
 			before := telem.Now()
 			running := start(ctx, factory, t)
 			e := openEncoder(webrtc.MimeTypeH264)
@@ -97,7 +97,7 @@ var _ = Describe("ReadTask", func() {
 			v := watch(ctx, ch)
 			cfg := readConfig(ch)
 			cfg.TimeSource = whip.TimeSourceCapture
-			t := newTask(cfg)
+			t := newTask(ctx, cfg)
 			running := start(ctx, factory, t)
 			e := openEncoder(webrtc.MimeTypeH264)
 			e.publish(ctx, factory, t)
@@ -126,7 +126,7 @@ var _ = Describe("ReadTask", func() {
 			factory = MustOpen(whip.OpenFactory(cfg))
 			ch := createVirtual(ctx, telem.VideoT)
 			v := watch(ctx, ch)
-			t := newTask(readConfig(ch))
+			t := newTask(ctx, readConfig(ch))
 			start(ctx, factory, t)
 			e := openEncoder(webrtc.MimeTypeH264)
 			e.publish(ctx, factory, t)
@@ -139,7 +139,7 @@ var _ = Describe("ReadTask", func() {
 		func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.VideoT)
 			v := watch(ctx, ch)
-			t := newTask(readConfig(ch))
+			t := newTask(ctx, readConfig(ch))
 			start(ctx, factory, t)
 			first := openEncoder(webrtc.MimeTypeH264).publish(ctx, factory, t)
 			e := openEncoder(webrtc.MimeTypeH264)
@@ -152,7 +152,7 @@ var _ = Describe("ReadTask", func() {
 
 	It("Should end a session", func(ctx SpecContext) {
 		ch := createVirtual(ctx, telem.VideoT)
-		t := newTask(readConfig(ch))
+		t := newTask(ctx, readConfig(ch))
 		start(ctx, factory, t)
 		key := openEncoder(webrtc.MimeTypeH264).publish(ctx, factory, t)
 		Expect(factory.Unpublish(t.Key, key)).To(Succeed())
@@ -166,7 +166,7 @@ var _ = Describe("ReadTask", func() {
 		ch := createVirtual(ctx, telem.VideoT)
 		cfg := readConfig(ch)
 		cfg.AutoStart = false
-		t := newTask(cfg)
+		t := newTask(ctx, cfg)
 		MustSucceed(factory.ConfigureTask(ctx, t, driver.NoCommand))
 		offer := openEncoder(webrtc.MimeTypeH264).offer()
 		Expect(factory.Publish(ctx, t.Key, offer)).Error().
@@ -176,7 +176,7 @@ var _ = Describe("ReadTask", func() {
 
 	It("Should reject an offer with no H.264 video", func(ctx SpecContext) {
 		ch := createVirtual(ctx, telem.VideoT)
-		t := newTask(readConfig(ch))
+		t := newTask(ctx, readConfig(ch))
 		start(ctx, factory, t)
 		offer := openEncoder(webrtc.MimeTypeVP8).offer()
 		Expect(factory.Publish(ctx, t.Key, offer)).Error().To(SatisfyAll(
@@ -189,7 +189,7 @@ var _ = Describe("ReadTask", func() {
 
 	It("Should return the video channel of a running task", func(ctx SpecContext) {
 		ch := createVirtual(ctx, telem.VideoT)
-		t := newTask(readConfig(ch))
+		t := newTask(ctx, readConfig(ch))
 		start(ctx, factory, t)
 		Expect(factory.Channel(t.Key)).To(Equal(ch.Key()))
 	})
@@ -197,7 +197,7 @@ var _ = Describe("ReadTask", func() {
 	It("Should fail the task for a stream with B-frames", func(ctx SpecContext) {
 		ch := createVirtual(ctx, telem.VideoT)
 		v := watch(ctx, ch)
-		t := newTask(readConfig(ch))
+		t := newTask(ctx, readConfig(ch))
 		start(ctx, factory, t)
 		e := openEncoder(webrtc.MimeTypeH264)
 		e.publish(ctx, factory, t)
@@ -213,7 +213,7 @@ var _ = Describe("ReadTask", func() {
 		func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.VideoT)
 			v := watch(ctx, ch)
-			t := newTask(readConfig(ch))
+			t := newTask(ctx, readConfig(ch))
 			start(ctx, factory, t)
 			e := openEncoder(webrtc.MimeTypeH264)
 			e.publish(ctx, factory, t)
@@ -238,7 +238,7 @@ var _ = Describe("ReadTask", func() {
 	Describe("Configuration", func() {
 		expectInvalid := func(ctx SpecContext, cfg whip.ReadConfig, message string) {
 			GinkgoHelper()
-			Expect(factory.ConfigureTask(ctx, newTask(cfg), "cmd")).Error().
+			Expect(factory.ConfigureTask(ctx, newTask(ctx, cfg), "cmd")).Error().
 				To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(message)),
@@ -247,8 +247,7 @@ var _ = Describe("ReadTask", func() {
 
 		It("Should reject a channel that does not exist", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.VideoT)
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).
-				To(Succeed())
+			Expect(deleteChannel(ctx, ch.Key())).To(Succeed())
 			expectInvalid(
 				ctx, readConfig(ch), "channel: "+ch.Key().String()+" does not exist",
 			)

@@ -12,15 +12,14 @@ package retention_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/retention"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -34,39 +33,25 @@ var _ = Describe("Service", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node = testutil.NewNode(ctx)
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
-		}))
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: node.DB}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       node.DB,
-			Group:    groupSvc,
-			Ontology: otg,
-			Label:    labelSvc,
+			DB: node.DB,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Ontology:     otg,
-			Group:        groupSvc,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
 		}))
 	})
 
 	open := func() {
 		GinkgoHelper()
 		MustOpen(retention.Open(retention.Config{
-			Channel:      channelSvc,
-			Framer:       node.Framer,
-			HostProvider: node.Cluster,
-			Interval:     10 * telem.Millisecond,
+			DB:       node.DB,
+			Channel:  channelSvc,
+			Framer:   node.Framer,
+			Interval: 10 * telem.Millisecond,
 		}))
 	}
 
@@ -84,13 +69,17 @@ var _ = Describe("Service", Ordered, func() {
 			IsIndex:   true,
 			Retention: retention,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &index)).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &index)
+		})).To(Succeed())
 		data = channel.Channel{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float64T,
 			LocalIndex: index.LocalKey,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &data)).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &data)
+		})).To(Succeed())
 		keys := []channel.Key{index.Key(), data.Key()}
 		w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 			Start: stamps[0],
@@ -101,7 +90,7 @@ var _ = Describe("Service", Ordered, func() {
 			telem.NewSeriesV(stamps...),
 			telem.NewSeriesV(values...),
 		}))).To(BeTrue())
-		MustSucceed(w.Commit())
+		MustCommit(w)
 		Expect(w.Close()).To(Succeed())
 		return index, data
 	}
@@ -136,8 +125,8 @@ var _ = Describe("Service", Ordered, func() {
 
 	It("Should fail to open without a channel service", func() {
 		Expect(retention.Open(retention.Config{
-			Framer:       node.Framer,
-			HostProvider: node.Cluster,
+			DB:     node.DB,
+			Framer: node.Framer,
 		})).Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
 	})
 })

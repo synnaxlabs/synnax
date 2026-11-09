@@ -9,7 +9,19 @@
 
 package v1
 
-import "github.com/synnaxlabs/gorp/migrate"
+import (
+	"github.com/synnaxlabs/gorp/migrate"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+)
 
-// Migration lifts stored channels from v0 to v1, which adds a retention of zero.
-var Migration = migrate.NewEntry("v61_channel_retention", autoMigrateChannel)
+var Migration = migrate.NewEntry("v61_add_group", autoMigrateChannel)
+
+// MembersMigration sets the group of each stored channel from the ontology edge that
+// placed it in a group.
+var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Channel]{
+	Name:         "v61_channel_group_membership",
+	Type:         resource.TypeChannel,
+	SetGroup:     func(e *Channel, g groupv1.Key) { e.Group = &g },
+	ProjectOwned: false,
+})

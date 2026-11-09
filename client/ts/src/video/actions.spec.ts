@@ -25,6 +25,9 @@ const roundTrip = (state: video.Video, ...actions: video.Action[]): video.Video 
   return video.reduceAll(next, inverse).next;
 };
 
+const setName = (name: string): video.Action =>
+  video.set({ path: ["name"], value: name });
+
 const RANGE: ranger.Ref = ranger.refZ.parse({
   variant: "key",
   key: "22222222-2222-4222-8222-222222222222",
@@ -38,11 +41,11 @@ describe("video reducer", () => {
     });
   });
 
-  describe("rename", () => {
+  describe("set of the name", () => {
     it("should set the name and round-trip through its inverse", () => {
       const state = createEmpty({ name: "before" });
-      expect(apply(state, video.rename({ name: "after" })).name).toEqual("after");
-      expect(roundTrip(state, video.rename({ name: "after" })).name).toEqual("before");
+      expect(apply(state, setName("after")).name).toEqual("after");
+      expect(roundTrip(state, setName("after")).name).toEqual("before");
     });
   });
 
@@ -62,27 +65,27 @@ describe("video reducer", () => {
     });
   });
 
-  describe("setRange", () => {
-    it("should set the range and round-trip through its inverse", () => {
+  describe("setPlaybackRange", () => {
+    it("should set the playback range and round-trip through its inverse", () => {
       const state = createEmpty();
-      expect(apply(state, video.setRange({ range: RANGE })).range).toEqual(RANGE);
-      expect(roundTrip(state, video.setRange({ range: RANGE })).range).toBeUndefined();
+      const action = video.setPlaybackRange({ playbackRange: RANGE });
+      expect(apply(state, action).playbackRange).toEqual(RANGE);
+      expect(roundTrip(state, action).playbackRange).toBeUndefined();
     });
 
-    it("should clear the range for live video", () => {
-      expect(
-        apply(createEmpty({ range: RANGE }), video.setRange({})).range,
-      ).toBeUndefined();
+    it("should clear the playback range for live video", () => {
+      const state = createEmpty({ playbackRange: RANGE });
+      expect(apply(state, video.setPlaybackRange({})).playbackRange).toBeUndefined();
     });
   });
 
   describe("kindOf", () => {
     it("should key one action by its type and a batch as a transaction", () => {
       expect(video.kindOf([])).toEqual("default");
-      expect(video.kindOf([video.rename({ name: "x" })])).toEqual("rename");
-      expect(
-        video.kindOf([video.rename({ name: "x" }), video.setChannel({ channel: 1 })]),
-      ).toEqual("transaction");
+      expect(video.kindOf([setName("x")])).toEqual("set");
+      expect(video.kindOf([setName("x"), video.setChannel({ channel: 1 })])).toEqual(
+        "transaction",
+      );
     });
   });
 });

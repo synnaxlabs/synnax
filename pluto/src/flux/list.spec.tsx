@@ -7,2784 +7,384 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type query, type ranger, type Synnax as Client } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type label, ranger } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  holdResponses,
+  spyOnSend,
+} from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { type record, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
-import { expectAlways } from "@synnaxlabs/x/testutil";
-import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { memo, type PropsWithChildren, type ReactElement, useEffect } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { color, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { type ReactElement, useEffect } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
-import { Status } from "@/status";
-import { status } from "@/status/aether";
-import { Synnax } from "@/synnax";
-import { synnax } from "@/synnax/aether";
-import { createAetherProvider } from "@/testutil/Aether";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
+const ranges = (c: typeof client) => c.ranges;
 
-describe("list", () => {
-  let controller: AbortController;
-  beforeEach(() => {
-    controller = new AbortController();
-  });
-  afterEach(() => {
-    controller.abort();
-  });
-  describe("initial list", () => {
-    it("should return a loading result as its initial state", () => {
-      const { result } = renderHook(
-        () =>
-          Flux.createList({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey: async () => ({ key: 12 }),
-          })(),
-        { wrapper },
-      );
-      expect(result.current.variant).toEqual("loading");
-      expect(result.current.data).toEqual([]);
+// The Core tokenizes a search term on punctuation, so a term must be one word.
+const randomWord = (): string => `rng${Math.random().toString(36).slice(2)}`;
+
+// The Core indexes a new name for search a moment after the create returns.
+const waitForIndex = async (name: string): Promise<void> => {
+  await expect
+    .poll(async () => (await client.ranges.retrieve({ searchTerm: name })).length)
+    .toBeGreaterThan(0);
+};
+
+describe("useList", () => {
+  let lbl: label.Label;
+  const create = async (name: string): Promise<ranger.Range> =>
+    await client.ranges.create({
+      name,
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      labels: [lbl.key],
     });
 
-    it("should return a success result when the list is retrieved", async () => {
-      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async () => ({ key: 12 }),
-          })(),
-        { wrapper },
-      );
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => {
-        expect(retrieve).toHaveBeenCalledTimes(1);
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toEqual([1, 2]);
-      });
-    });
-
-    it("should return an error result when the query fails to execute", async () => {
-      const retrieve = vi.fn().mockRejectedValue(new Error("Test Error"));
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async () => ({ key: 12 }),
-          })(),
-        { wrapper },
-      );
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => {
-        expect(retrieve).toHaveBeenCalledTimes(1);
-        expect(result.current.variant).toEqual("error");
-        expect(result.current.status.description).toEqual("Test Error");
-      });
+  beforeEach(async () => {
+    lbl = await client.labels.create({
+      name: uuid.create(),
+      color: color.construct("#000000"),
     });
   });
 
-  describe("filter", () => {
-    it("should allow the caller to provide a custom filter function", async () => {
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve: async () => [{ key: 1 }, { key: 2 }],
-            retrieveByKey: async ({ key }) => ({ key }),
-          })({ filter: (item) => item.key === 1 }),
-        { wrapper },
-      );
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => {
-        expect(result.current.data).toEqual([1]);
-      });
-    });
-
-    it("should respect the filter function when retrieving a list item", async () => {
-      const { result } = renderHook(
-        () => {
-          const result = Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve: async () => [{ key: 1 }, { key: 2 }],
-            retrieveByKey: async ({ key }) => ({ key }),
-          })({ filter: (item) => item.key === 1 });
-          const value = Flux.useListItem<number, record.Keyed<number>>({
-            subscribe: result.subscribe,
-            getItem: result.getItem,
-            key: 2,
-          });
-          return { ...result, value };
-        },
-        { wrapper },
-      );
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => {
-        expect(result.current.value).toEqual(undefined);
-      });
-    });
-  });
-
-  describe("sort", () => {
-    interface TestItem extends record.Keyed<number> {
-      key: number;
-      value: string;
-      priority: number;
-    }
-
-    it("should sort items in ascending order by default", async () => {
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, TestItem>({
-            name: "Resource",
-            retrieve: async () => [
-              { key: 3, value: "c", priority: 3 },
-              { key: 1, value: "a", priority: 1 },
-              { key: 2, value: "b", priority: 2 },
-            ],
-            retrieveByKey: async ({ key }) => ({
-              key,
-              value: `item-${key}`,
-              priority: key,
-            }),
-          })({ sort: (a, b) => a.key - b.key }),
-        { wrapper },
-      );
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => {
-        expect(result.current.data).toEqual([1, 2, 3]);
-      });
-    });
-
-    it("should sort items in descending order", async () => {
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, TestItem>({
-            name: "Resource",
-            retrieve: async () => [
-              { key: 1, value: "a", priority: 1 },
-              { key: 3, value: "c", priority: 3 },
-              { key: 2, value: "b", priority: 2 },
-            ],
-            retrieveByKey: async ({ key }) => ({
-              key,
-              value: `item-${key}`,
-              priority: key,
-            }),
-          })({ sort: (a, b) => b.key - a.key }),
-        { wrapper },
-      );
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => {
-        expect(result.current.data).toEqual([3, 2, 1]);
-      });
-    });
-
-    it("should sort by a custom property", async () => {
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, TestItem>({
-            name: "Resource",
-            retrieve: async () => [
-              { key: 1, value: "zebra", priority: 1 },
-              { key: 2, value: "apple", priority: 2 },
-              { key: 3, value: "banana", priority: 3 },
-            ],
-            retrieveByKey: async ({ key }) => ({
-              key,
-              value: `item-${key}`,
-              priority: key,
-            }),
-          })({ sort: (a, b) => a.value.localeCompare(b.value) }),
-        { wrapper },
-      );
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => {
-        expect(result.current.data).toEqual([2, 3, 1]);
-      });
-    });
-
-    it("should combine sorting with filtering", async () => {
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, TestItem>({
-            name: "Resource",
-            retrieve: async () => [
-              { key: 1, value: "a", priority: 1 },
-              { key: 2, value: "b", priority: 2 },
-              { key: 3, value: "c", priority: 3 },
-              { key: 4, value: "d", priority: 4 },
-            ],
-            retrieveByKey: async ({ key }) => ({
-              key,
-              value: `item-${key}`,
-              priority: key,
-            }),
-          })({
-            filter: (item) => item.key % 2 === 0, // Even keys only
-            sort: (a, b) => b.key - a.key, // Descending order
-          }),
-        { wrapper },
-      );
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => {
-        expect(result.current.data).toEqual([4, 2]);
-      });
-    });
-
-    it("should maintain sort order when appending new items", async () => {
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, TestItem>({
-            name: "Resource",
-            retrieve: async () => [
-              { key: 1, value: "a", priority: 1 },
-              { key: 3, value: "c", priority: 3 },
-            ],
-            retrieveByKey: async ({ key }) => ({
-              key,
-              value: `item-${key}`,
-              priority: key,
-            }),
-          })({ sort: (a, b) => a.key - b.key }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).toEqual([1, 3]);
-      });
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal, mode: "append" });
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).toEqual([1, 3]);
-      });
-    });
-
-    it("should work without a sort function", async () => {
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, TestItem>({
-            name: "Resource",
-            retrieve: async () => [
-              { key: 3, value: "c", priority: 3 },
-              { key: 1, value: "a", priority: 1 },
-              { key: 2, value: "b", priority: 2 },
-            ],
-            retrieveByKey: async ({ key }) => ({
-              key,
-              value: `item-${key}`,
-              priority: key,
-            }),
-          })(), // No sort function provided
-        { wrapper },
-      );
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => {
-        expect(result.current.data).toEqual([3, 1, 2]); // Original order maintained
-      });
-    });
-
-    it("should optimize updates when sort position doesn't change", async () => {
-      interface TestItemWithPriority extends record.Keyed<number> {
-        key: number;
-        name: string;
-        priority: number; // Used for sorting
-        description: string; // Not used for sorting
-      }
-
-      let mockItem2 = { key: 2, name: "Item 2", priority: 2, description: "Original" };
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, TestItemWithPriority>({
-            name: "Resource",
-            retrieve: async () => [
-              { key: 1, name: "Item 1", priority: 1, description: "Original" },
-              mockItem2, // This will change during the test
-              { key: 3, name: "Item 3", priority: 3, description: "Original" },
-            ],
-            retrieveByKey: async ({ key }) => ({
-              key,
-              name: `Item ${key}`,
-              priority: key,
-              description: "Retrieved",
-            }),
-          })({ sort: (a, b) => a.priority - b.priority }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).toEqual([1, 2, 3]);
-      });
-
-      const initialDataRef = result.current.data;
-
-      mockItem2 = { key: 2, name: "Item 2", priority: 2, description: "Updated" };
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        // Data reference should be the same since sort position didn't change
-        expect(result.current.data).toBe(initialDataRef);
-        expect(result.current.data).toEqual([1, 2, 3]);
-      });
-
-      mockItem2 = { key: 2, name: "Item 2", priority: 4, description: "Updated" };
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        // Data reference should be different since sort position changed
-        expect(result.current.data).not.toBe(initialDataRef);
-        expect(result.current.data).toEqual([1, 3, 2]); // Item 2 moved to end
-      });
-    });
-  });
-
-  describe("useListItem", () => {
-    it("should return a pre-retrieved list item", async () => {
-      const { result } = renderHook(
-        () => {
-          const { retrieve, subscribe, getItem } = Flux.createList<
-            {},
-            number,
-            record.Keyed<number>
-          >({
-            name: "Resource",
-            retrieve: async () => [{ key: 1 }, { key: 2 }],
-            retrieveByKey: async ({ key }) => ({ key }),
-          })();
-          const value = Flux.useListItem<number, record.Keyed<number>>({
-            subscribe,
-            getItem,
-            key: 1,
-          });
-          return { retrieve, value };
-        },
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.value).toEqual({ key: 1 });
-      });
-    });
-
-    it("should return undefined for zero value keys", async () => {
-      const { result } = renderHook(
-        () => {
-          const { retrieve, getItem } = Flux.createList<
-            {},
-            number,
-            record.Keyed<number>
-          >({
-            name: "Resource",
-            retrieve: async () => [{ key: 1 }, { key: 2 }],
-            retrieveByKey: async ({ key }) => ({ key }),
-          })();
-          const zeroValue = getItem(0);
-          const nullValue = getItem(null as unknown as number);
-          const undefinedValue = getItem(undefined as unknown as number);
-          const emptyStringValue = getItem("" as unknown as number);
-          return { retrieve, zeroValue, nullValue, undefinedValue, emptyStringValue };
-        },
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.zeroValue).toBeUndefined();
-        expect(result.current.nullValue).toBeUndefined();
-        expect(result.current.undefinedValue).toBeUndefined();
-        expect(result.current.emptyStringValue).toBeUndefined();
-      });
-    });
-
-    it("should return undefined for zero value keys with string keys", async () => {
-      const { result } = renderHook(
-        () => {
-          const { retrieve, getItem } = Flux.createList<
-            {},
-            string,
-            record.Keyed<string>
-          >({
-            name: "Resource",
-            retrieve: async () => [{ key: "key1" }, { key: "key2" }],
-            retrieveByKey: async ({ key }) => ({ key }),
-          })();
-          const emptyStringValue = getItem("");
-          const nullValue = getItem(null as unknown as string);
-          const undefinedValue = getItem(undefined as unknown as string);
-          return { retrieve, emptyStringValue, nullValue, undefinedValue };
-        },
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.emptyStringValue).toBeUndefined();
-        expect(result.current.nullValue).toBeUndefined();
-        expect(result.current.undefinedValue).toBeUndefined();
-      });
-    });
-
-    it("should handle array of keys with zero values correctly", async () => {
-      const { result } = renderHook(
-        () => {
-          const { retrieve, getItem } = Flux.createList<
-            {},
-            number,
-            record.Keyed<number>
-          >({
-            name: "Resource",
-            retrieve: async () => [{ key: 1 }, { key: 2 }, { key: 3 }],
-            retrieveByKey: async ({ key }) => ({ key }),
-          })();
-          const mixedArray = getItem([1, 0, 2, null as unknown as number, 3]);
-          const allZeroArray = getItem([
-            0,
-            null as unknown as number,
-            undefined as unknown as number,
-          ]);
-          return { retrieve, mixedArray, allZeroArray };
-        },
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.mixedArray).toEqual([{ key: 1 }, { key: 2 }, { key: 3 }]);
-        expect(result.current.allZeroArray).toEqual([]);
-      });
-    });
-
-    it("should move the query to an error state when the retrieveByKey fails to execute", async () => {
-      const retrieveByKeyMock = vi.fn().mockRejectedValue(new Error("Test Error"));
-      const { result } = renderHook(
-        () => {
-          const result = Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey: retrieveByKeyMock,
-          })();
-          const value = Flux.useListItem<number, record.Keyed<number>>({
-            subscribe: result.subscribe,
-            getItem: result.getItem,
-            key: 1,
-          });
-          return { ...result, value };
-        },
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("error");
-        expect(result.current.status.description).toEqual("Test Error");
-      });
-    });
-  });
-
-  const changed = <E,>(data: E[]): query.Cached<E[]> => data;
-
-  describe("notification routing", () => {
-    interface Item extends record.Keyed<number> {
-      value: string;
-    }
-
-    interface RowSpec {
-      id: string;
-      itemKey: number;
-    }
-
-    interface Harness {
-      counts: Map<string, number>;
-      reads: Map<number, number>;
-      push: (items: Item[]) => void;
-      setRows: (rows: RowSpec[]) => void;
-      mount: (rows: RowSpec[]) => Promise<void>;
-    }
-
-    /**
-     * Mounts each row as its own memoized component so a notification's blast
-     * radius is observable: `counts` tracks renders per row, and `reads` tracks
-     * snapshot reads per key. A spurious notification never re-renders (the
-     * unchanged snapshot short-circuits it) but always re-reads, so `reads` is
-     * what catches over-notification.
-     */
-    const createHarness = (initial: Item[]): Harness => {
-      let handler: query.ChangeHandler<Item[]> | undefined;
-      const useList = Flux.createList<{}, number, Item>({
-        name: "Resource",
-        retrieve: async () => initial,
-        retrieveByKey: async ({ key }) => initial.find((i) => i.key === key),
-        onChange: (_, h) => {
-          handler = h;
-          return () => {};
-        },
-      });
-      const counts = new Map<string, number>();
-      const reads = new Map<number, number>();
-      type GetItem = Flux.UseListReturn<{}, number, Item>["getItem"];
-      let realGetItem: GetItem | undefined;
-      const countingGetItem = ((key: number) => {
-        reads.set(key, (reads.get(key) ?? 0) + 1);
-        return realGetItem?.(key);
-      }) as GetItem;
-      interface RowProps extends RowSpec {
-        subscribe: Flux.UseListReturn<{}, number, Item>["subscribe"];
-        getItem: GetItem;
-      }
-      const Row = memo(
-        ({ id, itemKey, subscribe, getItem }: RowProps): ReactElement => {
-          const item = Flux.useListItem<number, Item>({
-            key: itemKey,
-            subscribe,
-            getItem,
-          });
-          counts.set(id, (counts.get(id) ?? 0) + 1);
-          return <span>{item?.value}</span>;
-        },
-      );
-      Row.displayName = "Row";
-      let api: Flux.UseListReturn<{}, number, Item> | undefined;
-      const List = ({ rows }: { rows: RowSpec[] }): ReactElement => {
-        api = useList();
-        const { subscribe, data } = api;
-        realGetItem = api.getItem;
-        if (data.length === 0) return <span>empty</span>;
-        return (
-          <>
-            {rows.map((row) => (
-              <Row
-                key={row.id}
-                {...row}
-                subscribe={subscribe}
-                getItem={countingGetItem}
-              />
-            ))}
-          </>
-        );
-      };
-      let rerender: ((ui: ReactElement) => void) | undefined;
-      return {
-        counts,
-        reads,
-        push: (items) => act(() => handler?.(changed(items))),
-        setRows: (rows) => rerender?.(<List rows={rows} />),
-        mount: async (rows) => {
-          ({ rerender } = render(<List rows={rows} />, { wrapper }));
-          act(() => api?.retrieve({}));
-          await waitFor(() =>
-            rows.forEach(({ id }) => expect(counts.get(id) ?? 0).toBeGreaterThan(0)),
-          );
-          // The rows mount from a render the debounced retrieve triggers outside
-          // act, so the subscription effects (and their one initial snapshot
-          // read) can flush after waitFor resolves. Settle them before callers
-          // capture baselines.
-          await act(async () => {});
-        },
-      };
-    };
-
-    it("re-renders only the row whose item changed", async () => {
-      const [one, two, three]: Item[] = [
-        { key: 1, value: "one" },
-        { key: 2, value: "two" },
-        { key: 3, value: "three" },
-      ];
-      const harness = createHarness([one, two, three]);
-      await harness.mount([
-        { id: "a", itemKey: 1 },
-        { id: "b", itemKey: 2 },
-        { id: "c", itemKey: 3 },
-      ]);
-      const before = new Map(harness.counts);
-      const readsBefore = new Map(harness.reads);
-      harness.push([one, { key: 2, value: "two!" }, three]);
-      expect(harness.counts.get("b")).toBe((before.get("b") ?? 0) + 1);
-      expect(harness.counts.get("a")).toBe(before.get("a"));
-      expect(harness.counts.get("c")).toBe(before.get("c"));
-      expect(harness.reads.get(2)).toBeGreaterThan(readsBefore.get(2) ?? 0);
-      expect(harness.reads.get(1)).toBe(readsBefore.get(1));
-      expect(harness.reads.get(3)).toBe(readsBefore.get(3));
-    });
-
-    it("re-renders every subscriber of the changed key", async () => {
-      const [one, two]: Item[] = [
-        { key: 1, value: "one" },
-        { key: 2, value: "two" },
-      ];
-      const harness = createHarness([one, two]);
-      await harness.mount([
-        { id: "a", itemKey: 2 },
-        { id: "b", itemKey: 2 },
-        { id: "c", itemKey: 1 },
-      ]);
-      const before = new Map(harness.counts);
-      const readsBefore = new Map(harness.reads);
-      harness.push([one, { key: 2, value: "two!" }]);
-      expect(harness.counts.get("a")).toBe((before.get("a") ?? 0) + 1);
-      expect(harness.counts.get("b")).toBe((before.get("b") ?? 0) + 1);
-      expect(harness.counts.get("c")).toBe(before.get("c"));
-      expect(harness.reads.get(1)).toBe(readsBefore.get(1));
-    });
-
-    it("stops notifying a row once it unmounts", async () => {
-      const [one, two]: Item[] = [
-        { key: 1, value: "one" },
-        { key: 2, value: "two" },
-      ];
-      const harness = createHarness([one, two]);
-      await harness.mount([
-        { id: "a", itemKey: 1 },
-        { id: "b", itemKey: 2 },
-      ]);
-      harness.setRows([{ id: "a", itemKey: 1 }]);
-      const before = new Map(harness.counts);
-      const readsBefore = new Map(harness.reads);
-      harness.push([one, { key: 2, value: "two!" }]);
-      expect(harness.counts.get("b")).toBe(before.get("b"));
-      expect(harness.counts.get("a")).toBe(before.get("a"));
-      expect(harness.reads.get(2)).toBe(readsBefore.get(2));
-      expect(harness.reads.get(1)).toBe(readsBefore.get(1));
-    });
-
-    it("routes to the new key after a row's key changes", async () => {
-      const [one, two, three]: Item[] = [
-        { key: 1, value: "one" },
-        { key: 2, value: "two" },
-        { key: 3, value: "three" },
-      ];
-      const harness = createHarness([one, two, three]);
-      await harness.mount([{ id: "a", itemKey: 2 }]);
-      harness.setRows([{ id: "a", itemKey: 3 }]);
-      const before = new Map(harness.counts);
-      const readsBefore = new Map(harness.reads);
-      harness.push([one, { key: 2, value: "two!" }, three]);
-      expect(harness.counts.get("a")).toBe(before.get("a"));
-      expect(harness.reads.get(2)).toBe(readsBefore.get(2));
-      expect(harness.reads.get(3)).toBe(readsBefore.get(3));
-      harness.push([one, two, { key: 3, value: "three!" }]);
-      expect(harness.counts.get("a")).toBe((before.get("a") ?? 0) + 1);
-      expect(harness.reads.get(3)).toBeGreaterThan(readsBefore.get(3) ?? 0);
-    });
-  });
-
-  describe("superseded retrieves", () => {
-    interface Item extends record.Keyed<number> {
-      value: string;
-    }
-
-    interface Fixture {
-      useList: Flux.UseList<{ term: string }, number, Item>;
-      handlers: Map<string, query.ChangeHandler<Item[]>>;
-      resolveSlow: (items: Item[]) => void;
-    }
-
-    /**
-     * A list whose `slow` query hangs until `resolveSlow` runs, so a `fast`
-     * query can overtake it. `handlers` holds the live page subscription per
-     * term, tracking which pages are still open.
-     */
-    const createFixture = (): Fixture => {
-      let resolveSlow!: (items: Item[]) => void;
-      const slow = new Promise<Item[]>((resolve) => (resolveSlow = resolve));
-      const handlers = new Map<string, query.ChangeHandler<Item[]>>();
-      const useList = Flux.createList<{ term: string }, number, Item>({
-        name: "Resource",
-        retrieve: async ({ query: { term } }) =>
-          term === "slow" ? await slow : [{ key: 2, value: "fast" }],
-        retrieveByKey: async () => undefined,
-        onChange: ({ query: { term } }, handler) => {
-          handlers.set(term, handler);
-          return () => handlers.delete(term);
-        },
-      });
-      return { useList, handlers, resolveSlow };
-    };
-
-    const overtake = async (fixture: Fixture) => {
-      const { result } = renderHook(() => fixture.useList(), { wrapper });
-      let slow!: Promise<void>;
-      await act(async () => {
-        slow = result.current.retrieveAsync({ term: "slow" });
-        await result.current.retrieveAsync({ term: "fast" });
-      });
-      await act(async () => {
-        fixture.resolveSlow([{ key: 1, value: "slow" }]);
-        await slow;
-      });
-      return result;
-    };
-
-    it("should keep the newer query's items when an older retrieve lands late", async () => {
-      const fixture = createFixture();
-      const result = await overtake(fixture);
-      expect(result.current.data).toEqual([2]);
-      expect(result.current.getItem(2)?.value).toEqual("fast");
-    });
-
-    it("should keep the newer query's page subscribed when an older retrieve lands late", async () => {
-      const fixture = createFixture();
-      await overtake(fixture);
-      expect(fixture.handlers.has("fast")).toBe(true);
-      expect(fixture.handlers.has("slow")).toBe(false);
-    });
-
-    it("should let the newer query keep updating after an older retrieve lands late", async () => {
-      const fixture = createFixture();
-      const result = await overtake(fixture);
-      await act(async () => {
-        fixture.handlers.get("fast")?.([{ key: 2, value: "updated" }]);
-      });
-      await waitFor(() => expect(result.current.getItem(2)?.value).toEqual("updated"));
-    });
-  });
-
-  describe("debounced retrieves", () => {
-    type Page = record.Keyed<number>[];
-
-    const renderPagedList = (
-      retrieve = vi.fn(async (_: { query: List.PagerParams }): Promise<Page> => [
-        { key: 1 },
-      ]),
-    ) => {
-      const useList = Flux.createList<List.PagerParams, number, record.Keyed<number>>({
-        name: "Resource",
-        retrieve,
-        retrieveByKey: async ({ key }) => ({ key }),
-      });
-      const { result } = renderHook(
-        () => {
-          const list = useList();
-          const pager = List.usePager({ retrieve: list.retrieve, pageSize: 20 });
-          return { ...list, ...pager };
-        },
-        { wrapper },
-      );
-      return { retrieve, result };
-    };
-
-    const SEARCH_PAGES = [
-      { searchTerm: "pump", offset: 0, limit: 20 },
-      { searchTerm: "pump", offset: 20, limit: 20 },
-    ];
-
-    it("should fetch the next page of a search when a fetch for more follows it", async () => {
-      const { retrieve, result } = renderPagedList();
-      act(() => {
-        result.current.search("pump");
-        result.current.fetchMore();
-      });
-      await waitFor(() => {
-        expect(retrieve).toHaveBeenCalledTimes(2);
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(retrieve.mock.calls.map(([{ query }]) => query)).toEqual(SEARCH_PAGES);
-    });
-
-    it("should fetch the next page of a search that follows a fetch for more", async () => {
-      const { retrieve, result } = renderPagedList();
-      act(() => {
-        result.current.fetchMore();
-        result.current.search("pump");
-      });
-      await waitFor(() => {
-        expect(retrieve).toHaveBeenCalledTimes(2);
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(retrieve.mock.calls.map(([{ query }]) => query)).toEqual(SEARCH_PAGES);
-    });
-
-    it("should fetch one page for repeated fetches for more", async () => {
-      const { retrieve, result } = renderPagedList();
-      act(() => {
-        result.current.fetchMore();
-        result.current.fetchMore();
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(retrieve).toHaveBeenCalledExactlyOnceWith(
-        expect.objectContaining({ query: { searchTerm: "", offset: 0, limit: 20 } }),
-      );
-    });
-
-    interface Answer {
-      resolve: (page: Page) => void;
-      reject: (error: Error) => void;
-    }
-
-    /** A retrieve that answers each page, keyed by `searchTerm:offset`, on demand. */
-    const answerOnDemand = () => {
-      const answers = new Map<string, Answer>();
-      const retrieve = vi.fn(
-        ({ query: { searchTerm, offset } }: { query: List.PagerParams }) =>
-          new Promise<Page>((resolve, reject) =>
-            answers.set(`${searchTerm}:${offset}`, { resolve, reject }),
-          ),
-      );
-      const settle = async (key: string, settle: (answer: Answer) => void) => {
-        await waitFor(() => expect(answers.has(key)).toBe(true));
-        await act(async () => {
-          const answer = answers.get(key);
-          if (answer != null) settle(answer);
-        });
-      };
-      const answer = (key: string, page: Page) =>
-        settle(key, ({ resolve }) => resolve(page));
-      const fail = (key: string) =>
-        settle(key, ({ reject }) => reject(new Error("unreachable")));
-      return { retrieve, answer, fail };
-    };
-
-    it("should keep the first page of a search when an append starts while it loads", async () => {
-      const { retrieve, answer } = answerOnDemand();
-      const { result } = renderPagedList(retrieve);
-      act(() => result.current.search("p"));
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
-      act(() => {
-        void result.current.retrieveAsync((p) => List.page(p, 20), { mode: "append" });
-      });
-      await answer("p:0", [{ key: 1 }]);
-      await answer("p:20", [{ key: 2 }]);
-      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
-    });
-
-    it("should page from the newest search when an older search's fetch for more runs", async () => {
-      const { retrieve, answer } = answerOnDemand();
-      const { result } = renderPagedList(retrieve);
-      act(() => {
-        result.current.search("p");
-        result.current.fetchMore();
-      });
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
-      act(() => result.current.search("pu"));
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
-      await answer("p:0", [{ key: 1 }]);
-      await answer("pu:0", [{ key: 2 }]);
-      await answer("pu:20", [{ key: 3 }]);
-      await waitFor(() => expect(result.current.data).toEqual([2, 3]));
-    });
-
-    it("should not fetch more after the search it waits for fails", async () => {
-      const { retrieve, fail } = answerOnDemand();
-      const { result } = renderPagedList(retrieve);
-      act(() => {
-        result.current.search("p");
-        result.current.fetchMore();
-      });
-      await fail("p:0");
-      await expectAlways(() => {
-        expect(retrieve).toHaveBeenCalledOnce();
-        expect(result.current.variant).toEqual("error");
-      });
-    });
-
-    it("should keep every query change made within the debounce", async () => {
-      const { retrieve, result } = renderPagedList();
-      act(() => {
-        result.current.retrieve((p) => ({ ...p, searchTerm: "pump" }));
-        result.current.retrieve((p) => ({ ...p, limit: 5 }));
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(retrieve).toHaveBeenCalledExactlyOnceWith(
-        expect.objectContaining({ query: { searchTerm: "pump", limit: 5 } }),
-      );
-    });
-  });
-
-  describe("query changes", () => {
-    type TestQuery = List.PagerParams & { group?: string; region?: string };
-
-    interface TestItem extends record.Keyed<number> {
-      group: string;
-    }
-
-    const GROUPS: Record<string, TestItem[]> = {
-      a: [
-        { key: 1, group: "a" },
-        { key: 2, group: "a" },
-      ],
-      b: [
-        { key: 3, group: "b" },
-        { key: 4, group: "b" },
-      ],
-    };
-
-    const createRetrieve = () =>
-      vi.fn(async ({ query }: { query: TestQuery }) => GROUPS[query.group ?? "a"]);
-
-    const createUseList = (retrieve: ReturnType<typeof createRetrieve>) =>
-      Flux.createList<TestQuery, number, TestItem>({
-        name: "Resource",
-        retrieve,
-        retrieveByKey: async ({ key }) =>
-          Object.values(GROUPS)
-            .flat()
-            .find((item) => item.key === key),
-      });
-
-    const renderList = (
-      useList: ReturnType<typeof createUseList>,
-      query?: TestQuery,
-    ) => {
-      const useTest = (props: { query?: TestQuery }) => {
-        const list = useList(props);
-        const { fetchMore, search } = List.usePager({
-          retrieve: list.retrieve,
-        });
-        return { ...list, fetchMore, search };
-      };
-      return renderHook(useTest, { wrapper, initialProps: { query } });
-    };
-
-    it("should re-fetch and replace the data when the query changes", async () => {
-      const retrieve = createRetrieve();
-      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
-      act(() => result.current.fetchMore());
-      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
-
-      rerender({ query: { group: "b" } });
-
-      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
-      expect(result.current.variant).toEqual("success");
-    });
-
-    it("should not re-fetch for a new object that is deeply equal", async () => {
-      const retrieve = createRetrieve();
-      const query = { group: "a", region: "x" };
-      const { result, rerender } = renderList(createUseList(retrieve), query);
-      act(() => result.current.fetchMore());
-      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
-
-      for (let i = 0; i < 5; i++) rerender({ query: { ...query } });
-
-      await expectAlways(() => expect(retrieve).toHaveBeenCalledTimes(1));
-    });
-
-    it("should keep the search term and rewind to the first page", async () => {
-      const retrieve = createRetrieve();
-      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
-      act(() => result.current.fetchMore());
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
-      act(() => result.current.search("term"));
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
-      act(() => result.current.fetchMore());
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(3));
-      expect(retrieve.mock.lastCall?.[0].query.offset).toEqual(10);
-
-      rerender({ query: { group: "b" } });
-
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(4));
-      expect(retrieve.mock.lastCall?.[0].query).toEqual({
-        group: "b",
-        searchTerm: "term",
-        offset: 0,
-        limit: 10,
-      });
-    });
-
-    it("should page the new query on a later fetch for more", async () => {
-      const retrieve = createRetrieve();
-      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
-      act(() => result.current.fetchMore());
-      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
-      rerender({ query: { group: "b" } });
-      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
-
-      act(() => result.current.fetchMore());
-
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(3));
-      expect(retrieve.mock.lastCall?.[0].query).toEqual({
-        group: "b",
-        searchTerm: "",
-        offset: 10,
-        limit: 10,
-      });
-    });
-
-    it("should drop a field that the new query no longer has", async () => {
-      const retrieve = createRetrieve();
-      const { result, rerender } = renderList(createUseList(retrieve), {
-        group: "a",
-        region: "x",
-      });
-      act(() => result.current.fetchMore());
-      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
-
-      rerender({ query: { group: "b" } });
-
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
-      expect(retrieve.mock.lastCall?.[0].query).not.toHaveProperty("region");
-    });
-
-    it("should keep its query when the caller removes the query", async () => {
-      const retrieve = createRetrieve();
-      const { result, rerender } = renderList(createUseList(retrieve), { group: "b" });
-      act(() => result.current.fetchMore());
-      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
-
-      rerender({ query: undefined });
-
-      await expectAlways(() => expect(retrieve).toHaveBeenCalledTimes(1));
-      expect(result.current.data).toEqual([3, 4]);
-    });
-
-    it("should use the new query's search term over the old one", async () => {
-      const retrieve = createRetrieve();
-      const { result, rerender } = renderList(createUseList(retrieve), {
-        searchTerm: "old",
-      });
-      act(() => result.current.fetchMore());
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
-
-      rerender({ query: { searchTerm: "new" } });
-
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
-      expect(retrieve.mock.lastCall?.[0].query).toEqual({
-        searchTerm: "new",
-        offset: 0,
-        limit: 10,
-      });
-    });
-
-    it("should not add a pager to a list that has none", async () => {
-      const retrieve = createRetrieve();
-      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
-      act(() => result.current.retrieve((p) => p));
-      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
-
-      rerender({ query: { group: "b" } });
-
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
-      expect(retrieve.mock.lastCall?.[0].query).toEqual({ group: "b" });
-    });
-
-    it("should not re-apply an unchanged query over a retrieve's query", async () => {
-      const retrieve = createRetrieve();
-      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
-      act(() => result.current.retrieve((p) => ({ ...p, group: "b" })));
-      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
-
-      rerender({ query: { group: "a" } });
-
-      await expectAlways(() => expect(retrieve).toHaveBeenCalledTimes(1));
-      expect(result.current.data).toEqual([3, 4]);
-    });
-
-    it("should ignore the answer to the old query when it lands late", async () => {
-      const old = Promise.withResolvers<TestItem[]>();
-      const retrieve = vi.fn(async ({ query }: { query: TestQuery }) =>
-        query.group === "a" ? await old.promise : GROUPS.b,
-      );
-      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
-      act(() => result.current.fetchMore());
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
-
-      rerender({ query: { group: "b" } });
-      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
-
-      await act(async () => old.resolve(GROUPS.a));
-      await expectAlways(() => expect(result.current.data).toEqual([3, 4]));
-    });
-
-    it("should run one read for a change and a retrieve in one commit", async () => {
-      const retrieve = createRetrieve();
-      const useList = createUseList(retrieve);
-      const { result, rerender } = renderHook(
-        ({ group }: { group: string }) => {
-          const list = useList({ query: { group } });
-          const { retrieve: run } = list;
-          useEffect(() => run({ group }), [group]);
-          return list;
-        },
-        { wrapper, initialProps: { group: "a" } },
-      );
-      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
-      expect(retrieve).toHaveBeenCalledTimes(1);
-
-      rerender({ group: "b" });
-
-      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
-      await expectAlways(() => expect(retrieve).toHaveBeenCalledTimes(2));
-    });
-
-    it("should keep an item a consumer reads after it leaves the results", async () => {
-      const retrieve = createRetrieve();
-      const useList = createUseList(retrieve);
-      const { result, rerender } = renderHook(
-        ({ query }: { query: TestQuery }) => {
-          const list = useList({ query });
-          const { subscribe, getItem } = list;
-          const item = Flux.useListItem<number, TestItem>({
-            subscribe,
-            getItem,
-            key: 1,
-          });
-          return { ...list, item };
-        },
-        { wrapper, initialProps: { query: { group: "a" } } },
-      );
-      act(() => result.current.retrieve((p) => p));
-      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
-
-      rerender({ query: { group: "b" } });
-
-      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
-      expect(result.current.item).toEqual(GROUPS.a[0]);
-    });
-
-    it("should read an item outside the results under the new query", async () => {
-      const retrieve = createRetrieve();
-      const retrieveByKey = vi.fn(async ({ key }: { key: number }) => ({
-        key,
-        group: "read again",
-      }));
-      const onChangeByKey = vi.fn(() => () => {});
-      const useList = Flux.createList<TestQuery, number, TestItem>({
-        name: "Resource",
-        retrieve,
-        retrieveByKey,
-        onChangeByKey,
-      });
-      const { result, rerender } = renderHook(
-        ({ query }: { query: TestQuery }) => {
-          const list = useList({ query });
-          const { subscribe, getItem } = list;
-          const item = Flux.useListItem<number, TestItem>({
-            subscribe,
-            getItem,
-            key: 1,
-          });
-          return { ...list, item };
-        },
-        { wrapper, initialProps: { query: { group: "a" } } },
-      );
-      act(() => result.current.retrieve((p) => p));
-      await waitFor(() => expect(result.current.item).toEqual(GROUPS.a[0]));
-
-      rerender({ query: { group: "b" } });
-
-      await waitFor(() => expect(result.current.item?.group).toEqual("read again"));
-      expect(retrieveByKey).toHaveBeenLastCalledWith(
-        expect.objectContaining({ query: { group: "b" } }),
-      );
-      expect(onChangeByKey).toHaveBeenLastCalledWith(
-        expect.objectContaining({ query: { group: "b" } }),
-        expect.any(Function),
-      );
-    });
-
-    it("should read a selection under the new query before any fetch", async () => {
-      const retrieveByKey = vi.fn(async ({ key }: { key: number }) => ({
-        key,
-        group: "read again",
-      }));
-      const useList = Flux.createList<TestQuery, number, TestItem>({
-        name: "Resource",
-        retrieve: createRetrieve(),
-        retrieveByKey,
-        onChangeByKey: () => () => {},
-      });
-      const { result, rerender } = renderHook(
-        ({ query }: { query: TestQuery }) => {
-          const { subscribe, getItem } = useList({ query });
-          return Flux.useListItem<number, TestItem>({ subscribe, getItem, key: 1 });
-        },
-        { wrapper, initialProps: { query: { group: "a" } } },
-      );
-      await waitFor(() => expect(result.current?.group).toEqual("read again"));
-      retrieveByKey.mockClear();
-
-      rerender({ query: { group: "b" } });
-
-      await waitFor(() => expect(retrieveByKey).toHaveBeenCalled());
-      expect(retrieveByKey).toHaveBeenLastCalledWith(
-        expect.objectContaining({ query: { group: "b" } }),
-      );
-    });
-
-    it("should ignore an item read for an old query that lands late", async () => {
-      const reads = new Map<string, PromiseWithResolvers<TestItem>>();
-      const retrieveByKey = vi.fn(({ query }: { query: Partial<TestQuery> }) => {
-        const read = Promise.withResolvers<TestItem>();
-        reads.set(query.group ?? "", read);
-        return read.promise;
-      });
-      const useList = Flux.createList<TestQuery, number, TestItem>({
-        name: "Resource",
-        retrieve: createRetrieve(),
-        retrieveByKey,
-        onChangeByKey: () => () => {},
-      });
-      const { result, rerender } = renderHook(
-        ({ query }: { query: TestQuery }) => {
-          const { subscribe, getItem } = useList({ query });
-          return Flux.useListItem<number, TestItem>({ subscribe, getItem, key: 1 });
-        },
-        { wrapper, initialProps: { query: { group: "a" } } },
-      );
-      await waitFor(() => expect(reads.has("a")).toBe(true));
-      await act(async () => reads.get("a")?.resolve({ key: 1, group: "a" }));
-      await waitFor(() => expect(result.current?.group).toEqual("a"));
-
-      rerender({ query: { group: "b" } });
-      await waitFor(() => expect(reads.has("b")).toBe(true));
-      rerender({ query: { group: "c" } });
-      await waitFor(() => expect(reads.has("c")).toBe(true));
-
-      await act(async () => reads.get("c")?.resolve({ key: 1, group: "c" }));
-      await waitFor(() => expect(result.current?.group).toEqual("c"));
-      await act(async () => reads.get("b")?.resolve({ key: 1, group: "b" }));
-      await expectAlways(() => expect(result.current?.group).toEqual("c"));
-    });
-
-    it("should read an item again when a query change drops its read", async () => {
-      const reads = new Map<string, PromiseWithResolvers<TestItem>>();
-      const retrieveByKey = vi.fn(({ query }: { query: Partial<TestQuery> }) => {
-        const read = Promise.withResolvers<TestItem>();
-        reads.set(query.group ?? "", read);
-        return read.promise;
-      });
-      const useList = Flux.createList<TestQuery, number, TestItem>({
-        name: "Resource",
-        retrieve: createRetrieve(),
-        retrieveByKey,
-        onChangeByKey: () => () => {},
-      });
-      const { result, rerender } = renderHook(
-        ({ query }: { query: TestQuery }) => {
-          const { subscribe, getItem } = useList({ query });
-          return Flux.useListItem<number, TestItem>({ subscribe, getItem, key: 1 });
-        },
-        { wrapper, initialProps: { query: { group: "a" } } },
-      );
-      await waitFor(() => expect(reads.has("a")).toBe(true));
-
-      rerender({ query: { group: "b" } });
-
-      await waitFor(() => expect(reads.has("b")).toBe(true));
-      await act(async () => reads.get("b")?.resolve({ key: 1, group: "b" }));
-      await waitFor(() => expect(result.current?.group).toEqual("b"));
-    });
-
-    it("should not fetch until something asks for the list", async () => {
-      const retrieve = createRetrieve();
-      const { result, rerender } = renderList(createUseList(retrieve), { group: "a" });
-
-      rerender({ query: { group: "b" } });
-      await expectAlways(() => expect(retrieve).not.toHaveBeenCalled());
-
-      act(() => result.current.fetchMore());
-      await waitFor(() => expect(result.current.data).toEqual([3, 4]));
-      expect(retrieve.mock.lastCall?.[0].query.group).toEqual("b");
-    });
-
-    it("should drop cached data that the new query does not answer", () => {
-      const useList = Flux.createList<TestQuery, number, TestItem>({
-        name: "Resource",
-        retrieve: async () => [],
-        retrieveByKey: async ({ key }) => ({ key, group: "a" }),
-        getCached: ({ query }) => (query.group === "a" ? changed(GROUPS.a) : undefined),
-      });
-      const { result, rerender } = renderHook(
-        (props: { query: TestQuery }) => useList(props),
-        { wrapper, initialProps: { query: { group: "a" } } },
-      );
-      expect(result.current.data).toEqual([1, 2]);
-
-      rerender({ query: { group: "b" } });
-
-      expect(result.current.data).toEqual([]);
-      expect(result.current.answered).toBe(false);
-    });
-
-    it("should fill an unfetched list from the cache of the new query", () => {
-      const useList = Flux.createList<TestQuery, number, TestItem>({
-        name: "Resource",
-        retrieve: async () => [],
-        retrieveByKey: async ({ key }) => ({ key, group: "a" }),
-        getCached: ({ query }) => changed(GROUPS[query.group ?? "a"]),
-      });
-      const { result, rerender } = renderHook(
-        (props: { query: TestQuery }) => useList(props),
-        { wrapper, initialProps: { query: { group: "a" } } },
-      );
-      expect(result.current.data).toEqual([1, 2]);
-
-      rerender({ query: { group: "b" } });
-
-      expect(result.current.data).toEqual([3, 4]);
-    });
-  });
-
-  describe("getCached", () => {
-    it("should use cached data as initial state when available", () => {
-      const cachedItems = [
-        { key: 1, value: "cached-1" },
-        { key: 2, value: "cached-2" },
-      ];
-      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
-      const retrieve = vi.fn().mockResolvedValue([
-        { key: 1, value: "fresh-1" },
-        { key: 2, value: "fresh-2" },
-      ]);
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number> & { value: string }>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key, value: `item-${key}` }),
-            getCached,
-          })(),
-        { wrapper },
-      );
-
-      expect(result.current.variant).toEqual("loading");
-      expect(result.current.data).toEqual([1, 2]);
-      expect(result.current.answered).toBe(true);
-    });
-
-    it("should answer from a cached answer that is empty", () => {
-      const getCached = vi.fn().mockReturnValue(changed([]));
-      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-            getCached,
-          })(),
-        { wrapper },
-      );
-
-      expect(result.current.variant).toEqual("loading");
-      expect(result.current.data).toEqual([]);
-      // A cached empty answer is still an answer. Callers speak for the absence of
-      // items only once one arrives.
-      expect(result.current.answered).toBe(true);
-    });
-
-    it("should not answer when nothing is cached", () => {
-      const getCached = vi.fn().mockReturnValue(undefined);
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey: async ({ key }) => ({ key }),
-            getCached,
-          })(),
-        { wrapper },
-      );
-
-      expect(result.current.variant).toEqual("loading");
-      expect(result.current.data).toEqual([]);
-      expect(result.current.answered).toBe(false);
-    });
-
-    it("should apply filter to cached data", () => {
-      const cachedItems = [
-        { key: 1, value: "odd" },
-        { key: 2, value: "even" },
-        { key: 3, value: "odd" },
-        { key: 4, value: "even" },
-      ];
-      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number> & { value: string }>({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey: async ({ key }) => ({ key, value: `item-${key}` }),
-            getCached,
-          })({ filter: (item) => item.key % 2 === 0 }), // Only even keys
-        { wrapper },
-      );
-      expect(result.current.data).toEqual([2, 4]);
-    });
-
-    it("should handle params correctly with cached retrieval", () => {
-      type TestParams = {
-        searchTerm?: string;
-      };
-      const cachedItems = [{ key: 1 }, { key: 2 }];
-      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
-
-      renderHook(
-        () =>
-          Flux.createList<TestParams, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey: async ({ key }) => ({ key }),
-            getCached,
-          })({ query: { searchTerm: "test" } }),
-        { wrapper },
-      );
-
-      expect(getCached).toHaveBeenCalledWith({
-        query: { searchTerm: "test" },
-        client: expect.any(Object),
-      });
-    });
-
-    it("should replace cached data when fresh data arrives", async () => {
-      const cachedItems = [
-        { key: 1, value: "cached-1" },
-        { key: 2, value: "cached-2" },
-      ];
-      const freshItems = [
-        { key: 1, value: "fresh-1" },
-        { key: 2, value: "fresh-2" },
-        { key: 3, value: "fresh-3" },
-      ];
-      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
-      const retrieve = vi.fn().mockResolvedValue(freshItems);
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number> & { value: string }>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key, value: `item-${key}` }),
-            getCached,
-          })(),
-        { wrapper },
-      );
-
-      expect(result.current.data).toEqual([1, 2]);
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).toEqual([1, 2, 3]);
-        expect(result.current.getItem(3)?.value).toEqual("fresh-3");
-      });
-    });
-
-    it("should replace cached data with the first appended page", async () => {
-      const getCached = vi.fn().mockReturnValue(changed([{ key: 1 }, { key: 2 }]));
-      const retrieve = vi.fn().mockResolvedValue([{ key: 2 }]);
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-            getCached,
-            onChange: () => () => {},
-          })(),
-        { wrapper },
-      );
-      expect(result.current.data).toEqual([1, 2]);
-      await act(async () => {
-        await result.current.retrieveAsync(
-          {},
-          { mode: "append", signal: controller.signal },
-        );
-      });
-      expect(result.current.data).toEqual([2]);
-    });
-
-    it("should work without getCached defined", async () => {
-      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-          })(),
-        { wrapper },
-      );
-
-      expect(result.current.variant).toEqual("loading");
-      expect(result.current.data).toEqual([]);
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).toEqual([1, 2]);
-      });
-    });
-
-    it("should apply sort to cached data", () => {
-      interface TestItem extends record.Keyed<number> {
-        key: number;
-        priority: number;
-      }
-
-      const cachedItems: TestItem[] = [
-        { key: 3, priority: 3 },
-        { key: 1, priority: 1 },
-        { key: 2, priority: 2 },
-      ];
-      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, TestItem>({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey: async ({ key }) => ({ key, priority: key }),
-            getCached,
-          })({ sort: (a, b) => a.priority - b.priority }),
-        { wrapper },
-      );
-
-      expect(result.current.data).toEqual([1, 2, 3]);
-    });
-
-    it("should apply sort in descending order to cached data", () => {
-      interface TestItem extends record.Keyed<number> {
-        key: number;
-        name: string;
-      }
-
-      const cachedItems: TestItem[] = [
-        { key: 1, name: "Alpha" },
-        { key: 2, name: "Charlie" },
-        { key: 3, name: "Bravo" },
-      ];
-      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, TestItem>({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey: async ({ key }) => ({ key, name: `item-${key}` }),
-            getCached,
-          })({ sort: (a, b) => b.name.localeCompare(a.name) }), // Descending order
-        { wrapper },
-      );
-
-      // Should sort cached data by name in descending order
-      expect(result.current.data).toEqual([2, 3, 1]); // Charlie, Bravo, Alpha
-    });
-
-    it("should combine filter and sort with cached data", () => {
-      interface TestItem extends record.Keyed<number> {
-        key: number;
-        value: number;
-        active: boolean;
-      }
-
-      const cachedItems: TestItem[] = [
-        { key: 1, value: 100, active: true },
-        { key: 2, value: 50, active: false },
-        { key: 3, value: 75, active: true },
-        { key: 4, value: 25, active: true },
-      ];
-      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, TestItem>({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey: async ({ key }) => ({ key, value: key * 10, active: true }),
-            getCached,
-          })({
-            filter: (item) => item.active,
-            sort: (a, b) => a.value - b.value,
-          }),
-        { wrapper },
-      );
-
-      // Should filter for active items and sort by value
-      expect(result.current.data).toEqual([4, 3, 1]); // 25, 75, 100
-    });
-
-    // The mount-time lookup misses for paged lists: the pager adds limit and
-    // offset to the query, and the cache is keyed by the full query. The seed
-    // in retrieve covers that case with the exact query about to be fetched.
-    it("should paint the cached answer for the fetched query before the retrieve resolves", async () => {
-      type PagedQuery = { limit?: number; offset?: number };
-      const cachedItems = [{ key: 1 }, { key: 2 }];
-      const getCached = vi.fn(({ query }: { query: PagedQuery }) =>
-        query.limit != null ? changed(cachedItems) : undefined,
-      );
-      let resolveRetrieve!: (items: record.Keyed<number>[]) => void;
-      const retrieve = vi.fn(
-        async () =>
-          await new Promise<record.Keyed<number>[]>((resolve) => {
-            resolveRetrieve = resolve;
-          }),
-      );
-      const { result } = renderHook(
-        () =>
-          Flux.createList<PagedQuery, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-            getCached,
-          })({ retrieveDebounce: 0 }),
-        { wrapper },
-      );
-      expect(result.current.data).toEqual([]);
-      act(() => result.current.retrieve((p) => ({ ...p, limit: 10, offset: 0 })));
-      expect(result.current.data).toEqual([1, 2]);
-      expect(result.current.variant).toEqual("loading");
-      await act(async () => resolveRetrieve([{ key: 1 }, { key: 2 }, { key: 3 }]));
-      await waitFor(() => expect(result.current.data).toEqual([1, 2, 3]));
-      expect(result.current.variant).toEqual("success");
-    });
-
-    it("should paint the cached answer before the debounced retrieve fires", async () => {
-      const cachedItems = [{ key: 1 }, { key: 2 }];
-      const getCached = vi.fn(({ query }: { query: { limit?: number } }) =>
-        query.limit != null ? changed(cachedItems) : undefined,
-      );
-      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{ limit?: number }, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-            getCached,
-          })(),
-        { wrapper },
-      );
-      act(() => result.current.retrieve((p) => ({ ...p, limit: 10 })));
-      expect(result.current.data).toEqual([1, 2]);
-      expect(retrieve).not.toHaveBeenCalled();
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
-    });
-
-    it("should not seed from cache when the list already has data", async () => {
-      const getCached = vi.fn().mockReturnValue(changed([{ key: 1 }]));
-      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{ limit?: number }, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-            getCached,
-          })({ retrieveDebounce: 0 }),
-        { wrapper },
-      );
-      // The mount-time lookup hit, so the list is warm.
-      expect(result.current.data).toEqual([1]);
-      getCached.mockClear();
-      act(() => result.current.retrieve((p) => ({ ...p, limit: 10 })));
-      expect(getCached).not.toHaveBeenCalled();
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-    });
-  });
-
-  describe("subscription lifecycle", () => {
-    it("should subscribe to the query on first retrieve", async () => {
-      const subscribe = vi.fn().mockReturnValue(() => {});
-      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-            onChange: subscribe,
-          })(),
-        { wrapper },
-      );
-
-      expect(subscribe).not.toHaveBeenCalled();
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(subscribe).toHaveBeenCalledTimes(1);
-      });
-    });
-
-    it("should subscribe to the query before its retrieve lands", async () => {
-      const subscribe = vi.fn().mockReturnValue(() => {});
-      let release!: (items: record.Keyed<number>[]) => void;
-      const retrieve = vi.fn(
-        async () =>
-          await new Promise<record.Keyed<number>[]>((resolve) => (release = resolve)),
-      );
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-            onChange: subscribe,
-          })(),
-        { wrapper },
-      );
-      let retrieved!: Promise<void>;
-      act(() => {
-        retrieved = result.current.retrieveAsync({});
-      });
-      await waitFor(() => expect(retrieve).toHaveBeenCalled());
-      expect(subscribe).toHaveBeenCalledTimes(1);
-      await act(async () => {
-        release([{ key: 1 }]);
-        await retrieved;
-      });
-      expect(subscribe).toHaveBeenCalledTimes(1);
-      expect(result.current.data).toEqual([1]);
-    });
-
-    it("should keep one live page when two retrieves of one query overlap", async () => {
-      const closed: boolean[] = [];
-      const subscribe = vi.fn(() => {
-        const index = closed.push(false) - 1;
-        return () => {
-          closed[index] = true;
-        };
-      });
-      const releases: Array<(items: record.Keyed<number>[]) => void> = [];
-      const retrieve = vi.fn(
-        async () =>
-          await new Promise<record.Keyed<number>[]>((resolve) =>
-            releases.push(resolve),
-          ),
-      );
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-            onChange: subscribe,
-          })(),
-        { wrapper },
-      );
-      const q = {};
-      let first!: Promise<void>;
-      let second!: Promise<void>;
-      act(() => {
-        first = result.current.retrieveAsync(q);
-        second = result.current.retrieveAsync(q);
-      });
-      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
-      await act(async () => {
-        releases[0]([{ key: 1 }]);
-        await first;
-      });
-      await act(async () => {
-        releases[1]([{ key: 2 }]);
-        await second;
-      });
-      expect(closed).toEqual([true, false]);
-      expect(result.current.data).toEqual([2]);
-    });
-
-    it("should apply an answer that arrived while its retrieve ran", async () => {
-      let deliver!: (answer: record.Keyed<number>[]) => void;
-      const subscribe = vi.fn((_, handler: typeof deliver) => {
-        deliver = handler;
-        return () => {};
-      });
-      let release!: (items: record.Keyed<number>[]) => void;
-      const retrieve = vi.fn(
-        async () =>
-          await new Promise<record.Keyed<number>[]>((resolve) => (release = resolve)),
-      );
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-            onChange: subscribe,
-          })(),
-        { wrapper },
-      );
-      let retrieved!: Promise<void>;
-      act(() => {
-        retrieved = result.current.retrieveAsync({});
-      });
-      await waitFor(() => expect(retrieve).toHaveBeenCalled());
-      deliver([{ key: 1 }, { key: 2 }]);
-      await act(async () => {
-        release([{ key: 1 }]);
-        await retrieved;
-      });
-      expect(result.current.data).toEqual([1, 2]);
-    });
-
-    it("should subscribe to an item when retrieving it before any list", async () => {
-      const onChangeByKey = vi.fn().mockReturnValue(() => {});
-      const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey,
-            onChangeByKey,
-          })(),
-        { wrapper },
-      );
-
-      expect(onChangeByKey).not.toHaveBeenCalled();
-
-      act(() => {
-        result.current.getItem(1);
-      });
-
-      await waitFor(() => {
-        expect(onChangeByKey).toHaveBeenCalledTimes(1);
-        expect(retrieveByKey).toHaveBeenCalled();
-      });
-    });
-
-    it("should not re-subscribe on subsequent calls to getItem", async () => {
-      const onChangeByKey = vi.fn().mockReturnValue(() => {});
-      const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey,
-            onChangeByKey,
-          })(),
-        { wrapper },
-      );
-      act(() => {
-        result.current.getItem(1);
-      });
-      await waitFor(() => {
-        expect(onChangeByKey).toHaveBeenCalledTimes(1);
-      });
-      act(() => {
-        result.current.getItem(1);
-      });
-      await expectAlways(() => {
-        expect(onChangeByKey).toHaveBeenCalledTimes(1);
-      });
-    });
-
-    it("should not open an item subscription for a page member served by getItem", async () => {
-      const subscribe = vi.fn().mockReturnValue(() => {});
-      const onChangeByKey = vi.fn().mockReturnValue(() => {});
-      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-            onChange: subscribe,
-            onChangeByKey,
-          })(),
-        { wrapper },
-      );
-      await act(async () => {
-        await result.current.retrieveAsync({}, { signal: controller.signal });
-      });
-      await waitFor(() => {
-        expect(subscribe).toHaveBeenCalledTimes(1);
-      });
-      act(() => {
-        result.current.getItem(1);
-      });
-      await expectAlways(() => {
-        expect(subscribe).toHaveBeenCalledTimes(1);
-        expect(onChangeByKey).not.toHaveBeenCalled();
-      });
-    });
-
-    it("should close an item feed when its last reader leaves", async () => {
-      const unsubscribe = vi.fn();
-      const onChangeByKey = vi.fn().mockReturnValue(unsubscribe);
-      const { rerender } = renderHook(
-        ({ key }: { key: number }) => {
-          const { getItem, subscribe } = Flux.createList<
-            {},
-            number,
-            record.Keyed<number>
-          >({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey: async ({ key }) => ({ key }),
-            onChangeByKey,
-          })();
-          return Flux.useListItem<number, record.Keyed<number>>({
-            subscribe,
-            getItem,
-            key,
-          });
-        },
-        { wrapper, initialProps: { key: 1 } },
-      );
-      await waitFor(() => expect(onChangeByKey).toHaveBeenCalledTimes(1));
-      rerender({ key: 0 });
-      expect(unsubscribe).toHaveBeenCalledTimes(1);
-    });
-
-    it("should keep a read item that leaves a page but still exists", async () => {
-      type Item = record.Keyed<number> & { name: string };
-      let onPage: (items: Item[]) => void = () => {};
-      let onItem: (item: Item) => void = () => {};
-      const { result } = renderHook(
-        () => {
-          const { getItem, subscribe, retrieveAsync } = Flux.createList<
-            {},
-            number,
-            Item
-          >({
-            name: "Resource",
-            retrieve: async () => [{ key: 1, name: "a" }],
-            retrieveByKey: async ({ key }) => ({ key, name: "a" }),
-            onChange: (_, handler) => {
-              onPage = handler;
-              return () => {};
-            },
-            onChangeByKey: (_, handler) => {
-              onItem = handler;
-              return () => {};
-            },
-          })();
-          const value = Flux.useListItem<number, Item>({ subscribe, getItem, key: 1 });
-          return { retrieveAsync, value };
-        },
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.value?.name).toEqual("a"));
-      await act(async () => {
-        await result.current.retrieveAsync({}, { signal: controller.signal });
-      });
-      act(() => {
-        onItem({ key: 1, name: "b" });
-        onPage([]);
-      });
-      expect(result.current.value?.name).toEqual("b");
-    });
-
-    it("should re-subscribe on subsequent replace-mode retrieves", async () => {
-      const subscribe = vi.fn().mockReturnValue(() => {});
-      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-            onChange: subscribe,
-          })(),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(subscribe).toHaveBeenCalledTimes(1);
-      });
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(subscribe).toHaveBeenCalledTimes(2);
-      });
-    });
-
-    it("should pass the current query to onChangeByKey", async () => {
-      type TestParams = {
-        filter?: string;
-      };
-      const onChangeByKey = vi.fn().mockReturnValue(() => {});
-      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<TestParams, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve,
-            retrieveByKey: async ({ key }) => ({ key }),
-            onChangeByKey,
-          })({ query: { filter: "active" } }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.getItem(1);
-      });
-
-      await waitFor(() => {
-        const firstCall = onChangeByKey.mock.calls[0];
-        expect(firstCall[0].query).toEqual({ filter: "active" });
-      });
-    });
-
-    it("should subscribe to the cached query when getCached returns data", () => {
-      const subscribe = vi.fn().mockReturnValue(() => {});
-      const getCached = vi.fn().mockReturnValue(changed([{ key: 1 }, { key: 2 }]));
-
-      renderHook(
-        () =>
-          Flux.createList<{}, number, record.Keyed<number>>({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey: async ({ key }) => ({ key }),
-            getCached,
-            onChange: subscribe,
-          })(),
-        { wrapper },
-      );
-
-      expect(subscribe).toHaveBeenCalledTimes(1);
-      expect(subscribe.mock.calls[0][0].query).toEqual({});
-    });
-
-    it("should serve getItem from cached initial data without fetching", async () => {
-      const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
-      const useList = Flux.createList<{}, number, record.Keyed<number>>({
-        name: "Resource",
-        retrieve: async () => [],
-        retrieveByKey,
-        getCached: () => changed([{ key: 1 }]),
-      });
-
-      const { result } = renderHook(useList, { wrapper });
-      let item: record.Keyed<number> | undefined;
-      act(() => {
-        item = result.current.getItem(1);
-      });
-      expect(item).toEqual({ key: 1 });
-      await expectAlways(() => {
-        expect(retrieveByKey).not.toHaveBeenCalled();
-      });
-    });
-  });
-
-  describe("subscriptions against a live client", () => {
-    const useRangeList = Flux.createList<
-      ranger.RetrieveMultipleParams,
-      ranger.Key,
-      ranger.Range
-    >({
-      name: "Resource",
-      retrieve: async ({ client, query }) => await client.ranges.retrieve(query),
-      retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-      onChange: ({ client, query }, handler) => client.ranges.onChange(query, handler),
-      onChangeByKey: ({ client, key }, handler) => client.ranges.onChange(key, handler),
-      getCached: ({ client, query }) => client.ranges.getCached(query),
-    });
-
-    const createRange = async (name: string): Promise<ranger.Range> =>
-      await client.ranges.create({
-        name,
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
-        }),
-      });
-
-    it("should return the same functions after the list answers", async () => {
-      const rng = await createRange("stable");
-      const { result } = renderHook(() => useRangeList(), { wrapper });
-      const { retrieve, retrieveAsync, getItem, subscribe } = result.current;
-      await act(
-        async () =>
-          await result.current.retrieveAsync(
-            { where: { key: { in: [rng.key] } } },
-            { signal: controller.signal },
-          ),
-      );
-      expect(result.current.data).toEqual([rng.key]);
-      expect(result.current.retrieve).toBe(retrieve);
-      expect(result.current.retrieveAsync).toBe(retrieveAsync);
-      expect(result.current.getItem).toBe(getItem);
-      expect(result.current.subscribe).toBe(subscribe);
-    });
-
-    it("should correctly update a list item when the subscribed answer changes", async () => {
-      const rng = await client.ranges.create({
-        name: "Test Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
-        }),
-      });
-
-      const { result } = renderHook(
-        () => {
-          const { getItem, subscribe, retrieve } = Flux.createList<
-            {},
-            ranger.Key,
-            ranger.Range
-          >({
-            name: "Resource",
-            retrieve: async ({ client }) =>
-              await client.ranges.retrieve({ where: { key: { in: [rng.key] } } }),
-            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            onChange: ({ client }, handler) =>
-              client.ranges.onChange({ where: { key: { in: [rng.key] } } }, handler),
-          })();
-          const value = Flux.useListItem<ranger.Key, ranger.Range>({
-            subscribe,
-            getItem,
-            key: rng.key,
-          });
-          return { retrieve, value };
-        },
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.value?.name).toEqual("Test Range");
-      });
-
-      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
-
-      await waitFor(() => {
-        expect(result.current.value?.name).toEqual("Test Range 2");
-      });
-    });
-
-    it("should update an item fetched by key when its subscription changes", async () => {
-      const rng = await client.ranges.create({
-        name: "Test Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
-        }),
-      });
-
-      const { result } = renderHook(
-        () => {
-          const { getItem, subscribe } = Flux.createList<{}, ranger.Key, ranger.Range>({
-            name: "Resource",
-            retrieve: async () => [],
-            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            onChangeByKey: ({ client, key }, handler) =>
-              client.ranges.onChange(key, handler),
-          })();
-          const value = Flux.useListItem<ranger.Key, ranger.Range>({
-            subscribe,
-            getItem,
-            key: rng.key,
-          });
-          return { value };
-        },
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.value?.name).toEqual("Test Range");
-      });
-
-      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
-
-      await waitFor(() => {
-        expect(result.current.value?.name).toEqual("Test Range 2");
-      });
-    });
-
-    it("should update a read item after a replace retrieve drops it from the pages", async () => {
-      const rng = await client.ranges.create({
-        name: "Test Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
-        }),
-      });
-      const other = await client.ranges.create({
-        name: "Other Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
-        }),
-      });
-      const { result, rerender } = renderHook(
-        ({ key }: { key?: ranger.Key }) => {
-          const { getItem, subscribe, retrieveAsync } = Flux.createList<
-            { keys: ranger.Key[] },
-            ranger.Key,
-            ranger.Range
-          >({
-            name: "Resource",
-            retrieve: async ({ client, query }) =>
-              await client.ranges.retrieve({ where: { key: { in: query.keys } } }),
-            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            onChange: ({ client, query }, handler) =>
-              client.ranges.onChange({ where: { key: { in: query.keys } } }, handler),
-            onChangeByKey: ({ client, key }, handler) =>
-              client.ranges.onChange(key, handler),
-          })();
-          const value = Flux.useListItem<ranger.Key, ranger.Range>({
-            subscribe,
-            getItem,
-            key: key ?? "",
-          });
-          return { retrieveAsync, value };
-        },
-        { wrapper, initialProps: {} },
-      );
-      await act(async () => {
-        await result.current.retrieveAsync(
-          { keys: [rng.key] },
-          { signal: controller.signal },
-        );
-      });
-      rerender({ key: rng.key });
-      await waitFor(() => {
-        expect(result.current.value?.name).toEqual("Test Range");
-      });
-      await act(async () => {
-        await result.current.retrieveAsync(
-          { keys: [other.key] },
-          { signal: controller.signal },
-        );
-      });
-      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
-      await waitFor(() => {
-        expect(result.current.value?.name).toEqual("Test Range 2");
-      });
-    });
-
-    it("should update a read item that the list painted from the cache", async () => {
-      const rng = await createRange("Test Range");
-      await client.ranges.retrieve({ where: { key: { in: [rng.key] } } });
-      const { result } = renderHook(
-        () => {
-          const { getItem, subscribe } = useRangeList({
-            query: { where: { key: { in: [rng.key] } } },
-          });
-          return Flux.useListItem<ranger.Key, ranger.Range>({
-            subscribe,
-            getItem,
-            key: rng.key,
-          });
-        },
-        { wrapper },
-      );
-      expect(result.current?.name).toEqual("Test Range");
-      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
-      await waitFor(() => expect(result.current?.name).toEqual("Test Range 2"));
-    });
-
-    it("should keep a read item that a rename moves out of the cached query", async () => {
-      const name = `Test Range ${uuid.create()}`;
-      const rng = await createRange(name);
-      await client.ranges.retrieve({ where: { name: { in: [name] } } });
-      const { result } = renderHook(
-        () => {
-          const { getItem, subscribe } = useRangeList({
-            query: { where: { name: { in: [name] } } },
-          });
-          return Flux.useListItem<ranger.Key, ranger.Range>({
-            subscribe,
-            getItem,
-            key: rng.key,
-          });
-        },
-        { wrapper },
-      );
-      expect(result.current?.name).toEqual(name);
-      await act(async () => await client.ranges.rename(rng.key, `${name} 2`));
-      await waitFor(() => expect(result.current?.name).toEqual(`${name} 2`));
-    });
-
-    it("should clear a read item painted from the cache when it is deleted", async () => {
-      const rng = await createRange("Test Range");
-      await client.ranges.retrieve({ where: { key: { in: [rng.key] } } });
-      const { result } = renderHook(
-        () => {
-          const { getItem, subscribe } = useRangeList({
-            query: { where: { key: { in: [rng.key] } } },
-          });
-          return Flux.useListItem<ranger.Key, ranger.Range>({
-            subscribe,
-            getItem,
-            key: rng.key,
-          });
-        },
-        { wrapper },
-      );
-      expect(result.current?.name).toEqual("Test Range");
-      await act(async () => await client.ranges.delete(rng.key));
-      await waitFor(() => expect(result.current).toBeNull());
-    });
-
-    it.each(["append", "replace"] as const)(
-      "should update an item painted from the cache after a %s retrieve leaves it out",
-      async (mode) => {
-        const rng = await createRange("Test Range");
-        const other = await createRange("Other Range");
-        await client.ranges.retrieve({ where: { key: { in: [rng.key, other.key] } } });
-        const { result, rerender } = renderHook(
-          ({ key }: { key: ranger.Key }) => {
-            const { getItem, subscribe, retrieveAsync } = useRangeList({
-              query: { where: { key: { in: [rng.key, other.key] } } },
-            });
-            const value = Flux.useListItem<ranger.Key, ranger.Range>({
-              subscribe,
-              getItem,
-              key,
-            });
-            return { retrieveAsync, value };
-          },
-          { wrapper, initialProps: { key: "" } },
-        );
-        await act(async () => {
-          await result.current.retrieveAsync(
-            { where: { key: { in: [other.key] } } },
-            { mode, signal: controller.signal },
-          );
-        });
-        await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
-        rerender({ key: rng.key });
-        await waitFor(() => expect(result.current.value?.name).toEqual("Test Range 2"));
-      },
+  const byName = () =>
+    ({ where: { labels: [lbl.key] }, order: { field: "name" } }) as const;
+
+  // A late change signal from a create reads that one range by key. Only a read in the
+  // list's order is a list read.
+  const listReads = (send: ReturnType<typeof spyOnSend>) =>
+    send.mock.calls.filter(
+      ([target, req]) =>
+        target === "/range/retrieve" &&
+        ranger.retrieveRequestZ.parse(req).order != null,
     );
 
-    it("should keep a read item live without a fetch after an append retrieve replaces the cached page", async () => {
-      const rng = await createRange("Test Range");
-      const other = await createRange("Other Range");
-      await client.ranges.retrieve({ where: { key: { in: [rng.key, other.key] } } });
-      const retrieve = vi.spyOn(client.ranges, "retrieve");
-      const { result } = renderHook(
-        () => {
-          const { getItem, subscribe, retrieveAsync } = useRangeList({
-            query: { where: { key: { in: [rng.key, other.key] } } },
-          });
-          const value = Flux.useListItem<ranger.Key, ranger.Range>({
-            subscribe,
-            getItem,
-            key: rng.key,
-          });
-          return { retrieveAsync, value };
-        },
-        { wrapper },
-      );
-      await act(async () => {
-        await result.current.retrieveAsync(
-          { where: { key: { in: [other.key] } } },
-          { mode: "append", signal: controller.signal },
-        );
-      });
-      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
-      await waitFor(() => expect(result.current.value?.name).toEqual("Test Range 2"));
-      expect(retrieve).not.toHaveBeenCalledWith(rng.key);
-      retrieve.mockRestore();
+  it("should list the matching records in the declared order", async () => {
+    const b = await create("b");
+    const a = await create("a");
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      {
+        wrapper,
+      },
+    );
+    expect(result.current.variant).toEqual("loading");
+    expect(result.current.answered).toBe(false);
+    act(() => result.current.more());
+    await waitFor(() => {
+      expect(result.current.variant).toEqual("success");
+      expect(result.current.data).toEqual([a.key, b.key]);
     });
-
-    it("should correctly remove a list item when it gets deleted", async () => {
-      const rng = await client.ranges.create({
-        name: "Test Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
-        }),
-      });
-      const { result } = renderHook(
-        () => {
-          const { getItem, retrieveAsync } = Flux.createList<
-            {},
-            ranger.Key,
-            ranger.Range
-          >({
-            name: "Resource",
-            retrieve: async ({ client }) =>
-              await client.ranges.retrieve({ where: { key: { in: [rng.key] } } }),
-            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            onChange: ({ client }, handler) =>
-              client.ranges.onChange({ where: { key: { in: [rng.key] } } }, handler),
-          })();
-          return { retrieveAsync, value: getItem(rng.key) };
-        },
-        { wrapper },
-      );
-
-      await act(
-        async () =>
-          await result.current.retrieveAsync({}, { signal: controller.signal }),
-      );
-      await waitFor(() => {
-        expect(result.current.value?.name).toEqual("Test Range");
-      });
-      await act(async () => await client.ranges.delete(rng.key));
-      await waitFor(() => expect(result.current.value?.key).not.toEqual(rng.key));
-    });
-
-    it("should maintain sort order when items are updated through subscriptions", async () => {
-      const rng1 = await client.ranges.create({
-        name: "B Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(10),
-          end: TimeSpan.seconds(11),
-        }),
-      });
-
-      const rng2 = await client.ranges.create({
-        name: "A Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
-        }),
-      });
-      const keys = [rng1.key, rng2.key];
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, ranger.Key, ranger.Range>({
-            name: "Resource",
-            retrieve: async ({ client }) =>
-              await client.ranges.retrieve({ where: { key: { in: keys } } }),
-            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            onChange: ({ client }, handler) =>
-              client.ranges.onChange({ where: { key: { in: keys } } }, handler),
-          })({ sort: (a, b) => a.name.localeCompare(b.name) }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        const indexOfRng1 = result.current.data.indexOf(rng1.key);
-        const indexOfRng2 = result.current.data.indexOf(rng2.key);
-        expect(indexOfRng2).toBeLessThan(indexOfRng1);
-      });
-
-      await act(async () => await client.ranges.rename(rng1.key, "Z Range"));
-
-      await waitFor(() => {
-        const indexOfRng1 = result.current.data.indexOf(rng1.key);
-        const indexOfRng2 = result.current.data.indexOf(rng2.key);
-        expect(indexOfRng2).toBeLessThan(indexOfRng1);
-      });
-    });
-
-    it("should insert new items in correct sorted position through subscriptions", async () => {
-      const rng1 = await client.ranges.create({
-        name: "A Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(10),
-          end: TimeSpan.seconds(11),
-        }),
-      });
-
-      const rng2 = await client.ranges.create({
-        name: "C Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
-        }),
-      });
-      const rng3Key = uuid.create();
-      const keySet = new Set([rng1.key, rng2.key, rng3Key]);
-      // rng3 does not exist yet, so the query is a permissive overlap window
-      // and the hook-level filter narrows the answer to the test's ranges.
-      const query = {
-        where: {
-          overlaps: new TimeRange({
-            start: TimeSpan.seconds(9),
-            end: TimeSpan.seconds(16),
-          }),
-        },
-      };
-
-      const { result } = renderHook(
-        () =>
-          Flux.createList<{}, ranger.Key, ranger.Range>({
-            name: "Resource",
-            retrieve: async ({ client }) => await client.ranges.retrieve(query),
-            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            onChange: ({ client }, handler) => client.ranges.onChange(query, handler),
-          })({
-            sort: (a, b) => a.name.localeCompare(b.name),
-            filter: (r) => keySet.has(r.key),
-          }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).toEqual([rng1.key, rng2.key]); // A Range, C Range
-      });
-
-      const rng3 = await client.ranges.create({
-        key: rng3Key,
-        name: "B Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(14),
-          end: TimeSpan.seconds(15),
-        }),
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).toEqual([rng1.key, rng3.key, rng2.key]); // A Range, B Range, C Range
-      });
-    });
+    expect(result.current.answered).toBe(true);
+    expect(result.current.getItem(a.key)?.name).toEqual("a");
   });
 
-  describe("client reconnect", () => {
-    interface Doc extends record.Keyed<string> {
-      key: string;
-      name: string;
-    }
-    const ReconnectAetherProvider = createAetherProvider({
-      ...synnax.REGISTRY,
-      ...status.REGISTRY,
-    });
-
-    // The hooks only read `key` off the client; a minimal stub models the swap.
-    const clientWithKey = (key: string): Client => ({ key }) as unknown as Client;
-
-    /** A fake per-client domain: answers by client key, push notifies subs. */
-    interface FakeDomain {
-      answers: Record<string, Doc[]>;
-      push: (clientKey: string, docs: Doc[]) => void;
-      pushItem: (clientKey: string, doc: Doc) => void;
-      onChange: (clientKey: string, handler: query.ChangeHandler<Doc[]>) => () => void;
-      subscribeItem: (
-        clientKey: string,
-        key: string,
-        handler: query.ChangeHandler<Doc>,
-      ) => () => void;
-    }
-
-    const createFakeDomain = (): FakeDomain => {
-      const answers: Record<string, Doc[]> = { a: [], b: [] };
-      const subs = new Map<string, Set<query.ChangeHandler<Doc[]>>>();
-      const itemSubs = new Map<string, Set<query.ChangeHandler<Doc>>>();
-      return {
-        answers,
-        push: (clientKey, docs) => {
-          answers[clientKey] = docs;
-          subs.get(clientKey)?.forEach((h) => h(docs));
-        },
-        pushItem: (clientKey, doc) => {
-          itemSubs.get(`${clientKey}:${doc.key}`)?.forEach((h) => h(doc));
-        },
-        onChange: (clientKey, handler) => {
-          const set = subs.get(clientKey) ?? new Set();
-          set.add(handler);
-          subs.set(clientKey, set);
-          return () => set.delete(handler);
-        },
-        subscribeItem: (clientKey, key, handler) => {
-          const mapKey = `${clientKey}:${key}`;
-          const set = itemSubs.get(mapKey) ?? new Set();
-          set.add(handler);
-          itemSubs.set(mapKey, set);
-          return () => set.delete(handler);
-        },
-      };
+  it("should render again only the item whose record changed", async () => {
+    const a = await create("a");
+    const b = await create("b");
+    const renders = new Map<ranger.Key, number>();
+    const Item = ({ itemKey }: { itemKey: ranger.Key }): ReactElement => {
+      const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
+      renders.set(itemKey, (renders.get(itemKey) ?? 0) + 1);
+      return <span>{range?.name}</span>;
     };
-
-    interface ReconnectSetup {
-      domain: FakeDomain;
-      wrapper: React.FC<PropsWithChildren>;
-      reconnect: () => void;
-    }
-
-    const createReconnectSetup = (): ReconnectSetup => {
-      const domain = createFakeDomain();
-      let activeSynnax = clientWithKey("a");
-      const wrapper = ({ children }: PropsWithChildren): ReactElement => (
-        <ReconnectAetherProvider>
-          <Status.Aggregator>
-            <Synnax.TestProvider client={activeSynnax}>{children}</Synnax.TestProvider>
-          </Status.Aggregator>
-        </ReconnectAetherProvider>
+    const renderItem = ({ key }: { key: ranger.Key }) => (
+      <Item key={key} itemKey={key} />
+    );
+    const Ranges = (): ReactElement => {
+      const { data, getItem, subscribe, more } = Flux.useList(ranges, {
+        name: "ranges",
+        query: byName(),
+      });
+      useEffect(more, [more]);
+      return (
+        <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
+          <List.Scroll>
+            <List.Items<ranger.Key>>{renderItem}</List.Items>
+          </List.Scroll>
+        </List.Frame>
       );
-      const reconnect = (): void => {
-        activeSynnax = clientWithKey("b");
-      };
-      return { domain, wrapper, reconnect };
     };
+    render(<Ranges />, { wrapper });
+    await screen.findByText("b");
+    const rendersOfB = renders.get(b.key);
+    await client.ranges.rename(a.key, "a2");
+    await screen.findByText("a2");
+    expect(renders.get(b.key)).toBe(rendersOfB);
+  });
 
-    it("should refetch and re-subscribe onto the new client after the client changes", async () => {
-      const { domain, wrapper, reconnect } = createReconnectSetup();
-      const useList = Flux.createList<{}, string, Doc>({
-        name: "Doc",
-        retrieve: async ({ client }) => domain.answers[client.key],
-        retrieveByKey: async ({ key }) => ({ key, name: key }),
-        onChange: ({ client }, handler) => domain.onChange(client.key, handler),
-      });
+  it("should place a created record in order", async () => {
+    const a = await create("a");
+    const c = await create("c");
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      {
+        wrapper,
+      },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, c.key]));
+    const b = await create("b");
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key, c.key]));
+  });
 
-      const { result, rerender } = renderHook(() => useList(), { wrapper });
+  it("should move a renamed record and drop a deleted one", async () => {
+    const a = await create("a");
+    const b = await create("b");
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      {
+        wrapper,
+      },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key]));
+    await client.ranges.rename(a.key, "c");
+    await waitFor(() => expect(result.current.data).toEqual([b.key, a.key]));
+    await client.ranges.delete(b.key);
+    await waitFor(() => expect(result.current.data).toEqual([a.key]));
+  });
 
-      await act(
-        async () =>
-          await result.current.retrieveAsync({}, { signal: controller.signal }),
-      );
+  it("should read the next page on more", async () => {
+    const a = await create("a");
+    const b = await create("b");
+    const c = await create("c");
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName(), pageSize: 2 }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key]));
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key, c.key]));
+  });
 
-      act(() => domain.push("a", [{ key: "before", name: "Before" }]));
-      await waitFor(() => expect(result.current.data).toContain("before"));
+  it("should read the initial size first, then a page on each more", async () => {
+    const a = await create("a");
+    const b = await create("b");
+    const c = await create("c");
+    const d = await create("d");
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          pageSize: 1,
+          initialSize: 2,
+        }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key]));
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key, c.key]));
+    expect(result.current.data).not.toContain(d.key);
+  });
 
-      reconnect();
-      rerender();
+  it("should list the records that match a search term", async () => {
+    const name = randomWord();
+    const match = await create(name);
+    await create("other");
+    await waitForIndex(name);
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, { name: "ranges", query: byName(), searchDebounce: 0 }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    act(() => result.current.search(name));
+    await waitFor(() => expect(result.current.data).toEqual([match.key]));
+    act(() => result.current.search(""));
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+  });
 
-      // Refetch against the new (empty) client replaces the old data.
-      await waitFor(() => expect(result.current.data).not.toContain("before"));
+  it("should keep the listed records until a search answers", async () => {
+    const name = randomWord();
+    const match = await create(name);
+    await create("other");
+    await waitForIndex(name);
+    const local = createTestClient();
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, { name: "ranges", query: byName(), searchDebounce: 0 }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    const { responded, release } = holdResponses(local, "/range/retrieve");
+    act(() => result.current.search(name));
+    await responded;
+    expect(result.current.data).toHaveLength(2);
+    expect(result.current.answered).toBe(true);
+    release();
+    await waitFor(() => expect(result.current.data).toEqual([match.key]));
+  });
 
-      act(() => domain.push("b", [{ key: "after", name: "After" }]));
-      await waitFor(() => expect(result.current.data).toContain("after"));
+  it("should hide the records the filter rejects", async () => {
+    await create("a");
+    const b = await create("b");
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          filter: (r) => r.name !== "a",
+        }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([b.key]));
+  });
+
+  it("should fetch a subscribed record outside the list", async () => {
+    const outside = await client.ranges.create({
+      name: "outside",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
     });
+    // A client that has read nothing holds no record of the range.
+    const reader = createTestClient();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      {
+        wrapper: createSynnaxWrapper({ client: reader }),
+      },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.answered).toBe(true));
+    expect(result.current.getItem(outside.key)).toBeUndefined();
+    const callback = vi.fn();
+    const release = result.current.subscribe(callback, outside.key);
+    await waitFor(() => expect(callback).toHaveBeenCalled());
+    expect(result.current.getItem(outside.key)?.name).toEqual("outside");
+    expect(result.current.getItem([outside.key])).toHaveLength(1);
+    release();
+  });
 
-    it("should fetch more through the new client when it changes while a search loads", async () => {
-      const { wrapper, reconnect } = createReconnectSetup();
-      const answers: { client: string; resolve: (docs: Doc[]) => void }[] = [];
-      const useList = Flux.createList<{ offset?: number }, string, Doc>({
-        name: "Doc",
-        retrieve: ({ client }) =>
-          new Promise((resolve) => answers.push({ client: client.key, resolve })),
-        retrieveByKey: async ({ key }) => ({ key, name: key }),
-      });
-      const { result, rerender } = renderHook(() => useList(), { wrapper });
-      act(() => {
-        void result.current.retrieveAsync({ offset: 0 });
-        void result.current.retrieveAsync((p) => ({ ...p, offset: 1 }), {
-          mode: "append",
-        });
-      });
-      reconnect();
-      rerender();
-      await waitFor(() => expect(answers).toHaveLength(2));
-      await act(async () =>
-        answers.forEach(({ resolve }) => resolve([{ key: "k", name: "k" }])),
-      );
-      await waitFor(() => expect(answers).toHaveLength(3));
-      expect(answers.map(({ client }) => client)).toEqual(["a", "b", "b"]);
+  it("should read nothing before the first more or search", async () => {
+    await create("a");
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      {
+        wrapper,
+      },
+    );
+    await act(async () => await sleep.sleep(TimeSpan.milliseconds(50)));
+    expect(result.current.answered).toBe(false);
+    expect(result.current.data).toEqual([]);
+  });
+
+  it("should start the list on a search", async () => {
+    const name = randomWord();
+    const match = await create(name);
+    await waitForIndex(name);
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, { name: "ranges", query: byName(), searchDebounce: 0 }),
+      { wrapper },
+    );
+    act(() => result.current.search(name));
+    await waitFor(() => expect(result.current.data).toEqual([match.key]));
+  });
+
+  it("should report a failed read and show no records of the last query", async () => {
+    await create("a");
+    const local = createTestClient();
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, { name: "ranges", query: byName(), searchDebounce: 0 }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    spyOnSend(local).mockRejectedValue(new Error("boom"));
+    act(() => result.current.search(randomWord()));
+    await waitFor(() => expect(result.current.variant).toEqual("error"));
+    expect(result.current.data).toEqual([]);
+    expect(result.current.answered).toBe(false);
+  });
+
+  it("should read nothing on more while a read runs", async () => {
+    await create("a");
+    await create("b");
+    const local = createTestClient();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName(), pageSize: 1 }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    const send = spyOnSend(local);
+    act(() => {
+      result.current.more();
+      result.current.more();
     });
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    expect(listReads(send)).toHaveLength(1);
+  });
 
-    it("should re-subscribe item lookups without running a list retrieve when no query was issued", async () => {
-      const { domain, wrapper, reconnect } = createReconnectSetup();
-      const retrieve = vi.fn(async () => [] as Doc[]);
-      const useList = Flux.createList<{}, string, Doc>({
-        name: "Doc",
-        retrieve,
-        retrieveByKey: async ({ key }) => ({ key, name: key }),
-        onChangeByKey: ({ client, key }, handler) =>
-          domain.subscribeItem(client.key, key, handler),
-      });
+  it("should read nothing on more once the list is complete", async () => {
+    await create("a");
+    const local = createTestClient();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.complete).toBe(true));
+    const send = spyOnSend(local);
+    act(() => result.current.more());
+    await sleep.sleep(TimeSpan.milliseconds(20));
+    expect(listReads(send)).toHaveLength(0);
+  });
 
-      const { result, rerender } = renderHook(
-        () => {
-          const list = useList();
-          const value = Flux.useListItem<string, Doc>({
-            subscribe: list.subscribe,
-            getItem: list.getItem,
-            key: "k",
-          });
-          return { list, value };
-        },
-        { wrapper },
-      );
+  it("should show the cached records on a remount before the first more", async () => {
+    const a = await create("a");
+    const first = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper },
+    );
+    act(() => first.result.current.more());
+    await waitFor(() => expect(first.result.current.data).toEqual([a.key]));
+    first.unmount();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper },
+    );
+    expect(result.current.data).toEqual([a.key]);
+    expect(result.current.answered).toBe(true);
+  });
 
-      await waitFor(() => expect(result.current.value?.name).toBe("k"));
-      act(() => domain.pushItem("a", { key: "k", name: "A" }));
-      await waitFor(() => expect(result.current.value?.name).toBe("A"));
+  it("should read no record for a zero key", () => {
+    const item = vi.fn((key: string) => key);
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", itemQuery: item }),
+      { wrapper },
+    );
+    expect(result.current.getItem("")).toBeUndefined();
+    expect(item).not.toHaveBeenCalled();
+  });
 
-      reconnect();
-      rerender();
+  it("should be disabled without a query", () => {
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: null }),
+      {
+        wrapper,
+      },
+    );
+    expect(result.current.variant).toEqual("disabled");
+    expect(result.current.data).toEqual([]);
+  });
 
-      // getItem-only: re-subscribe onto the new client without a list fetch.
-      act(() => domain.pushItem("b", { key: "k", name: "B" }));
-      await waitFor(() => expect(result.current.value?.name).toBe("B"));
-      expect(result.current.list.data).toEqual([]);
-      expect(retrieve).not.toHaveBeenCalled();
+  it("should be disabled without a client", () => {
+    const { result } = renderHook(() => Flux.useList(ranges, { name: "ranges" }), {
+      wrapper: createSynnaxWrapper({ client: null }),
     });
-
-    it("should give a read item from the cache its own feed after the client changes", async () => {
-      const { domain, wrapper, reconnect } = createReconnectSetup();
-      domain.answers.a = [{ key: "k", name: "A" }];
-      const useList = Flux.createList<{}, string, Doc>({
-        name: "Doc",
-        retrieve: async ({ client }) => domain.answers[client.key],
-        retrieveByKey: async ({ key }) => ({ key, name: key }),
-        onChange: ({ client }, handler) => domain.onChange(client.key, handler),
-        onChangeByKey: ({ client, key }, handler) =>
-          domain.subscribeItem(client.key, key, handler),
-        getCached: ({ client }) => domain.answers[client.key],
-      });
-      const { result, rerender } = renderHook(
-        () => {
-          const { subscribe, getItem } = useList();
-          return Flux.useListItem<string, Doc>({ subscribe, getItem, key: "k" });
-        },
-        { wrapper },
-      );
-      expect(result.current?.name).toBe("A");
-
-      reconnect();
-      rerender();
-
-      act(() => domain.pushItem("b", { key: "k", name: "B" }));
-      await waitFor(() => expect(result.current?.name).toBe("B"));
-    });
+    expect(result.current.variant).toEqual("disabled");
   });
 });

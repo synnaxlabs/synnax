@@ -10,15 +10,13 @@
 package video_test
 
 import (
-	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/video"
 	"github.com/synnaxlabs/x/query"
@@ -27,30 +25,17 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-func retrieve(ctx context.Context, key video.Key) video.Video {
-	GinkgoHelper()
-	var res video.Video
-	Expect(svc.NewRetrieve().Where(video.MatchKeys(key)).Entry(&res).Exec(ctx, nil)).
-		To(Succeed())
-	return res
-}
-
-func create(ctx context.Context, v video.Video) video.Video {
-	GinkgoHelper()
-	Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &v)).To(Succeed())
-	return v
-}
-
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create a video view with a new key", func(ctx SpecContext) {
-			rangeKey := uuid.New()
+			tx := DeferClose(db.OpenTx())
 			v := video.Video{
-				Name:    "camera",
-				Channel: 5,
-				Range:   &ranger.Ref{Variant: ranger.KeyRef{Key: rangeKey}},
+				Name:          "camera",
+				Channel:       5,
+				PlaybackRange: &ranger.Ref{Variant: ranger.KeyRef{Key: uuid.New()}},
+				Project:       &proj.Key,
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &v)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
 			Expect(v.Key).ToNot(Equal(uuid.Nil()))
 			var res video.Video
 			Expect(svc.NewRetrieve().Where(video.MatchKeys(v.Key)).Entry(&res).
@@ -59,89 +44,92 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should reject a video view with no name", func(ctx SpecContext) {
-			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &video.Video{})).
+			tx := DeferClose(db.OpenTx())
+			Expect(svc.NewWriter(tx).Create(ctx, &video.Video{Project: &proj.Key})).
 				To(MatchError(ContainSubstring("name: required")))
 		})
 
-		It("Should make the view a child of its project", func(ctx SpecContext) {
-			v := video.Video{Name: "camera"}
-			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &v)).To(Succeed())
-			var children []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(project.OntologyID(proj.Key)).
-				TraverseTo(ontology.ChildrenTraverser).
-				Entries(&children).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(children).To(ContainElement(HaveField("ID", v.OntologyID())))
+		It("Should reject a video view with no owner", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			Expect(svc.NewWriter(tx).Create(ctx, &video.Video{Name: "camera"})).
+				To(MatchError(
+					"project: must belong to exactly one of a project and a range: " +
+						"validation error",
+				))
 		})
 
-		It("Should create a view under no project", func(ctx SpecContext) {
-			v := video.Video{Name: "camera"}
-			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &v)).To(Succeed())
-			Expect(MustSucceed(svc.RetrieveResource(ctx, v.Key.String(), tx)).Name).
-				To(Equal("camera"))
+		It("Should keep the owner of an existing view", func(ctx SpecContext) {
+			v := create(ctx, video.Video{Name: "camera"})
+			again := video.Video{Key: v.Key, Name: "renamed"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &again)
+			})).To(Succeed())
+			res := retrieve(ctx, v.Key)
+			Expect(res.Name).To(Equal("renamed"))
+			Expect(res.Project).To(Equal(&proj.Key))
 		})
 	})
 
 	Describe("Delete", func() {
-		It("Should delete a view and its ontology resource", func(ctx SpecContext) {
-			v := video.Video{Name: "camera"}
-			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).Delete(ctx, v.Key)).To(Succeed())
+		It("Should delete a view", func(ctx SpecContext) {
+			v := create(ctx, video.Video{Name: "camera"})
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, v.Key)
+			})).To(Succeed())
 			Expect(svc.NewRetrieve().Where(video.MatchKeys(v.Key)).
-				Entry(&video.Video{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-			Expect(svc.RetrieveResource(ctx, v.Key.String(), tx)).Error().
-				To(MatchError(query.ErrNotFound))
+				Entry(&video.Video{}).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
-	Describe("Dispatch", func() {
+	Describe("Apply", func() {
 		It("Should rename the view", func(ctx SpecContext) {
 			v := create(ctx, video.Video{Name: "before"})
-			Expect(svc.Dispatch(ctx, v.Key, "d1", []video.Action{
-				video.NewRenameAction(video.RenamePayload{Name: "after"}),
+			Expect(dispatch(ctx, v.Key, "d1", []video.Action{
+				video.NewSetAction(video.SetPayload{
+					Path:  []string{"name"},
+					Value: "after",
+				}),
 			})).To(Succeed())
 			Expect(retrieve(ctx, v.Key).Name).To(Equal("after"))
 		})
 
 		It("Should set the channel of the view", func(ctx SpecContext) {
 			v := create(ctx, video.Video{Name: "camera"})
-			Expect(svc.Dispatch(ctx, v.Key, "d1", []video.Action{
+			Expect(dispatch(ctx, v.Key, "d1", []video.Action{
 				video.NewSetChannelAction(video.SetChannelPayload{Channel: 12}),
 			})).To(Succeed())
 			Expect(retrieve(ctx, v.Key).Channel).To(Equal(channel.Key(12)))
 		})
 
-		It("Should set and clear the range of the view", func(ctx SpecContext) {
+		It("Should set and clear the playback range", func(ctx SpecContext) {
 			v := create(ctx, video.Video{Name: "camera"})
 			ref := ranger.Ref{Variant: ranger.KeyRef{Key: uuid.New()}}
-			Expect(svc.Dispatch(ctx, v.Key, "d1", []video.Action{
-				video.NewSetRangeAction(video.SetRangePayload{Range: &ref}),
+			Expect(dispatch(ctx, v.Key, "d1", []video.Action{
+				video.NewSetPlaybackRangeAction(
+					video.SetPlaybackRangePayload{PlaybackRange: &ref},
+				),
 			})).To(Succeed())
-			Expect(retrieve(ctx, v.Key).Range).To(Equal(&ref))
-			Expect(svc.Dispatch(ctx, v.Key, "d2", []video.Action{
-				video.NewSetRangeAction(video.SetRangePayload{}),
+			Expect(retrieve(ctx, v.Key).PlaybackRange).To(Equal(&ref))
+			Expect(dispatch(ctx, v.Key, "d2", []video.Action{
+				video.NewSetPlaybackRangeAction(video.SetPlaybackRangePayload{}),
 			})).To(Succeed())
-			Expect(retrieve(ctx, v.Key).Range).To(BeNil())
+			Expect(retrieve(ctx, v.Key).PlaybackRange).To(BeNil())
 		})
 
 		It("Should reject a create without changing any view", func(ctx SpecContext) {
 			target := create(ctx, video.Video{Name: "target"})
-			Expect(svc.Dispatch(ctx, target.Key, "d1", []video.Action{
+			Expect(dispatch(ctx, target.Key, "d1", []video.Action{
 				video.NewCreateAction(video.CreatePayload{
 					Video: video.Video{Key: target.Key, Name: "overwritten"},
 				}),
-			})).To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("only the Core dispatches a video create")),
-			))
+			})).To(MatchError(validate.ErrValidation))
 			Expect(retrieve(ctx, target.Key).Name).To(Equal("target"))
 		})
 
 		It("Should reject an action with no payload", func(ctx SpecContext) {
 			v := create(ctx, video.Video{Name: "camera"})
-			Expect(svc.Dispatch(ctx, v.Key, "d1", []video.Action{
-				{Type: video.ActionTypeRename},
+			Expect(dispatch(ctx, v.Key, "d1", []video.Action{
+				{Type: video.ActionTypeSetChannel},
 			})).To(MatchError(union.ErrMissingPayload))
 		})
 
@@ -149,9 +137,12 @@ var _ = Describe("Writer", func() {
 			"Should apply no action of a batch that leaves the view invalid",
 			func(ctx SpecContext) {
 				v := create(ctx, video.Video{Name: "camera"})
-				Expect(svc.Dispatch(ctx, v.Key, "d1", []video.Action{
+				Expect(dispatch(ctx, v.Key, "d1", []video.Action{
 					video.NewSetChannelAction(video.SetChannelPayload{Channel: 3}),
-					video.NewRenameAction(video.RenamePayload{Name: ""}),
+					video.NewSetAction(video.SetPayload{
+						Path:  []string{"name"},
+						Value: "",
+					}),
 				})).To(MatchError(ContainSubstring("name: required")))
 				res := retrieve(ctx, v.Key)
 				Expect(res.Name).To(Equal("camera"))
@@ -159,24 +150,21 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
-		It(
-			"Should notify subscribers of the dispatched actions",
-			func(ctx SpecContext) {
-				v := create(ctx, video.Video{Name: "camera"})
-				rec := &Recorder[video.Key, video.Action]{}
-				DeferCleanup(svc.OnAction(rec.Record))
-				Expect(svc.Dispatch(ctx, v.Key, "client-xyz", []video.Action{
-					video.NewSetChannelAction(video.SetChannelPayload{Channel: 7}),
-				})).To(Succeed())
-				seen := rec.Snapshot()
-				Expect(seen).To(HaveLen(1))
-				Expect(seen[0].Key).To(Equal(v.Key))
-				Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
-				Expect(seen[0].Actions).To(Equal([]video.Action{
-					video.NewSetChannelAction(video.SetChannelPayload{Channel: 7}),
-				}))
-			},
-		)
+		It("Should notify subscribers of the applied actions", func(ctx SpecContext) {
+			v := create(ctx, video.Video{Name: "camera"})
+			rec := &Recorder[video.Key, video.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(dispatch(ctx, v.Key, "client-xyz", []video.Action{
+				video.NewSetChannelAction(video.SetChannelPayload{Channel: 7}),
+			})).To(Succeed())
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Key).To(Equal(v.Key))
+			Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
+			Expect(seen[0].Actions).To(Equal([]video.Action{
+				video.NewSetChannelAction(video.SetChannelPayload{Channel: 7}),
+			}))
+		})
 
 		It("Should broadcast a create to subscribers", func(ctx SpecContext) {
 			rec := &Recorder[video.Key, video.Action]{}

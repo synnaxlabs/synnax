@@ -10,7 +10,7 @@
 import {
   group,
   label,
-  type ontology,
+  type resource,
   status,
   type Synnax as Client,
   view,
@@ -81,16 +81,16 @@ describe("status explorer", () => {
 });
 
 describe("status explorer permissions", () => {
-  const createEditor = async (creatable: ontology.ID[] = []) =>
+  const createEditor = async (creatable: resource.ID[] = []) =>
     await createTestClientWithGrants(client, {
       retrieve: [
-        status.TYPE_ONTOLOGY_ID,
-        view.TYPE_ONTOLOGY_ID,
-        label.TYPE_ONTOLOGY_ID,
-        group.TYPE_ONTOLOGY_ID,
+        status.TYPE_RESOURCE_ID,
+        view.TYPE_RESOURCE_ID,
+        label.TYPE_RESOURCE_ID,
+        group.TYPE_RESOURCE_ID,
       ],
-      update: [view.TYPE_ONTOLOGY_ID],
-      create: [view.TYPE_ONTOLOGY_ID, ...creatable],
+      update: [view.TYPE_RESOURCE_ID],
+      create: [view.TYPE_RESOURCE_ID, ...creatable],
     });
 
   const renderExplorer = async (as: Client) => {
@@ -118,7 +118,7 @@ describe("status explorer permissions", () => {
   });
 
   it("should offer the create button to a subject who may create statuses", async () => {
-    await renderExplorer(await createEditor([status.TYPE_ONTOLOGY_ID]));
+    await renderExplorer(await createEditor([status.TYPE_RESOURCE_ID]));
     expect(await findToolbarIconButton("add")).toBeTruthy();
   });
 });

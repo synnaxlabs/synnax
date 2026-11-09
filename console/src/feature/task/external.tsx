@@ -35,7 +35,6 @@ export * from "@/feature/task/search";
 export * from "@/feature/task/Selector";
 export * from "@/feature/task/tab";
 export * from "@/feature/task/Toolbar";
-export * from "@/feature/task/tree";
 export * from "@/feature/task/types";
 export * from "@/platform/task/external";
 
@@ -57,7 +56,7 @@ export const COMMANDS: Command.Command[] = [
 
 export const TABS: Panel.Tabs = {
   [SELECTOR_TAB_TYPE]: Selector,
-  [task.TYPE_ONTOLOGY_ID.type]: TAB,
+  [task.TYPE_RESOURCE_ID.type]: TAB,
 };
 
 export const SNAPSHOT_SERVICES: Range.SnapshotServices = {

@@ -13,7 +13,7 @@ package v1
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
