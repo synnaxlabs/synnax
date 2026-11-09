@@ -30,10 +30,11 @@ inline Range Range::parse(x::json::Parser parser) {
         .name = parser.field<std::string>("name"),
         .time_range = parser.field<::x::telem::TimeRange>("time_range"),
         .color = parser.field<std::optional<::x::color::Color>>("color"),
-        .labels = parser.field<std::optional<std::vector<::synnax::label::Label>>>(
-            "labels"
+        .labels = parser.field<std::vector<::synnax::label::Key>>(
+            "labels",
+            std::vector<::synnax::label::Key>{}
         ),
-        .parent = parser.field<x::mem::indirect<Range>>("parent"),
+        .parent = parser.field<std::optional<Key>>("parent"),
     };
 }
 
@@ -43,7 +44,12 @@ inline x::json::json Range::to_json() const {
     j["name"] = this->name;
     j["time_range"] = this->time_range.to_json();
     if (this->color.has_value()) j["color"] = this->color->to_json();
-    if (this->labels.has_value()) j["labels"] = x::json::to_array(*this->labels);
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->labels)
+            arr.push_back(item.to_json());
+        j["labels"] = arr;
+    }
     if (this->parent.has_value()) j["parent"] = this->parent->to_json();
     return j;
 }
@@ -59,6 +65,7 @@ inline Where Where::parse(x::json::Parser parser) {
         .labels = parser.field<std::optional<std::vector<::synnax::label::Key>>>(
             "labels"
         ),
+        .parents = parser.field<std::optional<std::vector<Key>>>("parents"),
     };
 }
 
@@ -76,6 +83,12 @@ inline x::json::json Where::to_json() const {
             arr.push_back(item.to_json());
         j["labels"] = arr;
     }
+    if (this->parents.has_value()) {
+        auto arr = x::json::json::array();
+        for (const auto &item: *this->parents)
+            arr.push_back(item.to_json());
+        j["parents"] = arr;
+    }
     return j;
 }
 
@@ -85,8 +98,6 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
         .search_term = parser.field<std::string>("search_term", ""),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
         .offset = parser.field<std::uint32_t>("offset", 0),
-        .include_labels = parser.field<bool>("include_labels", false),
-        .include_parent = parser.field<bool>("include_parent", false),
     };
 }
 
@@ -96,8 +107,6 @@ inline x::json::json RetrieveRequest::to_json() const {
     j["search_term"] = this->search_term;
     if (this->limit.has_value()) j["limit"] = *this->limit;
     j["offset"] = this->offset;
-    j["include_labels"] = this->include_labels;
-    j["include_parent"] = this->include_parent;
     return j;
 }
 

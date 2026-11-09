@@ -11,7 +11,7 @@ package v2
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Range{}
@@ -19,10 +19,7 @@ var _ gorp.Entry[Key] = Range{}
 // GorpKey implements gorp.Entry.
 func (r Range) GorpKey() Key { return r.Key }
 
-// SetOptions implements gorp.Entry.
-func (Range) SetOptions() []any { return nil }
-
-// OntologyID returns the unique ontology identifier for the range.
-func (r Range) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRange, Key: r.Key.String()}
+// ResourceID returns the ID of the range in the ontology.
+func (r Range) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeRange, Key: r.Key.String()}
 }

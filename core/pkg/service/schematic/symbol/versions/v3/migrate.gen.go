@@ -14,77 +14,13 @@ package v3
 import (
 	"context"
 
-	"github.com/samber/lo"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
-func autoMigrateRegion(ctx context.Context, old v2.Region) (Region, error) {
-	var strokeColor *color.Color
-	if old.StrokeColor != nil {
-		v, err := color.MigrateColor(ctx, *old.StrokeColor)
-		if err != nil {
-			return Region{}, err
-		}
-		strokeColor = &v
-	}
-	var fillColor *color.Color
-	if old.FillColor != nil {
-		v, err := color.MigrateColor(ctx, *old.FillColor)
-		if err != nil {
-			return Region{}, err
-		}
-		fillColor = &v
-	}
-	return Region{
-		Key:         old.Key,
-		Name:        old.Name,
-		Selectors:   old.Selectors,
-		StrokeColor: strokeColor,
-		FillColor:   fillColor,
-	}, nil
-}
-
-func autoMigrateSpec(ctx context.Context, old v2.Spec) (Spec, error) {
-	states, err := lo.MapErr(old.States, func(v v2.State, _ int) (State, error) {
-		return MigrateState(ctx, v)
-	})
-	if err != nil {
-		return Spec{}, err
-	}
-	return Spec{
-		SVG:             old.SVG,
-		States:          states,
-		Variant:         old.Variant,
-		Handles:         old.Handles,
-		Scale:           old.Scale,
-		StrokeScaled:    old.StrokeScaled,
-		PreviewViewport: old.PreviewViewport,
-	}, nil
-}
-
-func autoMigrateState(ctx context.Context, old v2.State) (State, error) {
-	regions, err := lo.MapErr(old.Regions, func(v v2.Region, _ int) (Region, error) {
-		return MigrateRegion(ctx, v)
-	})
-	if err != nil {
-		return State{}, err
-	}
-	return State{
-		Key:     old.Key,
-		Name:    old.Name,
-		Regions: regions,
-	}, nil
-}
-
-func autoMigrateSymbol(ctx context.Context, old v2.Symbol) (Symbol, error) {
-	data, err := MigrateSpec(ctx, old.Data)
-	if err != nil {
-		return Symbol{}, err
-	}
+func autoMigrateSymbol(_ context.Context, old v2.Symbol) (Symbol, error) {
 	return Symbol{
 		Key:  old.Key,
 		Name: old.Name,
-		Data: data,
+		Data: old.Data,
 	}, nil
 }

@@ -16,6 +16,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	. "github.com/synnaxlabs/x/testutil"
@@ -27,7 +30,7 @@ var _ = Describe("Migrations", func() {
 		"Should key the rows and columns of a table stored by a v2 Core",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			v2Chain := versions.Migrations[:len(versions.Migrations)-2]
+			v2Chain := versions.Migrations[:len(versions.Migrations)-5]
 			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Table]{
 				DB:         db,
 				Migrations: v2Chain,
@@ -47,6 +50,18 @@ var _ = Describe("Migrations", func() {
 			stored.ApplyDefaults()
 			Expect(gorp.NewCreate[v2.Key, v2.Table]().Entry(&stored).Exec(ctx, db)).
 				To(Succeed())
+			proj := projectv3.Project{Key: uuid.New(), Name: "Project"}
+			Expect(gorp.NewCreate[projectv3.Key, projectv3.Project]().
+				Entry(&proj).
+				Exec(ctx, db)).To(Succeed())
+			owner := ontology.Relationship{
+				From: resource.ID{Type: resource.TypeProject, Key: proj.Key.String()},
+				Type: ontology.RelationshipTypeParentOf,
+				To:   resource.ID{Type: resource.TypeTable, Key: stored.Key.String()},
+			}
+			Expect(gorp.NewCreate[string, ontology.Relationship]().
+				Entry(&owner).
+				Exec(ctx, db)).To(Succeed())
 			MustSucceed(
 				gorp.OpenTable(ctx, gorp.TableConfig[versions.Key, versions.Table]{
 					DB:         db,
@@ -69,6 +84,7 @@ var _ = Describe("Migrations", func() {
 			Expect(got.Validate()).To(Succeed())
 		},
 	)
+
 	// Applied migrations are tracked by key, so renaming or reordering an entry
 	// re-runs or skips it on stores that already migrated. The chain is pinned
 	// verbatim; extend it for a new version, never edit shipped entries.
@@ -82,6 +98,9 @@ var _ = Describe("Migrations", func() {
 			"v55_lift_typed_table",
 			"v2_typed_cell_configs",
 			"v3_row_and_column_keys",
+			"v61_add_group",
+			"v61_table_group_membership",
+			"v61_table_owner",
 			"v61_color_alpha_byte",
 		}))
 	})

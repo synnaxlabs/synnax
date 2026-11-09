@@ -11,16 +11,74 @@ package v2
 
 import (
 	"context"
+	"uuid"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 )
 
-// MigrateRange lifts a v1 range to v2, which stores every color alpha as a 0-255
-// byte.
-func MigrateRange(ctx context.Context, old v1.Range) (Range, error) {
-	return autoMigrateRange(ctx, old)
+// Migrations move each range to its v2 shape, then move its parent from a parent
+// relationship between two ranges into the parent field, and its labels from
+// labeled_by relationships into the labels field. They delete each relationship they
+// move, and drop parents and labels that are not stored.
+var Migrations = []gorp.Migration{
+	migrate.NewEntry("v61_range_shape", autoMigrateRange),
+	ontology.NewFieldMigration(ontology.FieldConfig[Key, Range]{
+		Name:     "v61_range_parent_labels",
+		Converts: converts,
+		Holder: func(rel ontology.Relationship) string {
+			if rel.Type == ontology.RelationshipTypeLabeledBy {
+				return rel.From.Key
+			}
+			return rel.To.Key
+		},
+		Set: moveRelationship,
+	}),
 }
 
-// Migration lifts stored ranges from v1 to v2.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateRange)
+func converts(rel ontology.Relationship) bool {
+	if rel.From.Type != resource.TypeRange {
+		return false
+	}
+	return rel.Type == ontology.RelationshipTypeLabeledBy ||
+		rel.Type == ontology.RelationshipTypeParentOf &&
+			rel.To.Type == resource.TypeRange
+}
+
+func moveRelationship(
+	ctx context.Context,
+	tx gorp.Tx,
+	r *Range,
+	rel ontology.Relationship,
+) (bool, error) {
+	if rel.Type == ontology.RelationshipTypeLabeledBy {
+		label, err := uuid.Parse(rel.To.Key)
+		if err != nil {
+			return false, errors.Wrapf(err, "label of range %s", rel.From.Key)
+		}
+		found, err := ontology.ResourceExists(ctx, tx, rel.To)
+		if !found || err != nil {
+			return false, err
+		}
+		r.Labels = append(r.Labels, label)
+		return true, nil
+	}
+	if r.Parent != nil {
+		return false, nil
+	}
+	parent, err := uuid.Parse(rel.From.Key)
+	if err != nil {
+		return false, errors.Wrapf(err, "parent of range %s", rel.To.Key)
+	}
+	found, err := gorp.NewRetrieve[Key, Range]().
+		Where(gorp.MatchKeys[Key, Range](parent)).
+		Exists(ctx, tx)
+	if !found || err != nil {
+		return false, err
+	}
+	r.Parent = &parent
+	return true, nil
+}

@@ -57,8 +57,8 @@ If you already cloned the repository without submodules, run
 
 ## 3 Set up Go
 
-We use [Go](https://go.dev/) for the Core, Aspen, Cesium, Arc, Freighter, and Oracle.
-Install it with the [installer](https://go.dev/doc/install), or with
+We use [Go](https://go.dev/) for the Core, Cesium, Arc, Freighter, and Oracle. Install
+it with the [installer](https://go.dev/doc/install), or with
 
 ```powershell
 winget install GoLang.Go

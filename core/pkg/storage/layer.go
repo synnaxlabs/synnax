@@ -252,7 +252,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	// Open the key-value storage engine.
 	if l.KV, err = openKV(cfg, kvFS, cache); !ok(err, l.KV) {
 		return nil, err
 	}
@@ -455,7 +454,11 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 			dirname,
 		)
 	}
-	return pebblekv.Wrap(db, pebblekv.DisableObservation()), err
+	if err = deleteAspenKeys(db); err != nil {
+		err = errors.Wrap(err, "failed to delete the Aspen digest and version keys")
+		return nil, errors.Combine(err, db.Close())
+	}
+	return pebblekv.Wrap(db), nil
 }
 
 func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {

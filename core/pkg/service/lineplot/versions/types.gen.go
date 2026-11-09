@@ -11,116 +11,116 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+import "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
 
 // Key is a unique identifier for a line plot, represented as a UUID.
-type Key = v8.Key
+type Key = v9.Key
 
 // TickType selects how an axis renders its tick labels.
-type TickType = v8.TickType
+type TickType = v9.TickType
 
 const (
 	// TickTypeLinear labels ticks with numeric values.
-	TickTypeLinear TickType = v8.TickTypeLinear
+	TickTypeLinear TickType = v9.TickTypeLinear
 	// TickTypeTime labels ticks with timestamps.
-	TickTypeTime TickType = v8.TickTypeTime
+	TickTypeTime TickType = v9.TickTypeTime
 )
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
-type XAxisKey = v8.XAxisKey
+type XAxisKey = v9.XAxisKey
 
 const (
 	// XAxisKeyX1 is the x-axis at the bottom of the plot.
-	XAxisKeyX1 XAxisKey = v8.XAxisKeyX1
+	XAxisKeyX1 XAxisKey = v9.XAxisKeyX1
 	// XAxisKeyX2 is the x-axis at the top of the plot.
-	XAxisKeyX2 XAxisKey = v8.XAxisKeyX2
+	XAxisKeyX2 XAxisKey = v9.XAxisKeyX2
 )
 
 // YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
-type YAxisKey = v8.YAxisKey
+type YAxisKey = v9.YAxisKey
 
 const (
 	// YAxisKeyY1 is a y-axis on the left of the plot.
-	YAxisKeyY1 YAxisKey = v8.YAxisKeyY1
+	YAxisKeyY1 YAxisKey = v9.YAxisKeyY1
 	// YAxisKeyY2 is a y-axis on the right of the plot.
-	YAxisKeyY2 YAxisKey = v8.YAxisKeyY2
+	YAxisKeyY2 YAxisKey = v9.YAxisKeyY2
 	// YAxisKeyY3 is a second y-axis on the left of the plot.
-	YAxisKeyY3 YAxisKey = v8.YAxisKeyY3
+	YAxisKeyY3 YAxisKey = v9.YAxisKeyY3
 	// YAxisKeyY4 is a second y-axis on the right of the plot.
-	YAxisKeyY4 YAxisKey = v8.YAxisKeyY4
+	YAxisKeyY4 YAxisKey = v9.YAxisKeyY4
 )
 
 // AxisKey names one of the six fixed plot axes.
-type AxisKey = v8.AxisKey
+type AxisKey = v9.AxisKey
 
 const (
 	// AxisKeyX1 is the x-axis at the bottom of the plot.
-	AxisKeyX1 AxisKey = v8.AxisKeyX1
+	AxisKeyX1 AxisKey = v9.AxisKeyX1
 	// AxisKeyX2 is the x-axis at the top of the plot.
-	AxisKeyX2 AxisKey = v8.AxisKeyX2
+	AxisKeyX2 AxisKey = v9.AxisKeyX2
 	// AxisKeyY1 is a y-axis on the left of the plot.
-	AxisKeyY1 AxisKey = v8.AxisKeyY1
+	AxisKeyY1 AxisKey = v9.AxisKeyY1
 	// AxisKeyY2 is a y-axis on the right of the plot.
-	AxisKeyY2 AxisKey = v8.AxisKeyY2
+	AxisKeyY2 AxisKey = v9.AxisKeyY2
 	// AxisKeyY3 is a second y-axis on the left of the plot.
-	AxisKeyY3 AxisKey = v8.AxisKeyY3
+	AxisKeyY3 AxisKey = v9.AxisKeyY3
 	// AxisKeyY4 is a second y-axis on the right of the plot.
-	AxisKeyY4 AxisKey = v8.AxisKeyY4
+	AxisKeyY4 AxisKey = v9.AxisKeyY4
 )
 
 // Title is the plot title configuration.
-type Title = v8.Title
+type Title = v9.Title
 
 // Legend is the plot legend configuration.
-type Legend = v8.Legend
+type Legend = v9.Legend
 
 // Channels binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
 // carry zero or more channels each.
-type Channels = v8.Channels
+type Channels = v9.Channels
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
 // independently. When a side is false (the default), the corresponding entry in
 // Axis.bounds is recomputed locally from the rendered data window and never broadcast
 // to the server; when true, Axis.bounds holds the user-set value.
-type ManualBounds = v8.ManualBounds
+type ManualBounds = v9.ManualBounds
 
 // Axis is the configuration for a single plot axis.
-type Axis = v8.Axis
+type Axis = v9.Axis
 
 // Axes bundles configuration for all six fixed plot axes.
-type Axes = v8.Axes
+type Axes = v9.Axes
 
 // Line is the per-line styling and reduction configuration.
-type Line = v8.Line
+type Line = v9.Line
 
 // Rule is a horizontal or vertical annotation line drawn over the plot.
-type Rule = v8.Rule
+type Rule = v9.Rule
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
-type LinePlot = v8.LinePlot
+type LinePlot = v9.LinePlot
 
 // Aggregation selects how a line reduces the samples of one pixel group. min_max draws
 // the lowest and highest sample, and average draws the mean.
-type Aggregation = v8.Aggregation
+type Aggregation = v9.Aggregation
 
 const (
 	// AggregationMinMax draws the lowest and highest sample of each pixel group.
-	AggregationMinMax Aggregation = v8.AggregationMinMax
+	AggregationMinMax Aggregation = v9.AggregationMinMax
 	// AggregationAverage draws the mean of each pixel group.
-	AggregationAverage Aggregation = v8.AggregationAverage
+	AggregationAverage Aggregation = v9.AggregationAverage
 )
 
 // Detail selects how many sample groups a line draws per pixel column: one per four,
 // two, or one pixel columns.
-type Detail = v8.Detail
+type Detail = v9.Detail
 
 const (
 	// DetailLow draws one sample group per four pixel columns.
-	DetailLow Detail = v8.DetailLow
+	DetailLow Detail = v9.DetailLow
 	// DetailMedium draws one sample group per two pixel columns.
-	DetailMedium Detail = v8.DetailMedium
+	DetailMedium Detail = v9.DetailMedium
 	// DetailHigh draws one sample group per pixel column.
-	DetailHigh Detail = v8.DetailHigh
+	DetailHigh Detail = v9.DetailHigh
 )

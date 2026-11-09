@@ -541,20 +541,24 @@ func (s *Server) getCompletionItems(
 			// analyzed (e.g. mid-typing "math.").
 			var mod *symbol.Symbol
 			if scopeAtCursor := doc.findScopeAtPosition(pos); scopeAtCursor != nil {
-				mod, _ = scopeAtCursor.Resolve(
+				if m, err := scopeAtCursor.Resolve(
 					ctx,
 					moduleName,
 					symbol.IncludeInternal,
 					symbol.WithoutUsageTracking,
-				)
+				); err == nil {
+					mod = m
+				}
 			}
 			if mod == nil && root != nil {
-				mod, _ = root.Resolve(
+				if m, err := root.Resolve(
 					ctx,
 					moduleName,
 					symbol.IncludeInternal,
 					symbol.WithoutUsageTracking,
-				)
+				); err == nil {
+					mod = m
+				}
 			}
 			// Resolve returns the alias for `import time as t`; follow Target
 			// to reach the module body for member enumeration. Aliased

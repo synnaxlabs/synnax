@@ -13,29 +13,23 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/migrate"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 )
 
-// MigrateSymbol lifts a v2 symbol to v3, which stores every color alpha as a 0-255
-// byte.
+// MigrateSymbol lifts a v2 symbol into v3. The symbol sits in no group.
 func MigrateSymbol(ctx context.Context, old v2.Symbol) (Symbol, error) {
 	return autoMigrateSymbol(ctx, old)
 }
 
-// Migration lifts stored symbols from v2 to v3.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateSymbol)
+var Migration = migrate.NewEntry("v61_add_group", MigrateSymbol)
 
-// MigrateSpec lifts a v2 spec to v3.
-func MigrateSpec(ctx context.Context, old v2.Spec) (Spec, error) {
-	return autoMigrateSpec(ctx, old)
-}
-
-// MigrateState lifts a v2 state to v3.
-func MigrateState(ctx context.Context, old v2.State) (State, error) {
-	return autoMigrateState(ctx, old)
-}
-
-// MigrateRegion lifts a v2 region to v3.
-func MigrateRegion(ctx context.Context, old v2.Region) (Region, error) {
-	return autoMigrateRegion(ctx, old)
-}
+// MembersMigration sets the group of each stored schematic symbol from the ontology
+// edge that placed it in a group.
+var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Symbol]{
+	Name:         "v61_schematic_symbol_group_membership",
+	Type:         resource.TypeSchematicSymbol,
+	SetGroup:     func(e *Symbol, g groupv1.Key) { e.Group = &g },
+	ProjectOwned: false,
+})

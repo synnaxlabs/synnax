@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { color, deep, uuid } from "@synnaxlabs/x";
+import { color, deep, TimeRange, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import {
@@ -41,7 +41,8 @@ const element = deep.path<z.infer<typeof schematic.elementConfigZ>>();
 const client = createTestClient();
 
 const createTestSchematic = async (projectKey: string): Promise<schematic.Schematic> =>
-  await client.schematics.create(projectKey, {
+  await client.schematics.create({
+    project: projectKey,
     name: "test_schematic",
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },
@@ -170,7 +171,7 @@ describe("schematic queries", () => {
       // Restoring re-creates from the corpse, which keeps the original key.
       // The read heals off the cache alone: no boundary reset, no refetch.
       const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
-      await client.schematics.create(proj.key, corpse);
+      await client.schematics.create({ ...corpse, project: proj.key });
       await waitFor(() => expect(result.current).toBeNull());
     });
   });
@@ -402,6 +403,59 @@ describe("schematic queries", () => {
         });
       });
       expect(result.current.configs).toBe(initial);
+    });
+  });
+
+  describe("useList", () => {
+    it("should list the snapshots of a range", async () => {
+      const rng = await client.ranges.create({
+        name: "list_range",
+        timeRange: new TimeRange(1n, 1000n),
+      });
+      const [source] = await Promise.all([
+        client.schematics.create({ project: proj.key, name: "list_source" }),
+        client.schematics.create({ project: proj.key, name: "list_other" }),
+      ]);
+      const snapshot = await client.schematics.copy({
+        key: source.key,
+        name: "list_snapshot",
+        snapshot: true,
+        range: rng.key,
+      });
+      const { result } = renderHook(() => Schematic.useList(), { wrapper: Wrapper });
+      act(() => {
+        result.current.retrieve({ ranges: [rng.key] });
+      });
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      expect(result.current.data).toEqual([snapshot.key]);
+      expect(result.current.getItem(snapshot.key)?.name).toBe("list_snapshot");
+    });
+  });
+
+  describe("useSnapshot", () => {
+    it("should copy the schematics into the range as snapshots", async () => {
+      const source = await client.schematics.create({
+        project: proj.key,
+        name: "source",
+      });
+      const rng = await client.ranges.create({
+        name: "snapshot_range",
+        timeRange: new TimeRange(1n, 1000n),
+      });
+      const { result } = renderHook(() => Schematic.useSnapshot(), {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync({
+          schematics: { key: source.key, name: source.name },
+          range: rng.key,
+        });
+      });
+      const snapshots = await client.schematics.retrieve({ ranges: [rng.key] });
+      expect(snapshots).toHaveLength(1);
+      expect(snapshots[0].name).toBe("source (Snapshot)");
+      expect(snapshots[0].snapshot).toBe(true);
+      expect(snapshots[0].project).toBeUndefined();
     });
   });
 
@@ -1085,7 +1139,8 @@ describe("schematic queries", () => {
     });
 
     it("should set the first entry of an empty list without keys", async () => {
-      const schem = await client.schematics.create(proj.key, {
+      const schem = await client.schematics.create({
+        project: proj.key,
         name: "test_schematic",
         nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
         configs: { n1: { variant: "string_display" } },

@@ -78,24 +78,7 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 	)
 
 	It(
-		"Should reject a Tailscale advertised listener when peers are configured",
-		func() {
-			viper.Set(listener.FlagListen, []any{
-				map[string]any{
-					"address": "node01.example-tailnet.ts.net:9090",
-					"cert":    map[string]any{"source": "tailscale"},
-				},
-			})
-			viper.Set(start.FlagPeers, []string{"core02:9090"})
-			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
-			Expect(cfg.Validate()).To(MatchError(
-				ContainSubstring("advertised listener cannot use the Tailscale source"),
-			))
-		},
-	)
-
-	It(
-		"Should reject a Tailscale advertised listener when no peers are configured",
+		"Should reject a Tailscale advertised listener when the Driver is on",
 		func() {
 			viper.Set(listener.FlagListen, []any{
 				map[string]any{

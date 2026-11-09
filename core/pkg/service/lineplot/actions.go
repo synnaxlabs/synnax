@@ -13,8 +13,9 @@ import (
 	"reflect"
 	"slices"
 
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	v9 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -23,9 +24,19 @@ import (
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // line plot.
 func (CreatePayload) Handle(LinePlot) (LinePlot, error) {
-	return LinePlot{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a line plot create",
-	)
+	return LinePlot{}, actions.CoreOnlyError("a line plot create")
+}
+
+// Handle rejects a client dispatch. The Core moves a line plot into a group through its
+// writer and emits this action itself.
+func (SetGroupPayload) Handle(LinePlot) (LinePlot, error) {
+	return LinePlot{}, actions.CoreOnlyError("a line plot group change")
+}
+
+// Handle rejects a client dispatch. The Core moves a line plot into a project through
+// its writer and emits this action itself.
+func (SetProjectPayload) Handle(LinePlot) (LinePlot, error) {
+	return LinePlot{}, actions.CoreOnlyError("a line plot project change")
 }
 
 // Handle replaces the line plot's name.
@@ -76,7 +87,7 @@ func (p AddChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 		return state, nil
 	}
 	*slice = append(*slice, p.Channel)
-	state.Lines = v8.ReconcileLines(state.Key, state.Channels, state.Lines)
+	state.Lines = v9.ReconcileLines(state.Key, state.Channels, state.Lines)
 	return state, nil
 }
 
@@ -96,7 +107,7 @@ func (p RemoveChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 		*slice,
 		func(c channel.Key) bool { return c == p.Channel },
 	)
-	state.Lines = v8.ReconcileLines(state.Key, state.Channels, state.Lines)
+	state.Lines = v9.ReconcileLines(state.Key, state.Channels, state.Lines)
 	return state, nil
 }
 
@@ -114,7 +125,7 @@ func (p SetChannelsPayload) Handle(state LinePlot) (LinePlot, error) {
 	}
 	slice := yAxisSlice(&state.Channels, p.AxisKey)
 	*slice = slices.Clone(p.Channels)
-	state.Lines = v8.ReconcileLines(state.Key, state.Channels, state.Lines)
+	state.Lines = v9.ReconcileLines(state.Key, state.Channels, state.Lines)
 	return state, nil
 }
 
@@ -132,7 +143,7 @@ func (p SetXChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 			p.AxisKey,
 		)
 	}
-	state.Lines = v8.ReconcileLines(state.Key, state.Channels, state.Lines)
+	state.Lines = v9.ReconcileLines(state.Key, state.Channels, state.Lines)
 	return state, nil
 }
 

@@ -18,11 +18,7 @@ import (
 	"github.com/synnaxlabs/x/color/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/synnaxlabs/x/zyn"
 )
-
-// Schema is a zyn schema that dumps a color as its "#rrggbbaa" hex string.
-var Schema = zyn.String()
 
 // FromHex parses a 6 or 8 digit hex color string, with or without a leading '#'. The
 // alpha of a 6 digit string is 255.

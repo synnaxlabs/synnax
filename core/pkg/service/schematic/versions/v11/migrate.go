@@ -11,88 +11,41 @@ package v11
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/gorp/migrate"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 )
 
-// MigrateSchematic lifts a v10 schematic to v11, which stores every color alpha as a
-// 0-255 byte.
+// MigrateSchematic lifts a v10 schematic into v11. The schematic sits in no group.
 func MigrateSchematic(ctx context.Context, old v10.Schematic) (Schematic, error) {
 	return autoMigrateSchematic(ctx, old)
 }
 
-// Migration lifts stored schematics from v10 to v11.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateSchematic)
+var Migration = migrate.NewEntry("v61_add_group", MigrateSchematic)
 
-// MigrateElementConfig lifts a v10 element config to v11.
-func MigrateElementConfig(
-	ctx context.Context,
-	old v10.ElementConfig,
-) (ElementConfig, error) {
-	return autoMigrateElementConfig(ctx, old)
-}
+// MembersMigration sets the group of each stored schematic from the ontology edge that
+// placed it in a group.
+var MembersMigration = groupv1.NewMembersMigration(
+	groupv1.MembersConfig[Key, Schematic]{
+		Name:         "v61_schematic_group_membership",
+		Type:         resource.TypeSchematic,
+		SetGroup:     func(e *Schematic, g groupv1.Key) { e.Group = &g },
+		ProjectOwned: true,
+	},
+)
 
-// MigrateStaticSymbolConfig lifts a v10 static symbol config to v11.
-func MigrateStaticSymbolConfig(
-	ctx context.Context,
-	old v10.StaticSymbolConfig,
-) (StaticSymbolConfig, error) {
-	return autoMigrateStaticSymbolConfig(ctx, old)
-}
-
-// MigrateToggleSymbolConfig lifts a v10 toggle symbol config to v11.
-func MigrateToggleSymbolConfig(
-	ctx context.Context,
-	old v10.ToggleSymbolConfig,
-) (ToggleSymbolConfig, error) {
-	return autoMigrateToggleSymbolConfig(ctx, old)
-}
-
-// MigrateStalenessConfig lifts a v10 staleness config to v11.
-func MigrateStalenessConfig(
-	ctx context.Context,
-	old v10.StalenessConfig,
-) (StalenessConfig, error) {
-	return autoMigrateStalenessConfig(ctx, old)
-}
-
-// MigrateStateMapping lifts a v10 state mapping to v11.
-func MigrateStateMapping(
-	ctx context.Context,
-	old v10.StateMapping,
-) (StateMapping, error) {
-	return autoMigrateStateMapping(ctx, old)
-}
-
-// MigrateScaleIndicatorConfig lifts a v10 scale indicator config to v11.
-func MigrateScaleIndicatorConfig(
-	ctx context.Context,
-	old v10.ScaleIndicatorConfig,
-) (ScaleIndicatorConfig, error) {
-	return autoMigrateScaleIndicatorConfig(ctx, old)
-}
-
-// MigrateDummyToggleSymbolConfig lifts a v10 dummy toggle symbol config to v11.
-func MigrateDummyToggleSymbolConfig(
-	ctx context.Context,
-	old v10.DummyToggleSymbolConfig,
-) (DummyToggleSymbolConfig, error) {
-	return autoMigrateDummyToggleSymbolConfig(ctx, old)
-}
-
-// MigrateToggleConfig lifts a v10 toggle config to v11.
-func MigrateToggleConfig(
-	ctx context.Context,
-	old v10.ToggleConfig,
-) (ToggleConfig, error) {
-	return autoMigrateToggleConfig(ctx, old)
-}
-
-// MigrateSegmentedEdgeConfig lifts a v10 segmented edge config to v11.
-func MigrateSegmentedEdgeConfig(
-	ctx context.Context,
-	old v10.SegmentedEdgeConfig,
-) (SegmentedEdgeConfig, error) {
-	return autoMigrateSegmentedEdgeConfig(ctx, old)
-}
+// OwnersMigration sets the project or range of each stored schematic from the ontology
+// edge that owned it, and deletes each schematic with no owner.
+var OwnersMigration = projectv3.NewOwnersMigration(
+	projectv3.OwnersConfig[Key, Schematic]{
+		Name:     "v61_schematic_owner",
+		Type:     resource.TypeSchematic,
+		Owned:    func(e Schematic) bool { return e.Project != nil || e.Range != nil },
+		NameOf:   func(e Schematic) string { return e.Name },
+		SetOwner: func(e *Schematic, p, r *uuid.UUID) { e.Project, e.Range = p, r },
+	},
+)

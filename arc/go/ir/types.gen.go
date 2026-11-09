@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/ir/versions"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -319,7 +320,8 @@ type IR struct {
 	// Root is the top-level execution context. The root is always a parallel,
 	// always-live Scope whose strata mix module-scope reactive flow with top-level
 	// gated scopes.
-	Root    Scope                                  `json:"root" msgpack:"root"`
-	Symbols *symbol.Symbol                         `json:"-"`
-	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
+	Root       Scope                                  `json:"root" msgpack:"root"`
+	Symbols    *symbol.Symbol                         `json:"-"`
+	TypeMap    map[antlr.ParserRuleContext]types.Type `json:"-"`
+	FmtStrings parser.FmtStrings                      `json:"-"`
 }

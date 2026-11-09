@@ -13,8 +13,10 @@ package v8
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -160,6 +162,24 @@ func (lp LinePlot) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
+	if lp.Group != nil {
+		w.Bool(true)
+		w.Write((*lp.Group)[:])
+	} else {
+		w.Bool(false)
+	}
+	if lp.Project != nil {
+		w.Bool(true)
+		w.Write((*lp.Project)[:])
+	} else {
+		w.Bool(false)
+	}
+	if lp.Range != nil {
+		w.Bool(true)
+		w.Write((*lp.Range)[:])
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -238,37 +258,18 @@ func (lp *LinePlot) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (rv Rule) EncodeOrc(w *orc.Writer) error {
-	w.String(rv.Key)
-	w.String(rv.Label)
-	if rv.Color != nil {
-		w.Bool(true)
-		if err := rv.Color.EncodeOrc(w); err != nil {
+	{
+		present, err := r.Bool()
+		if err != nil {
 			return err
 		}
-	} else {
-		w.Bool(false)
-	}
-	w.String(string(rv.Axis))
-	w.Float64(float64(rv.LineWidth))
-	w.Float64(float64(rv.LineDash))
-	w.String(rv.Units)
-	w.Float64(float64(rv.Position))
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (rv *Rule) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if rv.Key, err = r.String(); err != nil {
-		return err
-	}
-	if rv.Label, err = r.String(); err != nil {
-		return err
+		if present {
+			var hv group.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			lp.Group = &hv
+		}
 	}
 	{
 		present, err := r.Bool()
@@ -276,31 +277,25 @@ func (rv *Rule) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
-			if err = hv.DecodeOrc(r); err != nil {
+			var hv project.Key
+			if _, err := r.Read(hv[:]); err != nil {
 				return err
 			}
-			rv.Color = &hv
+			lp.Project = &hv
 		}
 	}
 	{
-		rawV, err := r.String()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		rv.Axis = AxisKey(rawV)
-	}
-	if rv.LineWidth, err = r.Float64(); err != nil {
-		return err
-	}
-	if rv.LineDash, err = r.Float64(); err != nil {
-		return err
-	}
-	if rv.Units, err = r.String(); err != nil {
-		return err
-	}
-	if rv.Position, err = r.Float64(); err != nil {
-		return err
+		if present {
+			var hv ranger.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			lp.Range = &hv
+		}
 	}
 	return nil
 }

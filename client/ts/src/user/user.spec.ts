@@ -7,38 +7,50 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 
-import { AuthError, NotFoundError, ValidationError } from "@/index";
+import { role } from "@/access/role";
+import { AccessDeniedError, AuthError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import {
+  createEmptyRole,
   createTestClient,
+  createTestClientWithPolicy,
   expectDeleted,
+  expectLive,
   holdResponses,
+  TEST_CREDENTIALS,
   waitForStreamLive,
 } from "@/testutil";
-import { type user } from "@/user";
+import { user } from "@/user";
 
 const client = createTestClient();
+
+const empty = await createEmptyRole(client);
+
+const createUser = async (r: role.Key = empty.key): Promise<user.User> =>
+  await client.users.create({ username: id.create(), password: "test", role: r });
 
 const userOne: user.New = {
   username: id.create(),
   password: "test",
   name: "George Washington",
+  role: empty.key,
 };
 
-const userTwo: user.New = { username: id.create(), password: "test" };
+const userTwo: user.New = { username: id.create(), password: "test", role: empty.key };
 
 const userThree: user.New = {
   username: id.create(),
   password: "test",
   name: "John Adams",
+  role: empty.key,
 };
 
 const userArray: user.New[] = [
-  { username: id.create(), password: "secondTest", name: "Steve" },
-  { username: id.create(), password: "testArray" },
+  { username: id.create(), password: "secondTest", name: "Steve", role: empty.key },
+  { username: id.create(), password: "testArray", role: empty.key },
 ];
 
 /** Expects users to hold exactly the keys and names of the created users. */
@@ -66,7 +78,11 @@ describe("User", () => {
       });
       test("Repeated username", async () =>
         await expect(
-          client.users.create({ username: userOne.username, password: "test" }),
+          client.users.create({
+            username: userOne.username,
+            password: "test",
+            role: empty.key,
+          }),
         ).rejects.toThrow(AuthError));
     });
     describe("Many", () => {
@@ -93,8 +109,8 @@ describe("User", () => {
       test("Repeated username", async () =>
         await expect(
           client.users.create([
-            { username: userOne.username, password: "test" },
-            { username: userTwo.username, password: "test" },
+            { username: userOne.username, password: "test", role: empty.key },
+            { username: userTwo.username, password: "test", role: empty.key },
           ]),
         ).rejects.toThrow(AuthError));
       test("Repeated key", async () =>
@@ -103,6 +119,7 @@ describe("User", () => {
             key: userOne.key,
             username: id.create(),
             password: "test",
+            role: empty.key,
           }),
         ).rejects.toThrow(ValidationError));
     });
@@ -123,22 +140,18 @@ describe("User", () => {
       describe("many", () => {
         test("found", async () => {
           const res = await client.users.retrieve({
-            where: { usernames: userArray.map((u) => u.username) },
+            usernames: userArray.map((u) => u.username),
           });
           expect(res).toHaveLength(2);
           expectUsers(res, userArray);
         });
         test("not found", async () => {
-          const res = await client.users.retrieve({
-            where: { usernames: [id.create()] },
-          });
+          const res = await client.users.retrieve({ usernames: [id.create()] });
           expect(res).toEqual([]);
         });
         test("extra names getting deleted", async () => {
           const res = await client.users.retrieve({
-            where: {
-              usernames: [...userArray.map((u) => u.username), id.create()],
-            },
+            usernames: [...userArray.map((u) => u.username), id.create()],
           });
           expect(res).toHaveLength(2);
           expectUsers(res, userArray);
@@ -228,11 +241,16 @@ describe("User", () => {
       const user = await client.users.create({
         username: oldUsername,
         password: "test",
+        role: empty.key,
       });
       const newUsername = id.create();
       await client.users.changeUsername(user.key, newUsername);
       await expect(
-        client.users.create({ username: newUsername, password: "test" }),
+        client.users.create({
+          username: newUsername,
+          password: "test",
+          role: empty.key,
+        }),
       ).rejects.toThrow(AuthError);
     });
   });
@@ -247,7 +265,7 @@ describe("User", () => {
       userOne.name = "Thomas Jefferson";
     });
     test("should keep a rename that streams in during a retrieve", async () => {
-      const u = await client.users.create({ username: id.create(), password: "test" });
+      const u = await createUser();
       const local = createTestClient();
       await local.connect();
       await waitForStreamLive(local.connection);
@@ -267,6 +285,98 @@ describe("User", () => {
       expect(cachedName()).toBe(name);
     });
   });
+  describe("Role", () => {
+    test("create a user with a role", async () => {
+      const r = await createEmptyRole(client);
+      const u = await createUser(r.key);
+      expect(u.role).toEqual(r.key);
+    });
+    test("retrieve the users that hold a role", async () => {
+      const r = await createEmptyRole(client);
+      const u = await createUser(r.key);
+      await createUser();
+      const held = await client.users.retrieve({ roles: [r.key] });
+      expect(held.map(({ key }) => key)).toEqual([u.key]);
+    });
+  });
+  describe("Set Role", () => {
+    test("replace the role of users", async () => {
+      const [from, to] = await Promise.all([
+        createEmptyRole(client),
+        createEmptyRole(client),
+      ]);
+      const a = await createUser(from.key);
+      const b = await createUser();
+      await client.users.setRole([a.key, b.key], to.key);
+      expect(expectLive(client.users.getCached(a.key)).role).toEqual(to.key);
+      const fresh = createTestClient();
+      const stored = await fresh.users.retrieve([a.key, b.key]);
+      expect(stored.map((u) => u.role)).toEqual([to.key, to.key]);
+    });
+    test("refuse to change the role of the root user", async () => {
+      const r = await createEmptyRole(client);
+      const root = await client.users.retrieve({
+        username: TEST_CREDENTIALS.username,
+      });
+      await expect(client.users.setRole(root.key, r.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot change the role of root user ${root.name}: validation error`,
+        ),
+      );
+      expect(expectLive(client.users.getCached(root.key)).role).toEqual(root.role);
+      const fresh = createTestClient();
+      expect((await fresh.users.retrieve(root.key)).role).toEqual(root.role);
+    });
+    test("refuse a user that does not exist", async () => {
+      const r = await createEmptyRole(client);
+      await expect(client.users.setRole(uuid.create(), r.key)).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+    test("refuse a role that does not exist", async () => {
+      const u = await createUser();
+      const missing = uuid.create();
+      await expect(client.users.setRole(u.key, missing)).rejects.toThrow(
+        `role: role ${missing} does not exist: validation error`,
+      );
+    });
+    test("deny a subject that cannot update the role the user holds", async () => {
+      const [from, to] = await Promise.all([
+        createEmptyRole(client),
+        createEmptyRole(client),
+      ]);
+      const u = await createUser(from.key);
+      const subject = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [user.TYPE_RESOURCE_ID, role.resourceID(to.key)],
+        actions: ["update"],
+      });
+      await expect(subject.users.setRole(u.key, to.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
+      const fresh = createTestClient();
+      expect((await fresh.users.retrieve(u.key)).role).toEqual(from.key);
+    });
+    test("allow a subject that can update the users and both roles", async () => {
+      const [from, to] = await Promise.all([
+        createEmptyRole(client),
+        createEmptyRole(client),
+      ]);
+      const u = await createUser(from.key);
+      const subject = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [
+          user.TYPE_RESOURCE_ID,
+          role.resourceID(from.key),
+          role.resourceID(to.key),
+        ],
+        actions: ["update"],
+      });
+      await subject.users.setRole(u.key, to.key);
+      const fresh = createTestClient();
+      expect((await fresh.users.retrieve(u.key)).role).toEqual(to.key);
+    });
+  });
   describe("Delete", () => {
     test("one that exists", async () => {
       await expect(client.users.delete(userOne.key as string)).resolves.toBeUndefined();
@@ -279,9 +389,7 @@ describe("User", () => {
         client.users.delete(userArray.map((u) => u.key as string)),
       ).resolves.toBeUndefined();
       await expect(
-        client.users.retrieve({
-          where: { key: { in: userArray.map((u) => u.key as string) } },
-        }),
+        client.users.retrieve({ key: userArray.map((u) => u.key as string) }),
       ).resolves.toEqual([]);
     });
     test("one that doesn't exist", async () => {
@@ -301,9 +409,6 @@ describe("User", () => {
 // A second client with its own cache: its writes reach the first client only through
 // the cluster's change streams, never through a shared cache.
 const remote = createTestClient();
-
-const createUser = async (): Promise<user.User> =>
-  await client.users.create({ username: id.create(), password: "test" });
 
 describe("cached reads", () => {
   // Changes made while the stream is still opening are lost, so open it up front.
@@ -328,6 +433,16 @@ describe("cached reads", () => {
     } finally {
       off();
     }
+  });
+
+  test("should deliver a remote role change to a subscribed user", async () => {
+    const r = await createEmptyRole(client);
+    const u = await createUser();
+    await client.users.retrieve(u.key);
+    await remote.users.setRole(u.key, r.key);
+    await expect
+      .poll(() => expectLive(client.users.getCached(u.key)).role)
+      .toEqual(r.key);
   });
 
   test("should deliver a remote delete as a deleted result", async () => {

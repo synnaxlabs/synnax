@@ -17,11 +17,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v4"
 )
 
 // Latest is the portable schema version stamped on exported Log envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v3.Version
+const Latest = v4.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Log
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -37,8 +38,22 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 		if err != nil {
 			return Log{}, err
 		}
-		return t3, nil
+		t4, err := v4.MigrateLog(ctx, t3)
+		if err != nil {
+			return Log{}, err
+		}
+		return t4, nil
 	case v3.Version:
+		t3, err := env.Decode[v3.Log](ctx)
+		if err != nil {
+			return Log{}, err
+		}
+		t4, err := v4.MigrateLog(ctx, t3)
+		if err != nil {
+			return Log{}, err
+		}
+		return t4, nil
+	case v4.Version:
 		return env.Decode[Log](ctx)
 	}
 	return Log{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
@@ -51,5 +66,9 @@ func liftFirst(ctx context.Context, t2 v2.Log) (Log, error) {
 	if err != nil {
 		return Log{}, err
 	}
-	return t3, nil
+	t4, err := v4.MigrateLog(ctx, t3)
+	if err != nil {
+		return Log{}, err
+	}
+	return t4, nil
 }

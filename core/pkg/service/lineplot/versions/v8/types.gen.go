@@ -15,9 +15,11 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -32,6 +34,30 @@ const (
 	TickTypeLinear TickType = v7.TickTypeLinear
 	// TickTypeTime labels ticks with timestamps.
 	TickTypeTime TickType = v7.TickTypeTime
+)
+
+// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
+// the lowest and highest sample, and average draws the mean.
+type Aggregation = v7.Aggregation
+
+const (
+	// AggregationMinMax draws the lowest and highest sample of each pixel group.
+	AggregationMinMax Aggregation = v7.AggregationMinMax
+	// AggregationAverage draws the mean of each pixel group.
+	AggregationAverage Aggregation = v7.AggregationAverage
+)
+
+// Detail selects how many sample groups a line draws per pixel column: one per four,
+// two, or one pixel columns.
+type Detail = v7.Detail
+
+const (
+	// DetailLow draws one sample group per four pixel columns.
+	DetailLow Detail = v7.DetailLow
+	// DetailMedium draws one sample group per two pixel columns.
+	DetailMedium Detail = v7.DetailMedium
+	// DetailHigh draws one sample group per pixel column.
+	DetailHigh Detail = v7.DetailHigh
 )
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
@@ -144,45 +170,11 @@ func (l Line) Validate() error {
 	v.Ternaryf("y_axis", !l.YAxis.IsValid(), "invalid y_axis: %v", l.YAxis)
 	v.Ternaryf("aggregation", !l.Aggregation.IsValid(), "invalid aggregation: %v", l.Aggregation)
 	v.Ternaryf("detail", !l.Detail.IsValid(), "invalid detail: %v", l.Detail)
-	v.GreaterThanEq("stroke_width", l.StrokeWidth, 1)
 	return v.Error()
 }
 
 // Rule is a horizontal or vertical annotation line drawn over the plot.
-type Rule struct {
-	// Key is the unique rule identifier within the line plot.
-	Key string `json:"key" msgpack:"key"`
-	// Label is the human-readable label rendered alongside the rule.
-	Label string `json:"label" msgpack:"label"`
-	// Color is the display color of the rule. When null, the Console assigns a default
-	// at render time.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// Axis is the axis the rule is anchored to.
-	Axis AxisKey `json:"axis" msgpack:"axis"`
-	// LineWidth is the rule line width in pixels.
-	LineWidth float64 `json:"line_width" msgpack:"line_width"`
-	// LineDash is the dash length in pixels; 0 renders a solid line.
-	LineDash float64 `json:"line_dash" msgpack:"line_dash"`
-	// Units is the unit label displayed next to the position value.
-	Units string `json:"units" msgpack:"units"`
-	// Position is the value-space position of the rule along its anchored axis.
-	Position float64 `json:"position" msgpack:"position"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Rule) ApplyDefaults() {
-	if r.LineWidth == 0 {
-		r.LineWidth = 1
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r Rule) Validate() error {
-	v := validate.New("Rule")
-	v.Ternaryf("axis", !r.Axis.IsValid(), "invalid axis: %v", r.Axis)
-	return v.Error()
-}
+type Rule = v7.Rule
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display
@@ -208,6 +200,14 @@ type LinePlot struct {
 	Lines []Line `json:"lines" msgpack:"lines"`
 	// Rules holds annotation rules drawn over the plot.
 	Rules []Rule `json:"rules" msgpack:"rules"`
+	// Group is the group the line plot sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Project is the project that owns the line plot, if any. Exactly one of project
+	// and range is set.
+	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
+	// Range is the range that owns the line plot, if any. Exactly one of project and
+	// range is set.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -227,7 +227,6 @@ func (l *LinePlot) ApplyDefaults() {
 // schema constraints.
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
-	v.NotEmptyString("name", l.Name)
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })
@@ -239,27 +238,3 @@ func (l LinePlot) Validate() error {
 	}
 	return v.Error()
 }
-
-// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
-// the lowest and highest sample, and average draws the mean.
-type Aggregation = v7.Aggregation
-
-const (
-	// AggregationMinMax draws the lowest and highest sample of each pixel group.
-	AggregationMinMax Aggregation = v7.AggregationMinMax
-	// AggregationAverage draws the mean of each pixel group.
-	AggregationAverage Aggregation = v7.AggregationAverage
-)
-
-// Detail selects how many sample groups a line draws per pixel column: one per four,
-// two, or one pixel columns.
-type Detail = v7.Detail
-
-const (
-	// DetailLow draws one sample group per four pixel columns.
-	DetailLow Detail = v7.DetailLow
-	// DetailMedium draws one sample group per two pixel columns.
-	DetailMedium Detail = v7.DetailMedium
-	// DetailHigh draws one sample group per pixel column.
-	DetailHigh Detail = v7.DetailHigh
-)

@@ -11,7 +11,7 @@ package v4
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Table{}
@@ -19,10 +19,7 @@ var _ gorp.Entry[Key] = Table{}
 // GorpKey implements gorp.Entry.
 func (t Table) GorpKey() Key { return t.Key }
 
-// SetOptions implements gorp.Entry.
-func (Table) SetOptions() []any { return nil }
-
-// OntologyID returns the unique ontology identifier for the table.
-func (t Table) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeTable, Key: t.Key.String()}
+// ResourceID returns the unique resource identifier for the table.
+func (t Table) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeTable, Key: t.Key.String()}
 }

@@ -61,7 +61,9 @@ step).
 
 - No `time.now()` in the Arc program unless timing is what's being verified.
 - Never `sy.sleep` / `time.sleep` — use bounded polling helpers (`wait_for_eq`,
-  `wait_for_gt`, `wait_for_ge`, ...), which fail fast with a clear message.
+  `wait_for_gt`, `wait_for_ge`, ...), which fail fast with a clear message. Ruff
+  (`TID251`) enforces this in `tests/`. A sleep the test needs, such as a hold or a
+  fixed sample window, keeps `# noqa: TID251` with its reason.
 - Don't assert a value written on the same tick as a transition leaving the stage (race)
   — assert the definite downstream effect instead.
 

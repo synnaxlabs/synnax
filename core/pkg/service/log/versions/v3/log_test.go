@@ -11,14 +11,13 @@ package v3_test
 
 import (
 	"io"
-	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -32,16 +31,11 @@ var _ = Describe("Log", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v3.Log{}.SetOptions()).To(BeNil())
-		})
-	})
-	Describe("OntologyID", func() {
-		It("Should return the log ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the log resource identifier", func() {
 			k := uuid.New()
-			Expect(v3.Log{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeLog, Key: k.String(),
+			Expect(v3.Log{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeLog, Key: k.String(),
 			}))
 		})
 	})
@@ -72,91 +66,6 @@ var _ = Describe("Log", func() {
 		})
 	})
 
-	Describe("Validate", func() {
-		It("Should reject a channel of 0", func() {
-			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{}}}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.channel")))
-		})
-
-		It("Should accept a defaulted log with an absent precision", func() {
-			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{Channel: 1}}}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(Succeed())
-		})
-
-		DescribeTable("Should accept a precision in range",
-			func(precision uint8) {
-				l := v3.Log{
-					Name: "valid",
-					Channels: []v3.ChannelEntry{
-						{Channel: 1, Precision: new(precision)},
-					},
-				}
-				l.ApplyDefaults()
-				Expect(l.Validate()).To(Succeed())
-			},
-			Entry("lower bound", uint8(0)),
-			Entry("upper bound", uint8(17)),
-		)
-
-		DescribeTable("Should reject a precision out of range",
-			func(precision uint8) {
-				l := v3.Log{
-					Name: "valid",
-					Channels: []v3.ChannelEntry{
-						{Channel: 1, Precision: new(precision)},
-					},
-				}
-				l.ApplyDefaults()
-				Expect(
-					l.Validate(),
-				).To(MatchError(ContainSubstring("channels.0.precision")))
-			},
-			Entry("above the maximum", uint8(18)),
-		)
-
-		It("Should accept an alias at the maximum length", func() {
-			l := v3.Log{
-				Name: "valid",
-				Channels: []v3.ChannelEntry{
-					{Channel: 1, Alias: strings.Repeat("a", 64)},
-				},
-			}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(Succeed())
-		})
-
-		It("Should reject an alias past the maximum length", func() {
-			l := v3.Log{
-				Name: "valid",
-				Channels: []v3.ChannelEntry{
-					{Channel: 1, Alias: strings.Repeat("a", 65)},
-				},
-			}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.alias")))
-		})
-
-		It("Should reject an empty name and an invalid timestamp precision", func() {
-			l := v3.Log{TimestampPrecision: 4}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(SatisfyAll(
-				MatchError(ContainSubstring("name")),
-				MatchError(ContainSubstring("timestamp_precision")),
-			))
-		})
-
-		It("Should path an invalid notation to its channel", func() {
-			l := v3.Log{
-				Name:     "valid",
-				Channels: []v3.ChannelEntry{{Channel: 1, Notation: "bogus"}},
-			}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.notation")))
-		})
-	})
-
 	Describe("DecodeOrc", func() {
 		encode := func() []byte {
 			GinkgoHelper()
@@ -176,8 +85,8 @@ var _ = Describe("Log", func() {
 			return w.Bytes()
 		}
 
-		It("Should encode the truncation fixture in 80 bytes", func() {
-			Expect(encode()).To(HaveLen(80))
+		It("Should encode the truncation fixture in 90 bytes", func() {
+			Expect(encode()).To(HaveLen(90))
 		})
 
 		DescribeTable("Should reject a log truncated inside a field",
@@ -196,15 +105,18 @@ var _ = Describe("Log", func() {
 			Entry("channel count", 24),
 			Entry("channel key", 28),
 			Entry("channel color", 32),
-			Entry("channel notation", 36),
-			Entry("channel precision presence", 48),
-			Entry("channel precision", 49),
-			Entry("channel alias", 50),
-			Entry("channel timestamp", 59),
-			Entry("timestamp precision", 73),
-			Entry("channel names hidden", 74),
-			Entry("timestamps hidden", 75),
-			Entry("time zone", 78),
+			Entry("channel notation", 43),
+			Entry("channel precision presence", 55),
+			Entry("channel precision", 56),
+			Entry("channel alias", 57),
+			Entry("channel timestamp", 66),
+			Entry("timestamp precision", 80),
+			Entry("channel names hidden", 81),
+			Entry("timestamps hidden", 82),
+			Entry("time zone", 85),
+			Entry("group presence", 87),
+			Entry("project presence", 88),
+			Entry("range presence", 89),
 		)
 	})
 })

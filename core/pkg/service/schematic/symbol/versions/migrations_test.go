@@ -28,6 +28,8 @@ var _ = Describe("Migrations", func() {
 		)).To(Equal([]string{
 			"normalize_keys",
 			"v2_typed_symbol",
+			"v61_add_group",
+			"v61_schematic_symbol_group_membership",
 			"v61_color_alpha_byte",
 		}))
 	})

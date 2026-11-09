@@ -11,7 +11,7 @@ package v3
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Symbol{}
@@ -19,10 +19,7 @@ var _ gorp.Entry[Key] = Symbol{}
 // GorpKey implements gorp.Entry.
 func (s Symbol) GorpKey() Key { return s.Key }
 
-// SetOptions implements gorp.Entry.
-func (Symbol) SetOptions() []any { return nil }
-
-// OntologyID returns the unique ontology identifier for the symbol.
-func (s Symbol) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeSchematicSymbol, Key: s.Key.String()}
+// ResourceID returns the unique resource identifier for the symbol.
+func (s Symbol) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeSchematicSymbol, Key: s.Key.String()}
 }
