@@ -407,6 +407,28 @@ bool check_to_sample_value(const telem::DataType &target) {
            target == telem::TIMESTAMP_T || target == telem::STRING_T;
 }
 
+namespace {
+/// @brief returns CONVERSION_ERROR if v has no JSON form of type target. A NaN never
+/// matches an enum value, because NaN breaks the ordering of the enum map.
+template<typename T>
+errors::Error check_float(const T v, const Type target, const bool has_enum) {
+    if (std::isnan(v)) {
+        if (target == Type::Number)
+            return {CONVERSION_ERROR, "NaN is not a valid JSON number"};
+        if (target == Type::Boolean)
+            return {CONVERSION_ERROR, "NaN is not a valid JSON boolean"};
+        if (has_enum) return {CONVERSION_ERROR, "NaN matches no enum value"};
+        return errors::NIL;
+    }
+    if (std::isinf(v) && target == Type::Number)
+        return {
+            CONVERSION_ERROR,
+            std::string(v > 0 ? "inf" : "-inf") + " is not a valid JSON number",
+        };
+    return errors::NIL;
+}
+}
+
 std::pair<nlohmann::json, errors::Error> from_sample_value(
     const telem::SampleValue &value,
     Type target,
@@ -422,6 +444,10 @@ std::pair<nlohmann::json, errors::Error> from_sample_value(
             } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
                 return {nlohmann::json(), CONVERSION_ERROR};
             } else {
+                if constexpr (std::is_floating_point_v<T>) {
+                    if (auto err = check_float(v, target, enum_values != nullptr))
+                        return {nlohmann::json(), err};
+                }
                 if (enum_values != nullptr && target == Type::String) {
                     if (const auto it = enum_values->find(nlohmann::json(v));
                         it != enum_values->end())
