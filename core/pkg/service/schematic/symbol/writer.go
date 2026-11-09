@@ -131,9 +131,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 
 // validateScale returns an error wrapping validate.ErrValidation when next has a scale
 // that is not positive and differs from the scale of prev. A zero scale draws the
-// symbol
-// at size zero. A stored scale that the write keeps passes, so a stored zero does not
-// block a rename or another edit. prev is nil for a new symbol.
+// symbol at size zero. A stored scale that the write keeps passes, so a stored zero
+// does not block a rename or another edit. prev is nil for a new symbol.
 func validateScale(prev *Symbol, next Symbol) error {
 	if next.Data.Scale > 0 || (prev != nil && next.Data.Scale == prev.Data.Scale) {
 		return nil

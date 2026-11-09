@@ -197,14 +197,10 @@ func structOverrideFill(
 	if !ok {
 		return defaultFillData{}, false
 	}
-	setup = append(setup, lines...)
-	if groups {
-		setup = append(setup, "v0.DefaultGroups()")
-	}
 	return defaultFillData{
 		GoName:  naming.GetFieldName(field),
 		Expr:    "v0",
-		Setup:   setup,
+		Setup:   append(setup, lines...),
 		SetOnly: true,
 	}, true
 }
@@ -330,9 +326,9 @@ func unionLiteral(
 }
 
 // literalDefaultsSetup returns the statement that sets the defaults of the literal
-// value in variable before its members are assigned. A type with default groups sets
-// its groups only after the assignments, so a member the literal sets keeps the rest of
-// its group at zero.
+// value in variable before its members are assigned. It leaves the default groups of
+// the value to a later DefaultGroups call, so a member the literal sets keeps the rest
+// of its group at zero.
 func literalDefaultsSetup(variable string, defaulted, groups bool) []string {
 	switch {
 	case groups:
