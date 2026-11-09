@@ -12,15 +12,18 @@ import { array, filter, type observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type role } from "@/access/role";
+import { actions } from "@/actions";
 import { type batch } from "@/batch";
 import { type connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { resource } from "@/resource";
+import { createOf, reduceAll } from "@/user/actions";
 import {
   type Action,
   dispatchReqZ,
   dispatchResZ,
+  scopedActionZ,
   set,
   setUsername,
 } from "@/user/actions.gen";
@@ -40,6 +43,7 @@ import {
   compareCursors,
   cursor,
   type Lines,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -86,7 +90,7 @@ const LINES: Lines = {
   roles: (u, roles) => roles.includes(u.role),
 };
 
-export const SET_CHANNEL_NAME = "sy_user_set";
+export const ACTION_CHANNEL_NAME = "sy_user_action_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
 type SingleParams = KeyRetrieveRequest | UsernameRetrieveRequest;
@@ -121,6 +125,7 @@ export class Client extends query.Retriever<
   readonly current: Current;
   /** The users that the client holds, by key. */
   readonly store: query.Table<Key, User>;
+  private readonly dispatcher: actions.Controller<Key, User, Action>;
   private readonly cfg: ClientConfig;
 
   constructor(cfg: ClientConfig) {
@@ -128,11 +133,19 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, User>({
       name: "users",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, userZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a user reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, User, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(cfg.unary, "/user/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     const single = cache.queries<SingleParams, User, Key, User>({
       name: "user",
       table: store,
@@ -162,6 +175,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
     this.current = new Current({
       users: this,
       table: store,
@@ -188,13 +202,8 @@ export class Client extends query.Retriever<
     await this.dispatch(key, setUsername({ username: newUsername }));
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    await query.optimistic({
-      rollbacks: [query.partialUpdate(this.store, key, { name })],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.dispatch(key, set({ path: ["name"], value: name })),
-    });
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
   }
 
   /**
@@ -204,41 +213,31 @@ export class Client extends query.Retriever<
    * @throws {AccessDeniedError} if the caller cannot update the users, the role, or the
    * roles the users hold now.
    */
-  async setRole(
-    keys: Key | Key[],
-    role: role.Key,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
+  async setRole(keys: Key | Key[], role: role.Key): Promise<void> {
     const keysArr = array.toArray(keys);
     const action = set({ path: ["role"], value: role });
-    const requests = keysArr.map((key) => ({
-      endpoint: "/user/dispatch",
-      payload: { key, actions: [action] },
-    }));
-    await query.optimistic({
-      rollbacks: keysArr.map((key) => query.partialUpdate(this.store, key, { role })),
-      onOptimistic: opts.onOptimistic,
-      // A batch prefixes its errors with the request index, so one user skips it.
-      commit: async () =>
-        keysArr.length === 1
-          ? await this.dispatch(keysArr[0], action)
-          : await this.cfg.batch.send(requests),
-    });
+    // A batch prefixes its errors with the request index, so one user skips it.
+    if (keysArr.length === 1) return await this.dispatch(keysArr[0], action);
+    await this.cfg.batch.send(
+      keysArr.map((key) => ({
+        endpoint: "/user/dispatch",
+        payload: { key, actions: [action] },
+        apply: () => query.partialUpdate(this.store, key, { role }),
+      })),
+    );
   }
 
   /**
-   * Applies the actions to the user in one transaction.
+   * Applies the actions to the cached user until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Actions hold the snake_case form that the
+   * Core stores. A refused send drops the actions from the cached user.
+   * @throws {Error} if the cached user cannot hold an action, before any send.
    * @throws {ValidationError} if the user cannot hold an action.
    * @throws {NotFoundError} if the user does not exist.
    * @throws {AccessDeniedError} if the caller cannot update the user.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
-    await this.cfg.unary.send(
-      "/user/dispatch",
-      { key, dispatchKey: "", actions: array.toArray(actions) },
-      dispatchReqZ,
-      dispatchResZ,
-    );
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

@@ -11,12 +11,14 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import z from "zod";
 
-import { type actions } from "@/actions";
+import { actions } from "@/actions";
 import { type batch } from "@/batch";
+import { createOf, reduceAll } from "@/group/actions";
 import {
   type Action,
   dispatchReqZ,
   dispatchResZ,
+  scopedActionZ,
   set,
   setParent,
 } from "@/group/actions.gen";
@@ -32,6 +34,7 @@ import { LINES } from "@/group/where";
 import {
   compareCursors,
   cursor,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -40,7 +43,7 @@ import {
 import { query } from "@/query";
 import { resource } from "@/resource";
 
-export const SET_CHANNEL_NAME = "sy_group_set";
+export const ACTION_CHANNEL_NAME = "sy_group_action_set";
 export const DELETE_CHANNEL_NAME = "sy_group_delete";
 
 const createReqZ = z.object({
@@ -75,6 +78,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
   /** Public so a client that deletes a group through an endpoint of its own can drop
    * the group from the cache. */
   readonly store: query.Table<Key, Group>;
+  private readonly dispatcher: actions.Controller<Key, Group, Action>;
   private readonly cfg: ClientConfig;
 
   constructor(cfg: ClientConfig) {
@@ -82,11 +86,20 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     const store = cache.createTable<Key, Group>({
       name: "groups",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, groupZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a group reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Group, Action>({
+      store,
+      listed: (action) =>
+        action.type === "set_parent" || actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(cfg.unary, "/group/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "group",
       table: store,
@@ -101,6 +114,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
   }
 
   /**
@@ -170,29 +184,20 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     return group;
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [query.partialUpdate(this.store, key, { name })];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.dispatch(key, set({ path: ["name"], value: name })),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
   }
 
   /**
-   * Applies the actions to the group in one transaction.
+   * Applies the actions to the cached group until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Actions hold the snake_case form that the
+   * Core stores. A refused send drops the actions from the cached group.
+   * @throws {Error} if the cached group cannot hold an action, before any send.
    * @throws {ValidationError} if the group cannot hold an action.
    * @throws {NotFoundError} if the group does not exist.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
-    await this.cfg.unary.send(
-      "/group/dispatch",
-      { key, dispatchKey: "", actions: array.toArray(actions) },
-      dispatchReqZ,
-      dispatchResZ,
-    );
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   /**
