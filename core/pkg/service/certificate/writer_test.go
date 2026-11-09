@@ -157,7 +157,7 @@ var _ = Describe("Writer", func() {
 					return newCertificate(key, "a", time.Hour) + string(encodeKey(key))
 				},
 				func() []byte { return nil },
-				"pem: holds a PRIVATE KEY block. Send a private key as private_key",
+				"pem: holds a PRIVATE KEY block. Send a private key as private_key_pem",
 			),
 			Entry(
 				"a block that is not a certificate",
@@ -183,13 +183,13 @@ var _ = Describe("Writer", func() {
 				"a private key for another certificate",
 				func() string { return newCertificate(newKey(), "a", time.Hour) },
 				func() []byte { return encodeKey(newKey()) },
-				"private_key: does not match the certificate",
+				"private_key_pem: does not match the certificate",
 			),
 			Entry(
 				"a private key that is not PEM",
 				func() string { return newCertificate(newKey(), "a", time.Hour) },
 				func() []byte { return []byte("not a key") },
-				"private_key: is not a PEM private key",
+				"private_key_pem: is not a PEM private key",
 			),
 			Entry(
 				"a certificate in place of a private key",
@@ -197,7 +197,7 @@ var _ = Describe("Writer", func() {
 				func() []byte {
 					return []byte(newCertificate(newKey(), "b", time.Hour))
 				},
-				"private_key: is not a PEM private key",
+				"private_key_pem: is not a PEM private key",
 			),
 			Entry(
 				"a private key of a type Synnax cannot read",
@@ -208,7 +208,7 @@ var _ = Describe("Writer", func() {
 						Bytes: []byte("key"),
 					})
 				},
-				"private_key: is a key type Synnax cannot read",
+				"private_key_pem: is a key type Synnax cannot read",
 			),
 		)
 		It("Should reject a certificate with no name", func(ctx SpecContext) {
@@ -241,7 +241,7 @@ var _ = Describe("Writer", func() {
 				"a private key",
 				"/c.pem",
 				[]byte("key"),
-				"private_key: must be empty for a file certificate",
+				"private_key_pem: must be empty for a file certificate",
 			),
 		)
 
@@ -285,6 +285,21 @@ var _ = Describe("Writer", func() {
 					Expect(e.resolveKey(ctx, c)).To(Equal(encodeKey(key)))
 				},
 			)
+			It("Should rename the private key secret with the certificate",
+				func(ctx SpecContext) {
+					key := newKey()
+					c := e.create(
+						ctx,
+						stored("Before", newCertificate(key, "a", time.Hour)),
+						encodeKey(key),
+					)
+					variant := c.Variant.(certificate.StoredCertificate)
+					variant.Name = "After"
+					c.Variant = variant
+					c = e.create(ctx, c, nil)
+					Expect(e.keyName(ctx, c)).To(Equal("After private key"))
+				},
+			)
 			It("Should require a private key when the new certificate does not match",
 				func(ctx SpecContext) {
 					key := newKey()
@@ -300,7 +315,7 @@ var _ = Describe("Writer", func() {
 						return w.Create(ctx, &c, nil)
 					})).To(MatchError(
 						ContainSubstring(
-							"private_key: required, because the new certificate " +
+							"private_key_pem: required, because the new certificate " +
 								"does not match the saved key",
 						),
 					))
@@ -341,6 +356,18 @@ var _ = Describe("Writer", func() {
 			})).To(Succeed())
 			Expect(e.retrieve(ctx, c.Base().Key).Base().Name).To(Equal("After"))
 			Expect(e.expiry(ctx, c.Base().Key).Name).To(Equal("After"))
+		})
+		It("Should rename the private key secret", func(ctx SpecContext) {
+			key := newKey()
+			c := e.create(
+				ctx,
+				stored("Before", newCertificate(key, "a", time.Hour)),
+				encodeKey(key),
+			)
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Rename(ctx, c.Base().Key, "After")
+			})).To(Succeed())
+			Expect(e.keyName(ctx, c)).To(Equal("After private key"))
 		})
 		It("Should reject an empty name", func(ctx SpecContext) {
 			c := e.create(
