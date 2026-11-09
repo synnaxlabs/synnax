@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { indexName, parse, resolve, ROOT, rootOf } from "@/util/version";
+import { indexName, parse, resolve, ROOT, rootOf, withSites } from "@/util/version";
 
 const TRAINS = ["0.61", "0.60", "0.59"];
 
@@ -70,14 +70,22 @@ describe("version", () => {
       expect(names).toEqual(["next", "0.10", "0.9"]);
     });
 
-    it("should reject a train with no stable release", () => {
-      expect(() => resolve("0.62", TRAINS)).toThrow(
-        "Train 0.62 has no stable Core release",
-      );
+    it("should reject a train with no site", () => {
+      expect(() => resolve("0.62", TRAINS)).toThrow("Train 0.62 has no docs site");
     });
 
-    it("should reject a build with no published train", () => {
-      expect(() => resolve("next", [])).toThrow("GitHub lists no stable Core release");
+    it("should reject a build when no train has a site", () => {
+      expect(() => resolve("next", [])).toThrow("No train has a docs site");
+    });
+  });
+
+  describe("withSites", () => {
+    it("should drop the trains that predate versioned docs", () => {
+      expect(withSites(["1.0", "0.61", "0.60", "0.59", "0.9"])).toEqual([
+        "1.0",
+        "0.61",
+        "0.60",
+      ]);
     });
   });
 

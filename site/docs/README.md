@@ -25,14 +25,15 @@ project raises the GitHub API rate limit; the site works without it.
 ## Versions
 
 `DOCS_VERSION` names the version a build describes: a train such as `0.61`, or `next`
-for `main`. The newest train with a stable Core release is the latest and lives at
-`docs.synnaxlabs.com`. An earlier train lives at `v0-60.docs.synnaxlabs.com`, and `next`
-at `next.docs.synnaxlabs.com`. Old and next builds show a banner, ask search engines not
-to index them, and send the blog, release notes, reliability, and legal pages to the
-root. Download links keep to the build's train. Each version has its own search index. A
-build without `DOCS_VERSION`, such as a dev server or a preview, shows no menu. A site
-other than the newest names the root as Latest, not by its train, because a newer train
-does not always rebuild it.
+for `main`. Trains before 0.60 predate versioned docs and have no site. The newest train
+with a stable Core release is the latest and lives at `docs.synnaxlabs.com`. An earlier
+train lives at `v0-60.docs.synnaxlabs.com`, and `next` at `next.docs.synnaxlabs.com`.
+Old and next builds show a banner, ask search engines not to index them, and send the
+blog, release notes, reliability, and legal pages to the root. Download links keep to
+the build's train. Each version has its own search index. A build without
+`DOCS_VERSION`, such as a dev server or a preview, shows no menu. A site other than the
+newest names the root as Latest, not by its train, because a newer train does not always
+rebuild it.
 
 To see a version locally, run `DOCS_VERSION=0.60 pnpm dev`.
 

@@ -23,7 +23,7 @@ import { outline } from "./src/util/outline";
 import { quantities } from "./src/util/quantities";
 import { listReleaseNotes } from "./src/util/releaseNotes";
 import { Releases } from "./src/util/releases";
-import { parse, resolve } from "./src/util/version";
+import { parse, resolve, withSites } from "./src/util/version";
 
 // Each version's notes render only inside /releases, so their old routes point at the
 // version's anchor there.
@@ -42,7 +42,9 @@ const version =
     ? null
     : resolve(
         versionName,
-        await new Releases({ token: process.env.DOCS_GITHUB_TOKEN }).trains("core"),
+        withSites(
+          await new Releases({ token: process.env.DOCS_GITHUB_TOKEN }).trains("core"),
+        ),
       );
 
 // https://astro.build/config
