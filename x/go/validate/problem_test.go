@@ -58,25 +58,4 @@ var _ = Describe("Problems", func() {
 			Expect(p).To(BeEmpty())
 		})
 	})
-
-	Describe("Err", func() {
-		It("Should return nil when there are no problems", func() {
-			Expect(validate.Problems{}.Err()).To(Succeed())
-		})
-
-		It("Should return one path-scoped error per problem", func() {
-			err := validate.Problems{
-				{Path: "entries.0.name", Message: "required"},
-				{Message: "too many entries"},
-			}.Err()
-			Expect(err).To(MatchError(
-				"entries.0.name: required: validation error\n" +
-					"too many entries: validation error",
-			))
-			var pathErr validate.PathError
-			Expect(errors.As(err, &pathErr)).To(BeTrue())
-			Expect(pathErr.Path).To(Equal([]string{"entries", "0", "name"}))
-			Expect(pathErr.Err).To(MatchError(validate.ErrValidation))
-		})
-	})
 })

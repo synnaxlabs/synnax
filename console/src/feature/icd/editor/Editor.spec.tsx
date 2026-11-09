@@ -324,11 +324,7 @@ describe("ICD editor", () => {
     ]);
     await renderEditor(ic);
     await commit("Name", 2, "");
-    expect(
-      await screen.findByText(
-        /^Field 2: Too small: expected string to have >=1 characters/,
-      ),
-    ).toBeTruthy();
+    expect(await screen.findByText(/^Field 2: name is required/)).toBeTruthy();
   });
 
   it("should clear the mark when an edit fixes the problem", async () => {

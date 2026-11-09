@@ -4,7 +4,7 @@
   "problems": [
     {
       "path": "messages.0.payload.fields.0.byte_order",
-      "message": "invalid byte_order: middle_endian"
+      "message": "byte order is not valid"
     }
   ],
   "icd": {

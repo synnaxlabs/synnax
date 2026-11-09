@@ -245,7 +245,25 @@ describe("icd", () => {
       expect(problems).toEqual([
         {
           path: "messages.0.name",
-          message: "Too small: expected string to have >=1 characters",
+          message: "name is required",
+        },
+      ]);
+    });
+
+    it("should name the field of a broken range rule", async () => {
+      const problems = await client.icds.check({
+        name: "ICD",
+        messages: [
+          {
+            name: "M",
+            payload: { format: "binary", fields: [{ name: "a", bitLength: 65 }] },
+          },
+        ],
+      });
+      expect(problems).toEqual([
+        {
+          path: "messages.0.payload.fields.0.bitLength",
+          message: "bit length must be less than or equal to 64",
         },
       ]);
     });

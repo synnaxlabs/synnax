@@ -4,7 +4,7 @@
   "problems": [
     {
       "path": "messages.0.payload.fields.0.bit_length",
-      "message": "must be less than or equal to 64"
+      "message": "bit length must be less than or equal to 64"
     }
   ],
   "icd": {

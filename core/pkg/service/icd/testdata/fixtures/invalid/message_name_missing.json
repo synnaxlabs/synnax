@@ -4,7 +4,7 @@
   "problems": [
     {
       "path": "messages.0.name",
-      "message": "required"
+      "message": "name is required"
     }
   ],
   "icd": {

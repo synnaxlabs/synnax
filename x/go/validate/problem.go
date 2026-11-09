@@ -60,17 +60,3 @@ func (p *Problems) AddError(err error) {
 	}
 	*p = append(*p, Problem{Message: err.Error()})
 }
-
-// Err returns nil when there are no problems. Otherwise it joins one error per
-// problem: a PathError around an error wrapping ErrValidation, or that bare error for
-// a problem with the whole value.
-func (p Problems) Err() error {
-	errs := make([]error, len(p))
-	for i, pr := range p {
-		errs[i] = errors.Wrap(ErrValidation, pr.Message)
-		if pr.Path != "" {
-			errs[i] = PathedError(errs[i], pr.Path)
-		}
-	}
-	return errors.Join(errs...)
-}

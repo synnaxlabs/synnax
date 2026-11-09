@@ -116,7 +116,7 @@ var _ = Describe("ICD", func() {
 				apiicd.CheckRequest{ICD: icd.ICD{}},
 			))
 			Expect(res.Problems).To(Equal(validate.Problems{
-				{Path: "name", Message: "required"},
+				{Path: "name", Message: "name is required"},
 			}))
 		})
 

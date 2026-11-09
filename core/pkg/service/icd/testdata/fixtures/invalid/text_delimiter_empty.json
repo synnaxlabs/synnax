@@ -4,7 +4,7 @@
   "problems": [
     {
       "path": "messages.0.payload.delimiter",
-      "message": "required"
+      "message": "delimiter is required"
     }
   ],
   "icd": {

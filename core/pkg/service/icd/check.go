@@ -13,6 +13,7 @@ import (
 	"math"
 	"slices"
 	"strconv"
+	"strings"
 	"uuid"
 
 	xjson "github.com/synnaxlabs/x/json"
@@ -34,7 +35,7 @@ const (
 // do not count as duplicates, as a save assigns their keys.
 func Check(ic ICD) validate.Problems {
 	c := checker{Problems: validate.Problems{}}
-	c.AddError(ic.Validate())
+	c.addSchema(ic.Validate())
 	keys := make(set.Set[MessageKey], len(ic.Messages))
 	names := make(set.Set[string], len(ic.Messages))
 	for i, m := range ic.Messages {
@@ -53,6 +54,26 @@ func Check(ic ICD) validate.Problems {
 }
 
 type checker struct{ validate.Problems }
+
+// addSchema adds each problem that err holds as a sentence that names its field, such
+// as "bit length must be less than or equal to 64".
+func (c *checker) addSchema(err error) {
+	var schema validate.Problems
+	schema.AddError(err)
+	for _, p := range schema {
+		field := p.Path[strings.LastIndexByte(p.Path, '.')+1:]
+		field = strings.ReplaceAll(field, "_", " ")
+		switch {
+		case p.Message == "required":
+			p.Message = field + " is required"
+		case strings.HasPrefix(p.Message, "must "):
+			p.Message = field + " " + p.Message
+		default:
+			p.Message = field + " is not valid"
+		}
+		c.Problems = append(c.Problems, p)
+	}
+}
 
 func pathOf(parent []string, segments ...string) []string {
 	return append(

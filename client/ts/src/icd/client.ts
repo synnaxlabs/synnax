@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, caseconv, type destructor, errors, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -59,6 +59,22 @@ export interface Problem extends z.infer<typeof problemZ> {}
 
 const checkReqZ = z.object({ icd: icdZ });
 const checkResZ = z.object({ problems: problemZ.array() });
+
+/**
+ * Words an issue with a rule of the ICD schema as a sentence that names its field, as
+ * the Core words the problems with its schema.
+ */
+const issueMessage = (issue: z.core.$ZodIssue): string => {
+  const name = issue.path.findLast((p) => typeof p === "string") ?? "";
+  const field = caseconv.toSentence(name).toLowerCase();
+  if (issue.code === "too_small")
+    return issue.origin === "string"
+      ? `${field} is required`
+      : `${field} must be greater than or equal to ${issue.minimum}`;
+  if (issue.code === "too_big")
+    return `${field} must be less than or equal to ${issue.maximum}`;
+  return `${field} is not valid`;
+};
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 
@@ -173,9 +189,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
   async check(icd: New): Promise<Problem[]> {
     const parsed = icdZ.safeParse(icd);
     if (!parsed.success)
-      return parsed.error.issues.map(({ path, message }) => ({
-        path: path.join("."),
-        message,
+      return parsed.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issueMessage(issue),
       }));
     const res = await this.cfg.unary.send(
       "/icd/check",

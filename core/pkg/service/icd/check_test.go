@@ -95,7 +95,7 @@ var _ = Describe("Check", func() {
 			binaryMessage("M"),
 		}}
 		Expect(icd.Check(ic)).To(ConsistOf(
-			validate.Problem{Path: "name", Message: "required"},
+			validate.Problem{Path: "name", Message: "name is required"},
 			validate.Problem{
 				Path:    "messages.0.payload.fields.1.scale",
 				Message: "scale must be finite and non-zero",
@@ -112,14 +112,6 @@ var _ = Describe("Check", func() {
 				Path:    "messages.1.name",
 				Message: `duplicate message name "M"`,
 			},
-		))
-	})
-
-	It("Should join every problem into the error a save returns", func() {
-		problems := icd.Check(icd.ICD{Messages: []icd.Message{binaryMessage("")}})
-		Expect(problems.Err()).To(MatchError(
-			"name: required: validation error\n" +
-				"messages.0.name: required: validation error",
 		))
 	})
 

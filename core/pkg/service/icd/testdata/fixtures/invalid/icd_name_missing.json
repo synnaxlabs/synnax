@@ -4,7 +4,7 @@
   "problems": [
     {
       "path": "name",
-      "message": "required"
+      "message": "name is required"
     }
   ],
   "icd": {
