@@ -463,7 +463,7 @@ describe("Lists", () => {
         },
         { teardownGrace: TimeSpan.ZERO },
       );
-      return { statuses, fetch, lists };
+      return { statuses, table, fetch, lists };
     };
 
     it("should compose a member again when a watched table changes it", async () => {
@@ -481,6 +481,32 @@ describe("Lists", () => {
         undefined,
       ]);
       expect(handler).toHaveBeenCalledTimes(1);
+      release();
+    });
+
+    it("should keep the composed records of members that a watched change leaves", async () => {
+      const { statuses, lists } = setupWatched([rec("1", "a"), rec("2", "b")]);
+      const list = lists.list({ order: byName });
+      const release = list.onChange(() => {});
+      const [a, b] = (await list.retrieve()).records;
+      statuses.set("1", { key: "1", variant: "error" });
+      const [nextA, nextB] = list.getCached()?.records ?? [];
+      expect(nextA).not.toBe(a);
+      expect(nextA.variant).toEqual("error");
+      expect(nextB).toBe(b);
+      release();
+    });
+
+    it("should keep the composed records of members that a table change leaves", async () => {
+      const { table, lists } = setupWatched([rec("1", "a"), rec("2", "b")]);
+      const list = lists.list({ order: byName });
+      const release = list.onChange(() => {});
+      const [a, b] = (await list.retrieve()).records;
+      table.set("1", rec("1", "a", 2));
+      const [nextA, nextB] = list.getCached()?.records ?? [];
+      expect(nextA).not.toBe(a);
+      expect(nextA.value).toEqual(2);
+      expect(nextB).toBe(b);
       release();
     });
 

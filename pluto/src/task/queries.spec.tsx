@@ -9,9 +9,10 @@
 
 import { status, task } from "@synnaxlabs/client";
 import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
+import { List } from "@synnaxlabs/lyra/list";
 import { deep, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
@@ -38,6 +39,42 @@ describe("queries", () => {
           details: { running: false, cmd: "", configHash: "", rack: 0, data: {} },
         }),
       );
+
+    it("should render again only the item whose task status changed", async () => {
+      const rack = await client.racks.create({ name: "renderRack" });
+      const [a, b] = await Promise.all([
+        rack.createTask({ name: "a", type: "pagerduty_alert", config: {} }),
+        rack.createTask({ name: "b", type: "pagerduty_alert", config: {} }),
+      ]);
+      const renders = new Map<task.Key, number>();
+      const Item = ({ itemKey }: { itemKey: task.Key }): ReactElement => {
+        const t = List.useItem<task.Key, task.Task>(itemKey);
+        renders.set(itemKey, (renders.get(itemKey) ?? 0) + 1);
+        return <span>{`${t?.name} ${t?.status?.variant ?? "none"}`}</span>;
+      };
+      const renderItem = ({ key }: { key: task.Key }) => (
+        <Item key={key} itemKey={key} />
+      );
+      const Tasks = (): ReactElement => {
+        const { data, getItem, subscribe, more } = Task.useList({
+          query: { where: { rack: { eq: rack.key } } },
+        });
+        useEffect(more, [more]);
+        return (
+          <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
+            <List.Scroll>
+              <List.Items<task.Key>>{renderItem}</List.Items>
+            </List.Scroll>
+          </List.Frame>
+        );
+      };
+      render(<Tasks />, { wrapper });
+      await screen.findByText(/^b /);
+      const rendersOfB = renders.get(b.key);
+      await setStatus(a.key);
+      await screen.findByText("a error");
+      expect(renders.get(b.key)).toBe(rendersOfB);
+    });
 
     it("should leave out internal tasks unless the query sets where.internal", async () => {
       const rack = await client.racks.create({ name: "testRack" });

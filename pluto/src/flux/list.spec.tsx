@@ -13,8 +13,10 @@ import {
   holdResponses,
   spyOnSend,
 } from "@synnaxlabs/client/testutil";
+import { List } from "@synnaxlabs/lyra/list";
 import { color, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { type ReactElement, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
@@ -71,6 +73,40 @@ describe("useList", () => {
     });
     expect(result.current.answered).toBe(true);
     expect(result.current.getItem(a.key)?.name).toEqual("a");
+  });
+
+  it("should render again only the item whose record changed", async () => {
+    const a = await create("a");
+    const b = await create("b");
+    const renders = new Map<ranger.Key, number>();
+    const Item = ({ itemKey }: { itemKey: ranger.Key }): ReactElement => {
+      const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
+      renders.set(itemKey, (renders.get(itemKey) ?? 0) + 1);
+      return <span>{range?.name}</span>;
+    };
+    const renderItem = ({ key }: { key: ranger.Key }) => (
+      <Item key={key} itemKey={key} />
+    );
+    const Ranges = (): ReactElement => {
+      const { data, getItem, subscribe, more } = Flux.useList(ranges, {
+        name: "ranges",
+        query: byName(),
+      });
+      useEffect(more, [more]);
+      return (
+        <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
+          <List.Scroll>
+            <List.Items<ranger.Key>>{renderItem}</List.Items>
+          </List.Scroll>
+        </List.Frame>
+      );
+    };
+    render(<Ranges />, { wrapper });
+    await screen.findByText("b");
+    const rendersOfB = renders.get(b.key);
+    await client.ranges.rename(a.key, "a2");
+    await screen.findByText("a2");
+    expect(renders.get(b.key)).toBe(rendersOfB);
   });
 
   it("should place a created record in order", async () => {

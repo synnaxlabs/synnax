@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, query, type Synnax as Client } from "@synnaxlabs/client";
-import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
+import { useDebouncedCallback, useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoArray, useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import {
   type CrudeTimeSpan,
@@ -84,8 +84,9 @@ export type UseListReturn<K extends record.Key, E extends record.Keyed<K>> = Omi
   /** Reads a record of the list, or any other record of the domain that is cached. */
   getItem: GetItem<K, E>;
   /**
-   * Calls the callback when the record changes, and fetches a record outside the list.
-   * Returns a destructor that unsubscribes.
+   * Calls the callback when the record may have changed, so the caller reads it again
+   * through getItem. Fetches a record outside the list. Returns a destructor that
+   * unsubscribes.
    */
   subscribe: (callback: () => void, key: K) => destructor.Destructor;
   /**
@@ -193,12 +194,30 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   const search = (next: string) => debouncedSearch(next);
 
   const records = window?.records;
-  const members = new Map<K, E>(records?.map((r) => [r.key, r]));
+  // A window keeps the records that a change leaves, so a reader renders again only for
+  // its own record. One list subscription makes every reader read again.
+  const readers = useInitializerRef(() => new Set<() => void>());
+  const membersByWindow = useInitializerRef(
+    () => new WeakMap<query.Window<E, unknown>, Map<K, E>>(),
+  );
+  useEffect(() => {
+    if (list == null) return;
+    return list.onChange(() => readers.current.forEach((read) => read()));
+  }, [list]);
+  const membersOf = (shown?: query.Window<E, unknown>): Map<K, E> | undefined => {
+    if (shown == null) return undefined;
+    let members = membersByWindow.current.get(shown);
+    if (members == null) {
+      members = new Map(shown.records.map((r) => [r.key, r]));
+      membersByWindow.current.set(shown, members);
+    }
+    return members;
+  };
   const keep = (record: E | undefined): E | undefined =>
     record == null || (filter != null && !filter(record)) ? undefined : record;
   // A select with no value reads its zero key.
   const getOne = (key: K): E | undefined => {
-    const member = members.get(key);
+    const member = membersOf(list?.getCached())?.get(key);
     if (member != null) return keep(member);
     if (retriever == null || primitive.isZero(key)) return undefined;
     const cached = retriever.watch(itemQuery(key)).getCached();
@@ -211,14 +230,19 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
 
   const subscribe = (callback: () => void, key: K): destructor.Destructor => {
     if (retriever == null || primitive.isZero(key)) return noop;
+    const read = () => callback();
+    readers.current.add(read);
     const live = retriever.watch(itemQuery(key));
-    const release = live.onChange(() => callback());
+    const release = live.onChange(read);
     if (live.getCached() === undefined)
       live.retrieve().then(callback, (error: unknown) => {
         // The subscriber reads a missing record from getItem.
         if (!NotFoundError.matches(error)) console.error(error);
       });
-    return release;
+    return () => {
+      readers.current.delete(read);
+      release();
+    };
   };
 
   const data = useMemoArray(
