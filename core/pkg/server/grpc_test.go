@@ -11,6 +11,8 @@ package server_test
 
 import (
 	"context"
+	"io"
+	"net"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -84,5 +86,31 @@ var _ = Describe("gRPC", func() {
 			To(MatchError(ContainSubstring("code = DeadlineExceeded")))
 		cancelFirst()
 		Expect(watch(ctx)).To(Succeed())
+	})
+
+	It("Should close a connection that stops answering pings", func() {
+		b := MustSucceed(server.Serve(server.Config{
+			Listeners: []server.Listener{{Address: "localhost:0"}},
+			Security:  server.SecurityConfig{Insecure: new(true)},
+			Branches: []server.Branch{&server.GRPCBranch{
+				KeepaliveTime:    time.Second,
+				KeepaliveTimeout: 100 * time.Millisecond,
+			}},
+		}))
+		DeferCleanup(b.Close)
+		conn := MustSucceed(net.Dial("tcp", b.Addresses()[0].String()))
+		DeferCleanup(conn.Close)
+		// An HTTP/2 client preface and an empty SETTINGS frame, then silence: the
+		// client reads the Core's pings but never acknowledges them.
+		MustSucceed(conn.Write([]byte(
+			"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n\x00\x00\x00\x04\x00\x00\x00\x00\x00",
+		)))
+		Expect(conn.SetReadDeadline(time.Now().Add(10 * time.Second))).To(Succeed())
+		closed := make(chan error, 1)
+		go func() {
+			_, err := io.Copy(io.Discard, conn)
+			closed <- err
+		}()
+		Eventually(closed, 5*time.Second).Should(Receive(Succeed()))
 	})
 })
