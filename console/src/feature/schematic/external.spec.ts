@@ -30,7 +30,9 @@ describe("Schematic.TABS restore", () => {
     await client.schematics.retrieve(s.key);
     await client.schematics.delete(s.key);
     await waitFor(() =>
-      expect(query.Deleted.matches(client.schematics.getCached(s.key))).toBe(true),
+      expect(query.Deleted.matches(client.schematics.watch(s.key).getCached())).toBe(
+        true,
+      ),
     );
     await restore({ client, project: to.key, resource: schematic.resourceID(s.key) });
     const restored = await createTestClient().schematics.retrieve(s.key);
@@ -54,7 +56,9 @@ describe("Schematic.TABS restore", () => {
     await client.schematics.retrieve(s.key);
     await client.schematics.delete(s.key);
     await waitFor(() =>
-      expect(query.Deleted.matches(client.schematics.getCached(s.key))).toBe(true),
+      expect(query.Deleted.matches(client.schematics.watch(s.key).getCached())).toBe(
+        true,
+      ),
     );
     await client.groups.delete(g.key);
     await restore({ client, project: to.key, resource: schematic.resourceID(s.key) });

@@ -16,6 +16,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -81,6 +82,25 @@ var _ = Describe("NewService", func() {
 	It("Should return an error when the config is invalid", func() {
 		Expect(apiauth.NewService(apiauth.ServiceConfig{})).Error().
 			To(MatchError(ContainSubstring("auth: must be non-nil")))
+	})
+})
+
+var _ = Describe("HeldTables", func() {
+	It("Should name the tables of the API keys, password, and sessions of a user", func(
+		ctx SpecContext,
+	) {
+		tx := DeferClose(db.OpenTx())
+		k, _ := MustSucceed2(
+			apiKeySvc.NewWriter(tx).Create(ctx, root.ResourceID(), "held"),
+		)
+		h := MustSucceed(passwordSvc.Hash(creds.Password))
+		passwords := passwordSvc.NewWriter(tx)
+		Expect(passwords.Set(ctx, root.ResourceID(), creds.Username, h)).To(Succeed())
+		MustSucceed2(authSvc.NewWriter(tx).Open(ctx, root.ResourceID(), k.Key))
+		tables := lo.Map(gorp.ChangesOf(tx), func(c gorp.Change, _ int) string {
+			return c.Record.Table
+		})
+		Expect(tables).To(ConsistOf(apiauth.HeldTables()))
 	})
 })
 
@@ -278,7 +298,7 @@ var _ = Describe("SetPassword", func() {
 			To(MatchError(auth.ErrInvalidToken))
 	})
 	It(
-		"Should let a caller that may update a user set its password",
+		"Should let a caller that may update a signed-out user set its password",
 		func(ctx SpecContext) {
 			eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
 			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
@@ -287,6 +307,27 @@ var _ = Describe("SetPassword", func() {
 				Password: "new",
 			})).To(Equal(apiauth.PasswordSetResponse{}))
 			login(ctx, eng.Name, "new")
+		},
+	)
+	It(
+		"Should require delete on a signed-in user to set its password",
+		func(ctx SpecContext) {
+			eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
+			engToken := login(ctx, eng.Name, "p")
+			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
+			req := apiauth.PasswordSetRequest{
+				Subject:  eng.ResourceID(),
+				Password: "new",
+			}
+			Expect(set(ctx, bobToken, req)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring("cannot delete %s", eng.ResourceID())),
+			))
+			MustSucceed(authSvc.Authenticate(ctx, engToken))
+			grant(ctx, bob.Key, access.ActionDelete, eng.ResourceID())
+			Expect(set(ctx, bobToken, req)).To(Equal(apiauth.PasswordSetResponse{}))
+			Expect(authSvc.Authenticate(ctx, engToken)).Error().
+				To(MatchError(auth.ErrInvalidToken))
 		},
 	)
 	It("Should deny a user setting another user's password", func(ctx SpecContext) {
@@ -615,12 +656,12 @@ var _ = Describe("Sessions", func() {
 			},
 		)
 		It(
-			"Should let a caller that may update a subject end its session",
+			"Should let a caller that may delete on a subject end its session",
 			func(ctx SpecContext) {
 				eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
 				engToken := login(ctx, eng.Name, "p").Token
 				key := MustSucceed(authSvc.Authenticate(ctx, engToken)).Key
-				grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
+				grant(ctx, bob.Key, access.ActionDelete, eng.ResourceID())
 				Expect(deleteSessions(
 					authed(ctx, bobToken),
 					apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},

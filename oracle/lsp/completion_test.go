@@ -126,7 +126,7 @@ var _ = Describe("Completion", func() {
 			list := completionFor(ctx, "file:///domain.oracle", 0, 3)
 			Expect(labels(list.Items)).To(ContainElements(
 				"key", "validate", "resource", "doc", "go", "ts", "py", "cpp",
-				"pb", "filter", "response", "include",
+				"pb", "filter", "response", "include", "group",
 			))
 		})
 	})

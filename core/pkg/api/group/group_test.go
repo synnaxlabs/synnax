@@ -239,6 +239,20 @@ var _ = Describe("Group", func() {
 			MustSucceed(renameAs(ctx, u))
 			Expect(retrieve(ctx, g.Key).Name).To(Equal("renamed"))
 		})
+
+		It("Should need update access on the group for a dispatch", func(
+			ctx SpecContext,
+		) {
+			u := newUser(ctx)
+			Expect(dispatch(AuthedCtx(ctx, u), apigroup.DispatchRequest{
+				Key: g.Key,
+				Actions: []group.Action{group.NewSetAction(group.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed",
+				})},
+			})).Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
+			Expect(retrieve(ctx, g.Key).Name).To(Equal("group"))
+		})
 	})
 
 	Describe("SetParent", func() {
@@ -381,9 +395,12 @@ var _ = Describe("Group", func() {
 				),
 			)
 
-			It(
+			DescribeTable(
 				"Should move the schematic with update on it and both projects",
-				func(ctx SpecContext) {
+				func(
+					ctx SpecContext,
+					move func(SpecContext, user.User) (struct{}, error),
+				) {
 					u := newUser(ctx, grant(update, append(
 						groupIDs(),
 						from.ResourceID(),
@@ -398,6 +415,18 @@ var _ = Describe("Group", func() {
 						Exec(ctx, db)).To(Succeed())
 					Expect(stored.Project).To(Equal(&to.Key))
 				},
+				Entry("through a set parent request", move),
+				Entry(
+					"through a dispatched set parent",
+					func(ctx SpecContext, u user.User) (struct{}, error) {
+						return dispatch(AuthedCtx(ctx, u), apigroup.DispatchRequest{
+							Key: nested.Key,
+							Actions: []group.Action{group.NewSetParentAction(
+								group.SetParentPayload{Parent: new(dest.ResourceID())},
+							)},
+						})
+					},
+				),
 			)
 		})
 	})

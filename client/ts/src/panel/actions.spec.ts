@@ -618,42 +618,42 @@ describe("reduceAll", () => {
   });
 });
 
-describe("setGroup", () => {
-  const G1 = "11111111-1111-4111-8111-111111111111";
-  it("should move the document into the group", () => {
-    const doc = state(leaf());
-    expect(panel.reduceAll(doc, [panel.setGroup({ group: G1 })]).next.group).toEqual(
-      G1,
-    );
-  });
-  it("should move the document out of its group", () => {
-    const doc = { ...state(leaf()), group: G1 };
-    expect(panel.reduceAll(doc, [panel.setGroup({})]).next.group).toBeUndefined();
-  });
-  it("should restore the previous group through its inverse", () => {
-    const doc = { ...state(leaf()), group: G1 };
-    const { next, inverse } = panel.reduceAll(doc, [panel.setGroup({})]);
-    expect(panel.reduceAll(next, inverse).next.group).toEqual(G1);
-  });
-  it("should target nothing, so it never enters the undo stack", () => {
-    const doc = state(leaf());
-    expect(panel.reduceAll(doc, [panel.setGroup({ group: G1 })]).targets).toEqual([]);
+describe("set of the name", () => {
+  it("should set the name and return an inverse that restores it", () => {
+    const doc = { ...state(leaf()), name: "before" };
+    const { next, inverse, targets } = panel.reduceAll(doc, [
+      panel.set({ path: ["name"], value: "after" }),
+    ]);
+    expect(next.name).toEqual("after");
+    expect(targets).toEqual(["name"]);
+    expect(panel.reduceAll(next, inverse).next).toEqual(doc);
   });
 });
 
-describe("setProject", () => {
-  const P1 = "11111111-1111-4111-8111-111111111111";
-  const P2 = "22222222-2222-4222-8222-222222222222";
-  it("should move the panel into the project without an undo entry", () => {
-    const { next, targets } = panel.reduceAll(state(leaf("a")), [
-      panel.setProject({ project: P1 }),
-    ]);
-    expect(next.project).toEqual(P1);
-    expect(targets).toEqual([]);
+describe("group and project patches", () => {
+  const G1 = "11111111-1111-4111-8111-111111111111";
+  const G2 = "22222222-2222-4222-8222-222222222222";
+  it("should move the document into the group", () => {
+    const doc = state(leaf());
+    expect(
+      panel.reduceAll(doc, [panel.set({ path: ["group"], value: G1 })]).next.group,
+    ).toEqual(G1);
   });
-  it("should restore the previous project through its inverse", () => {
-    const doc = { ...state(leaf("a")), project: P1 };
-    const { next, inverse } = panel.reduceAll(doc, [panel.setProject({ project: P2 })]);
-    expect(panel.reduceAll(next, inverse).next.project).toEqual(P1);
+  it("should move the document out of its group", () => {
+    const doc = { ...state(leaf()), group: G1 };
+    expect(
+      panel.reduceAll(doc, [panel.remove({ key: "group" })]).next.group,
+    ).toBeUndefined();
+  });
+  it("should restore the previous group through its inverse", () => {
+    const doc = { ...state(leaf()), group: G1 };
+    const { next, inverse } = panel.reduceAll(doc, [panel.remove({ key: "group" })]);
+    expect(panel.reduceAll(next, inverse).next.group).toEqual(G1);
+  });
+  it("should move the document into the project", () => {
+    const doc = { ...state(leaf("a")), project: G1 };
+    expect(
+      panel.reduceAll(doc, [panel.set({ path: ["project"], value: G2 })]).next.project,
+    ).toEqual(G2);
   });
 });

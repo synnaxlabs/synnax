@@ -12,6 +12,7 @@ import "schemas/synnax/node"
 import "schemas/synnax/status"
 import "schemas/x/control"
 import "schemas/x/filter"
+import "schemas/x/patch"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/channel"
@@ -107,7 +108,7 @@ Operation struct {
 Channel struct {
     name        Name                {
         @doc value    "is the human-readable channel name."
-        @index lookup
+        @index sorted
         @search
     }
     leaseholder node.Key            {
@@ -160,8 +161,45 @@ Channel struct {
     }
     group       group.Key?          {
         @doc value     "is the group the channel sits in, if any."
+        @group scope   channel
         @ref kind      place
         @ref on_delete detach
+    }
+
+    action Create {
+        channel Channel
+
+        @doc value """
+            replaces the channel with the given created state. Emitted by the Core when
+            a channel is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the channel."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the channel.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the channel."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the channel."
+    }
+
+    action Rename {
+        name Name
+
+        @doc value """
+            renames the channel. The Core also renames the channel's storage when the
+            transaction commits.
+        """
     }
 
     @cpp hand
