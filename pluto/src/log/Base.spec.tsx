@@ -372,15 +372,18 @@ describe("log/Base", () => {
       const logDiv = getLogDiv(container);
       fireEvent.mouseDown(logDiv, { button: 0, clientY: 50 });
       const callsAfterDown = setState.mock.calls.length;
-      fireEvent.mouseMove(logDiv, { clientY: 80 });
+      fireEvent.mouseMove(window, { clientY: 80 });
       expect(setState.mock.calls.length).toBeGreaterThan(callsAfterDown);
     });
 
-    it("should handle mouse up events", () => {
-      setupAether({ empty: false, computedLineHeight: 16 });
+    it("should stop extending the selection on mouse up", () => {
+      const { setState } = setupAether({ empty: false, computedLineHeight: 16 });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      fireEvent.mouseUp(logDiv);
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 50 });
+      fireEvent.mouseUp(window);
+      const callsAfterUp = setState.mock.calls.length;
+      fireEvent.mouseMove(window, { clientY: 80 });
+      expect(setState.mock.calls.length).toBe(callsAfterUp);
     });
 
     it("should extend selection with shift+click", () => {
@@ -395,6 +398,85 @@ describe("log/Base", () => {
       const logDiv = getLogDiv(container);
       fireEvent.mouseDown(logDiv, { button: 0, clientY: 100, shiftKey: true });
       expect(setState).toHaveBeenCalled();
+    });
+  });
+
+  describe("drag past an edge", () => {
+    const ROWS = {
+      empty: false,
+      computedLineHeight: 16,
+      rowEntries: [10, 11, 12],
+      region: box.construct({ x: 0, y: 0 }, { x: 400, y: 500 }),
+    };
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    // Applies the state updates the log made from the drag on, in order.
+    const dragTo = (clientY: number, frames: number, props = {}) => {
+      const { setState, state } = setupAether(ROWS);
+      const { container } = renderLog(props);
+      const before = setState.mock.calls.length;
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      fireEvent.mouseMove(window, { clientY });
+      for (let i = 0; i < frames; i++)
+        act(() => {
+          vi.advanceTimersToNextFrame();
+        });
+      return setState.mock.calls
+        .slice(before)
+        .reduce(
+          (s: Record<string, unknown>, [set]) =>
+            typeof set === "function" ? set(s) : set,
+          state,
+        );
+    };
+
+    it("should scroll up and select the top row above the log", () => {
+      const state = dragTo(-50, 3);
+      expect(state.wheelPos).toBeGreaterThan(0);
+      expect(state.scrolling).toBe(true);
+      expect(state.selectionEnd).toBe(10);
+    });
+
+    it("should pause the log when it scrolls up", () => {
+      const onHold = vi.fn();
+      dragTo(-50, 1, { onHold });
+      expect(onHold).toHaveBeenCalledWith(true);
+    });
+
+    it("should scroll down and select the bottom row below the log", () => {
+      const state = dragTo(550, 3);
+      expect(state.wheelPos).toBeLessThan(0);
+      expect(state.selectionEnd).toBe(12);
+    });
+
+    it("should scroll faster the farther the pointer is past the edge", () => {
+      const near = dragTo(-10, 1).wheelPos;
+      const far = dragTo(-100, 1).wheelPos;
+      expect(far).toBeGreaterThan(Number(near));
+    });
+
+    it("should not scroll while the pointer is inside the log", () => {
+      expect(dragTo(100, 3).wheelPos).toBe(0);
+    });
+
+    it("should stop scrolling on mouse up", () => {
+      const { setState } = setupAether(ROWS);
+      const { container } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      fireEvent.mouseMove(window, { clientY: -50 });
+      fireEvent.mouseUp(window);
+      const callsAfterUp = setState.mock.calls.length;
+      act(() => {
+        vi.advanceTimersToNextFrame();
+      });
+      expect(setState.mock.calls.length).toBe(callsAfterUp);
     });
   });
 
