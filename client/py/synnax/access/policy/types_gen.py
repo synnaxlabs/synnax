@@ -11,15 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Any, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import resource
-from synnax.access import action
-from synnax.access import role as role_
+from synnax.access import action, role as role_
 from synnax.resource import ID
 from x import filter
 from x.filter import shorthand

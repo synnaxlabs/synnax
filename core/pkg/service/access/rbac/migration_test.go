@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -142,10 +141,10 @@ var _ = Describe("Migration chain", func() {
 			DB: db,
 		}))
 		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			HostProvider: testutil.NewStaticHostProvider(1),
-			Status:       statuses,
-			DriverRole:   roles.Builtin.DriverKey,
+			DB:         db,
+			HostKey:    1,
+			Status:     statuses,
+			DriverRole: roles.Builtin.DriverKey,
 		}))
 		svc := MustSucceed(rbac.NewService(ctx, rbac.ServiceConfig{
 			DB:    db,
@@ -154,21 +153,21 @@ var _ = Describe("Migration chain", func() {
 			Rack:  racks,
 		}))
 
-		Expect(svc.RolesOf(ctx, nil, u.ResourceID())).To(Equal([]role.Key{a.Key}))
-		Expect(svc.RolesOf(ctx, nil, rck.ResourceID())).
+		Expect(svc.RolesOf(ctx, db, u.ResourceID())).To(Equal([]role.Key{a.Key}))
+		Expect(svc.RolesOf(ctx, db, rck.ResourceID())).
 			To(Equal([]role.Key{svc.Builtin.DriverKey}))
 		var policies []policy.Policy
 		Expect(svc.Policy.NewRetrieve().
 			Where(policy.MatchNames("shared", "orphan")).
 			Entries(&policies).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(
 			lo.Map(policies, func(p policy.Policy, _ int) role.Key { return p.Role }),
 		).
 			To(ConsistOf(a.Key, b.Key))
 		Expect(svc.Policy.NewRetrieve().
 			Where(policy.MatchRoles(svc.Builtin.OwnerKey)).
-			Exists(ctx, nil)).To(BeTrue())
+			Exists(ctx, db)).To(BeTrue())
 		edges := MustSucceed(ontologyv0.RetrieveRelationships(
 			ctx,
 			db,
@@ -182,8 +181,8 @@ var _ = Describe("Migration chain", func() {
 			Action:  access.ActionRetrieve,
 			Objects: []resource.ID{{Type: resource.TypeChannel, Key: "1"}},
 		}
-		Expect(svc.NewEnforcer(nil).Enforce(ctx, req)).To(Succeed())
+		Expect(svc.NewEnforcer(db).Enforce(ctx, req)).To(Succeed())
 		req.Subject = rck.ResourceID()
-		Expect(svc.NewEnforcer(nil).Enforce(ctx, req)).To(Succeed())
+		Expect(svc.NewEnforcer(db).Enforce(ctx, req)).To(Succeed())
 	})
 })

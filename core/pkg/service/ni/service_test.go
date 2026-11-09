@@ -68,7 +68,7 @@ var _ = Describe("Service", func() {
 				"stream_rate": 5,
 				"channels":    []any{},
 			}))
-			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
+			data := MustSucceed(svc.AnalogRead.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 25))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
@@ -78,7 +78,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.AnalogRead, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
+			data := MustSucceed(svc.AnalogRead.Read(ctx, db, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
 		})
@@ -89,7 +89,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(
 				tasks.Create(ctx, svc.AnalogWrite, msgpack.EncodedJSON{}),
 			)
-			data := MustSucceed(svc.AnalogWrite.Read(ctx, nil, key))
+			data := MustSucceed(svc.AnalogWrite.Read(ctx, db, key))
 			Expect(data["state_rate"]).To(BeNumerically("==", 10))
 		})
 
@@ -99,7 +99,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(
 				tasks.Create(ctx, svc.CounterRead, msgpack.EncodedJSON{}),
 			)
-			data := MustSucceed(svc.CounterRead.Read(ctx, nil, key))
+			data := MustSucceed(svc.CounterRead.Read(ctx, db, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 		})
 
@@ -109,7 +109,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(
 				tasks.Create(ctx, svc.DigitalRead, msgpack.EncodedJSON{}),
 			)
-			data := MustSucceed(svc.DigitalRead.Read(ctx, nil, key))
+			data := MustSucceed(svc.DigitalRead.Read(ctx, db, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 		})
 
@@ -119,7 +119,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(
 				tasks.Create(ctx, svc.DigitalWrite, msgpack.EncodedJSON{}),
 			)
-			data := MustSucceed(svc.DigitalWrite.Read(ctx, nil, key))
+			data := MustSucceed(svc.DigitalWrite.Read(ctx, db, key))
 			Expect(data["state_rate"]).To(BeNumerically("==", 10))
 		})
 
@@ -127,7 +127,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.Scanner, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Scanner.Read(ctx, nil, key))
+			data := MustSucceed(svc.Scanner.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 
@@ -146,7 +146,7 @@ var _ = Describe("Service", func() {
 					},
 				}},
 			}))
-			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
+			data := MustSucceed(svc.AnalogRead.Read(ctx, db, key))
 			ch := data["channels"].([]any)[0].(map[string]any)
 			Expect(ch["min_val"]).To(BeNumerically("==", -10))
 			Expect(ch["max_val"]).To(BeNumerically("==", 0))
@@ -163,7 +163,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.AnalogRead, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{"type": "ai_voltage"}},
 			}))
-			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
+			data := MustSucceed(svc.AnalogRead.Read(ctx, db, key))
 			ch := data["channels"].([]any)[0].(map[string]any)
 			Expect(ch["min_val"]).To(BeNumerically("==", 0))
 			Expect(ch["max_val"]).To(BeNumerically("==", 1))
@@ -179,7 +179,7 @@ var _ = Describe("Service", func() {
 					"max_val": 0,
 				}},
 			}))
-			data := MustSucceed(svc.CounterRead.Read(ctx, nil, key))
+			data := MustSucceed(svc.CounterRead.Read(ctx, db, key))
 			ch := data["channels"].([]any)[0].(map[string]any)
 			Expect(ch["min_val"]).To(BeNumerically("==", -10))
 			Expect(ch["max_val"]).To(BeNumerically("==", 0))
@@ -191,7 +191,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.CounterRead, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{"type": "ci_frequency"}},
 			}))
-			data := MustSucceed(svc.CounterRead.Read(ctx, nil, key))
+			data := MustSucceed(svc.CounterRead.Read(ctx, db, key))
 			ch := data["channels"].([]any)[0].(map[string]any)
 			Expect(ch["min_val"]).To(BeNumerically("==", 2))
 			Expect(ch["max_val"]).To(BeNumerically("==", 100))
@@ -203,18 +203,12 @@ var _ = Describe("Service", func() {
 				ctx SpecContext,
 			) {
 				Expect(
-					svc.AnalogRead.Prepare(
-						ctx,
-						nil,
-						uuid.New(),
-						"",
-						msgpack.EncodedJSON{
-							"channels": []any{map[string]any{
-								"type":            "ai_voltage",
-								"terminal_config": "BOGUS",
-							}},
-						}, nil,
-					),
+					svc.AnalogRead.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
+						"channels": []any{map[string]any{
+							"type":            "ai_voltage",
+							"terminal_config": "BOGUS",
+						}},
+					}),
 				).Error().
 					To(MatchError(ContainSubstring("invalid terminal_config: BOGUS")))
 			},
@@ -228,7 +222,7 @@ var _ = Describe("Service", func() {
 				Expect(
 					svc.AnalogWrite.Prepare(
 						ctx,
-						nil,
+						db,
 						uuid.New(),
 						"",
 						msgpack.EncodedJSON{
@@ -239,7 +233,7 @@ var _ = Describe("Service", func() {
 									"pre_scaled_units": "BOGUS",
 								},
 							}},
-						}, nil,
+						},
 					),
 				).Error().
 					To(MatchError(ContainSubstring("invalid pre_scaled_units: BOGUS")))
@@ -250,18 +244,12 @@ var _ = Describe("Service", func() {
 			"Should reject a voltage-mode sensitivity unit on a charge accelerometer",
 			func(ctx SpecContext) {
 				Expect(
-					svc.AnalogRead.Prepare(
-						ctx,
-						nil,
-						uuid.New(),
-						"",
-						msgpack.EncodedJSON{
-							"channels": []any{map[string]any{
-								"type":              "ai_accel_charge",
-								"sensitivity_units": "mVoltsPerG",
-							}},
-						}, nil,
-					),
+					svc.AnalogRead.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
+						"channels": []any{map[string]any{
+							"type":              "ai_accel_charge",
+							"sensitivity_units": "mVoltsPerG",
+						}},
+					}),
 				).Error().
 					To(MatchError(
 						ContainSubstring("invalid sensitivity_units: mVoltsPerG"),
@@ -277,7 +265,7 @@ var _ = Describe("Service", func() {
 				Expect(
 					svc.CounterRead.Prepare(
 						ctx,
-						nil,
+						db,
 						uuid.New(),
 						"",
 						msgpack.EncodedJSON{
@@ -285,7 +273,7 @@ var _ = Describe("Service", func() {
 								"type":  "ci_frequency",
 								"units": "BOGUS",
 							}},
-						}, nil,
+						},
 					),
 				).Error().
 					To(MatchError(ContainSubstring("invalid units: BOGUS")))

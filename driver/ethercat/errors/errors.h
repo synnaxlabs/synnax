@@ -34,20 +34,12 @@ const x::errors::Error PERMISSION_DENIED = INTERFACE_ERROR.sub("permission_denie
 const x::errors::Error SLAVE_CONFIG_ERROR = BASE_ERROR.sub("slave_config");
 /// @brief error returned when PDO mapping is invalid or fails.
 const x::errors::Error PDO_MAPPING_ERROR = BASE_ERROR.sub("pdo_mapping");
-/// @brief error returned when domain creation or registration fails.
-const x::errors::Error DOMAIN_ERROR = BASE_ERROR.sub("domain");
 /// @brief error returned when master activation fails.
 const x::errors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
 /// @brief error returned when a slave rejects a startup parameter.
 const x::errors::Error STARTUP_PARAMETER_ERROR = BASE_ERROR.sub("startup_parameter");
 /// @brief error returned when cyclic communication fails.
 const x::errors::Error CYCLIC_ERROR = BASE_ERROR.sub("cyclic");
-/// @brief error returned when a slave enters an unexpected state.
-const x::errors::Error SLAVE_STATE_ERROR = BASE_ERROR.sub("slave_state");
-/// @brief error returned when a slave is not found at the expected position.
-const x::errors::Error SLAVE_NOT_FOUND = BASE_ERROR.sub("slave_not_found");
-/// @brief error returned when a slave is disconnected.
-const x::errors::Error SLAVE_DISCONNECTED = BASE_ERROR.sub("slave_disconnected");
 /// @brief error returned when the working counter does not match expected value.
 const x::errors::Error WORKING_COUNTER_ERROR = BASE_ERROR.sub("working_counter");
 /// @brief error returned when the cycle time cannot be maintained.

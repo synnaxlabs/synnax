@@ -9,14 +9,28 @@
 
 import asyncio
 from types import MappingProxyType
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 import pytest
 
 import synnax as sy
+from freighter import EOF, WebsocketClient
+from freighter.mock import MockUnaryClient
+from synnax.channel.retrieve import Retriever
+from synnax.exceptions import create_registry
+from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import FramePayload
+from synnax.framer.writer import (
+    Writer,
+    WriterCommand,
+    WriterRequest,
+    WriterResponse,
+)
 from tests.channel import RetrieveCounter
+from x.codec import Codec
+from x.exceptions import ExceptionPayload
 from x.strings import random_name
 from x.telem import CrudeSeries, seconds_linspace
 
@@ -511,6 +525,51 @@ class TestWriter:
         assert len(f2[data_2.key]) == 1
         assert len(f2[data_3.key]) == 1
 
+    def test_commit_result_reports_commit_without_control(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        start = sy.TimeSpan.SECOND * 1
+        idx_ch, data_ch = indexed_pair
+
+        def frame(second: int) -> pd.DataFrame:
+            return pd.DataFrame(
+                {
+                    idx_ch.key: [sy.TimeStamp(sy.TimeSpan.SECOND * second)],
+                    data_ch.key: np.random.rand(1).astype(np.float64),
+                }
+            )
+
+        with client.open_writer(
+            start=start,
+            channels=indexed_pair,
+            authorities=100,
+            enable_auto_commit=False,
+        ) as low:
+            low.write(frame(1))
+            # The acknowledged command orders the write before the next writer opens.
+            low.set_authority(100)
+            with client.open_writer(
+                start=start, channels=indexed_pair, authorities=200
+            ):
+                assert not low.commit_result().authorized
+            low.write(frame(2))
+            granted = low.commit_result()
+            assert granted.authorized
+            assert granted.end == 2 * sy.TimeSpan.SECOND.nanoseconds + 1
+
+    def test_commit_result_stream_ended_during_commit(self) -> None:
+        transport = _EndableTransport()
+        writer = _open_endable(transport)
+        transport.stream_.ended = True
+        with pytest.raises(EOF):
+            writer.commit_result()
+
+    def test_commit_result_writer_closed(self) -> None:
+        writer = _open_endable(_EndableTransport())
+        writer.close()
+        with pytest.raises(sy.WriterClosed):
+            writer.commit_result()
+
     def test_set_authority(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
     ) -> None:
@@ -903,3 +962,50 @@ class TestWriter:
             w.commit()
         f = client.read(sy.TimeRange.MAX, data.key)
         assert list(f) == ["line1\nline2", "no newline"]
+
+
+class _EndableStream:
+    """A writer stream that a spec can end as the Core would."""
+
+    ended = False
+    send_closed = False
+
+    def send(self, req: WriterRequest) -> None: ...
+
+    def receive(self, timeout: float | None = None) -> WriterResponse:
+        if self.ended or self.send_closed:
+            raise EOF()
+        return WriterResponse(
+            command=WriterCommand.OPEN,
+            end=sy.TimeStamp(0),
+            err=ExceptionPayload(type=None, data=None),
+            authorized=True,
+        )
+
+    def received(self) -> bool:
+        return False
+
+    def close_send(self) -> None:
+        self.send_closed = True
+
+
+class _EndableTransport:
+    """A stream transport whose writer stream a spec can end."""
+
+    def __init__(self) -> None:
+        self.stream_ = _EndableStream()
+
+    def with_codec(self, codec: Codec) -> "_EndableTransport":
+        return self
+
+    def stream(self, target: str, req_t: Any, res_t: Any) -> _EndableStream:
+        return self.stream_
+
+
+def _open_endable(transport: _EndableTransport) -> Writer:
+    return Writer(
+        start=None,
+        client=cast(WebsocketClient, transport),
+        registry=create_registry(),
+        adapter=WriteFrameAdapter(retriever=Retriever(client=MockUnaryClient())),
+    )

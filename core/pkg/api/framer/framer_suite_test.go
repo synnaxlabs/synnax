@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -48,14 +49,14 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 const rootUsername = "api-framer-suite-root"
 
 var (
-	apiSvc        *apiframer.Service
-	framerSvc     *svcframer.Service
-	channelWriter channel.Writer
-	channelSvc    *channel.Service
-	rbacSvc       *rbac.Service
-	userSvc       *user.Service
-	secretSvc     *secret.Service
-	root          user.User
+	apiSvc     *apiframer.Service
+	framerSvc  *svcframer.Service
+	channelSvc *channel.Service
+	rbacSvc    *rbac.Service
+	userSvc    *user.Service
+	svc        *service.Layer
+	db         *gorp.DB
+	root       user.User
 	// faultyFS holds the Core's time-series data and fails the operations a spec sets.
 	faultyFS *FaultyFS
 )
@@ -67,14 +68,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		KV: DeferClose(memkv.New()),
 		TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
 	}
-	node := testutil.NewCluster(ctx, 0).Provision(
-		ctx,
-		distribution.LayerConfig{Storage: store},
-	)
+	node := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),
 	}))
-	svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
+	db = node.DB
+	svc = MustOpen(service.OpenLayer(ctx, service.LayerConfig{
 		Distribution: node.Layer,
 		Security:     sec,
 		Storage:      store,
@@ -85,20 +84,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		SecretsKey: secret.NewEncryptionKey(),
 	}))
 	framerSvc = svc.Framer
-	channelWriter = svc.Channel.NewWriter(nil)
 	channelSvc = svc.Channel
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
-	secretSvc = svc.Secret
 	apiSvc = MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
+		DB:      db,
 		Framer:  svc.Framer,
 		Channel: svc.Channel,
 		RBAC:    svc.RBAC,
+		Records: svc.Signals.Records(),
 	}))
 	Expect(svc.User.NewRetrieve().
 		Where(user.MatchRootUser(true)).
 		Entry(&root).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 })
 
 // rootCtx returns a context with the suite's root user installed as the request
@@ -122,10 +121,12 @@ func createUserGranted(
 	objects ...resource.ID,
 ) user.User {
 	GinkgoHelper()
-	u := MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+	u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "api-framer-" + uuid.New().String(),
 	}))
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, u.Key, actions, objects...))
+	MustSucceed(
+		rbactestutil.Grant(ctx, db, rbacSvc, userSvc, u.Key, actions, objects...),
+	)
 	return u
 }

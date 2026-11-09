@@ -19,12 +19,13 @@ import (
 	"github.com/synnaxlabs/gorp"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -49,6 +50,8 @@ var _ = Describe("Service", func() {
 				Type:               testType,
 				Ladder:             arcversions.ConfigLadder,
 				SetEntryKey:        (*arctask.Config).SetKey,
+				PatchEntry:         (*arctask.Config).Patch,
+				HashEntry:          (*arctask.Config).HashContent,
 				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
 				ValidateEntry:      (*arctask.Config).Validate,
 			},
@@ -72,6 +75,8 @@ var _ = Describe("Service", func() {
 				config.ServiceConfig[arctask.Config]{
 					Type:        testType,
 					SetEntryKey: (*arctask.Config).SetKey,
+					PatchEntry:  (*arctask.Config).Patch,
+					HashEntry:   (*arctask.Config).HashContent,
 				},
 			)).Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
@@ -82,6 +87,8 @@ var _ = Describe("Service", func() {
 				config.ServiceConfig[arctask.Config]{
 					DB:          db,
 					SetEntryKey: (*arctask.Config).SetKey,
+					PatchEntry:  (*arctask.Config).Patch,
+					HashEntry:   (*arctask.Config).HashContent,
 				},
 			)).Error().To(MatchError(ContainSubstring("type: required")))
 		})
@@ -107,6 +114,8 @@ var _ = Describe("Service", func() {
 					DB:          db,
 					Type:        testType,
 					SetEntryKey: (*arctask.Config).SetKey,
+					PatchEntry:  (*arctask.Config).Patch,
+					HashEntry:   (*arctask.Config).HashContent,
 				},
 			)).Error().To(MatchError(ContainSubstring(
 				"ladder.decode: must be non-nil",
@@ -129,7 +138,7 @@ var _ = Describe("Service", func() {
 				"arc_key":     arcKey.String(),
 				"performance": "high",
 			}))
-			data := MustSucceed(svc.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["arc_key"]).To(Equal(arcKey.String()))
 			Expect(data["performance"]).To(Equal("high"))
@@ -139,7 +148,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 			}))
-			data := MustSucceed(svc.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read(ctx, db, key))
 			Expect(data["performance"]).To(Equal("auto"))
 		})
 
@@ -147,32 +156,34 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := createTask(ctx)
-			rec := MustSucceed(svc.Prepare(ctx, nil, key, "", msgpack.EncodedJSON{
+			rec := MustSucceed(svc.Prepare(ctx, db, key, "", msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
-			}, nil))
-			Expect(rec.Data()["performance"]).To(Equal("auto"))
-			Expect(rec.Write(ctx, nil)).To(Succeed())
-			Expect(rec.Data()).To(Equal(MustSucceed(svc.Read(ctx, nil, key))))
+			}))
+			Expect(MustSucceed(rec.Data())["performance"]).To(Equal("auto"))
+			Expect(rec.Write(ctx, db)).To(Succeed())
+			Expect(
+				MustSucceed(rec.Data()),
+			).To(Equal(MustSucceed(svc.Read(ctx, db, key))))
 		})
 
 		It("Should not write the record before Write", func(ctx SpecContext) {
 			key := uuid.New()
-			MustSucceed(svc.Prepare(ctx, nil, key, "", msgpack.EncodedJSON{
+			MustSucceed(svc.Prepare(ctx, db, key, "", msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
-			}, nil))
-			Expect(svc.Read(ctx, nil, key)).Error().To(MatchError(query.ErrNotFound))
+			}))
+			Expect(svc.Read(ctx, db, key)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should not store a record whose key is not a task's key", func(
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			rec := MustSucceed(svc.Prepare(ctx, nil, key, "", msgpack.EncodedJSON{
+			rec := MustSucceed(svc.Prepare(ctx, db, key, "", msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
-			}, nil))
-			Expect(rec.Write(ctx, nil)).
+			}))
+			Expect(rec.Write(ctx, db)).
 				To(MatchError(ContainSubstring("key: task %s does not exist", key)))
-			Expect(svc.Read(ctx, nil, key)).Error().To(MatchError(query.ErrNotFound))
+			Expect(svc.Read(ctx, db, key)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should overwrite the record stored under the same key", func(
@@ -182,82 +193,172 @@ var _ = Describe("Service", func() {
 				"arc_key":     uuid.New().String(),
 				"performance": "high",
 			}))
-			Expect(MustSucceed(svc.Prepare(ctx, nil, key, "", msgpack.EncodedJSON{
+			Expect(MustSucceed(svc.Prepare(ctx, db, key, "", msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "low",
-			}, nil)).Write(ctx, nil)).To(Succeed())
-			data := MustSucceed(svc.Read(ctx, nil, key))
+			})).Write(ctx, db)).To(Succeed())
+			data := MustSucceed(svc.Read(ctx, db, key))
 			Expect(data["performance"]).To(Equal("low"))
 		})
 
 		It("Should return a validation error when the data does not decode", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Prepare(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
+			Expect(svc.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"arc_key": 123,
-			}, nil)).Error().To(MatchError(validate.ErrValidation))
+			})).Error().To(MatchError(validate.ErrValidation))
 		})
 
 		It("Should return the record's validation error when it fails validation", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Prepare(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
+			Expect(svc.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "BOGUS",
-			}, nil)).Error().
-				To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+			})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
 		})
 	})
 
-	Describe("PrepareStrict", func() {
-		It("Should store a config whose members the record declares", func(
+	Describe("Edit", func() {
+		set := func(path []string, value any) patch.Cursor {
+			GinkgoHelper()
+			return MustSucceed(patch.Begin(patch.Set{
+				Path:  append([]string{"config"}, path...),
+				Value: value,
+			})).Next()
+		}
+
+		It("Should apply the actions to the stored record", func(ctx SpecContext) {
+			key := createTask(ctx)
+			rec, changed := MustSucceed2(svc.Edit(
+				ctx,
+				db,
+				key,
+				"",
+				[]patch.Cursor{set([]string{"performance"}, "high")},
+			))
+			Expect(changed).To(BeFalse())
+			Expect(rec.Write(ctx, db)).To(Succeed())
+			data := MustSucceed(svc.Read(ctx, db, key))
+			Expect(data["performance"]).To(Equal("high"))
+			Expect(MustSucceed(rec.Data())).To(Equal(data))
+		})
+
+		It("Should report a change when storing fills a default", func(
 			ctx SpecContext,
 		) {
 			key := createTask(ctx)
-			Expect(MustSucceed(svc.PrepareStrict(ctx, nil, key, "", msgpack.EncodedJSON{
+			rec, changed := MustSucceed2(svc.Edit(
+				ctx,
+				db,
+				key,
+				"",
+				[]patch.Cursor{set([]string{"performance"}, "")},
+			))
+			Expect(changed).To(BeTrue())
+			Expect(MustSucceed(rec.Data())["performance"]).To(Equal("auto"))
+		})
+
+		It("Should report a change when a value lacks a member", func(
+			ctx SpecContext,
+		) {
+			key := createTask(ctx)
+			arc := uuid.New()
+			rec, changed := MustSucceed2(svc.Edit(ctx, db, key, "", []patch.Cursor{
+				set(nil, map[string]any{"arc_key": arc.String()}),
+			}))
+			Expect(changed).To(BeTrue())
+			Expect(MustSucceed(rec.Data())).To(SatisfyAll(
+				HaveKeyWithValue("arc_key", arc.String()),
+				HaveKeyWithValue("performance", "auto"),
+			))
+		})
+
+		It("Should report a change when an action changes the key", func(
+			ctx SpecContext,
+		) {
+			key := createTask(ctx)
+			rec, changed := MustSucceed2(svc.Edit(ctx, db, key, "", []patch.Cursor{
+				set([]string{"key"}, uuid.New().String()),
+			}))
+			Expect(changed).To(BeTrue())
+			Expect(MustSucceed(rec.Data())).To(HaveKeyWithValue("key", key.String()))
+		})
+
+		It("Should hash the record as Hash does once written", func(ctx SpecContext) {
+			key := createTask(ctx)
+			rec := MustSucceed(svc.Prepare(ctx, db, key, "", msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "high",
-			}, nil)).Write(ctx, nil)).To(Succeed())
-			data := MustSucceed(svc.Read(ctx, nil, key))
-			Expect(data["performance"]).To(Equal("high"))
+			}))
+			Expect(rec.Write(ctx, db)).To(Succeed())
+			Expect(rec.Hash()).To(HaveLen(16))
+			Expect(MustSucceed(svc.Hash(ctx, db, key))).To(Equal(rec.Hash()))
 		})
 
-		It("Should return the record as Read returns it once stored", func(
+		It("Should hash records with the same content under other keys equally", func(
 			ctx SpecContext,
 		) {
-			key := createTask(ctx)
-			rec := MustSucceed(svc.PrepareStrict(ctx, nil, key, "", msgpack.EncodedJSON{
-				"arc_key": uuid.New().String(),
-			}, nil))
-			Expect(rec.Data()["performance"]).To(Equal("auto"))
-			Expect(rec.Write(ctx, nil)).To(Succeed())
-			Expect(rec.Data()).To(Equal(MustSucceed(svc.Read(ctx, nil, key))))
+			arc := uuid.New().String()
+			first := MustSucceed(
+				svc.Prepare(ctx, db, createTask(ctx), "", msgpack.EncodedJSON{
+					"arc_key": arc,
+				}),
+			)
+			second := MustSucceed(
+				svc.Prepare(ctx, db, createTask(ctx), "", msgpack.EncodedJSON{
+					"arc_key": arc,
+				}),
+			)
+			third := MustSucceed(
+				svc.Prepare(ctx, db, createTask(ctx), "", msgpack.EncodedJSON{
+					"arc_key":     arc,
+					"performance": "high",
+				}),
+			)
+			Expect(first.Hash()).To(Equal(second.Hash()))
+			Expect(first.Hash()).ToNot(Equal(third.Hash()))
 		})
 
-		It("Should reject a member the record does not declare", func(
+		It("Should reject a path to a member the record does not declare", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(svc.PrepareStrict(ctx, nil, key, "", msgpack.EncodedJSON{
-				"arc_key":     uuid.New().String(),
-				"performnace": "high",
-			}, nil)).Error().To(SatisfyAll(
+			Expect(svc.Edit(ctx, db, createTask(ctx), "", []patch.Cursor{
+				set([]string{"performnace"}, "high"),
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("the path names no editable field")),
+			))
+		})
+
+		It("Should reject a value holding a member the record does not declare", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.Edit(ctx, db, createTask(ctx), "", []patch.Cursor{
+				set(nil, map[string]any{
+					"arc_key":     uuid.New().String(),
+					"performnace": "high",
+				}),
+			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(
 					ContainSubstring(`unknown object member name "performnace"`),
 				),
 			))
-			Expect(svc.Read(ctx, nil, key)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should return the record's validation error when it fails validation", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.PrepareStrict(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
-				"arc_key":     uuid.New().String(),
-				"performance": "BOGUS",
-			}, nil)).Error().
-				To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+			Expect(svc.Edit(ctx, db, createTask(ctx), "", []patch.Cursor{
+				set([]string{"performance"}, "BOGUS"),
+			})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+		})
+
+		It("Should return not found for a missing record", func(ctx SpecContext) {
+			Expect(svc.Edit(ctx, db, uuid.New(), "", []patch.Cursor{
+				set([]string{"performance"}, "high"),
+			})).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -269,16 +370,25 @@ var _ = Describe("Service", func() {
 				"arc_key": uuid.New().String(),
 				"extra":   true,
 			}))
-			Expect(MustSucceed(svc.Read(ctx, nil, key))).ToNot(HaveKey("extra"))
+			Expect(MustSucceed(svc.Read(ctx, db, key))).ToNot(HaveKey("extra"))
 		})
 
 		Context("With a resolve hook", func() {
+			type (
+				write   = func(context.Context, gorp.Tx) error
+				resolve = func(
+					context.Context,
+					gorp.Snapshot,
+					string,
+					*arctask.Config,
+				) (write, error)
+			)
 			// openResolving opens the store on a DB of its own, as two stores of one
 			// type cannot share a DB.
 			openResolving := func(
 				ctx SpecContext,
-				resolve func(context.Context, gorp.Tx, string, *arctask.Config) error,
-			) (*config.Service[arctask.Config], *tasktestutil.Tasks) {
+				resolve resolve,
+			) (*config.Service[arctask.Config], *tasktestutil.Tasks, *gorp.DB) {
 				GinkgoHelper()
 				db := DeferClose(gorp.Wrap(memkv.New()))
 				resolving := MustOpen(config.OpenService(
@@ -288,6 +398,8 @@ var _ = Describe("Service", func() {
 						Type:          testType,
 						Ladder:        arcversions.ConfigLadder,
 						SetEntryKey:   (*arctask.Config).SetKey,
+						PatchEntry:    (*arctask.Config).Patch,
+						HashEntry:     (*arctask.Config).HashContent,
 						ResolveEntry:  resolve,
 						ValidateEntry: (*arctask.Config).Validate,
 					},
@@ -298,82 +410,121 @@ var _ = Describe("Service", func() {
 						DB:     db,
 						Stores: []config.Store{resolving},
 					},
-				))
+				)), db
+			}
+			data := func() msgpack.EncodedJSON {
+				return msgpack.EncodedJSON{
+					"arc_key":     uuid.New().String(),
+					"performance": "low",
+				}
 			}
 
 			It("Should store the entry the hook resolves, before validating it", func(
 				ctx SpecContext,
 			) {
-				resolving, tasks := openResolving(ctx, func(
+				resolving, tasks, db := openResolving(ctx, func(
 					_ context.Context,
-					tx gorp.Tx,
+					snap gorp.Snapshot,
 					_ string,
 					c *arctask.Config,
-				) error {
-					Expect(tx).ToNot(BeNil())
+				) (write, error) {
+					Expect(snap).ToNot(BeNil())
 					c.Performance = "low"
-					return nil
+					return nil, nil
 				})
 				key := MustSucceed(tasks.Create(ctx, resolving, msgpack.EncodedJSON{
 					"arc_key":     uuid.New().String(),
 					"performance": "BOGUS",
 				}))
-				data := MustSucceed(resolving.Read(ctx, nil, key))
+				data := MustSucceed(resolving.Read(ctx, db, key))
 				Expect(data["performance"]).To(Equal("low"))
 			})
-
-			DescribeTable("Should give the hook the name of the task", func(
-				ctx SpecContext,
-				strict bool,
-			) {
-				var name string
-				resolving, _ := openResolving(ctx, func(
-					_ context.Context,
-					_ gorp.Tx,
-					n string,
-					_ *arctask.Config,
-				) error {
-					name = n
-					return nil
-				})
-				prepare := resolving.Prepare
-				if strict {
-					prepare = resolving.PrepareStrict
-				}
-				MustSucceed(prepare(ctx, nil, uuid.New(), "Pump", msgpack.EncodedJSON{
-					"arc_key":     uuid.New().String(),
-					"performance": "low",
-				}, nil))
-				Expect(name).To(Equal("Pump"))
-			},
-				Entry("Prepare", false),
-				Entry("PrepareStrict", true),
-			)
 
 			It("Should return the hook's error and store nothing", func(
 				ctx SpecContext,
 			) {
-				resolving, _ := openResolving(ctx, func(
+				resolving, _, db := openResolving(ctx, func(
 					context.Context,
-					gorp.Tx,
+					gorp.Snapshot,
 					string,
 					*arctask.Config,
-				) error {
-					return errors.New("resolve failed")
+				) (write, error) {
+					return nil, errors.New("resolve failed")
 				})
 				key := uuid.New()
-				Expect(resolving.Prepare(ctx, nil, key, "", msgpack.EncodedJSON{
-					"arc_key": uuid.New().String(),
-				}, nil)).Error().To(MatchError("resolve failed"))
-				Expect(resolving.Read(ctx, nil, key)).Error().
+				Expect(resolving.Prepare(ctx, db, key, "", data())).Error().
+					To(MatchError("resolve failed"))
+				Expect(resolving.Read(ctx, db, key)).Error().
 					To(MatchError(query.ErrNotFound))
+			})
+
+			It("Should give the hook the name of the task", func(ctx SpecContext) {
+				var names []string
+				resolving, tasks, db := openResolving(ctx, func(
+					_ context.Context,
+					_ gorp.Snapshot,
+					name string,
+					_ *arctask.Config,
+				) (write, error) {
+					names = append(names, name)
+					return nil, nil
+				})
+				key := MustSucceed(tasks.Create(ctx, resolving, data()))
+				MustSucceed2(resolving.Edit(ctx, db, key, "Pump", nil))
+				Expect(names).To(Equal([]string{testType, "Pump"}))
+			})
+
+			It(
+				"Should run the hook's write on the record write, before the entry",
+				func(
+					ctx SpecContext,
+				) {
+					var (
+						resolving *config.Service[arctask.Config]
+						stored    []bool
+					)
+					resolving, tasks, db := openResolving(ctx, func(
+						_ context.Context,
+						_ gorp.Snapshot,
+						_ string,
+						c *arctask.Config,
+					) (write, error) {
+						key := c.GorpKey()
+						return func(ctx context.Context, tx gorp.Tx) error {
+							_, err := resolving.Read(ctx, tx, key)
+							stored = append(stored, err == nil)
+							return nil
+						}, nil
+					})
+					MustSucceed(resolving.Prepare(ctx, db, uuid.New(), "", data()))
+					Expect(stored).To(BeEmpty())
+					MustSucceed(tasks.Create(ctx, resolving, data()))
+					Expect(stored).To(Equal([]bool{false}))
+				},
+			)
+
+			It("Should fail the record write with the error of the hook's write", func(
+				ctx SpecContext,
+			) {
+				resolving, tasks, _ := openResolving(ctx, func(
+					context.Context,
+					gorp.Snapshot,
+					string,
+					*arctask.Config,
+				) (write, error) {
+					return func(context.Context, gorp.Tx) error {
+						return errors.New("write failed")
+					}, nil
+				})
+				Expect(tasks.Create(ctx, resolving, data())).Error().
+					To(MatchError("write failed"))
 			})
 		})
 	})
 
 	Describe("Read", func() {
 		It("Should return not found for a missing record", func(ctx SpecContext) {
-			Expect(svc.Read(ctx, nil, uuid.New())).Error().
+			Expect(svc.Read(ctx, db, uuid.New())).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 	})
@@ -383,18 +534,18 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 			}))
-			Expect(svc.Delete(ctx, nil, key)).To(Succeed())
-			Expect(svc.Read(ctx, nil, key)).Error().
+			Expect(svc.Delete(ctx, db, key)).To(Succeed())
+			Expect(svc.Read(ctx, db, key)).Error().
 				To(MatchError(query.ErrNotFound))
-			Expect(svc.Delete(ctx, nil, key)).To(Succeed())
+			Expect(svc.Delete(ctx, db, key)).To(Succeed())
 		})
 
 		It("Should remove multiple records in one call", func(ctx SpecContext) {
 			k1, k2 := createTask(ctx), createTask(ctx)
-			Expect(svc.Delete(ctx, nil, k1, k2)).To(Succeed())
-			Expect(svc.Read(ctx, nil, k1)).Error().
+			Expect(svc.Delete(ctx, db, k1, k2)).To(Succeed())
+			Expect(svc.Read(ctx, db, k1)).Error().
 				To(MatchError(query.ErrNotFound))
-			Expect(svc.Read(ctx, nil, k2)).Error().
+			Expect(svc.Read(ctx, db, k2)).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 	})
@@ -406,18 +557,18 @@ var _ = Describe("Service", func() {
 				"arc_key": arcKey.String(),
 			}))
 			to := createTask(ctx)
-			Expect(svc.Copy(ctx, nil, from, to, nil)).To(Succeed())
-			data := MustSucceed(svc.Read(ctx, nil, to))
+			Expect(svc.Copy(ctx, db, from, to)).To(Succeed())
+			data := MustSucceed(svc.Read(ctx, db, to))
 			Expect(data["key"]).To(Equal(to.String()))
 			Expect(data["arc_key"]).To(Equal(arcKey.String()))
-			original := MustSucceed(svc.Read(ctx, nil, from))
+			original := MustSucceed(svc.Read(ctx, db, from))
 			Expect(original["key"]).To(Equal(from.String()))
 		})
 
 		It("Should return not found when the source is missing", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Copy(ctx, nil, uuid.New(), uuid.New(), nil)).
+			Expect(svc.Copy(ctx, db, uuid.New(), uuid.New())).
 				To(MatchError(query.ErrNotFound))
 		})
 	})
@@ -428,11 +579,13 @@ var _ = Describe("Service", func() {
 			versioned = MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:            db,
+					DB:            DeferClose(gorp.Wrap(memkv.New())),
 					Type:          "versioned_test",
 					Ladder:        arcversions.ConfigLadder,
 					LegacyVersion: 1,
 					SetEntryKey:   (*arctask.Config).SetKey,
+					PatchEntry:    (*arctask.Config).Patch,
+					HashEntry:     (*arctask.Config).HashContent,
 					Legacy: &legacy.Rewrite{
 						Post: func(cfg msgpack.EncodedJSON) {
 							legacy.RenameKey(cfg, "module", "arc_key")
@@ -446,7 +599,7 @@ var _ = Describe("Service", func() {
 			Expect(
 				versioned.Normalize(
 					ctx,
-					nil,
+					db,
 					arcversions.Latest+1,
 					msgpack.EncodedJSON{},
 				),
@@ -463,7 +616,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			arcKey := uuid.New()
-			out := MustSucceed(versioned.Normalize(ctx, nil,
+			out := MustSucceed(versioned.Normalize(ctx, db,
 				arcversions.Latest,
 				msgpack.EncodedJSON{"arc_key": arcKey.String(), "unknown": 1},
 			))
@@ -476,7 +629,7 @@ var _ = Describe("Service", func() {
 				"ladder's first version",
 			func(ctx SpecContext) {
 				arcKey := uuid.New()
-				out := MustSucceed(versioned.Normalize(ctx, nil, 0, msgpack.EncodedJSON{
+				out := MustSucceed(versioned.Normalize(ctx, db, 0, msgpack.EncodedJSON{
 					"module":     arcKey.String(),
 					"dataSaving": true,
 				}))
@@ -492,14 +645,16 @@ var _ = Describe("Service", func() {
 			eraOnly := MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:          db,
+					DB:          DeferClose(gorp.Wrap(memkv.New())),
 					Type:        "era_only_test",
 					Ladder:      arcversions.ConfigLadder,
 					SetEntryKey: (*arctask.Config).SetKey,
+					PatchEntry:  (*arctask.Config).Patch,
+					HashEntry:   (*arctask.Config).HashContent,
 				},
 			))
 			arcKey := uuid.New()
-			out := MustSucceed(eraOnly.Normalize(ctx, nil, 0, msgpack.EncodedJSON{
+			out := MustSucceed(eraOnly.Normalize(ctx, db, 0, msgpack.EncodedJSON{
 				"arcKey":     arcKey.String(),
 				"dataSaving": false,
 			}))
@@ -510,7 +665,7 @@ var _ = Describe("Service", func() {
 		It("Should apply the store's defaults to the normalized config", func(
 			ctx SpecContext,
 		) {
-			out := MustSucceed(svc.Normalize(ctx, nil,
+			out := MustSucceed(svc.Normalize(ctx, db,
 				arcversions.Latest,
 				msgpack.EncodedJSON{"arc_key": uuid.New().String()},
 			))
@@ -521,7 +676,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			arcKey := uuid.New()
-			out := MustSucceed(versioned.Normalize(ctx, nil,
+			out := MustSucceed(versioned.Normalize(ctx, db,
 				arcversions.ConfigLadder.First-1,
 				msgpack.EncodedJSON{"module": arcKey.String()},
 			))
@@ -534,7 +689,7 @@ var _ = Describe("Service", func() {
 			Expect(
 				versioned.Normalize(
 					ctx,
-					nil,
+					db,
 					arcversions.Latest,
 					msgpack.EncodedJSON{"arc_key": 12},
 				),
@@ -563,6 +718,8 @@ var _ = Describe("Registry", func() {
 				Type:        testType,
 				Ladder:      arcversions.ConfigLadder,
 				SetEntryKey: (*arctask.Config).SetKey,
+				PatchEntry:  (*arctask.Config).Patch,
+				HashEntry:   (*arctask.Config).HashContent,
 			},
 		))
 	})
@@ -602,8 +759,6 @@ type target struct{ Key uuid.UUID }
 
 func (t target) GorpKey() uuid.UUID { return t.Key }
 
-func (target) SetOptions() []any { return nil }
-
 const targetTable = "config_target"
 
 var _ = Describe("TableName", func() {
@@ -623,6 +778,7 @@ var _ = Describe("With a detach reference", func() {
 				Name:     "arc_key",
 				Table:    targetTable,
 				OnDelete: gorp.Detach,
+				Kind:     gorp.Use,
 				Targets: func(c *arctask.Config) []uuid.UUID {
 					if c.ArcKey == uuid.Nil() {
 						return nil
@@ -642,6 +798,8 @@ var _ = Describe("With a detach reference", func() {
 				Type:               testType,
 				Ladder:             arcversions.ConfigLadder,
 				SetEntryKey:        (*arctask.Config).SetKey,
+				PatchEntry:         (*arctask.Config).Patch,
+				HashEntry:          (*arctask.Config).HashContent,
 				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
 				References: []gorp.Reference[uuid.UUID, arctask.Config]{
 					reference(),
@@ -689,144 +847,81 @@ var _ = Describe("With a detach reference", func() {
 		})
 	})
 
-	Describe("ObserveDetaches", func() {
-		It(
-			"Should notify the key of a record whose target a delete detached",
-			func(ctx SpecContext) {
-				svc := openService(ctx)
-				tasks := MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
-					DB:     ldb,
-					Stores: []config.Store{svc},
-				}))
-				t := createTarget(ctx)
-				key := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
-					"arc_key": t.Key.String(),
-				}))
-				var detached []uuid.UUID
-				DeferCleanup(svc.ObserveDetaches().OnChange(
-					func(_ context.Context, k uuid.UUID) {
-						detached = append(detached, k)
-					},
-				))
-				Expect(targets.NewDelete().
-					Where(gorp.MatchKeys[uuid.UUID, target](t.Key)).
-					Exec(ctx, ldb)).To(Succeed())
-				Expect(detached).To(Equal([]uuid.UUID{key}))
-				Expect(MustSucceed(svc.Read(ctx, ldb, key))["arc_key"]).
-					To(Equal(uuid.Nil().String()))
-			},
-		)
-	})
-
-	Describe("Guard", func() {
+	Describe("OnDetach", func() {
 		var (
 			svc   *config.Service[arctask.Config]
 			tasks *tasktestutil.Tasks
-			seen  []resource.ID
+			t     target
+			key   uuid.UUID
 		)
-		see := func(ids []resource.ID) error {
-			seen = ids
-			return nil
-		}
-		deny := func([]resource.ID) error { return errors.New("denied") }
 		BeforeEach(func(ctx SpecContext) {
-			seen = nil
 			svc = openService(ctx)
 			tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 				DB:     ldb,
 				Stores: []config.Store{svc},
 			}))
-		})
-
-		DescribeTable("Should give the guard the references other than the task", func(
-			ctx SpecContext,
-			strict bool,
-		) {
-			t := createTarget(ctx)
-			prepare := svc.Prepare
-			if strict {
-				prepare = svc.PrepareStrict
-			}
-			MustSucceed(prepare(ctx, ldb, uuid.New(), "", msgpack.EncodedJSON{
+			t = createTarget(ctx)
+			key = MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
 				"arc_key": t.Key.String(),
-			}, see))
-			want := resource.ID{Type: targetTable, Key: t.Key.String()}
-			Expect(seen).To(Equal([]resource.ID{want}))
-		},
-			Entry("Prepare", false),
-			Entry("PrepareStrict", true),
+			}))
+		})
+		deleteTarget := func(ctx SpecContext, tx gorp.Tx) error {
+			return targets.NewDelete().
+				Where(gorp.MatchKeys[uuid.UUID, target](t.Key)).
+				Exec(ctx, tx)
+		}
+		configHash := func(ctx SpecContext, tx gorp.Tx) string {
+			GinkgoHelper()
+			var res task.Task
+			Expect(tasks.NewRetrieve().
+				Where(task.MatchKeys(key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			return res.ConfigHash
+		}
+
+		It(
+			"Should run the hook in the delete's transaction after the detach",
+			func(ctx SpecContext) {
+				var (
+					detached []uuid.UUID
+					arcKeys  []any
+				)
+				svc.OnDetach(func(ctx context.Context, tx gorp.Tx, k uuid.UUID) error {
+					detached = append(detached, k)
+					arcKeys = append(
+						arcKeys,
+						MustSucceed(svc.Read(ctx, tx, k))["arc_key"],
+					)
+					return nil
+				})
+				Expect(deleteTarget(ctx, ldb)).To(Succeed())
+				Expect(detached).To(Equal([]uuid.UUID{key}))
+				Expect(arcKeys).To(Equal([]any{uuid.Nil().String()}))
+			},
 		)
 
-		It("Should return the error of the guard from Prepare", func(ctx SpecContext) {
-			Expect(svc.Prepare(ctx, ldb, uuid.New(), "", msgpack.EncodedJSON{
-				"arc_key": createTarget(ctx).Key.String(),
-			}, deny)).Error().To(MatchError("denied"))
+		It("Should fail the delete when the hook fails", func(ctx SpecContext) {
+			svc.OnDetach(func(context.Context, gorp.Tx, uuid.UUID) error {
+				return errors.New("hook failed")
+			})
+			Expect(deleteTarget(ctx, ldb)).To(MatchError("hook failed"))
+			Expect(targets.NewRetrieve().
+				Where(gorp.MatchKeys[uuid.UUID, target](t.Key)).
+				Exists(ctx, ldb)).To(BeTrue())
 		})
 
-		It("Should give the guard the references before the resolve hook runs", func(
-			ctx SpecContext,
-		) {
-			rdb := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
-			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, target]{
-				DB:   rdb,
-				Name: targetTable,
-			}))
-			resolving := MustOpen(config.OpenService(
-				ctx,
-				config.ServiceConfig[arctask.Config]{
-					DB:          rdb,
-					Type:        testType,
-					Ladder:      arcversions.ConfigLadder,
-					SetEntryKey: (*arctask.Config).SetKey,
-					References: []gorp.Reference[uuid.UUID, arctask.Config]{
-						reference(),
-					},
-					ResolveEntry: func(
-						_ context.Context,
-						_ gorp.Tx,
-						_ string,
-						c *arctask.Config,
-					) error {
-						c.ArcKey = uuid.New()
-						return nil
-					},
-				},
-			))
-			named := uuid.New()
-			MustSucceed(resolving.Prepare(ctx, rdb, uuid.New(), "", msgpack.EncodedJSON{
-				"arc_key": named.String(),
-			}, see))
-			want := resource.ID{Type: targetTable, Key: named.String()}
-			Expect(seen).To(Equal([]resource.ID{want}))
-		})
-
-		It("Should give the guard the references of a copied record", func(
-			ctx SpecContext,
-		) {
-			t := createTarget(ctx)
-			from := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
-				"arc_key": t.Key.String(),
-			}))
-			to := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
-				"arc_key": createTarget(ctx).Key.String(),
-			}))
-			Expect(svc.Copy(ctx, ldb, from, to, see)).To(Succeed())
-			want := resource.ID{Type: targetTable, Key: t.Key.String()}
-			Expect(seen).To(Equal([]resource.ID{want}))
-		})
-
-		It("Should store no copy when the guard fails", func(ctx SpecContext) {
-			from := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
-				"arc_key": createTarget(ctx).Key.String(),
-			}))
-			kept := createTarget(ctx)
-			to := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
-				"arc_key": kept.Key.String(),
-			}))
-			Expect(svc.Copy(ctx, ldb, from, to, deny)).To(MatchError("denied"))
-			Expect(MustSucceed(svc.Read(ctx, ldb, to))["arc_key"]).
-				To(Equal(kept.Key.String()))
-		})
+		It(
+			"Should let the task service store the new config hash in the delete's "+
+				"transaction",
+			func(ctx SpecContext) {
+				before := configHash(ctx, ldb)
+				tx := DeferClose(ldb.OpenTx())
+				Expect(deleteTarget(ctx, tx)).To(Succeed())
+				Expect(configHash(ctx, tx)).ToNot(Equal(before))
+				Expect(configHash(ctx, ldb)).To(Equal(before))
+			},
+		)
 	})
 
 	Describe("OpenService", func() {
@@ -848,5 +943,18 @@ var _ = Describe("With a detach reference", func() {
 					To(Equal(uuid.Nil().String()))
 			},
 		)
+	})
+})
+
+var _ = Describe("TaskOf", func() {
+	It("Should return the task whose config record a target names", func() {
+		key := uuid.New()
+		id := MustBeOk(config.TaskOf(gorp.NewTarget(config.TableName(testType), key)))
+		Expect(id).To(Equal(task.ResourceID(key)))
+	})
+
+	It("Should return false for a table that stores no config records", func() {
+		_, ok := config.TaskOf(gorp.NewTarget("task", uuid.New()))
+		Expect(ok).To(BeFalse())
 	})
 })

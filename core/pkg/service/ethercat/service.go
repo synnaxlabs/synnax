@@ -95,14 +95,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				v3.ReadMigration,
 			},
 			SetEntryKey:        (*ReadConfig).SetKey,
+			PatchEntry:         (*ReadConfig).Patch,
+			HashEntry:          (*ReadConfig).HashContent,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 			ResolveEntry: func(
 				ctx context.Context,
-				tx gorp.Tx,
+				snap gorp.Snapshot,
 				_ string,
 				c *ReadConfig,
-			) error {
-				return v3.ResolveReadConfig(ctx, tx, slaves, c)
+			) (func(context.Context, gorp.Tx) error, error) {
+				return nil, v3.ResolveReadConfig(ctx, snap, slaves, c)
 			},
 		},
 	); !ok(err, s.Read) {
@@ -122,14 +124,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				v3.WriteMigration,
 			},
 			SetEntryKey:        (*WriteConfig).SetKey,
+			PatchEntry:         (*WriteConfig).Patch,
+			HashEntry:          (*WriteConfig).HashContent,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 			ResolveEntry: func(
 				ctx context.Context,
-				tx gorp.Tx,
+				snap gorp.Snapshot,
 				_ string,
 				c *WriteConfig,
-			) error {
-				return v3.ResolveWriteConfig(ctx, tx, slaves, c)
+			) (func(context.Context, gorp.Tx) error, error) {
+				return nil, v3.ResolveWriteConfig(ctx, snap, slaves, c)
 			},
 		},
 	); !ok(err, s.Write) {
@@ -144,6 +148,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:             versions.ScanConfigLadder,
 			Legacy:             &legacy.Scan,
 			SetEntryKey:        (*ScanConfig).SetKey,
+			PatchEntry:         (*ScanConfig).Patch,
+			HashEntry:          (*ScanConfig).HashContent,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
 		},
 	); !ok(err, s.Scan) {
@@ -166,14 +172,14 @@ func (s *Service) Stores() []config.Store {
 func slavesOf(svc *device.Service) v2.Slaves {
 	return func(
 		ctx context.Context,
-		tx gorp.Tx,
+		snap gorp.Snapshot,
 		keys []string,
 	) (map[string]v2.Slave, error) {
 		var devices []device.Device
 		if err := svc.NewRetrieve().
 			Where(device.And(device.MatchKeys(keys...), device.MatchMakes("ethercat"))).
 			Entries(&devices).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, snap); err != nil {
 			return nil, err
 		}
 		slaves := make(map[string]v2.Slave, len(devices))

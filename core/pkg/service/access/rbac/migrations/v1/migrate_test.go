@@ -61,11 +61,15 @@ var _ = Describe("User role migration", func() {
 	createRole := func(ctx SpecContext, key role.Key, grants ...policy.Policy) role.Key {
 		GinkgoHelper()
 		r := role.Role{Key: key, Name: "role"}
-		Expect(roles.NewWriter(nil, false).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return roles.NewWriter(tx, false).Create(ctx, &r)
+		})).To(Succeed())
 		for _, p := range grants {
 			p.Role = r.Key
 			p.Name = "policy"
-			Expect(policies.NewWriter(nil, false).Create(ctx, &p)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return policies.NewWriter(tx, false).Create(ctx, &p)
+			})).To(Succeed())
 		}
 		return r.Key
 	}
@@ -108,14 +112,23 @@ var _ = Describe("User role migration", func() {
 		Expect(users.NewRetrieve().
 			Where(user.MatchKeys(u.Key)).
 			Entry(&stored).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return stored.Role
 	}
 	noAccessExists := func(ctx SpecContext) bool {
 		GinkgoHelper()
 		return MustSucceed(roles.NewRetrieve().
-			Where(role.MatchKeys(v1.NoAccessKey)).
-			Exists(ctx, nil))
+			Where(role.MatchNames("No access")).
+			Exists(ctx, db))
+	}
+	noAccess := func(ctx SpecContext) role.Role {
+		GinkgoHelper()
+		var r role.Role
+		Expect(roles.NewRetrieve().
+			Where(role.MatchNames("No access")).
+			Entry(&r).
+			Exec(ctx, db)).To(Succeed())
+		return r
 	}
 
 	It("Should give each root user the Owner role", func(ctx SpecContext) {
@@ -182,17 +195,12 @@ var _ = Describe("User role migration", func() {
 		func(ctx SpecContext) {
 			u := storeUser(ctx, user.User{Name: "u"})
 			migrate(ctx)
-			Expect(roleOf(ctx, u)).To(Equal(v1.NoAccessKey))
-			var noAccess role.Role
-			Expect(roles.NewRetrieve().
-				Where(role.MatchKeys(v1.NoAccessKey)).
-				Entry(&noAccess).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(noAccess.Name).To(Equal("No access"))
-			Expect(noAccess.Internal).To(BeFalse())
+			r := noAccess(ctx)
+			Expect(roleOf(ctx, u)).To(Equal(r.Key))
+			Expect(r.Internal).To(BeFalse())
 			Expect(policies.NewRetrieve().
-				Where(policy.MatchRoles(v1.NoAccessKey)).
-				Exists(ctx, nil)).To(BeFalse())
+				Where(policy.MatchRoles(r.Key)).
+				Exists(ctx, db)).To(BeFalse())
 		},
 	)
 
@@ -211,15 +219,19 @@ var _ = Describe("User role migration", func() {
 			u := storeUser(ctx, user.User{Name: "u"})
 			storeEdges(ctx, u, uuid.New())
 			migrate(ctx)
-			Expect(roleOf(ctx, u)).To(Equal(v1.NoAccessKey))
+			Expect(roleOf(ctx, u)).To(Equal(noAccess(ctx).Key))
 		},
 	)
 
 	It("Should keep the role of a user that already holds one", func(ctx SpecContext) {
-		u := MustSucceed(users.NewWriter(nil).Create(ctx, user.User{
-			Name: "u",
-			Role: builtins.OperatorKey,
-		}))
+		var u user.User
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			u, err = users.NewWriter(tx).Create(ctx, user.User{
+				Name: "u",
+				Role: builtins.OperatorKey,
+			})
+			return err
+		})).To(Succeed())
 		storeEdges(ctx, u, builtins.OwnerKey)
 		migrate(ctx)
 		Expect(roleOf(ctx, u)).To(Equal(builtins.OperatorKey))

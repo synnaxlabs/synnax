@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -40,6 +41,15 @@ var _ = Describe("Errors", func() {
 			Expect(parent).To(MatchError(ContainSubstring("title.level: cat")))
 			Expect(parent).To(MatchError(ContainSubstring("title.notation: dog")))
 		})
+		It("Should match the error at the path", func() {
+			base := errors.Wrap(validate.ErrValidation, "cat")
+			pathed := validate.PathedError(
+				validate.PathedError(base, "first"),
+				"parent",
+			)
+			Expect(pathed).To(MatchError(validate.ErrValidation))
+			Expect(pathed).To(MatchError(base))
+		})
 		It("Should return nil when the error is nil", func() {
 			Expect(validate.PathedError(nil, "field")).To(Succeed())
 		})
@@ -63,6 +73,22 @@ var _ = Describe("Errors", func() {
 					encoded.Data,
 				).To(Equal("{\"error\":{\"type\":\"unknown\",\"data\":\"cat\"},\"path\":[\"field\"]}"))
 			})
+
+			It(
+				"Should encode a path error around a query error as that error",
+				func(ctx SpecContext) {
+					base := errors.Wrap(query.ErrNotFound, "cat")
+					encoded := errors.Encode(
+						ctx,
+						validate.PathedError(base, "field"),
+						false,
+					)
+					Expect(encoded.Type).To(Equal("sy.query.not_found"))
+					Expect(
+						errors.Decode(ctx, encoded),
+					).To(MatchError(query.ErrNotFound))
+				},
+			)
 
 			It(
 				"Should correctly encode and decode nested paths",

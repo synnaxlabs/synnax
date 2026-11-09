@@ -58,7 +58,6 @@ inline Where Where::parse(x::json::Parser parser) {
         .integrations = parser.field<std::optional<::x::filter::Contains<std::string>>>(
             "integrations"
         ),
-        .host_is_node = parser.field<std::optional<bool>>("host_is_node"),
     };
 }
 
@@ -72,7 +71,6 @@ inline x::json::json Where::to_json() const {
     if (this->embedded.has_value()) j["embedded"] = this->embedded->to_json();
     if (this->integrations.has_value())
         j["integrations"] = this->integrations->to_json();
-    if (this->host_is_node.has_value()) j["host_is_node"] = *this->host_is_node;
     return j;
 }
 

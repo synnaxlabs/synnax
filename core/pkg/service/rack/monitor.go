@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
@@ -107,10 +106,12 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 		return nil
 	}
 	racks := make([]Rack, 0, len(stale))
-	if err := m.svc.NewRetrieve().
-		Where(MatchKeys(stale...)).
-		Entries(&racks).
-		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+	if err := m.svc.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return m.svc.NewRetrieve().
+			Where(MatchKeys(stale...)).
+			Entries(&racks).
+			Exec(ctx, snap)
+	}); errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
 
@@ -252,7 +253,7 @@ func (m *monitor) handleChange(
 	defer m.mu.Unlock()
 	for ch := range t {
 		owner := ch.Value.Owner
-		if ch.Variant == xchange.VariantDelete || owner == nil ||
+		if ch.Kind == gorp.ChangeDelete || owner == nil ||
 			owner.Type != resource.TypeRack {
 			continue
 		}
@@ -284,7 +285,9 @@ func openMonitor(
 	svc *Service,
 ) (*monitor, error) {
 	var racks []Rack
-	if err := svc.NewRetrieve().Entries(&racks).Exec(ctx, nil); err != nil {
+	if err := svc.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return svc.NewRetrieve().Entries(&racks).Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
 	obs := svc.Status.Observe()

@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
@@ -34,6 +33,7 @@ import (
 // openTargets opens the device and status services on a fresh DB and returns them,
 // with the embedded rack and the Targets that create through them.
 func openTargets(ctx SpecContext) (
+	*gorp.DB,
 	*device.Service,
 	*status.Service,
 	rack.Key,
@@ -48,18 +48,19 @@ func openTargets(ctx SpecContext) (
 		DB: db,
 	}))
 	racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           db,
-		HostProvider: testutil.NewStaticHostProvider(1),
-		Status:       statuses,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roles)),
+		DB:         db,
+		HostKey:    1,
+		Status:     statuses,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roles)),
 	}))
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     db,
 		Status: statuses,
 		Rack:   racks,
 	}))
-	return devices, statuses, racks.EmbeddedKey, tasktestutil.NewTargets(
+	return db, devices, statuses, racks.EmbeddedKey, tasktestutil.NewTargets(
 		tasktestutil.TargetsConfig{
+			DB:     db,
 			Device: devices,
 			Status: statuses,
 			Rack:   racks.EmbeddedKey,
@@ -103,7 +104,7 @@ var _ = Describe("Tasks", func() {
 		key := MustSucceed(tasks.Create(ctx, svc.Config, msgpack.EncodedJSON{
 			"arc_key": arcKey.String(),
 		}))
-		data := MustSucceed(svc.Config.Read(ctx, nil, key))
+		data := MustSucceed(svc.Config.Read(ctx, db, key))
 		Expect(data["arc_key"]).To(Equal(arcKey.String()))
 		Expect(data["performance"]).To(Equal("auto"))
 	})
@@ -136,13 +137,13 @@ var _ = Describe("Tasks", func() {
 
 var _ = Describe("CreateDevice", func() {
 	It("Should create a device on the configured rack", func(ctx SpecContext) {
-		devices, _, rackKey, targets := openTargets(ctx)
+		db, devices, _, rackKey, targets := openTargets(ctx)
 		Expect(targets.CreateDevice(ctx, "dev-1")).To(Succeed())
 		var d device.Device
 		Expect(devices.NewRetrieve().
 			Where(device.MatchKeys("dev-1")).
 			Entry(&d).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(d.Rack).To(Equal(rackKey))
 		Expect(d.Name).To(Equal("dev-1"))
 	})
@@ -150,13 +151,13 @@ var _ = Describe("CreateDevice", func() {
 
 var _ = Describe("CreateStatus", func() {
 	It("Should create an info status named after its key", func(ctx SpecContext) {
-		_, statuses, _, targets := openTargets(ctx)
+		db, _, statuses, _, targets := openTargets(ctx)
 		Expect(targets.CreateStatus(ctx, "status-1")).To(Succeed())
 		var s status.Status[any]
 		Expect(statuses.NewRetrieve[any]().
 			Where(status.MatchKeys[any]("status-1")).
 			Entry(&s).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(s.Name).To(Equal("status-1"))
 		Expect(s.Variant).To(Equal(status.VariantInfo))
 	})

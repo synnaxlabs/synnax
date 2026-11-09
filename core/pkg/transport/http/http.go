@@ -121,6 +121,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/user/set-role",
 		),
+		UserDispatch: unary[user.DispatchRequest, struct{}](
+			router,
+			"/api/v1/user/dispatch",
+		),
 
 		// CHANNEL
 		ChannelCreate: unary[channel.CreateRequest, channel.CreateResponse](
@@ -138,6 +142,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ChannelRename: unary[channel.RenameRequest, struct{}](
 			router,
 			"/api/v1/channel/rename",
+		),
+		ChannelDispatch: unary[channel.DispatchRequest, channel.DispatchResponse](
+			router,
+			"/api/v1/channel/dispatch",
 		),
 
 		// CONNECTIVITY
@@ -222,6 +230,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		GroupRename: unary[group.RenameRequest, struct{}](
 			router,
 			"/api/v1"+api.PathGroupRename,
+		),
+		GroupDispatch: unary[group.DispatchRequest, struct{}](
+			router,
+			"/api/v1/group/dispatch",
 		),
 		GroupRetrieve: unary[group.RetrieveRequest, group.RetrieveResponse](
 			router,
@@ -330,6 +342,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		KVGet:    unary[kv.GetRequest, kv.GetResponse](router, "/api/v1/range/kv/get"),
 		KVSet:    unary[kv.SetRequest, struct{}](router, "/api/v1/range/kv/set"),
 		KVDelete: unary[kv.DeleteRequest, struct{}](router, "/api/v1/range/kv/delete"),
+		KVDispatch: unary[kv.DispatchRequest, struct{}](
+			router,
+			"/api/v1/range/kv/dispatch",
+		),
 
 		// ALIAS
 		AliasSet: unary[alias.SetRequest, struct{}](
@@ -352,6 +368,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/range/alias/delete",
 		),
+		AliasDispatch: unary[alias.DispatchRequest, struct{}](
+			router,
+			"/api/v1/range/alias/dispatch",
+		),
 
 		// PROJECT
 		ProjectCreate: unary[project.CreateRequest, project.CreateResponse](
@@ -369,6 +389,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ProjectRename: unary[project.RenameRequest, struct{}](
 			router,
 			"/api/v1/project/rename",
+		),
+		ProjectDispatch: unary[project.DispatchRequest, struct{}](
+			router,
+			"/api/v1/project/dispatch",
 		),
 		ProjectExport: unary[project.ExportRequest, project.ExportResponse](
 			router,
@@ -419,6 +443,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		SchematicSymbolRename: unary[symbol.RenameRequest, struct{}](
 			router,
 			"/api/v1/schematic/symbol/rename",
+		),
+		SchematicSymbolDispatch: unary[symbol.DispatchRequest, struct{}](
+			router,
+			"/api/v1/schematic/symbol/dispatch",
 		),
 		SchematicSymbolExportGroup: unary[symbol.ExportGroupRequest, symbol.ExportGroupResponse](
 			router,
@@ -544,6 +572,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/rack/rename",
 		),
+		RackDispatch: unary[rack.DispatchRequest, struct{}](
+			router,
+			"/api/v1/rack/dispatch",
+		),
 
 		// TASK
 		TaskCreate: unary[task.CreateRequest, task.CreateResponse](
@@ -588,6 +620,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/device/rename",
 		),
+		DeviceDispatch: unary[device.DispatchRequest, struct{}](
+			router,
+			"/api/v1/device/dispatch",
+		),
 
 		// ACCESS
 		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](
@@ -613,6 +649,14 @@ func Bind(layer *api.Layer, router *http.Router) {
 		AccessRetrieveRole: unary[role.RetrieveRequest, role.RetrieveResponse](
 			router,
 			"/api/v1/access/role/retrieve",
+		),
+		AccessDispatchPolicy: unary[policy.DispatchRequest, struct{}](
+			router,
+			"/api/v1/access/policy/dispatch",
+		),
+		AccessDispatchRole: unary[role.DispatchRequest, struct{}](
+			router,
+			"/api/v1/access/role/dispatch",
 		),
 
 		// ARC
@@ -644,6 +688,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ArcRenameDirectory: unary[arc.RenameDirectoryRequest, struct{}](
 			router,
 			"/api/v1/arc/directory/rename",
+		),
+		ArcDispatchDirectory: unary[arc.DispatchDirectoryRequest, struct{}](
+			router,
+			"/api/v1/arc/directory/dispatch",
 		),
 		ArcDeleteDirectory: unary[arc.DeleteDirectoryRequest, struct{}](
 			router,
@@ -694,6 +742,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/view/rename",
 		),
+		ViewDispatch: unary[view.DispatchRequest, struct{}](
+			router,
+			"/api/v1/view/dispatch",
+		),
 
 		// SECRET
 		SecretCreate: unary[secret.CreateRequest, secret.CreateResponse](
@@ -711,6 +763,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		SecretDelete: unary[secret.DeleteRequest, struct{}](
 			router,
 			"/api/v1/secret/delete",
+		),
+		SecretDispatch: unary[secret.DispatchRequest, struct{}](
+			router,
+			"/api/v1/secret/dispatch",
 		),
 		SecretGrantCreate: unary[secret.GrantCreateRequest, secret.GrantCreateResponse](
 			router,
@@ -737,6 +793,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		CertificateDelete: unary[certificate.DeleteRequest, struct{}](
 			router,
 			"/api/v1/certificate/delete",
+		),
+		CertificateDispatch: unary[certificate.DispatchRequest, struct{}](
+			router,
+			"/api/v1/certificate/dispatch",
 		),
 
 		// IMPORT/EXPORT

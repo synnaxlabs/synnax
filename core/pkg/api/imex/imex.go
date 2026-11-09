@@ -16,10 +16,7 @@ import (
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -68,10 +65,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -84,7 +77,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -92,13 +84,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.imex")
 	v.NotNil("imex", c.ImEx)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 // Service implements the ImEx API.
 type Service struct {
-	access   *rbac.Service
 	internal *imex.Service
 }
 
@@ -108,10 +98,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{
-		internal: cfg.ImEx,
-		access:   cfg.RBAC,
-	}, nil
+	return &Service{internal: cfg.ImEx}, nil
 }
 
 type (
@@ -121,57 +108,18 @@ type (
 	ImportResponse = resource.ID
 )
 
-// Import imports a resource from an envelope. It needs create access on the resource
-// type, update access on the parent and group, and retrieve access on each secret the
-// resource references.
+// Import imports a resource from an envelope. An envelope with no type goes to the
+// importer that claims its body.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	req ImportRequest,
 ) (ImportResponse, error) {
-	// Typeless envelopes (legacy Console state files) must be resolved to a concrete
-	// registration type before access control can name the resource being created.
-	typ, err := s.internal.ResolveType(req)
-	if err != nil {
-		return ImportResponse{}, err
-	}
-	req.Type = typ
-	resourceType, err := s.internal.ImporterType(typ)
-	if err != nil {
-		return ImportResponse{}, err
-	}
 	opts, err := parseImportOptions(ctx)
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	enforcer := s.access.NewEnforcer(tx)
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resourceType, Key: ""}},
-	}); err != nil {
-		return ImportResponse{}, err
-	}
-	var updated []resource.ID
-	if !opts.Parent.IsZero() {
-		updated = append(updated, opts.Parent)
-	}
-	if opts.Group != nil {
-		updated = append(updated, group.ResourceID(*opts.Group))
-	}
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: updated,
-	}); err != nil {
-		return ImportResponse{}, err
-	}
-	opts.Guard = apisecret.Guard(ctx, enforcer)
-	id, err := s.internal.Import(ctx, tx, req, opts)
-	if err != nil {
-		return ImportResponse{}, err
-	}
-	return id, nil
+	return s.internal.Import(ctx, tx, req, opts)
 }
 
 type importParams struct {
@@ -228,25 +176,24 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 }
 
 type (
-	// ExportRequest is the request type for the Export endpoint.
-	ExportRequest = resource.ID
+	// ExportRequest names the resource to export.
+	ExportRequest resource.ID
 	// ExportResponse is the response type for the Export endpoint.
 	ExportResponse = imex.Envelope
 )
 
+var _ bind.Named = ExportRequest{}
+
+// Named implements bind.Named.
+func (r ExportRequest) Named() []resource.ID { return []resource.ID{resource.ID(r)} }
+
 // Export exports a resource to an envelope.
 func (s *Service) Export(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req ExportRequest,
 ) (ExportResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{req},
-	}); err != nil {
-		return ExportResponse{}, err
-	}
-	env, err := s.internal.Export(ctx, req)
+	env, err := s.internal.Export(ctx, snap, resource.ID(req))
 	if err != nil {
 		return ExportResponse{}, err
 	}
